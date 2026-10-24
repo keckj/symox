@@ -1,0 +1,10 @@
+{
+ "solve": "whole returned sets matched; numerical residual validation, not a general exact solver certificate",
+ "pendulum": "accelerations agree at two states, tolerance 1e-8; no trajectory-equivalence claim",
+ "throughput": "identical deterministic input stream; first 40 outputs exactly matched",
+ "crypto": {
+  "lfsr": "all 3000 bits agree exactly",
+  "stream_sha256": "f8583d3920e197eb536b5bef34aafc57fdb8ad84bf5b43e59de48451aca31bca",
+  "rsa": "all 199 round trips recover the plaintext; modulus has 122 digits"
+ }
+}

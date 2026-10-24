@@ -1,0 +1,41 @@
+{
+ "identity": {
+  "commit": "91edb6a4fa62afaa6fb3b241c612acd342f32f7a",
+  "binary_sha256": "2337d5a134e92c214cba554cba5644ffda51562a889b0a32739b658d812f9e65",
+  "working_code_diff_sha256": "cc4d3131d9f7a3394edbc70e7eb4ca7448b5de286fe349e64f921f7ec1669527",
+  "inputs_sha256": {
+   "bench_current.py": "efec953fbc3aa51264661916c6f842a9f4903d5637e0971fb8109037da22c977",
+   "bench_modules.py": "8dc3239af1bfa9cb6f83c2df1bec66ea7d5c2635dba06086c69f073cc6ed520c"
+  }
+ },
+ "measured_at": "2026-10-22T16:15:22.033366+00:00",
+ "versions": {
+  "symox": "0.1.1",
+  "sympy": "1.14.0"
+ },
+ "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
+ "cpu": "Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz",
+ "protocol": "Sequential fresh processes; smaller warm-up; best of up to 3; >5 s once; 120 s timed-operation alarm; separate 150 s process budget. Integration wall and 6 s throughput once.",
+ "build": "maturin develop --release",
+ "selection": "Selected examples; not an aggregate performance or global parity claim",
+ "source_sha256": {
+  "crates/symox-core/src/poly/roots.rs": "c5bfd7d7db615d52cc969e71d4ae206f9773c027798142d73ee9ad1f57d4b497",
+  "crates/symox-core/src/solve.rs": "45cacc384c28169f53a6a7e4dbb92e10212b99abaa2a70ecae0828e749660f6c",
+  "examples/pendulum_race.py": "36c382c8b8b65e47fafa831bef41fcfe5f51b293d36d5fb85b4475cb1c134a2c",
+  "examples/showcase_v4/bench_current.py": "efec953fbc3aa51264661916c6f842a9f4903d5637e0971fb8109037da22c977",
+  "examples/showcase_v4/bench_modules.py": "8dc3239af1bfa9cb6f83c2df1bec66ea7d5c2635dba06086c69f073cc6ed520c",
+  "examples/showcase_v4/prepare_modules.py": "14680ba9d85fdb6bc751d5809b9101599d4e8ea28b0c81cf41d68a11fcab7137",
+  "examples/showcase_v4/refresh.py": "a82c71417f28f5b2397a2186f6e1d1cdbf536d59ffbdc62dfe40a1df6a0a6c69",
+  "examples/showcase_v4/showcase.py": "c3fc9964376c99173264e9e7fd0ae23010b38f9efa6ee1395274c04d7ad3b7f3",
+  "examples/showcase_v4/verify_downstream.py": "17f2f16456f9abc0ea79eeb9c4de1ece2aec2bf553a4fb45e01e53d87803a454",
+  "examples/showcase_v4/verify_exactness.py": "ca4c9a1d4e59149ad2508efe1f8565f0870f997f7bb33e735044673ff4aa6662",
+  "examples/showcase_v4/verify_lcapy_tests.py": "ed1a00d5cd68a37d8eb9a8fc7876d43c7311d845eb488ce085a6e4b8f63ba717",
+  "examples/showcase_v4/verify_sage.py": "97ae68b7aa2b40d90d72051504376de19eed91c1b881503ed63f6413f9406c7e",
+  "python/symox/_general_simplify.py": "2638c8af13f439f5227d089a94bbbb53388e686d102c8276771d0f5abac1643f",
+  "tests/test_general_simplify_controls.py": "839f529db1716559576b4ba50d18facf158676ca6fc7492326a9a0cafefd9645",
+  "tests/test_solve_checks.py": "aa85a4ed3eea8fc36a18664b46d8b6694f5986dc976b3ee66222710d916d0fe3",
+  "tests/test_solve_decomposed_radicals.py": "06af1eddcf913e17f42efb5ed01228a7f62483d26626efcbc7ffb32276bcab3a",
+  "tests/test_solve_sets_parity.py": "91ecb20c8a40d636dede373350310a8eb38cf93a6a503e90ef64c0434ad4dae2",
+  "tools/downstream/sitecustomize.py": "6e79027772c32fccbbceca6abb8a0b9624144f55be890d72d0d5ca407f4a2ceb"
+ }
+}

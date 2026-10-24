@@ -23,12 +23,33 @@ def test_inverse_combination_is_an_explicit_option():
     assert expression.simplify(inverse=True)==x
 
 
-def test_held_calculus_is_evaluated_only_with_doit():
+def test_integral_class_hook_preserves_held_calculus():
     x=sx.Symbol('x')
+    X=sp.Symbol('x')
     held=sx.Integral(x,(x,0,1))
-    assert sx.simplify(held,doit=False).has(sx.Integral)
-    assert sx.simplify(held,doit=True)==sx.Rational(1,2)
-    assert sx.simplify(held)==sx.Rational(1,2)
+    reference=sp.Integral(X,(X,0,1))
+    for doit in (False,True):
+        assert sx.to_sympy(sx.simplify(held,doit=doit))==sp.simplify(reference,doit=doit)
+    assert held.doit()==sx.Rational(1,2)
+
+
+@pytest.mark.parametrize('doit',[False,True])
+@pytest.mark.parametrize('source',[
+    'Integral(Heaviside(t-x),(x,0,t))',
+    'Integral(sin(x)**2+cos(x)**2,x)',
+    'Integral(2*a*x,(x,0,1))',
+    'Integral(0,x)',
+    '2*Integral(x,(x,0,1))',
+])
+def test_integral_simplification_matches_reference_class_protocol(source,doit):
+    namespaces=[]
+    for module in (sx,sp):
+        namespace={name:getattr(module,name) for name in ('Integral','Heaviside','sin','cos')}
+        namespace.update(zip(('x','t','a'),module.symbols('x t a',real=True)))
+        namespaces.append(namespace)
+    actual=sx.simplify(eval(source,namespaces[0]),doit=doit)
+    reference=sp.simplify(eval(source,namespaces[1]),doit=doit)
+    assert sx.to_sympy(actual)==reference
 
 
 def test_ratio_limits_complexity_and_custom_measure_is_used():

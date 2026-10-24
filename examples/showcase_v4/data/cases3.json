@@ -1,0 +1,1053 @@
+{
+ "symox": {
+  "integrals": {
+   "items": [
+    {
+     "time": 0.0001343649928458035,
+     "input": "x**5*exp(x)",
+     "result": "(x**5 - 5*x**4 + 20*x**3 - 60*x**2 + 120*x - 120)*exp(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 4.901899956166744e-05,
+     "input": "sin(x)**6",
+     "result": "5*x/16 - sin(x)**5*cos(x)/6 - 5*sin(x)**3*cos(x)/24 - 5*sin(x)*cos(x)/16",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 7.663201540708542e-05,
+     "input": "x**3*log(x)**2",
+     "result": "x**4*log(x)**2/4 - x**4*log(x)/8 + x**4/32",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.000125919992569834,
+     "input": "x**2*cos(x)*sin(x)",
+     "result": "x**2*sin(x)**2/2 + x**2/4 - x*(x/2 - sin(x)*cos(x)/2) - sin(x)**2/4",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 5.323500954546034e-05,
+     "input": "exp(2*x)*sin(3*x)",
+     "result": "2*exp(2*x)*sin(3*x)/13 - 3*exp(2*x)*cos(3*x)/13",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00022451599943451583,
+     "input": "(x**3+2*x)/(x**2+1)**2",
+     "result": "log(x**2 + 1)/2 - 1/(2*(x**2 + 1))",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 7.21749966032803e-05,
+     "input": "x*atan(x)",
+     "result": "x**2*atan(x)/2 - x/2 + atan(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00019581301603466272,
+     "input": "x/(x**3-1)",
+     "result": "log(x - 1)/3 - log(x**2 + x + 1)/6 + sqrt(3)*atan(2*sqrt(3)*x/3 + sqrt(3)/3)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 4.566201823763549e-05,
+     "input": "sin(x)**3*cos(x)**4",
+     "result": "cos(x)**7/7 - cos(x)**5/5",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0001554930058773607,
+     "input": "x**4*exp(-x)*cos(x)",
+     "result": "x**4*exp(-x)*sin(x)/2 - x**4*exp(-x)*cos(x)/2 + 2*x**3*exp(-x)*sin(x) + 3*x**2*exp(-x)*sin(x) + 3*x**2*exp(-x)*cos(x) + 6*x*exp(-x)*cos(x) - 3*exp(-x)*sin(x) + 3*exp(-x)*cos(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00035802600905299187,
+     "input": "1/(x**6-1)",
+     "result": "log(x - 1)/6 - log(x + 1)/6 + log(x**2 - x + 1)/12 - log(x**2 + x + 1)/12 - sqrt(3)*atan(2*sqrt(3)*x/3 - sqrt(3)/3)/6 - sqrt(3)*atan(2*sqrt(3)*x/3 + sqrt(3)/3)/6",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00012318100198172033,
+     "input": "log(x**2+1)",
+     "result": "x*log(x**2 + 1) - 2*x + 2*atan(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0001294190005864948,
+     "input": "sinh(x)**4",
+     "result": "3*x/8 + exp(4*x)/64 - exp(2*x)/8 + exp(-2*x)/8 - exp(-4*x)/64",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 5.830699228681624e-05,
+     "input": "tan(x)**3",
+     "result": "-log(tan(x)**2 + 1)/2 + tan(x)**2/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00011484799324534833,
+     "input": "x**7*exp(-x**2)",
+     "result": "(-x**6 - 3*x**4 - 6*x**2 - 6)*exp(-x**2)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 4.7922017984092236e-05,
+     "input": "cos(x)**8",
+     "result": "35*x/128 + sin(x)*cos(x)**7/8 + 7*sin(x)*cos(x)**5/48 + 35*sin(x)*cos(x)**3/192 + 35*sin(x)*cos(x)/128",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 7.031802670098841e-05,
+     "input": "x*sin(x)**2",
+     "result": "-x**2/4 + x*(x/2 - sin(x)*cos(x)/2) + sin(x)**2/4",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00014187797205522656,
+     "input": "exp(x)*cos(x)**2",
+     "result": "exp(x)*sin(2*x)/5 + exp(x)*cos(2*x)/10 + exp(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00023790801060386002,
+     "input": "1/(x**3+1)",
+     "result": "log(x + 1)/3 - log(x**2 - x + 1)/6 + sqrt(3)*atan(2*sqrt(3)*x/3 - sqrt(3)/3)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 8.148699998855591e-05,
+     "input": "x**2*atan(x)",
+     "result": "x**3*atan(x)/3 - x**2/6 + log(3*x**2 + 3)/6",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 5.376199260354042e-05,
+     "input": "log(x)**3",
+     "result": "x*log(x)**3 - 3*x*log(x)**2 + 6*x*log(x) - 6*x",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 8.375701145268977e-05,
+     "input": "x**3*sinh(x)",
+     "result": "x**3*cosh(x) - 3*x**2*sinh(x) + 6*x*cosh(x) - 6*sinh(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 1.5846017049625516e-05,
+     "input": "asin(x)",
+     "result": "x*asin(x) + sqrt(1 - x**2)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 4.111899761483073e-05,
+     "input": "1/(x**2+2*x+5)",
+     "result": "atan(x/2 + 1/2)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 6.703700637444854e-05,
+     "input": "(2*x+3)/(x**2+x+1)",
+     "result": "log(x**2 + x + 1) + 4*sqrt(3)*atan(2*sqrt(3)*x/3 + sqrt(3)/3)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00013369799125939608,
+     "input": "x**2*exp(3*x)*sin(x)",
+     "result": "3*x**2*exp(3*x)*sin(x)/10 - x**2*exp(3*x)*cos(x)/10 - 4*x*exp(3*x)*sin(x)/25 + 3*x*exp(3*x)*cos(x)/25 + 9*exp(3*x)*sin(x)/250 - 13*exp(3*x)*cos(x)/250",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 2.971600042656064e-05,
+     "input": "sqrt(1-x**2)",
+     "result": "x*sqrt(1 - x**2)/2 + asin(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 2.1922984160482883e-05,
+     "input": "1/sqrt(x**2+1)",
+     "result": "asinh(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00014397600898519158,
+     "input": "sin(3*x)*cos(5*x)",
+     "result": "cos(2*x)/4 - cos(8*x)/16",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 3.424199530854821e-05,
+     "input": "sin(x)**2*cos(x)**2",
+     "result": "x/8 - sin(x)*cos(x)**3/4 + sin(x)*cos(x)/8",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 8.47879855427891e-05,
+     "input": "tan(x)**4",
+     "result": "tan(x)**3/3 - tan(x) + atan(tan(x)) + pi*floor((x - pi/2)/pi)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 7.874899893067777e-05,
+     "input": "x*exp(x)*sin(x)",
+     "result": "x*exp(x)*sin(x)/2 - x*exp(x)*cos(x)/2 + exp(x)*cos(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00012928302749060094,
+     "input": "exp(-x)*sinh(2*x)",
+     "result": "exp(x)/2 + exp(-3*x)/6",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 9.540902101434767e-05,
+     "input": "cosh(x)**3",
+     "result": "exp(3*x)/24 + 3*exp(x)/8 - 3*exp(-x)/8 - exp(-3*x)/24",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 9.812699863687158e-05,
+     "input": "x**2*log(x+1)",
+     "result": "x**3*log(x + 1)/3 - x**3/9 + x**2/6 - x/3 + log(3*x + 3)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 4.226499004289508e-05,
+     "input": "log(x)/x**2",
+     "result": "-log(x)/x - 1/x",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 3.758500679396093e-05,
+     "input": "x**4/(x**2+1)",
+     "result": "x**3/3 - x + atan(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00012689499999396503,
+     "input": "1/(x**4-1)",
+     "result": "log(x - 1)/4 - log(x + 1)/4 - atan(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00012902100570499897,
+     "input": "(x+1)/(x*(x**2+1))",
+     "result": "log(x) - log(x**2 + 1)/2 + atan(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00014376500621438026,
+     "input": "1/(x*(x+1)**3)",
+     "result": "log(x) - log(x + 1) + 1/(x + 1) + 1/(2*(x + 1)**2)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00016479098121635616,
+     "input": "x**5/(x**3-1)",
+     "result": "x**3/3 + log(x - 1)/3 + log(x**2 + x + 1)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 8.062401320785284e-05,
+     "input": "exp(sqrt(x))",
+     "result": "2*(sqrt(x) - 1)*exp(sqrt(x))",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 9.057801798917353e-05,
+     "input": "x**3*cos(x**2)",
+     "result": "x**2*sin(x**2)/2 + cos(x**2)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00014104600995779037,
+     "input": "x*exp(-x)*cos(2*x)",
+     "result": "2*x*exp(-x)*sin(2*x)/5 - x*exp(-x)*cos(2*x)/5 + 4*exp(-x)*sin(2*x)/25 + 3*exp(-x)*cos(2*x)/25",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 9.072799002751708e-05,
+     "input": "1/(x**2*(x**2+1))",
+     "result": "-atan(x) - 1/x",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 7.855001604184508e-05,
+     "input": "x**9*exp(x)",
+     "result": "(x**9 - 9*x**8 + 72*x**7 - 504*x**6 + 3024*x**5 - 15120*x**4 + 60480*x**3 - 181440*x**2 + 362880*x - 362880)*exp(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 6.375802331604064e-05,
+     "input": "x**6*sin(x)",
+     "result": "-x**6*cos(x) + 6*x**5*sin(x) + 30*x**4*cos(x) - 120*x**3*sin(x) - 360*x**2*cos(x) + 720*x*sin(x) + 720*cos(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 4.908701521344483e-05,
+     "input": "cos(x)**5*sin(x)**5",
+     "result": "sin(x)**10/10 - sin(x)**8/4 + sin(x)**6/6",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 7.590197492390871e-05,
+     "input": "x**5*log(x)**2",
+     "result": "x**6*log(x)**2/6 - x**6*log(x)/18 + x**6/108",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 8.141697617247701e-05,
+     "input": "x*log(x**2+1)",
+     "result": "-x**2/2 + (x**2 + 1)*log(x**2 + 1)/2 - 1/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00018755500786937773,
+     "input": "x**2*sinh(x)*cosh(x)",
+     "result": "x**2*sinh(x)**2/2 - x**2/4 - x*(-x/2 + exp(2*x)/8 - exp(-2*x)/8) + exp(2*x)/16 + exp(-2*x)/16",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00015290401643142104,
+     "input": "atan(sqrt(x))",
+     "result": "-sqrt(x) + x*atan(sqrt(x)) + atan(sqrt(x))",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0001396779844071716,
+     "input": "1/((x-1)**2*(x+2))",
+     "result": "-log(x - 1)/9 + log(x + 2)/9 - 1/(3*(x - 1))",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00020701900939457119,
+     "input": "x**3*exp(-2*x)*sin(x)",
+     "result": "-2*x**3*exp(-2*x)*sin(x)/5 - x**3*exp(-2*x)*cos(x)/5 - 9*x**2*exp(-2*x)*sin(x)/25 - 12*x**2*exp(-2*x)*cos(x)/25 - 12*x*exp(-2*x)*sin(x)/125 - 66*x*exp(-2*x)*cos(x)/125 + 42*exp(-2*x)*sin(x)/625 - 144*exp(-2*x)*cos(x)/625",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 2.6258989237248898e-05,
+     "input": "sqrt(x**2+1)",
+     "result": "x*sqrt(x**2 + 1)/2 + asinh(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00014524100697599351,
+     "input": "1/(x**5+x)",
+     "result": "log(x) - log(x**4 + 1)/4",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 7.74060026742518e-05,
+     "input": "cos(x)/(1+sin(x)**2)",
+     "result": "atan(sin(x))",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00018848699983209372,
+     "input": "exp(3*x)*cos(2*x)**2",
+     "result": "2*exp(3*x)*sin(4*x)/25 + 3*exp(3*x)*cos(4*x)/50 + exp(3*x)/6",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00010942199151031673,
+     "input": "x**4*log(x)**3",
+     "result": "x**5*log(x)**3/5 - 3*x**5*log(x)**2/25 + 6*x**5*log(x)/125 - 6*x**5/625",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00010296900290995836,
+     "input": "tan(x)/cos(x)**4",
+     "result": "1/(4*cos(x)**4)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0001287840132135898,
+     "input": "x*sinh(x)**2",
+     "result": "x**2/4 + x*(-x/2 + exp(2*x)/8 - exp(-2*x)/8) - exp(2*x)/16 - exp(-2*x)/16",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 4.861698835156858e-05,
+     "input": "x**8/(x**2+1)",
+     "result": "x**7/7 - x**5/5 + x**3/3 - x + atan(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00011629398795776069,
+     "input": "(3*x**2+1)/(x**3+x+1)",
+     "result": "log(x**3 + x + 1)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    }
+   ],
+   "samples_seconds": [
+    0.006634203135035932
+   ]
+  },
+  "det3": {
+   "time": 7.936399197205901e-05,
+   "terms": 6,
+   "samples_seconds": [
+    7.936399197205901e-05,
+    9.074501576833427e-05,
+    8.47369956318289e-05
+   ],
+   "verified": "all monomials and signs against the Leibniz formula"
+  },
+  "det4": {
+   "time": 0.00030237899045459926,
+   "terms": 24,
+   "samples_seconds": [
+    0.00032378098694607615,
+    0.0003032820241060108,
+    0.00030237899045459926
+   ],
+   "verified": "all monomials and signs against the Leibniz formula"
+  },
+  "det5": {
+   "time": 0.0015789610042702407,
+   "terms": 120,
+   "samples_seconds": [
+    0.0016117749910335988,
+    0.0015789610042702407,
+    0.0016042520001064986
+   ],
+   "verified": "all monomials and signs against the Leibniz formula"
+  },
+  "det6": {
+   "time": 0.03886965400306508,
+   "terms": 720,
+   "samples_seconds": [
+    0.03886965400306508,
+    0.04076327700749971,
+    0.03936058501130901
+   ],
+   "verified": "all monomials and signs against the Leibniz formula"
+  },
+  "det7": {
+   "time": 2.2075191200128756,
+   "terms": 5040,
+   "samples_seconds": [
+    2.262557629001094,
+    2.2220858609944116,
+    2.2075191200128756
+   ],
+   "verified": "all monomials and signs against the Leibniz formula"
+  },
+  "taylor_exp": {
+   "time": 0.0004314699908718467,
+   "result": "1 + x + x**2/2 - x**4/8 - x**5/15 - x**6/240 + x**7/90 + 31*x**8/5760 + x**9/5670 - 2951*x**10/3628800 - x**11/3150 + 181*x**12/14515200 + 2417*x**13/48648600 + 58913*x**14/4151347200 - 5699*x**15/2554051500 - 52635599*x**16/20922789888000 - 19993*x**17/43418875500 + 1126610929*x**18/6402373705728000 + 3631*x**19/34735100400 + 27069353*x**20/3283268567040000 - 6050353*x**21/623668727682000 - 118802490419*x**22/34060628114472960000 + 47438*x**23/306265893058125 + 11162375477471*x**24/26976017466662584320000 + O(x**25)",
+   "samples_seconds": [
+    0.00043634697794914246,
+    0.0004314699908718467,
+    0.0004422769998200238
+   ],
+   "verified": "exact recurrence f prime = cos(x) f through order 24"
+  },
+  "solve": {
+   "time": 4.479449474980356,
+   "count": 8,
+   "real": [
+    [
+     -1.2636967812688173,
+     1.5501840035979055
+    ],
+    [
+     1.2636967812688173,
+     1.5501840035979055
+    ]
+   ],
+   "roots": [
+    [
+     "-sqrt(-sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))/2 + sqrt(-2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3 + 2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))/2)",
+     "-sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))*sqrt(-2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3 + 2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))/2 + 1/(2*sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))"
+    ],
+    [
+     "sqrt(-sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))/2 + sqrt(-2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3 + 2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))/2)",
+     "-sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))*sqrt(-2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3 + 2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))/2 + 1/(2*sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))"
+    ],
+    [
+     "-sqrt(sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))/2 - sqrt(-2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)) - 2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3)/2)",
+     "-1/(2*sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))) - sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))*sqrt(-2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)) - 2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3)/2"
+    ],
+    [
+     "sqrt(sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))/2 - sqrt(-2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)) - 2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3)/2)",
+     "-1/(2*sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))) - sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))*sqrt(-2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)) - 2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3)/2"
+    ],
+    [
+     "-sqrt(sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))/2 + sqrt(-2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)) - 2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3)/2)",
+     "-1/(2*sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))) + sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))*sqrt(-2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)) - 2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3)/2"
+    ],
+    [
+     "sqrt(sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))/2 + sqrt(-2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)) - 2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3)/2)",
+     "-1/(2*sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))) + sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))*sqrt(-2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)) - 2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3)/2"
+    ],
+    [
+     "-sqrt(-sqrt(-2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3 + 2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))/2 - sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))/2)",
+     "sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))*sqrt(-2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3 + 2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))/2 + 1/(2*sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))"
+    ],
+    [
+     "sqrt(-sqrt(-2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3 + 2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))/2 - sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))/2)",
+     "sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3))*sqrt(-2*(-421/432 + sqrt(34257)/144)**(1/3) + 16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 8/3 + 2/sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))/2 + 1/(2*sqrt(-16/(9*(-421/432 + sqrt(34257)/144)**(1/3)) + 4/3 + 2*(-421/432 + sqrt(34257)/144)**(1/3)))"
+    ]
+   ],
+   "numeric": [
+    [
+     "-1.26369678126881728554213547428086705508960980355264390448536",
+     "1.55018400359790545804540128930874953234181706892179078191708"
+    ],
+    [
+     "1.26369678126881728554213547428086705508960980355264390448536",
+     "1.55018400359790545804540128930874953234181706892179078191708"
+    ],
+    [
+     "-0.75298991112108684044850610599108947510279162130605067797594 + 0.66408275425908010643516627414005189704121093540749990643355*I",
+     "-1.98431751410846420932585884411247677028105845993031506079326 - 0.251999798697164713872548391590551987107633865124025138088032*I"
+    ],
+    [
+     "0.75298991112108684044850610599108947510279162130605067797594 - 0.66408275425908010643516627414005189704121093540749990643355*I",
+     "-1.98431751410846420932585884411247677028105845993031506079326 - 0.251999798697164713872548391590551987107633865124025138088032*I"
+    ],
+    [
+     "-0.75298991112108684044850610599108947510279162130605067797594 - 0.66408275425908010643516627414005189704121093540749990643355*I",
+     "-1.98431751410846420932585884411247677028105845993031506079326 + 0.251999798697164713872548391590551987107633865124025138088032*I"
+    ],
+    [
+     "0.75298991112108684044850610599108947510279162130605067797594 + 0.66408275425908010643516627414005189704121093540749990643355*I",
+     "-1.98431751410846420932585884411247677028105845993031506079326 + 0.251999798697164713872548391590551987107633865124025138088032*I"
+    ],
+    [
+     "-1.35974459310592664047743122161793598009894360302490212670437*I",
+     "2.41845102461902296060631639891620400822029985093883933966945"
+    ],
+    [
+     "1.35974459310592664047743122161793598009894360302490212670437*I",
+     "2.41845102461902296060631639891620400822029985093883933966945"
+    ]
+   ],
+   "samples_seconds": [
+    4.916737288993318,
+    4.562620906013763,
+    4.479449474980356
+   ],
+   "verified": "8 distinct roots; both residuals < 1e-48 at 60 digits; elimination degree 8"
+  }
+ },
+ "sympy": {
+  "integrals": {
+   "items": [
+    {
+     "time": 0.02485161501681432,
+     "input": "x**5*exp(x)",
+     "result": "(x**5 - 5*x**4 + 20*x**3 - 60*x**2 + 120*x - 120)*exp(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0033779169898480177,
+     "input": "sin(x)**6",
+     "result": "5*x/16 - sin(x)**5*cos(x)/6 - 5*sin(x)**3*cos(x)/24 - 5*sin(x)*cos(x)/16",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.04139838999253698,
+     "input": "x**3*log(x)**2",
+     "result": "x**4*log(x)**2/4 - x**4*log(x)/8 + x**4/32",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.13777313800528646,
+     "input": "x**2*cos(x)*sin(x)",
+     "result": "x**2*sin(x)**2/4 - x**2*cos(x)**2/4 + x*sin(x)*cos(x)/2 - sin(x)**2/4",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0757517020101659,
+     "input": "exp(2*x)*sin(3*x)",
+     "result": "2*exp(2*x)*sin(3*x)/13 - 3*exp(2*x)*cos(3*x)/13",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.024960411014035344,
+     "input": "(x**3+2*x)/(x**2+1)**2",
+     "result": "log(x**2 + 1)/2 - 1/(2*x**2 + 2)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.062002090009627864,
+     "input": "x*atan(x)",
+     "result": "x**2*atan(x)/2 - x/2 + atan(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.04853227298008278,
+     "input": "x/(x**3-1)",
+     "result": "log(x - 1)/3 - log(x**2 + x + 1)/6 + sqrt(3)*atan(2*sqrt(3)*x/3 + sqrt(3)/3)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.005829286004882306,
+     "input": "sin(x)**3*cos(x)**4",
+     "result": "cos(x)**7/7 - cos(x)**5/5",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 1.4084931460092776,
+     "input": "x**4*exp(-x)*cos(x)",
+     "result": "x**4*exp(-x)*sin(x)/2 - x**4*exp(-x)*cos(x)/2 + 2*x**3*exp(-x)*sin(x) + 3*x**2*exp(-x)*sin(x) + 3*x**2*exp(-x)*cos(x) + 6*x*exp(-x)*cos(x) - 3*exp(-x)*sin(x) + 3*exp(-x)*cos(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.1296897220017854,
+     "input": "1/(x**6-1)",
+     "result": "log(x - 1)/6 - log(x + 1)/6 + log(x**2 - x + 1)/12 - log(x**2 + x + 1)/12 - sqrt(3)*atan(2*sqrt(3)*x/3 - sqrt(3)/3)/6 - sqrt(3)*atan(2*sqrt(3)*x/3 + sqrt(3)/3)/6",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.03731640998739749,
+     "input": "log(x**2+1)",
+     "result": "x*log(x**2 + 1) - 2*x + 2*atan(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.052207157015800476,
+     "input": "sinh(x)**4",
+     "result": "3*x*sinh(x)**4/8 - 3*x*sinh(x)**2*cosh(x)**2/4 + 3*x*cosh(x)**4/8 + 5*sinh(x)**3*cosh(x)/8 - 3*sinh(x)*cosh(x)**3/8",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.01756061500054784,
+     "input": "tan(x)**3",
+     "result": "log(cos(x)) + 1/(2*cos(x)**2)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.02159558402490802,
+     "input": "x**7*exp(-x**2)",
+     "result": "(-x**6 - 3*x**4 - 6*x**2 - 6)*exp(-x**2)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0025298160035163164,
+     "input": "cos(x)**8",
+     "result": "35*x/128 + sin(x)*cos(x)**7/8 + 7*sin(x)*cos(x)**5/48 + 35*sin(x)*cos(x)**3/192 + 35*sin(x)*cos(x)/128",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0632680949929636,
+     "input": "x*sin(x)**2",
+     "result": "x**2*sin(x)**2/4 + x**2*cos(x)**2/4 - x*sin(x)*cos(x)/2 + sin(x)**2/4",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.1463728219969198,
+     "input": "exp(x)*cos(x)**2",
+     "result": "2*exp(x)*sin(x)**2/5 + 2*exp(x)*sin(x)*cos(x)/5 + 3*exp(x)*cos(x)**2/5",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.034429471008479595,
+     "input": "1/(x**3+1)",
+     "result": "log(x + 1)/3 - log(x**2 - x + 1)/6 + sqrt(3)*atan(2*sqrt(3)*x/3 - sqrt(3)/3)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0756717520125676,
+     "input": "x**2*atan(x)",
+     "result": "x**3*atan(x)/3 - x**2/6 + log(x**2 + 1)/6",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.03897408800548874,
+     "input": "log(x)**3",
+     "result": "x*log(x)**3 - 3*x*log(x)**2 + 6*x*log(x) - 6*x",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.04274898098083213,
+     "input": "x**3*sinh(x)",
+     "result": "x**3*cosh(x) - 3*x**2*sinh(x) + 6*x*cosh(x) - 6*sinh(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.02553900799830444,
+     "input": "asin(x)",
+     "result": "x*asin(x) + sqrt(1 - x**2)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.02898433298105374,
+     "input": "1/(x**2+2*x+5)",
+     "result": "atan(x/2 + 1/2)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.03424832000746392,
+     "input": "(2*x+3)/(x**2+x+1)",
+     "result": "log(x**2 + x + 1) + 4*sqrt(3)*atan(2*sqrt(3)*x/3 + sqrt(3)/3)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.33044955899822526,
+     "input": "x**2*exp(3*x)*sin(x)",
+     "result": "3*x**2*exp(3*x)*sin(x)/10 - x**2*exp(3*x)*cos(x)/10 - 4*x*exp(3*x)*sin(x)/25 + 3*x*exp(3*x)*cos(x)/25 + 9*exp(3*x)*sin(x)/250 - 13*exp(3*x)*cos(x)/250",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.04327416900196113,
+     "input": "sqrt(1-x**2)",
+     "result": "x*sqrt(1 - x**2)/2 + asin(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.020161358988843858,
+     "input": "1/sqrt(x**2+1)",
+     "result": "asinh(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.1081751029996667,
+     "input": "sin(3*x)*cos(5*x)",
+     "result": "5*sin(3*x)*sin(5*x)/16 + 3*cos(3*x)*cos(5*x)/16",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.006806756020523608,
+     "input": "sin(x)**2*cos(x)**2",
+     "result": "x/8 - sin(2*x)*cos(2*x)/16",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.00503422599285841,
+     "input": "tan(x)**4",
+     "result": "x + sin(x)**3/(3*cos(x)**3) - sin(x)/cos(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0564635070040822,
+     "input": "x*exp(x)*sin(x)",
+     "result": "x*exp(x)*sin(x)/2 - x*exp(x)*cos(x)/2 + exp(x)*cos(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.05642457099747844,
+     "input": "exp(-x)*sinh(2*x)",
+     "result": "exp(-x)*sinh(2*x)/3 + 2*exp(-x)*cosh(2*x)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.03201250502024777,
+     "input": "cosh(x)**3",
+     "result": "-2*sinh(x)**3/3 + sinh(x)*cosh(x)**2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.03527309698984027,
+     "input": "x**2*log(x+1)",
+     "result": "x**3*log(x + 1)/3 - x**3/9 + x**2/6 - x/3 + log(x + 1)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.029243716009659693,
+     "input": "log(x)/x**2",
+     "result": "-log(x)/x - 1/x",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.017106041981605813,
+     "input": "x**4/(x**2+1)",
+     "result": "x**3/3 - x + atan(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0423217469942756,
+     "input": "1/(x**4-1)",
+     "result": "log(x - 1)/4 - log(x + 1)/4 - atan(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0436063050001394,
+     "input": "(x+1)/(x*(x**2+1))",
+     "result": "log(x) - log(x**2 + 1)/2 + atan(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.029117001016857103,
+     "input": "1/(x*(x+1)**3)",
+     "result": "(2*x + 3)/(2*x**2 + 4*x + 2) + log(x) - log(x + 1)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.013722998992307112,
+     "input": "x**5/(x**3-1)",
+     "result": "x**3/3 + log(x**3 - 1)/3",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.02657096102484502,
+     "input": "exp(sqrt(x))",
+     "result": "2*sqrt(x)*exp(sqrt(x)) - 2*exp(sqrt(x))",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.04712671600282192,
+     "input": "x**3*cos(x**2)",
+     "result": "x**2*sin(x**2)/2 + cos(x**2)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.07066912500886247,
+     "input": "x*exp(-x)*cos(2*x)",
+     "result": "2*x*exp(-x)*sin(2*x)/5 - x*exp(-x)*cos(2*x)/5 + 4*exp(-x)*sin(2*x)/25 + 3*exp(-x)*cos(2*x)/25",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.04952204899745993,
+     "input": "1/(x**2*(x**2+1))",
+     "result": "-atan(x) - 1/x",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.02506122601334937,
+     "input": "x**9*exp(x)",
+     "result": "(x**9 - 9*x**8 + 72*x**7 - 504*x**6 + 3024*x**5 - 15120*x**4 + 60480*x**3 - 181440*x**2 + 362880*x - 362880)*exp(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.4515696899907198,
+     "input": "x**6*sin(x)",
+     "result": "-x**6*cos(x) + 6*x**5*sin(x) + 30*x**4*cos(x) - 120*x**3*sin(x) - 360*x**2*cos(x) + 720*x*sin(x) + 720*cos(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.007369524973910302,
+     "input": "cos(x)**5*sin(x)**5",
+     "result": "sin(x)**10/10 - sin(x)**8/4 + sin(x)**6/6",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.038626519992249086,
+     "input": "x**5*log(x)**2",
+     "result": "x**6*log(x)**2/6 - x**6*log(x)/18 + x**6/108",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.036222755996277556,
+     "input": "x*log(x**2+1)",
+     "result": "x**2*log(x**2 + 1)/2 - x**2/2 + log(x**2 + 1)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.04415473100380041,
+     "input": "x**2*sinh(x)*cosh(x)",
+     "result": "x**2*sinh(x)**2/4 + x**2*cosh(x)**2/4 - x*sinh(x)*cosh(x)/2 + sinh(x)**2/4",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.3614546599856112,
+     "input": "atan(sqrt(x))",
+     "result": "-sqrt(x) + x*atan(sqrt(x)) + atan(sqrt(x))",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.03135257901158184,
+     "input": "1/((x-1)**2*(x+2))",
+     "result": "-log(x - 1)/9 + log(x + 2)/9 - 1/(3*x - 3)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.6698545840044972,
+     "input": "x**3*exp(-2*x)*sin(x)",
+     "result": "-2*x**3*exp(-2*x)*sin(x)/5 - x**3*exp(-2*x)*cos(x)/5 - 9*x**2*exp(-2*x)*sin(x)/25 - 12*x**2*exp(-2*x)*cos(x)/25 - 12*x*exp(-2*x)*sin(x)/125 - 66*x*exp(-2*x)*cos(x)/125 + 42*exp(-2*x)*sin(x)/625 - 144*exp(-2*x)*cos(x)/625",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.024966354976641014,
+     "input": "sqrt(x**2+1)",
+     "result": "x*sqrt(x**2 + 1)/2 + asinh(x)/2",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.024437170010060072,
+     "input": "1/(x**5+x)",
+     "result": "log(x) - log(x**4 + 1)/4",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.05678994097979739,
+     "input": "cos(x)/(1+sin(x)**2)",
+     "result": "atan(sin(x))",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.06925781298195943,
+     "input": "exp(3*x)*cos(2*x)**2",
+     "result": "8*exp(3*x)*sin(2*x)**2/75 + 4*exp(3*x)*sin(2*x)*cos(2*x)/25 + 17*exp(3*x)*cos(2*x)**2/75",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.0531432060233783,
+     "input": "x**4*log(x)**3",
+     "result": "x**5*log(x)**3/5 - 3*x**5*log(x)**2/25 + 6*x**5*log(x)/125 - 6*x**5/625",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.005394726991653442,
+     "input": "tan(x)/cos(x)**4",
+     "result": "1/(4*cos(x)**4)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.028014823008561507,
+     "input": "x*sinh(x)**2",
+     "result": "x**2*sinh(x)**2/4 - x**2*cosh(x)**2/4 + x*sinh(x)*cosh(x)/2 - sinh(x)**2/4",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.01750597800128162,
+     "input": "x**8/(x**2+1)",
+     "result": "x**7/7 - x**5/5 + x**3/3 - x + atan(x)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    },
+    {
+     "time": 0.02108943898929283,
+     "input": "(3*x**2+1)/(x**3+x+1)",
+     "result": "log(x**3 + x + 1)",
+     "verified": "exact symbolic differentiation on smooth real intervals, away from poles and branch boundaries"
+    }
+   ],
+   "samples_seconds": [
+    5.613453378027771
+   ]
+  },
+  "det3": {
+   "time": 0.0017415499896742404,
+   "terms": 6,
+   "samples_seconds": [
+    0.0017415499896742404,
+    0.001794765004888177,
+    0.0017661239835433662
+   ],
+   "verified": "all monomials and signs against the Leibniz formula"
+  },
+  "det4": {
+   "time": 0.12561859498964623,
+   "terms": 24,
+   "samples_seconds": [
+    0.12597676800214685,
+    0.12712920998455957,
+    0.12561859498964623
+   ],
+   "verified": "all monomials and signs against the Leibniz formula"
+  },
+  "det5": {
+   "time": 3.0189090080093592,
+   "terms": 120,
+   "samples_seconds": [
+    3.0189090080093592,
+    3.0355089520162437,
+    3.064110444014659
+   ],
+   "verified": "all monomials and signs against the Leibniz formula"
+  },
+  "det6": {
+   "timeout": 120
+  },
+  "det7": {
+   "timeout": 120
+  },
+  "taylor_exp": {
+   "timeout": 120
+  },
+  "solve": {
+   "time": 12.65401231701253,
+   "count": 8,
+   "real": [
+    [
+     -1.2636967812688173,
+     1.5501840035979055
+    ],
+    [
+     1.2636967812688173,
+     1.5501840035979055
+    ]
+   ],
+   "roots": [
+    [
+     "-sqrt(-2**(1/6)*sqrt(9*sqrt(34257) + 22929)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(1/4)/2 + 122*2**(1/12)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 + 4*2**(3/4)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 + 2**(5/12)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/12)/((3*sqrt(34257) + 7643)**(1/6)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(3/8))",
+     "-sqrt(-2*(sqrt(34257)/144 + 7643/432)**(1/3) - 122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 2/sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3)) + 32/3)/2 + sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3))/2"
+    ],
+    [
+     "sqrt(-2**(1/6)*sqrt(9*sqrt(34257) + 22929)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(1/4)/2 + 122*2**(1/12)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 + 4*2**(3/4)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 + 2**(5/12)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/12)/((3*sqrt(34257) + 7643)**(1/6)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(3/8))",
+     "-sqrt(-2*(sqrt(34257)/144 + 7643/432)**(1/3) - 122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 2/sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3)) + 32/3)/2 + sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3))/2"
+    ],
+    [
+     "-sqrt(2**(1/6)*sqrt(9*sqrt(34257) + 22929)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(1/4)/2 + 122*2**(1/12)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 + 4*2**(3/4)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 + 2**(5/12)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/12)/((3*sqrt(34257) + 7643)**(1/6)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(3/8))",
+     "-sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3))/2 + sqrt(-2*(sqrt(34257)/144 + 7643/432)**(1/3) - 122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) - 2/sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3)) + 32/3)/2"
+    ],
+    [
+     "sqrt(2**(1/6)*sqrt(9*sqrt(34257) + 22929)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(1/4)/2 + 122*2**(1/12)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 + 4*2**(3/4)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 + 2**(5/12)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/12)/((3*sqrt(34257) + 7643)**(1/6)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(3/8))",
+     "-sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3))/2 + sqrt(-2*(sqrt(34257)/144 + 7643/432)**(1/3) - 122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) - 2/sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3)) + 32/3)/2"
+    ],
+    [
+     "-sqrt(2**(1/6)*sqrt(9*sqrt(34257) + 22929)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(1/4)/2 - 2**(5/12)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/12 - 4*2**(3/4)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 - 122*2**(1/12)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3)/((3*sqrt(34257) + 7643)**(1/6)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(3/8))",
+     "-sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3))/2 - sqrt(-2*(sqrt(34257)/144 + 7643/432)**(1/3) - 122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) - 2/sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3)) + 32/3)/2"
+    ],
+    [
+     "sqrt(2**(1/6)*sqrt(9*sqrt(34257) + 22929)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(1/4)/2 - 2**(5/12)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/12 - 4*2**(3/4)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 - 122*2**(1/12)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3)/((3*sqrt(34257) + 7643)**(1/6)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(3/8))",
+     "-sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3))/2 - sqrt(-2*(sqrt(34257)/144 + 7643/432)**(1/3) - 122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) - 2/sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3)) + 32/3)/2"
+    ],
+    [
+     "-sqrt(-2**(5/12)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/12 - 4*2**(3/4)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 - 122*2**(1/12)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 - 2**(1/6)*sqrt(9*sqrt(34257) + 22929)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(1/4)/2)/((3*sqrt(34257) + 7643)**(1/6)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(3/8))",
+     "sqrt(-2*(sqrt(34257)/144 + 7643/432)**(1/3) - 122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 2/sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3)) + 32/3)/2 + sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3))/2"
+    ],
+    [
+     "sqrt(-2**(5/12)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/12 - 4*2**(3/4)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 - 122*2**(1/12)*sqrt(-sqrt(2)*(3*sqrt(34257) + 7643)**(2/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) - 488*2**(1/6)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)) + 12*sqrt(3)*sqrt(3*sqrt(34257) + 7643) + 32*2**(5/6)*(3*sqrt(34257) + 7643)**(1/3)*sqrt(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3)))/3 - 2**(1/6)*sqrt(9*sqrt(34257) + 22929)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(1/4)/2)/((3*sqrt(34257) + 7643)**(1/6)*(244*2**(2/3) + 16*2**(1/3)*(3*sqrt(34257) + 7643)**(1/3) + (3*sqrt(34257) + 7643)**(2/3))**(3/8))",
+     "sqrt(-2*(sqrt(34257)/144 + 7643/432)**(1/3) - 122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 2/sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3)) + 32/3)/2 + sqrt(122/(9*(sqrt(34257)/144 + 7643/432)**(1/3)) + 16/3 + 2*(sqrt(34257)/144 + 7643/432)**(1/3))/2"
+    ]
+   ],
+   "numeric": [
+    [
+     "-1.26369678126881728554213547428086705508960980355264390448536",
+     "1.55018400359790545804540128930874953234181706892179078191708"
+    ],
+    [
+     "1.26369678126881728554213547428086705508960980355264390448536",
+     "1.55018400359790545804540128930874953234181706892179078191708"
+    ],
+    [
+     "-0.75298991112108684044850610599108947510279162130605067797594 - 0.66408275425908010643516627414005189704121093540749990643355*I",
+     "-1.98431751410846420932585884411247677028105845993031506079326 + 0.251999798697164713872548391590551987107633865124025138088032*I"
+    ],
+    [
+     "0.75298991112108684044850610599108947510279162130605067797594 + 0.66408275425908010643516627414005189704121093540749990643355*I",
+     "-1.98431751410846420932585884411247677028105845993031506079326 + 0.251999798697164713872548391590551987107633865124025138088032*I"
+    ],
+    [
+     "-0.75298991112108684044850610599108947510279162130605067797594 + 0.66408275425908010643516627414005189704121093540749990643355*I",
+     "-1.98431751410846420932585884411247677028105845993031506079326 - 0.251999798697164713872548391590551987107633865124025138088032*I"
+    ],
+    [
+     "0.75298991112108684044850610599108947510279162130605067797594 - 0.66408275425908010643516627414005189704121093540749990643355*I",
+     "-1.98431751410846420932585884411247677028105845993031506079326 - 0.251999798697164713872548391590551987107633865124025138088032*I"
+    ],
+    [
+     "-1.35974459310592664047743122161793598009894360302490212670437*I",
+     "2.41845102461902296060631639891620400822029985093883933966945"
+    ],
+    [
+     "1.35974459310592664047743122161793598009894360302490212670437*I",
+     "2.41845102461902296060631639891620400822029985093883933966945"
+    ]
+   ],
+   "samples_seconds": [
+    12.65401231701253
+   ],
+   "verified": "8 distinct roots; both residuals < 1e-48 at 60 digits; elimination degree 8"
+  }
+ },
+ "versions": {
+  "symox": "0.1.1",
+  "sympy": "1.14.0"
+ }
+}

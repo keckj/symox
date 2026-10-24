@@ -1,0 +1,107 @@
+diff --git a/crates/symox-core/src/poly/roots.rs b/crates/symox-core/src/poly/roots.rs
+index d790d55..9700064 100644
+--- a/crates/symox-core/src/poly/roots.rs
++++ b/crates/symox-core/src/poly/roots.rs
+@@ -706,7 +706,14 @@ fn try_decompose(f: &[Rat]) -> Vec<Expr> {
+             let last = c.len() - 1;
+             c[last] = sub(&c[last], &r);
+             let numerical = c.iter().all(|x| x.is_number());
+-            roots.extend(try_heuristics(&UPoly { c, numerical: numerical || r.mask() == 0 }));
++            let lifted = UPoly { c, numerical: numerical || r.mask() == 0 };
++            // Back substitution through a quadratic needs only its exact
++            // quadratic formula. A binomial's polar/Cartesian presentation
++            // expands a nested quartic radical through atan2, abs and arg;
++            // that presentation can grow enormously without changing the
++            // two preimages. Principal square roots retain their branches,
++            // and both signs retain the complete quadratic zero set.
++            roots.extend(if lifted.deg() == 2 { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
+         }
+     }
+     roots
+@@ -894,7 +901,8 @@ fn try_decompose_symbolic(f: &UPoly) -> Vec<Expr> {
+             let mut c = h.c.clone();
+             let last = c.len() - 1;
+             c[last] = sub(&c[last], &r);
+-            roots.extend(try_heuristics(&UPoly { c, numerical: false }));
++            let lifted = UPoly { c, numerical: false };
++            roots.extend(if lifted.deg() == 2 { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
+         }
+     }
+     roots
+diff --git a/crates/symox-core/src/solve.rs b/crates/symox-core/src/solve.rs
+index ac71605..ea0a36d 100644
+--- a/crates/symox-core/src/solve.rs
++++ b/crates/symox-core/src/solve.rs
+@@ -151,9 +151,25 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
+     if assumptions.len()==1 { return true; } // default commutativity only
+     query::exact_queries(|| {
+         let algebraic=query::quadratic_facts(value);
++        let enclosure=std::cell::OnceCell::new();
++        let rectangle=||enclosure.get_or_init(|| {
++            if free_symbols(value).is_empty() { crate::poly::enclosure::enclose(value,64).ok() }
++            else { None }
++        }).as_ref();
+         let integer = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_integer(value).or_else(||algebraic.and_then(|f|f.integer)) };
+         let rational = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_rational(value).or_else(||algebraic.and_then(|f|f.rational)) };
+         let real = query::is_real(value).or_else(||algebraic.and_then(|f|f.real)).or_else(|| {
++            // A compact nested principal radical need not have an explicit
++            // Cartesian form. Decide its reality only from an outward-rounded
++            // algebraic enclosure: an imaginary interval excluding zero is a
++            // proof of non-reality, whereas containing zero is inconclusive.
++            // This keeps real-domain filtering without expanding atan2/arg
++            // expressions or rejecting tiny imaginary parts in machine precision.
++            let enclosure = rectangle()?;
++            if enclosure.im.is_exact_zero() { Some(true) }
++            else if !enclosure.im.contains_zero() { Some(false) }
++            else { None }
++        }).or_else(|| {
+             let imaginary_part = im(value);
+             if matches!(imaginary_part.kind(), Kind::Func(Func::Im, _)) { None } else { query::is_zero(&imaginary_part) }
+         });
+@@ -175,10 +191,22 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
+             (Some(true), Some(false)) => Some(true),
+             _ => None,
+         };
+-        let positive=query::is_positive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>0));
+-        let negative=query::is_negative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<0));
+-        let nonnegative=query::is_nonnegative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>=0));
+-        let nonpositive=query::is_nonpositive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<=0));
++        let certified_sign=|| {
++            if real != Some(true) { return None; }
++            let interval=&rectangle()?.re;
++            if interval.positive() { Some(1) }
++            else if interval.negative() { Some(-1) }
++            else if interval.is_exact_zero() { Some(0) }
++            else { None }
++        };
++        let positive=query::is_positive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>0))
++            .or_else(||certified_sign().map(|s|s>0));
++        let negative=query::is_negative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<0))
++            .or_else(||certified_sign().map(|s|s<0));
++        let nonnegative=query::is_nonnegative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>=0))
++            .or_else(||certified_sign().map(|s|s>=0));
++        let nonpositive=query::is_nonpositive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<=0))
++            .or_else(||certified_sign().map(|s|s<=0));
+         assumptions.iter().all(|(name,expected)|{
+             let known=match name {
+                 "real"=>real,"integer"=>integer,"rational"=>rational,"irrational"=>irrational,
+diff --git a/python/symox/_general_simplify.py b/python/symox/_general_simplify.py
+index e860f28..787221b 100644
+--- a/python/symox/_general_simplify.py
++++ b/python/symox/_general_simplify.py
+@@ -32,6 +32,15 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
+         if expression.is_zero:return S.Zero if not expression.is_Number else expression
+         return hook(**options)
+     if not expression.args:return expression
++    if getattr(expression,'is_Integral',False):
++        # Integral._eval_simplify factors independent terms and simplifies
++        # its arguments while retaining the held integral. The generic final
++        # doit() below applies to composite expressions, not this class hook.
++        from . import factor_terms
++        factored=factor_terms(expression)
++        if getattr(factored,'is_Integral',False):
++            return factored.func(*[simplify(arg,**options) for arg in factored.args])
++        return simplify(factored,**options)
+     if getattr(expression,'is_Relational',False) and expression.rel_op in ('<','<=','>','>='):
+         return _relational_simplify(expression,options)
+     from .logic.boolalg import BooleanFunction, Xor

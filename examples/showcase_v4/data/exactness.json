@@ -1,0 +1,19 @@
+{
+ "rational": "1/2",
+ "precision": {
+  "input": "log(1 + Rational(1, 10**40))",
+  "digits": 50,
+  "result": "9.9999999999999999999999999999999999999995000000000e-41",
+  "sympy": "9.9999999999999999999999999999999999999995000000000e-41",
+  "independent": "mpmath.log1p, 110 digits"
+ },
+ "convergence": {
+  "assumption": "a > 0",
+  "result": "1/a"
+ },
+ "entropy": {
+  "result": "log(2*pi*sigma**2)/2 + 1/2",
+  "verified": true,
+  "method": "Gaussian entropy identity"
+ }
+}

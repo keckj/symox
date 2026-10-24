@@ -28,6 +28,58 @@ growth and output size. Rust implementation and faster timings alone do not
 prove a better asymptotic algorithm. Performance optimization must preserve the
 existing mathematical result and fallback behavior.
 
+## Showcase solver regression and correction, 2026-10-22
+
+The refreshed video benchmarks on the local release build of `394620b` do not
+reproduce the original solver speedup. For ordinary symbols `x, y`,
+`solve([x**2 + y**2 - 4, y - x**4 + 1], [x, y])` did not complete its worker
+within the 150-second process budget. An independent eight-second `py-spy`
+sample places the work inside the native `solve` call rather than numerical
+evaluation of its returned roots. SymPy 1.14 completed in about 12 seconds.
+
+The process budget includes setup and serialization, so it is not an exact
+operation-time measurement or a speedup lower bound. No native result was
+obtained; this is neither an empty solution set nor a correctness verdict.
+The archived October 18 native timing (about 2.8 ms) must not describe this
+build.
+
+The correction keeps quadratic preimages of decomposed polynomials in exact
+principal-square-root form, instead of expanding nested quartic radicals into
+Cartesian parts. Both signs are retained. Real and sign assumption filtering
+uses certified outward-rounded dyadic enclosures for closed expressions when
+structural queries are undecided; an inconclusive enclosure retains the
+existing fallback. It does not infer a sign from a floating-point sample.
+Candidate checking and exact arithmetic remain enabled.
+
+The refreshed checked operation completed in 4.48 seconds with Symox and
+12.65 seconds with SymPy (observed ratio 2.82). The 342 focused solver and
+held-integral tests passed on the corrected release extension. These timings
+replace the archived millisecond claim; they do not describe the historical
+failing build.
+
+`tests/test_solve_decomposed_radicals.py` compares the entire eight-root complex
+set with independent high-precision polynomial roots, checks both equation
+residuals, and requires the two real solutions and one positive-x solution.
+It also covers shifted quadratic compositions and supported repeated factors.
+The assumption tests preserve truly undecidable parameter signs; the
+hyperbolic regression proves an exact bijection between differently presented
+principal-logarithm solutions. Executable inputs and frozen measurements are
+in [the showcase](../examples/showcase_v4/README.md), especially
+`bench_current.py` and `data/cases3.json`. Selected regressions do not establish
+global solver equivalence.
+
+## Held-integral simplification regression, 2026-10-22
+
+The Lcapy rerun exposed an incorrect generic `doit()` call from `simplify` on
+held integrals (316/317 upstream tests passed). SymPy's integral-specific
+simplification first factors independent terms, then simplifies the integrand
+and limits while retaining a remaining integral. Symox now follows that
+protocol. Explicit `Integral.doit()` and evaluation of composite expressions
+remain available. `tests/test_general_simplify_controls.py` compares both
+`doit` settings, Heaviside integrands, trigonometric simplification, extracted
+factors, zero integrands and composite expressions against the reference.
+The original failing upstream assertion is retained without modification.
+
 ## Intentional corrections validated on 2026-10-22
 
 The user validated these results, where SymPy 1.14 is mathematically wrong.

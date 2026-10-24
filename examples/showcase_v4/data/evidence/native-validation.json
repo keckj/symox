@@ -1,0 +1,55 @@
+{
+  "identity": {
+    "commit": "91edb6a4fa62afaa6fb3b241c612acd342f32f7a",
+    "binary_sha256": "2337d5a134e92c214cba554cba5644ffda51562a889b0a32739b658d812f9e65",
+    "working_code_diff_sha256": "cc4d3131d9f7a3394edbc70e7eb4ca7448b5de286fe349e64f921f7ec1669527",
+    "inputs_sha256": {
+      "bench_current.py": "efec953fbc3aa51264661916c6f842a9f4903d5637e0971fb8109037da22c977",
+      "bench_modules.py": "8dc3239af1bfa9cb6f83c2df1bec66ea7d5c2635dba06086c69f073cc6ed520c"
+    }
+  },
+  "clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "-p",
+      "symox",
+      "--",
+      "-D",
+      "clippy::correctness"
+    ],
+    "exit_code": 0,
+    "log": "clippy.log",
+    "scope": "Correctness lints denied; existing style warnings retained"
+  },
+  "release_build": {
+    "command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ],
+    "exit_code": 0,
+    "log": "release-build.log"
+  },
+  "focused_solver_and_integral_tests": {
+    "command": [
+      ".venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_solve_decomposed_radicals.py",
+      "tests/test_polysolve.py",
+      "tests/test_solve_polynomial_forms.py",
+      "tests/test_solve_completeness_parity.py",
+      "tests/test_solver_options.py",
+      "tests/test_solve_checks.py",
+      "tests/test_solve_sets_parity.py",
+      "tests/test_solve_parameter_constraints.py",
+      "tests/test_solve_overdetermined_parity.py",
+      "tests/test_general_simplify_controls.py"
+    ],
+    "exit_code": 0,
+    "passed": 342,
+    "log": "solve-and-integral-tests.log"
+  }
+}

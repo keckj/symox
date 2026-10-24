@@ -54,11 +54,20 @@ def test_systems_propagate_candidate_checking():
 
 def test_unknown_signs_are_not_decided_by_floating_point():
     positive = sm.Symbol("positive", positive=True)
-    # The current structural assumption engine cannot prove this difference
-    # positive. Candidate filtering must keep an undecidable result, even
-    # when a numerical approximation suggests its sign.
-    candidate = sm.sqrt(2) + sm.sqrt(3) - 4
+    a, b = sm.symbols("a b", positive=True)
+    # Positive parameters do not determine the sign of this difference.
+    # Candidate filtering must preserve that undecidable result.
+    candidate = sm.sqrt(a) + sm.sqrt(b) - 4
     assert sm.solve(positive - candidate, positive) == [candidate]
+
+
+def test_closed_algebraic_signs_are_proved_by_exact_enclosures():
+    positive = sm.Symbol("positive", positive=True)
+    reference = sp.Symbol("positive", positive=True)
+    candidate = sm.sqrt(2) + sm.sqrt(3) - 4
+    assert sm.solve(positive - candidate, positive) == sp.solve(
+        reference - sm.to_sympy(candidate), reference
+    ) == []
 
 
 def test_quadratic_signs_are_filtered_by_exact_rational_comparisons():

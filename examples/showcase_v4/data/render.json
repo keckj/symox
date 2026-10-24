@@ -1,0 +1,22 @@
+{
+  "programs": [],
+  "streams": [
+    {
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 1920,
+      "height": 1080,
+      "r_frame_rate": "60/1",
+      "avg_frame_rate": "30560/823",
+      "nb_frames": "4584"
+    }
+  ],
+  "format": {
+    "duration": "123.450000",
+    "size": "5999742"
+  },
+  "timeline_seconds": 123.43,
+  "video_sha256": "8a0e2a3ebfcdaed880f454483de4004e3509ec0d85dd260dcf5c38b4d985fecb",
+  "decode_check": "Entire video decoded without errors; final decoded frame extracted",
+  "layout_check": "No problems in 102 sampled points"
+}

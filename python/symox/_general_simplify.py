@@ -54,6 +54,15 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         if getattr(argument,'_symox_matrixexpr',False) and doit and ratio==1.7 and measure is count_ops and not rational and not inverse:
             expression=expression.func(simplify(argument))
         return expression.doit() if doit else expression
+    if getattr(expression,'is_Integral',False):
+        # Integral._eval_simplify factors independent terms and simplifies
+        # its arguments while retaining the held integral. The generic final
+        # doit() below applies to composite expressions, not this class hook.
+        from . import factor_terms
+        factored=factor_terms(expression)
+        if getattr(factored,'is_Integral',False):
+            return factored.func(*[simplify(arg,**options) for arg in factored.args])
+        return simplify(factored,**options)
     if getattr(expression,'is_Relational',False) and expression.rel_op in ('<','<=','>','>='):
         return _relational_simplify(expression,options)
     from .logic.boolalg import BooleanFunction, Xor

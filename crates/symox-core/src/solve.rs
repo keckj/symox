@@ -167,9 +167,25 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
     if assumptions.len()==1 { return true; } // default commutativity only
     query::exact_queries(|| {
         let algebraic=query::quadratic_facts(value);
+        let enclosure=std::cell::OnceCell::new();
+        let rectangle=||enclosure.get_or_init(|| {
+            if free_symbols(value).is_empty() { crate::poly::enclosure::enclose(value,64).ok() }
+            else { None }
+        }).as_ref();
         let integer = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_integer(value).or_else(||algebraic.and_then(|f|f.integer)) };
         let rational = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_rational(value).or_else(||algebraic.and_then(|f|f.rational)) };
         let real = query::is_real(value).or_else(||algebraic.and_then(|f|f.real)).or_else(|| {
+            // A compact nested principal radical need not have an explicit
+            // Cartesian form. Decide its reality only from an outward-rounded
+            // algebraic enclosure: an imaginary interval excluding zero is a
+            // proof of non-reality, whereas containing zero is inconclusive.
+            // This keeps real-domain filtering without expanding atan2/arg
+            // expressions or rejecting tiny imaginary parts in machine precision.
+            let enclosure = rectangle()?;
+            if enclosure.im.is_exact_zero() { Some(true) }
+            else if !enclosure.im.contains_zero() { Some(false) }
+            else { None }
+        }).or_else(|| {
             let imaginary_part = im(value);
             if matches!(imaginary_part.kind(), Kind::Func(Func::Im, _)) { None } else { query::is_zero(&imaginary_part) }
         });
@@ -191,10 +207,22 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
             (Some(true), Some(false)) => Some(true),
             _ => None,
         };
-        let positive=query::is_positive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>0));
-        let negative=query::is_negative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<0));
-        let nonnegative=query::is_nonnegative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>=0));
-        let nonpositive=query::is_nonpositive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<=0));
+        let certified_sign=|| {
+            if real != Some(true) { return None; }
+            let interval=&rectangle()?.re;
+            if interval.positive() { Some(1) }
+            else if interval.negative() { Some(-1) }
+            else if interval.is_exact_zero() { Some(0) }
+            else { None }
+        };
+        let positive=query::is_positive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>0))
+            .or_else(||certified_sign().map(|s|s>0));
+        let negative=query::is_negative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<0))
+            .or_else(||certified_sign().map(|s|s<0));
+        let nonnegative=query::is_nonnegative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>=0))
+            .or_else(||certified_sign().map(|s|s>=0));
+        let nonpositive=query::is_nonpositive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<=0))
+            .or_else(||certified_sign().map(|s|s<=0));
         assumptions.iter().all(|(name,expected)|{
             let known=match name {
                 "real"=>real,"integer"=>integer,"rational"=>rational,"irrational"=>irrational,

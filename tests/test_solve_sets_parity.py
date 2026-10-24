@@ -4,6 +4,7 @@ equations, exponentials of negative arguments, mixed power bases and the
 logarithmic Lambert forms."""
 
 import pytest
+import sympy as sp
 
 import symox as sx
 
@@ -99,7 +100,21 @@ HYPERBOLIC = [
 
 @pytest.mark.parametrize('source, expected', HYPERBOLIC)
 def test_hyperbolic_equations_are_rewritten_through_exp(source, expected):
-    assert solve(source) == expected
+    if source != 'sinh(2*x) - 1':
+        assert solve(source) == expected
+        return
+    # Compact principal radicals can change presentation and ordering without
+    # changing any branch. Prove a bijection of the complete reference set.
+    actual = sp.sympify(solve(source))
+    remaining = list(sp.sympify(expected))
+    assert len(actual) == len(remaining) == 4
+    for value in actual:
+        matches = [i for i, reference in enumerate(remaining)
+                   if sp.simplify(sp.expand_complex(value - reference)) == 0]
+        assert len(matches) == 1
+        remaining.pop(matches[0])
+        assert sp.simplify(sp.sinh(2*value).rewrite(sp.exp) - 1) == 0
+    assert not remaining
 
 
 def test_hyperbolic_equation_without_closed_form_is_unsupported():

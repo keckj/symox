@@ -759,7 +759,14 @@ fn try_decompose(f: &[Rat]) -> Vec<Expr> {
             let last = c.len() - 1;
             c[last] = sub(&c[last], &r);
             let numerical = c.iter().all(|x| x.is_number());
-            roots.extend(try_heuristics(&UPoly { c, numerical: numerical || r.mask() == 0 }));
+            let lifted = UPoly { c, numerical: numerical || r.mask() == 0 };
+            // Back substitution through a quadratic needs only its exact
+            // quadratic formula. A binomial's polar/Cartesian presentation
+            // expands a nested quartic radical through atan2, abs and arg;
+            // that presentation can grow enormously without changing the
+            // two preimages. Principal square roots retain their branches,
+            // and both signs retain the complete quadratic zero set.
+            roots.extend(if lifted.deg() == 2 { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
         }
     }
     roots
@@ -947,7 +954,12 @@ fn try_decompose_symbolic(f: &UPoly) -> Vec<Expr> {
             let mut c = h.c.clone();
             let last = c.len() - 1;
             c[last] = sub(&c[last], &r);
-            roots.extend(try_heuristics(&UPoly { c, numerical: false }));
+            let lifted = UPoly { c, numerical: false };
+            // The binomial solver expands only a numeric root (the
+            // reference `alpha.expand(complex=True)`); symbolic preimages keep
+            // the binomial form `sqrt(r)`.
+            let numeric = lifted.c.iter().all(|x| x.is_number());
+            roots.extend(if lifted.deg() == 2 && numeric { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
         }
     }
     roots
