@@ -902,6 +902,14 @@ pub enum HostArg {
 /// requested errors (SymPy propagates mpmath's errors from `evalf`).
 pub struct HostError(pub Box<dyn std::any::Any + Send>);
 
+/// A host error that must stop the evaluation at once instead of being
+/// treated as an unavailable value: an interrupt (`KeyboardInterrupt`,
+/// `SystemExit`, any non-`Exception` error) or an error raised by a signal
+/// handler. It is kept even where ordinary errors are discarded, no later
+/// host call or precision retry is made, and the enclosing enabled scope
+/// raises it.
+pub struct FatalHostError(pub HostError);
+
 /// Host evaluator of a special function head at a binary precision. It
 /// returns `Ok(None)` when the value is unavailable; it must never return a
 /// value with fewer correct bits than requested.
@@ -912,6 +920,10 @@ static SPECIAL_HOST: std::sync::OnceLock<SpecialHost> = std::sync::OnceLock::new
 thread_local! {
     static HOST_ERRORS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     static HOST_ERROR: std::cell::RefCell<Option<HostError>> = const { std::cell::RefCell::new(None) };
+    // A fatal host error is pending (see `FatalHostError`).
+    static HOST_FATAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    // Number of live enabled scopes, which will raise a pending error.
+    static HOST_ENABLED_DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
 }
 
 /// Install the multiprecision evaluator used for special functions without a
@@ -928,36 +940,66 @@ pub fn has_special_host() -> bool {
 /// While alive, the first host error is kept for [`take_host_error`];
 /// a nested disabled scope (sign and magnitude decisions) discards them,
 /// as SymPy's assumption queries catch evaluation errors.
-pub struct HostErrorScope(bool);
+pub struct HostErrorScope(bool, bool);
 impl HostErrorScope {
     pub fn enter(enabled: bool) -> Self {
         let previous = HOST_ERRORS.with(|cell| cell.replace(enabled));
         if enabled && !previous {
             HOST_ERROR.with(|cell| cell.borrow_mut().take());
         }
-        Self(previous)
+        if enabled {
+            if HOST_ENABLED_DEPTH.with(|cell| cell.get()) == 0 {
+                HOST_FATAL.with(|cell| cell.set(false));
+            }
+            HOST_ENABLED_DEPTH.with(|cell| cell.set(cell.get() + 1));
+        }
+        Self(previous, enabled)
     }
 }
 impl Drop for HostErrorScope {
     fn drop(&mut self) {
         HOST_ERRORS.with(|cell| cell.set(self.0));
+        if self.1 {
+            HOST_ENABLED_DEPTH.with(|cell| cell.set(cell.get().saturating_sub(1)));
+        }
     }
 }
 
-/// The first host error raised inside the current enabled scope.
+/// The first host error raised inside the current enabled scope (a fatal
+/// error first).
 pub fn take_host_error() -> Option<HostError> {
+    HOST_FATAL.with(|cell| cell.set(false));
     HOST_ERROR.with(|cell| cell.borrow_mut().take())
 }
 
+/// Whether a fatal host error is pending: evaluation must stop.
+pub fn host_interrupted() -> bool {
+    HOST_FATAL.with(|cell| cell.get())
+}
+
 fn call_host(host: SpecialHost, name: &str, args: &[HostArg], p: u32, report: bool) -> Option<MpComplex> {
+    if host_interrupted() {
+        if HOST_ENABLED_DEPTH.with(|cell| cell.get()) > 0 {
+            return None;
+        }
+        // Nobody will raise it: forget it once its evaluation has stopped.
+        HOST_FATAL.with(|cell| cell.set(false));
+    }
     match host(name, args, p) {
         Ok(value) => value,
-        Err(error) => {
-            if report && HOST_ERRORS.with(|cell| cell.get()) {
-                HOST_ERROR.with(|cell| { cell.borrow_mut().get_or_insert(error); });
+        Err(error) => match error.0.downcast::<FatalHostError>() {
+            Ok(fatal) => {
+                HOST_FATAL.with(|cell| cell.set(true));
+                HOST_ERROR.with(|cell| *cell.borrow_mut() = Some(fatal.0));
+                None
             }
-            None
-        }
+            Err(error) => {
+                if report && HOST_ERRORS.with(|cell| cell.get()) {
+                    HOST_ERROR.with(|cell| { cell.borrow_mut().get_or_insert(HostError(error)); });
+                }
+                None
+            }
+        },
     }
 }
 
@@ -1005,7 +1047,7 @@ pub fn nonfinite_value(e: &Expr, prec: u32) -> Option<Expr> {
     }
     let arguments = values(prec)?;
     let _errors = HostErrorScope::enter(false);
-    let value = host(&format!("!{name}"), &arguments, prec).ok()??;
+    let value = call_host(host, &format!("!{name}"), &arguments, prec, false)?;
     let part = |x: &BigFloat| -> Option<Expr> {
         if x.man.bits() != 0 {
             return None;
@@ -1079,14 +1121,18 @@ fn refined_with(
         Some(value) => value,
         None => {
             let mut found = None;
-            if !exact(p + extra) {
-                while extra * 2 + 10 <= limit {
+            // An interrupt is raised at once, never retried.
+            if !host_interrupted() && !exact(p + extra) {
+                while extra * 2 + 10 <= limit && !host_interrupted() {
                     extra = extra * 2 + 10;
                     if let Some(value) = evaluate(p + extra, false) {
                         found = Some(value);
                         break;
                     }
                 }
+            }
+            if host_interrupted() {
+                return None;
             }
             match found {
                 Some(value) => value,
@@ -1104,6 +1150,9 @@ fn refined_with(
             return None;
         }
         let Some(current) = evaluate(p + extra, false) else {
+            if host_interrupted() {
+                return None;
+            }
             return Some(previous.round_to(p));
         };
         if agrees(&previous, &current, p) {

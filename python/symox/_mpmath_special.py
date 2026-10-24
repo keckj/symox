@@ -11,6 +11,8 @@ available, and the expression stays unevaluated; nothing is computed in
 double precision.
 """
 
+import signal
+
 import mpmath
 from mpmath import mp, workprec
 from mpmath.libmp import from_man_exp
@@ -258,6 +260,39 @@ def _code(raw):
     return {mpmath.libmp.finf: 1, mpmath.libmp.fninf: 2}.get(raw, 3)
 
 
+def _signal_handler_codes():
+    codes = set()
+    for number in signal.valid_signals():
+        try:
+            handler = signal.getsignal(number)
+        except (ValueError, OSError):
+            continue
+        handler = getattr(handler, "__func__", handler)
+        code = getattr(handler, "__code__", None)
+        if code is not None:
+            codes.add(code)
+    return codes
+
+
+def _raised_by_signal_handler(error):
+    """Whether ``error`` was raised by a Python signal handler.
+
+    Such an error (a timeout alarm, for example) must stop the evaluation,
+    not be taken for an unavailable value and retried at another precision.
+    """
+    traceback = getattr(error, "__traceback__", None)
+    if traceback is None:
+        return False
+    codes = _signal_handler_codes()
+    if not codes:
+        return False
+    while traceback is not None:
+        if traceback.tb_frame.f_code in codes:
+            return True
+        traceback = traceback.tb_next
+    return False
+
+
 def _nonfinite(name, args, prec):
     # SymPy's Function._eval_evalf converts mpmath's value with
     # Expr._from_mpmath: an infinite or nan part becomes oo, -oo or nan.
@@ -275,7 +310,9 @@ def _nonfinite(name, args, prec):
             values = [_convert(arg) for arg in args]
         with workprec(prec + offset):
             value = function(*values)
-    except Exception:
+    except Exception as error:
+        if _raised_by_signal_handler(error):
+            raise
         return None
     if isinstance(value, mpmath.mpf):
         codes = (_code(value._mpf_), 0)

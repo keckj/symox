@@ -9917,11 +9917,14 @@ Remaining (documented, not fixed):
 - exp(2**70000).evalf() stays unevaluated in symox, because the bound on
   the exponent stops it.  SymPy did not finish in 15 minutes.  The value
   has a 21000-digit decimal exponent.
-- The retry at higher argument precision also runs when the host call failed
-  for another reason, so an exception raised from a Python signal handler
-  during the first attempt is swallowed and the evaluation goes on.
-  elliptic_pi(2 + I/10**30, 1/2) runs for more than 100 s at 15 digits
-  (it did not finish in 20 s before this change either).  A fix would
-  re-raise BaseException-type host errors at once.
+- elliptic_pi(2 + I/10**30, 1/2) runs for more than 100 s at 15 digits
+  (it did not finish in 20 s before this change either).
+
+The retry at higher argument precision never swallows an interrupt.  A host
+error that is not an ordinary Exception (KeyboardInterrupt, SystemExit,
+GeneratorExit, ...), an error raised by a Python signal handler while mpmath
+runs, and an error raised by a handler from PyErr_CheckSignals before a host
+call stop the evaluation at once.  No later host call or retry is made, and
+the error propagates from N/evalf.
 
 Tests: `tests/test_branchcut_parity.py`.

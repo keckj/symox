@@ -165,3 +165,86 @@ def test_meijerg_polar_branch_is_stable_across_precisions():
             with mpmath.workdps(dps + 20):
                 got = mpmath.mpc(*_parts(N(expr, dps)))
                 assert abs(got - want) <= mpmath.mpf(10) ** (1 - dps) * abs(want), (k, dps, got)
+
+
+# The retry at higher argument precision must not swallow an interrupt:
+# a non-Exception error, or an error raised by a signal handler during the
+# first mpmath attempt, propagates at once and no retry is made.
+import os  # noqa: E402
+import signal  # noqa: E402
+
+import symox._mpmath_special as _host  # noqa: E402
+
+
+class _Interrupt(Exception):
+    pass
+
+
+def _pole_then(action, monkeypatch):
+    calls = []
+
+    def fake(*args):
+        calls.append(args)
+        if len(calls) == 1:
+            action()
+        raise ValueError("zeta(1) pole")
+
+    monkeypatch.setitem(_host._GENERIC, "zeta", fake)
+    return calls
+
+
+def _raise_keyboard_interrupt():
+    raise KeyboardInterrupt
+
+
+@pytest.mark.parametrize("error", [KeyboardInterrupt, SystemExit, GeneratorExit])
+def test_base_exception_during_first_attempt_propagates(error, monkeypatch):
+    def action():
+        raise error
+
+    calls = _pole_then(action, monkeypatch)
+    with pytest.raises(error):
+        N(zeta(1 + Rational(1, 10**30)))
+    assert len(calls) == 1
+    # Later evaluations are not affected.
+    monkeypatch.undo()
+    assert abs(N(zeta(1 + Rational(1, 10**30))) - Float(10)**30) < 10**16
+
+
+def _with_handler(handler, body):
+    previous = signal.signal(signal.SIGUSR1, handler)
+    try:
+        body()
+    finally:
+        signal.signal(signal.SIGUSR1, previous)
+
+
+def test_signal_handler_error_during_first_attempt_propagates(monkeypatch):
+    def handler(signum, frame):
+        raise _Interrupt("alarm")
+
+    def body():
+        calls = _pole_then(lambda: os.kill(os.getpid(), signal.SIGUSR1), monkeypatch)
+        with pytest.raises(_Interrupt):
+            N(zeta(1 + Rational(1, 10**30)))
+        assert len(calls) == 1
+
+    _with_handler(handler, body)
+
+
+def test_ordinary_error_is_still_retried(monkeypatch):
+    # An ordinary mpmath error at the rounded point is retried with more
+    # argument bits, and the value is found.
+    calls = []
+    real = mpmath.zeta
+
+    def fake(*args):
+        calls.append(args)
+        if len(calls) == 1:
+            raise ValueError("zeta(1) pole")
+        return real(*args)
+
+    monkeypatch.setitem(_host._GENERIC, "zeta", fake)
+    value = N(zeta(1 + Rational(1, 10**30)))
+    assert len(calls) >= 2
+    assert abs(value - Float(10)**30) < 10**16
