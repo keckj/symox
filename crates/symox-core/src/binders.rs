@@ -190,6 +190,20 @@ pub fn differentiate(e:&Expr,x:&Expr)->Expr {
         let renamed=crate::subs::subs1(e,x,&dummy);
         if renamed!=*e {return crate::subs::subs1(&differentiate(&renamed,&dummy),&dummy,x);}
     }
+    if matches!(x.kind(),Kind::Func(Func::MatrixElement(_),_)) {
+        // Sum._eval_derivative by a matrix element: Sum(f.diff(x), limit). The
+        // element may match a summand entry with other indices, so no
+        // free-symbol shortcut applies.
+        if let Kind::Func(Func::Sum,args)=e.kind() {
+            let mut limits=limits(args);let outer=limits.pop().unwrap();
+            let inner=if limits.is_empty() {args[0].clone()} else {held(Func::Sum,&args[0],limits).unwrap()};
+            if outer[1..].iter().any(|endpoint|crate::traverse::has(endpoint,x)) {
+                return crate::diff::derivative_unevaluated(e,vec![(x.clone(),1)]);
+            }
+            let partial=crate::diff::diff(&inner,x);
+            return if partial.is_zero() {partial} else {held(Func::Sum,&partial,vec![outer]).unwrap()};
+        }
+    }
     if !x.is_symbol(){return crate::diff::derivative_unevaluated(e,vec![(x.clone(),1)]);}
     let Kind::Func(f,args)=e.kind() else {return Expr::zero();};
     if !free_symbols(f,args).contains(x) { return Expr::zero(); }

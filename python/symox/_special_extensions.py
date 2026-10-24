@@ -366,6 +366,11 @@ def install():
                 if _previous is not None:return _previous.__get__(expr,type(expr))
                 raise
         setattr(Expr,name,property(getter))
+    def _delta_range(expr):
+        if getattr(expr,'class_name','')!='KroneckerDelta':
+            raise AttributeError('delta_range')
+        return expr.args[2] if len(expr.args)>2 else None
+    Expr.delta_range=property(_delta_range)
     Expr.fdiff=_fdiff;Expr.integrand=_integrand;Expr.get_period=_period
     Expr.is_simple=_is_simple
     old_rewrite=Expr.rewrite
@@ -380,6 +385,15 @@ def install():
         if rule not in ('nonrep','nonrepsmall'):
             expr=old_rewrite(expr,*args,deep=deep,**kwargs)
         def visit(e):
+            if not isinstance(e,Expr):
+                # Matrix expressions and their name arguments are left as they are.
+                return e
+            if rule=='Sum' and getattr(e.func,'__name__',None)=='Trace' and (not names or 'Trace' in names):
+                # Trace._eval_rewrite_as_Sum
+                arg=e.args[0]
+                from .core.symbol import uniquely_named_symbol
+                i=uniquely_named_symbol('i',[e])
+                return s.Sum(arg[i,i],(i,0,arg.rows-1)).doit()
             values=tuple(visit(a) for a in e.args) if deep else e.args
             if values!=e.args:e=e.func(*values)
             if rule in ('nonrep','nonrepsmall') and e.class_name in _REPS and (not names or e.class_name in names or 'HyperRep' in names):

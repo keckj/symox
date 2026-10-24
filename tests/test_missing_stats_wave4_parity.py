@@ -194,7 +194,8 @@ def test_markov_chain_float_symbolic():
     TN = S.MatrixSymbol('T', n, n)
     YN = DiscreteMarkovChain('YN', trans_probs=TN)
     assert YN.state_space == S.Range(0, n)
-    assert P(S.Eq(YN[10], 2), S.Eq(YN[5], 1)) == (TN**5)[1, 2]
+    # A Sum with fresh dummies, as in SymPy: compare the printed forms.
+    assert str(P(S.Eq(YN[10], 2), S.Eq(YN[5], 1))) == str((TN**5)[1, 2])
     a, c = S.symbols('a c')
     with pytest.raises(NotImplementedError):
         P(S.Eq(Y[a], 2), S.Eq(Y[c], 1))

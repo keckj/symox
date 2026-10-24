@@ -291,7 +291,7 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
 fn _matrixexpr_node(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject>{construct(kind,args,evaluate)}
 #[pyfunction]
 fn _matrix_element(parent:&Bound<'_,PyAny>,i:&Bound<'_,PyAny>,j:&Bound<'_,PyAny>)->PyResult<PyExpr>{
-    let m=to_matrixexpr(parent)?;Ok(wrap(m.element(&to_expr(i)?,&to_expr(j)?).map_err(|e|error(parent.py(),e))?))
+    let m=to_matrixexpr(parent)?;Ok(wrap(m.element_constructed(&to_expr(i)?,&to_expr(j)?).map_err(|e|error(parent.py(),e))?))
 }
 #[pyfunction]
 fn _as_matrixexpr(value:&Bound<'_,PyAny>)->PyResult<PyMatrixExpr>{Ok(wrap_matrixexpr(to_matrixexpr(value)?))}

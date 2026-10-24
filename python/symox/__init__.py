@@ -413,6 +413,12 @@ def _make(name):
                     raise ValueError('%s requires extended-real arguments' % name)
                 converted.append(value)
             args=tuple(converted)
+        if name == 'KroneckerDelta' and len(args) == 3:
+            # KroneckerDelta(i, j, delta_range): the range is stored as a Tuple.
+            if args[2] is None:
+                args = args[:2]
+            elif isinstance(args[2], (tuple, list)):
+                args = (args[0], args[1], Tuple(*args[2]))
         if (evaluate and name in ('RisingFactorial', 'FallingFactorial') and len(args) == 2
                 and isinstance(args[0], _core.Poly)):
             value = _poly_factorial(name, *args)

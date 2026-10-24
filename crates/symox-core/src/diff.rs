@@ -190,6 +190,26 @@ fn d_func(
     }
     if let Func::MatrixElement(parent) = f {
         if let Kind::Func(Func::MatrixElement(other), indices) = x.kind() {
+            // MatrixElement._eval_derivative by an element of the same matrix.
+            if parent == other {
+                return mul2(&crate::matrixexpr::ranged_delta(&args[0], &indices[0], parent.rows()),
+                            &crate::matrixexpr::ranged_delta(&args[1], &indices[1], parent.cols()));
+            }
+            // Inverse: -Sum(M[i, z1]*Y[z1, z2].diff(v)*M[z2, j], (z1, 0, r1 - 1), (z2, 0, r2 - 1)).
+            if let crate::matrixexpr::MatrixKind::Inverse(y) = parent.kind() {
+                let result = (|| -> crate::matrix::MResult<Expr> {
+                    let z1 = Expr::dummy("z1", crate::symbol::Assumptions::NONE);
+                    let z2 = Expr::dummy("z2", crate::symbol::Assumptions::NONE);
+                    let inner = d(&y.element(&z1, &z2)?, x, cache);
+                    let body = mul(&[parent.element(&args[0], &z1)?, inner, parent.element(&z2, &args[1])?]);
+                    let one = Expr::one();
+                    let limits = vec![vec![z1.clone(), Expr::zero(), sub(y.rows(), &one)],
+                                      vec![z2.clone(), Expr::zero(), sub(y.cols(), &one)]];
+                    let sum = crate::binders::held(Func::Sum, &body, limits).map_err(crate::matrix::MatrixError::Value)?;
+                    Ok(neg(&sum))
+                })();
+                if let Ok(value) = result { return value; }
+            }
             let independent_symbols = matches!(parent.kind(), crate::matrixexpr::MatrixKind::Symbol(_))
                 && matches!(other.kind(), crate::matrixexpr::MatrixKind::Symbol(_));
             if independent_symbols && (parent != other || args.iter().zip(indices).any(|(a, b)| {
@@ -221,6 +241,16 @@ fn d_func(
         return result.unwrap_or_else(|_|derivative_unevaluated(e,vec![(x.clone(),1)]));
     }
     if let Func::MatrixTrace(parent) = f {
+        if matches!(x.kind(), Kind::Func(Func::MatrixElement(_), _)) {
+            // Trace._eval_derivative by a matrix element: rewrite(Sum).diff(v).
+            let index = Expr::dummy("i", crate::symbol::Assumptions::NONE);
+            if let Ok(entry) = parent.element(&index, &index) {
+                if let Ok(sum) = crate::binders::held(Func::Sum, &entry, vec![vec![index.clone(), Expr::zero(), sub(parent.rows(), &Expr::one())]]) {
+                    return d(&sum, x, cache);
+                }
+            }
+            return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+        }
         if let Ok(evaluated) = parent.trace() {
             if evaluated != *e { return d(&evaluated, x, cache); }
         }
