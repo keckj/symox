@@ -559,9 +559,9 @@ def test_intentional_divergences(case):
     assert _value(_symox, case) == DIVERGENT[case]
 
 
-def test_cos_with_nonzero_parameter_stays_held():
+def test_cos_with_nonzero_parameter_matches_reference():
     # reference: sin(oo*sign(s))/s, an unevaluated function of an infinity.
     s = _symox.Symbol('s', nonzero=True)
     x = _symox.Symbol('x')
-    assert _symox.integrate(_symox.cos(s*x), (x, 0, _symox.oo)).is_Integral
+    assert str(_symox.integrate(_symox.cos(s*x), (x, 0, _symox.oo))) == 'sin(oo*sign(s))/s'
 

@@ -291,8 +291,18 @@ impl Engine {
         for s in &sers[1..] {
             acc = acc.mul(s);
         }
-        // SymPy only keeps products exact when all factors are polynomials
-        if acc.exact && !sers.iter().all(|s| s.val >= 0 && self.is_poly(s)) {
+        // SymPy only keeps products exact when all factors are polynomials.
+        // A Heaviside factor is a constant there (Expr.series substitutes a
+        // positive dummy, so series(Heaviside(x)/x) is exactly 1/x): it is
+        // left out of the check, and a single remaining factor keeps its own
+        // exactness.
+        let others: Vec<&Ser> = fs
+            .iter()
+            .zip(&sers)
+            .filter(|(f, s)| !(matches!(f.kind(), Kind::Func(Func::Heaviside, _)) && s.exact && s.val == 0 && s.c.len() <= 1))
+            .map(|(_, s)| s)
+            .collect();
+        if acc.exact && others.len() > 1 && !others.iter().all(|s| s.val >= 0 && self.is_poly(s)) {
             acc.exact = false;
             acc.prec = n;
             acc = acc.norm();

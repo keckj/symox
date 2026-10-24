@@ -3282,6 +3282,18 @@ def limit(e, z, z0, dir="+"):
 
     Returns an unevaluated :class:`Limit` when the limit cannot be computed.
     """
+    ee = sympify(e)
+    if isinstance(ee, Expr) and ee.has(z) and ee.has(S.Infinity, S.NegativeInfinity, S.ComplexInfinity, S.NaN):
+        # Limit.doit returns itself for an expression holding oo, zoo or nan
+        # (`limit(oo/x, x, oo)`, `limit((1 + x)**oo, x, 0)`).
+        return Limit(e, z, z0, dir)
+    if str(dir) in ("+", "-"):
+        # One-sided approach onto a branch cut from the non-principal side.
+        from .calculus._branch_limit import branch_side_rewrite
+        side = branch_side_rewrite(sympify(e), sympify(z), sympify(z0), str(dir))
+        if side is not None:
+            r = limit(side, z, z0, dir)
+            return Limit(e, z, z0, dir) if isinstance(r, Limit) else r
     r = _core._limit(e, z, z0, str(dir))
     if (r is None or r is S.NaN) and str(dir) in ("+", "-") and sympify(e).has(arg):
         # The reference approaches z0 through a positive dummy, on which

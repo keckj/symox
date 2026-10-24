@@ -108,14 +108,19 @@ impl Gruntz {
     }
 
     fn infinity_with_sign_of(&mut self, c0: &Expr) -> LRes<Expr> {
+        // SymPy's limitinf: a coefficient matching I*a (a free of I) gives
+        // c0*oo, e.g. I*exp(x) -> oo*I.
+        if !depends(c0, &self.x) && imaginary_multiple(c0) {
+            return Ok(mul2(c0, &Expr::oo()));
+        }
         match self.sign(c0) {
             Ok(1) => Ok(Expr::oo()),
             Ok(-1) => Ok(Expr::neg_oo()),
             Ok(_) => unknown("zero leading coefficient"),
             Err(err) => {
+                let nonreal = || crate::evalf::eval_c64(c0).is_some_and(|z| z.im.abs() > 1e-12 * (1.0 + z.re.abs()));
                 if !depends(c0, &self.x)
-                    && !crate::functions::is_numeric_value(c0)
-                    && crate::evalf::eval_c64(c0).is_none()
+                    && ((!crate::functions::is_numeric_value(c0) && crate::evalf::eval_c64(c0).is_none()) || nonreal())
                 {
                     // parameter: oo*sign(c0), like SymPy
                     Ok(mul2(&fx::sign(c0), &Expr::oo()))
@@ -167,8 +172,24 @@ impl Gruntz {
             Kind::Func(Func::Exp, _) => return Ok(1),
             _ => {}
         }
+        // The leading coefficient may still depend on x (and, through the
+        // gamma rewrites, reproduce itself): bound the recursion instead of
+        // overflowing the stack.
+        if self.depth > MAX_DEPTH {
+            return unknown("recursion too deep");
+        }
+        self.depth += 1;
+        let r = self.sign_of_leading(e);
+        self.depth -= 1;
+        r
+    }
+
+    fn sign_of_leading(&mut self, e: &Expr) -> LRes<i32> {
         let pe = self.prepare(e)?;
         let (c0, _) = self.mrv_leadterm(&pe)?;
+        if c0 == *e {
+            return unknown(format!("sign of {e}"));
+        }
         self.sign(&c0)
     }
 
@@ -1024,4 +1045,18 @@ fn simp_logs(e: &Expr) -> Expr {
     } else {
         e1
     }
+}
+
+/// Whether `e` matches SymPy's `I*Wild("a", exclude=[I])`.
+fn imaginary_multiple(e: &Expr) -> bool {
+    let i = Expr::i();
+    if *e == i {
+        return true;
+    }
+    if !e.is_mul() {
+        return false;
+    }
+    let factors = e.args();
+    let k = factors.iter().filter(|f| **f == i).count();
+    k == 1 && factors.iter().filter(|f| **f != i).all(|f| !crate::traverse::has(f, &i))
 }

@@ -8809,3 +8809,75 @@ Remaining gaps:
   `KroneckerDelta(i, m, (0, k - 1))` (the native KroneckerDelta has no
   range argument), and `(X*A)[i, j]` stays a matrix element instead of
   SymPy's `Sum`.
+
+## limacc (wave 11): AccumBounds limits, symbolic oscillation, branch cuts
+
+Implemented:
+- Bounded affine limits at infinity: `x*Ci(x)`, `x*(Si(x) - pi/2)`,
+  `x*(fresnels(x) - 1/2)` and their sums, multiples and affine images give
+  SymPy's `AccumBounds` (`AccumBounds(-1, 1)`, `AccumBounds(-1, 1)/pi`, ...).
+- `sin(s*x)` at `oo` for a nonzero real `s` gives `sin(oo*sign(s))` (and the
+  held forms built from it), so `integrate(cos(s*x), (x, 0, oo))` is
+  `sin(oo*sign(s))/s` like SymPy. A possibly zero `s` stays a `Limit`.
+- Complex infinite limits: `limitinf` returns `c0*oo` for an imaginary
+  `c0 = I*a` and `oo*sign(c0)` for another nonreal `c0`
+  (`limit((1 + I)*x, x, oo)` is `oo*sign(1 + I)`).
+- `cos(m*x)/x` with a complex `m` is no longer 0: only a real infinity keeps
+  `sin` and `cos` bounded.
+- The bounded-value heuristic refuses a base or log argument made of the
+  bounded values alone, so `sin(x)**(1/x)` and `(cos(x) + 1)**(1/x)` at `oo`
+  are no longer the wrong value 1.
+- `limit()` returns `Limit` for an expression holding `oo`, `-oo`, `zoo` or
+  `nan` (as `Limit.doit`): `limit(oo/x, x, oo)` was 0, `(1 + x)**oo` was 1.
+- One-sided limits onto a branch cut (`calculus/_branch_limit.py`): log,
+  non-integer powers, asin, acos, asec, acsc, atan and acot whose argument
+  reaches the cut from the non-principal side are rewritten (log(a) as
+  log(-a) + s*I*pi, a**r with the matching phase, inverse trigonometric
+  nodes by their one-sided value), each replacement checked numerically on
+  the approach path. At `+-oo`, a log or power whose argument approaches the
+  negative real axis from below is rewritten the same way
+  (`limit(log(x - I) - log(-x - I), x, oo)` is `I*pi`, was `-I*pi`).
+- The gruntz `sign` recursion is depth-bounded (the gamma expressions of
+  test_gruntz lines 116, 130 and 139 segfaulted).
+- Series: an exact Heaviside factor no longer makes a product inexact
+  (`series(Heaviside(x)/x)` is `1/x`).
+- `evalf(subs=...)` of an expression with a DiracDelta substitutes exactly
+  and keeps `DiracDelta(x)` when the substituted node is a DiracDelta (SymPy
+  returns self); `O(x*y).subs(y, x)` raises SymPy's ValueError about
+  repeated variables.
+
+Probes:
+- liminf's 71-limit probe: 61 -> 62 same.
+- sympy/series/tests (test_limits.py, test_gruntz.py, 648 asserted values):
+  same 462 -> 493, different 186 -> 155, crashes 3 -> 0; no
+  statement from same to different.
+- Corpora: ODE unchanged (cls 301, hint 275, def 270); integration SAME
+  1161 -> 1162, MISSING 18 -> 17, DIFF 10.
+
+Intentional divergences (symox is right, SymPy is loose or fails):
+- `limit(x*(Si(x) - pi/2) + cos(x), x, oo)` is 0 (SymPy `AccumBounds(-2, 2)`).
+- `limit(x*Ci(x)**2, x, oo)` and `limit(x*Ci(x)/log(x), x, oo)` are 0
+  (SymPy raises NotImplementedError).
+- `gruntz(y*I*x, x, oo)` gives `oo*I*sign(y)` (SymPy `oo*I*y`).
+
+Remaining:
+- Wrong values still given: issue 22334 (`(n + 1)**k/((n + 1)**(k + 1) -
+  n**(k + 1))` is 0, not `1/(k + 1)`); issue 6364 (the leading constant
+  `1 - sin(a)**2 - cos(a)**2` is not recognized as zero; SymPy simplifies
+  the leading term of a sum); issue 22220 at `-pi` and `pi+`; issues 6366
+  and 6843 (nan, `oo*sign(0)`); issue 18399 (`oo` instead of `zoo`);
+  `frac(x)**(1/x)` at `oo` is 1 (SymPy `AccumBounds(0, 1)`);
+  `acoth(exp(1/x))` at `0-` is `I*pi/2` (SymPy `-I*pi/2`).
+- Missing answers: Bessel functions at infinity, floor/ceiling, asech/acsch,
+  LambertW, Mod, `asin(exp(x))`, `x*Shi(x)*I`, the non-affine
+  `x**2*Ci(x)` and `Ci(x)*x*sin(x)`.
+- Forms: Floats against exact values (issues 5164, 5383),
+  `(2*DiracDelta(x)).evalf(subs={x: 0})` keeps `2*DiracDelta(0)` (SymPy
+  `2.0*DiracDelta(0)`).
+- Piecewise leftovers: `solveset(exp(sin(x)) > 1, x, S.Reals)` needs the
+  inversion in solve.rs (left untouched for the pending user work);
+  `series(sin(Piecewise(...)))` and `series(exp(Piecewise(...)))` raise
+  NotImplementedError (SymPy's sin result is itself wrong, its exp result is
+  right).
+
+Tests: `tests/test_limacc_parity.py`.

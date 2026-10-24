@@ -107,11 +107,21 @@ def _walk(e, z, z0, dir, used):
             # A finite limit of the argument: the native engine knows
             # better (continuity at the point), unless it was bounds.
             return _native(e, z, z0, dir)
+        if _held_oscillation(arg):
+            # exp(sin(oo*sign(s))): the reference leaves it unevaluated
+            raise _Fail
         value = head(arg)
         if _contains_bounds(value):
             used.append(True)
-        if name in _OSCILLATING and value.func.__name__ == name:
-            # left unevaluated, e.g. sin(oo*sign(s))
+        if name in _OSCILLATING and _held_oscillation(value):
+            # Left unevaluated, e.g. sin(oo*sign(s)). The reference
+            # heuristics keep it when the argument limit is known to be
+            # infinite (a nonzero s): sin(oo*sign(s)) stands for
+            # AccumBounds(-1, 1) once the sign is known. An argument that
+            # may be finite (oo*sign(s) for a possibly zero s) is undecided.
+            if arg.is_finite is False and _real_infinity_times_sign(arg):
+                used.append(True)
+                return value
             raise _Fail
         return _bounded_value(value)
     raise _Fail
@@ -135,8 +145,10 @@ def oscillating_limit(e, z, z0, dir):
     if dir not in ('+', '-', '+-') or not z.is_Symbol or z0 is S.ComplexInfinity \
             or z0 == S.ComplexInfinity or z0 == S.NaN:
         return None
-    if not isinstance(e, _core.Expr) or not _oscillates(e, z):
+    if not isinstance(e, _core.Expr):
         return None
+    if not _oscillates(e, z):
+        return _bounded_affine(e, z, z0, dir)
     if dir == '+-':
         if z0.is_infinite:
             return None
@@ -146,10 +158,64 @@ def oscillating_limit(e, z, z0, dir):
     try:
         value = _walk(e, z, z0, dir, used)
     except (_Fail, TypeError, ValueError, NotImplementedError):
-        return None
+        return _bounded_affine(e, z, z0, dir)
     if not used or not isinstance(value, _core.Expr):
         return None
     if value.has(S.NaN) or value == S.ComplexInfinity:
+        return None
+    return value
+
+
+def _held_oscillation(value):
+    """Whether ``value`` holds an oscillating function left unevaluated at an
+    infinite argument, such as ``sin(oo*sign(s))``."""
+    from .. import S
+    for node in _nodes(value):
+        func = getattr(node, 'func', None)
+        if getattr(func, '__name__', None) in _OSCILLATING and getattr(node, 'args', None) \
+                and node.args[0].has(S.Infinity, S.NegativeInfinity):
+            return True
+    return False
+
+
+def _real_infinity_times_sign(arg):
+    """``oo*sign(s)`` (up to a sign): the reference heuristics value of the
+    argument ``s*x`` at an infinity."""
+    from .. import S, sign
+    for factor in arg.as_ordered_factors():
+        if factor in (S.Infinity, S.NegativeInfinity, S.NegativeOne):
+            continue
+        if not isinstance(factor, sign):
+            return False
+    return True
+
+
+def _bounded_affine(e, z, z0, dir):
+    """The limit of an expression affine in oscillating sin/cos parts once
+    the tractable rewrites of Si, Ci and the Fresnel integrals are made:
+    ``c0 + sum(c_i*AccumBounds(-1, 1))`` as the reference leading terms
+    give (``x*Ci(x)`` at ``oo`` is ``AccumBounds(-1, 1)``). None when the
+    native decomposition does not apply."""
+    from .accumulationbounds import AccumBounds
+    if dir not in ('+', '-'):
+        return None
+    try:
+        parts = _core._limit_bounded_affine(e, z, z0, dir)
+    except (TypeError, ValueError, NotImplementedError):
+        return None
+    if parts is None:
+        return None
+    from .. import Add, Mul
+    c0, coeffs = parts
+    # The reference leading terms combine through Mul and Add flatten:
+    # x*(fresnels(x) - 1/2) is AccumBounds(-1, 1)/pi.
+    value = Add(c0, *[Mul(c, AccumBounds(-1, 1)) for c in coeffs])
+    return _checked(value)
+
+
+def _checked(value):
+    from .. import S
+    if not isinstance(value, _core.Expr) or value.has(S.NaN) or value == S.ComplexInfinity:
         return None
     return value
 
