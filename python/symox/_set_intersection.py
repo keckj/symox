@@ -129,6 +129,66 @@ def _imageset_intersection(self, other):
 _ACTIVE = []
 
 
+def _membership(t, e):
+    from symox import S
+    try:
+        c = t.contains(e)
+    except (TypeError, NotImplementedError, ValueError, AttributeError):
+        return None
+    if c == S.true:
+        return True
+    if c == S.false:
+        return False
+    return None
+
+
+def _finite_intersection(args):
+    """Reference ``_handle_finite_sets`` with image-set membership.
+
+    The native pass cannot decide the membership of an element in an
+    ``ImageSet``; the Python ``contains`` can. Elements definitely outside
+    another set are dropped; a finite set whose elements are all decided
+    is the result. ``None`` when nothing changes.
+    """
+    from symox import FiniteSet, ImageSet, Intersection, S
+    if not any(isinstance(a, ImageSet) for a in args):
+        return None
+    fs = [a for a in args if isinstance(a, FiniteSet)]
+    if not fs:
+        return None
+    others = [a for a in args if not isinstance(a, FiniteSet)]
+    pruned = []
+    changed = False
+    for k, f in enumerate(fs):
+        keep = []
+        decided = True
+        for e in f.args:
+            status = True
+            for m, t in enumerate(fs + others):
+                if m == k:
+                    continue
+                c = _membership(t, e)
+                if c is False:
+                    status = False
+                    break
+                if c is None:
+                    status = None
+            if status is False:
+                changed = True
+                continue
+            if status is None:
+                decided = False
+            keep.append(e)
+        if not keep:
+            return S.EmptySet
+        if decided:
+            return FiniteSet(*keep)
+        pruned.append(FiniteSet(*keep))
+    if not changed:
+        return None
+    return Intersection(*pruned, *others)
+
+
 def refine_intersection(result):
     """Apply the reference image-set rules to an unevaluated intersection."""
     from symox import ImageSet, Intersection, S
@@ -142,6 +202,9 @@ def refine_intersection(result):
         return result
     _ACTIVE.append(key)
     try:
+        new = _finite_intersection(args)
+        if new is not None:
+            return new
         if S.Complexes in args:
             # reference `intersection_sets(ComplexRegion, Set)` for the
             # rectangular `Complexes`: a real set meets its real axis

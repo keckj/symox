@@ -1874,6 +1874,13 @@ class Intersection(Set):
         if type(result) is Intersection:
             from ._set_intersection import refine_intersection
             return refine_intersection(result)
+        if type(result) is Union and any(
+                type(a) is Intersection for a in result.args):
+            from ._set_intersection import refine_intersection
+            parts = [refine_intersection(a) if type(a) is Intersection else a
+                     for a in result.args]
+            if parts != list(result.args):
+                return Union(*parts)
         return result
 
 

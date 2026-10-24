@@ -1053,6 +1053,16 @@ impl<'a> LatexPrinter<'a> {
                 };
                 return t;
             }
+            // SymPy's _print_beta: `\operatorname{B}^{exp}\left(x, y\right)`,
+            // the one-argument form printed as beta(x, x).
+            Func::Special(crate::special::SpecialFn::Beta) if !args.is_empty() && args.len() <= 2 => {
+                let x = a0();
+                let y = if args.len() == 1 { x.clone() } else { self.print(&args[1]) };
+                return match &exp {
+                    Some(e) => format!("\\operatorname{{B}}^{{{e}}}\\left({x}, {y}\\right)"),
+                    None => format!("\\operatorname{{B}}\\left({x}, {y}\\right)"),
+                };
+            }
             Func::Special(sp) => {
                 use crate::special::SpecialFn as S;
                 match sp {

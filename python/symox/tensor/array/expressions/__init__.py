@@ -86,10 +86,24 @@ class ArrayElement(_IndexedArithmetic):
     args=property(lambda self:(self.name,self.indices))
     @property
     def free_symbols(self):return {self.name}|set().union(*(i.free_symbols for i in self.indices))
-    def _symox_(self):return S.Function('ArrayElement')(S.Symbol(self.name.name),*self.indices)
+    def _symox_(self):return _array_element_node()(S.Symbol(self.name.name),*self.indices)
     def __repr__(self):return str(self.name.name)+'['+', '.join(map(str,self.indices))+']'
     def __eq__(self,other):return isinstance(other,ArrayElement) and self.args==other.args
     def __hash__(self):return hash((type(self),self.args))
+
+
+_ARRAY_ELEMENT_NODE=[]
+def _array_element_node():
+    # The scalar form of an ArrayElement stored in an explicit Array: an
+    # applied function printed as SymPy prints ArrayElement (``A[0]``,
+    # LaTeX ``{{A}_{0}}``).
+    if not _ARRAY_ELEMENT_NODE:
+        class ArrayElement(S.Function):
+            _symox_user_hooks=True
+            def _sympystr(self,printer):return printer._print(self.args[0])+'['+', '.join(printer._print(i) for i in self.args[1:])+']'
+            def _latex(self,printer):return '{{%s}_{%s}}'%(printer._print(self.args[0]),', '.join(printer._print(i) for i in self.args[1:]))
+        _ARRAY_ELEMENT_NODE.append(ArrayElement)
+    return _ARRAY_ELEMENT_NODE[0]
 
 
 class _ConstantArray(_ArrayExpr):

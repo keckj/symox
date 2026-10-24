@@ -135,6 +135,15 @@ fn tuple_items<'py>(py: Python<'py>, arguments: &[Expr]) -> PyResult<Bound<'py, 
     PyTuple::new(py, arguments.iter().map(|a| expr_object(py, a.clone())).collect::<PyResult<Vec<_>>>()?)
 }
 
+/// A substitution result: the matrix object when the whole result is a
+/// matrix operand (as SymPy's `x.subs(x, A)` is `A`), else the expression.
+fn matrix_or_expr(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    if let Kind::Func(Func::MatrixProxy(parent), _) = e.kind() {
+        return Ok(matrixexpr::matrix_object(py, parent)?.unbind());
+    }
+    Ok(wrap(e).into_pyobject(py)?.into_any().unbind())
+}
+
 pub(crate) fn expr_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     if let Kind::Func(Func::MatrixProxy(parent), _) = e.kind() {
         return Ok(matrixexpr::wrap_matrixexpr((**parent).clone()).into_pyobject(py)?.into_any().unbind());
@@ -1464,9 +1473,11 @@ pub(crate) fn checked_subs(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],s
             check_order_variables(&result,&pair.0,&pair.1).map_err(PyValueError::new_err)?;
             validate_matrix_replacements(py,&result,std::slice::from_ref(pair),false)?;
             result=subs::subs1(&result,&pair.0,&pair.1);
+            if result.has_matrix() {result=symox::matrixexpr::MatrixExpr::promote_operands(&result).map_err(|e|matrices::err(py,e))?;}
         }
         result
     };
+    let result=if simultaneous && result.has_matrix() {symox::matrixexpr::MatrixExpr::promote_operands(&result).map_err(|e|matrices::err(py,e))?} else {result};
     symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
     if pairs.iter().any(|(_,new)|new.is_number()) {
         if let Some(msg)=symox::special::orthopoly_subs_error(expression,&result) { return Err(PyValueError::new_err(msg)); }
@@ -2383,10 +2394,10 @@ impl PyExprNode {
     }
 
     #[pyo3(signature = (*args, **_kwargs))]
-    fn subs(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    fn subs(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
         let (args,options)=substitution_arguments(args,_kwargs)?;
         let pairs = subs_pairs(&args)?;
-        Ok(wrap(checked_subs(args.py(),&self.e,&pairs,substitution_options(options.as_ref())?)?))
+        matrix_or_expr(args.py(),checked_subs(args.py(),&self.e,&pairs,substitution_options(options.as_ref())?)?)
     }
 
     /// `expr.match(pattern)`: dict of wildcard bindings or None.
@@ -2462,17 +2473,21 @@ impl PyExprNode {
         PySet::new(py, symox::pattern::find(&self.e, &p).map_err(wildcards::to_python_error)?.into_iter().map(wrap))
     }
 
-    fn xreplace(&self, rule: &Bound<'_, PyDict>) -> PyResult<PyExpr> {
+    fn xreplace(&self, rule: &Bound<'_, PyDict>) -> PyResult<PyObject> {
         let mut m = FxHashMap::default();
         for (k, v) in rule.iter() {
             m.insert(replacement_expr(&k)?, replacement_expr(&v)?);
         }
         validate_matrix_replacements(rule.py(), &self.e, &m.iter().map(|(k,v)|(k.clone(),v.clone())).collect::<Vec<_>>(), true)?;
-        let result=subs::xreplace(&self.e,&m);
+        // matrices replacing scalars: rebuild with the operands in their
+        // original order, as the reference postprocessor does
+        let structural=m.values().any(|v|v.has_matrix())&&!m.keys().any(|k|k.has_matrix());
+        let mut result=if structural {symox::matrixexpr::MatrixExpr::xreplace_promote(&self.e,&m).map_err(|e|matrices::err(rule.py(),e))?} else {subs::xreplace(&self.e,&m)};
+        if !structural && result.has_matrix() {result=symox::matrixexpr::MatrixExpr::promote_operands(&result).map_err(|e|matrices::err(rule.py(),e))?;}
         symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
         symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
         symox::sets::validate_lambda_tree(&result).map_err(logic::bad_signature)?;
-        Ok(wrap(result))
+        matrix_or_expr(rule.py(),result)
     }
 
     #[pyo3(signature = (deep=true, **hints))]
