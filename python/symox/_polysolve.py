@@ -114,6 +114,14 @@ def _external_parameters(equations, variables):
     return bool(free - set(variables))
 
 
+def _vanishes(value, simplify):
+    """Exact zero test of a denominator at a root: the substituted value
+    itself first (an explicit radical root decides there), then its
+    simplified form."""
+    zero = value.is_zero
+    return zero if zero is not None else simplify(value).is_zero
+
+
 def _zero_dimensional_numerators(equations, variables, parametric=False):
     """The reference zero-dimensional branch of ``nonlinsolve`` for a
     system whose numerators are polynomials with exact numeric coefficients:
@@ -150,7 +158,7 @@ def _zero_dimensional_numerators(equations, variables, parametric=False):
     rows = []
     for root in roots:
         values = dict(zip(variables, root))
-        vanishing = [simplify(d.subs(values)).is_zero for d in denominators]
+        vanishing = [_vanishes(d.subs(values), simplify) for d in denominators]
         if any(v is None for v in vanishing):
             return None
         if not any(vanishing):

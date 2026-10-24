@@ -65,6 +65,14 @@ pub fn count_ops(e: &Expr) -> usize {
                 } else if !abs.is_one() {
                     numerator.push(Expr::num(abs));
                 }
+                // `fraction` rebuilds each part with Mul, which distributes a
+                // number over a single sum: the denominator of
+                // (x + 5)/(2*(8*x**2 + 14*x + 3)) is 16*x**2 + 28*x + 6.
+                for part in [&mut numerator, &mut denominator] {
+                    if !crate::simplify::native_selection() && part.len() == 2 && part[1].as_number().is_some() && part[0].is_add() {
+                        *part = vec![ops::mul(&[part[1].clone(), part[0].clone()])];
+                    }
+                }
                 usize::from(c.is_negative())
                     + numerator.iter().map(|a| count(a, memo)).sum::<usize>()
                     + denominator.iter().map(|a| count(a, memo)).sum::<usize>()

@@ -126,6 +126,63 @@ def _condition_set(condition,rv):
     raise NotImplementedError('this event cannot be reduced to a univariate support set')
 
 
+def _eval_sum_direct(expr,i,a,b):
+    """SymPy's eval_sum_direct: a finite sum term by term, after pulling the
+    factors and terms free of the index out of it."""
+    dif = b-a
+    if expr.is_Mul:
+        without_i,with_i = expr.as_independent(i)
+        if without_i != 1:
+            s = _eval_sum_direct(with_i,i,a,b)
+            if s:
+                r = without_i*s
+                if r is not S.nan:return r
+        else:
+            L,R = expr.as_two_terms()
+            if not L.has(i):
+                sR = _eval_sum_direct(R,i,a,b)
+                if sR:return L*sR
+            if not R.has(i):
+                sL = _eval_sum_direct(L,i,a,b)
+                if sL:return sL*R
+    try:expr = S.apart(expr,i)
+    except (S.PolynomialError,NotImplementedError,ValueError,TypeError):pass
+    if expr.is_Add:
+        without_i,with_i = expr.as_independent(i)
+        if without_i != 0:
+            s = _eval_sum_direct(with_i,i,a,b)
+            if s:
+                r = without_i*(dif+1)+s
+                if r is not S.nan:return r
+        else:
+            L,R = expr.as_two_terms()
+            lsum = _eval_sum_direct(L,i,a,b)
+            rsum = _eval_sum_direct(R,i,a,b)
+            if None not in (lsum,rsum):
+                r = lsum+rsum
+                if r is not S.nan:return r
+    return S.Add(*[expr.subs(i,a+j) for j in range(int(dif)+1)])
+
+
+def _direct_range_probability(model,region):
+    """SymPy's SingleDiscretePSpace.eval_prob on a bounded Range:
+    summation(pmf(n*step), (n, inf/step, sup/step - 1)).doit(), which for
+    fewer than 100 terms is eval_sum_direct and is not simplified. Returns
+    None outside that case."""
+    if model.kind != 'discrete' or not isinstance(region,S.Range) or not region.size.is_Integer:return None
+    start,stop,step = region.args
+    a,b = start/step,stop/step-1
+    if not (a.is_Integer and b.is_Integer):return None
+    dif = b-a
+    if dif < 0 or dif >= 100:return None
+    n = S.Symbol('n',integer=True)
+    summand = model.pdf(n*step)
+    if n not in summand.free_symbols:return summand*(dif+1)
+    if dif == 0:return summand.subs(n,a)
+    if isinstance(summand,S.Piecewise):return None
+    return _eval_sum_direct(summand,n,a,b)
+
+
 def _measure(model,region):
     if region == S.EmptySet:return S.Integer(0)
     if region == model.set:return S.Integer(1)
@@ -292,7 +349,13 @@ def P(condition,given_condition=None,numsamples=None,evaluate=True,**kwargs):
             return P(S.Rel(Z,0,condition.rel_op))
     if len(variables) == 1:
         rv = next(iter(variables))
-        try:return S.simplify(_measure(rv.distribution,_condition_set(condition,rv)))
+        try:
+            region = _condition_set(condition,rv)
+            # SymPy sums the pmf over a bounded range without simplifying
+            # the sum ((9*t**3/2 + 9*t**2/2 + 3*t + 1)*exp(-3*t)).
+            direct = _direct_range_probability(rv.distribution,region)
+            if direct is not None:return direct
+            return S.simplify(_measure(rv.distribution,region))
         except NotImplementedError:pass
     # A general event is a well-defined indicator expectation, not an
     # unverified numerical probability or a guessed independence product.

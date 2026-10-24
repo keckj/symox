@@ -361,6 +361,31 @@ fn has_exp_or_trig(e: &Expr) -> bool {
 }
 
 /// A light general purpose simplifier (to be extended).
+thread_local! {
+    static NATIVE_SELECTION: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// True inside `with_native_selection`.
+pub(crate) fn native_selection() -> bool {
+    NATIVE_SELECTION.with(|flag| flag.get())
+}
+
+/// Runs `f` with the native candidate search alone, without SymPy's
+/// simplify sequence. The polynomial system solvers run under it: SymPy's
+/// own solvers do not call simplify on their roots and restriction factors,
+/// and the exact zero tests and root forms of the native solvers were
+/// established on these normal forms (the quartic numerator systems of
+/// nonlinsolve, whose restriction factors are otherwise undecided).
+pub fn with_native_selection<T>(f: impl FnOnce() -> T) -> T {
+    let previous = NATIVE_SELECTION.with(|flag| flag.replace(true));
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) { NATIVE_SELECTION.with(|flag| flag.set(self.0)); }
+    }
+    let _restore = Restore(previous);
+    f()
+}
+
 pub fn simplify(e: &Expr) -> Expr {
     let evaluated = release_unevaluated(e, &mut FxHashMap::default());
     if evaluated.is_atom() {
@@ -425,22 +450,36 @@ pub fn simplify(e: &Expr) -> Expr {
         // tan/cot/sec/csc through sin and cos (tan(x)*cos(x) -> sin(x)).
         candidates.push(crate::simptools::trigsimp::futrig(e, true));
     }
-    // SymPy's own sequence keeps the factored powers that the expansion
-    // based candidates lose. It comes last, so a tie keeps the native form.
+    // SymPy's own sequence (its chain of shorter() calls, whose ties keep
+    // the earlier form) decides whenever it applies: its result can have
+    // more nodes than a native candidate ((x + 5)/(2*(8*x**2 + 14*x + 3)),
+    // the content-primitive square of issue 17141), and SymPy returns it.
+    // The native candidate search only decides when the sequence does not
+    // apply.
     let reference = reference_sequence(e);
-    candidates.extend(reference.clone());
-    let selected = candidates
-        .into_iter()
-        // Ties in size go to SymPy's count_ops measure, which counts an
-        // n-factor product as n - 1 multiplications (3*exp(a)*exp(b) is
-        // larger than 3*exp(a + b)).
-        .min_by_key(|c| (crate::traverse::node_count(c), crate::simptools::methods::count_ops(c)))
-        .unwrap();
+    // In native-selection mode the sequence is one more candidate.
+    let reference = if native_selection() {
+        candidates.extend(reference);
+        None
+    } else {
+        reference
+    };
+    let from_reference = reference.is_some();
+    let selected = match &reference {
+        Some(r) => r.clone(),
+        None => candidates
+            .into_iter()
+            // Ties in size go to SymPy's count_ops measure, which counts an
+            // n-factor product as n - 1 multiplications (3*exp(a)*exp(b) is
+            // larger than 3*exp(a + b)).
+            .min_by_key(|c| (crate::traverse::node_count(c), crate::simptools::methods::count_ops(c)))
+            .unwrap(),
+    };
     // SymPy's shorter() keeps the cancelled fraction on a count_ops tie: a
     // numerator sign pulled out (-(2*x + y)/d for (-2*x - y)/d) has fewer
     // nodes but is not shorter.
     let selected = match cancelled {
-        Some(c) if c != selected && crate::simptools::methods::count_ops(&c) <= crate::simptools::methods::count_ops(&selected) => {
+        Some(c) if !from_reference && c != selected && crate::simptools::methods::count_ops(&c) <= crate::simptools::methods::count_ops(&selected) => {
             let (n1, d1) = numer_denom(&selected);
             let (n0, d0) = numer_denom(&c);
             if d1 == d0 && d0.is_add() && expand(&n1) == expand(&n0) { c } else { selected }
@@ -451,7 +490,8 @@ pub fn simplify(e: &Expr) -> Expr {
     // (C1*exp(-1)*exp(-x) for C1*exp(-x - 1)); SymPy's shorter() keeps the
     // input on a count_ops tie, so a selection that only splits the powers
     // of the input (powsimp gives the input back) must be shorter.
-    let selected = if selected != *e
+    let selected = if !from_reference
+        && selected != *e
         && crate::simptools::methods::count_ops(e) <= crate::simptools::methods::count_ops(&selected)
         && crate::simp::powsimp(&selected) == *e
     {
@@ -490,6 +530,10 @@ pub fn simplify(e: &Expr) -> Expr {
     // SymPy applies powsimp after its rational and expansion steps, so the
     // powers in an expanded or cancelled form are combined as well.
     let mut selected = selected;
+    // SymPy's own sequence already ended with these powsimp and exptrigsimp
+    // steps, so its result is kept as is ((x + 5)/(2*(8*x**2 + 14*x + 3))
+    // keeps its content-primitive denominator).
+    let unchanged_reference = from_reference && reference.as_ref() == Some(&selected);
     // The light pass merges equal bases and exponentials; SymPy's full
     // powsimp also merges equal exponents (sqrt(2)*sqrt(a + b) is
     // sqrt(2*a + 2*b)).
@@ -500,7 +544,7 @@ pub fn simplify(e: &Expr) -> Expr {
         // SymPy compares these with count_ops alone: a negated combined
         // power (-sqrt(2*a + 2*b)) has more nodes but fewer operations.
         let ops = |c: &Expr| (crate::simptools::methods::count_ops(c), crate::traverse::node_count(c));
-        if combined != selected && ops(&combined) < ops(&selected) {
+        if !unchanged_reference && combined != selected && ops(&combined) < ops(&selected) {
             selected = combined;
         }
     }
@@ -508,7 +552,7 @@ pub fn simplify(e: &Expr) -> Expr {
     // shortest form has trigonometric, hyperbolic or exponential functions:
     // im(exp(2*I)/(1 - exp(4*I))) becomes 1/(2*sin(2)). Its final ratio test
     // against the input is applied by the public wrapper.
-    if has_exp_or_trig(&selected) {
+    if !unchanged_reference && has_exp_or_trig(&selected) {
         selected = crate::simptools::trigsimp::exptrigsimp(&selected);
     }
     // SymPy reaches its sign through two steps. The input first passes

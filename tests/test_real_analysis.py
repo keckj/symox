@@ -95,7 +95,8 @@ def test_stationary_points_restrict_real_branches_and_open_endpoints():
     ('sin(x)+cos(2*x)','2*pi'),('sin(x/2)+sin(x/3)','12*pi'),
     ('sin(cos(x))','2*pi'),('exp(sin(x))','2*pi'),('exp(2*I*x)','pi'),
     ('sin(x)+sin(sqrt(2)*x)',None),('x*x',None),('sinh(x)',None),
-    ('2','0'),('(sin(x)+cos(x))**2','pi'),('Mod(2*x,3)','3/2'),
+    # simplify gives 2*sin(x + pi/4)**2 (as SymPy), a power of a sine: 2*pi
+    ('2','0'),('(sin(x)+cos(x))**2','2*pi'),('Mod(2*x,3)','3/2'),
 ])
 def test_structural_periods_and_symbolic_verification(source,expected):
     x=sx.Symbol('x')

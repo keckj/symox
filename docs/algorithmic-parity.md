@@ -9170,3 +9170,39 @@ Remaining (unsupported or a different form, never a wrong value):
   issues 5164 and 5383.
 
 Tests: `tests/test_limwrong_parity.py`.
+
+## simp-tie (wave 12)
+
+simplify returns SymPy's own sequence (`reference_sequence`) whenever it
+applies, and count_ops distributes a number over a single sum in a
+numerator or denominator, as `fraction` does:
+`simplify((x + 5)/(16*x**2 + 28*x + 6))` is `(x + 5)/(2*(8*x**2 + 14*x + 3))`
+and issue 17141 keeps the content-primitive square.
+
+Callers that relied on the earlier native forms:
+- The period of `(sin(x) + cos(x))**2` is 2*pi, as SymPy (simplify gives
+  `2*sin(x + pi/4)**2`).
+- `P` of a bounded event of a discrete distribution sums the pmf directly,
+  as SymPy's `SingleDiscretePSpace.eval_prob` / `eval_sum_direct`, without a
+  final simplify: `P(Poisson('X', 3*t) < 4)` is
+  `(9*t**3/2 + 9*t**2/2 + 3*t + 1)*exp(-3*t)`.
+- checkinfsol is SymPy's single simplify of the determining residual, so a
+  residual can stay unreduced where SymPy's checker leaves it unreduced.
+- The native polynomial system solvers (`parametric::nonlinsolve`,
+  `systems::solve_poly_system`) run in native-selection mode: SymPy's
+  sequence is one more candidate of the native search, as before, since
+  SymPy's solvers do not call simplify on their roots and restriction
+  factors. Otherwise a quartic restriction factor of
+  `nonlinsolve([x**3 - 1/y, x + y - 1])` is undecided by the exact zero test,
+  and the x component of `nonlinsolve([x**3 + 2/y - 2, x - y])` becomes a
+  form whose inner radicand is a negative real with a signed zero imaginary
+  part (mpmath evaluates it on the other sqrt branch).
+- The zero-dimensional fallback of nonlinsolve tests a denominator at a
+  root on the substituted value before simplifying it.
+
+Tests: `tests/test_simp_tie_parity.py`.
+
+Simplify probe (sympy/simplify/tests): same 1721 -> 1730, diff 126 -> 117,
+no statement from same to different. ODE corpus cls/hint/def
+301/275/270 -> 303/279/274 of 315; integration corpus SAME 1158 -> 1159,
+EQUIV 21 -> 20, DIFF 10, MISSING 21.
