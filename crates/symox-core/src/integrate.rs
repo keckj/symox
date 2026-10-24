@@ -442,9 +442,54 @@ fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr, meijerg: Op
     if let Some(value) = gamma_moments(f, x, a, b) {
         return value;
     }
+    let nonneg = |e: &Expr| crate::assumptions::is_nonnegative(e) == Some(true);
+    let _guard = MeijerNonnegX::set(nonneg(a) && nonneg(b));
     try_integrate_hint(f, x, meijerg)
         .and_then(|big_f| eval_with_integrals(&atan_floor_terms(&big_f), f, x, a, b))
         .unwrap_or_else(|| integral_definite_unevaluated(f, x, a, b))
+}
+
+thread_local! {
+    static MEIJER_NONNEG_X: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Marks the antiderivative computed for a definite integral over an
+/// interval of nonnegative reals, restored on drop.
+struct MeijerNonnegX(bool);
+
+impl MeijerNonnegX {
+    fn set(on: bool) -> Self {
+        MeijerNonnegX(MEIJER_NONNEG_X.with(|c| c.replace(on)))
+    }
+}
+
+impl Drop for MeijerNonnegX {
+    fn drop(&mut self) {
+        MEIJER_NONNEG_X.with(|c| c.set(self.0));
+    }
+}
+
+/// Whether the Meijer G antiderivative of `g` is valid only for positive
+/// `x` while `x` may be negative. The G-function rewrites of
+/// `Heaviside(x - b)` and `Heaviside(b - x)` hold for `x > 0` only (at
+/// `x = -2*b` the rewrite of `Heaviside(x - b)` is 1), so the reference's
+/// `integrate(Heaviside(x - 1/2), (x, -1, 1))` is 2 instead of 1/2. Such a
+/// term goes to `manualintegrate` (`(x - b)*Heaviside(x - b)`) unless `x`
+/// is nonnegative or the definite integral runs over nonnegative bounds,
+/// where the reference's form is right and kept.
+fn heaviside_needs_positive_x(g: &Expr, x: &Expr) -> bool {
+    if MEIJER_NONNEG_X.with(|c| c.get()) || crate::assumptions::is_nonnegative(x) == Some(true) {
+        return false;
+    }
+    let mut found = false;
+    crate::traverse::preorder(g, &mut |n| {
+        if let Kind::Func(Func::Heaviside, args) = n.kind() {
+            if has(&args[0], x) {
+                found = true;
+            }
+        }
+    });
+    found
 }
 
 /// `_eval_interval` of an antiderivative as `Integral.doit` takes it: the
@@ -975,7 +1020,7 @@ fn term_loop(f: &Expr, x: &Expr, meijer: bool, skip_native: bool) -> Option<Expr
                 continue;
             }
         }
-        if meijer {
+        if meijer && !heaviside_needs_positive_x(&g, x) {
             if let Some(h) = meijerint::meijerint_indefinite(&g, x) {
                 parts.push(mul2(&coeff, &h));
                 continue;
