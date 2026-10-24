@@ -688,6 +688,41 @@ impl Engine {
         if let Some(kind) = super::asym::Asym::of(f) {
             return self.ser_asym(kind, args, n);
         }
+        if let Func::Special(s @ (crate::special::SpecialFn::Asec
+        | crate::special::SpecialFn::Acsc
+        | crate::special::SpecialFn::Asech
+        | crate::special::SpecialFn::Acsch)) = f
+        {
+            // the definitions asec(z) = acos(1/z), acsc(z) = asin(1/z),
+            // asech(z) = acosh(1/z) and acsch(z) = asinh(1/z)
+            if args.len() == 1 {
+                use crate::special::SpecialFn as S;
+                let inv = pow(&args[0], &Expr::minus_one());
+                let g = match s {
+                    S::Asec => Func::Acos,
+                    S::Acsc => Func::Asin,
+                    S::Asech => Func::Acosh,
+                    _ => Func::Asinh,
+                };
+                let mut r = self.ser(&func(g.clone(), vec![inv]), n)?;
+                // keep the function's own value at a regular point
+                // (`asec(1/2)`, not the equal `acos(2)`)
+                let a = self.ser(&args[0], 1)?;
+                if r.val == 0 && !r.c.is_empty() && a.val == 0 && !a.is_zero() {
+                    if let Some(c0) = a.lead().map(|c| c.to_expr()) {
+                        let v = func(f.clone(), vec![c0.clone()]);
+                        if !depends(&c0, &self.logt) && !contains_bad(&v) {
+                            let old = r.c[0].to_expr();
+                            let inv0 = func(g, vec![pow(&c0, &Expr::minus_one())]);
+                            if old == inv0 {
+                                r.c[0] = C::from_expr(v);
+                            }
+                        }
+                    }
+                }
+                return Ok(r);
+            }
+        }
         if let Func::Special(s) = f {
             if let Some(res) = self.ser_log_singular(*s, args, n)? {
                 return Ok(res);
@@ -735,7 +770,7 @@ impl Engine {
                 if c0.is_zero() {
                     return Ok(if is_sin { ss } else { cs });
                 }
-                let e0 = c0.to_expr();
+                let e0 = trig_point(c0.to_expr());
                 let (sf, cf) = if hyper { (Func::Sinh, Func::Cosh) } else { (Func::Sin, Func::Cos) };
                 let s0 = C::from_expr(func(sf, vec![e0.clone()]));
                 let k0 = C::from_expr(func(cf, vec![e0]));
@@ -750,6 +785,7 @@ impl Engine {
             Func::Tan | Func::Cot | Func::Tanh | Func::Coth => {
                 let a = self.ser(arg, n)?;
                 let c0 = self.analytic_arg(&a, f.name())?;
+                let c0 = C::from_expr(trig_point(c0.to_expr()));
                 let t0 = func(f.clone(), vec![c0.to_expr()]);
                 if contains_bad(&t0) || (c0.is_zero() && matches!(f, Func::Cot | Func::Coth)) {
                     let (num, den) = match f {
@@ -965,6 +1001,41 @@ impl Engine {
                         add(&[mul(&[Expr::rational(s as i64, 2), Expr::pi()]), neg(&fx::atan(&inv))])
                     } else {
                         fx::atan(&inv)
+                    };
+                    self.ser(&e, n)
+                }
+                Func::Asinh | Func::Acosh | Func::Asin | Func::Acos => {
+                    // real infinite argument: the principal values
+                    // asinh(w) = s*(log(2*s*w) + log((1 + sqrt(1 + w**-2))/2)),
+                    // acosh(w) = log(2*s*w) + log((1 + sqrt(1 - w**-2))/2)
+                    // (+ I*pi for s = -1), asin(w) = s*pi/2 - s*I*acosh(s*w)
+                    // and acos(w) = I*acosh(w) (pi - I*acosh(-w) for s = -1)
+                    let Some(s) = sign_of(a.lead().unwrap()).filter(|s| *s != 0) else {
+                        return Err(SErr::Pole(format!("{}({arg})", f.name())));
+                    };
+                    if matches!(a.lead(), Some(C::E(e)) if depends(e, &self.logt)) {
+                        return Err(SErr::Pole(format!("{}({arg})", f.name())));
+                    }
+                    let se = Expr::int(s as i64);
+                    let sw = mul2(&se, arg);
+                    let inv2 = pow(arg, &Expr::int(-2));
+                    let half = Expr::rational(1, 2);
+                    let log2sw = fx::log(&mul2(&Expr::int(2), &sw));
+                    let tail = |sg: i64| {
+                        fx::log(&mul2(
+                            &half,
+                            &add(&[Expr::one(), crate::ops::sqrt(&add(&[Expr::one(), mul2(&Expr::int(sg), &inv2)]))]),
+                        ))
+                    };
+                    let ipi = mul2(&Expr::i(), &Expr::pi());
+                    let acosh_sw = add(&[log2sw.clone(), tail(-1)]);
+                    let e = match f {
+                        Func::Asinh => mul2(&se, &add(&[log2sw, tail(1)])),
+                        Func::Acosh if s == 1 => acosh_sw,
+                        Func::Acosh => add(&[acosh_sw, ipi]),
+                        Func::Asin => sub(&mul(&[se.clone(), half, Expr::pi()]), &mul(&[se, Expr::i(), acosh_sw])),
+                        _ if s == 1 => mul2(&Expr::i(), &acosh_sw),
+                        _ => sub(&Expr::pi(), &mul2(&Expr::i(), &acosh_sw)),
                     };
                     self.ser(&e, n)
                 }
@@ -1261,7 +1332,8 @@ impl Engine {
     /// expanded). `None` leaves the other functions unsupported.
     fn ser_special_taylor(&mut self, s: crate::special::SpecialFn, args: &[Expr], n: i64) -> SRes<Option<Ser>> {
         use crate::special::SpecialFn::*;
-        if !matches!(s, AiryAi | AiryBi | AiryAiPrime | AiryBiPrime | EllipticK | EllipticE | EllipticF | EllipticPi | Sinc)
+        if !matches!(s, AiryAi | AiryBi | AiryAiPrime | AiryBiPrime | EllipticK | EllipticE | EllipticF | EllipticPi | Sinc
+            | BesselJ | BesselI | LambertW)
             || !s.nargs().contains(&args.len())
         {
             return Ok(None);
@@ -1306,8 +1378,43 @@ impl Engine {
             if one_arg_hyper && !at_zero {
                 return Ok(None);
             }
+            // J and I of an integer order nu >= 0 at a vanishing argument:
+            // `sum_j (+-1)**j (u/2)**(nu + 2 j)/(j! (nu + j)!)`
+            let bessel_order = if matches!(s, BesselJ | BesselI) && i == 1 {
+                args[0].as_number().filter(|k| k.is_integer() && !k.is_negative()).and_then(|k| k.to_i64())
+            } else {
+                None
+            };
+            if matches!(s, BesselJ | BesselI) && (i != 1 || (at_zero && bessel_order.is_none())) {
+                return Ok(None);
+            }
             let mut coeffs: Vec<C> = Vec::with_capacity(kmax + 1);
-            if at_zero && (one_arg_hyper || matches!(s, AiryAi | AiryBi)) {
+            if s == LambertW && (args.len() != 1 || !at_zero) {
+                return Ok(None);
+            }
+            if s == LambertW {
+                // W(u) = sum_{k >= 1} (-k)**(k - 1)/k! u**k
+                let mut fact = num_bigint::BigInt::from(1);
+                coeffs.push(C::zero());
+                for k in 1..=kmax as i64 {
+                    fact *= k;
+                    let num = num_bigint::BigInt::from(-k).pow((k - 1) as u32);
+                    coeffs.push(C::from_expr(Expr::num(Number::rational(num, fact.clone()).unwrap())));
+                }
+            } else if let (true, Some(nu)) = (at_zero, bessel_order) {
+                for k in 0..=kmax as i64 {
+                    if k < nu || (k - nu) % 2 != 0 {
+                        coeffs.push(C::zero());
+                        continue;
+                    }
+                    let j = (k - nu) / 2;
+                    let sg = if s == BesselJ && j % 2 == 1 { -1 } else { 1 };
+                    let fct = |m: i64| (1..=m).fold(num_bigint::BigInt::from(1), |a, q| a * q);
+                    let den = fct(j) * fct(j + nu) * num_bigint::BigInt::from(2).pow(k as u32);
+                    let c = crate::ops::div(&Expr::int(sg), &Expr::num(Number::from_bigint(den)));
+                    coeffs.push(C::from_expr(c));
+                }
+            } else if at_zero && (one_arg_hyper || matches!(s, AiryAi | AiryBi)) {
                 let mut fact = Expr::one();
                 for k in 0..=kmax {
                     if k > 0 {
@@ -1360,7 +1467,17 @@ impl Engine {
                     coeffs.push(C::from_expr(crate::expand::expand(&crate::ops::div(&v, &fact))));
                 }
             }
-            let res = r.compose(&coeffs, prec);
+            let mut res = r.compose(&coeffs, prec);
+            if matches!(s, BesselJ | BesselI | LambertW) {
+                // the coefficients stop at u**kmax: the remainder is
+                // O(u**(kmax + 1)) even when the computed ones vanish
+                let tail = (kmax as i64 + 1) * vr;
+                if res.exact || res.prec > tail {
+                    res = res.trunc(tail);
+                    res.exact = false;
+                    res.prec = res.prec.min(tail);
+                }
+            }
             if res.prec >= n {
                 return Ok(Some(res));
             }
@@ -1381,6 +1498,22 @@ impl Engine {
 }
 
 /// Series of the variable itself for the expansion point.
+/// The constant argument of a trigonometric function at the expansion
+/// point, cancelled as the reference `arg.subs(x, 0).cancel()` does, so a
+/// multiple of `pi` in disguise (`-12*pi**2/(24*pi - 2) + pi/(24*pi - 2)`)
+/// evaluates the function (issue 14411).
+fn trig_point(e0: Expr) -> Expr {
+    if matches!(e0.kind(), Kind::Add(..))
+        && crate::traverse::has(&e0, &Expr::pi())
+        && crate::traverse::free_symbols(&e0).is_empty()
+    {
+        if let Ok(c) = crate::poly::api::cancel(&e0) {
+            return c;
+        }
+    }
+    e0
+}
+
 pub fn var_series(x0: &Expr, minus: bool, d: i64) -> Ser {
     let sgn = if minus { -1 } else { 1 };
     if x0.is_constant(Constant::Infinity) {

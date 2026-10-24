@@ -343,7 +343,8 @@ impl Gruntz {
         let interesting = matches!(f, Func::Erf | Func::Erfc)
             || matches!(f, Func::Special(
                 S::Erfi | S::Ei | S::Li | S::LiOffset | S::Si | S::Ci | S::Shi | S::Chi | S::Expint
-                    | S::E1 | S::UpperGamma | S::LowerGamma | S::FresnelS | S::FresnelC));
+                    | S::E1 | S::UpperGamma | S::LowerGamma | S::FresnelS | S::FresnelC
+                    | S::BesselJ | S::BesselY | S::BesselI | S::BesselK));
         if !interesting {
             return None;
         }
@@ -377,6 +378,9 @@ impl Gruntz {
                 });
             }
             return None;
+        }
+        if let Func::Special(b @ (S::BesselJ | S::BesselY | S::BesselI | S::BesselK)) = f {
+            return self.bessel_tractable(*b, &args[0], z, s);
         }
         let sz = Expr::int(s);
         Some(match f {
@@ -453,6 +457,63 @@ impl Gruntz {
                 }
             }
             _ => return None,
+        })
+    }
+
+    /// Hankel's asymptotic forms of the Bessel functions at a real infinite
+    /// argument (the leading terms of the reference
+    /// `_eval_as_leading_term`, with the full asymptotic series in the
+    /// auxiliary functions): `J` and `Y` oscillate with an amplitude
+    /// `sqrt(2/(pi z))`, `I ~ exp(z)/sqrt(2 pi z)`, `K ~ sqrt(pi/(2 z)) exp(-z)`.
+    /// At `-oo` an integer order uses `J(nu, -u) = (-1)**nu J(nu, u)`,
+    /// `I(nu, -u) = (-1)**nu I(nu, u)`, `Y(nu, -u) = (-1)**nu (Y(nu, u) +
+    /// 2 i J(nu, u))` and `K(nu, -u) = (-1)**nu K(nu, u) - i pi I(nu, u)`
+    /// (principal branch, `arg(-u) = pi`).
+    fn bessel_tractable(&mut self, b: crate::special::SpecialFn, nu: &Expr, z: &Expr, s: i64) -> Option<Expr> {
+        use crate::series::asym::Asym;
+        use crate::special::SpecialFn as S;
+        let one = Expr::one();
+        let half = Expr::rational(1, 2);
+        let form = |b: S, u: &Expr| -> Expr {
+            let aux = |k: Asym| k.apply(vec![nu.clone(), u.clone()]);
+            match b {
+                S::BesselJ | S::BesselY => {
+                    let w = sub(u, &mul(&[add(&[mul2(&Expr::int(2), nu), one.clone()]), Expr::pi(), Expr::rational(1, 4)]));
+                    let pref = mul2(&crate::ops::sqrt(&Expr::int(2)), &pow(&mul2(&Expr::pi(), u), &neg(&half)));
+                    let p = add(&[one.clone(), aux(Asym::BesP)]);
+                    let q = aux(Asym::BesQ);
+                    let r = if b == S::BesselJ {
+                        sub(&mul2(&fx::cos(&w), &p), &mul2(&fx::sin(&w), &q))
+                    } else {
+                        add(&[mul2(&fx::sin(&w), &p), mul2(&fx::cos(&w), &q)])
+                    };
+                    mul2(&pref, &r)
+                }
+                S::BesselI => mul(&[
+                    fx::exp(u),
+                    pow(&mul(&[Expr::int(2), Expr::pi(), u.clone()]), &neg(&half)),
+                    add(&[one.clone(), aux(Asym::BesI)]),
+                ]),
+                _ => mul(&[
+                    crate::ops::sqrt(&div(&Expr::pi(), &Expr::int(2))),
+                    pow(u, &neg(&half)),
+                    fx::exp(&neg(u)),
+                    add(&[one.clone(), aux(Asym::BesK)]),
+                ]),
+            }
+        };
+        if s == 1 {
+            return Some(form(b, z));
+        }
+        if !nu.as_number().is_some_and(|k| k.is_integer()) {
+            return None;
+        }
+        let u = neg(z);
+        let sg = pow(&Expr::minus_one(), nu);
+        Some(match b {
+            S::BesselJ | S::BesselI => mul2(&sg, &form(b, &u)),
+            S::BesselY => mul2(&sg, &add(&[form(S::BesselY, &u), mul(&[Expr::int(2), Expr::i(), form(S::BesselJ, &u)])])),
+            _ => sub(&mul2(&sg, &form(S::BesselK, &u)), &mul(&[Expr::i(), Expr::pi(), form(S::BesselI, &u)])),
         })
     }
 
@@ -728,6 +789,13 @@ impl Gruntz {
         if let Some(r) = self.symbolic_power_leadterm(f, w, logw) {
             return r;
         }
+        if let Some(g) = self.split_symbolic_bases(f, w, logw) {
+            if let Some(r) = self.symbolic_power_leadterm(&g, w, logw) {
+                if r.is_ok() {
+                    return r;
+                }
+            }
+        }
         let l = self.fresh("logw");
         let plain = self.lt_cancel(f, w, &l, logw);
         let x = self.x.clone();
@@ -810,6 +878,47 @@ impl Gruntz {
             Err(err) => Err(err),
         };
         Some(r)
+    }
+
+    /// `b**p` with a symbolic `p` and a base `b ~ c*w**m` that is real and
+    /// positive near `w = 0+` is `c**p*w**(m*p)*(b/(c*w**m))**p` (all three
+    /// factors positive), which exposes the power of the mrv variable the
+    /// reference `exp(p*log(b))` expansion with `log(w) = logw` produces
+    /// (`(1/w + 1)**(k + 1)`, issue 22334). `(1/w)**p` becomes `w**(-p)`.
+    fn split_symbolic_bases(&mut self, f: &Expr, w: &Expr, logw: &Expr) -> Option<Expr> {
+        let wp = Expr::dummy("wpos", crate::symbol::Assumptions::POSITIVE);
+        let l = self.fresh("logw");
+        let mut changed = false;
+        let g = crate::simptools::bottom_up(f, &mut |u| {
+            let Kind::Pow(b, p) = u.kind() else { return u.clone() };
+            if p.is_number() || depends(p, w) || !depends(b, w) {
+                return u.clone();
+            }
+            if let Some(s) = w_power_exponent(b, p, w) {
+                if b != w {
+                    changed = true;
+                    return pow(w, &s);
+                }
+                return u.clone();
+            }
+            let mut m = FxHashMap::default();
+            m.insert(w.clone(), wp.clone());
+            if crate::assumptions::is_real(&xreplace(b, &m)) != Some(true) {
+                return u.clone();
+            }
+            let Ok(lt) = leading_term_with(b, w, &Expr::zero(), false, &l, logw) else { return u.clone() };
+            let c = lt.coeff.clone();
+            if c.is_zero() || depends(&c, w) || depends(&lt.coeff_logt, &l) || depends(&c, &self.x) {
+                return u.clone();
+            }
+            if crate::assumptions::is_positive(&c) != Some(true) {
+                return u.clone();
+            }
+            let wm = pow(w, &Expr::num(lt.exp.clone()));
+            changed = true;
+            mul(&[pow(&c, p), pow(w, &mul2(&Expr::num(lt.exp.clone()), p)), pow(&div(b, &mul2(&c, &wm)), p)])
+        });
+        changed.then_some(g)
     }
 
     /// Leading term of `f` in `w`, the expansion keeping `log(w)` as the

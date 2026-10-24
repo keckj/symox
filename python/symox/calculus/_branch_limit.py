@@ -131,6 +131,33 @@ def _lower_side_at_infinity(e, z, z0):
     return e.xreplace(mapping)
 
 
+def _symbolic_side(a, z, z0, dir, w, axis):
+    """Side of the cut for ``a`` on ``z = z0 +- h`` (``h -> 0+``) from the
+    leading term of ``im`` (or ``re``) of ``a - w``, with a path point far
+    enough inside that side for the numerical checks."""
+    from .. import Dummy, expand
+    h = Dummy('h', positive=True)
+    try:
+        d = expand(a.subs(z, z0 + h if dir == '+' else z0 - h) - w)
+        part = expand(im(d) if axis == 'im' else re(d))
+        if part.has(im, re) or part.is_zero is not False:
+            return None, None
+        lt = part.as_leading_term(h)
+        c, p = lt.as_coeff_exponent(h)
+        if c.has(h) or not c.is_number or not p.is_number or p.is_positive is not True:
+            return None, None
+        cv = _num(c, 30)
+        if cv is None or abs(cv.imag) > _TOL*abs(cv) or cv.real == 0:
+            return None, None
+        # a step small enough for the leading term to dominate, while
+        # the displacement stays well above the evaluation precision
+        k = max(4, min(30, int(40/(float(p) + 1))))
+        hp = Rational(1, 10**k)
+        return (1 if cv.real > 0 else -1), (z0 + hp if dir == '+' else z0 - hp)
+    except Exception:
+        return None, None
+
+
 def branch_side_rewrite(e, z, z0, dir):
     if not getattr(z, 'is_Symbol', False):
         return None
@@ -174,24 +201,31 @@ def branch_side_rewrite(e, z, z0, dir):
             continue
         d = an - wn
         side = d.imag if axis == 'im' else d.real
+        zq = zp
         if abs(side) <= 1e-50:
-            continue
-        s = 1 if side > 0 else -1
-        a_path = a.subs(z, zp)
+            # The displacement off the axis is of higher order than the
+            # step (`-I*x**2 + x - 3`): read its sign from the leading term
+            # of the exact displacement on the approach path.
+            s, zq = _symbolic_side(a, z, z0, dir, w, axis)
+            if s is None:
+                continue
+        else:
+            s = 1 if side > 0 else -1
+        a_path = a.subs(z, zq)
         exact = _num(Pow(a_path, f.exp) if isinstance(f, Pow) else f.func(a_path), 30)
         principal = _num(Pow(w, f.exp) if isinstance(f, Pow) else f.func(w), 30)
         if exact is None or principal is None or _close(exact, principal):
             continue
         if isinstance(f, log):
             new = log(-a) + s*I*pi
-            if _close(_num(new.subs(z, zp), 30), exact):
+            if _close(_num(new.subs(z, zq), 30), exact):
                 mapping[f] = new
             continue
         if isinstance(f, Pow):
             r = f.exp
             phase = (-1)**r if s > 0 else -(-1)**(1 - r)
             new = Pow(-a, r)*phase
-            if _close(_num(new.subs(z, zp), 30), exact):
+            if _close(_num(new.subs(z, zq), 30), exact):
                 mapping[f] = new
             continue
         for c in _candidates(f, w):

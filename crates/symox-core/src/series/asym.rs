@@ -36,9 +36,19 @@ pub enum Asym {
     FresF,
     /// `g`: `Σ (-1)**m (4m+1)!!/pi**(2m+2) z**-(4m+3)`
     FresG,
+    /// `P - 1` of `J(nu, z) = sqrt(2/(pi z))*(cos(w)*P - sin(w)*Q)`,
+    /// `w = z - (2 nu + 1) pi/4`: `Σ (-1)**j a_2j(nu) z**-2j` (`j >= 1`),
+    /// `a_k(nu) = prod_{i=1..k} (4 nu**2 - (2i - 1)**2)/(k! 8**k)`
+    BesP,
+    /// `Q`: `Σ (-1)**j a_{2j+1}(nu) z**-(2j+1)`
+    BesQ,
+    /// `sqrt(2 pi z)*exp(-z)*I(nu, z) - 1`: `Σ (-1)**k a_k(nu) z**-k`
+    BesI,
+    /// `sqrt(2 z/pi)*exp(z)*K(nu, z) - 1`: `Σ a_k(nu) z**-k`
+    BesK,
 }
 
-const NAMES: [(Asym, &str); 8] = [
+const NAMES: [(Asym, &str); 12] = [
     (Asym::Erfs, "_symox_erfs"),
     (Asym::Erfis, "_symox_erfis"),
     (Asym::Eis, "_symox_eis"),
@@ -47,6 +57,10 @@ const NAMES: [(Asym, &str); 8] = [
     (Asym::SiG, "_symox_sig"),
     (Asym::FresF, "_symox_fresf"),
     (Asym::FresG, "_symox_fresg"),
+    (Asym::BesP, "_symox_besp"),
+    (Asym::BesQ, "_symox_besq"),
+    (Asym::BesI, "_symox_besi"),
+    (Asym::BesK, "_symox_besk"),
 ];
 
 impl Asym {
@@ -120,6 +134,24 @@ impl Asym {
                 let num = int(odd_factorial(2 * m + d));
                 let p = pow(&Expr::pi(), &Expr::int(-(2 * m + 1 + d)));
                 mul2(&Expr::int(sgn(m)), &mul2(&num, &p))
+            }
+            Asym::BesP | Asym::BesQ | Asym::BesI | Asym::BesK => {
+                let s = match self {
+                    Asym::BesP if k % 2 == 1 => return zero,
+                    Asym::BesQ if k % 2 == 0 => return zero,
+                    Asym::BesP => sgn(k / 2),
+                    Asym::BesQ => sgn((k - 1) / 2),
+                    Asym::BesI => sgn(k),
+                    _ => 1,
+                };
+                let nu = &args[0];
+                let four_nu2 = mul2(&Expr::int(4), &pow(nu, &Expr::int(2)));
+                let mut acc = Expr::int(s);
+                for i in 1..=k {
+                    acc = mul2(&acc, &add(&[four_nu2.clone(), Expr::int(-(2 * i - 1) * (2 * i - 1))]));
+                }
+                let den = factorial(k) * BigInt::from(8).pow(k as u32);
+                crate::expand::expand(&crate::ops::div(&acc, &int(den)))
             }
         }
     }
