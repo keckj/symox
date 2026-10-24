@@ -291,6 +291,12 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
             let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };
             parent.and_then(|p| p.determinant().ok()).unwrap_or_else(|| e.clone())
         }
+        Kind::Func(Func::MatrixElement(parent), args) if args.len() == 2 => {
+            // SymPy's MatrixElement.doit: args[0][args[1], args[2]] (the
+            // constructor keeps product entries held, `_entry` expands them).
+            let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };
+            parent.and_then(|p| p.element(&child(&args[0]), &child(&args[1])).ok()).unwrap_or_else(|| e.clone())
+        }
         Kind::Func(f @ (Func::Integral|Func::Sum|Func::Product),args)=>crate::binders::doit(f,args,deep),
         Kind::Func(Func::Special(s), args) if s.is_transform() => {
             let args: Vec<Expr> = args.iter().map(child).collect();

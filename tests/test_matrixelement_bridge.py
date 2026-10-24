@@ -32,7 +32,9 @@ def test_scalar_replacements_descend_matrix_metadata_once():
     assert replaced.args[0].shape == (m, m)
     finite = replaced.subs(m, 2)
     aa, bb = s.MatrixSymbol("A", 2, 2), s.MatrixSymbol("B", 2, 2)
-    assert finite == aa[0, 0]*bb[0, 0] + aa[0, 1]*bb[1, 0]
+    # SymPy 1.14 keeps the entry held until doit.
+    assert finite == s.MatrixElement(aa*bb, 0, 0)
+    assert finite.doit() == aa[0, 0]*bb[0, 0] + aa[0, 1]*bb[1, 0]
     assert (a[0, 0]+a[1, 1]).xreplace({a: b}) == b[0, 0]+b[1, 1]
     concrete = s.Matrix([[2, 3], [5, 7]])
     assert aa[1, 0].subs(aa, concrete) == 5

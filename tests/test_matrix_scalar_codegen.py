@@ -68,7 +68,9 @@ def test_unevaluated_tensor_derivatives_remain_explicitly_unsupported():
     x=sm.Symbol("x")
     # SymPy 1.14: the matrix-line derivative gives Identity(2).
     assert sm.diff(sm.Trace(a),a)==sm.Identity(2)
-    for operation in (lambda:sm.Derivative(a,x),lambda:sm.Derivative(sm.Trace(a),a),
+    # SymPy 1.14 keeps Derivative(A, x) held.
+    assert type(sm.Derivative(a,x)).__name__=="Derivative"
+    for operation in (lambda:sm.Derivative(sm.Trace(a),a),
                       lambda:sm.Trace(a).diff()):
         with pytest.raises(NotImplementedError,match="matrix|tensor"):
             operation()

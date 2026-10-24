@@ -125,27 +125,48 @@ class ArrayDerivative:
 
 
 class Derivative(ArrayDerivative):
-    """SymPy's ``Derivative(X, A)`` of a matrix expression by matrices it does not contain.
+    """SymPy's held ``Derivative(X, v)`` of a matrix expression.
 
-    ``Derivative.doit`` reaches ``MatrixExpr._eval_derivative``, which gives
-    ``ZeroMatrix(*X.shape)`` for every such variable.
+    Without the variables in ``X``, ``Derivative.doit`` reaches
+    ``MatrixExpr._eval_derivative``, which gives ``ZeroMatrix(*X.shape)``.
+    With them, SymPy's ``doit`` is wrong or raises (``Derivative(X, X)``
+    gives 0, ``Derivative(X*A, X)`` a TypeError); here it is the derivative
+    ``X.diff(v)``, and the held form stays when that is unsupported.
     """
     __slots__ = ()
 
+    @property
+    def shape(self):
+        # Scalar variables add no axes.
+        shape = ()
+        for v, c in self._variable_count:
+            shape += tuple(getattr(v, 'shape', ())) * int(c)
+        return shape + tuple(self._expr.shape)
+
     def doit(self, **hints):
         S = _symox()
-        return S.ZeroMatrix(*self._expr.shape)
+        if not any(self._expr.has(v) for v, _ in self._variable_count):
+            return S.ZeroMatrix(*self._expr.shape)
+        expr = self._expr.doit(**hints) if hints.get('deep', True) else self._expr
+        try:
+            for v in self.variables:
+                expr = expr.diff(v)
+        except (NotImplementedError, TypeError, AttributeError):
+            return self
+        return expr
 
     def srepr(self):
         S = _symox()
         return 'Derivative(%s)' % ', '.join(S.srepr(arg) for arg in self.args)
 
 
-def held_matrix_derivative(expr, variables, cls=ArrayDerivative):
+def held_matrix_derivative(expr, variables, cls=ArrayDerivative, contained=False):
     """The held SymPy result of ``expr.diff(*variables)``, or None.
 
     ``expr`` is a matrix expression and every variable a MatrixSymbol (or a
-    ``(MatrixSymbol, count)`` pair) that ``expr`` does not contain.
+    ``(MatrixSymbol, count)`` pair) that ``expr`` does not contain.  With
+    ``contained`` (the ``Derivative`` constructor), the variables may occur
+    in ``expr`` and may also be scalar Symbols.
     """
     from ... import _core
     pairs = []
@@ -155,14 +176,16 @@ def held_matrix_derivative(expr, variables, cls=ArrayDerivative):
             if len(v) != 2:
                 return None
             v, count = v
-        if not (isinstance(v, _core._MatrixExpr) and v._kind_tag == 'MatrixSymbol'):
+        if contained and getattr(v, 'is_Symbol', False) and not isinstance(v, _core._MatrixExpr):
+            pass
+        elif not (isinstance(v, _core._MatrixExpr) and v._kind_tag == 'MatrixSymbol'):
             return None
         if not (isinstance(count, int) or getattr(count, 'is_Integer', False)) or int(count) <= 0:
             return None
         pairs.append((v, count))
     if not pairs or not isinstance(expr, _core._MatrixExpr):
         return None
-    if any(expr.has(v) for v, _ in pairs):
+    if not contained and any(expr.has(v) for v, _ in pairs):
         return None
     return cls(expr, *pairs)
 

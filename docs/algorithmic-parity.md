@@ -9417,3 +9417,49 @@ Remaining (unevaluated, never a wrong value):
 
 Tests: `tests/test_limrest2_parity.py`. The strict xfail on `x*Shi(x)*I` in
 `tests/test_limacc_parity.py` is removed, because that limit now evaluates.
+
+## mat-rest8 (wave 14)
+
+Done:
+- Derivatives of HadamardProduct, HadamardPower and `applyfunc` by a
+  MatrixSymbol go through SymPy's array-expression path, which is now
+  vendored in `symox/_arrayexpr` (`convert_matrix_to_array`, `array_derive`,
+  `convert_array_to_matrix`). `ArrayDiagonal` converts to `DiagMatrix`
+  forms. `DiagMatrix.doit` pulls scalars out of a vector product and unwraps
+  a Transpose, as SymPy does. A HadamardPower with a symbolic shape and a
+  scalar exponent gives `hadamard_product(dexp*log.(base) + exp*dlbase, self)`.
+- `hadamard_product` sorts its arguments in SymPy's canonical order:
+  MatMul, then MatAdd, then the other matrix classes.
+- A held matrix `Derivative(X, X)` or `Derivative(X*A, X)` is built and
+  stays held, as in SymPy. Its `doit` returns `expr.diff(v)` for each
+  variable, or stays held when that diff is unsupported. Here SymPy is
+  wrong or raises: `Derivative(X, X).doit()` is 0 and
+  `Derivative(X*A, X).doit()` raises TypeError. symox gives the array
+  derivative `PermuteDims(ArrayTensorProduct(I, I), (3)(1 2))`, which is
+  equal to `X.diff(X)` in both libraries.
+- For a product entry with mixed finite and symbolic inner dimensions, the
+  leading finite limits are summed (as SymPy's `eval_sum_direct` does). The
+  rest stays a Sum over the remaining limits.
+- `MatrixElement(A*B, 0, 0).subs(n, 2)` stays held, and `doit` expands it
+  (`args[0][args[1], args[2]]`).
+
+Probe (matrices tests, 41 files): same 5350 -> 5366, diff 312 -> 311,
+exc 133 -> 126, no statement from same to different.
+
+Remaining (a different form, never a wrong value):
+- `hadamard_power(a.T*X*b, S.Half).diff(X)` is
+  `a*Lambda(_d, 1/(2*sqrt(_d))).(a.T*X*b)*b.T`. SymPy gives
+  `(1/2)*a*(a.T*X*b)**(-1/2)*b.T`, because its ElementwiseApplyFunction
+  applies the function directly to a 1x1 argument. In symox a 1x1
+  MatrixExpr inside a scalar Lambda is turned into a scalar.
+- A nested `applyfunc` derivative is composed only through a `doit` retry.
+  For the uncomposed form, SymPy's conversion raises IndexError.
+- `Trace(Trace(Trace(A)*A)*A).diff(A)` and the two-term
+  `(Trace(A)**2*X).diff(A)` split are still open (see mat-rest7). SymPy's
+  `MatrixExpr.__mul__` does a deep `doit` of the product, and symox's `*`
+  does not.
+- The cookbook quadratic-form element derivative is equal, but SymPy pulls
+  `b[n, 0]` out of the first Sum. This was not attempted.
+
+Tests: `tests/test_mat_rest8_parity.py`. Three older tests that expected an
+error or the eager entry now check the SymPy values.

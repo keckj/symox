@@ -134,6 +134,18 @@ class ElementwiseApplyFunction(MatrixExpr):
         function = _normalize_matrix_function(function, 1, 'ElementwiseApplyFunction')
         return _core._matrixexpr_node('ElementwiseApplyFunction', (function, expr))
 
+    def _get_function_fdiff(self):
+        # SymPy's ElementwiseApplyFunction._get_function_fdiff
+        from . import Dummy, Function, Lambda
+        d = Dummy("d")
+        function = self.function(d)
+        fdiff = function.diff(d)
+        if isinstance(fdiff, Function):
+            fdiff = fdiff.func
+        else:
+            fdiff = Lambda(d, fdiff)
+        return fdiff
+
 
 class MatAdd(MatrixExpr):
     """Represent a shape-checked sum of symbolic matrices."""
