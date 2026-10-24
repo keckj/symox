@@ -33,7 +33,6 @@ def test_nthroot_of_near_integer_radical_sum():
         assert nthroot(p, 5) == q
 
 
-@pytest.mark.xfail(strict=True, reason="native simplify selection keeps the cancelled form (documented gap)")
 def test_simplify_keeps_factored_denominator():
     e = simplify((x + 5) / (16 * x**2 + 28 * x + 6))
     assert str(e) == "(x + 5)/(2*(8*x**2 + 14*x + 3))"

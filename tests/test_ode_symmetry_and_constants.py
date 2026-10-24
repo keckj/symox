@@ -85,8 +85,13 @@ def test_every_named_symmetry_search_returns_proved_generators(source,hint):
     function,x = native['f'],native['x']
     found = infinitesimals(equation,function,hint=hint)
     assert found
-    assert all(valid and residual==0 for valid,residual in checkinfsol(equation,found,function))
+    checked = checkinfsol(equation,found,function)
     reference = reference_checkinfsol(equation.to_sympy(),convert(found),function.to_sympy())
+    # checkinfsol is SymPy's: one simplify of the determining residual, which
+    # can leave it unreduced exactly where SymPy's checker does.
+    assert all(valid and residual==0 or (not valid and not ref_valid and
+               sp.simplify(sp.powsimp(sp.expand(convert(residual))))==0)
+               for (valid,residual),(ref_valid,_) in zip(checked,reference))
     # SymPy's checker can leave cancellable symbolic powers in its residual.
     # Demand an independent exact zero certificate, including that case.
     assert all(sp.simplify(sp.powsimp(sp.expand(residual)))==0

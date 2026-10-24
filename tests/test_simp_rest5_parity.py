@@ -9,7 +9,6 @@ x, y = symbols("x y")
 i = symbols("i", imaginary=True)
 
 
-@pytest.mark.xfail(strict=True, reason="native simplify selection differs from SymPy's sequence (documented gap)")
 def test_simplify_reference_sequence_forms():
     assert str(simplify((x + 5) / (16 * x**2 + 28 * x + 6))) == "(x + 5)/(2*(8*x**2 + 14*x + 3))"
     assert simplify(x / (x * y) + y / (x * y)) == (x + y) / (x * y)
@@ -22,7 +21,6 @@ def test_simplify_piecewise_form():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="native simplify selection differs from SymPy's sequence (documented gap)")
 def test_issue_17141():
     assert simplify(x ** (1 / acos(I))) == x ** (2 / (pi - 2 * I * log(1 + sqrt(2))))
     assert simplify(acos(I) ** 2) == (pi - 2 * I * log(1 + sqrt(2))) ** 2 / 4

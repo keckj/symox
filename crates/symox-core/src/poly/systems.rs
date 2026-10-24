@@ -167,6 +167,13 @@ pub fn solve_poly_system(
     equations: &[Expr],
     variables: &[Expr],
 ) -> PResult<Option<Vec<Vec<Expr>>>> {
+    crate::simplify::with_native_selection(|| solve_poly_system_native(equations, variables))
+}
+
+fn solve_poly_system_native(
+    equations: &[Expr],
+    variables: &[Expr],
+) -> PResult<Option<Vec<Vec<Expr>>>> {
     if variables.is_empty() {
         return Err(unsupported("polynomial system solving requires generators"));
     }

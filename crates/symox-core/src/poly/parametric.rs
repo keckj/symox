@@ -198,6 +198,10 @@ fn descend(mut s: State, variables: &[Expr], budget: &mut usize) -> PResult<Vec<
 /// Decompose the complete complex zero set in the supported triangular class.
 /// Unsupported branches invalidate the whole result, never just one component.
 pub fn nonlinsolve(equations: &[Expr], variables: &[Expr]) -> PResult<Vec<Branch>> {
+    crate::simplify::with_native_selection(|| nonlinsolve_native(equations, variables))
+}
+
+fn nonlinsolve_native(equations: &[Expr], variables: &[Expr]) -> PResult<Vec<Branch>> {
     if variables.is_empty() || variables.iter().enumerate().any(|(i,x)| !matches!(x.kind(), Kind::Sym(_)) || variables[..i].contains(x)) {
         return Err(PolyError::Failed("generators must be distinct symbols".into()));
     }
