@@ -17,6 +17,9 @@ pub(super) enum Analysis {
     Regular(Expr),
     Unknown,
     Value(Expr),
+    /// Regular unless one of the symbols vanishes: a root `I*k*s` with `s`
+    /// real is a real pole (at 0, on the interval) only when `s = 0`.
+    Degenerate(Expr, Vec<Expr>),
 }
 
 #[derive(Clone)]
@@ -268,6 +271,7 @@ pub(super) fn analyze(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Analysis {
     if cancelled.is_zero() {
         return Analysis::Value(Expr::zero());
     }
+    let mut degenerate: Vec<Expr> = Vec::new();
     let mut positive = false;
     let mut negative = false;
     let mut contribution = |sign: i8| {
@@ -305,7 +309,17 @@ pub(super) fn analyze(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Analysis {
                 match crate::assumptions::is_real(&root.0) {
                     Some(true) => real.push(root),
                     Some(false) => {}
-                    None => return Analysis::Unknown,
+                    None => match imaginary_multiple(&root.0) {
+                        Some(sym) => {
+                            let zero = Expr::zero();
+                            let outside = compare(&zero, a) == Some(Ordering::Less)
+                                || compare(&zero, b) == Some(Ordering::Greater);
+                            if !outside {
+                                degenerate.push(sym);
+                            }
+                        }
+                        None => return Analysis::Unknown,
+                    },
                 }
                 decided += root.1 as usize;
             }
@@ -378,9 +392,26 @@ pub(super) fn analyze(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Analysis {
         Analysis::Value(Expr::oo())
     } else if negative {
         Analysis::Value(Expr::neg_oo())
+    } else if !degenerate.is_empty() {
+        Analysis::Degenerate(cancelled, degenerate)
     } else {
         Analysis::Regular(cancelled)
     }
+}
+
+/// `s` when `root = I*k*s` with `k` a nonzero number and `s` a real symbol.
+fn imaginary_multiple(root: &Expr) -> Option<Expr> {
+    let q = crate::ops::div(root, &Expr::i());
+    let symbols = crate::traverse::free_symbols(&q);
+    if symbols.len() != 1 {
+        return None;
+    }
+    let sym = symbols.into_iter().next()?;
+    if crate::assumptions::is_real(&sym) != Some(true) {
+        return None;
+    }
+    let k = crate::ops::div(&q, &sym);
+    (k.as_number().is_some() && !k.is_zero() && crate::assumptions::is_real(&k) == Some(true)).then_some(sym)
 }
 
 #[cfg(test)]
