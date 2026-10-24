@@ -53,10 +53,11 @@ class Derivative(metaclass=_ExprType):
             from ._differentiation import unsimplified_diff
             return unsimplified_diff(expr,variables)
         if isinstance(expr,_core._MatrixExpr) and variables:
-            # Derivative(X, A) with matrix variables X does not contain: held,
-            # doit gives ZeroMatrix(*X.shape) (MatrixExpr._eval_derivative).
+            # Derivative(X, v) of a matrix expression stays held, as in SymPy
+            # (doit: ZeroMatrix(*X.shape) when X does not contain v, else
+            # X.diff(v)).
             from .tensor.array import array_derivatives
-            held=array_derivatives.held_matrix_derivative(expr,variables,array_derivatives.Derivative)
+            held=array_derivatives.held_matrix_derivative(expr,variables,array_derivatives.Derivative,contained=True)
             if held is not None:
                 return held.doit() if evaluate else held
         result=_core.Derivative(expr,*variables,evaluate=bool(evaluate))

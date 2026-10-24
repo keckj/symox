@@ -184,7 +184,8 @@ def test_scalar_derivatives_match_entrywise_sympy(operation):
 
 def test_symbolic_variable_exponent_requires_explicit_entries():
     n=sx.Symbol('n',integer=True,positive=True);x=sx.Symbol('x',real=True);A=sx.MatrixSymbol('A',n,n)
-    with pytest.raises(NotImplementedError,match='finite'): sx.HadamardPower(A,x).diff(x)
+    # SymPy 1.14: HadamardProduct(Lambda(_d, log(_d)).(A), HadamardPower(A, x))
+    assert str(sx.HadamardPower(A,x).diff(x))=="HadamardProduct(Lambda(_d, log(_d)).(A), HadamardPower(A, x))"
     assert sx.HadamardPower(A,3).diff(x)==sx.ZeroMatrix(n,n)
     assert sx.HadamardPower(2,x*A).diff(x).shape==(n,n)
 

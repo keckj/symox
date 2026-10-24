@@ -409,11 +409,51 @@ def _rank_four(lines, x):
     return terms[0] if len(terms) == 1 else ArrayAdd(*terms)
 
 
+_ELEMENTWISE = frozenset(('HadamardProduct', 'HadamardPower', 'ElementwiseApplyFunction'))
+
+
+def _has_elementwise(expr):
+    """Whether an element-wise matrix operation occurs in ``expr``."""
+    stack = [expr]
+    while stack:
+        node = stack.pop()
+        if matrix_tag(node) in _ELEMENTWISE:
+            return True
+        stack.extend(a for a in getattr(node, 'args', ()) if hasattr(a, 'args'))
+    return False
+
+
+def _array_matrix_derivative(expr, x):
+    """SymPy's ``_matrix_derivative`` (array-expression algorithm).
+
+    ``convert_matrix_to_array``, ``array_derive`` and
+    ``convert_array_to_matrix`` of SymPy 1.14 (``symox._arrayexpr``).
+    """
+    from ._arrayexpr.from_matrix_to_array import convert_matrix_to_array
+    from ._arrayexpr.arrayexpr_derivatives import array_derive
+    from ._arrayexpr.from_array_to_matrix import convert_array_to_matrix
+    try:
+        return convert_array_to_matrix(array_derive(convert_matrix_to_array(expr), x))
+    except IndexError:
+        # SymPy's ArrayDiagonal flattening fails on a nested
+        # ElementwiseApplyFunction. SymPy's MatrixExpr.__mul__ composes them
+        # (MatMul(...).doit()), so a.T*X.applyfunc(sin).applyfunc(log)*b is
+        # derived from the composed form there.
+        evaluated = expr.doit()
+        if evaluated == expr:
+            raise
+        return convert_array_to_matrix(array_derive(convert_matrix_to_array(evaluated), x))
+
+
 def matrix_derivative(expr, x):
     """``expr.diff(x)`` for a matrix expression or scalar and a MatrixSymbol ``x``."""
     S = _S()
     if not _is_matrix(expr) and not expr.has(x):
         return S.ZeroMatrix(*x.shape)
+    if _has_elementwise(expr):
+        # Element-wise operations need the ArrayDiagonal forms of SymPy's
+        # array-expression path (DiagMatrix and HadamardProduct results).
+        return _array_matrix_derivative(expr, x)
     lines = _lines(expr, x)
     parts = [[_to_matrix(j) for j in line.build()] for line in lines]
 

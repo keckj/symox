@@ -293,6 +293,18 @@ impl MatrixExpr {
         let size=if vector.cols().is_one(){vector.rows().clone()}else if vector.rows().is_one(){vector.cols().clone()}else if vector.rows().is_zero()&&vector.cols().is_zero(){Expr::zero()}else{return Err(MatrixError::Shape("DiagMatrix requires a row or column vector".into()));};
         Ok(Self::new(MatrixKind::Diag(vector.clone()),size.clone(),size))
     }
+    /// SymPy's `DiagMatrix.doit`: the scalar factors of a MatMul vector come
+    /// out (`2*DiagMatrix(A*x)`), and a transposed vector is unwrapped.
+    fn diag_doit(vector:&Self)->MResult<Self>{
+        if let MatrixKind::Mul(coefficient,factors)=vector.kind(){
+            if !coefficient.is_one(){
+                let inner=Self::mul(Expr::one(),factors,true)?;
+                return Self::mul(coefficient.clone(),&[Self::diag_doit(&inner)?],true);
+            }
+        }
+        if let MatrixKind::Transpose(inner)=vector.kind(){return Self::diag(inner);}
+        Self::diag(vector)
+    }
     pub fn diagonal_of(parent:&Self)->MResult<Self>{
         let size=crate::functions::min(vec![parent.rows().clone(),parent.cols().clone()]);
         Ok(Self::new(MatrixKind::DiagonalOf(parent.clone()),size,Expr::one()))
@@ -413,7 +425,11 @@ impl MatrixExpr {
         while i<rest.len(){let mut end=i+1;while end<rest.len()&&rest[end]==rest[i]{end+=1;}
             grouped.push(if end-i==1{rest[i].clone()}else{Self::hadamard_power(MatrixOperand::Matrix(rest[i].clone()),MatrixOperand::Scalar(Expr::int((end-i) as i64)),true)?});i=end;
         }
-        grouped.sort();
+        // SymPy canonicalizes by default_sort_key, whose class_key puts MatMul
+        // (Mul's (3, 0)) and MatAdd (Add's (3, 1)) before the other matrix
+        // classes ((5, 0, name)).
+        let class_rank=|m:&Self|match m.kind(){MatrixKind::Mul(..)=>0u8,MatrixKind::Add(_)=>1,_=>2};
+        grouped.sort_by(|a,b|class_rank(a).cmp(&class_rank(b)).then_with(||a.cmp(b)));
         Ok(match grouped.len(){0=>Self::one(rows,cols)?,1=>grouped.remove(0),_=>Self::new(MatrixKind::HadamardProduct(grouped),rows,cols)})
     }
     pub fn hadamard_power(base:MatrixOperand,exponent:MatrixOperand,evaluate:bool)->MResult<Self>{
@@ -778,6 +794,14 @@ impl MatrixExpr {
                     let mut terms=vec![Self::mul(func(Func::Log,vec![a.clone()]),&[Self::hadamard_product(&[self.clone(),de],true)?],true)?];
                     if !da.is_zero(){terms.push(Self::mul(crate::ops::div(&da,a),&[Self::hadamard_product(&[self.clone(),exponent.clone()],true)?],true)?);}
                     Self::add(&terms,true)?
+                }else if let(Err(_),MatrixOperand::Matrix(m),MatrixOperand::Scalar(e),MatrixOperand::Scalar(dexp))=(self.as_explicit(),base,exponent,&de){
+                    // SymPy's HadamardPower._eval_derivative:
+                    // hadamard_product(dexp*logbase + exp*dlbase, self).
+                    let d=Expr::dummy("d",crate::Assumptions::NONE);
+                    let logbase=Self::apply_function(crate::sets::lambda_checked(&d,&func(Func::Log,vec![d.clone()])).map_err(MatrixError::Value)?,m,false)?;
+                    let dlbase=logbase.diff_cached(variable,cache)?;
+                    let sum=Self::add(&[Self::mul(dexp.clone(),&[logbase],true)?,Self::mul(e.clone(),&[dlbase],true)?],true)?;
+                    Self::hadamard_product(&[sum,self.clone()],true)?
                 }else{
                     let explicit=self.as_explicit().map_err(|_|MatrixError::NotImplemented("Variable Hadamard exponents with a matrix base require finite dimensions for exact entrywise differentiation".into()))?;
                     Self::explicit(explicit.try_applyfunc::<MatrixError>(|e|Self::scalar_diff(e,variable))?)
@@ -1005,7 +1029,7 @@ impl MatrixExpr {
         if let Some(result)=memo.get(&self.dag_id()){return Ok(result.clone());}
         if !inv_expand&&matches!(self.kind(),MatrixKind::Inverse(_)){return Ok(self.clone());}
         let children=if deep{self.children().iter().map(|c|c.doit_cached(true,inv_expand,memo)).collect::<MResult<Vec<_>>>()?}else{self.children()};
-        let result=match self.kind(){MatrixKind::Permutation(p)=>Self::permutation(p.clone(),true),MatrixKind::Permute(_,p,axis)=>children[0].permute(p.clone(),*axis,true),MatrixKind::ApplyFunction(function,_)=>Self::apply_function(function.clone(),&children[0],true),MatrixKind::Diag(_)=>Self::diag(&children[0]),MatrixKind::DiagonalOf(_)=>Self::diagonal_of(&children[0]),MatrixKind::Diagonal(_)=>Self::diagonal(&children[0]),MatrixKind::Block(grid)=>Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,children.clone())?),MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice_normalized(rows.clone(),cols.clone()),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(c.clone(),&children,true),MatrixKind::Pow(_,e)=>children[0].pow(e.clone(),true),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
+        let result=match self.kind(){MatrixKind::Permutation(p)=>Self::permutation(p.clone(),true),MatrixKind::Permute(_,p,axis)=>children[0].permute(p.clone(),*axis,true),MatrixKind::ApplyFunction(function,_)=>Self::apply_function(function.clone(),&children[0],true),MatrixKind::Diag(_)=>Self::diag_doit(&children[0]),MatrixKind::DiagonalOf(_)=>Self::diagonal_of(&children[0]),MatrixKind::Diagonal(_)=>Self::diagonal(&children[0]),MatrixKind::Block(grid)=>Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,children.clone())?),MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice_normalized(rows.clone(),cols.clone()),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(c.clone(),&children,true),MatrixKind::Pow(_,e)=>children[0].pow(e.clone(),true),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
         let result=if result==*self{self.clone()}else{result};
         memo.insert(self.dag_id(),result.clone());Ok(result)
     }
@@ -1088,7 +1112,7 @@ impl MatrixExpr {
             MatrixKind::Identity=>Ok(ranged_delta(i,j,self.cols())),
             MatrixKind::Explicit(m)=>{if let(Some(i),Some(j))=(i.as_i64(),j.as_i64()){return Ok(m.get(i.rem_euclid(m.rows() as i64) as usize,j.rem_euclid(m.cols() as i64) as usize).clone());}Ok(self.opaque_element(i,j))},
             MatrixKind::Add(a)=>Ok(add(&a.iter().map(|e|e.element(i,j)).collect::<MResult<Vec<_>>>()?)),
-            MatrixKind::Mul(c,fs)=>{if fs.len()==1{return Ok(mul2(c,&fs[0].element(i,j)?));}let first=&fs[0];if let Ok(n)=finite_dim(first.cols()){let rest=Self::mul(Expr::one(),&fs[1..],true)?;let mut terms=Vec::with_capacity(n);for k in 0..n{let k=Expr::int(k as i64);terms.push(mul2(&first.element(i,&k)?,&rest.element(&k,j)?));}Ok(mul2(c,&add(&terms)))}else{Self::product_entry_sum(c,fs,i,j)}},
+            MatrixKind::Mul(c,fs)=>{if fs.len()==1{return Ok(mul2(c,&fs[0].element(i,j)?));}let first=&fs[0];if let(Ok(n),true)=(finite_dim(first.cols()),fs[..fs.len()-1].iter().all(|f|finite_dim(f.cols()).is_ok())){let rest=Self::mul(Expr::one(),&fs[1..],true)?;let mut terms=Vec::with_capacity(n);for k in 0..n{let k=Expr::int(k as i64);terms.push(mul2(&first.element(i,&k)?,&rest.element(&k,j)?));}Ok(mul2(c,&add(&terms)))}else{Self::product_entry_sum(c,fs,i,j)}},
             MatrixKind::Transpose(b)=>b.element(j,i),MatrixKind::Adjoint(b)=>Ok(func(Func::Conjugate,vec![b.element(j,i)?])),MatrixKind::Conjugate(b)=>Ok(func(Func::Conjugate,vec![b.element(i,j)?])),
             MatrixKind::Pow(_,e) if e.as_i64().is_none()=>Ok(self.opaque_element(i,j)),
             // MatPow._entry with a symbolic shape: a positive integer power is the
@@ -1135,13 +1159,39 @@ impl MatrixExpr {
             indices.push(j.clone());
             let mut factors=Vec::with_capacity(n);
             for (t,f) in fs.iter().enumerate(){factors.push(f.element(&indices[t],&indices[t+1])?);}
-            let limits=(0..n-1).map(|t|vec![indices[t+1].clone(),Expr::zero(),sub(fs[t].cols(),&Expr::one())]).collect();
-            let body=crate::ops::mul(&factors);
-            let sum=crate::binders::held(Func::Sum,&body,limits).map_err(MatrixError::Value)?;
+            let limits:Vec<Vec<Expr>>=(0..n-1).map(|t|vec![indices[t+1].clone(),Expr::zero(),sub(fs[t].cols(),&Expr::one())]).collect();
+            // SymPy's `result.doit()` when some inner dimension is an Integer:
+            // Sum.doit sums the leading finite limits directly
+            // (eval_sum_direct) and keeps the rest held from the first
+            // symbolic limit on.
+            let mut body=crate::ops::mul(&factors);let mut start=0;
+            while start<limits.len(){
+                match limits[start][2].as_i64(){Some(hi) if hi<99=>{body=Self::sum_direct(&body,&limits[start][0],hi);start+=1;},_=>break}
+            }
+            if start==limits.len(){return Ok(mul2(c,&body));}
+            let sum=crate::binders::held(Func::Sum,&body,limits[start..].to_vec()).map_err(MatrixError::Value)?;
             Ok(mul2(c,&sum))
         })();
         if outer{ENTRY_DUMMIES.with(|g|g.set(None));}
         result
+    }
+    /// SymPy's `eval_sum_direct` of `f` over `d` in `0..=hi`: factors (terms)
+    /// free of `d` come out, then the terms are substituted.
+    fn sum_direct(f:&Expr,d:&Expr,hi:i64)->Expr{
+        if !crate::traverse::has(f,d){return mul2(&Expr::int(hi+1),f);}
+        match f.kind(){
+            Kind::Mul(..)=>{
+                let(with,without):(Vec<Expr>,Vec<Expr>)=f.args().iter().cloned().partition(|a|crate::traverse::has(a,d));
+                if !without.is_empty(){return mul2(&crate::ops::mul(&without),&Self::sum_direct(&crate::ops::mul(&with),d,hi));}
+            },
+            Kind::Add(..)=>{
+                let(with,without):(Vec<Expr>,Vec<Expr>)=f.args().iter().cloned().partition(|a|crate::traverse::has(a,d));
+                if !without.is_empty(){return add(&[mul2(&Expr::int(hi+1),&add(&without)),Self::sum_direct(&add(&with),d,hi)]);}
+                return add(&with.iter().map(|t|Self::sum_direct(t,d,hi)).collect::<Vec<_>>());
+            },
+            _=>{},
+        }
+        add(&(0..=hi).map(|k|crate::subs::subs(f,&[(d.clone(),Expr::int(k))])).collect::<Vec<_>>())
     }
     /// `MatrixElement(parent, i, j)` as a constructor: SymPy keeps the entry of a
     /// symbolic product, power or identity held (only `parent[i, j]` calls `_entry`).
@@ -1149,7 +1199,9 @@ impl MatrixExpr {
         let symbolic=finite_dim(self.cols()).is_err();
         let held=match self.kind(){
             MatrixKind::Identity=>i!=j&&!(i.as_i64().is_some()&&j.as_i64().is_some()),
-            MatrixKind::Mul(_,fs)=>fs.len()>1&&finite_dim(fs[0].cols()).is_err(),
+            // MatrixElement.__new__ never calls _entry: a product entry stays
+            // held even with finite dimensions (`subs(n, 2)` of `(A*B)[0, 0]`).
+            MatrixKind::Mul(_,fs)=>fs.len()>1,
             MatrixKind::Pow(_,e)=>symbolic&&e.as_i64().is_some_and(|e|(2..=64).contains(&e)),
             _=>false,
         };
