@@ -23,6 +23,11 @@ use crate::ops::{add, mul, mul2, mul_factor, neg, pow, sub};
 const MAX_EXTRA: i64 = 64;
 const MAX_DEPTH: u32 = 400;
 
+thread_local! {
+    /// Nesting of the Gruntz limits of `logt` coefficients.
+    static LOGT_LIMIT_DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
 /// Does `e` depend on the symbol `x`?
 pub fn depends(e: &Expr, x: &Expr) -> bool {
     if !e.may_contain(x) {
@@ -523,7 +528,7 @@ impl Engine {
 
     fn exp_ser(&mut self, a: &Ser, n: i64) -> SRes<Ser> {
         if !a.is_zero() && a.val < 0 {
-            if sign_of(a.lead().unwrap()) == Some(-1) {
+            if self.lead_sign(a.lead().unwrap()) == Some(-1) {
                 // exponentially small: beyond all orders
                 return Ok(Ser::zero_inexact(n));
             }
@@ -636,6 +641,108 @@ impl Engine {
         a.c.iter().enumerate().all(|(i, c)| a.val + i as i64 == 0 || c.is_zero())
     }
 
+    /// Limit of a coefficient holding `logt` as `t -> 0+` (`logt -> -oo`),
+    /// the reference `t.limit(x, 0)` of a function argument whose leading
+    /// coefficient carries `log(x)`. The other symbols must be independent
+    /// of `t`: a coefficient sharing a symbol with the known value of `logt`
+    /// (a Gruntz variable still present next to the mrv variable) is left
+    /// undecided.
+    fn logt_limit(&self, c: &Expr) -> Option<Expr> {
+        if !depends(c, &self.logt) {
+            return None;
+        }
+        if let Some(lv) = &self.logval {
+            if crate::traverse::free_symbols(lv).iter().any(|s| depends(c, s)) {
+                return None;
+            }
+        }
+        let depth = LOGT_LIMIT_DEPTH.with(|d| d.get());
+        if depth >= 4 {
+            return None;
+        }
+        let l = Expr::dummy("L", crate::symbol::Assumptions::POSITIVE);
+        let mut m = FxHashMap::default();
+        m.insert(self.logt.clone(), neg(&l));
+        let cl = crate::subs::xreplace(c, &m);
+        LOGT_LIMIT_DEPTH.with(|d| d.set(depth + 1));
+        let r = crate::limits::gruntz::Gruntz::new(&l).limitinf(&cl).ok();
+        LOGT_LIMIT_DEPTH.with(|d| d.set(depth));
+        r
+    }
+
+    /// Eventual sign of a leading coefficient: a number, or a coefficient
+    /// in `logt` whose limit at `logt -> -oo` is signed.
+    fn lead_sign(&self, c: &C) -> Option<i32> {
+        if let Some(s) = sign_of(c) {
+            return Some(s);
+        }
+        let C::E(e) = c else { return None };
+        let l = self.logt_limit(e)?;
+        if l.is_constant(Constant::Infinity) {
+            return Some(1);
+        }
+        if l.is_constant(Constant::NegInfinity) {
+            return Some(-1);
+        }
+        match sign_of(&C::from_expr(l)) {
+            Some(s) if s != 0 => Some(s),
+            _ => None,
+        }
+    }
+
+    /// The argument series tends to `+oo`: a pole in `t` with a positive
+    /// leading coefficient, or a constant term growing like a power of
+    /// `logt` (`polygamma(0, 1/t) ~ -logt`).
+    fn tends_to_pos_inf(&self, a: &Ser) -> bool {
+        if a.is_zero() {
+            return false;
+        }
+        let lead = a.lead().unwrap();
+        if a.val < 0 {
+            return self.lead_sign(lead) == Some(1);
+        }
+        if a.val == 0 {
+            if let C::E(e) = lead {
+                return self.logt_limit(e).is_some_and(|l| l.is_constant(Constant::Infinity));
+            }
+        }
+        false
+    }
+
+    /// Taylor expansion at a constant term `c0` holding `logt` that tends
+    /// to `+oo`: `polygamma(N, c0 + r) = Σ polygamma(N + k, c0) r**k/k!`.
+    /// The asymptotic series of the reference at such an argument has the
+    /// same leading behaviour; the Taylor form is exact in `t`.
+    fn ser_polygamma_log(&mut self, order: i64, z: &Expr, n: i64) -> SRes<Ser> {
+        let mut m = n;
+        for _ in 0..5 {
+            let a = self.ser(z, m.max(1))?;
+            let c0 = a.at(0);
+            let r = a.sub(&Ser::constant(c0.clone()));
+            let c0e = c0.to_expr();
+            let g0 = crate::special::polygamma(&Expr::int(order), &c0e);
+            if r.is_zero() && r.exact {
+                return self.constant(&g0);
+            }
+            let vr = r.val.max(1);
+            let prec = if r.exact { m + vr } else { r.prec };
+            let kmax = ((prec + vr - 1) / vr).max(1) as usize;
+            let mut lk: Vec<C> = vec![C::zero(); kmax + 1];
+            let mut fact = Number::ONE;
+            for (k, l) in lk.iter_mut().enumerate().skip(1) {
+                fact = fact.mul(&Number::int(k as i64));
+                let pg = crate::special::polygamma(&Expr::int(order + k as i64), &c0e);
+                *l = C::from_expr(crate::ops::div(&pg, &Expr::num(fact.clone())));
+            }
+            let res = Ser::constant(C::from_expr(g0)).add(&r.compose(&lk, prec));
+            if res.prec >= n || res.exact {
+                return Ok(res);
+            }
+            m += (n - res.prec).max(1);
+        }
+        Err(SErr::Precision)
+    }
+
     fn ser_func(&mut self, f: &Func, args: &[Expr], n: i64) -> SRes<Ser> {
         if matches!(f, Func::Heaviside | Func::DiracDelta) && !args.is_empty() {
             // One-sided expansion: the argument keeps the sign of its leading
@@ -680,6 +787,9 @@ impl Engine {
                     let a = self.ser(z, n.max(1))?;
                     if !a.is_zero() && a.val < 0 {
                         return self.ser_polygamma_inf(order, z, &a, n);
+                    }
+                    if a.val == 0 && self.tends_to_pos_inf(&a) {
+                        return self.ser_polygamma_log(order, z, n);
                     }
                 }
                 return Err(SErr::Unsupported(format!("{}(...)", f.name())));
@@ -1092,6 +1202,24 @@ impl Engine {
         if !a.is_zero() && a.val < 0 {
             return self.ser_stirling(f, arg, &a, n);
         }
+        if a.val == 0 && self.tends_to_pos_inf(&a) {
+            // a constant term growing like log(t): regular point
+            let mut m = n;
+            for _ in 0..5 {
+                let a = self.ser(arg, m.max(1))?;
+                let c0 = a.at(0);
+                let r = a.sub(&Ser::constant(c0.clone()));
+                if r.is_zero() && r.exact {
+                    return self.constant(&func(f.clone(), vec![c0.to_expr()]));
+                }
+                let res = self.ser_gamma_regular(f, &c0, &r, m)?;
+                if res.prec >= n {
+                    return Ok(res);
+                }
+                m += (n - res.prec).max(1);
+            }
+            return Err(SErr::Precision);
+        }
         let mut m = n;
         for _ in 0..5 {
             let a = self.ser(arg, m)?;
@@ -1172,7 +1300,7 @@ impl Engine {
     /// with the remainder `O(z**-(2K + 1))` kept as the precision. `gamma`
     /// has no asymptotic series there (the reference raises `PoleError`).
     fn ser_stirling(&mut self, f: &Func, arg: &Expr, a: &Ser, n: i64) -> SRes<Ser> {
-        if *f != Func::LogGamma || sign_of(a.lead().unwrap()) != Some(1) {
+        if *f != Func::LogGamma || self.lead_sign(a.lead().unwrap()) != Some(1) {
             return Err(SErr::Pole(format!("{}({arg})", f.name())));
         }
         let v = -a.val;
@@ -1196,7 +1324,7 @@ impl Engine {
     /// 6.4.10, as the reference `polygamma._eval_aseries`), with the
     /// remainder of the truncated series kept as the precision.
     fn ser_polygamma_inf(&mut self, order: i64, z: &Expr, a: &Ser, n: i64) -> SRes<Ser> {
-        if sign_of(a.lead().unwrap()) != Some(1) {
+        if self.lead_sign(a.lead().unwrap()) != Some(1) {
             return Err(SErr::Pole(format!("polygamma({order}, {z})")));
         }
         let v = -a.val;

@@ -9367,3 +9367,53 @@ Remaining (a different form or unsupported, never a wrong value):
   before). SymPy keeps it held until `doit`.
 
 Tests: `tests/test_mat_rest7_parity.py`.
+
+## limrest2 (wave 14)
+
+Implemented (series engine and Gruntz):
+- `polygamma(n, z)`, `gamma(z)` and `loggamma(z)` of an argument whose
+  leading term is a constant in `logt` that tends to `+oo` (`digamma(x)`,
+  `loggamma(x)`, `log(x)` after the mrv rewrite). They are expanded by Taylor
+  around that constant: `polygamma(N, c0 + r) = Sum(polygamma(N + k, c0)*r**k/k!)`.
+  This follows the reference `_eval_nseries` at a finite point. The sign of a
+  coefficient in `logt` is decided by a Gruntz limit with `logt = -L`, `L -> oo`
+  (nesting is limited to depth 4). The Stirling and A&S 6.3.18 branches and
+  the "exponentially small" test in `exp` use the same sign.
+- The Gruntz `sign` retries with the exponential factors of each product
+  merged when the mrv rewrite was undone by the canonical product. This
+  covers `exp(x)*(gamma(x + exp(-x)) - gamma(x))` and the gamma/Stirling
+  differences.
+- A leading coefficient `I*a`, with `a` real and depending on x, gives
+  `I*sign(a)*oo`, like the reference `c0*oo` (`x*Shi(x)*I`, `I*x*exp(x)`).
+  This also covers `besselj(1, x)` at `+-I*oo` and `besselk(1, x)` at `-oo`.
+
+Probe (`limit`/`gruntz`/`Limit` statements of test_limits.py and
+test_gruntz.py): same 560 -> 570 of 648, no statement from same to different.
+ODE corpus and integration corpus are unchanged from their baselines.
+
+Intentional divergence:
+- `limit(x**2*Ci(x), x, oo)` stays unevaluated. SymPy returns
+  `Ci(1/_w)/_w**2`, which is meaningless. The limit does not exist, because
+  `x**2*Ci(x) ~ x*sin(x)`.
+
+Remaining (unevaluated, never a wrong value):
+- Issue 22334, `(n + 1)**k/((n + 1)**(k + 1) - n**(k + 1))`. After the mrv
+  rewrite, the expression has `exp(-k*x + k*log(1 + 1/w))` with `log(w) = -x`.
+  A symbolic `k` multiplies `x`, and the symbolic-power leading term does not
+  handle that yet. It needs `w**k` factors kept through the expansion.
+- `Ei(x - exp(-exp(x))) - Ei(x)` and the `erf` analogue: the leading terms
+  cancel symbolically.
+- `uppergamma(x, 1)/gamma(x)` and `subfactorial(x)` at oo: the mrv set of
+  these functions is not known.
+- `log(factorial(x))` Stirling remainder: hidden zero
+  `-log(pi)/2 - log(2)/2 + log(2*pi)/2`.
+- floor/ceiling/Mod limits at oo (issue 25230). These need an
+  `AccumBounds` coefficient in the series engine (reference
+  `floor._eval_nseries`). Canonical `AB - AB` cancellation would make that
+  unsafe, so it is not done.
+- `acoth(sin(x)/x)` with `dir='+-'`, `(-1)**x*2**(-x)` (issue 22181),
+  `integrate(cos(s*x), (x, 0, oo))`, `integrate(atan(a*x)/x**2, (x, 1, oo))`,
+  and the Float-vs-exact forms of issues 5164 and 5383.
+
+Tests: `tests/test_limrest2_parity.py`. The strict xfail on `x*Shi(x)*I` in
+`tests/test_limacc_parity.py` is removed, because that limit now evaluates.

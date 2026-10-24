@@ -113,6 +113,15 @@ impl Gruntz {
         if !depends(c0, &self.x) && imaginary_multiple(c0) {
             return Ok(mul2(c0, &Expr::oo()));
         }
+        if imaginary_multiple(c0) {
+            // `c0 = I*a` with `a` real-valued and depending on x: the
+            // reference `c0*oo` with a positive x is `I*sign(a)*oo`.
+            let a = div(c0, &Expr::i());
+            if !crate::traverse::has(&a, &Expr::i()) {
+                let r = self.infinity_with_sign_of(&a)?;
+                return Ok(mul2(&Expr::i(), &r));
+            }
+        }
         match self.sign(c0) {
             Ok(1) => Ok(Expr::oo()),
             Ok(-1) => Ok(Expr::neg_oo()),
@@ -187,7 +196,15 @@ impl Gruntz {
     fn sign_of_leading(&mut self, e: &Expr) -> LRes<i32> {
         let pe = self.prepare(e)?;
         let (c0, _) = self.mrv_leadterm(&pe)?;
-        if c0 == *e {
+        if c0 == *e || c0 == pe {
+            // The canonical product splits `exp(a - b)` into `exp(a)*exp(-b)`,
+            // which can undo the rewrite in the mrv variable (as in
+            // `limitinf`): retry with the exponential factors of every
+            // product merged.
+            let merged = merge_exp_deep(&c0);
+            if merged != c0 {
+                return self.sign(&merged);
+            }
             return unknown(format!("sign of {e}"));
         }
         self.sign(&c0)
@@ -1122,6 +1139,11 @@ fn merge_exp_factors(e: &Expr) -> Option<Expr> {
     rest.push(fx::exp(&add(&args)));
     let m = mul(&rest);
     (m != *e).then_some(m)
+}
+
+/// [`merge_exp_factors`] applied to every product of `e`.
+fn merge_exp_deep(e: &Expr) -> Expr {
+    crate::simptools::bottom_up(e, &mut |u| merge_exp_factors(u).unwrap_or_else(|| u.clone()))
 }
 
 /// A limit value that is a finite number or a finite parameter expression.
