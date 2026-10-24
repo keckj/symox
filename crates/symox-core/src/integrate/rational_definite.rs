@@ -220,6 +220,12 @@ fn variations(signs: impl Iterator<Item = i8>) -> usize {
 
 /// Exact number of distinct real roots, including multiple roots.
 fn real_root_count(coefficients: &[Rat]) -> usize {
+    real_roots_between(coefficients, None, None)
+}
+
+/// Exact number of distinct real roots in the closed interval `[lo, hi]`,
+/// an absent bound standing for an infinite one (Sturm's theorem).
+fn real_roots_between(coefficients: &[Rat], lo: Option<&Rat>, hi: Option<&Rat>) -> usize {
     let derivative = dense::derivative(coefficients);
     let gcd = dense::gcd_field(coefficients, &derivative);
     let squarefree = dense::divrem(coefficients, &gcd).0;
@@ -234,21 +240,65 @@ fn real_root_count(coefficients: &[Rat]) -> usize {
         }
         sturm.push(r);
     }
-    let at_infinity = |negative: bool| {
-        variations(sturm.iter().map(|p| {
-            let sign = if p.last().unwrap().is_negative() {
-                -1
-            } else {
-                1
-            };
-            if negative && (p.len() - 1) % 2 == 1 {
-                -sign
-            } else {
-                sign
+    let sign_at = |p: &[Rat], point: Option<&Rat>, negative: bool| -> i8 {
+        match point {
+            Some(t) => {
+                let v = dense::eval(p, t);
+                if v.is_zero() {
+                    0
+                } else if v.is_negative() {
+                    -1
+                } else {
+                    1
+                }
             }
-        }))
+            None => {
+                let sign = if p.last().unwrap().is_negative() { -1 } else { 1 };
+                if negative && (p.len() - 1) % 2 == 1 {
+                    -sign
+                } else {
+                    sign
+                }
+            }
+        }
     };
-    at_infinity(true) - at_infinity(false)
+    let changes = |point: Option<&Rat>, negative: bool| {
+        variations(sturm.iter().map(|p| sign_at(p, point, negative)))
+    };
+    // V(lo) - V(hi) counts the roots in (lo, hi].
+    let mut count = changes(lo, true).saturating_sub(changes(hi, false));
+    if lo.is_some_and(|t| dense::eval(&squarefree, t).is_zero()) {
+        count += 1;
+    }
+    count
+}
+
+/// Whether the rational polynomial `coefficients` has no real root on the
+/// closed interval between the bounds `a` and `b` (numbers, `-oo`, `oo`, or
+/// constants with a rational enclosure).
+fn no_real_root_on(coefficients: &[Rat], a: &Expr, b: &Expr) -> bool {
+    let lower = if a.is_constant(Constant::NegInfinity) {
+        None
+    } else {
+        match enclose(a, 64) {
+            Some(i) => Some(i.lo),
+            None => return false,
+        }
+    };
+    let upper = if b.is_constant(Constant::Infinity) {
+        None
+    } else {
+        match enclose(b, 64) {
+            Some(i) => Some(i.hi),
+            None => return false,
+        }
+    };
+    if let (Some(l), Some(u)) = (&lower, &upper) {
+        if l.cmp(u) == Ordering::Greater {
+            return false;
+        }
+    }
+    real_roots_between(coefficients, lower.as_ref(), upper.as_ref()) == 0
 }
 
 fn evaluated(coefficients: &[Expr], root: &Expr) -> Expr {
@@ -287,7 +337,12 @@ pub(super) fn analyze(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Analysis {
             .map(|e| e.as_number().and_then(Rat::from_number))
             .collect();
         let expected_real = rational.as_ref().map(|c| real_root_count(c));
-        let roots = if expected_real == Some(0) {
+        // A rational denominator without a real root on [a, b] has no pole
+        // there, whatever roots() gives for it (a quintic such as
+        // x**5 - x - 1 has no radical roots).
+        let pole_free = expected_real != Some(0)
+            && rational.as_ref().is_some_and(|c| no_real_root_on(c, a, b));
+        let roots = if expected_real == Some(0) || pole_free {
             Vec::new()
         } else {
             match crate::poly::roots::roots(&den, std::slice::from_ref(x)) {
@@ -324,7 +379,9 @@ pub(super) fn analyze(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Analysis {
                 decided += root.1 as usize;
             }
         }
-        if let Some(count) = expected_real {
+        if pole_free {
+            real.clear();
+        } else if let Some(count) = expected_real {
             if real.len() != count {
                 return Analysis::Unknown;
             }

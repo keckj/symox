@@ -1151,8 +1151,26 @@ def root_sum_evalf(node, prec):
         _roots = node.poly.nroots(n=prec_to_dps(prec))
     except (DomainError, PolynomialError):
         return node
-    else:
-        return Add(*[node.fun(r) for r in _roots])
+    terms = [node.fun(r) for r in _roots]
+    value = Add(*terms)
+    # The reference's evalf fallback splits ``_eval_evalf``'s value with
+    # ``as_real_imag``: conjugate roots give an imaginary part that cancels
+    # exactly and leaves no rounding residue. A term left unexpanded is
+    # evaluated at the precision of the roots first, which keeps conjugate
+    # terms exactly conjugate.
+    for candidate in (value, None):
+        if candidate is None:
+            try:
+                candidate = Add(*[term.evalf(prec_to_dps(prec)) for term in terms])
+            except (AttributeError, TypeError, ValueError):
+                return value
+        try:
+            re, im = candidate.as_real_imag()
+        except (AttributeError, TypeError, ValueError):
+            return value
+        if im == 0:
+            return re
+    return value
 
 
 def root_sum_derivative(node, x):
@@ -1180,3 +1198,72 @@ def install():
     for method in (_ensure_reals_init, _ensure_complexes_init, _get_interval, _set_interval,
                    _reset, eval_approx, eval_rational, _eval_evalf, _eval_is_eq):
         type.__setattr__(cls, method.__name__, method)
+
+
+def root_sum_subs(value, substitute):
+    """``substitute(value)`` with the generator of every ``RootSum``
+    polynomial kept bound.
+
+    The native node holds ``Lambda(gen, poly_expr)``, so a substitution of
+    ``gen`` would reach the signature of that ``Lambda``. The generator is a
+    bound variable of the sum: it is renamed to a ``Dummy`` first, the
+    substitution then only reaches the coefficients of the polynomial and
+    the summand, and each sum is rebuilt by the constructor. (The reference
+    substitutes into the polynomial as well, so that
+    ``RootSum(x**5 - x - 1, Lambda(y, log(x - y))).subs(x, 2)`` gives ``0``
+    instead of ``log(29)`` up to a multiple of ``2*pi*I``.)
+    """
+    from . import Dummy, Lambda
+    sums = [node for node in _core_nodes(value) if node.class_name == 'RootSum']
+    if not sums:
+        return substitute(value)
+    names, replacements = {}, {}
+    for node in sums:
+        lam, fun = _core.Expr.args.__get__(node)[:2]
+        gen = lam.variables[0]
+        if isinstance(gen, Dummy) and gen in names:
+            continue
+        d = Dummy(gen.name)
+        names[d] = gen, _root_sum_auto(node)
+        # The summand variable is bound too: a value that contains it is not
+        # captured.
+        (var,) = fun.variables
+        e = Dummy(var.name)
+        names[e] = var, None
+        fun = Lambda(e, fun.expr.xreplace({var: e}))
+        replacements[node] = _core._apply(
+            'RootSum', Lambda(d, lam.expr.xreplace({gen: d})), fun, evaluate=False)
+    result = substitute(_core.Expr.xreplace(value, replacements))
+    if not isinstance(result, _core.Expr):
+        return result
+    rebuilt = {}
+    for node in _core_nodes(result):
+        if node.class_name != 'RootSum':
+            continue
+        lam, fun = _core.Expr.args.__get__(node)[:2]
+        d = lam.variables[0]
+        if d not in names:
+            continue
+        gen, auto = names[d]
+        expr = lam.expr
+        if gen not in expr.free_symbols:
+            expr, d = expr.xreplace({d: gen}), gen
+        (e,) = fun.variables
+        if e in names:
+            var = names[e][0]
+            if var not in fun.expr.free_symbols:
+                fun = Lambda(var, fun.expr.xreplace({e: var}))
+        rebuilt[node] = RootSum(expr, fun, d, auto=auto)
+    return _core.Expr.xreplace(result, rebuilt) if rebuilt else result
+
+
+def _core_nodes(expr):
+    seen, stack, out = set(), [expr], []
+    while stack:
+        node = stack.pop()
+        if node in seen or not isinstance(node, _core.Expr):
+            continue
+        seen.add(node)
+        out.append(node)
+        stack.extend(_core.Expr.args.__get__(node))
+    return out

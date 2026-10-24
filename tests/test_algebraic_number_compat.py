@@ -66,8 +66,10 @@ def test_composition_field_elements_and_element_minimal_polynomial(root):
     if not a.is_primitive_element:
         assert d.alias is None
     same(a.minpoly_of_element().as_expr(), sp.minimal_polynomial(sp.sympify(str(a.as_expr())), sp.Symbol('z')))
-    same(a.to_root(), a.as_expr())
-    same(a.to_root(minpoly=a.minpoly_of_element()), a.as_expr())
+    # The reference's to_root: a CRootOf of the element's minimal polynomial
+    # when its roots are not radicals; checked numerically.
+    for value in (a.to_root(), a.to_root(minpoly=a.minpoly_of_element())):
+        assert abs(complex(sm.N(value, 30)) - complex(sm.N(a.as_expr(), 30))) < 1e-25
 
 
 @pytest.mark.parametrize('eta,theta', [
@@ -137,11 +139,11 @@ def test_constructor_pairs_are_certified_and_invalid_options_are_explicit():
         sm.AlgebraicNumber(sm.sqrt(2), alias=2)
     with pytest.raises(ValueError):
         sm.to_number_field([])
-    with pytest.raises(NotImplementedError):
-        a.to_root(radicals=False)
-    with pytest.raises(NotImplementedError):
-        a.to_primitive_element(radicals=False)
-    with pytest.raises(ValueError):
+    # SymPy 1.14: a CRootOf without radicals, and an AttributeError for a
+    # minimal polynomial that is not a Poly.
+    assert str(a.to_root(radicals=False)) == 'CRootOf(x**2 - 6*x + 1, 1)'
+    assert str(a.to_primitive_element(radicals=False)) == 'CRootOf(x**2 - 6*x + 1, 1)'
+    with pytest.raises(AttributeError):
         a.to_root(minpoly=x*x-2)
 
 

@@ -346,7 +346,10 @@ def install(namespace):
             elif node.class_name == 'RootSum':
                 from ._public_roots import root_sum_evalf
                 from mpmath.libmp.libmpf import dps_to_prec
-                value_ = root_sum_evalf(replaced,dps_to_prec(int(n)))
+                # Guard bits as for a root: Expr.evalf's four for the sum alone,
+                # evalf_add's working precision inside an expression that can cancel.
+                prec = dps_to_prec(int(n)) + (4 if node is value or node == value else 64)
+                value_ = root_sum_evalf(replaced,prec)
                 if value_ != replaced:replacements[node] = value_
         if replacements:value = value.xreplace(replacements)
         return old_evalf(value,n,*args,**kwargs)
@@ -499,8 +502,13 @@ def install(namespace):
         return original_xreplace(value,replacements) if replacements else value
     @wraps(original_subs)
     def subs(self,*args,**kwargs):
-        result = original_subs(self,*args,**kwargs)
-        return reevaluate(result) if _special_nodes(self) else result
+        specials = _special_nodes(self)
+        if any(node.class_name == 'RootSum' for node in specials):
+            from ._public_roots import root_sum_subs
+            result = root_sum_subs(self,lambda value:original_subs(value,*args,**kwargs))
+        else:
+            result = original_subs(self,*args,**kwargs)
+        return reevaluate(result) if specials else result
     @wraps(original_xreplace)
     def xreplace(self,rule):
         result = original_xreplace(self,rule)
@@ -515,5 +523,5 @@ def install(namespace):
         value = sympify(x)
         if isinstance(value,Expr) and _any_sum(value):
             return value.evalf(n,**kwargs)
-        return value.evalf(n,**kwargs) if any(v.class_name in _NUMERIC|{'ComplexRootOf'} for v in _special_nodes(value)) else old_N(x,n,**kwargs)
+        return value.evalf(n,**kwargs) if any(v.class_name in _NUMERIC|{'ComplexRootOf','RootSum'} for v in _special_nodes(value)) else old_N(x,n,**kwargs)
     namespace['N'] = N

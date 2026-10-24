@@ -862,6 +862,18 @@ impl<'a> LatexPrinter<'a> {
                 return tex;
             }
         }
+        if let Some((_, polynomial, fun)) = crate::printer::root_sum_parts(e) {
+            // The reference's _print_RootSum: the polynomial expression, then the function
+            // unless it is the identity.
+            let mut parts = vec![self.print(&polynomial)];
+            let identity = crate::sets::lambda_parts(&fun)
+                .is_some_and(|(variables, body)| variables.len() == 1 && variables[0] == body);
+            if !identity {
+                parts.push(self.print(&fun));
+            }
+            let body = format!("\\operatorname{{RootSum}} {{\\left({}\\right)}}", parts.join(", "));
+            return match exp { Some(exp) => format!("{body}^{{{exp}}}"), None => body };
+        }
         if let Func::Undefined(head) = f {
             if crate::poly::rootof::is_rootof_head(head, args.len()) {
                 // The reference's _print_ComplexRootOf.

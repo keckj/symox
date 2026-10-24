@@ -577,6 +577,21 @@ fn next_comb(idx: &mut [usize], n: usize) -> bool {
     false
 }
 
+fn l1_norm(p: &[Int]) -> Int {
+    p.iter().fold(Int::zero(), |acc, c| acc.add(&c.abs()))
+}
+
+/// The bound `B = sqrt(n + 1)*2**n*A*|b|` of `dup_zz_zassenhaus` for `f` of
+/// degree `n`, max norm `A` and leading coefficient `b`, rounded up to an
+/// integer (an upper bound keeps the test from rejecting a true factor).
+fn zassenhaus_bound(f: &[Int]) -> Int {
+    let n = f.len() - 1;
+    let a = f.iter().map(Int::abs).max().unwrap_or_else(Int::zero);
+    let b = f.last().unwrap().abs();
+    let root = Int::from_u64(n as u64 + 1).isqrt().add(&Int::one());
+    root.mul(&Int::from_u64(2).pow(n as u32)).mul(&a).mul(&b)
+}
+
 fn recombine(f: &[Int], lifted: Vec<Vec<Int>>, pl: &Int) -> Vec<Vec<Int>> {
     let mut factors: Vec<Vec<Int>> = Vec::new();
     let mut fcur = f.to_vec();
@@ -586,6 +601,9 @@ fn recombine(f: &[Int], lifted: Vec<Vec<Int>>, pl: &Int) -> Vec<Vec<Int>> {
         let mut found: Option<(Vec<usize>, Vec<Int>, Vec<Int>)> = None;
         let b = fcur.last().unwrap().clone();
         let tc = b.mul(&fcur[0]);
+        let bound = zassenhaus_bound(&fcur);
+        let candidate_bits = pl.bits().saturating_add(b.bits());
+        let candidate_work = 4 * (fcur.len() as u64).pow(2) * (1 + candidate_bits.saturating_mul(candidate_bits) / 64);
         // iterate over the s-subsets of t
         let mut idx: Vec<usize> = (0..s).collect();
         loop {
@@ -597,14 +615,34 @@ fn recombine(f: &[Int], lifted: Vec<Vec<Int>>, pl: &Int) -> Vec<Vec<Int>> {
             }
             let c = c.symmetric_mod(pl);
             if !c.is_zero() && tc.div_exact(&c).is_some() {
+                // Every candidate that passes the constant term test costs
+                // the two products below, as in the reference; the number of
+                // candidates stays bounded by the attempt limit.
+                super::factor_budget::grant(candidate_work);
                 let mut g = vec![b.clone()];
                 for &i in &idx {
                     g = mul_m(&g, &lifted[t[i]], pl);
                 }
-                let g = dense::primitive(&sym(&g, pl)).1;
-                if let Some(q) = dense::div_exact_int(&fcur, &g) {
-                    found = Some((idx.clone(), g, q));
-                    break;
+                let g = sym(&g, pl);
+                // dup_zz_zassenhaus: the cofactor h = b*(product of the
+                // other lifted factors) and the l1-norm test
+                // |g|_1*|h|_1 <= B (von zur Gathen and Gerhard, Cor. 6.33),
+                // which every true factor pair passes. A trial division by
+                // a false candidate makes the quotient coefficients grow
+                // geometrically, so it only runs after this test.
+                let mut h = vec![b.clone()];
+                for (k, &i) in t.iter().enumerate() {
+                    if !idx.contains(&k) {
+                        h = mul_m(&h, &lifted[i], pl);
+                    }
+                }
+                let h = sym(&h, pl);
+                if l1_norm(&g).mul(&l1_norm(&h)) <= bound {
+                    let g = dense::primitive(&g).1;
+                    if let Some(q) = dense::div_exact_int(&fcur, &g) {
+                        found = Some((idx.clone(), g, q));
+                        break;
+                    }
                 }
             }
             if !next_comb(&mut idx, t.len()) {
