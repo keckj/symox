@@ -11,6 +11,8 @@ available, and the expression stays unevaluated; nothing is computed in
 double precision.
 """
 
+import signal
+
 import mpmath
 from mpmath import mp, workprec
 from mpmath.libmp import from_man_exp
@@ -62,9 +64,11 @@ def _isint(value):
 
 
 def _polygamma(s, z):
-    # SymPy's polygamma._eval_evalf, at prec + 12.
+    # SymPy's polygamma._eval_evalf, at prec + 12. At a pole it returns zoo,
+    # whose evalf is nan (the evaluation fails and stays unevaluated; only
+    # an exact Float argument gives nan).
     if _isint(z) and z <= 0:
-        return None
+        return mp.nan
     if _isint(s) and s >= 0:
         return mp.polygamma(s, z)
     zt = mp.zeta(s + 1, z)
@@ -139,8 +143,62 @@ def _meijerg(ap, bq, z, polar):
     if abs(ratio - nearest) <= ratio * mp.eps * 16:
         ratio = nearest
     n = int(mp.ceil(ratio)) + 1
+    # mpmath forms the hypergeometric argument as z'**n from the rotated
+    # root z'; on a sheet boundary (an odd multiple of pi) the rounding noise
+    # of that power picks the side of the inner cut at random. The exact
+    # power z*exp(I*branch) is passed instead, (-1)**k for branch = k*pi.
+    if ratio == nearest:
+        power = z if int(nearest) % 2 == 0 else -z
+    else:
+        power = z * mp.exp(1j * branch)
     z = z ** (mp.mpf(1) / n) * mp.exp(1j * branch / n)
-    return mp.meijerg(ap, bq, z, mp.mpf(1) / n)
+    return _meijerg_power(ap, bq, z, mp.mpf(1) / n, power)
+
+
+def _meijerg_power(a_s, b_s, z, r, power):
+    # mpmath's meijerg(a_s, b_s, z, r) with z**(1/r) given exactly as power.
+    an, ap = a_s
+    bm, bq = b_s
+    n = len(an)
+    p = n + len(ap)
+    m = len(bm)
+    q = m + len(bq)
+    a = [mp.convert(item) for item in an + ap]
+    b = [mp.convert(item) for item in bm + bq]
+    z = mp.convert(z)
+    if p < q:
+        series = 1
+    elif p > q:
+        series = 2
+    else:
+        series = 2 if m + n == p and abs(z) > 1 else 1
+    if series == 1:
+        def h(*args):
+            a = args[:p]
+            b = args[p:]
+            terms = []
+            for k in range(m):
+                gn = [b[j] - b[k] for j in range(m) if j != k] + [1 - a[j] + b[k] for j in range(n)]
+                gd = [a[j] - b[k] for j in range(n, p)] + [1 - b[j] + b[k] for j in range(m, q)]
+                hn = [1 - a[j] + b[k] for j in range(p)]
+                hd = [1 - b[j] + b[k] for j in range(q) if j != k]
+                hz = (-mp.one) ** (p - m - n) * power
+                terms.append(([z], [b[k] / r], gn, gd, hn, hd, hz))
+            return terms
+    else:
+        def h(*args):
+            a = args[:p]
+            b = args[p:]
+            terms = []
+            for k in range(n):
+                gn = [a[k] - a[j] for j in range(n) if j != k] + [1 - a[k] + b[j] for j in range(m)]
+                gd = [a[k] - b[j] for j in range(m, q)] + [1 - a[k] + a[j] for j in range(n, p)]
+                hn = [1 - a[k] + b[j] for j in range(q)]
+                hd = [1 + a[j] - a[k] for j in range(p) if j != k]
+                hz = (-mp.one) ** (q - m - n) / power
+                terms.append(([z], [(a[k] - 1) / mp.convert(r)], gn, gd, hn, hd, hz))
+            return terms
+    return mp.hypercomb(h, a + b)
 
 
 # name -> (function, extra argument precision, working precision offset)
@@ -189,8 +247,88 @@ _SPECIAL = {
 }
 
 
+# Elementary heads whose mpmath value can be infinite at a Float argument.
+_ELEMENTARY = {"atanh": mp.atanh, "acoth": mp.acoth, "atan": mp.atan, "acot": mp.acot}
+
+
+def _code(raw):
+    sign, man, exp, bc = raw
+    if man:
+        return 4
+    if bc == 0 and exp == 0:
+        return 0
+    return {mpmath.libmp.finf: 1, mpmath.libmp.fninf: 2}.get(raw, 3)
+
+
+def _signal_handler_codes():
+    codes = set()
+    for number in signal.valid_signals():
+        try:
+            handler = signal.getsignal(number)
+        except (ValueError, OSError):
+            continue
+        handler = getattr(handler, "__func__", handler)
+        code = getattr(handler, "__code__", None)
+        if code is not None:
+            codes.add(code)
+    return codes
+
+
+def _raised_by_signal_handler(error):
+    """Whether ``error`` was raised by a Python signal handler.
+
+    Such an error (a timeout alarm, for example) must stop the evaluation,
+    not be taken for an unavailable value and retried at another precision.
+    """
+    traceback = getattr(error, "__traceback__", None)
+    if traceback is None:
+        return False
+    codes = _signal_handler_codes()
+    if not codes:
+        return False
+    while traceback is not None:
+        if traceback.tb_frame.f_code in codes:
+            return True
+        traceback = traceback.tb_next
+    return False
+
+
+def _nonfinite(name, args, prec):
+    # SymPy's Function._eval_evalf converts mpmath's value with
+    # Expr._from_mpmath: an infinite or nan part becomes oo, -oo or nan.
+    # The parts are returned as codes (0 zero, 1 +inf, 2 -inf, 3 nan,
+    # 4 finite nonzero) in the exponent fields of zero mantissas.
+    if name in _SPECIAL:
+        function, extra, offset = _SPECIAL[name]
+    else:
+        function = _GENERIC.get(name) or _ELEMENTARY.get(name)
+        extra, offset = 5, 0
+    if function is None:
+        return None
+    try:
+        with workprec(prec + extra):
+            values = [_convert(arg) for arg in args]
+        with workprec(prec + offset):
+            value = function(*values)
+    except Exception as error:
+        if _raised_by_signal_handler(error):
+            raise
+        return None
+    if isinstance(value, mpmath.mpf):
+        codes = (_code(value._mpf_), 0)
+    elif isinstance(value, mpmath.mpc):
+        codes = tuple(_code(part) for part in value._mpc_)
+    else:
+        return None
+    if not any(code in (1, 2, 3) for code in codes):
+        return None
+    return (0, codes[0], 0, codes[1])
+
+
 def evaluate(name, args, prec):
     """Evaluate head ``name`` at ``prec`` bits, or return ``None``."""
+    if name.startswith("!"):
+        return _nonfinite(name[1:], args, prec)
     if name in _SPECIAL:
         function, extra, offset = _SPECIAL[name]
     elif name in _GENERIC:

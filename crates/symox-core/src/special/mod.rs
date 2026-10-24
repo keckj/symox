@@ -302,7 +302,9 @@ pub fn apply(s: SpecialFn, args: Vec<Expr>) -> Expr {
         if crate::evalf_mp::has_special_host() {
             let prec = args.iter().filter_map(float_precision).max().unwrap_or(53);
             let node = raw(s, args);
-            return crate::evalf_mp::eval_number(&node, prec).unwrap_or(node);
+            return crate::evalf_mp::eval_number(&node, prec)
+                .or_else(|| crate::evalf_mp::nonfinite_value(&node, prec))
+                .unwrap_or(node);
         }
         if args.iter().all(|arg| float_precision(arg).is_none_or(|p| p <= 53)) {
             if let Some(v) = numeric::eval_exprs(s, &args) {

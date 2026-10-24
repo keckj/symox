@@ -1900,6 +1900,11 @@ pub fn num_pow(b: &Number, e: &Number) -> Expr {
         if e.is_zero() || b.is_one() { return Expr::one(); }
         return if e.is_positive() { Expr::zero() } else { Expr::zoo() };
     }
+    // Float._eval_power: a Float zero to a negative power is zoo, not a
+    // Float inf (or oo through the radical path).
+    if b.is_float() && b.is_zero() && e.is_negative() {
+        return Expr::zoo();
+    }
     if e.is_zero() && e.is_rational() {
         return Expr::one();
     }

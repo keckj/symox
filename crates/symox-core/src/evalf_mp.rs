@@ -548,6 +548,7 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
         return value;
     }
     if lower_gamma_pole(e) { return Expr::oo(); }
+    if let Some(value) = nonfinite_value(e, prec) { return value; }
     if crate::functions::is_numeric_value(e) { return e.clone(); }
     // The arguments of a partially numerical Add, Mul or Pow are evaluated
     // by their `_eval_evalf` (`AssocOp._eval_evalf`, `Pow._eval_evalf`),
@@ -901,6 +902,14 @@ pub enum HostArg {
 /// requested errors (SymPy propagates mpmath's errors from `evalf`).
 pub struct HostError(pub Box<dyn std::any::Any + Send>);
 
+/// A host error that must stop the evaluation at once instead of being
+/// treated as an unavailable value: an interrupt (`KeyboardInterrupt`,
+/// `SystemExit`, any non-`Exception` error) or an error raised by a signal
+/// handler. It is kept even where ordinary errors are discarded, no later
+/// host call or precision retry is made, and the enclosing enabled scope
+/// raises it.
+pub struct FatalHostError(pub HostError);
+
 /// Host evaluator of a special function head at a binary precision. It
 /// returns `Ok(None)` when the value is unavailable; it must never return a
 /// value with fewer correct bits than requested.
@@ -911,6 +920,10 @@ static SPECIAL_HOST: std::sync::OnceLock<SpecialHost> = std::sync::OnceLock::new
 thread_local! {
     static HOST_ERRORS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     static HOST_ERROR: std::cell::RefCell<Option<HostError>> = const { std::cell::RefCell::new(None) };
+    // A fatal host error is pending (see `FatalHostError`).
+    static HOST_FATAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    // Number of live enabled scopes, which will raise a pending error.
+    static HOST_ENABLED_DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
 }
 
 /// Install the multiprecision evaluator used for special functions without a
@@ -927,36 +940,66 @@ pub fn has_special_host() -> bool {
 /// While alive, the first host error is kept for [`take_host_error`];
 /// a nested disabled scope (sign and magnitude decisions) discards them,
 /// as SymPy's assumption queries catch evaluation errors.
-pub struct HostErrorScope(bool);
+pub struct HostErrorScope(bool, bool);
 impl HostErrorScope {
     pub fn enter(enabled: bool) -> Self {
         let previous = HOST_ERRORS.with(|cell| cell.replace(enabled));
         if enabled && !previous {
             HOST_ERROR.with(|cell| cell.borrow_mut().take());
         }
-        Self(previous)
+        if enabled {
+            if HOST_ENABLED_DEPTH.with(|cell| cell.get()) == 0 {
+                HOST_FATAL.with(|cell| cell.set(false));
+            }
+            HOST_ENABLED_DEPTH.with(|cell| cell.set(cell.get() + 1));
+        }
+        Self(previous, enabled)
     }
 }
 impl Drop for HostErrorScope {
     fn drop(&mut self) {
         HOST_ERRORS.with(|cell| cell.set(self.0));
+        if self.1 {
+            HOST_ENABLED_DEPTH.with(|cell| cell.set(cell.get().saturating_sub(1)));
+        }
     }
 }
 
-/// The first host error raised inside the current enabled scope.
+/// The first host error raised inside the current enabled scope (a fatal
+/// error first).
 pub fn take_host_error() -> Option<HostError> {
+    HOST_FATAL.with(|cell| cell.set(false));
     HOST_ERROR.with(|cell| cell.borrow_mut().take())
 }
 
+/// Whether a fatal host error is pending: evaluation must stop.
+pub fn host_interrupted() -> bool {
+    HOST_FATAL.with(|cell| cell.get())
+}
+
 fn call_host(host: SpecialHost, name: &str, args: &[HostArg], p: u32, report: bool) -> Option<MpComplex> {
+    if host_interrupted() {
+        if HOST_ENABLED_DEPTH.with(|cell| cell.get()) > 0 {
+            return None;
+        }
+        // Nobody will raise it: forget it once its evaluation has stopped.
+        HOST_FATAL.with(|cell| cell.set(false));
+    }
     match host(name, args, p) {
         Ok(value) => value,
-        Err(error) => {
-            if report && HOST_ERRORS.with(|cell| cell.get()) {
-                HOST_ERROR.with(|cell| { cell.borrow_mut().get_or_insert(error); });
+        Err(error) => match error.0.downcast::<FatalHostError>() {
+            Ok(fatal) => {
+                HOST_FATAL.with(|cell| cell.set(true));
+                HOST_ERROR.with(|cell| *cell.borrow_mut() = Some(fatal.0));
+                None
             }
-            None
-        }
+            Err(error) => {
+                if report && HOST_ERRORS.with(|cell| cell.get()) {
+                    HOST_ERROR.with(|cell| { cell.borrow_mut().get_or_insert(HostError(error)); });
+                }
+                None
+            }
+        },
     }
 }
 
@@ -973,10 +1016,75 @@ fn host_arg(e: &Expr, p: u32) -> Option<HostArg> {
 
 fn host_eval(name: &str, args: &[Expr], p: u32) -> Option<MpComplex> {
     let host = *SPECIAL_HOST.get()?;
-    refined(p, |q, first| {
-        let values = args.iter().map(|arg| host_arg(arg, q + HOST_ARGUMENT_GUARD)).collect::<Option<Vec<_>>>()?;
-        call_host(host, name, &values, q, first)
-    })
+    let values = |q: u32| args.iter().map(|arg| host_arg(arg, q + HOST_ARGUMENT_GUARD)).collect::<Option<Vec<_>>>();
+    refined_with(p, |q, first| call_host(host, name, &values(q)?, q, first), |q| exact_arguments(&values, q))
+}
+
+/// SymPy's `Function._eval_evalf` returns mpmath's value through
+/// `Expr._from_mpmath`, where an infinite or nan part becomes `oo`, `-oo` or
+/// `nan` (`erfinv(1.0)`, `elliptic_k(1.0)`, `li(1.0)`, `atanh(1.0)`,
+/// `atan(1.0*I)` is `oo*I`). For a function at exact numerical arguments
+/// (Floats, not rounded) whose value is unavailable, that non-finite value;
+/// `None` otherwise.
+pub fn nonfinite_value(e: &Expr, prec: u32) -> Option<Expr> {
+    let host = *SPECIAL_HOST.get()?;
+    let Kind::Func(f, args) = e.kind() else { return None };
+    let name = match f {
+        Func::Special(s) if *s != crate::special::SpecialFn::MeijerG => s.name(),
+        Func::Atanh => "atanh",
+        Func::Atan => "atan",
+        Func::Acot => "acot",
+        Func::Gamma => "gamma",
+        Func::LogGamma => "loggamma",
+        _ => return None,
+    };
+    if args.is_empty() || !args.iter().all(|arg| arg.is_number()) {
+        return None;
+    }
+    let values = |q: u32| args.iter().map(|arg| host_arg(arg, q + HOST_ARGUMENT_GUARD)).collect::<Option<Vec<_>>>();
+    if !exact_arguments(&values, prec) {
+        return None;
+    }
+    let arguments = values(prec)?;
+    let _errors = HostErrorScope::enter(false);
+    let value = call_host(host, &format!("!{name}"), &arguments, prec, false)?;
+    let part = |x: &BigFloat| -> Option<Expr> {
+        if x.man.bits() != 0 {
+            return None;
+        }
+        Some(if x.exp == 0i128 {
+            Expr::zero()
+        } else if x.exp == 1i128 {
+            Expr::oo()
+        } else if x.exp == 2i128 {
+            Expr::neg_oo()
+        } else if x.exp == 3i128 {
+            Expr::nan()
+        } else {
+            return None;
+        })
+    };
+    let (re, im) = (part(&value.re)?, part(&value.im)?);
+    Some(crate::ops::add2(&re, &crate::ops::mul2(&im, &Expr::i())))
+}
+
+/// Are the arguments evaluated for precision `q` the exact arguments
+/// (the same binary values at a much higher precision)?
+fn exact_arguments(values: &impl Fn(u32) -> Option<Vec<HostArg>>, q: u32) -> bool {
+    fn same(a: &HostArg, b: &HostArg) -> bool {
+        match (a, b) {
+            (HostArg::Number(a), HostArg::Number(b)) => {
+                let wp = [&a.re, &a.im, &b.re, &b.im].iter().map(|x| x.man.bits()).max().unwrap_or(0) as u32 + 64;
+                a.re.sub(&b.re, wp).is_zero() && a.im.sub(&b.im, wp).is_zero()
+            }
+            (HostArg::Tuple(a), HostArg::Tuple(b)) => a.len() == b.len() && a.iter().zip(b).all(|(a, b)| same(a, b)),
+            _ => false,
+        }
+    }
+    match (values(q), values(q.saturating_mul(2).saturating_add(128))) {
+        (Some(low), Some(high)) => low.len() == high.len() && low.iter().zip(&high).all(|(a, b)| same(a, b)),
+        _ => true,
+    }
 }
 
 /// Do two values agree to `p` bits, relative to the larger part of `b`?
@@ -994,15 +1102,57 @@ fn agrees(a: &MpComplex, b: &MpComplex, p: u32) -> bool {
 // disagreeing are not returned; a failure above the first precision returns
 // the first value, as SymPy does.
 fn refined(p: u32, evaluate: impl Fn(u32, bool) -> Option<MpComplex>) -> Option<MpComplex> {
+    refined_with(p, evaluate, |_| true)
+}
+
+// As `refined`; when the first evaluation fails and the arguments rounded
+// for it are not the exact arguments (`exact` is false), an argument next to
+// a pole, a branch point or the end of the domain (`gamma(-3 + 10**-20)`,
+// `erfinv(1 - 10**-30)`, `elliptic_k(1 - 10**-30)`) may have been rounded
+// onto it: evaluate again with more bits, and report the first precision's
+// error only when every precision fails. SymPy rounds the argument once and
+// returns the value at the rounded point (`oo`, `zoo`, or a pole error).
+fn refined_with(
+    p: u32, evaluate: impl Fn(u32, bool) -> Option<MpComplex>, exact: impl Fn(u32) -> bool,
+) -> Option<MpComplex> {
     let limit = p.saturating_mul(2).saturating_add(512);
     let mut extra = 10u32;
-    let mut previous = evaluate(p + extra, true)?;
+    let mut previous = match evaluate(p + extra, false) {
+        Some(value) => value,
+        None => {
+            let mut found = None;
+            // An interrupt is raised at once, never retried.
+            if !host_interrupted() && !exact(p + extra) {
+                while extra * 2 + 10 <= limit && !host_interrupted() {
+                    extra = extra * 2 + 10;
+                    if let Some(value) = evaluate(p + extra, false) {
+                        found = Some(value);
+                        break;
+                    }
+                }
+            }
+            if host_interrupted() {
+                return None;
+            }
+            match found {
+                Some(value) => value,
+                None => {
+                    // Record the first precision's error, as SymPy raises it.
+                    evaluate(p + 10, true);
+                    return None;
+                }
+            }
+        }
+    };
     loop {
         extra = extra * 2 + 10;
         if extra > limit {
             return None;
         }
         let Some(current) = evaluate(p + extra, false) else {
+            if host_interrupted() {
+                return None;
+            }
             return Some(previous.round_to(p));
         };
         if agrees(&previous, &current, p) {
@@ -1178,7 +1328,24 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
             if size > crate::bigfloat::MAX_EXPONENT_BITS as i128 - 7 {
                 return None;
             }
-            let x = if size > 2 { ev(&args[0], wp + size as u32 + 16)?.re } else { a.re.clone() };
+            let mut x = if size > 2 { ev(&args[0], wp + size as u32 + 16)?.re } else { a.re.clone() };
+            // Next to a pole -n, gamma(x) ~ (-1)**n/(n!*(x + n)): the
+            // relative error of x + n is the relative error of the value, so
+            // the argument needs -mag(x + n) more bits.
+            if x.sign() < 0 {
+                if let Some(t) = x.checked_int_trunc() {
+                    let gap = [t.clone() - 1, t.clone(), t + 1]
+                        .iter()
+                        .map(|k| x.sub(&BigFloat::from_int(k), wp + 64))
+                        .filter(|d| !d.is_zero())
+                        .map(|d| d.mag())
+                        .min()
+                        .unwrap_or(0);
+                    if gap < 0 && -gap <= 8 * p as i128 + 4096 {
+                        x = ev(&args[0], wp + size.max(0) as u32 + (-gap) as u32 + 16)?.re;
+                    }
+                }
+            }
             match gamma_mp(&x, p) {
                 Some(value) => MpComplex::real(value),
                 None => return host_eval("gamma", args, p),

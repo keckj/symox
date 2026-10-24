@@ -211,8 +211,32 @@ fn mpmath_evaluate(py: Python<'_>, name: &str, args: &[symox::evalf_mp::HostArg]
 /// Multiprecision special functions through mpmath, as SymPy evaluates them.
 fn mpmath_special(name: &str, args: &[symox::evalf_mp::HostArg], prec: u32)
     -> Result<Option<symox::evalf_mp::MpComplex>, symox::evalf_mp::HostError> {
-    Python::with_gil(|py| mpmath_evaluate(py, name, args, prec))
-        .map_err(|error| symox::evalf_mp::HostError(Box::new(error)))
+    let fatal = |error: PyErr| {
+        symox::evalf_mp::HostError(Box::new(symox::evalf_mp::FatalHostError(symox::evalf_mp::HostError(Box::new(error)))))
+    };
+    Python::with_gil(|py| {
+        // A signal received while Rust code ran: its handler runs here, and
+        // an error it raises stops the evaluation (PyErr_CheckSignals).
+        py.check_signals().map_err(fatal)?;
+        mpmath_evaluate(py, name, args, prec).map_err(|error| {
+            if is_fatal_error(py, &error) { fatal(error) } else { symox::evalf_mp::HostError(Box::new(error)) }
+        })
+    })
+}
+
+/// An error that is not an ordinary `Exception` (KeyboardInterrupt,
+/// SystemExit, GeneratorExit, ...) or that a signal handler raised while
+/// mpmath ran must propagate at once; other errors only make the value
+/// unavailable at this precision.
+fn is_fatal_error(py: Python<'_>, error: &PyErr) -> bool {
+    if !error.is_instance_of::<pyo3::exceptions::PyException>(py) {
+        return true;
+    }
+    py.import("symox._mpmath_special")
+        .and_then(|module| module.getattr("_raised_by_signal_handler"))
+        .and_then(|check| check.call1((error.value(py),)))
+        .and_then(|flag| flag.is_truthy())
+        .unwrap_or(false)
 }
 
 /// Run `f` with host errors recorded, and raise the first one as SymPy's

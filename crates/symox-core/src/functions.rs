@@ -60,11 +60,28 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     // gamma, loggamma, erf and erfc have no float rule in their eval: like
     // SymPy's Function they evaluate only float or float complex arguments,
     // at the largest argument precision.
+    // SymPy's gamma.eval: an integer-valued number (`intlike`, a Float
+    // such as -3.0 included) is a pole when nonpositive.
+    if matches!(f, Func::Gamma) && args.len() == 1 {
+        if let Some(n) = args[0].as_number().filter(|n| n.is_float() && !n.is_positive()) {
+            if n.sub(&n.floor()).is_zero() {
+                return Expr::zoo();
+            }
+        }
+    }
+    // loggamma.eval: an integer argument (Float zero is integer in SymPy)
+    // that is nonpositive gives oo.
+    if matches!(f, Func::LogGamma) && args.len() == 1 && args[0].as_number().is_some_and(|n| n.is_float() && n.is_zero()) {
+        return Expr::oo();
+    }
     let auto_evalf = matches!(f, Func::Gamma | Func::LogGamma | Func::Erf | Func::Erfc);
     if auto_evalf && crate::special::should_evalf(&args) {
         let prec = args.iter().filter_map(crate::special::float_precision).max().unwrap_or(53);
         let node = Expr::from_kind(Kind::Func(f.clone(), args.clone()));
         if let Some(value) = crate::evalf_mp::eval_number(&node, prec) {
+            return value;
+        }
+        if let Some(value) = crate::evalf_mp::nonfinite_value(&node, prec) {
             return value;
         }
         if crate::evalf_mp::has_special_host() || prec > 53 {
@@ -170,6 +187,9 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         let raw = Expr::from_kind(Kind::Func(f.clone(), args.clone()));
         if let Some(value) = crate::evalf_mp::eval_mp(&raw, precision) {
             return crate::evalf_mp::to_expr(value, precision);
+        }
+        if let Some(value) = crate::evalf_mp::nonfinite_value(&raw, precision) {
+            return value;
         }
     }
     Expr::from_kind(Kind::Func(f, args))
