@@ -50,6 +50,154 @@ pub fn diff_many(e: &Expr, vars: &[(Expr, u32)]) -> Expr {
     r
 }
 
+/// An `AppliedUndef` of the reference: an application of `Function('f')`.
+fn applied_undef(e: &Expr) -> bool {
+    matches!(e.kind(), Kind::Func(Func::Undefined(head), _) if !head.internal && head.host().is_none())
+}
+
+/// The reference's `_nodes`, the first key of `ordered`.
+fn sympy_nodes(e: &Expr) -> usize {
+    match e.kind() {
+        Kind::Derivative(inner, variables) =>
+            variables.iter().fold(sympy_nodes(inner), |n, (_, count)| n.saturating_add(*count as usize)),
+        _ => crate::traverse::node_count(e),
+    }
+}
+
+/// `_block` of the reference `_sort_variable_count`: true if `v` may not
+/// come before `d`.
+fn sort_block(d: &Expr, v: &Expr, wrt: bool) -> bool {
+    if d == v {
+        return wrt;
+    }
+    if d.is_symbol() {
+        return false;
+    }
+    if let Kind::Derivative(_, variables) = d.kind() {
+        return variables.iter().any(|(k, _)| sort_block(k, v, true));
+    }
+    if !wrt && applied_undef(d) {
+        return false;
+    }
+    if v.is_symbol() {
+        return crate::traverse::free_symbols(d).contains(v);
+    }
+    if applied_undef(v) {
+        // _block(d.xreplace({v: D}), D)
+        return crate::traverse::has_structural(d, v);
+    }
+    let free = crate::traverse::free_symbols(v);
+    crate::traverse::free_symbols(d).iter().any(|s| free.contains(s))
+}
+
+/// SymPy's `Derivative._sort_variable_count`: the canonical order of the
+/// differentiation variables, keeping the order of the variables that do
+/// not commute during differentiation, with contiguous counts merged.
+pub fn sort_variable_count(vc: &[(Expr, u32)]) -> Vec<(Expr, u32)> {
+    if vc.len() <= 1 {
+        return vc.to_vec();
+    }
+    let n = vc.len();
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    for i in 0..n {
+        for j in 0..i {
+            if sort_block(&vc[j].0, &vc[i].0, false) {
+                edges.push((j, i));
+            }
+        }
+    }
+    // O = dict(zip(ordered(uniq(variables)), range(len(vc))))
+    let mut unique: Vec<Expr> = Vec::new();
+    for (v, _) in vc {
+        if !unique.contains(v) {
+            unique.push(v.clone());
+        }
+    }
+    let mut keyed: Vec<(usize, crate::sortkey::Key, Expr)> =
+        unique.into_iter().map(|v| (sympy_nodes(&v), crate::sortkey::sort_key(&v), v)).collect();
+    keyed.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+    let rank = |i: usize| keyed.iter().position(|(_, _, v)| *v == vc[i].0).unwrap_or(0);
+    // topological_sort((V, E), key=lambda i: O[v(i)])
+    let mut start: Vec<usize> = (0..n).filter(|i| !edges.iter().any(|(_, u)| u == i)).collect();
+    // sorted(S, key=key, reverse=True). Equal keys are the same variable,
+    // whose entries are merged below; they are taken in input order so that
+    // counts that cannot be merged (u32 overflow) keep their order.
+    start.sort_by(|a, b| rank(*b).cmp(&rank(*a)).then_with(|| b.cmp(a)));
+    let mut pending = start;
+    let mut order = Vec::with_capacity(n);
+    while let Some(node) = pending.pop() {
+        order.push(node);
+        let targets: Vec<usize> = edges.iter().filter(|(u, _)| *u == node).map(|(_, v)| *v).collect();
+        for v in targets {
+            if let Some(position) = edges.iter().position(|(u, w)| *u == node && *w == v) {
+                edges.remove(position);
+            }
+            if edges.iter().any(|(_, w)| *w == v) {
+                continue;
+            }
+            let kv = rank(v);
+            match pending.iter().position(|s| kv > rank(*s)) {
+                Some(i) => pending.insert(i, v),
+                None => pending.push(v),
+            }
+        }
+    }
+    if order.len() != n {
+        return vc.to_vec();
+    }
+    let mut merged: Vec<(Expr, u32)> = Vec::with_capacity(n);
+    for i in order {
+        let (v, c) = &vc[i];
+        if let Some((w, m)) = merged.last_mut() {
+            if w == v {
+                if let Some(total) = m.checked_add(*c) {
+                    *m = total;
+                    continue;
+                }
+            }
+        }
+        merged.push((v.clone(), *c));
+    }
+    merged
+}
+
+/// `Derivative.canonical` applied to every derivative of `e`, as the
+/// reference's evaluated `Derivative` ends with
+/// `expr.replace(lambda x: isinstance(x, Derivative), lambda x: x.canonical)`.
+pub fn canonical_derivatives(e: &Expr) -> Expr {
+    fn walk(e: &Expr, memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
+        if e.is_atom() {
+            return e.clone();
+        }
+        if let Some((_, value)) = memo.get(&e.dag_id()) {
+            return value.clone();
+        }
+        let value = match e.kind() {
+            Kind::Num(_) | Kind::Const(_) | Kind::Sym(_) | Kind::Bool(_) => e.clone(),
+            Kind::Derivative(inner, variables) => {
+                let body = walk(inner, memo);
+                let sorted = if variables.len() > 1 { sort_variable_count(variables) } else { variables.clone() };
+                if body.same_presentation(inner) && sorted == *variables {
+                    e.clone()
+                } else {
+                    derivative_unevaluated(&body, sorted)
+                }
+            }
+            _ => crate::traverse::map_children(e, &mut |child| walk(child, memo)),
+        };
+        memo.insert(e.dag_id(), (e.clone(), value.clone()));
+        value
+    }
+    walk(e, &mut FxHashMap::default())
+}
+
+/// The reference's `Derivative(e, *vars, evaluate=True)`: the variables in
+/// canonical order, then every derivative of the result made canonical.
+pub fn diff_evaluated(e: &Expr, vars: &[(Expr, u32)]) -> Expr {
+    let sorted = sort_variable_count(vars);
+    canonical_derivatives(&diff_many(e, &sorted))
+}
+
 /// Build an unevaluated `Derivative` node (merging nested derivatives).
 pub fn derivative_unevaluated(f: &Expr, vars: Vec<(Expr, u32)>) -> Expr {
     let vars: Vec<(Expr, u32)> = vars.into_iter().filter(|(_, n)| *n > 0).collect();
@@ -154,14 +302,16 @@ fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
         Kind::Derivative(inner, vars) => {
             let di = d(inner, x, cache);
             match di.kind() {
-                Kind::Derivative(..) => {
-                    let mut v = vars.clone();
-                    let incremented = v.iter_mut().find(|(w, _)| w == x)
-                        .is_some_and(|(_, m)| {
-                            if let Some(total) = m.checked_add(1) { *m = total; true } else { false }
-                        });
-                    if !incremented { v.push((x.clone(), 1)); }
-                    Expr::from_kind(Kind::Derivative(inner.clone(), v))
+                Kind::Derivative(body, more) => {
+                    // The reference re-dispatches Derivative(expr,
+                    // *(variable_count + [(x, 1)]), evaluate=True), whose
+                    // variables are in canonical order.
+                    let combined: Vec<(Expr, u32)> = if body == inner {
+                        vars.iter().chain(more.iter()).cloned().collect()
+                    } else {
+                        more.iter().chain(vars.iter()).cloned().collect()
+                    };
+                    derivative_unevaluated(body, sort_variable_count(&combined))
                 }
                 _ => diff_many(&di, vars),
             }
@@ -268,6 +418,35 @@ fn d_func(
         return Expr::zero();
     }
     if matches!(f,Func::Integral|Func::Sum|Func::Product) {return crate::binders::differentiate(e,x);}
+    if matches!(f,Func::Subs) && args.len()==3 {
+        if !x.is_symbol() {
+            // Derivative.__new__: a non-symbol variable is replaced by a
+            // dummy, the derivative taken by it and the dummy substituted back.
+            if !crate::traverse::has_structural(e,x){return Expr::zero();}
+            let dummy=Expr::dummy("xi",crate::Assumptions::NONE);
+            let mut m=FxHashMap::default();m.insert(x.clone(),dummy.clone());
+            let masked=crate::subs::xreplace(e,&m);
+            if masked==*e{return derivative_unevaluated(e,vec![(x.clone(),1)]);}
+            let value=d(&masked,&dummy,&mut FxHashMap::default());
+            return crate::subs::subs1(&value,&dummy,x);
+        }
+        if !crate::traverse::free_symbols(e).contains(x){return Expr::zero();}
+        // Subs._eval_derivative: the chain rule over the points, plus the
+        // derivative of the expression when it depends on x otherwise.
+        let (body,variables,points)=(&args[0],args[1].args(),args[2].args());
+        let mut terms=Vec::new();
+        for (v,p) in variables.iter().zip(points.iter()){
+            let dp=d(p,x,cache);
+            if dp.is_zero(){continue;}
+            let inner=crate::functions::doit(&crate::subs::held_subs(&diff(body,v),variables.clone(),points.clone()),true);
+            terms.push(mul(&[dp,inner]));
+        }
+        let free=crate::traverse::free_symbols(body);
+        if free.contains(x)&&!variables.contains(x){
+            terms.push(crate::functions::doit(&crate::subs::held_subs(&diff(body,x),variables.clone(),points.clone()),true));
+        }
+        return add(&terms);
+    }
     if matches!(f,Func::Subs | Func::Limit){
         if !crate::traverse::free_symbols(e).contains(x){return Expr::zero();}
         let evaluated=crate::functions::doit(e,true);
@@ -321,6 +500,15 @@ fn d_func(
             // AppliedUndef.fdiff: a symbol argument is held directly only
             // when no other argument depends on it (SymPy issue 8510).
             if arg.is_symbol()&&args.iter().enumerate().all(|(j,other)|j==i||!crate::traverse::free_symbols(other).contains(arg)){terms.push(mul(&[derivative,derivative_unevaluated(e,vec![(arg.clone(),1)])]));continue;}
+            // A non-symbol argument the reference can differentiate by
+            // (g(t), Derivative(g(t), t)) is held as Derivative(f(g(t)), g(t)).
+            // The reference also does this when another argument contains it,
+            // f(g(t), g(t)**2), where that derivative by g(t) also acts on the
+            // other argument and double counts; those keep the Subs form.
+            if !arg.is_symbol()&&is_valid_variable(arg)&&!matches!(arg.kind(),Kind::Func(Func::MatrixElement(_),_))
+                &&args.iter().enumerate().all(|(j,other)|j==i||!crate::traverse::has_structural(other,arg)){
+                terms.push(mul(&[derivative,derivative_unevaluated(e,vec![(arg.clone(),1)])]));continue;
+            }
             // One fresh atom shared by the argument, derivative and substitution
             // binder; user symbols with the same display name cannot be captured.
             let dummy=Expr::dummy(&format!("xi_{}",i+1),crate::Assumptions::NONE);

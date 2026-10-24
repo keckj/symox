@@ -305,7 +305,7 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
         Kind::Derivative(inner, variables) => {
             // Derivative.doit: a changed result that still holds a derivative
             // is done again, so the integrals it creates are done too.
-            let rv = crate::diff::diff_many(&child(inner), variables);
+            let rv = crate::diff::diff_evaluated(&child(inner), variables);
             let mut held = false;
             crate::traverse::preorder(&rv, &mut |s| if matches!(s.kind(), Kind::Derivative(..)) { held = true; });
             if rv != *e && held { doit(&rv, deep) } else { rv }

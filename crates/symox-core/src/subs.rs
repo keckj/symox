@@ -123,11 +123,40 @@ pub fn simultaneous(e:&Expr,pairs:&[(Expr,Expr)])->Expr {
 pub fn subs_doit(e:&Expr,variables:&[Expr],points:&[Expr])->Expr {
     let active:Vec<_>=variables.iter().cloned().zip(points.iter().cloned()).filter(|(v,p)|v!=p).collect();
     if active.is_empty(){return e.clone();}
-    fn bound_derivative(e:&Expr,variables:&[Expr])->bool {
-        if let Kind::Derivative(_,vars)=e.kind(){if vars.iter().any(|(v,_)|variables.contains(v)){return true;}}
-        e.args().iter().any(|a|bound_derivative(a,variables))
+    if let Kind::Derivative(inner,vars)=e.kind() {
+        if active.iter().all(|(v,_)|v.is_symbol()) && vars.iter().all(|(v,_)|v.is_symbol()) {
+            // Subs.doit of a Derivative: the substitutions unrelated to the
+            // differentiation are done first, the derivative is taken again by
+            // the variables the expression has, then the remaining
+            // substitutions go through Derivative._eval_subs.
+            let free=crate::traverse::free_symbols(e);
+            let mut body=e.clone();
+            let mut undone=Vec::new();
+            for (v,p) in &active {
+                if !free.contains(v) {
+                    if crate::traverse::has(inner,v){body=subs1(&body,v,p);}
+                } else {
+                    undone.push((v.clone(),p.clone()));
+                }
+            }
+            if let Kind::Derivative(inner,vars)=body.kind() {
+                let inner_free=crate::traverse::free_symbols(inner);
+                let mut expr=inner.clone();
+                let mut wrt=Vec::new();
+                for (v,c) in vars {
+                    if inner_free.contains(v){expr=crate::diff::diff_evaluated(&expr,&[(v.clone(),*c)]);}
+                    else{wrt.push((v.clone(),*c));}
+                }
+                let mut rv=subs(&expr,&undone);
+                for vc in wrt {rv=crate::diff::diff_evaluated(&rv,&[vc]);}
+                let original=held_subs(e,variables.to_vec(),points.to_vec());
+                return if rv!=original{crate::functions::doit(&rv,true)}else{rv};
+            }
+            return crate::functions::doit(&subs(&body,&undone),true);
+        }
     }
-    if bound_derivative(e,variables){return held_subs(e,variables.to_vec(),points.to_vec());}
+    // Other expressions: Derivative._eval_subs holds each derivative whose
+    // variable cannot be replaced (cases (0) to (3)).
     // Like SymPy Subs.doit, evaluation follows the specified variable order;
     // this is distinct from expr.subs(..., simultaneous=True).
     subs(e,&active)
@@ -263,11 +292,32 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
     // substituting a differentiation variable: keep an unevaluated Subs
     if let Kind::Derivative(_, vars) = e.kind() {
         if vars.iter().any(|(v, _)| v == old) {
-            if new.is_symbol() && !crate::traverse::has(e,new) {
+            let valid_new = new.is_symbol() || (crate::diff::is_valid_variable(new)
+                && !matches!(new.kind(), Kind::Func(Func::MatrixElement(_), _)));
+            // SymPy's case (1): the new variable may not bring into the
+            // expression another differentiation variable it depends on, as
+            // g(x) for xi in Derivative(f(x, xi), x, xi).
+            let introduces_wrt = {
+                let Kind::Derivative(inner,_)=e.kind() else{unreachable!()};
+                vars.iter().any(|(v,_)| v!=old && crate::traverse::has(inner,v)
+                    && crate::traverse::has(new,v) && !crate::traverse::has(old,v))
+            };
+            if valid_new && introduces_wrt {
+                return held_subs(e,vec![old.clone()],vec![new.clone()]);
+            }
+            if valid_new && !crate::traverse::has(e,new) {
                 let Kind::Derivative(inner,vars)=e.kind() else{unreachable!()};
                 let inner=subs1(inner,old,new);
                 let vars=vars.iter().map(|(v,n)|(if v==old{new.clone()}else{v.clone()},*n)).collect();
                 return crate::diff::derivative_unevaluated(&inner,vars);
+            }
+            if !valid_new && !old.is_symbol() {
+                // Derivative._eval_subs case (0) for a non-symbol variable:
+                // Subs(self.xreplace({old: xi}), xi, new).
+                let xi = Expr::dummy("xi", crate::symbol::Assumptions::NONE);
+                let mut m = FxHashMap::default();
+                m.insert(old.clone(), xi.clone());
+                return held_subs(&xreplace(e, &m), vec![xi], vec![new.clone()]);
             }
             return held_subs(e,vec![old.clone()],vec![new.clone()]);
         }

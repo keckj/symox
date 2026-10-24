@@ -683,7 +683,7 @@ impl Matrix {
     }
 
     pub fn diff_many(&self, vars: &[(Expr, u32)]) -> Matrix {
-        self.applyfunc(|e| crate::diff::diff_many(e, vars))
+        self.applyfunc(|e| crate::diff::diff_evaluated(e, vars))
     }
 
     pub fn expand(&self) -> Matrix {

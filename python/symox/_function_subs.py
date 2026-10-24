@@ -105,6 +105,34 @@ def _same_head(head, old):
     return head is old or (function_class(head) and head == old)
 
 
+def _hold_replaced_variables(expr, query):
+    """Derivative._eval_subs case (3): a differentiation variable such as
+    g(x) whose head is substituted by a Lambda is no longer a valid
+    variable, so the derivative becomes
+    ``Subs(Derivative(expr.xreplace({g(x): xi_i}), xi_i), xi_i, g(x))``
+    before the substitution goes on."""
+    from . import Derivative, Dummy, Subs
+    rule = {}
+    for node in expr.atoms(Derivative):
+        if not getattr(node, 'is_Derivative', False):
+            continue
+        pairs = list(node.variable_count)
+        if not any(query(variable) for variable, _ in pairs):
+            continue
+        body, counts, dummies, points = node.expr, [], [], []
+        for i, (variable, count) in enumerate(pairs):
+            if query(variable):
+                xi = Dummy('xi_%i' % i)
+                body = body.xreplace({variable: xi})
+                counts.append((xi, count))
+                dummies.append(xi)
+                points.append(variable)
+            else:
+                counts.append((variable, count))
+        rule[node] = Subs(Derivative(body, *counts), dummies, points)
+    return expr.xreplace(rule) if rule else expr
+
+
 def substitute(expr, old, new):
     """``expr.subs(old, new)`` for a function class ``old``."""
     from . import Pow, exp, preorder_traversal
@@ -125,6 +153,7 @@ def substitute(expr, old, new):
 
         def value(node):
             return new(*node.args)
+        expr = _hold_replaced_variables(expr, query)
     elif old is exp:
         # exp._eval_subs: exp(a).subs(exp, y) is y**a.
         def query(node):

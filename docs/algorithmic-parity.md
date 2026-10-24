@@ -9463,3 +9463,86 @@ Remaining (a different form, never a wrong value):
 
 Tests: `tests/test_mat_rest8_parity.py`. Three older tests that expected an
 error or the eager entry now check the SymPy values.
+
+## audit14 (wave 14): derivative forms and simp-tie leftovers
+
+Fixed:
+- `diff`, `Derivative(..., evaluate=True)` and `Derivative.doit()` now sort
+  the differentiation variables as SymPy's `_sort_variable_count` does
+  (`diff::sort_variable_count`: `_block` dependencies, ties ordered by
+  `(_nodes, default_sort_key)`, then a merge of equal neighbours). A nested
+  Derivative is combined as SymPy does. The result goes through the canonical
+  rebuild of every inner Derivative.
+- Chain rule through an applied function: when the argument is `g(x)` and no
+  other argument contains it, the form is now `Derivative(f(g(x)), g(x))`,
+  as in SymPy. Before, symox gave a `Subs` here.
+- `Derivative._eval_subs` cases:
+  - case (0): an invalid new variable that replaces a non-symbol variable
+    gives `Subs(self.xreplace({old: xi}), xi, new)`;
+  - case (1): a valid new variable that brings another differentiation
+    variable into the expression gives `Subs`;
+  - case (3): `subs(g, Lambda)` on a variable `g(x)` gives
+    `Subs(Derivative(..., xi_i), xi_i, value)`.
+- `Subs.doit` of a Derivative follows SymPy's steps:
+  1. the substitutions unrelated to the differentiation are done first;
+  2. the derivative is taken again with respect to the variables that are
+     present;
+  3. the remaining substitutions go through `Derivative._eval_subs`.
+
+  The blanket hold of a Subs over a bound derivative is gone. So
+  `Subs(Derivative(f(x, y), y), y, z).doit()` is now
+  `Derivative(f(x, z), z)`, as in SymPy.
+- `Subs._eval_derivative` is ported: a chain-rule term for each point, plus
+  the direct term. A non-symbol variable goes through a dummy. Wrong values
+  fixed:
+  - `diff(Subs(Derivative(f(x, y), y), y, g(x)), g(x))` was 0;
+  - `diff(f(x, y, g(x)), y, g(x), x)` missed a cross term;
+  - `diff(f(x, g(x)), x, 2)` kept a held `Derivative(Subs(...), x)`.
+- `Hyper_Function._is_suitable_origin` is now the full SymPy test (no
+  `ai - bj` that is a non-negative integer, no zero `ai`, no non-positive
+  integer `bj`); before it was a wrong True. `Hyper_Function.has` now sees
+  the parameter Tuples.
+
+Intentional correction:
+- `diff(f(g(x), g(x)**2), x)`. SymPy writes the first slot as
+  `Derivative(f(g(x), g(x)**2), g(x))`, which also differentiates the
+  `g(x)**2` argument. With f -> x*y and g -> sin, SymPy then gives
+  `5*sin(x)**2*cos(x)` instead of `3*sin(x)**2*cos(x)`.
+  - symox keeps `Subs(Derivative(f(_xi_1, g(x)**2), _xi_1), _xi_1, g(x))`
+    whenever another argument contains the variable structurally.
+  - Its value agrees with `diff(sin(x)**3, x)`: simplify gives 0, and
+    30-digit checks at x = 1/3 and x = 7/5 pass.
+
+simp-tie probe (15 simplify test files): same 1747 -> 1747, diff 117 -> 117
+(the Hyper_Function statements changed after the run), no statement from
+same to different. One run had `test_prudnikov_1` time out under machine
+load. It was rerun with a 300 s timeout, and its 17 statements are the same
+as before.
+
+Remaining (documented, not fixed):
+- `mellin_transform(besselj(0, x), x, s)` gives `2**s/2` where SymPy gives
+  `2**(s - 1)`. SymPy's `transforms._simplify` calls
+  `powdenest(expr, polar=True)`, which turns `2*4**(s/2 - 1)` into
+  `2**(s - 1)`. symox's `powdenest(polar=True)` raises NotImplementedError,
+  so porting that option is the fix.
+- `hankel_transform(exp(-a*x)/x, x, k, 0)` now matches SymPy.
+- `integrate(cos(x)/x, (x, 1, oo))` is equal to SymPy's result (both are
+  `-Ci(1)`), but the unsimplified sum after hyperexpand groups the
+  EulerGamma and log terms differently. The responsible step is not traced.
+- `ratint(1/(x**3 + x + 1))`: SymPy's result is 16653 characters long,
+  symox's is 82704. The size comes from `roots_quadratic` in
+  `poly/roots.rs`. That file is in the user's work area and was not touched.
+- Dummy naming: `diff(f(g(x)), x).subs(g, Lambda(x, x**2)).doit()` prints
+  `_xi_0` where SymPy prints `_xi`. The value is the same.
+- simp-tie probe, still different:
+  - `test_cse` (75), `test_fu` (13), `test_simplify` (10),
+    `test_radsimp` (5), `test_powsimp` (4), `test_trigsimp` (1);
+  - `test_hyperexpand`: 4 statements, including
+    `test_meijerg_with_Floats`, which raises TypeError, and the
+    `test_partial_simp` parameter choice;
+  - `test_function`: `Hyper_Function.args` are Python tuples, where SymPy
+    has Tuples.
+
+  These were not worked through in this task.
+
+Tests: `tests/test_audit14_parity.py`.

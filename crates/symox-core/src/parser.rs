@@ -921,7 +921,7 @@ impl Parser {
                         _=>return self.err("supply differentiation variables explicitly"),
                     }
                 }
-                if name=="diff" {crate::diff::diff_many(&f,&vars)}
+                if name=="diff" {crate::diff::diff_evaluated(&f,&vars)}
                 else {crate::diff::derivative_unevaluated(&f,vars)}
             }
             "O" | "Order" => {

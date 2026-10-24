@@ -102,7 +102,8 @@ def test_exact_zero_integrals_stay_zero_after_floating_conversion():
 def test_undecidable_substitution_and_shared_undefined_arguments_remain_finite():
     x,y=sx.symbols('x y');f,pair=sx.Function('f'),sx.Function('pair')
     value=sx.Subs(sx.Derivative(f(x),x,evaluate=False),x,y)
-    assert sx.nfloat(value)==value
+    # SymPy 1.14: nfloat evaluates the Subs to Derivative(f(y), y).
+    assert sx.nfloat(value)==sx.Derivative(f(y),y)
     value=sx.Rational(1,3)
     for _ in range(80):value=pair(value,value)
     assert sx.nfloat(value) is value
