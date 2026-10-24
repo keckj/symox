@@ -68,7 +68,19 @@ pub(super) fn antiderivative(expression: &Expr, variable: &Expr) -> Option<Expr>
     if !analytic_at(&multiplier, variable, &root, 0) { return None; }
     let value = subs1(&multiplier, variable, &root);
     if super::has_bad(&value) { return None; }
-    Some(div(&mul(&[value, heaviside(&argument)]), &slope))
+    // The reference expands DiracDelta(a*x + b) to DiracDelta(x - r)/|a|
+    // (`_eval_expand_diracdelta`) before integrating, so its primitive is
+    // g(r)*Heaviside(x - r)/|a|. That form is used when the sign of a is
+    // decided; otherwise g(r)*Heaviside(a*x + b)/a (the same distribution).
+    let magnitude = match query::exact_queries(|| (query::is_positive(&slope), query::is_negative(&slope))) {
+        (Some(true), _) => Some(slope.clone()),
+        (_, Some(true)) => Some(neg(&slope)),
+        _ => None,
+    };
+    match magnitude {
+        Some(magnitude) => Some(div(&mul(&[value, heaviside(&crate::ops::sub(variable, &root))]), &magnitude)),
+        None => Some(div(&mul(&[value, heaviside(&argument)]), &slope)),
+    }
 }
 
 /// `g(x)*DiracDelta(a*x + b, n)` with `n > 0`, by repeated integration by
@@ -167,7 +179,8 @@ mod tests {
         let x = Expr::symbol("x");
         let argument = sub(&mul2(&Expr::int(-2), &x), &Expr::int(-2));
         let input = mul2(&exp(&x), &dirac_delta(&argument));
-        let expected = div(&mul2(&exp(&Expr::one()), &heaviside(&argument)), &Expr::int(-2));
+        // the reference form Heaviside(x - r)/|a| (negative slope a = -2)
+        let expected = div(&mul2(&exp(&Expr::one()), &heaviside(&sub(&x, &Expr::one()))), &Expr::int(2));
         assert_eq!(with_input(&input, || antiderivative(&input, &x)), Some(expected));
     }
 

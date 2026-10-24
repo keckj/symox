@@ -116,25 +116,36 @@ def _reference_delta_product(g, x):
     for d in deltas:
         arg = d.args[0]
         order = d.args[1] if len(d.args) > 1 else S.Zero
-        if arg.free_symbols - {x}:
-            return False
+        symbolic = bool(arg.free_symbols - {x})
         slope = arg.diff(x)
-        if slope == 1 or (slope == -1 and order == 0):
+        if not symbolic and (slope == 1 or (slope == -1 and order == 0)):
             continue
         if order != 0 or not arg.is_polynomial(x):
             return False
         poly = Poly(arg, x)
-        if poly.degree() < 2 or not poly.get_domain().is_QQ and not poly.get_domain().is_ZZ:
+        if poly.degree() < 2:
             return False
+        if not symbolic and not poly.get_domain().is_QQ and not poly.get_domain().is_ZZ:
+            return False
+        # Symbolic coefficients (DiracDelta(x**2 - a**2) with a positive):
+        # the guarded expansion splits the delta only when every root is
+        # simple and real and every scale |p'(r)| is proven nonzero; with an
+        # unassumed a (scale 2*|a|, possibly 0) the delta stays whole.
         if d.expand(diracdelta=True, wrt=x) == d:
             return False
         nonaffine = True
     from symox.core.function import AppliedUndef
-    # The reference keeps one term of a derivative against a weight
-    # (f(x)*DiracDelta(x, 1) misses f(0)*DiracDelta(x)): order 0 only.
+    undefined = bool(g.atoms(AppliedUndef))
     if any(o != 0 for o in orders):
-        return False
-    return nonaffine or g.has(Heaviside, sign, Abs) or bool(g.atoms(AppliedUndef))
+        # The reference keeps one term of a derivative against a weight
+        # (f(x)*DiracDelta(x, 1) misses f(0)*DiracDelta(x)), the same
+        # leading term as the native rule for an analytic weight. It also
+        # omits the 1/(a**n*|a|) scale, so only a unit slope with a test
+        # function weight (f(x)*DiracDelta(x - 1, 1), a numeric root) is
+        # taken from it.
+        return (undefined and len(deltas) == 1 and not nonaffine
+                and deltas[0].args[0].diff(x) == 1)
+    return nonaffine or g.has(Heaviside, sign, Abs) or undefined
 
 
 def _regular_delta_value(h):

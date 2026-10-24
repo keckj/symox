@@ -10299,3 +10299,86 @@ points, Mod integer part, kind, eigenvalue rational roots) continues the
 computation. The remaining entries are capability gaps where SymPy
 finishes and symox raises or stays unevaluated (listed above); they are
 not wrong results. `solve.rs` and `poly/roots.rs` were documented only.
+
+## defparam (wave 17)
+
+Parametric definite integrals and distributions (TODO.md section 3).
+
+Integration corpus triage: none of the 21 MISSING and 10 DIFF entries can
+be ported, because each SymPy value is wrong for some parameter values
+(checked numerically against quadrature, script
+`.tooling/scratch/defparam/verify_corpus.py`):
+- `1/(x + a)` on (0, 1) (SymPy wrong at a = -1/2: pole inside, SymPy gives
+  -I*pi), `1/(1 + a*x)` on (0, 1) (a = -2, -3), `1/(x - a)` on (0, 1)
+  (a = 1/2, also for positive a), `1/x` on (a, 1) (a = -1),
+  `1/(x**2 + a)` on (0, oo) (a = -1: SymPy gives -I*pi/2). These stay
+  unevaluated (MISSING).
+- The 10 DIFF are `laplace_transform(1/(t + 1), t, s)` (five assumption
+  sets, with and without conds):
+  quadrature at s = 1/2, 1, 3 gives 0.92291, 0.59635, 0.26208, equal to
+  symox's `-exp(s)*Ei(-s)`; SymPy's `-exp(-s)*Ei(-s)` is wrong (already
+  documented as intentional corrections in icorpus/intrest3/intrest4).
+- In the new probe the same holds for `1/(x + a)**2`, `x/(x + a)`,
+  `1/(x**2 - a**2)`, `x/(x**2 + a)` on (0, 1), `1/(x + a)` on (1, 2),
+  `1/(a*x**2 + 1)` on (0, oo) for nonzero a (wrong for a < 0),
+  `1/(x**2 + 2*a*x + 1)` on (-oo, oo) (SymPy gives 0, the value is
+  pi/sqrt(1 - a**2) for |a| < 1) and `1/((x - a)**2 + 1)` unassumed
+  (wrong for |Im a| = 1).
+
+Ported (as SymPy 1.14):
+- Simple affine delta primitives in the reference form
+  `g(r)*Heaviside(x - r)/|a|` when the sign of the slope is known
+  (`integrate(DiracDelta(-2*x + 1), x)` is `Heaviside(x - 1/2)/2`),
+  from the `_eval_expand_diracdelta` step of `deltaintegrate`.
+- Nonaffine polynomial deltas with symbolic coefficients when the guarded
+  expansion has simple real roots and a nonzero scale:
+  `DiracDelta(x**2 - ap**2)`, `DiracDelta(x**2 - ap)` (value
+  `1/sqrt(ap)` on the real line), `DiracDelta((x - ap)*(x - 2*ap))`, with
+  weights and on finite intervals.
+- `f(x)*DiracDelta(x - c, n)` with an undefined test function: SymPy's
+  single leading term with `Subs(Derivative(...))`.
+- `Heaviside` with an argument even in x no longer forces the positive-x
+  skip of the Meijer G path: `integrate(Heaviside(x**2 - 1), (x, -2, 2))`
+  is 2 and the primitives of `Heaviside(1 - x**2)`, `x*Heaviside(x**2 - 1)`
+  are SymPy's Meijer G Piecewise (derivative checked at negative x).
+- Series order term: a `Heaviside`/`DiracDelta` whose argument is nonzero
+  at the expansion point but whose sign the positive dummy does not
+  decide keeps the order term, as SymPy's Taylor path
+  (`series(Heaviside(x - 1), x)` is `O(x**6)`, `series(Heaviside(x - 1) + x)`
+  is `x + O(x**6)`, `series(Heaviside(x + 1))` stays exactly 1).
+
+Probe (`.tooling/scratch/defparam/probe.py`, 196 statements, about 110
+distributions and 22 parametric integrals under four assumption sets):
+before SAME 128 / EQUIV 13 / MISSING 49 / DIFF 1 / EXTRA-UNCHECKED 3 /
+COMPARE-FAIL 2; after SAME 139 / EQUIV 8 / MISSING 43 / DIFF 1 /
+EXTRA-UNCHECKED 3 / COMPARE-FAIL 2. Integration corpus unchanged
+(SAME 1171 / EQUIV 8 / MISSING 21 / DIFF 10).
+
+Intentional corrections (symox right, SymPy 1.14 wrong):
+- `integrate(DiracDelta(x**2 - a**2), x)` for unassumed or real a: SymPy's
+  `/(2*Abs(a))` is infinite at a = 0, where `DiracDelta(x**2)` has no
+  simple root; held. Likewise `DiracDelta(a*x - 1)*x` (SymPy
+  `Heaviside(x - 1/a)/(a*Abs(a))`, the integrand vanishes at a = 0) is held
+  and `DiracDelta(ar*x - 1)` with real ar is a Piecewise with the a = 0
+  branch 0.
+- `integrate(DiracDelta(2*x, 1)*f(x), (x, -oo, oo))`: SymPy omits the
+  scale 1/(2*|2|) and gives `-f'(0)`; the value is `-f'(0)/4`; held.
+- `integrate(DiracDelta(2*x - 1, 1)*x**2, (x, -oo, oo))` is -1/4 (SymPy -1,
+  same missing scale).
+- `integrate(Heaviside(x**2 - 1), (x, 0, oo))` diverges; SymPy raises
+  TypeError, symox leaves it unevaluated.
+- `series(Heaviside(sin(x)), x, 0, 3)` stays exactly 1 (SymPy's Taylor
+  expansion runs through the jump).
+
+Remaining (documented, not fixed):
+- `DiracDelta(x)**2`, `DiracDelta(x, 1)**2` and
+  `DiracDelta(x**2 - 1)*DiracDelta(x - 1)`: SymPy returns expressions in
+  `DiracDelta(0)` (products of distributions are undefined); held.
+- A delta at an endpoint of a finite interval: symox counts half the mass
+  (`-1/2`, `f(0)/2`) where SymPy gives 0; not changed.
+- `series(Heaviside(x - 1), x, oo)` returns 1 where SymPy raises
+  PoleError.
+- `integrate(Heaviside(x - a)*exp(-x), (x, -oo, oo))` is `exp(-a)` (SymPy
+  leaves it unevaluated); right for real a.
+
+Tests: `tests/test_defparam_parity.py`.

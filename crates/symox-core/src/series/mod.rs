@@ -175,6 +175,45 @@ pub fn series(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool) -> SRes<Expr> 
     }
 }
 
+/// Whether `e` has a `Heaviside` or `DiracDelta` that the reference does
+/// not evaluate once the expansion variable is replaced by its positive
+/// dummy (`Heaviside(x - 1)` at `0`, but not `Heaviside(x + 1)`). The
+/// reference then expands it as an analytic function whose Taylor terms
+/// vanish, so the result keeps its order term: `series(Heaviside(x - 1))`
+/// is `O(x**6)` and `series(Heaviside(x + 1))` is exactly `1`.
+fn has_undecided_step(e: &Expr, x: &Expr, x0: &Expr, minus: bool, d: i64) -> bool {
+    // At infinity the reference raises; an argument vanishing at x0 makes
+    // its Taylor expansion run through the jump (a documented correction
+    // keeps the exact one-sided value there).
+    if x0.is_constant(Constant::Infinity) || x0.is_constant(Constant::NegInfinity) {
+        return false;
+    }
+    let t = Expr::dummy("t", crate::symbol::Assumptions::POSITIVE);
+    let sgn = if minus { Expr::minus_one() } else { Expr::one() };
+    let value = add(&[x0.clone(), mul2(&sgn, &pow(&t, &Expr::int(d)))]);
+    fn walk(e: &Expr, x: &Expr, x0: &Expr, value: &Expr, depth: usize) -> bool {
+        if depth > 256 || !depends(e, x) {
+            return false;
+        }
+        if let Kind::Func(f @ (Func::Heaviside | Func::DiracDelta), args) = e.kind() {
+            if !args.is_empty() && depends(&args[0], x) {
+                let at = crate::subs::subs1(&args[0], x, x0);
+                let a = crate::subs::subs1(&args[0], x, value);
+                let decided = crate::assumptions::exact_queries(|| crate::assumptions::is_zero(&at) != Some(false) || if *f == Func::Heaviside {
+                    crate::assumptions::is_positive(&a) == Some(true) || crate::assumptions::is_negative(&a) == Some(true)
+                } else {
+                    crate::assumptions::is_zero(&a) == Some(false)
+                });
+                if !decided {
+                    return true;
+                }
+            }
+        }
+        e.args().iter().any(|a| walk(a, x, x0, value, depth + 1))
+    }
+    walk(e, x, x0, &value, 0)
+}
+
 fn series_impl(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, logfac: Option<(Expr, i64)>) -> SRes<Expr> {
     let logt = logt_symbol();
     let ((s, extra_logdeg), d) = with_engine(x, x0, minus, &logt, |eng| {
@@ -188,7 +227,10 @@ fn series_impl(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, logfac: Optio
             m += (target - s.prec).max(1);
             s = eng.ser(e, m)?;
         }
-        let s = s.trunc(target.min(s.prec.max(target)));
+        let mut s = s.trunc(target.min(s.prec.max(target)));
+        if s.exact && has_undecided_step(e, x, x0, minus, eng.d) {
+            s = Ser::from_coeffs(s.val, s.c.clone(), target, false).trunc(target);
+        }
         // log degree of the order term
         let mut logdeg = 0i64;
         if !s.exact && s.c.iter().any(|c| matches!(c, C::E(e) if depends(e, &logt))) {
