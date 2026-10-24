@@ -1337,13 +1337,13 @@ fn do_diff(e: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
         return match fs.len() {
             0 => Ok(Expr::zero()),
             1 if matches!(fs[0].kind(),Kind::Func(Func::MatrixProxy(_),_)) => Err(PyNotImplementedError::new_err("matrix-variable derivatives require tensor expressions")),
-            1 => Ok(diff::diff(e, &fs[0])),
+            1 => Ok(diff::diff_evaluated(e, &[(fs[0].clone(), 1)])),
             _ => Err(PyValueError::new_err(
                 "Since there is more than one variable in the expression, the variable(s) of differentiation must be supplied",
             )),
         };
     }
-    Ok(diff::diff_many(e, &vars))
+    Ok(diff::diff_evaluated(e, &vars))
 }
 
 /// Bind Basic.subs' public argument names before dispatching to each native type.
@@ -3328,7 +3328,7 @@ fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>,evaluate:bool) 
     let mut vars = diff_vars(args)?;
     if vars.is_empty(){let symbols=traverse::free_symbols(&expression);match symbols.len(){0=>return Ok(wrap(Expr::zero())),1=>vars.push((symbols[0].clone(),1)),_=>return Err(PyValueError::new_err("specify the differentiation variables"))}}
     if let Some((v,_))=vars.iter().find(|(v,_)|!valid_diff_variable(v)){return Err(cannot_diff_wrt(v));}
-    Ok(wrap(if evaluate{diff::diff_many(&expression,&vars)}else{diff::derivative_unevaluated(&expression,vars)}))
+    Ok(wrap(if evaluate{diff::diff_evaluated(&expression,&vars)}else{diff::derivative_unevaluated(&expression,vars)}))
 }
 
 #[pyfunction]

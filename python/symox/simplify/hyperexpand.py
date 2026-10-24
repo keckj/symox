@@ -49,7 +49,9 @@ class Hyper_Function:
         return _S().hyper(self.ap, self.bq, z)
 
     def has(self, *symbols):
-        return any(value.has(*symbols) for group in self.args for value in group)
+        # SymPy's Hyper_Function is an Expr with args (Tuple(*ap), Tuple(*bq)).
+        Tuple = _S().Tuple
+        return any(Tuple(*group).has(*symbols) for group in self.args)
 
     def __eq__(self, other):
         return isinstance(other, type(self)) and self.args == other.args
@@ -81,7 +83,15 @@ class Hyper_Function:
         return sum(abs(int(_S().simplify(a-b))) for group in pairs for a, b in group)
 
     def _is_suitable_origin(self):
-        return not any(a.is_integer is True and a.is_nonpositive is True for a in self.ap+self.bq)
+        # SymPy: no ai equals bj + n (n a non-negative integer), no ai is
+        # zero and no bj is a non-positive integer.
+        for a in self.ap:
+            for b in self.bq:
+                if (a - b).is_integer and (a - b).is_negative is False:
+                    return False
+        if any(a == 0 for a in self.ap):
+            return False
+        return not any(b.is_integer and b.is_nonpositive for b in self.bq)
 
 
 class G_Function(Hyper_Function):

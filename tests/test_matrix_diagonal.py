@@ -205,8 +205,10 @@ def test_diagonal_diff_cache_preserves_alpha_equal_binder_names():
     left=sx.DiagMatrix(sx.MatrixExpr(sx.ImmutableMatrix([[first]])))
     right=sx.DiagMatrix(sx.MatrixExpr(sx.ImmutableMatrix([[second]])))
     result=sx.BlockMatrix([[left,right]]).diff(t).as_explicit()
-    assert result[0,0].args[0].args[1].args==(x,)
-    assert result[0,1].args[0].args[1].args==(y,)
+    # SymPy's Subs._eval_derivative form: 2*t*Subs(Derivative(f(x), (x, 2)), x, t**2 + 1).
+    held=lambda entry:[a for a in entry.args if a.func==sx.Subs][0]
+    assert held(result[0,0]).args[1].args==(x,)
+    assert held(result[0,1]).args[1].args==(y,)
 
 
 def test_diagonal_native_runtime_without_sympy():
