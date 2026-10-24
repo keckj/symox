@@ -1185,7 +1185,58 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
             }
         }
     }
+    // Add._eval_is_zero last: the sign and numeric paths above share the
+    // DAG cache and settle the real sums first.
+    // Sums of real terms are left to real_signs: the generic extended_real
+    // fact is not cached and would revisit a shared DAG exponentially.
+    if let Kind::Add(_,terms)=e.kind() {
+        if terms.iter().all(|(t,_)|is_real(t)==Some(true)) {return None;}
+        return add_is_zero(e);
+    }
     None
+}
+
+/// SymPy's `Add._eval_is_zero`: the real terms must sum to a nonzero
+/// value next to imaginary ones (`1 + I`, `p + I`, `1 + I*r` are nonzero),
+/// or all vanish. Only its decided answers are used.
+fn add_is_zero(e:&Expr)->Option<bool>{
+    let args=e.args();
+    let (mut nonzero,mut zeros,mut im_or_z,mut imaginary,mut unknown)=(Vec::new(),0usize,false,0usize,false);
+    for a in &args {
+        if fact(a,"extended_real")==Some(true) {
+            match is_zero(a) {
+                Some(true)=>zeros+=1,
+                Some(false)=>nonzero.push(a.clone()),
+                None=>unknown=true,
+            }
+        } else if fact(a,"imaginary")==Some(true) {
+            imaginary+=1;
+        } else if let Kind::Mul(..)=a.kind() {
+            // `a.as_coeff_mul(I)`: exactly the factor I times an extended
+            // real coefficient
+            let factors=a.args();
+            if factors.iter().filter(|f|f.is_constant(Constant::I)).count()!=1 {return None;}
+            let rest:Vec<Expr>=factors.into_iter().filter(|f|!f.is_constant(Constant::I)).collect();
+            if rest.iter().any(|f|crate::traverse::has_structural(f,&Expr::i())) {return None;}
+            if fact(&crate::ops::mul(&rest),"extended_real")!=Some(true) {return None;}
+            im_or_z=true;
+        } else {
+            return None;
+        }
+    }
+    // extended real terms next to a single imaginary one (nonzero, as
+    // `imaginary` excludes 0): the sum is not extended real, so not zero
+    // (`zero -> extended_real`, how the reference settles `(r + I).is_zero`)
+    if imaginary==1 && !im_or_z {return Some(false);}
+    if unknown {return None;}
+    if zeros==args.len() {return Some(true);}
+    if nonzero.is_empty()||nonzero.len()==args.len() {return None;}
+    match is_zero(&crate::ops::add(&nonzero)) {
+        Some(true) if !im_or_z && imaginary==0 => Some(true),
+        Some(true) if !im_or_z && imaginary==1 => Some(false),
+        Some(false) => Some(false),
+        _ => None,
+    }
 }
 
 #[inline]

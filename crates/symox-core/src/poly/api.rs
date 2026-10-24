@@ -331,8 +331,8 @@ fn is_pure_complex(e: &Expr) -> bool {
     }
 }
 
-fn rat_expr(c: &Rat, float: bool) -> Expr {
-    super::convert::rat_to_expr_float(c, float)
+fn rat_expr(c: &Rat, prec: u32) -> Expr {
+    super::convert::rat_to_expr_prec(c, prec)
 }
 
 /// SymPy's `_symbolic_factor_list`: `(coeff, [(factor, exponent)])`.
@@ -429,9 +429,9 @@ fn symbolic_factor_list_tracked(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr
             let positive=crate::assumptions::is_positive(&coefficient)==Some(true);
             (coefficient,positive,result.factors.into_iter().map(|(p,k)|(p.base,k)).collect())
         }else{
-            let float = poly.is_float();
+            let prec = poly.domain.prec();
             let (c, fs) = if sqf { poly.sqf_list() } else { poly.factor_list() };
-            (rat_expr(&c,float),c.n.is_positive(),fs)
+            (rat_expr(&c,prec),c.n.is_positive(),fs)
         };
         let fs: Vec<(FItem, u32)> = fs.into_iter().map(|(p, k)| (FItem::P(p), k)).collect();
         (ce, positive, fs)
@@ -1168,7 +1168,7 @@ pub fn sqf_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
 pub fn poly_factor_list(e: &Expr, gens: &[Expr]) -> PResult<(Expr, Vec<(Expr, u32)>)> {
     let p = Poly::from_expr(e, gens)?;
     let (c, fs) = p.factor_list();
-    Ok((rat_expr(&c, p.is_float()), fs.into_iter().map(|(f, k)| (f.as_expr(), k)).collect()))
+    Ok((rat_expr(&c, p.domain.prec()), fs.into_iter().map(|(f, k)| (f.as_expr(), k)).collect()))
 }
 
 // ----------------------------------------------------------------------
@@ -1400,13 +1400,6 @@ fn float_representable(p: &MPoly<Rat>) -> bool {
     })
 }
 
-/// Whether `e` has a float of a precision other than 53 bits.
-fn has_mp_float(e: &Expr) -> bool {
-    let mut found = false;
-    crate::traverse::preorder(e, &mut |x| found |= matches!(x.kind(), Kind::Num(crate::number::Number::MpFloat(_, p)) if *p != 53));
-    found
-}
-
 /// `cancel(expr)`.
 pub fn cancel(e: &Expr) -> PResult<Expr> {
     match e.kind() {
@@ -1444,10 +1437,10 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {
     }
     // Float input is a polynomial over `RR` in the reference, a field
     // without an associated ring: its cancel keeps the float coefficients
-    // (`x/(0.3*x + 0.1)` is `1.0*x/(0.3*x + 0.1)`). Higher precision
-    // floats keep the rational path.
-    let (mut pp, mut qq) = if c.float && !has_mp_float(e) {
-        super::inexact_ground::rr_cancel(&c.polys[0], &c.polys[1])
+    // (`x/(0.3*x + 0.1)` is `1.0*x/(0.3*x + 0.1)`). The domain is
+    // `RealField(prec)` at the largest precision of the floats.
+    let (mut pp, mut qq) = if c.float {
+        super::inexact_ground::rr_cancel_prec(&c.polys[0], &c.polys[1], c.prec)
     } else {
         cancel_polys(&c.polys[0], &c.polys[1])
     };
@@ -1459,8 +1452,8 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {
         pp = pp.scale(&lc);
         qq = qq.scale(&lc);
     }
-    let pe = super::convert::to_expr_f(&pp, &c.gens, c.float);
-    let qe = super::convert::to_expr_f(&qq, &c.gens, c.float);
+    let pe = super::convert::to_expr_prec(&pp, &c.gens, c.prec);
+    let qe = super::convert::to_expr_prec(&qq, &c.gens, c.prec);
     Ok(div(&pe, &qe))
 }
 
@@ -1495,7 +1488,7 @@ pub fn reduced(a: &Expr, divisors: &[Expr], gens: &[Expr]) -> PResult<(Vec<Expr>
     }
     if converted.ngens == converted.gens.len() {
         let (q, r) = converted.polys[0].reduced(&converted.polys[1..]).unwrap();
-        let to_expr = |p: &MPoly<Rat>| to_expr_f(p, &converted.gens, converted.float);
+        let to_expr = |p: &MPoly<Rat>| super::convert::to_expr_prec(p, &converted.gens, converted.prec);
         return Ok((q.iter().map(to_expr).collect(), to_expr(&r)));
     }
 
@@ -1619,7 +1612,7 @@ pub fn resultant(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
     let n = ps[0].rep.degree(0).max(0) as u32;
     let scale = Rat::new(Int::one(), da.pow(m).mul(&db.pow(n)));
     let r = r.to_rat().scale(&scale);
-    Ok(super::convert::to_expr_f(&r, &ps[0].gens, ps[0].is_float()))
+    Ok(super::convert::to_expr_prec(&r, &ps[0].gens, ps[0].domain.prec()))
 }
 
 /// `discriminant(f, *gens)`.
@@ -1630,7 +1623,7 @@ pub fn discriminant(f: &Expr, gens: &[Expr]) -> PResult<Expr> {
     // disc(f/d) = disc(f) / d^(2n-2)
     let n = p.rep.degree(0).max(1) as u32;
     let r = r.to_rat().scale(&Rat::new(Int::one(), d.pow(2 * n - 2)));
-    Ok(super::convert::to_expr_f(&r, &p.gens, p.is_float()))
+    Ok(super::convert::to_expr_prec(&r, &p.gens, p.domain.prec()))
 }
 
 // ----------------------------------------------------------------------

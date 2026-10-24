@@ -8485,3 +8485,50 @@ Remaining (unsupported, raised or left unevaluated, never a wrong value):
   in some "Could not find root" messages.
 
 Tests: `tests/test_audit9_parity.py`.
+
+## simp-rest4 (wave 10)
+
+Implemented:
+- Issue 11004, high precision Floats through the polys layer: the RR domain
+  now carries its binary precision (the largest precision of the input
+  coefficients, as SymPy's RealField does). cancel, together, factor,
+  factor_list, sqf, gcd, lcm, div, quo, rem, apart, ratsimp, terms_gcd,
+  simplify and Poly (also with `domain=RealField(136)`) keep the 103 and 136
+  bit Floats SymPy returns instead of rounding to 53 bits. The
+  double-precision fast paths only run for 53-bit coefficients. Poly prints
+  an RR zero as 0.0 and `all_coeffs` returns RR zeros.
+- `Add._eval_is_zero` ported (extended real, imaginary and `coeff*I` terms):
+  `(r + I).is_zero` and `(1 + I*r).is_zero` are False, so the zero and
+  finiteness queries of powers with complex bases follow. On a 252-line probe
+  (18 complex bases, 14 exponents, is_zero/is_finite/is_nonzero/is_infinite)
+  the differing lines fell from 105 to 13. SymPy 1.14 gives
+  `((1 + I)**x).is_zero` None (x may be infinite), and symox matches that.
+
+  The port runs after the sign and numeric paths, and only for a sum with a
+  term not known to be real, so shared real DAGs stay linear.
+
+Simplify probe (sympy/simplify/tests): same 1719 -> 1720, diff 128 -> 127,
+no statement from same to different.
+
+Intentional divergence:
+- `(b**I).is_nonzero` for a nonreal complex base b (1 + I, 2*I, E + I, ...):
+  symox gives False (the value is nonreal, and nonzero implies real), SymPy
+  None.
+
+Remaining (unsupported or a different form, never a wrong value):
+- `I**I` and `(-I)**I` stay unevaluated (SymPy gives exp(-pi/2) and
+  exp(pi/2), so is_nonzero is True there); `(exp(I)**ip).is_nonzero` is None
+  instead of False.
+- `simplify((x + 5)/(16*x**2 + 28*x + 6))`: the native size-based selection
+  keeps the cancelled form on a count_ops tie, where SymPy's `shorter` picks
+  the `together` form `(x + 5)/(2*(8*x**2 + 14*x + 3))` (strict xfail in
+  `tests/test_simp_rest3_parity.py`). The same tie rule is behind issue
+  17141 (`simplify(acos(I)**2)`).
+- `log(exp(x), 2, evaluate=False)`: re-evaluation in subs/doit/expand and
+  `simplify(..., inverse=True)` (SymPy: `x/log(2)`).
+- Derivative with a symbolic integer order (issue 22210) and
+  `MatrixExpr.doit(inv_expand=...)`.
+- `srepr(Poly(...))` prints the expression form instead of SymPy's
+  `Poly(expr, x)` (pre-existing).
+
+Tests: `tests/test_simp_rest4_parity.py`.

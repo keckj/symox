@@ -6,7 +6,7 @@
 
 use std::cmp::Ordering;
 
-use super::convert::{self, from_exprs, from_exprs_gens, to_expr_f, PResult, PolyError};
+use super::convert::{self, from_exprs, from_exprs_gens, to_expr_prec, PResult, PolyError};
 use super::factor_multi::factor_list_mz;
 use super::gcd::gcd_mz;
 use super::int::{Int, Rat};
@@ -19,7 +19,26 @@ use crate::printer::to_str;
 pub enum Domain {
     ZZ,
     QQ,
-    RR,
+    /// `RealField(prec)`: the binary precision of the float coefficients
+    /// (the largest one of the input, as the reference `construct_domain`).
+    RR(u32),
+}
+
+impl Domain {
+    /// The machine-precision `RR`.
+    pub const RR53: Domain = Domain::RR(53);
+
+    pub fn is_rr(self) -> bool {
+        matches!(self, Domain::RR(_))
+    }
+
+    /// The float precision of the coefficients, 0 for an exact domain.
+    pub fn prec(self) -> u32 {
+        match self {
+            Domain::RR(p) => p,
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -43,9 +62,9 @@ pub fn reduce_mod(rep: &MPoly<Rat>, p: u64) -> MPoly<Rat> {
     })
 }
 
-fn natural_domain(p: &MPoly<Rat>, float: bool) -> Domain {
-    if float {
-        Domain::RR
+fn natural_domain(p: &MPoly<Rat>, prec: u32) -> Domain {
+    if prec > 0 {
+        Domain::RR(prec)
     } else if p.is_integral() {
         Domain::ZZ
     } else {
@@ -102,7 +121,7 @@ impl Poly {
             }
         }
         let rep=MPoly::from_terms(variables.len(),output);
-        let domain=natural_domain(&rep,converted.float);
+        let domain=natural_domain(&rep,converted.prec);
         Ok(Self::new(rep,variables,gens.len(),domain))
     }
 
@@ -121,7 +140,7 @@ impl Poly {
             )));
         }
         let rep = c.polys.into_iter().next().unwrap();
-        let domain = natural_domain(&rep, c.float);
+        let domain = natural_domain(&rep, c.prec);
         Ok(Poly { rep, gens: c.gens, ngens: c.ngens, domain, modulus: None })
     }
 
@@ -133,7 +152,7 @@ impl Poly {
         }
         let mut dom = Domain::ZZ;
         for p in &c.polys {
-            dom = dom.max(natural_domain(p, c.float));
+            dom = dom.max(natural_domain(p, c.prec));
         }
         Ok(c.polys
             .into_iter()
@@ -195,11 +214,11 @@ impl Poly {
     }
 
     pub fn is_float(&self) -> bool {
-        self.domain == Domain::RR
+        self.domain.is_rr()
     }
 
     pub fn as_expr(&self) -> Expr {
-        to_expr_f(&self.rep, &self.gens, self.is_float())
+        to_expr_prec(&self.rep, &self.gens, self.domain.prec())
     }
 
     pub fn is_zero(&self) -> bool {
@@ -210,11 +229,11 @@ impl Poly {
         let base = match self.domain {
             Domain::ZZ => "ZZ",
             Domain::QQ => "QQ",
-            Domain::RR => "RR",
+            Domain::RR(_) => "RR",
         };
         // Over RR the imaginary unit is stored as a coefficient generator:
         // the reference ground is then CC (`CC`, `CC[y]`).
-        let complex = self.domain == Domain::RR && self.domain_gens().iter().any(|g| g.is_constant(crate::expr::Constant::I));
+        let complex = self.domain.is_rr() && self.domain_gens().iter().any(|g| g.is_constant(crate::expr::Constant::I));
         let gens: Vec<&Expr> = self.domain_gens().iter().filter(|g| !(complex && g.is_constant(crate::expr::Constant::I))).collect();
         let base = if complex { "CC" } else { base };
         if gens.is_empty() {
@@ -270,7 +289,7 @@ impl Poly {
         out.into_iter()
             .map(|(m, ts)| {
                 let p = MPoly::from_terms(n, ts);
-                (m, to_expr_f(&p, &self.gens, self.is_float()))
+                (m, to_expr_prec(&p, &self.gens, self.domain.prec()))
             })
             .collect()
     }
@@ -567,7 +586,12 @@ impl Poly {
     /// factored there, and every factor is divided by its max norm (that
     /// norm moving into the coefficient) before going back to `RR`.
     fn inexact_factor_list(&self) -> (Rat, Vec<(Poly, u32)>) {
-        let exact = self.rep.map_coeffs(convert::rr_limit_rational);
+        let prec = self.domain.prec();
+        let exact = if prec == 53 {
+            self.rep.map_coeffs(convert::rr_limit_rational)
+        } else {
+            self.rep.map_coeffs(|c| super::inexact_ground::rr_to_rational(c, prec))
+        };
         let (d, z) = exact.clear_denoms();
         let (c, fs) = factor_list_mz(&z);
         let mut coeff = Rat::new(c, d);
@@ -623,7 +647,12 @@ impl Poly {
         }
         let lc = self.rep.lc();
         let lcf = lc.to_f64();
-        let monic = self.rep.map_coeffs(|c| convert::rr_limit_rational(&convert::float_to_rat(c.to_f64() / lcf)));
+        let prec = self.domain.prec();
+        let monic = if prec == 53 {
+            self.rep.map_coeffs(|c| convert::rr_limit_rational(&convert::float_to_rat(c.to_f64() / lcf)))
+        } else {
+            self.rep.map_coeffs(|c| super::inexact_ground::rr_to_rational(&super::inexact_ground::rr_quotient(c, &lc, prec), prec))
+        };
         let (_, z) = monic.clear_denoms();
         let (_, mut parts) = sqf_list_mz(&z);
         parts.retain(|(p, _)| !p.is_constant());
@@ -1029,7 +1058,9 @@ pub fn format_poly(gens: &[Expr], tm: Vec<(Vec<u32>, Expr)>, modulus: Option<u64
         .map(|g| if atom(g) { to_str(g) } else { format!("({})", to_str(g)) })
         .collect();
     let mut terms: Vec<String> = Vec::new();
-    let tm = if tm.is_empty() { vec![(vec![0; gens.len()], Expr::zero())] } else { tm };
+    // the zero of `RR` prints as the Float 0.0
+    let zero = if coefficient_domain == "RR" { Expr::float(0.0) } else { Expr::zero() };
+    let tm = if tm.is_empty() { vec![(vec![0; gens.len()], zero)] } else { tm };
     for (m, c) in tm {
         let mut sm = Vec::new();
         for (i, &e) in m.iter().enumerate() {
@@ -1058,6 +1089,8 @@ pub fn format_poly(gens: &[Expr], tm: Vec<(Vec<u32>, Expr)>, modulus: Option<u64
             }
             s_coeff = match c.kind() {
                 Kind::Num(crate::number::Number::Float(f)) => crate::number::format_float(*f),
+                // below the top printing level: trailing zeros are stripped
+                Kind::Num(crate::number::Number::MpFloat(..)) => crate::printer::to_str_nested(&c),
                 _ => to_str(&c),
             };
         }

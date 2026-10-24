@@ -111,12 +111,12 @@ impl PyDomain {
             }
             return Ok(Self{inner:ExactDomain::Expression{raw:false}});
         }
-        if p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && !p.base.domain_gens().is_empty() && p.domain != Domain::RR {
+        if p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && !p.base.domain_gens().is_empty() && !p.domain.is_rr() {
             // The legacy backend stores `ZZ[pi]` coefficients as extra
             // polynomial generators, which is the reference polynomial ring.
             return Ok(Self{inner:ExactDomain::Functions{integral:p.domain==Domain::ZZ,ring:true,parameters:p.base.domain_gens().to_vec(),order:"lex".into()}});
         }
-        if p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && p.domain == Domain::RR && !p.base.domain_gens().is_empty() {
+        if p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && p.domain.is_rr() && !p.base.domain_gens().is_empty() {
             // Legacy floats over coefficient generators: `RR[y]`, or `CC`,
             // `CC[y]` when the imaginary unit is one of them.
             let i = Expr::i();
@@ -147,7 +147,8 @@ impl PyDomain {
                 match p.domain {
                     Domain::ZZ => ExactDomain::ZZ,
                     Domain::QQ => ExactDomain::QQ,
-                    Domain::RR => ExactDomain::RR,
+                    Domain::RR(53) => ExactDomain::RR,
+                    Domain::RR(precision) => ExactDomain::Inexact { precision, complex: false },
                 }
             },
         })
@@ -160,7 +161,7 @@ impl PyDomain {
                 }
                 symox::poly::expression_domain::ExpressionPoly::from_expr(e,gens).map(Into::into).map_err(crate::poly::err)
             }
-            ExactDomain::Expression { .. } | ExactDomain::Inexact {..} => Err(PyNotImplementedError::new_err("this domain is not yet supported as a polynomial coefficient backend")),
+            ExactDomain::Expression { .. } | ExactDomain::Inexact { complex: true, .. } => Err(PyNotImplementedError::new_err("this domain is not yet supported as a polynomial coefficient backend")),
             ExactDomain::Gaussian { integral } => {
                 let mut p = AlgebraicPoly::from_expr(e, gens, symox::poly::gaussian::field())
                     .map_err(coercion)?;
@@ -227,7 +228,8 @@ impl PyDomain {
                 }
                 p.domain = match self.inner {
                     ExactDomain::ZZ => Domain::ZZ,
-                    ExactDomain::RR => Domain::RR,
+                    ExactDomain::RR => Domain::RR53,
+                    ExactDomain::Inexact { precision, complex: false } => Domain::RR(precision),
                     _ => Domain::QQ,
                 };
                 if let ExactDomain::GF(prime) = self.inner {
@@ -1791,7 +1793,7 @@ pub fn normalize_poly(p: PolyValue) -> PyResult<PolyValue> {
     if p.field.is_some() || p.algebraic.is_some() || p.expression.is_some() || p.base.domain_gens().is_empty() {
         return Ok(p);
     }
-    if p.modulus.is_some() || p.domain == Domain::RR {
+    if p.modulus.is_some() || p.domain.is_rr() {
         return Ok(p);
     }
     let parameters = p.base.domain_gens().to_vec();

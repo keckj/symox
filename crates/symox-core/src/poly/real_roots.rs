@@ -358,7 +358,7 @@ fn validate(p: &Polynomial) -> RootResult<Poly> {
     if p.field.is_some()
         || p.algebraic.is_some()
         || p.modulus.is_some()
-        || p.domain == Domain::RR
+        || p.domain.is_rr()
         || p.ngens != 1
         || p.base.gens.len() != 1
     {
