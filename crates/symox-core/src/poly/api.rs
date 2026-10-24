@@ -1054,6 +1054,11 @@ fn generic_factor(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<Expr> {
     }
     let t = together(e);
     let (coeff, fs) = symbolic_factor_list(&t, sqf, modulus)?;
+    // A numerator that only cancels in the polynomial domain gives a zero
+    // coefficient: the product is 0, not 0/x.
+    if coeff.is_zero() {
+        return Ok(Expr::zero());
+    }
     Ok(keep_coeff(&coeff, &factors_product(&fs)))
 }
 

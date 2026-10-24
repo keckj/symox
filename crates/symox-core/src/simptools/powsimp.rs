@@ -123,7 +123,7 @@ fn multiplicity(p: &Number, n: &Number) -> i64 {
         if np.is_one() {
             return -multiplicity_int(&pp, &nq);
         }
-        return multiplicity_int(&pp, &np);
+        return multiplicity_int(&pp, &np) - multiplicity_int(&pp, &nq);
     }
     if pp.is_one() {
         return multiplicity_int(&pq, &nq);

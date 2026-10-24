@@ -177,14 +177,44 @@ def powsimp(expr, deep=False, combine="all", force=False, measure=None):
         raise ValueError("combine must be one of ('all', 'exp', 'base').")
     if _is_container(expr):
         return expr
+    if isinstance(expr, _core._MatrixExpr):
+        # SymPy rebuilds a matrix expression from its powsimp'd arguments
+        # (deep) and returns it, since it is neither an Add nor a Mul.
+        if not deep or expr._kind_tag == 'MatrixSymbol':
+            return expr
+        return expr.func(*[powsimp(a, deep, combine, force)
+                           if isinstance(a, _core.Expr) else a for a in expr.args])
     return _core._st_powsimp(_sympify(expr), bool(deep), combine, bool(force))
 
 
 def powdenest(eq, force=False, polar=False):
     """Collect exponents of nested powers (SymPy ``powdenest``)."""
-    if polar:
-        raise NotImplementedError("powdenest(polar=True) is not implemented")
-    return _core._st_powdenest(_sympify(eq), bool(force))
+    if not polar:
+        return _core._st_powdenest(_sympify(eq), bool(force))
+    from . import Pow, preorder_traversal
+    from ._polar import polarify, unpolarify
+    eq = _sympify(eq)
+    if force:
+        # SymPy's force pass: denest the bases that are not known to be
+        # nonpositive, posify, then the polar pass below.
+        def _denest(b, e):
+            if not (b.is_Pow or getattr(b, 'class_name', '') == 'exp'):
+                return b.is_positive, Pow(b, e, evaluate=False)
+            return _denest(b.base, b.exp*e)
+        reps = []
+        for p in preorder_traversal(eq):
+            if p.is_Pow and (p.base.is_Pow or getattr(p.base, 'class_name', '') == 'exp'):
+                ok, dp = _denest(p.base, p.exp)
+                if ok is not False:
+                    reps.append((p, dp))
+        if reps:
+            eq = eq.subs(reps)
+        eq, reps = posify(eq)
+        return powdenest(eq, force=False, polar=True).xreplace(reps)
+    # SymPy: polarify the free symbols, denest with the exponents projected,
+    # then substitute the symbols back and unpolarify.
+    eq, rep = polarify(eq)
+    return unpolarify(powdenest(unpolarify(eq, exponents_only=True)), rep)
 
 
 # --- exprtools -------------------------------------------------------------

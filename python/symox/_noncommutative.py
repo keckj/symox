@@ -721,7 +721,8 @@ def nc_simplify(expr, deep=True):
     else:
         c_args, args = expr.args_cnc()
         com_coeff = Mul(*c_args)
-        if com_coeff != 1:
+        from .core.numbers import equal_valued
+        if not equal_valued(com_coeff, 1):
             return com_coeff*nc_simplify(expr/com_coeff, deep=deep)
 
     inv_tot, args = _reduce_inverses(args)
