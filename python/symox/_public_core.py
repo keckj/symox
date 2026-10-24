@@ -44,12 +44,21 @@ class PrecisionExhausted(ArithmeticError):
 class Derivative(metaclass=_ExprType):
     """Held native derivative, with the reference constructor keyword schema."""
     _matches=staticmethod(lambda expr:expr.is_Derivative)
+    # ArrayDerivative (and the held matrix Derivative) subclass Derivative.
+    _foreign_instance=staticmethod(lambda value:getattr(type(value),'_symox_held_matrix_derivative',False))
 
     def __new__(cls,expr,*variables,**kwargs):
         evaluate=kwargs.get('evaluate',False)
         if evaluate and not kwargs.get('simplify',True):
             from ._differentiation import unsimplified_diff
             return unsimplified_diff(expr,variables)
+        if isinstance(expr,_core._MatrixExpr) and variables:
+            # Derivative(X, A) with matrix variables X does not contain: held,
+            # doit gives ZeroMatrix(*X.shape) (MatrixExpr._eval_derivative).
+            from .tensor.array import array_derivatives
+            held=array_derivatives.held_matrix_derivative(expr,variables,array_derivatives.Derivative)
+            if held is not None:
+                return held.doit() if evaluate else held
         result=_core.Derivative(expr,*variables,evaluate=bool(evaluate))
         if evaluate and not getattr(result,'is_Derivative',False):
             from ._differentiation import _finish_multiple

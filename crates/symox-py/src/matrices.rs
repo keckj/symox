@@ -1203,7 +1203,10 @@ impl PyMatrix {
                 if is_sympy_obj(other) && other.hasattr("shape")? {
                     to_matrix(other).map(|m| m == self.m).unwrap_or(false)
                 } else {
-                    false
+                    // RepMatrix.__eq__ returns NotImplemented for anything
+                    // that is not a matrix, so the other operand's __eq__
+                    // runs (a RawMatrix, a NumPy array, ...).
+                    return Ok(py.NotImplemented());
                 }
             }
         };

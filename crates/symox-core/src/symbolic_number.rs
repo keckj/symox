@@ -210,7 +210,7 @@ impl ClosedQuery {
                     && self.closed(lambda, scope)
             }
             MatrixKind::ApplyFunction(function, _) => self.closed(function, scope),
-            MatrixKind::Identity | MatrixKind::Zero | MatrixKind::One => {
+            MatrixKind::Identity | MatrixKind::Zero | MatrixKind::One | MatrixKind::Dft(_) => {
                 self.closed(matrix.rows(), scope) && self.closed(matrix.cols(), scope)
             }
             MatrixKind::Explicit(entries) => self.all(entries.data(), scope),

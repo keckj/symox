@@ -138,7 +138,9 @@ class _ExprType(_BasicMeta):
             # User classes are nominal: native nodes are never instances.
             return type.__instancecheck__(cls, value)
         if not isinstance(value, _core.Expr):
-            return False
+            # Python-level holders a class claims (held matrix derivatives).
+            foreign = namespace.get('_foreign_instance')
+            return bool(foreign is not None and foreign(value))
         kind = type(value)
         if kind is not _core.Expr and type.__subclasscheck__(cls, kind):
             # Instances of user expression classes (see _host).

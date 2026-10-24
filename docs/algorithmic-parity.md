@@ -9016,3 +9016,73 @@ Remaining (unsupported or a different form, never a wrong value):
   False.
 
 Tests: `tests/test_simp_rest5_parity.py`.
+
+## mat-rest6 (wave 12)
+
+Native node kinds:
+- `DFT(n)` and `IDFT(n)` (`sympy.matrices.expressions.fourier`) are native
+  nodes reporting their public class. Entries are `exp(-2*pi*I/n)**(i*j)/sqrt(n)`
+  (IDFT with the opposite sign), `DFT(n)*IDFT(n)` and `IDFT(n)*DFT(n)` cancel
+  to `Identity(n)` (combine_powers), `.I` swaps the two kinds, `conjugate`
+  gives `Adjoint(Transpose(DFT(n)))` (MatrixExpr._eval_conjugate), `Q.unitary`
+  holds, subs/xreplace/has see the dimension, latex is `\text{DFT}_{n}`.
+- `GenericIdentity()` and `GenericZeroMatrix()`
+  (`sympy.matrices.expressions.special`) are shapeless native nodes:
+  `shape`, `rows`, `cols`, entries and shape-dependent operations raise
+  TypeError "... does not have a specified shape". `MatMul()` and `MatAdd()`
+  return them, `MatMul.identity`/`MatAdd.identity` are them, and
+  MatMul/MatAdd (constructor and native product/sum) drop them first, so
+  `MatMul(G, G)` is 1 and `MatAdd(Z, Z)` raises ValueError as in SymPy.
+  `G*x` and `x*G` are `x` (MatMul(G, x).doit()): `2*G` is 2, `G*A` is A,
+  as nc_simplify needs. They are instances of Identity/ZeroMatrix. Neither class is exported at
+  top level (SymPy does not export them either).
+
+`Matrix == other`: when other is not a matrix the native comparison now
+returns NotImplemented (RepMatrix.__eq__), so the other operand's `__eq__`
+runs; `smith_normal_form(RawMatrix) == RawMatrix(...)` holds
+(test_smith_normal_deprecated). Comparisons with scalars, lists and tuples
+still give False.
+
+Held matrix derivatives: `X.diff(A)` with matrix variables that X does not
+contain gives SymPy's `ArrayDerivative` (str `Derivative(X, A)`, shape
+`A.shape*count + X.shape`, expr, variables, variable_count, latex), and
+`Derivative(X, A)` gives the held Derivative whose doit (and
+`evaluate=True`) is `ZeroMatrix(*X.shape)`. Both are instances of
+Derivative. Derivative(X, A) with A in X still raises NotImplementedError
+(SymPy's own doit of it is wrong or raises TypeError).
+
+Matrix probe (sympy/matrices/expressions/tests): same 5305 -> 5331, exc
+154 -> 139, notreached 351 -> 337, diff 322 -> 325 (statements now reached),
+no statement from same to different.
+
+Intentional divergences (error type or message only):
+- `DFT(n).diff(x)` raises NotImplementedError where SymPy raises
+  AttributeError ('super' object has no attribute '_eval_derivative').
+- `DFT(-1)` raises ValueError with symox's dimension message.
+- `MatMul(GenericIdentity(), GenericZeroMatrix())` prints 0 where SymPy's
+  printer raises.
+- The srepr of a MatrixSymbol inside ArrayDerivative prints its name as a
+  string literal (symox-wide srepr of MatrixSymbol).
+
+Remaining (unsupported, never a wrong value):
+- Derivative with a symbolic integer order (issue 22210,
+  `Derivative(f(x), (x, n))`): not contained. The native node is
+  `Kind::Derivative(Expr, Vec<(Expr, u32)>)`; storing the order as an Expr
+  touches 90 match sites in 40 files (diff, subs, the printers, ODE, Laplace
+  transforms, lambdify, evalf, the matrix DAG serialization, and solve.rs,
+  which this wave must not change) plus the order arithmetic that assumes a
+  machine count, so symox still raises ValueError where SymPy keeps it held.
+- Matrix derivatives by a matrix that need the array algebra: Hadamard
+  products/powers (`HadamardProduct(X, A).diff(X)`, `HadamardPower(X, 2)`),
+  element-wise functions (`X.applyfunc(sin).diff(X)`) give ArrayDiagonal /
+  ArrayAdd forms in SymPy; symox raises TypeError (symbolic shapes in the
+  array path). `(x.T*HadamardProduct(X, A)*x).diff(X)` (SymPy:
+  `DiagMatrix(x)*A*DiagMatrix(x)`) raises NotImplementedError.
+- Matrix element calculus: `X[i, j].diff(X[m, n])` stays a held Derivative
+  (SymPy: KroneckerDelta with a range), `(X*A)[i, j]` stays a MatrixElement
+  (SymPy: `Sum(X[i, _i_1]*A[_i_1, j], (_i_1, 0, k - 1))`); symox
+  KroneckerDelta has no delta_range.
+- `Trace(DFT(n))` and `Determinant(DFT(n))` report type Expr instead of
+  Trace/Determinant (pre-existing for all matrix expressions).
+
+Tests: `tests/test_mat_rest6_parity.py`.

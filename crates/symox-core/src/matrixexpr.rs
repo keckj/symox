@@ -31,6 +31,11 @@ pub enum MatrixKind {
     Diag(MatrixExpr), DiagonalOf(MatrixExpr), Diagonal(MatrixExpr),
     BlockDiag(Vec<MatrixExpr>), Block(BlockGrid), Slice(MatrixExpr,SliceSpec,SliceSpec),
     Permutation(Vec<usize>), Permute(MatrixExpr,Vec<usize>,u8),
+    /// `DFT(n)` (false) and `IDFT(n)` (true); both dimensions are `n`.
+    Dft(bool),
+    /// SymPy's shapeless `GenericIdentity()` and `GenericZeroMatrix()`,
+    /// the identities of MatMul and MatAdd; their dimensions are NaN.
+    GenericIdentity, GenericZero,
 }
 /// A normalized affine range. `stop` is exclusive and may overshoot the
 /// parent by less than a stride; length, not truncating division, is authoritative.
@@ -176,6 +181,8 @@ impl MatrixExpr {
             (MatrixKind::Mul(a,aa),MatrixKind::Mul(b,bb))=>a.cmp(b).then_with(||Self::cmp_children(aa,bb,memo)),
             (MatrixKind::Pow(a,aa),MatrixKind::Pow(b,bb))=>a.cmp_cached(b,memo).then_with(||aa.cmp(bb)),
             (MatrixKind::Transpose(a),MatrixKind::Transpose(b))|(MatrixKind::Adjoint(a),MatrixKind::Adjoint(b))|(MatrixKind::Inverse(a),MatrixKind::Inverse(b))|(MatrixKind::Conjugate(a),MatrixKind::Conjugate(b))|(MatrixKind::Diag(a),MatrixKind::Diag(b))|(MatrixKind::DiagonalOf(a),MatrixKind::DiagonalOf(b))|(MatrixKind::Diagonal(a),MatrixKind::Diagonal(b))=>a.cmp_cached(b,memo),
+            (MatrixKind::Dft(_),MatrixKind::Dft(_))=>self.rows().cmp(other.rows()),
+            (MatrixKind::GenericIdentity,MatrixKind::GenericIdentity)|(MatrixKind::GenericZero,MatrixKind::GenericZero)=>Ordering::Equal,
             _=>unreachable!("distinct matrix kinds have distinct names"),
         };
         memo.insert(pair,result);result
@@ -198,6 +205,8 @@ fn dimension(e:&Expr)->MResult<()> {
     Ok(())
 }
 fn compatible(a:&Expr,b:&Expr)->MResult<()> {
+    // The NaN dimensions of the shapeless GenericIdentity/GenericZeroMatrix.
+    if matches!(a.kind(),Kind::Const(crate::expr::Constant::NaN))||matches!(b.kind(),Kind::Const(crate::expr::Constant::NaN)) {return Err(MatrixError::Type("GenericIdentity does not have a specified shape".into()));}
     if a != b && is_zero_assume(&sub(a,b)) == Some(false) {
         return Err(MatrixError::Shape(format!("Incompatible matrix dimensions: {a} and {b}")));
     }
@@ -259,6 +268,18 @@ impl MatrixExpr {
     pub fn identity(n:Expr)->MResult<Self> { dimension(&n)?;Ok(Self::new(MatrixKind::Identity,n.clone(),n)) }
     pub fn zero(rows:Expr,cols:Expr)->MResult<Self> {dimension(&rows)?;dimension(&cols)?;Ok(Self::new(MatrixKind::Zero,rows,cols))}
     pub fn one(rows:Expr,cols:Expr)->MResult<Self> {dimension(&rows)?;dimension(&cols)?;Ok(Self::new(MatrixKind::One,rows,cols))}
+    /// `DFT(n)` or `IDFT(n)` (sympy/matrices/expressions/fourier.py).
+    pub fn dft(n:Expr,inverse:bool)->MResult<Self> {dimension(&n)?;Ok(Self::new(MatrixKind::Dft(inverse),n.clone(),n))}
+    pub fn generic_identity()->Self {Self::new(MatrixKind::GenericIdentity,Expr::nan(),Expr::nan())}
+    pub fn generic_zero()->Self {Self::new(MatrixKind::GenericZero,Expr::nan(),Expr::nan())}
+    pub fn is_generic(&self)->bool{matches!(self.kind(),MatrixKind::GenericIdentity|MatrixKind::GenericZero)}
+    fn shapeless_error(&self)->MatrixError{MatrixError::Type(format!("{} does not have a specified shape",self.kind_name()))}
+    /// SymPy's DFT/IDFT entry `exp(-2*pi*I/n)**(+-i*j)/sqrt(n)`.
+    fn dft_entry(n:&Expr,inverse:bool,i:&Expr,j:&Expr)->Expr{
+        let w=crate::functions::exp(&crate::ops::div(&mul2(&mul2(&Expr::int(-2),&Expr::pi()),&Expr::i()),n));
+        let ij=mul2(i,j);
+        crate::ops::div(&pow(&w,&if inverse{neg(&ij)}else{ij}),&crate::ops::sqrt(n))
+    }
     /// Construct a diagonal matrix from a proven row/column vector (or 0x0).
     pub fn diag(vector:&Self)->MResult<Self>{
         let size=if vector.cols().is_one(){vector.rows().clone()}else if vector.rows().is_one(){vector.cols().clone()}else if vector.rows().is_zero()&&vector.cols().is_zero(){Expr::zero()}else{return Err(MatrixError::Shape("DiagMatrix requires a row or column vector".into()));};
@@ -424,6 +445,12 @@ impl MatrixExpr {
         if coefficient.is_one(){Ok(node)}else{Self::mul(coefficient,&[node],true)}
     }
     pub fn add(terms:&[Self],evaluate:bool)->MResult<Self> {
+        // MatAdd.__new__ drops its identity GenericZeroMatrix() first.
+        if terms.iter().any(|t|matches!(t.kind(),MatrixKind::GenericZero)){
+            let kept:Vec<Self>=terms.iter().filter(|t|!matches!(t.kind(),MatrixKind::GenericZero)).cloned().collect();
+            if kept.is_empty(){return Err(MatrixError::Value("not enough values to unpack (expected 2, got 0)".into()));}
+            return Self::add(&kept,evaluate);
+        }
         let first=terms.first().ok_or_else(||MatrixError::Type("Matrix addition requires a matrix".into()))?;
         let (rows,cols)=first.shape();
         for term in terms {compatible(&rows,term.rows())?;compatible(&cols,term.cols())?;}
@@ -458,6 +485,12 @@ impl MatrixExpr {
         Ok(match result.len(){0=>Self::zero(rows,cols)?,1=>result.remove(0),_=>Self::new(MatrixKind::Add(result),rows,cols)})
     }
     pub fn mul(coefficient:Expr,factors:&[Self],evaluate:bool)->MResult<Self> {
+        // MatMul.__new__ drops its identity GenericIdentity() first.
+        if factors.iter().any(|t|matches!(t.kind(),MatrixKind::GenericIdentity)){
+            let kept:Vec<Self>=factors.iter().filter(|t|!matches!(t.kind(),MatrixKind::GenericIdentity)).cloned().collect();
+            if kept.is_empty(){return Err(MatrixError::Type("GenericIdentity does not have a specified shape".into()));}
+            return Self::mul(coefficient,&kept,evaluate);
+        }
         let first=factors.first().ok_or_else(||MatrixError::Type("Matrix multiplication requires a matrix".into()))?;
         let rows=first.rows().clone(); let cols=factors.last().unwrap().cols().clone();
         for pair in factors.windows(2){compatible(pair[0].cols(),pair[1].rows())?;}
@@ -478,6 +511,11 @@ impl MatrixExpr {
                     result.pop();let merged=Self::permutation(permutation::compose(p,q),true)?;
                     if !matches!(merged.kind(),MatrixKind::Identity){result.push(merged);}continue;
                 }
+                let inverse_pair=matches!((a.kind(),b.kind()),(MatrixKind::Dft(p),MatrixKind::Dft(q)) if p!=q&&a.rows()==b.rows());
+                if inverse_pair {
+                    result.pop();let merged=a.pow(sub(&ae,&be),true)?;
+                    if !matches!(merged.kind(),MatrixKind::Identity){result.push(merged);}continue;
+                }
                 if a==b {
                     result.pop();let merged=a.pow(crate::ops::add2(&ae,&be),true)?;
                     if !matches!(merged.kind(),MatrixKind::Identity){result.push(merged);}continue;
@@ -495,6 +533,7 @@ impl MatrixExpr {
     }
     pub fn as_base_exp(&self)->(Self,Expr){match self.kind(){MatrixKind::Pow(b,e)=>(b.clone(),e.clone()),MatrixKind::Inverse(b)=>(b.clone(),Expr::minus_one()),_=>(self.clone(),Expr::one())}}
     pub fn pow(&self, exponent:Expr, evaluate:bool)->MResult<Self>{
+        if matches!(self.kind(),MatrixKind::GenericIdentity){return Ok(self.clone());}
         compatible(self.rows(),self.cols())?;
         if evaluate {
             if exponent.is_zero(){return Self::identity(self.rows().clone());}
@@ -512,8 +551,10 @@ impl MatrixExpr {
         Ok(Self::new(MatrixKind::Pow(self.clone(),exponent),self.rows().clone(),self.cols().clone()))
     }
     pub fn inverse(&self,evaluate:bool)->MResult<Self>{
+        if matches!(self.kind(),MatrixKind::GenericIdentity){return Ok(self.clone());}
         compatible(self.rows(),self.cols())?;
         if evaluate {match self.kind(){
+            MatrixKind::Dft(inverse)=>return Self::dft(self.rows().clone(),!inverse),
             MatrixKind::Identity=>return Ok(self.clone()),MatrixKind::Zero=>return Err(MatrixError::NonInvertible("Zero matrix is not invertible".into())),
             MatrixKind::Inverse(b)=>return Ok(b.clone()),
             MatrixKind::Permutation(p)=>return Self::permutation(permutation::inverse(p),false),
@@ -653,6 +694,9 @@ impl MatrixExpr {
         let zero=||Self::zero(self.rows().clone(),self.cols().clone());
         let result=match self.kind(){
             MatrixKind::Symbol(_)|MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One|MatrixKind::Permutation(_)=>zero()?,
+            MatrixKind::GenericIdentity|MatrixKind::GenericZero=>return Err(self.shapeless_error()),
+            // DFT._eval_derivative calls the missing super()._eval_derivative.
+            MatrixKind::Dft(_)=>return Err(MatrixError::NotImplemented("DFT matrices have no derivative (SymPy raises AttributeError)".into())),
             MatrixKind::Permute(parent,p,axis)=>parent.diff_cached(variable,cache)?.permute(p.clone(),*axis,true)?,
             MatrixKind::ApplyFunction(function,parent) if matches!(function.kind(),Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction),_))=>parent.diff_cached(variable,cache)?,
             MatrixKind::ApplyFunction(function,parent)=>{
@@ -795,7 +839,9 @@ impl MatrixExpr {
         if evaluate {match self.kind(){
             MatrixKind::Permutation(p)=>return if op==2{Ok(self.clone())}else{Self::permutation(permutation::inverse(p),false)},
             MatrixKind::Permute(parent,p,axis)=>return apply(parent)?.permute(p.clone(),if op==2{*axis}else{1-*axis},true),
-            MatrixKind::Identity=>return Ok(self.clone()),MatrixKind::One=>return if op==2{Ok(self.clone())}else{Self::one(self.cols().clone(),self.rows().clone())},MatrixKind::Zero=>return if op==2{Ok(self.clone())}else{Self::zero(self.cols().clone(),self.rows().clone())},
+            // MatrixExpr._eval_conjugate: Adjoint(Transpose(self)).
+            MatrixKind::Dft(_) if op==2=>return self.unary(0,true)?.unary(1,false),
+            MatrixKind::Identity|MatrixKind::GenericIdentity=>return Ok(self.clone()),MatrixKind::GenericZero=>return Err(self.shapeless_error()),MatrixKind::One=>return if op==2{Ok(self.clone())}else{Self::one(self.cols().clone(),self.rows().clone())},MatrixKind::Zero=>return if op==2{Ok(self.clone())}else{Self::zero(self.cols().clone(),self.rows().clone())},
             MatrixKind::HadamardProduct(factors)=>return Self::hadamard_product(&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,true),
             MatrixKind::Kronecker(factors)=>return Self::kronecker(&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,true),
             MatrixKind::ApplyFunction(function,parent) if op==0=>return Self::apply_function(function.clone(),&parent.transpose(true)?,false),
@@ -868,6 +914,8 @@ impl MatrixExpr {
             MatrixKind::ApplyFunction(function,parent)=>{let f=scalars(function);let mapped=matrices(parent);if f.same_presentation(function)&&mapped.dag_id()==parent.dag_id(){Ok(self.clone())}else{Self::apply_function(f,&mapped,false)}},
             MatrixKind::Function(lambda)=>{let r=scalars(self.rows());let c=scalars(self.cols());let l=scalars(lambda);if r.same_presentation(self.rows())&&c.same_presentation(self.cols())&&l.same_presentation(lambda){Ok(self.clone())}else{Self::function(r,c,l)}},
             MatrixKind::Identity=>{let n=scalars(self.rows());if n.same_presentation(self.rows()){Ok(self.clone())}else{Self::identity(n)}},
+            MatrixKind::Dft(inverse)=>{let n=scalars(self.rows());if n.same_presentation(self.rows()){Ok(self.clone())}else{Self::dft(n,*inverse)}},
+            MatrixKind::GenericIdentity|MatrixKind::GenericZero=>Ok(self.clone()),
             MatrixKind::Zero|MatrixKind::One=>{let r=scalars(self.rows());let c=scalars(self.cols());if r.same_presentation(self.rows())&&c.same_presentation(self.cols()){Ok(self.clone())}else if matches!(self.kind(),MatrixKind::One){Self::one(r,c)}else{Self::zero(r,c)}},
             MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)=>{let b:Vec<_>=a.iter().map(matrices).collect();if Self::same_children(&b,a){Ok(self.clone())}else if matches!(self.kind(),MatrixKind::Kronecker(_)){Self::kronecker(&b,true)}else{Self::hadamard_product(&b,true)}},
             MatrixKind::Block(grid)=>{let cells:Vec<_>=grid.data().iter().map(matrices).collect();if Self::same_children(&cells,grid.data()){Ok(self.clone())}else{Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,cells)?)}},
@@ -899,7 +947,7 @@ impl MatrixExpr {
             MatrixKind::Slice(_,rows,cols)=>{for e in rows.fields().iter().chain(cols.fields().iter()){push(e);}},
             MatrixKind::ApplyFunction(function,_)=>push(function),
             MatrixKind::Function(lambda)=>{push(self.rows());push(self.cols());push(lambda);},
-            MatrixKind::Symbol(_)=>{}, MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One=>{push(self.rows());push(self.cols());},
+            MatrixKind::Symbol(_)|MatrixKind::GenericIdentity|MatrixKind::GenericZero=>{}, MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One|MatrixKind::Dft(_)=>{push(self.rows());push(self.cols());},
             MatrixKind::Explicit(m)=>{for e in m.data(){push(e);}},MatrixKind::Mul(c,_)=>push(c),MatrixKind::Pow(_,e)=>push(e),MatrixKind::HadamardPower(a,b)=>{for operand in [a,b]{if let MatrixOperand::Scalar(e)=operand{push(e);}}},_=>{},
         }
     }
@@ -913,7 +961,7 @@ impl MatrixExpr {
     }
 
     pub(crate) fn scalar_fields(&self,out:&mut Vec<Expr>){
-        self.visit_nodes(&mut |node|match node.kind(){MatrixKind::Permute(_,_,axis)=>out.push(permutation::axis_expr(*axis)),MatrixKind::ApplyFunction(function,_)=>out.push(function.clone()),MatrixKind::Function(lambda)=>{out.push(node.rows().clone());out.push(node.cols().clone());out.push(lambda.clone());},MatrixKind::Slice(_,rows,cols)=>out.extend(rows.fields().iter().chain(cols.fields().iter()).cloned()),MatrixKind::Symbol(_)|MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One=>{out.push(node.rows().clone());out.push(node.cols().clone());},MatrixKind::Explicit(m)=>out.extend(m.data().iter().cloned()),MatrixKind::Mul(c,_)=>out.push(c.clone()),MatrixKind::Pow(_,e)=>out.push(e.clone()),MatrixKind::HadamardPower(a,b)=>{for operand in [a,b]{if let MatrixOperand::Scalar(e)=operand{out.push(e.clone());}}},_=>{}});
+        self.visit_nodes(&mut |node|match node.kind(){MatrixKind::Permute(_,_,axis)=>out.push(permutation::axis_expr(*axis)),MatrixKind::ApplyFunction(function,_)=>out.push(function.clone()),MatrixKind::Function(lambda)=>{out.push(node.rows().clone());out.push(node.cols().clone());out.push(lambda.clone());},MatrixKind::Slice(_,rows,cols)=>out.extend(rows.fields().iter().chain(cols.fields().iter()).cloned()),MatrixKind::Symbol(_)|MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One=>{out.push(node.rows().clone());out.push(node.cols().clone());},MatrixKind::Dft(_)=>out.push(node.rows().clone()),MatrixKind::Explicit(m)=>out.extend(m.data().iter().cloned()),MatrixKind::Mul(c,_)=>out.push(c.clone()),MatrixKind::Pow(_,e)=>out.push(e.clone()),MatrixKind::HadamardPower(a,b)=>{for operand in [a,b]{if let MatrixOperand::Scalar(e)=operand{out.push(e.clone());}}},_=>{}});
     }
     pub fn scalar_map(&self,f:&mut dyn FnMut(&Expr)->Expr)->MResult<Self>{
         let mut fields=Vec::new();self.scalar_fields(&mut fields);
@@ -1001,6 +1049,7 @@ impl MatrixExpr {
         Ok(crate::relational::piecewise(vec![(value,condition),(Expr::zero(),Expr::boolean(true))]))
     }
     pub fn element(&self,i:&Expr,j:&Expr)->MResult<Expr>{
+        if self.is_generic(){return Err(self.shapeless_error());}
         Self::validate_index(i,self.rows())?;Self::validate_index(j,self.cols())?;
         match self.kind(){
             MatrixKind::Permutation(p)=>Self::permutation_entry(p,i,j),
@@ -1015,6 +1064,7 @@ impl MatrixExpr {
             },
             MatrixKind::Zero=>Ok(Expr::zero()),
             MatrixKind::One=>Ok(Expr::one()),
+            MatrixKind::Dft(inverse)=>Ok(Self::dft_entry(self.rows(),*inverse,i,j)),
             MatrixKind::Diag(parent)=>self.diagonal_element(parent,i,j,true),
             MatrixKind::Diagonal(parent)=>self.diagonal_element(parent,i,j,false),
             MatrixKind::DiagonalOf(parent)=>{let i=Self::normalize_local_index(i,self.rows());parent.element(&i,&i)},
@@ -1059,10 +1109,13 @@ impl MatrixExpr {
     }
     fn opaque_element(&self,i:&Expr,j:&Expr)->Expr{Expr::from_kind(crate::expr::Kind::Func(Func::MatrixElement(Arc::new(self.clone())),vec![i.clone(),j.clone()]))}
     pub fn as_explicit(&self)->MResult<Matrix>{
+        if self.is_generic(){return Err(self.shapeless_error());}
         let (rows,cols)=(finite_dim(self.rows())?,finite_dim(self.cols())?);
         match self.kind(){
             MatrixKind::Explicit(m)=>Ok(m.clone()),MatrixKind::Identity=>Ok(Matrix::eye(rows)),MatrixKind::Zero=>Ok(Matrix::zeros(rows,cols)),
             MatrixKind::One=>Ok(Matrix::from_fn(rows,cols,|_,_|Expr::one())),
+            MatrixKind::Dft(inverse)=>Ok(Matrix::from_fn(rows,cols,|i,j|Self::dft_entry(self.rows(),*inverse,&Expr::int(i as i64),&Expr::int(j as i64)))),
+            MatrixKind::GenericIdentity|MatrixKind::GenericZero=>Err(self.shapeless_error()),
             MatrixKind::Permutation(_)|MatrixKind::Permute(..)|MatrixKind::ApplyFunction(..)|MatrixKind::Function(_)|MatrixKind::HadamardProduct(_)|MatrixKind::HadamardPower(..)|MatrixKind::Kronecker(_)|MatrixKind::BlockDiag(_)|MatrixKind::Block(_)|MatrixKind::Diag(_)|MatrixKind::DiagonalOf(_)|MatrixKind::Diagonal(_)|MatrixKind::Slice(..)=>{let mut entries=Vec::with_capacity(rows*cols);for i in 0..rows{for j in 0..cols{entries.push(self.element(&Expr::int(i as i64),&Expr::int(j as i64))?);}}Matrix::new(rows,cols,entries)},
             MatrixKind::Add(a)=>{let mut m=Matrix::zeros(rows,cols);for e in a{m=m.add(&e.as_explicit()?)?;}Ok(m)},
             MatrixKind::Mul(c,fs)=>{let mut m=fs[0].as_explicit()?;for e in &fs[1..]{m=m.matmul(&e.as_explicit()?)?;}Ok(m.scale(c))},
@@ -1071,7 +1124,7 @@ impl MatrixExpr {
             MatrixKind::Symbol(_)=>{let mut entries=Vec::with_capacity(rows*cols);for i in 0..rows{for j in 0..cols{entries.push(self.opaque_element(&Expr::int(i as i64),&Expr::int(j as i64)));}}Matrix::new(rows,cols,entries)},
         }
     }
-    pub fn kind_name(&self)->&'static str{match self.kind(){MatrixKind::Permutation(_)=>"PermutationMatrix",MatrixKind::Permute(..)=>"MatrixPermute",MatrixKind::Symbol(_)=>"MatrixSymbol",MatrixKind::Function(_)=>"FunctionMatrix",MatrixKind::ApplyFunction(..)=>"ElementwiseApplyFunction",MatrixKind::Explicit(_)=>"ImmutableMatrix",MatrixKind::Identity=>"Identity",MatrixKind::Zero=>"ZeroMatrix",MatrixKind::One=>"OneMatrix",MatrixKind::HadamardProduct(_)=>"HadamardProduct",MatrixKind::HadamardPower(..)=>"HadamardPower",MatrixKind::Kronecker(_)=>"KroneckerProduct",MatrixKind::BlockDiag(_)=>"BlockDiagMatrix",MatrixKind::Block(_)=>"BlockMatrix",MatrixKind::Diag(_)=>"DiagMatrix",MatrixKind::DiagonalOf(_)=>"DiagonalOf",MatrixKind::Diagonal(_)=>"DiagonalMatrix",MatrixKind::Slice(..)=>"MatrixSlice",MatrixKind::Add(_)=>"MatAdd",MatrixKind::Mul(..)=>"MatMul",MatrixKind::Pow(..)=>"MatPow",MatrixKind::Transpose(_)=>"Transpose",MatrixKind::Adjoint(_)=>"Adjoint",MatrixKind::Inverse(_)=>"Inverse",MatrixKind::Conjugate(_)=>"MatrixConjugate"}}
+    pub fn kind_name(&self)->&'static str{match self.kind(){MatrixKind::Permutation(_)=>"PermutationMatrix",MatrixKind::Permute(..)=>"MatrixPermute",MatrixKind::Symbol(_)=>"MatrixSymbol",MatrixKind::Function(_)=>"FunctionMatrix",MatrixKind::ApplyFunction(..)=>"ElementwiseApplyFunction",MatrixKind::Explicit(_)=>"ImmutableMatrix",MatrixKind::Identity=>"Identity",MatrixKind::Zero=>"ZeroMatrix",MatrixKind::One=>"OneMatrix",MatrixKind::Dft(false)=>"DFT",MatrixKind::Dft(true)=>"IDFT",MatrixKind::GenericIdentity=>"GenericIdentity",MatrixKind::GenericZero=>"GenericZeroMatrix",MatrixKind::HadamardProduct(_)=>"HadamardProduct",MatrixKind::HadamardPower(..)=>"HadamardPower",MatrixKind::Kronecker(_)=>"KroneckerProduct",MatrixKind::BlockDiag(_)=>"BlockDiagMatrix",MatrixKind::Block(_)=>"BlockMatrix",MatrixKind::Diag(_)=>"DiagMatrix",MatrixKind::DiagonalOf(_)=>"DiagonalOf",MatrixKind::Diagonal(_)=>"DiagonalMatrix",MatrixKind::Slice(..)=>"MatrixSlice",MatrixKind::Add(_)=>"MatAdd",MatrixKind::Mul(..)=>"MatMul",MatrixKind::Pow(..)=>"MatPow",MatrixKind::Transpose(_)=>"Transpose",MatrixKind::Adjoint(_)=>"Adjoint",MatrixKind::Inverse(_)=>"Inverse",MatrixKind::Conjugate(_)=>"MatrixConjugate"}}
     pub fn to_repr(&self)->String{
         let s=crate::printer::srepr;let me=|e:&Self|e.to_repr();
         let args=match self.kind(){
@@ -1079,7 +1132,7 @@ impl MatrixExpr {
             MatrixKind::Permute(parent,p,axis)=>format!("{}, Permutation({p:?}), Integer({axis})",parent.to_repr()),
             MatrixKind::ApplyFunction(function,parent)=>format!("{}, {}",s(function),parent.to_repr()),
             MatrixKind::Function(lambda)=>format!("{}, {}, {}",s(self.rows()),s(self.cols()),s(lambda)),
-            MatrixKind::Symbol(name)=>format!("{name:?}, {}, {}",s(self.rows()),s(self.cols())),MatrixKind::Identity=>s(self.rows()),MatrixKind::Zero|MatrixKind::One=>format!("{}, {}",s(self.rows()),s(self.cols())),
+            MatrixKind::Symbol(name)=>format!("{name:?}, {}, {}",s(self.rows()),s(self.cols())),MatrixKind::Identity|MatrixKind::Dft(_)=>s(self.rows()),MatrixKind::GenericIdentity|MatrixKind::GenericZero=>String::new(),MatrixKind::Zero|MatrixKind::One=>format!("{}, {}",s(self.rows()),s(self.cols())),
             MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>a.iter().map(me).collect::<Vec<_>>().join(", "),
             MatrixKind::Block(grid)=>format!("Tuple({})",(0..grid.shape().0).map(|i|format!("Tuple({})",(0..grid.shape().1).map(|j|me(grid.get(i,j))).collect::<Vec<_>>().join(", "))).collect::<Vec<_>>().join(", ")),
             MatrixKind::Slice(parent,rows,cols)=>format!("{}, {}, {}",parent.to_repr(),rows.repr(),cols.repr()),
@@ -1122,7 +1175,7 @@ impl MatrixExpr {
             let stop=if full{String::new()}else{spec.stop.to_string()};
             if spec.step.is_one(){format!("{start}:{stop}")}else{format!("{start}:{stop}:{}",spec.step)}
         };
-        match self.kind(){MatrixKind::Permutation(p)=>format!("PermutationMatrix(Permutation({p:?}))"),MatrixKind::Permute(parent,p,axis)=>format!("MatrixPermute({}, Permutation({p:?}), {axis})",parent.to_str()),MatrixKind::ApplyFunction(function,parent)=>format!("{}.({})",function,parent),MatrixKind::Function(lambda)=>format!("FunctionMatrix({}, {}, {})",self.rows(),self.cols(),lambda),MatrixKind::Symbol(n)=>n.clone(),MatrixKind::Explicit(m)=>m.to_repr(),MatrixKind::Identity=>"I".into(),MatrixKind::Zero=>"0".into(),MatrixKind::One=>"1".into(),
+        match self.kind(){MatrixKind::Permutation(p)=>format!("PermutationMatrix(Permutation({p:?}))"),MatrixKind::Permute(parent,p,axis)=>format!("MatrixPermute({}, Permutation({p:?}), {axis})",parent.to_str()),MatrixKind::ApplyFunction(function,parent)=>format!("{}.({})",function,parent),MatrixKind::Function(lambda)=>format!("FunctionMatrix({}, {}, {})",self.rows(),self.cols(),lambda),MatrixKind::Symbol(n)=>n.clone(),MatrixKind::Explicit(m)=>m.to_repr(),MatrixKind::Identity|MatrixKind::GenericIdentity=>"I".into(),MatrixKind::Zero|MatrixKind::GenericZero=>"0".into(),MatrixKind::One=>"1".into(),MatrixKind::Dft(_)=>format!("{}({})",self.kind_name(),self.rows()),
             MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)=>format!("{}({})",self.kind_name(),a.iter().map(Self::to_str).collect::<Vec<_>>().join(", ")),
             // SymPy prints the block grid as an explicit matrix of blocks.
             MatrixKind::Block(grid)=>{let (r,c)=grid.shape();let cells:Vec<String>=(0..r*c).map(|k|grid.get(k/c,k%c).to_str()).collect();Self::str_table(r,c,&cells)},

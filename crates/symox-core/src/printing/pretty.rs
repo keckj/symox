@@ -1762,8 +1762,8 @@ impl PrettyPrinter<'_> {
     fn print_matrix(&self, m: &MatrixExpr) -> Pict {
         match m.kind() {
             MatrixKind::Symbol(name) => Pict::new(&pretty_symbol(name)),
-            MatrixKind::Identity => Pict::new(xsym("𝕀", "I")),
-            MatrixKind::Zero => Pict::new(xsym("𝟘", "0")),
+            MatrixKind::Identity | MatrixKind::GenericIdentity => Pict::new(xsym("𝕀", "I")),
+            MatrixKind::Zero | MatrixKind::GenericZero => Pict::new(xsym("𝟘", "0")),
             MatrixKind::One => Pict::new(xsym("𝟙", "1")),
             MatrixKind::Explicit(x) => {
                 if x.rows() == 0 || x.cols() == 0 { return Pict::new("[]"); }

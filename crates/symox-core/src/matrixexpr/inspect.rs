@@ -57,6 +57,7 @@ fn contains(root:Node,scalar:Option<&Expr>,matrix:Option<&MatrixExpr>)->bool{
             match value.kind(){
                 MatrixKind::Permute(_,_,axis)=>fields.push(Expr::int(*axis as i64)),
                 MatrixKind::Symbol(_)|MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One=>fields.extend([value.rows().clone(),value.cols().clone()]),
+                MatrixKind::Dft(_)=>fields.push(value.rows().clone()),
                 MatrixKind::Function(lambda)=>fields.extend([value.rows().clone(),value.cols().clone(),lambda.clone()]),
                 MatrixKind::ApplyFunction(function,_)=>fields.push(function.clone()),
                 MatrixKind::Explicit(m)=>fields.extend(m.data().iter().cloned()),

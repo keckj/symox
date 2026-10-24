@@ -27,6 +27,16 @@ def _diff_dispatch(original):
             expression,variables,options=first.split(args,options)
             return expression.diff(*variables,**options)
         variables=args[1:]
+        if variables and isinstance(expression, _core._MatrixExpr) and any(
+                isinstance(v, _core._MatrixExpr) or (isinstance(v, tuple) and v and isinstance(v[0], _core._MatrixExpr))
+                for v in variables):
+            # ArrayDerivative._call_derive_default: a matrix expression
+            # without the matrix variable keeps Derivative(expr, A).
+            from .array_derivatives import held_matrix_derivative
+            _check_derivative_options(options)
+            held = held_matrix_derivative(expression, variables)
+            if held is not None:
+                return held
         if len(variables) == 1 and _array_variable(variables[0]):
             _check_derivative_options(options)
             variable = variables[0]
