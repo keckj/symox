@@ -834,6 +834,12 @@ impl PrettyPrinter<'_> {
             if nullary {
                 if let Some(text) = crate::host::print(e, format) { return Pict::new(&text); }
             }
+            // `adjoint._pretty`: the argument raised to a dagger (`+` in ASCII).
+            if let Kind::Func(Func::Undefined(head), args) = e.kind() {
+                if args.len() == 1 && &*head.name == "adjoint" && crate::host::class_name(e) == Some("adjoint") {
+                    return Pict::pow(self.print(&args[0]), Pict::new(if self.s.use_unicode { "\u{2020}" } else { "+" }));
+                }
+            }
         }
         // `_print_Tuple` is `_print_tuple`.
         if let Some(items) = crate::special::tuple_items(e) { return self.pretty_tuple(items); }

@@ -9546,3 +9546,112 @@ Remaining (documented, not fixed):
   These were not worked through in this task.
 
 Tests: `tests/test_audit14_parity.py`.
+
+## pw-nc (wave 15): Piecewise and noncommutative leftovers
+
+Implemented:
+- The commutativity of a `Piecewise` follows its branch expressions, as
+  `ExprCondPair.is_commutative` does in SymPy; conditions are ignored
+  (`decompose.rs`). So `Piecewise((A, y < 1), (B, True)).is_commutative` is
+  False, `C*p*A` keeps its factor order and
+  `piecewise_fold(C*p*A)` is `Piecewise((C*A**2, y < 1), (C*B*A, True))`.
+  Before, the Piecewise was commutative and was moved before `C`.
+- Partial `evalf` follows `Mul._eval_evalf` and `AssocOp._eval_evalf`:
+  - a -1 coefficient is kept: `(-x).evalf()` is `-x`, not `-1.0*x`;
+  - `I` is not evaluated inside an Add, a Mul or a Pow: `(x + I).evalf()` is
+    `x + I`, and `sin(I*x).evalf()` is `I*sinh(x)`.
+  Before, all three were wrong forms with a `1.0` coefficient.
+- `adjoint` printing matches the reference. `latex(adjoint(A))` is
+  `A^{\dagger}` (no parentheses), and a power is
+  `\left(A^{\dagger}\right)^{2}`. `pretty(adjoint(A))` is the base with a
+  `†` exponent (`+` in ASCII).
+- Matrices with noncommutative entries (`python/symox/_matrix_nc.py`):
+  - charpoly and every method built on it (eigenvals, eigenvects,
+    is_diagonalizable, diagonalize, jordan_form, exp, log, analytic_func,
+    singular_values, pinv, is_nilpotent, left_eigenvects,
+    bidiagonal_decomposition) raise
+    `PolynomialError('non-commutative expressions are not supported')`, as in
+    SymPy. Before, the native kernels treated the entries as commuting and
+    returned wrong values.
+  - echelon_form, QRdecomposition and QRsolve raise NotImplementedError
+    (unsupported, not a result). Before, echelon_form wrote 0 for
+    `A*C - C*A`, and QR used conjugate where an operator needs the adjoint.
+
+Intentional corrections (SymPy is wrong):
+- `M.inv(method='GE')` and `M.inv(method='ADJ')` with noncommutative
+  entries are computed by LU. SymPy applies commutative formulas:
+  - for `M = [[A, B], [C, A]]` it gives `A*(A**2 - B*C)**-1`-style entries;
+  - with random 2x2 real matrices for A, B, C, the product of SymPy's
+    inverse with the 4x4 block matrix differs from the identity by 9 to 13
+    (max entry);
+  - the LU inverse is off by 1e-15.
+  `M.solve(rhs)` (default 'GJ') uses LUsolve for the same reason, for a
+  square M only (otherwise NotImplementedError).
+- `rref`, `nullspace` and `columnspace` of `[[A, B], [C, A]]`: SymPy's rref
+  has two pivots in column 0 and entries with `(A*C - C*A)**-1`, which is
+  not a reduced form. symox keeps its generic elimination.
+- Piecewise series where SymPy drops branches. SymPy's
+  `Piecewise._eval_as_leading_term` picks the default branch when the
+  conditions are undecided, so `Order.contains` sees the wrong power:
+  - `(1 + Piecewise((x, y > 0), (Piecewise((x**2, y < -1), (x**3, True)), True))).series(x, 0, 3)`
+    is `1 + O(x**3)` in SymPy, which is wrong at y = 1, where the
+    expression is `1 + x`;
+  - `(1 + x*Piecewise((x, y > 0), (x**4, True))).series(x, 0, 3)` is
+    `1 + O(x**3)` in SymPy (the true value at y = 1 is `1 + x**2`);
+  - `x*Piecewise(...)` above is `O(x**3)` in SymPy;
+  - `Piecewise((x, y < 1), (x**5, True)) + O(x**2)` is `O(x**2)` in SymPy,
+    and `Piecewise(...)*O(x**2)` is `O(x**7)` (at y = 0 it is `O(x**3)`).
+  symox keeps the per-branch terms.
+- `(x*y).evalf(subs={x: 1})` is `x*y` in SymPy and `(-x*y).evalf(subs={x: 1})`
+  is `-y`: `AssocOp._eval_evalf` ignores `subs`. symox substitutes and
+  gives `1.0*y` and `-1.0*y`.
+
+Not a gap:
+- The order of the mapping returned by `polarify(expr, subs=True)` comes
+  from set iteration over `free_symbols` in SymPy. It is hash-randomized:
+  three runs of the same statement gave three orders. The mapping and the
+  expression are equal.
+- `solveset(A*x - B, x)` is `{B*A**(-1)}` and `solve(A*x - B, x)` is `[]`, as
+  in SymPy. The disagreement between the two is the reference's own;
+  `solve.rs` is unchanged.
+- `adjoint(sin(A))` (`transpose(sin(conjugate(A)))`), the default
+  `Matrix.inv` with nc entries (PolynomialError), the per-branch O-term in a
+  Piecewise series and the power of a Piecewise already matched.
+
+Remaining (documented, not fixed):
+- `sin(Piecewise((x, x < 1), (x**5, True))).series(x, 0, 3)` raises
+  NotImplementedError. SymPy gives
+  `Piecewise((x, x < 1), (O(x**5), True)) + O(x**3)` through
+  `Function._eval_nseries`, which is not ported for a Piecewise argument.
+- `Piecewise((x, y < 1), (x**5, True)).series(x, oo, 3)` raises; SymPy
+  returns the Piecewise unchanged.
+- `exp(Piecewise(...)).series(x, 0, 3)` raises NotImplementedError in both,
+  with different messages.
+- `O(x**2).subs(x, cos(x))`: SymPy gives `O((x - pi/2)**2, (x, pi/2))`,
+  symox gives `O(cos(x)**2)`. The new point comes from solveset of
+  `x - cos(d)`, which is a ConditionSet in symox (solve area, out of scope).
+- `(1 + Piecewise((x, y > 0), (x**4, True))**2).series(x, 0, 3)` prints
+  `Piecewise(...) + 1` where SymPy prints `1 + Piecewise(...)` (same value).
+- `adjoint(sqrt(A))` and `adjoint(sqrt(x))`: SymPy keeps
+  `adjoint((re(A)**2 + im(A)**2)**(1/4))` unevaluated, symox evaluates it
+  to the conjugate (same value, different form).
+- `QRdecomposition` of nc matrices: SymPy hits RecursionError for
+  `[[A, B], [C, A]]` and gives `A/Abs(A)` for the diagonal case, which is
+  wrong for operators; symox raises NotImplementedError.
+- The pretty host hook supports one-line forms only; multi-line pretty
+  forms of other host classes are not ported.
+
+Probe (statements run in SymPy 1.14 and symox, same/total):
+
+| Probe | Before | After |
+|---|---|---|
+| Piecewise series, Order, polarify (pw) | 36/44 | 36/44 |
+| nested Piecewise series (pw2) | 35/48 | 37/48 |
+| noncommutative (nc: limit, nsimplify, evalf, matrices) | 154/165 | 161/165 |
+| nc matrices (mat) | 14/33 | 24/33 |
+| partial evalf (ev, ev2, ev3) | 20/62 | 61/62 |
+| adjoint printing, nc Piecewise (extra) | - | 25/25 |
+
+All remaining differences are listed above.
+
+Tests: `tests/test_pw_nc_parity.py`.

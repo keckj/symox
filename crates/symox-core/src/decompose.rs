@@ -129,6 +129,12 @@ pub fn commutativity(e:&Expr)->Option<bool>{
             },
             Kind::Add(..)|Kind::Mul(..)=>Some(args(e).iter().all(|a|visit(a,cache)==Some(true))),
             Kind::Pow(base,_)=>visit(base,cache),
+            // `ExprCondPair.is_commutative` is that of its expression.
+            Kind::Piecewise(pieces)=>{
+                let mut unknown=false;
+                for (piece,_) in pieces {match visit(piece,cache){Some(false)=>return Some(false),None=>unknown=true,_=>{}}}
+                if unknown{None}else{Some(true)}
+            },
             _=>Some(true),
         };
         cache.insert(e.dag_id(),(e.clone(),value));value
@@ -158,6 +164,7 @@ pub fn commutativity(e:&Expr)->Option<bool>{
             Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")||head.is_internal("Tuple")=>None,
             Kind::Func(head,_) if commutative_head(head)=>Some(true),
             Kind::Func(_,arguments)=>all(&mut arguments.iter().map(|argument|visit(argument,cache))),
+            Kind::Piecewise(pieces)=>all(&mut pieces.iter().map(|(piece,_)|visit(piece,cache))),
             _=>Some(true),
         }
     }

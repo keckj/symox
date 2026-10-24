@@ -3504,6 +3504,8 @@ from . import _matrix_power  # noqa: E402
 _matrix_power.install(Matrix)
 from . import _matrix_pinv  # noqa: E402
 _matrix_pinv.install(Matrix)
+from . import _matrix_nc  # noqa: E402
+_matrix_nc.install(Matrix, ImmutableMatrix)
 
 
 def _matrix_eval_Mod(self, other):
