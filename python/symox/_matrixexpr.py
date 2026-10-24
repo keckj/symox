@@ -143,6 +143,13 @@ class MatAdd(MatrixExpr):
     def __new__(cls, *args, evaluate=False, **options):
         if options:
             raise NotImplementedError('MatAdd options are not implemented: '+', '.join(options))
+        if not args:
+            return GenericZeroMatrix()
+        # MatAdd.__new__ drops its identity GenericZeroMatrix() first.
+        args = tuple(a for a in args if not _is_generic(a, 'GenericZeroMatrix'))
+        if not args:
+            # validate(*args) with nothing left to unpack.
+            raise ValueError('not enough values to unpack (expected 2, got 0)')
         return _core._matrixexpr_node('MatAdd', args, evaluate)
 
 
@@ -154,6 +161,10 @@ class MatMul(MatrixExpr):
     def __new__(cls, *args, evaluate=False, **options):
         if options:
             raise NotImplementedError('MatMul options are not implemented: '+', '.join(options))
+        if not args:
+            return GenericIdentity()
+        # MatMul.__new__ drops its identity GenericIdentity() first.
+        args = tuple(a for a in args if not _is_generic(a, 'GenericIdentity'))
         return _core._matrixexpr_node('MatMul', args, evaluate)
 
 
@@ -201,7 +212,7 @@ class MatrixConjugate(MatrixExpr):
 
 class Identity(MatrixExpr):
     __slots__ = ()
-    _kinds = ('Identity',)
+    _kinds = ('Identity', 'GenericIdentity')
 
     def __new__(cls, n):
         return _core._matrixexpr_node('Identity',(n,))
@@ -209,10 +220,77 @@ class Identity(MatrixExpr):
 
 class ZeroMatrix(MatrixExpr):
     __slots__ = ()
-    _kinds = ('ZeroMatrix',)
+    _kinds = ('ZeroMatrix', 'GenericZeroMatrix')
 
     def __new__(cls, n, m):
         return _core._matrixexpr_node('ZeroMatrix',(n,m))
+
+
+def _is_generic(value, tag):
+    return isinstance(value, _core._MatrixExpr) and value._kind_tag == tag
+
+
+def _shapeless(name):
+    def getter(self):
+        raise TypeError('%s does not have a specified shape' % name)
+    return property(getter)
+
+
+class GenericIdentity(Identity):
+    """The shapeless identity of MatMul (``MatMul()``)."""
+    __slots__ = ()
+    _kinds = ('GenericIdentity',)
+    is_Identity = True
+    shape = rows = cols = _shapeless('GenericIdentity')
+    func = property(lambda self: type(self))
+
+    def __new__(cls):
+        return _core._matrixexpr_node('GenericIdentity', ())
+
+    # MatrixExpr.__mul__ is MatMul(self, other).doit(): MatMul drops the
+    # GenericIdentity factors and a product left without matrices is its
+    # scalar factor (``2*GenericIdentity()`` is 2, ``G*G`` is 1).
+    def __mul__(self, other):
+        if _is_generic(other, 'GenericIdentity'):
+            return _core.sympify(1)
+        return _core.sympify(other)
+
+    __rmul__ = __mul__
+    __matmul__ = __rmatmul__ = __mul__
+
+
+class GenericZeroMatrix(ZeroMatrix):
+    """The shapeless identity of MatAdd (``MatAdd()``)."""
+    __slots__ = ()
+    _kinds = ('GenericZeroMatrix',)
+    is_ZeroMatrix = True
+    shape = rows = cols = _shapeless('GenericZeroMatrix')
+    func = property(lambda self: type(self))
+
+    def __new__(cls):
+        return _core._matrixexpr_node('GenericZeroMatrix', ())
+
+
+class DFT(MatrixExpr):
+    """The unitary discrete Fourier transform matrix (fourier.py)."""
+    __slots__ = ()
+    _kinds = ('DFT', 'IDFT')
+
+    def __new__(cls, n):
+        return _core._matrixexpr_node('DFT', (n,))
+
+    n = property(lambda self: self.args[0])
+    # Not exported at top level: resolve func through the class itself.
+    func = property(lambda self: type(self))
+
+
+class IDFT(DFT):
+    """The inverse of ``DFT(n)``."""
+    __slots__ = ()
+    _kinds = ('IDFT',)
+
+    def __new__(cls, n):
+        return _core._matrixexpr_node('IDFT', (n,))
 
 
 class OneMatrix(MatrixExpr):
@@ -426,6 +504,7 @@ _SYMPY_MODULES = {
     'ElementwiseApplyFunction': 'applyfunc', 'MatAdd': 'matadd', 'MatMul': 'matmul',
     'MatPow': 'matpow', 'Inverse': 'inverse', 'Transpose': 'transpose', 'Adjoint': 'adjoint',
     'Identity': 'special', 'ZeroMatrix': 'special', 'OneMatrix': 'special',
+    'GenericIdentity': 'special', 'GenericZeroMatrix': 'special', 'DFT': 'fourier', 'IDFT': 'fourier',
     'HadamardProduct': 'hadamard', 'HadamardPower': 'hadamard', 'KroneckerProduct': 'kronecker',
     'DiagMatrix': 'diagonal', 'DiagonalOf': 'diagonal', 'DiagonalMatrix': 'diagonal',
     'BlockMatrix': 'blockmatrix', 'BlockDiagMatrix': 'blockmatrix', 'MatrixSlice': 'slice',
@@ -447,6 +526,7 @@ def _register_classes(*classes):
 if hasattr(_core, '_register_matrixexpr_type'):
     _register_classes(MatrixExpr, MatrixSymbol, FunctionMatrix, ElementwiseApplyFunction, MatAdd, MatMul,
                       MatPow, Inverse, Transpose, Adjoint, MatrixConjugate, Identity, ZeroMatrix, OneMatrix,
+                      GenericIdentity, GenericZeroMatrix, DFT, IDFT,
                       HadamardProduct, HadamardPower, KroneckerProduct, DiagMatrix, DiagonalOf,
                       DiagonalMatrix, BlockMatrix, BlockDiagMatrix, MatrixSlice)
 
@@ -455,3 +535,6 @@ __all__ = ['DotProduct','MatrixExpr','MatrixSymbol','FunctionMatrix','Elementwis
            'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate',
            'Trace','Determinant','OneMatrix','HadamardProduct','HadamardPower',
            'KroneckerProduct','DiagMatrix','DiagonalOf','DiagonalMatrix','BlockDiagMatrix','BlockMatrix','block_collapse','MatrixSlice','hadamard_product','hadamard_power','kronecker_product']
+
+MatMul.identity = GenericIdentity()
+MatAdd.identity = GenericZeroMatrix()

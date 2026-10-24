@@ -160,7 +160,8 @@ impl Context<'_> {
                 if rows.same_presentation(expression.rows()) && cols.same_presentation(expression.cols()) && mapped.same_presentation(lambda) { expression.clone() }
                 else { MatrixExpr::function(rows, cols, mapped)? }
             }
-            MatrixKind::Identity | MatrixKind::Zero | MatrixKind::One => {
+            MatrixKind::GenericIdentity | MatrixKind::GenericZero => expression.clone(),
+            MatrixKind::Identity | MatrixKind::Zero | MatrixKind::One | MatrixKind::Dft(_) => {
                 let rows = self.scalar_child(expression.rows())?;
                 let cols = self.scalar_child(expression.cols())?;
                 if rows.same_presentation(expression.rows()) && cols.same_presentation(expression.cols()) { expression.clone() }

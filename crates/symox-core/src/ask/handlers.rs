@@ -2102,6 +2102,8 @@ fn matrix_pred(cx: &Cx, p: Pred, e: &Expr, a: &Expr) -> R {
             return cx.askp(p,&mx(parent),a);
         }
     }
+    // sympy/assumptions/handlers/matrices.py registers DFT as unitary.
+    if matches!(m.kind(),MatrixKind::Dft(_)) && p==Unitary { return Ok(Some(true)); }
     let a_in = |pp: Pred| in_conjuncts(&q(pp, e), a);
     match p {
         Square => Ok(Some(is_square(m))),

@@ -1314,8 +1314,9 @@ impl LatexPrinter<'_> {
     pub(crate) fn print_matrix(&self, m: &MatrixExpr) -> String {
         match m.kind() {
             MatrixKind::Symbol(name) => self.symbol_style(name),
-            MatrixKind::Identity => if self.s.mat_symbol_bold { "\\mathbf{I}".into() } else { "\\mathbb{I}".into() },
-            MatrixKind::Zero => self.zero_matrix(),
+            MatrixKind::Identity | MatrixKind::GenericIdentity => if self.s.mat_symbol_bold { "\\mathbf{I}".into() } else { "\\mathbb{I}".into() },
+            MatrixKind::Zero | MatrixKind::GenericZero => self.zero_matrix(),
+            MatrixKind::Dft(inverse) => format!("\\text{{{}}}_{{{}}}", if *inverse { "IDFT" } else { "DFT" }, self.print(m.rows())),
             MatrixKind::One => if self.s.mat_symbol_bold { "\\mathbf{1}".into() } else { "1".into() },
             MatrixKind::Explicit(x) => self.matrix_base(x.rows(), x.cols(), x.data().iter().map(|e| self.print(e)).collect()),
             MatrixKind::Block(grid) => { let (r, c) = grid.shape(); self.matrix_base(r, c, (0..r * c).map(|k| self.print_matrix(grid.get(k / c, k % c))).collect()) }
