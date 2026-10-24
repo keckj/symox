@@ -549,12 +549,18 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
     }
     if lower_gamma_pole(e) { return Expr::oo(); }
     if crate::functions::is_numeric_value(e) { return e.clone(); }
+    // The arguments of a partially numerical Add, Mul or Pow are evaluated
+    // by their `_eval_evalf` (`AssocOp._eval_evalf`, `Pow._eval_evalf`),
+    // which leaves `I` alone: `(x + I).evalf()` is `x + I`.
+    let part = |a: &Expr| if a.is_constant(Constant::I) { a.clone() } else { evalf(a, prec) };
     match e.kind() {
-        Kind::Add(..) => crate::ops::add(&e.args().iter().map(|a| evalf(a, prec)).collect::<Vec<_>>()),
-        Kind::Mul(..) => crate::ops::mul(&e.args().iter().map(|a| evalf(a, prec)).collect::<Vec<_>>()),
+        Kind::Add(..) => crate::ops::add(&e.args().iter().map(part).collect::<Vec<_>>()),
+        // `Mul._eval_evalf` keeps a coefficient -1: `(-x*y).evalf()` is `-x*y`.
+        Kind::Mul(c, _) if c.is_minus_one() => crate::ops::neg(&evalf(&crate::ops::neg(e), prec)),
+        Kind::Mul(..) => crate::ops::mul(&e.args().iter().map(part).collect::<Vec<_>>()),
         Kind::Pow(base, exponent) => crate::ops::pow(
-            &evalf(base, prec),
-            &if exponent.is_integer_number() { exponent.clone() } else { evalf(exponent, prec) },
+            &part(base),
+            &if exponent.is_integer_number() { exponent.clone() } else { part(exponent) },
         ),
         Kind::Rel(op, a, b) => crate::relational::rel(*op, &evalf(a, prec), &evalf(b, prec)),
         Kind::Piecewise(pairs) => crate::relational::piecewise(

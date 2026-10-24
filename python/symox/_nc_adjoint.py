@@ -198,13 +198,12 @@ class adjoint(_sp.Function):
     def _sympyrepr(self, printer, *args):
         return '%s(%s)' % (type(self).__name__, printer._print(self.args[0]))
 
-    def _latex(self, printer, *args):
-        # LatexPrinter._print_adjoint with the default dagger style
-        arg = self.args[0]
-        tex = printer._print(arg)
-        if not (arg.is_Symbol or getattr(arg, 'is_Atom', False)):
-            tex = r'\left(%s\right)' % tex
-        return r'%s^{\dagger}' % tex
+    def _latex(self, printer, exp=None, *args):
+        # adjoint._latex of the reference: the argument is not parenthesized
+        tex = r'%s^{\dagger}' % printer._print(self.args[0])
+        if exp:
+            tex = r'\left(%s\right)^{%s}' % (tex, exp)
+        return tex
 
 
 class transpose(_sp.Function):

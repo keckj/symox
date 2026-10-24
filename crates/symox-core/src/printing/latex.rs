@@ -724,6 +724,13 @@ impl<'a> LatexPrinter<'a> {
             return self.print_mul(e);
         }
         if matches!(b.kind(), Kind::Func(..)) {
+            // A host `_latex(printer, exp)` such as `adjoint._latex`:
+            // the printed base in parentheses raised to the exponent.
+            if b.has_host() && matches!(b.kind(), Kind::Func(Func::Undefined(_), _)) {
+                if let Some(text) = crate::host::print(b, crate::host::HostFormat::Latex) {
+                    return format!("\\left({text}\\right)^{{{}}}", self.print(x));
+                }
+            }
             return self.print_func(b, Some(self.print(x)));
         }
         let exp = self.print(x);
