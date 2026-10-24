@@ -371,8 +371,27 @@ def _rank_four(lines, x):
     from .tensor.array.expressions import ArrayAdd, ArrayTensorProduct, _permute_dims
     terms = []
     for line in lines:
-        if not _is_one(line.higher) or len(line._lines) != 2:
+        if len(line._lines) != 2:
             raise _Unsupported
+        if not _is_one(line.higher):
+            # A scalar factor derived by x (Trace(x)*M): the derivative of
+            # the scalar (axes of x) times the matrix the two lines contract
+            # to (axes of the expression).
+            # (Trace keeps the line indices: the pointers give the sides.)
+            if not (line._first_pointer_parent is line._lines and line._second_pointer_parent is line._lines):
+                raise _Unsupported
+            higher = _to_matrix(_build(line.higher))
+            first = line.first_pointer
+            second = line.second_pointer
+            if not (_is_matrix(higher) and tuple(higher.shape) == tuple(x.shape)
+                    and _is_matrix(first) and _is_matrix(second)):
+                raise _Unsupported
+            if _is_zero(higher) or _is_zero(first) or _is_zero(second):
+                continue
+            first = first.T
+            matrix = second if first == _S().Identity(first.shape[0]) else _times(first, second)
+            terms.append(ArrayTensorProduct(higher, matrix))
+            continue
         first = line._lines[line._first_line_index]
         second = line._lines[line._second_line_index]
         if not (_is_matrix(first) and _is_matrix(second)):

@@ -40,7 +40,7 @@ def _symox_class_is_expr(cls):
     # also hold Boolean and Basic nodes.
     if cls is _core.Expr:
         return False
-    if cls is _core._MatrixExpr:
+    if type.__subclasscheck__(_core._MatrixExpr, cls):
         return True
     name = type.__dict__['__dict__'].__get__(cls).get('_symox_nominal', cls.__name__)
     nominal = _node_types.node_class(name) if name in _node_types.CLASSES else None

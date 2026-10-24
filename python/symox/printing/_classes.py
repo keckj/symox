@@ -176,7 +176,7 @@ def class_names(expr):
         return _UNDEFINED
     if isinstance(expr, type):
         return _class_type_names(expr)
-    if cls is _core._MatrixExpr:
+    if issubclass(cls, _core._MatrixExpr):
         kind = matrix_tag(expr)
         return MATRIX_CLASSES.get(kind, (kind, 'MatrixExpr', 'Expr', 'Basic', 'Printable', 'EvalfMixin'))
     if cls is _core.Matrix or cls in _native_dense_classes():

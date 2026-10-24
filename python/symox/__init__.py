@@ -1387,6 +1387,11 @@ def transpose(arg):
     if isinstance(arg, _core.Expr) and _core._has_noncommutative_atoms(arg):
         from ._nc_adjoint import transpose as _nc_transpose
         return _nc_transpose(arg)
+    if getattr(arg, "is_commutative", None) is False and hasattr(arg, "_symox_"):
+        # an operator polynomial (physics.quantum): the transpose of its
+        # native noncommutative form
+        from ._nc_adjoint import transpose as _nc_transpose
+        return _nc_transpose(arg._symox_())
     if isinstance(arg, (_core.Expr, int, float, complex)):
         # the transpose of a commutative scalar is the scalar itself
         return sympify(arg)

@@ -467,7 +467,20 @@ fn scalar_matrix_entry(value: &Bound<'_, PyAny>) -> PyResult<Expr> {
         || value.getattr("is_Matrix").is_ok_and(|v|v.is_truthy().unwrap_or(false)) {
         return Err(PyTypeError::new_err("Dense matrices require scalar entries; materialize the matrix explicitly or use a typed block grid"));
     }
+    // RepMatrix._dod_to_DomainMatrix: a Poly is not an Expr. SymPy keeps it
+    // and warns; the native matrix stores its expression.
+    if value.is_instance_of::<crate::poly::PyPoly>() { warn_non_expr_entry(value.py())?; }
     to_expr(value)
+}
+
+fn warn_non_expr_entry(py: Python<'_>) -> PyResult<()> {
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("deprecated_since_version", "1.9")?;
+    kwargs.set_item("active_deprecations_target", "deprecated-non-expr-in-matrix")?;
+    kwargs.set_item("stacklevel", 2)?;
+    py.import("symox.utilities.exceptions")?.getattr("sympy_deprecation_warning")?.call((
+        "\n                non-Expr objects in a Matrix is deprecated. Matrix represents\n                a mathematical matrix. To represent a container of non-numeric\n                entities, Use a list of lists, TableForm, NumPy array, or some\n                other data structure instead.\n                ",), Some(&kwargs))?;
+    Ok(())
 }
 
 fn has_matrix_entry(obj: &Bound<'_, PyAny>, depth: usize) -> bool {

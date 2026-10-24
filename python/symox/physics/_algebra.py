@@ -72,7 +72,11 @@ class OperatorExpr(_BasisDependent):
     @property
     def args(self):return tuple(self._terms.items())
     def _symox_(self):
-        terms = [coefficient*S._core._apply('OrderedProduct',*(a._native_atom() for a in word),evaluate=False) if word else coefficient for word,coefficient in self._terms.items()]
+        # Native form (matrix entries, scalar functions): a noncommutative
+        # product of atom nodes, so native products keep the operator order
+        # and print, conjugate, transpose and adjoint like the reference
+        # noncommutative Mul of operators.
+        terms = [coefficient*S.Mul(*(_atom_node(a) for a in word)) if word else coefficient for word,coefficient in self._terms.items()]
         return S.Add(*terms)
     def __repr__(self):
         # Print like the reference Add/Mul printer: each operator atom stands
@@ -104,6 +108,9 @@ class OperatorExpr(_BasisDependent):
         return text
     __str__ = __repr__
     def __eq__(self,other):
+        if isinstance(other,S.Expr) and not isinstance(other,OperatorExpr) and other.has(_AtomNode):
+            # A native form taken out of a matrix or a scalar function.
+            return self._symox_()==other
         try:return self._terms==_terms(other)
         except (TypeError,ValueError):return False
     # Terms never change after construction, so operator polynomials can be
@@ -240,3 +247,47 @@ class PowerAtom(Atom):
         if not (power.is_Atom and not power.is_negative and not power.is_Rational or power.is_Integer and power>=0):text = '(%s)'%text
         return '%s**%s'%(base,text)
     def _subs_parameters(self,mapping,**kwargs):return PowerAtom(self.base.subs(mapping,**kwargs),self.power.subs(mapping,**kwargs))
+
+
+# Python atoms of the native atom nodes.
+_NODE_ATOMS = {}
+
+
+def _atom_node(atom):
+    if isinstance(atom,PowerAtom):
+        base = atom.base
+        base = _atom_node(base) if isinstance(base,Atom) else base._symox_() if isinstance(base,OperatorExpr) else S.sympify(base)
+        return base**atom.power
+    native = atom._native_atom()
+    try:_NODE_ATOMS.setdefault(native,atom)
+    except TypeError:pass
+    return _AtomNode(native)
+
+
+class _AtomNode(S.Function):
+    """Native stand-in of an operator atom (a noncommutative symbol-like node)."""
+    is_commutative = False
+    _symox_user_hooks = True
+    @property
+    def atom(self):
+        try:return _NODE_ATOMS.get(self.args[0])
+        except TypeError:return None
+    def _sympystr(self,printer,*args):
+        atom = self.atom
+        return atom._atom_repr() if atom is not None else printer._print(self.args[0])
+    _sympyrepr = _sympystr
+    def _symox_adjoint(self):
+        # Reference Operator/State adjoint: Dagger(a), Dagger(|k>) = <k|.
+        atom = self.atom
+        adjoint = getattr(atom,'adjoint',None) if atom is not None else None
+        if adjoint is None:
+            from .quantum._core import Dagger
+            if atom is None:return None
+            value = Dagger(atom)
+        else:value = adjoint()
+        return value._symox_() if isinstance(value,OperatorExpr) else S.sympify(value)
+    def _symox_transpose(self):
+        # Expr._eval_transpose of a noncommutative operator.
+        atom = self.atom
+        if getattr(atom,'is_hermitian',None):return S.conjugate(self)
+        return None
