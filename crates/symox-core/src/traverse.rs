@@ -88,7 +88,7 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
                     let na: Vec<Expr> = args.iter().map(&mut *f).collect();
                     if matrix == **parent && na == *args { return e.clone(); }
                     if matches!(fun, Func::MatrixElement(_)) && na.len() == 2 {
-                        return matrix.element(&na[0], &na[1]).unwrap_or_else(|_| e.clone());
+                        return matrix.element_constructed(&na[0], &na[1]).unwrap_or_else(|_| e.clone());
                     }
                     if matches!(fun, Func::MatrixTrace(_)) {
                         return Expr::from_kind(Kind::Func(Func::MatrixTrace(std::sync::Arc::new(matrix)), vec![]));

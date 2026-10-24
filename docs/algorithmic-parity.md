@@ -9170,3 +9170,49 @@ Remaining (unsupported or a different form, never a wrong value):
   issues 5164 and 5383.
 
 Tests: `tests/test_limwrong_parity.py`.
+
+## mat-rest7 (wave 13)
+
+Entries of symbolic matrix products and derivatives by a matrix element,
+ported from SymPy's `_entry` and `_eval_derivative` code paths:
+- `MatMul._entry` with a symbolic inner dimension gives the held
+  `Sum(A[i, _i_1]*B[_i_1, j], (_i_1, 0, k - 1))`. Nested entries share one
+  dummy counter, as SymPy's `dummy_generator` does. `MatPow._entry` with a
+  positive integer exponent expands to the product, and `Identity(k)[i, j]`
+  is `KroneckerDelta(i, j, (0, k - 1))`.
+- The `MatrixElement(...)` constructor, `xreplace`/`subs` rebuilds and
+  `srepr` parsing still keep symbolic products, powers and identities held,
+  as SymPy does. Only `parent[i, j]` expands.
+- Ranged `KroneckerDelta(i, j, (lo, hi))`: a Tuple argument and the
+  `delta_range` property. A delta sum needs no Piecewise when the range is
+  inside the summation limits. Sums of an Add and nested Sums with a delta
+  are summed term by term or with the summations exchanged.
+- `MatrixElement._eval_derivative`: `X[i, j].diff(X[m, n])` is a product of
+  ranged deltas. For an `Inverse` parent it is
+  `-Sum(M[i, z1]*Y[z1, z2].diff(v)*M[z2, j])`. `Sum.diff` by a matrix element
+  differentiates under the sum. `Trace(A).diff(A[m, n])` goes through
+  `rewrite(Sum)`. `Trace(X).rewrite(Sum)` works now (the rewrite visitor
+  skipped non-Expr arguments).
+- In array-to-matrix conversion, a contracted cycle's Trace is evaluated
+  (`doit(deep=False)`), so `Trace(Trace(A)*A).diff(A)` is `2*Trace(A)*I`.
+
+Probe (matrices tests, 41 files): same 5331 -> 5348, diff 325 -> 314,
+exc 139 -> 133, no statement from same to different.
+
+Remaining (a different form or unsupported, never a wrong value):
+- Held matrix `Derivative(X, X)` and `Derivative(X*A, X)` raise
+  NotImplementedError. SymPy keeps them held, but its
+  `Derivative(X, X).doit()` gives 0, which is wrong.
+- Derivatives of HadamardProduct, HadamardPower and applyfunc need
+  `ArrayDiagonal` to matrix conversion (`DiagMatrix` forms). These still raise.
+- The cookbook quadratic-form element derivative is equal, but SymPy pulls
+  `b[n, 0]` out of the first Sum.
+- `Trace(Trace(Trace(A)*A)*A).diff(A)` keeps `Trace(Trace(A)*A)`
+  unevaluated, because SymPy's MatMul evaluates a scalar Trace coefficient
+  when it is built. `(Trace(A)**2*X).diff(A)` is one term where SymPy has two.
+- A product entry with mixed finite and symbolic inner dimensions stays a
+  held Sum, without the partial expansion that SymPy's `doit` does.
+- `MatrixElement(A*B, 0, 0).subs(n, 2)` evaluates to the explicit sum (as
+  before). SymPy keeps it held until `doit`.
+
+Tests: `tests/test_mat_rest7_parity.py`.

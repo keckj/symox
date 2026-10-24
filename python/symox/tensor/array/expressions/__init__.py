@@ -378,7 +378,10 @@ def _matrix_chains(expr):
         chains.append(reduce(lambda a,b:a*b,chain))
     for k in matrices:
         if k not in seen:
-            chain,_=walk(k,0);scalars.append(S.Trace(reduce(lambda a,b:a*b,chain)))
+            chain,_=walk(k,0)
+            # The trace of a cycle is evaluated (Trace(A.T) is Trace(A), a
+            # scalar factor leaves the trace), as SymPy's recognized traces.
+            scalars.append(S.Trace(reduce(lambda a,b:a*b,chain)).doit(deep=False))
     scalar=S.Mul(*scalars)
     if not chains:return scalar
     if scalar!=1:chains[0]=scalar*chains[0]

@@ -160,12 +160,23 @@ pub(crate) fn canonical_coeff(r: &Expr) -> Expr {
     crate::relational::rel(op, &l, &rhs)
 }
 
+/// Is `t` a product with a KroneckerDelta factor that depends on `k`?
+fn has_delta_in(t: &Expr, k: &Expr) -> bool {
+    use crate::special::SpecialFn;
+    let factors = match t.kind() {
+        Kind::Mul(..) => t.args(),
+        Kind::Func(Func::Sum, args) => return has_delta_in(&args[0], k),
+        _ => vec![t.clone()],
+    };
+    factors.iter().any(|x| matches!(x.kind(), Kind::Func(Func::Special(SpecialFn::KroneckerDelta), _)) && has(x, k))
+}
+
 /// Sum of `f*KroneckerDelta(u, v)` where `u - v` is linear in `k` (SymPy's
 /// `deltasummation`): the delta selects the single index solving `u == v`.
 fn delta_sum(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
     use crate::special::SpecialFn;
     let is_delta = |x: &Expr| {
-        matches!(x.kind(), Kind::Func(Func::Special(SpecialFn::KroneckerDelta), args) if args.len() == 2 && has(x, k))
+        matches!(x.kind(), Kind::Func(Func::Special(SpecialFn::KroneckerDelta), args) if (args.len() == 2 || args.len() == 3) && has(x, k))
     };
     let factors = match f.kind() {
         Kind::Mul(..) => f.args(),
@@ -187,6 +198,15 @@ fn delta_sum(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
     let position = rest.iter().position(|x| *x == delta)?;
     rest.remove(position);
     let term = subs1(&mul(&rest), k, &value);
+    // deltasummation: a delta range inside the summation limits needs no Piecewise.
+    if let Some(range) = args.get(2).and_then(|r| crate::special::tuple_items(r)) {
+        if range.len() == 2
+            && crate::assumptions::is_nonpositive(&sub(a, &range[0])) == Some(true)
+            && crate::assumptions::is_nonnegative(&sub(b, &range[1])) == Some(true)
+        {
+            return Some(term);
+        }
+    }
     // Interval(a, b).as_relational(value), as SymPy builds it
     let right = if b.is_constant(Constant::Infinity) { lt(&value, b) } else { crate::relational::le(&value, b) };
     let cond = crate::logic::and(vec![canonical_coeff(&crate::relational::le(a, &value)), canonical_coeff(&right)]);
@@ -197,6 +217,27 @@ pub fn try_summation(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
     if matches!(a.kind(),Kind::Const(c) if c.is_infinite()) || b.is_constant(Constant::NegInfinity) {return None;}
     if let Some(value) = delta_sum(f, k, a, b) {
         return Some(value);
+    }
+    // A delta in k inside a held inner sum whose limits do not depend on k:
+    // sum over k first (the order of finite sums is exchangeable).
+    if let Kind::Func(Func::Sum, args) = f.kind() {
+        if args.len() == 2 {
+            if let Some(limit) = crate::binders::limits(args).pop().filter(|l| l.len() == 3) {
+                if !has(&limit[1], k) && !has(&limit[2], k) && limit[0] != *k && has_delta_in(&args[0], k) {
+                    let inner = summation(&args[0], k, a, b);
+                    if has(&inner, k) { return None; }
+                    return Some(summation(&inner, &limit[0], &limit[1], &limit[2]));
+                }
+            }
+        }
+    }
+    // deltasummation of an Add: each term on its own, a term without a delta
+    // stays a Sum (piecewise_fold(Add(*[deltasummation(h) for h in g.args]))).
+    if let Kind::Add(..) = f.kind() {
+        let terms = f.args();
+        if terms.iter().any(|t| has_delta_in(t, k)) {
+            return Some(add(&terms.iter().map(|t| summation(t, k, a, b)).collect::<Vec<_>>()));
+        }
     }
     if b.is_constant(Constant::Infinity) {
         return infinite_sum(f, k, a);

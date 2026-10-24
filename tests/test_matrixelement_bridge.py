@@ -27,7 +27,7 @@ def test_scalar_replacements_descend_matrix_metadata_once():
     n, m, p = s.symbols("n m p", integer=True, positive=True)
     a = s.MatrixSymbol("A", n, n)
     b = s.MatrixSymbol("B", n, n)
-    entry = (a*b)[0, 0]
+    entry = s.MatrixElement(a*b, 0, 0)  # held, as SymPy keeps it
     replaced = entry.xreplace({n: m, m: p})
     assert replaced.args[0].shape == (m, m)
     finite = replaced.subs(m, 2)

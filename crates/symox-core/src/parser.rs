@@ -696,7 +696,7 @@ impl Parser {
             "Transpose"=>{arity(1)?;matrix(0)?.transpose(evaluate)},
             "Adjoint"=>{arity(1)?;matrix(0)?.adjoint(evaluate)},
             "MatrixConjugate"=>{arity(1)?;matrix(0)?.conjugate(evaluate)},
-            "MatrixElement"=>{arity(3)?;return Ok(Val::E(matrix(0)?.element(&scalar(1)?,&scalar(2)?).map_err(|e|fail(e.to_string()))?));},
+            "MatrixElement"=>{arity(3)?;return Ok(Val::E(matrix(0)?.element_constructed(&scalar(1)?,&scalar(2)?).map_err(|e|fail(e.to_string()))?));},
             "DotProduct"=>{arity(2)?;return Ok(Val::E(crate::matrixcontraction::dot_product(&matrix(0)?,&matrix(1)?,false).map_err(|e|fail(e.to_string()))?));},
             "Trace"=>{arity(1)?;let parent=matrix(0)?;return Ok(Val::E((if evaluate{parent.trace()}else{parent.trace_unevaluated()}).map_err(|e|fail(e.to_string()))?));},
             "Determinant"=>{arity(1)?;let parent=matrix(0)?;return Ok(Val::E((if evaluate{parent.determinant()}else{parent.determinant_unevaluated()}).map_err(|e|fail(e.to_string()))?));},

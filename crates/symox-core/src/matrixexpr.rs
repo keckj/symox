@@ -8,6 +8,14 @@ use crate::functions::func;
 use crate::matrix::{Matrix, MatrixError, MResult};
 use crate::matrix::ratfunc::is_zero_assume;
 use crate::ops::{add, mul2, neg, pow, sub};
+
+thread_local!{static ENTRY_DUMMIES:std::cell::Cell<Option<u32>>=const{std::cell::Cell::new(None)};}
+
+/// `KroneckerDelta(i, j, (0, n - 1))`, the entry of a symbolic identity and
+/// the derivative of a matrix element by an element of the same matrix.
+pub fn ranged_delta(i:&Expr,j:&Expr,n:&Expr)->Expr{
+    func(Func::Special(crate::special::SpecialFn::KroneckerDelta),vec![i.clone(),j.clone(),crate::special::tuple(vec![Expr::zero(),sub(n,&Expr::one())])])
+}
 #[path="matrixexpr/expand.rs"]
 mod expansion;
 #[path="matrixexpr/inspect.rs"]
@@ -1076,11 +1084,20 @@ impl MatrixExpr {
             MatrixKind::Kronecker(factors)=>self.kronecker_element(factors,i,j),
             MatrixKind::Identity if i==j=>Ok(Expr::one()),
             MatrixKind::Identity if i.as_i64().is_some()&&j.as_i64().is_some()=>Ok(Expr::zero()),
+            // Identity._entry: Eq(i, j) when decided, else KroneckerDelta(i, j, (0, n - 1)).
+            MatrixKind::Identity=>Ok(ranged_delta(i,j,self.cols())),
             MatrixKind::Explicit(m)=>{if let(Some(i),Some(j))=(i.as_i64(),j.as_i64()){return Ok(m.get(i.rem_euclid(m.rows() as i64) as usize,j.rem_euclid(m.cols() as i64) as usize).clone());}Ok(self.opaque_element(i,j))},
             MatrixKind::Add(a)=>Ok(add(&a.iter().map(|e|e.element(i,j)).collect::<MResult<Vec<_>>>()?)),
-            MatrixKind::Mul(c,fs)=>{if fs.len()==1{return Ok(mul2(c,&fs[0].element(i,j)?));}let first=&fs[0];if let Ok(n)=finite_dim(first.cols()){let rest=Self::mul(Expr::one(),&fs[1..],true)?;let mut terms=Vec::with_capacity(n);for k in 0..n{let k=Expr::int(k as i64);terms.push(mul2(&first.element(i,&k)?,&rest.element(&k,j)?));}Ok(mul2(c,&add(&terms)))}else{Ok(self.opaque_element(i,j))}},
+            MatrixKind::Mul(c,fs)=>{if fs.len()==1{return Ok(mul2(c,&fs[0].element(i,j)?));}let first=&fs[0];if let Ok(n)=finite_dim(first.cols()){let rest=Self::mul(Expr::one(),&fs[1..],true)?;let mut terms=Vec::with_capacity(n);for k in 0..n{let k=Expr::int(k as i64);terms.push(mul2(&first.element(i,&k)?,&rest.element(&k,j)?));}Ok(mul2(c,&add(&terms)))}else{Self::product_entry_sum(c,fs,i,j)}},
             MatrixKind::Transpose(b)=>b.element(j,i),MatrixKind::Adjoint(b)=>Ok(func(Func::Conjugate,vec![b.element(j,i)?])),MatrixKind::Conjugate(b)=>Ok(func(Func::Conjugate,vec![b.element(i,j)?])),
             MatrixKind::Pow(_,e) if e.as_i64().is_none()=>Ok(self.opaque_element(i,j)),
+            // MatPow._entry with a symbolic shape: a positive integer power is the
+            // entry of the explicit product MatMul(A, ..., A).
+            MatrixKind::Pow(b,e) if e.as_i64().is_some_and(|e|(1..=64).contains(&e))&&finite_dim(b.cols()).is_err()=>{
+                let n=e.as_i64().unwrap() as usize;
+                if n==1{return b.element(i,j);}
+                Self::product_entry_sum(&Expr::one(),&vec![b.clone();n],i,j)
+            },
             // A square of a lazy (non-explicit) finite matrix: one row times one column, as SymPy's
             // MatMul._entry does, instead of materialising the whole d x d product (O(d**3)).
             MatrixKind::Pow(b,e) if e.as_i64()==Some(2)&&!matches!(b.kind(),MatrixKind::Explicit(_))&&finite_dim(b.cols()).is_ok()&&i.as_i64().is_some()&&j.as_i64().is_some()=>{
@@ -1101,6 +1118,42 @@ impl MatrixExpr {
             MatrixKind::Pow(..)|MatrixKind::Inverse(_)=>{if finite_dim(self.rows()).is_ok(){let m=self.as_explicit()?;if let(Some(i),Some(j))=(i.as_i64(),j.as_i64()){return Ok(m.get(i.rem_euclid(m.rows() as i64) as usize,j.rem_euclid(m.cols() as i64) as usize).clone());}}Ok(self.opaque_element(i,j))},
             _=>Ok(self.opaque_element(i,j)),
         }
+    }
+    /// MatMul._entry with a symbolic inner dimension: the held
+    /// `Sum(A[i, _i_1]*B[_i_1, j], (_i_1, 0, n - 1))`. Nested entries share
+    /// the dummy counter, as SymPy's `dummy_generator` keyword does.
+    fn product_entry_sum(c:&Expr,fs:&[Self],i:&Expr,j:&Expr)->MResult<Expr>{
+        let outer=ENTRY_DUMMIES.with(|g|g.get()).is_none();
+        if outer{ENTRY_DUMMIES.with(|g|g.set(Some(1)));}
+        let result=(||->MResult<Expr>{
+            let n=fs.len();
+            let mut indices=Vec::with_capacity(n+1);indices.push(i.clone());
+            for _ in 1..n{
+                let k=ENTRY_DUMMIES.with(|g|{let k=g.get().unwrap_or(1);g.set(Some(k+1));k});
+                indices.push(Expr::dummy(&format!("i_{k}"),crate::symbol::Assumptions::NONE));
+            }
+            indices.push(j.clone());
+            let mut factors=Vec::with_capacity(n);
+            for (t,f) in fs.iter().enumerate(){factors.push(f.element(&indices[t],&indices[t+1])?);}
+            let limits=(0..n-1).map(|t|vec![indices[t+1].clone(),Expr::zero(),sub(fs[t].cols(),&Expr::one())]).collect();
+            let body=crate::ops::mul(&factors);
+            let sum=crate::binders::held(Func::Sum,&body,limits).map_err(MatrixError::Value)?;
+            Ok(mul2(c,&sum))
+        })();
+        if outer{ENTRY_DUMMIES.with(|g|g.set(None));}
+        result
+    }
+    /// `MatrixElement(parent, i, j)` as a constructor: SymPy keeps the entry of a
+    /// symbolic product, power or identity held (only `parent[i, j]` calls `_entry`).
+    pub fn element_constructed(&self,i:&Expr,j:&Expr)->MResult<Expr>{
+        let symbolic=finite_dim(self.cols()).is_err();
+        let held=match self.kind(){
+            MatrixKind::Identity=>i!=j&&!(i.as_i64().is_some()&&j.as_i64().is_some()),
+            MatrixKind::Mul(_,fs)=>fs.len()>1&&finite_dim(fs[0].cols()).is_err(),
+            MatrixKind::Pow(_,e)=>symbolic&&e.as_i64().is_some_and(|e|(2..=64).contains(&e)),
+            _=>false,
+        };
+        if held{self.element_unevaluated(i,j)}else{self.element(i,j)}
     }
     /// Validate and construct a held scalar entry without materializing its parent.
     pub fn element_unevaluated(&self,i:&Expr,j:&Expr)->MResult<Expr>{
