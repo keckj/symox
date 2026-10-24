@@ -332,8 +332,16 @@ fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg:
     let extended_real = |e: &Expr| crate::assumptions::fact(e, "extended_real") == Some(true);
     let improper = extended_real(a) && extended_real(b) && (has_oo(a) || has_oo(b));
     let pw = has_piecewise_or_minmax(f);
+    // A rational integrand whose poles cannot be located on the interval
+    // (1/x**2 on (a, oo) with a real): the Meijer G method sees no pole,
+    // and its unconditional value is wrong when one lies inside. A value
+    // with conditions keeps them; an unconditional one is held.
+    let undecided_poles = improper && rational_in(f, x) && matches!(rational_definite::analyze(f, x, a, b), rational_definite::Analysis::Unknown);
     let try_meijerg = || -> Option<(Expr, Option<Expr>)> {
         let (value, cond) = meijerint::meijerint_definite(f, x, a, b)?;
+        if undecided_poles && matches!(cond.kind(), Kind::Bool(true)) {
+            return Some((integral_definite_unevaluated(f, x, a, b), None));
+        }
         Some(match conds {
             Conds::Piecewise if matches!(cond.kind(), Kind::Bool(true)) => (value, None),
             Conds::Piecewise => (
@@ -377,6 +385,18 @@ fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg:
     (integrate_definite_native(f, x, a, b, meijerg), None)
 }
 
+/// Whether `f` is a rational function of `x` (integer powers only).
+fn rational_in(f: &Expr, x: &Expr) -> bool {
+    if !has(f, x) || f == x {
+        return true;
+    }
+    match f.kind() {
+        Kind::Add(..) | Kind::Mul(..) => f.args().iter().all(|t| rational_in(t, x)),
+        Kind::Pow(b, e) => e.as_i64().is_some() && rational_in(b, x),
+        _ => false,
+    }
+}
+
 /// Definite integral of `f` over `[a, b]` through the native rules and the
 /// antiderivative.
 fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr, meijerg: Option<bool>) -> Expr {
@@ -385,12 +405,39 @@ fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr, meijerg: Op
         return neg(&integrate_definite_native(f,x,b,a,meijerg));
     }
     let unevaluated = || integral_definite_unevaluated(f,x,a,b);
+    let mut degenerate = Vec::new();
     let checked = match rational_definite::analyze(f,x,a,b) {
         rational_definite::Analysis::Value(value) => return value,
         rational_definite::Analysis::Unknown => return unevaluated(),
         rational_definite::Analysis::Regular(value) => value,
+        rational_definite::Analysis::Degenerate(value, symbols) => {
+            degenerate = symbols;
+            value
+        }
         rational_definite::Analysis::NotRational => f.clone(),
     };
+    if !degenerate.is_empty() {
+        // x/(x**2 + a**2) on (0, 1) with a real: the generic value, as the
+        // reference gives it, only when it is not finite at a = 0, where the
+        // pole reaches the interval; a finite value there is held.
+        let Some(value) = try_integrate_hint(&checked, x, meijerg)
+            .and_then(|big_f| eval_with_integrals(&atan_floor_terms(&big_f), &checked, x, a, b))
+        else {
+            return unevaluated();
+        };
+        let mut held = false;
+        crate::traverse::preorder(&value, &mut |n| held |= matches!(n.kind(), Kind::Func(Func::Integral, _)));
+        if held {
+            return unevaluated();
+        }
+        for s in &degenerate {
+            let at = subs1(&value, s, &Expr::zero());
+            if crate::functions::is_numeric_value(&at) && crate::evalf::eval_f64(&at).is_some_and(|v| v.is_finite()) {
+                return unevaluated();
+            }
+        }
+        return value;
+    }
     let f = &checked;
     if let Some(value) = gamma_moments(f, x, a, b) {
         return value;
@@ -1465,6 +1512,12 @@ fn table(f: &Expr, x: &Expr) -> Option<Expr> {
                     _ => None,
                 };
                 if let Some(r) = r {
+                    if numeric_or_piecewise_guard(&da) {
+                        // a symbolic frequency may vanish, as in trigintegrate
+                        let (_, b0) = linear(u, x)?;
+                        let at_zero = mul2(&subs1(f, u, &b0), x);
+                        return Some(piecewise(vec![(div(&r, &da), ne(&da, &Expr::zero())), (at_zero, Expr::boolean(true))]));
+                    }
                     return Some(div(&r, &da));
                 }
             }
@@ -1752,9 +1805,19 @@ fn trig_powers(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Op
         }
     }
     let u = arg?;
-    let (a, _) = linear(&u, x)?;
+    let (a, b0) = linear(&u, x)?;
     if m < 0 || n < 0 {
         return None;
+    }
+    if numeric_or_piecewise_guard(&a) {
+        // a symbolic frequency may vanish: as the reference `trigintegrate`,
+        // integrate in u and return Piecewise((F(u)/a, Ne(a, 0)), (f*x, True))
+        let t = Expr::symbol("_trig_u");
+        let g = mul(&[sin(&t).powi(m), cos(&t).powi(n)]);
+        let gi = integ(&g, &t, depth + 1, seen)?;
+        let r = div(&subs1(&gi, &t, &u), &a);
+        let at_zero = mul2(&subs1(f, &u, &b0), x);
+        return Some(piecewise(vec![(r, ne(&a, &Expr::zero())), (at_zero, Expr::boolean(true))]));
     }
     let s = sin(&u);
     let c = cos(&u);

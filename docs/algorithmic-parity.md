@@ -8743,3 +8743,82 @@ Remaining (unsupported or a different form, never a wrong value):
   `Poly(expr, x)` (pre-existing).
 
 Tests: `tests/test_simp_rest4_parity.py`.
+
+## intrest3 (wave 11): integration leftovers
+
+A probe of 460 parametric definite integrals (about 95 integrands under the
+none/real/pos/nz/cplx assumption sets, values checked against mpmath
+quadrature at real samples including negatives and 0) drove this pass.
+
+Wrong results fixed:
+- Powers and products of sin/cos with a symbolic frequency
+  (`sin(a*x)**2`, `sin(a*x)*cos(a*x)`, `cos(a*x)**2`, `sin(a*x)**3`,
+  `sin(a*x)**4`, `tan(a*x)**2`, `sec(a*x)**2`, ...) dropped the
+  `Ne(a, 0)` guard of `trigintegrate`, so `integrate(sin(n*x)**2,
+  (x, 0, pi))` was `pi/2` at n = 0. The native rules now integrate in
+  u = a*x + b and return `Piecewise((F(u)/a, Ne(a, 0)), (f(b)*x, True))`,
+  SymPy's form for these cases, and the definite integral is
+  `Piecewise((pi/2, Ne(n, 0)), (0, True))`.
+- The fallback of `deltaintegrate` for a held simple delta returned
+  `Heaviside(a*x - b)` (SymPy's code, reached in symox because the
+  expansion is kept while a may vanish): now
+  `Piecewise((Heaviside(a*x - b)/a, Ne(a, 0)), (x*DiracDelta(b), True))`.
+- Improper rational integrals whose poles cannot be located on the interval
+  (`1/x**2` on (a, oo) with a real or nonzero, `1/(x + a)**2` on (0, oo),
+  `1/(a + x**2)` on (-oo, oo) and on (0, oo) for a not known positive):
+  the Meijer G method sees no pole and returns an unconditional value
+  (`1/a`, `pi*a/(2*polar_lift(a)**(3/2))`, ...). SymPy returns it; it is
+  wrong for a < 0 (at a = -1, `1/(x**2 - 1)` has a non-integrable pole at
+  x = 1 and SymPy's value is the finite `-I*pi/2`). An unconditional Meijer
+  value is now held when `rational_definite::analyze` cannot decide the
+  poles; a conditioned one keeps its conditions. Intentional holds: the
+  integration corpus goes from SAME 1161 to 1157 (the four
+  `1/(x**2+a) (x,0,oo)` none/real/cplx/nz entries become MISSING).
+
+Values SymPy gives that symox now gives too:
+- `x/(x**2 + a**2)` and `1/(x**2 + a**2)` on (0, 1) with a real: the roots
+  `I*a`, `-I*a` are real only at a = 0, where they sit on the interval. The
+  analysis returns `Degenerate`, and the generic value is kept only when it
+  is not finite at a = 0 (it is `-log(a**2)/2 + log(a**2 + 1)/2` and
+  `atan(1/a)/a`, both infinite there); with 0 outside the interval the
+  value is plain.
+
+Intentional corrections (SymPy wrong, checked numerically):
+- `integrate(DiracDelta(a*x), (x, -1, 1))`: SymPy 0, symox
+  `Piecewise((-Heaviside(-a)/a + Heaviside(a)/a, Ne(a, 0)),
+  (2*DiracDelta(0), True))` (1/|a| for a != 0).
+- `integrate(DiracDelta(x - a, 1), (x, 0, 1))`: SymPy gives
+  `DiracDelta(a) - DiracDelta(1 - a)`, the opposite sign; symox holds.
+
+Remaining (unsupported or a different form, never a wrong value):
+- `atan(a*x)/x**2` on (1, oo) for a real: needs
+  `limit(a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x, x, oo)` (limits,
+  task limacc).
+- `DiracDelta(a*x - b)` on (-oo, oo): SymPy expands to
+  `Heaviside(x - b/a)/Abs(a)` and gives `1/Abs(a)`; symox keeps the delta
+  while a may vanish, and for a nonzero `limit(Heaviside(a*x - b)/a, x, oo)`
+  is not evaluated. The native affine delta antiderivative is
+  `Heaviside(a*x + b)/a`, not SymPy's `Heaviside(x + b/a)/Abs(a)` (same
+  value for real nonzero a).
+- `Heaviside(x - a)` on (-1, 1) with a positive: SymPy gives a Meijer G
+  value; symox returns the integral of the rewritten Piecewise.
+- Forms: `sin(a*x)**2*cos(a*x)**2` and `sin(2*a*x + 1)**2` (SymPy uses
+  other reduction formulas), `log(1 + a*x)` on (0, 1) (Ne guard where
+  SymPy's form has none), `(exp(-a*x) - exp(-b*x))/x` positive
+  (`-log(-a) + log(-b)` vs `-log(a) + log(b)`).
+- `ratint(1/(x**3 + x + 1))`: 82 KB against SymPy's 17 KB (the
+  log_to_real/atan path; 0.4 s against 7.6 s).
+- Risch/heurisch item: the reviewed cases (`atan(exp(x))`,
+  `exp(x)/(1 + exp(2*x))`, `1/(x*(1 + log(x)**2))`, risch=True partial
+  fractions, `x**(4/3)*log(x)`, issue 10847) already agree with SymPy.
+
+Probe counts (460 cases): before {SAME 391, EQUIV 18, MISSING 31, COND 6,
+DIFF 2, EXTRA-WRONG 4, COMPARE-FAIL 8}, after {SAME 391, EQUIV 18,
+MISSING 35, COND 3, DIFF 2, EXTRA-WRONG 4, COMPARE-FAIL 7}. The four
+EXTRA-WRONG are `Heaviside(x - a)*Heaviside(b - x)` on (-oo, oo), where
+symox's `(b - a)*Heaviside(b - a)` is right and SymPy holds (a quadrature
+artifact of the narrow support); the two DIFF are the DiracDelta(a*x)
+correction above. The six SAME lost are the holds above, the six gained
+are the guarded `sin(n*x)**2` and the degenerate-pole cases.
+
+Tests: `tests/test_intrest3_parity.py`.

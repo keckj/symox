@@ -145,7 +145,16 @@ def deltaintegrate(f, x):
             #For integrating derivatives of DiracDelta we need the chain rule
             if f.is_simple(x):
                 if (len(f.args) <= 1 or f.args[1] == 0):
-                    return Heaviside(f.args[0])
+                    # The reference returns Heaviside(f.args[0]), which
+                    # drops the 1/a of DiracDelta(a*x + b); the expansion
+                    # is held here only when a may vanish, where the
+                    # integrand is the constant DiracDelta(b).
+                    lc = f.args[0].as_poly(x).LC()
+                    if lc == 1:
+                        return Heaviside(f.args[0])
+                    from symox import Piecewise, Ne
+                    return Piecewise((Heaviside(f.args[0])/lc, Ne(lc, 0)),
+                                     (f.subs(x, 0)*x, True))
                 else:
                     return (DiracDelta(f.args[0], f.args[1] - 1) /
                         f.args[0].as_poly().LC())
