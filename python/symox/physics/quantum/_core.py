@@ -238,7 +238,7 @@ _nc_adjoint_module.adjoint.__name__='Dagger'
 
 
 def Dagger(expr):
-    if isinstance(expr,S.DenseMatrix):return expr.conjugate().T
+    if isinstance(expr,S.DenseMatrix):return expr.adjoint()
     if isinstance(expr,InnerProduct):return expr._adjoint_product()
     if isinstance(expr,DaggerAtom):return expr.argument
     if isinstance(expr,StateBase):

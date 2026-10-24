@@ -2,10 +2,11 @@
 import operator
 
 from . import _core
-from ._matrixexpr import MatrixExpr
+from ._matrixexpr import MatrixExpr, _register_classes
 
 
 class PermutationMatrix(MatrixExpr):
+    __slots__ = ()
     _kinds = ('PermutationMatrix',)
 
     def __new__(cls, perm):
@@ -16,6 +17,7 @@ class PermutationMatrix(MatrixExpr):
 
 
 class MatrixPermute(MatrixExpr):
+    __slots__ = ()
     _kinds = ('MatrixPermute',)
 
     def __new__(cls, mat, perm, axis=0):
@@ -62,3 +64,7 @@ def rewrite_permutation(value, target, *, deep=True):
                 start = i+1
         return BlockDiagMatrix(*blocks)
     return None
+
+
+if hasattr(_core, '_register_matrixexpr_type'):
+    _register_classes(PermutationMatrix, MatrixPermute)

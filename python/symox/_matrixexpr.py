@@ -25,8 +25,29 @@ class _MatrixType(type):
         return cls(*args, **assumptions)
 
 
-class MatrixExpr(metaclass=_MatrixType):
+class _ClassOrInstanceMethod:
+    """The metaclass method on the class (``MatMul.class_key()``) and the
+    native method on an instance, as the classes now derive from the
+    native type."""
+
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, obj, cls=None):
+        if obj is not None and self.name == 'fromiter':
+            obj, cls = None, obj.func
+        if obj is None:
+            return getattr(_MatrixType, self.name).__get__(cls, type(cls))
+        return getattr(_core._MatrixExpr, self.name).__get__(obj, type(obj))
+
+
+class MatrixExpr(_core._MatrixExpr, metaclass=_MatrixType):
+    # The native nodes are allocated as the public class of their kind
+    # (see _register_classes), which adds no storage.
+    __slots__ = ()
     _kinds = None
+    class_key = _ClassOrInstanceMethod('class_key')
+    fromiter = _ClassOrInstanceMethod('fromiter')
 
     def __new__(cls, value):
         return _core._as_matrixexpr(value)
@@ -38,6 +59,7 @@ class MatrixExpr(metaclass=_MatrixType):
 
 
 class MatrixSymbol(MatrixExpr):
+    __slots__ = ()
     _kinds = ('MatrixSymbol',)
 
     def __new__(cls, name, n, m):
@@ -96,6 +118,7 @@ def _normalize_matrix_function(function, arity, context):
 
 
 class FunctionMatrix(MatrixExpr):
+    __slots__ = ()
     _kinds = ('FunctionMatrix',)
 
     def __new__(cls, rows, cols, lamda):
@@ -104,6 +127,7 @@ class FunctionMatrix(MatrixExpr):
 
 
 class ElementwiseApplyFunction(MatrixExpr):
+    __slots__ = ()
     _kinds = ('ElementwiseApplyFunction',)
 
     def __new__(cls, function, expr):
@@ -113,6 +137,7 @@ class ElementwiseApplyFunction(MatrixExpr):
 
 class MatAdd(MatrixExpr):
     """Represent a shape-checked sum of symbolic matrices."""
+    __slots__ = ()
     _kinds = ('MatAdd',)
 
     def __new__(cls, *args, evaluate=False, **options):
@@ -123,6 +148,7 @@ class MatAdd(MatrixExpr):
 
 class MatMul(MatrixExpr):
     """Represent an ordered product of matrix and scalar operands."""
+    __slots__ = ()
     _kinds = ('MatMul',)
 
     def __new__(cls, *args, evaluate=False, **options):
@@ -132,6 +158,7 @@ class MatMul(MatrixExpr):
 
 
 class MatPow(MatrixExpr):
+    __slots__ = ()
     _kinds = ('MatPow','Inverse')
 
     def __new__(cls, base, exp, evaluate=False):
@@ -139,6 +166,7 @@ class MatPow(MatrixExpr):
 
 
 class Inverse(MatPow):
+    __slots__ = ()
     _kinds = ('Inverse',)
 
     def __new__(cls, mat, exp=-1):
@@ -148,6 +176,7 @@ class Inverse(MatPow):
 
 
 class Transpose(MatrixExpr):
+    __slots__ = ()
     _kinds = ('Transpose',)
 
     def __new__(cls, arg):
@@ -155,6 +184,7 @@ class Transpose(MatrixExpr):
 
 
 class Adjoint(MatrixExpr):
+    __slots__ = ()
     _kinds = ('Adjoint',)
 
     def __new__(cls, arg):
@@ -162,6 +192,7 @@ class Adjoint(MatrixExpr):
 
 
 class MatrixConjugate(MatrixExpr):
+    __slots__ = ()
     _kinds = ('MatrixConjugate',)
 
     def __new__(cls, arg):
@@ -169,6 +200,7 @@ class MatrixConjugate(MatrixExpr):
 
 
 class Identity(MatrixExpr):
+    __slots__ = ()
     _kinds = ('Identity',)
 
     def __new__(cls, n):
@@ -176,6 +208,7 @@ class Identity(MatrixExpr):
 
 
 class ZeroMatrix(MatrixExpr):
+    __slots__ = ()
     _kinds = ('ZeroMatrix',)
 
     def __new__(cls, n, m):
@@ -183,6 +216,7 @@ class ZeroMatrix(MatrixExpr):
 
 
 class OneMatrix(MatrixExpr):
+    __slots__ = ()
     _kinds = ('OneMatrix',)
 
     def __new__(cls, m, n, evaluate=False):
@@ -190,6 +224,7 @@ class OneMatrix(MatrixExpr):
 
 
 class HadamardProduct(MatrixExpr):
+    __slots__ = ()
     _kinds = ('HadamardProduct',)
 
     def __new__(cls, *args, evaluate=False, check=None):
@@ -199,6 +234,7 @@ class HadamardProduct(MatrixExpr):
 
 
 class HadamardPower(MatrixExpr):
+    __slots__ = ()
     _kinds = ('HadamardPower',)
 
     def __new__(cls, base, exp):
@@ -206,6 +242,7 @@ class HadamardPower(MatrixExpr):
 
 
 class KroneckerProduct(MatrixExpr):
+    __slots__ = ()
     _kinds = ('KroneckerProduct',)
 
     def __new__(cls, *args, check=True):
@@ -215,6 +252,7 @@ class KroneckerProduct(MatrixExpr):
 
 
 class DiagMatrix(MatrixExpr):
+    __slots__ = ()
     _kinds = ('DiagMatrix',)
 
     def __new__(cls, vector):
@@ -222,6 +260,7 @@ class DiagMatrix(MatrixExpr):
 
 
 class DiagonalOf(MatrixExpr):
+    __slots__ = ()
     _kinds = ('DiagonalOf',)
 
     def __new__(cls, matrix):
@@ -229,6 +268,7 @@ class DiagonalOf(MatrixExpr):
 
 
 class DiagonalMatrix(MatrixExpr):
+    __slots__ = ()
     _kinds = ('DiagonalMatrix',)
 
     def __new__(cls, matrix):
@@ -273,6 +313,7 @@ def _check_block_regularity(rows):
 
 
 class BlockMatrix(MatrixExpr):
+    __slots__ = ()
     _kinds = ('BlockMatrix', 'BlockDiagMatrix')
 
     def __new__(cls, blocks):
@@ -285,6 +326,7 @@ def block_collapse(expr):
 
 
 class BlockDiagMatrix(BlockMatrix):
+    __slots__ = ()
     _kinds = ('BlockDiagMatrix',)
 
     def __new__(cls, *matrices):
@@ -311,6 +353,7 @@ def NormalizedSlice(start,stop,step,length,omitted=False):
 
 
 class MatrixSlice(MatrixExpr):
+    __slots__ = ()
     _kinds = ('MatrixSlice',)
 
     def __new__(cls, parent, rowslice, colslice):
@@ -375,6 +418,37 @@ class Determinant(metaclass=_ScalarMatrixType):
 class DotProduct(metaclass=_ScalarMatrixType):
     def __new__(cls, arg1, arg2):
         return _core._matrix_dot_product(arg1, arg2)
+
+
+# SymPy's defining modules of the public classes.
+_SYMPY_MODULES = {
+    'MatrixExpr': 'matexpr', 'MatrixSymbol': 'matexpr', 'FunctionMatrix': 'funcmatrix',
+    'ElementwiseApplyFunction': 'applyfunc', 'MatAdd': 'matadd', 'MatMul': 'matmul',
+    'MatPow': 'matpow', 'Inverse': 'inverse', 'Transpose': 'transpose', 'Adjoint': 'adjoint',
+    'Identity': 'special', 'ZeroMatrix': 'special', 'OneMatrix': 'special',
+    'HadamardProduct': 'hadamard', 'HadamardPower': 'hadamard', 'KroneckerProduct': 'kronecker',
+    'DiagMatrix': 'diagonal', 'DiagonalOf': 'diagonal', 'DiagonalMatrix': 'diagonal',
+    'BlockMatrix': 'blockmatrix', 'BlockDiagMatrix': 'blockmatrix', 'MatrixSlice': 'slice',
+    'PermutationMatrix': 'permutation', 'MatrixPermute': 'permutation',
+}
+
+
+def _register_classes(*classes):
+    """Allocate the native nodes of each kind as its public class."""
+    for cls in classes:
+        kinds = cls.__dict__.get('_kinds')
+        if kinds and cls.__name__ in kinds:
+            _core._register_matrixexpr_type(cls.__name__, cls)
+        module = _SYMPY_MODULES.get(cls.__name__)
+        if module is not None:
+            cls.__module__ = 'symox.matrices.expressions.' + module
+
+
+if hasattr(_core, '_register_matrixexpr_type'):
+    _register_classes(MatrixExpr, MatrixSymbol, FunctionMatrix, ElementwiseApplyFunction, MatAdd, MatMul,
+                      MatPow, Inverse, Transpose, Adjoint, MatrixConjugate, Identity, ZeroMatrix, OneMatrix,
+                      HadamardProduct, HadamardPower, KroneckerProduct, DiagMatrix, DiagonalOf,
+                      DiagonalMatrix, BlockMatrix, BlockDiagMatrix, MatrixSlice)
 
 
 __all__ = ['DotProduct','MatrixExpr','MatrixSymbol','FunctionMatrix','ElementwiseApplyFunction','MatAdd','MatMul','MatPow','Transpose',

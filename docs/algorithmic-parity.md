@@ -8743,3 +8743,69 @@ Remaining (unsupported or a different form, never a wrong value):
   `Poly(expr, x)` (pre-existing).
 
 Tests: `tests/test_simp_rest4_parity.py`.
+
+## mat-rest5 (wave 11)
+
+Implemented:
+
+- A dense matrix holding quantum operators (`Matrix([[Operator('a'), 1]])`)
+  stores each operator atom as a noncommutative native node that prints
+  as the atom. `M.adjoint()`, `M.H` and `Dagger(M)` give
+  `Matrix([[Dagger(a)], [1]])`, `M.T` and `M.conjugate()` match SymPy, and
+  the entries compare equal to the operator expressions.
+- `adjoint`/`transpose` of a commutative node over a noncommutative
+  symbol follow `Expr._eval_adjoint/_eval_transpose`: `adjoint(Abs(A))`
+  and `transpose(Abs(A))` are `Abs(A)`, `adjoint(sign(A))` is
+  `sign(conjugate(A))`. Powers follow `Pow._eval_adjoint/_eval_transpose`
+  (integer exponent, positive or complex base, then `expand_complex`).
+- Matrix expression classes are real Python subclasses of the native
+  node: `type(X*Y)` is `symox.matrices.expressions.matmul.MatMul`, and the
+  same holds for MatAdd, MatPow, Transpose, Inverse, Adjoint,
+  BlockMatrix, BlockDiagMatrix, Identity, ZeroMatrix, OneMatrix, the
+  Hadamard, Kronecker and diagonal classes, MatrixSlice,
+  PermutationMatrix and MatrixPermute (`type(e) is e.func`, pickling
+  roundtrips). The native constructor allocates the registered class
+  directly, so no Python wrapper is created per node.
+- A Poly entry in a Matrix emits SymPy's `deprecated-non-expr-in-matrix`
+  warning, and `RawMatrix` emits `deprecated-rawmatrix`. SymPy's
+  `test_smith_normal` passes; normal forms accept a `RawMatrix`.
+- `(Trace(A)*M).diff(A)` gives SymPy's `ArrayTensorProduct(I, M)` terms
+  (also with a transpose, a second trace factor or a coefficient).
+
+Probe on SymPy's matrices and matrices/expressions tests (statements
+compared with SymPy 1.14): same 4266 -> 5320, diff 324 -> 322, exc
+161 -> 157, not reached 1381 -> 333. No statement went from same to
+different.
+
+Intentional divergences (equivalent values):
+
+- `adjoint(sqrt(A))` gives the same expansion as SymPy, but the modulus
+  `(re(A)**2 + im(A)**2)**(1/4)` is not wrapped in `Dagger`, because the
+  native `re(A)` is commutative.
+- `type(adjoint(a))` is `DaggerAtom`, not `Dagger`, and
+  `type(Matrix([[a]])[0])` is the native operator node, not `Operator`.
+- A Poly entry is stored as its expression (the native matrix holds
+  `Expr` entries): `Matrix([[Poly(x)]])[0]` is `x`, not a `Poly`. The
+  warning is emitted once per Poly entry (SymPy: once per matrix).
+- `(Trace(A)**2*X).diff(A)` is one term `(2*Trace(A))*I` where SymPy has
+  two equal terms; `Trace(A.T*X)` is not rewritten to `Trace(A*X.T)`.
+
+Remaining gaps:
+
+- DFT, IDFT, GenericIdentity and GenericZeroMatrix are not implemented.
+  Every matrix expression class is a native node kind, so they need new
+  native kinds (DFT entries `exp(-2*I*pi*i*j/n)/sqrt(n)`, and a shapeless
+  node for the generic identity and zero). `MatMul()` gives `1` where
+  SymPy gives `GenericIdentity()`.
+- `test_smith_normal_deprecated`: `Matrix == RawMatrix` is False because
+  the native comparison does not defer to the other operand.
+- Matrix derivatives that SymPy builds through `array_derive` and
+  `ArrayDiagonal`: Hadamard products and powers (with the DiagMatrix
+  conversion), element-wise functions, `x.T*HadamardProduct(X, A)*x`.
+  They need the array-to-matrix conversion of diagonals.
+- `X.diff(A)` with A not in X: SymPy keeps `Derivative(X, A)`, but held
+  matrix derivatives are not implemented natively (TypeError).
+- Derivatives by a matrix element: `X[i, j].diff(X[m, n])` needs
+  `KroneckerDelta(i, m, (0, k - 1))` (the native KroneckerDelta has no
+  range argument), and `(X*A)[i, j]` stays a matrix element instead of
+  SymPy's `Sum`.

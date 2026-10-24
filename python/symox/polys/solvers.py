@@ -8,6 +8,15 @@ class PolyNonlinearError(ValueError):pass
 class RawMatrix:
     """Rectangular mutable matrix preserving raw coefficient objects."""
     def __init__(self,*args):
+        from ..utilities.exceptions import sympy_deprecation_warning
+        sympy_deprecation_warning(
+            """
+            The RawMatrix class is deprecated. Use either DomainMatrix or
+            Matrix instead.
+            """,
+            deprecated_since_version="1.9",
+            active_deprecations_target="deprecated-rawmatrix",
+        )
         if len(args)==1:
             rows=args[0].tolist() if hasattr(args[0],'tolist') else [list(row) for row in args[0]]
             self.rows=len(rows);self.cols=len(rows[0]) if rows else 0
@@ -25,9 +34,16 @@ class RawMatrix:
         i,j=index if isinstance(index,tuple) else divmod(index,self.cols);self._rows[i][j]=value
     def __iter__(self):return (v for row in self._rows for v in row)
     def tolist(self):return [list(row) for row in self._rows]
+    def __eq__(self,other):
+        if not hasattr(other,'tolist') or getattr(other,'shape',None)!=self.shape:return NotImplemented
+        return all(a==b for r,q in zip(self._rows,other.tolist()) for a,b in zip(r,q))
+    __hash__=None
     def as_mutable(self):return S.Matrix([[v.as_expr() if hasattr(v,'as_expr') else v for v in row] for row in self._rows])
     def rref(self):
-        m,p=self.as_mutable().rref();return RawMatrix(m.tolist()),p
+        m,p=self.as_mutable().rref()
+        # Internal result: no deprecation warning for the user.
+        r=object.__new__(RawMatrix);r.rows,r.cols=m.shape;r._rows=m.tolist()
+        return r,p
 
 
 def eqs_to_matrix(eqs_coeffs,eqs_rhs,gens,domain):

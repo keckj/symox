@@ -24,7 +24,11 @@ def _to_domain(m, domain=None):
     """Convert Matrix to DomainMatrix"""
     # XXX: deprecated support for RawMatrix:
     ring = getattr(m, "ring", None)
-    m = m.applyfunc(lambda e: e.as_expr() if isinstance(e, Poly) else e)
+    if hasattr(m, 'applyfunc'):
+        m = m.applyfunc(lambda e: e.as_expr() if isinstance(e, Poly) else e)
+    else:
+        # RawMatrix keeps the raw (Poly) entries; as_mutable converts them.
+        m = m.as_mutable()
 
     dM = DomainMatrix.from_Matrix(m)
 

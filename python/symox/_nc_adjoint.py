@@ -13,7 +13,13 @@ from symox import _core
 
 
 def _has_nc(e):
-    return isinstance(e, _core.Expr) and _core._has_noncommutative_atoms(e)
+    # Expr._eval_transpose/_eval_adjoint: a commutative node (Abs(A),
+    # sign(A) of a noncommutative A) is its own transpose and its adjoint is
+    # its conjugate.
+    # (The native Piecewise reports commutative even with noncommutative
+    # pieces, so it keeps the atom test.)
+    return isinstance(e, _core.Expr) and _core._has_noncommutative_atoms(e) \
+        and (e.is_commutative is not True or getattr(e, 'is_Piecewise', False))
 
 
 def _native_conjugate(e):
@@ -53,16 +59,25 @@ def transpose_of(e):
 
 def _eval_adjoint(e):
     # Expr._eval_adjoint and the overrides of the node classes
+    hook = getattr(e, '_symox_adjoint', None)
+    if hook is not None:
+        return hook()
     if e.is_Mul:
         return _sp.Mul(*[adjoint_of(t) for t in reversed(e.args)])
     if e.is_Add:
         return _sp.Add(*[adjoint_of(t) for t in e.args])
     if e.is_Pow:
+        # Pow._eval_adjoint
         base, exponent = e.args
-        if exponent.is_integer:
+        i, p = exponent.is_integer, base.is_positive
+        if i:
             return adjoint_of(base)**exponent
-        if base.is_positive:
+        if p:
             return base**adjoint_of(exponent)
+        if i is False and p is False:
+            expanded = _sp.expand_complex(e)
+            if expanded != e:
+                return adjoint_of(expanded)
         return None
     if isinstance(e, adjoint):
         return e.args[0]
@@ -91,16 +106,25 @@ def _eval_adjoint(e):
 
 
 def _eval_transpose(e):
+    hook = getattr(e, '_symox_transpose', None)
+    if hook is not None:
+        return hook()
     if e.is_Mul:
         return _sp.Mul(*[transpose_of(t) for t in reversed(e.args)])
     if e.is_Add:
         return _sp.Add(*[transpose_of(t) for t in e.args])
     if e.is_Pow:
+        # Pow._eval_transpose
         base, exponent = e.args
-        if base.is_complex or base.is_infinite:
+        i, p = exponent.is_integer, (base.is_complex or base.is_infinite)
+        if p:
             return e
-        if exponent.is_integer:
+        if i:
             return transpose_of(base)**exponent
+        if i is False and p is False:
+            expanded = _sp.expand_complex(e)
+            if expanded != e:
+                return transpose_of(expanded)
         return None
     if isinstance(e, adjoint):
         return _native_conjugate(e.args[0])

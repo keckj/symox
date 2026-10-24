@@ -7,9 +7,45 @@ use symox::expr::Expr;
 use symox::matrixexpr::{MatrixExpr,MatrixKind,MatrixOperand,BlockGrid,SliceSpec};
 use crate::{wrap,to_expr,PyExpr};
 
-#[pyclass(name="_MatrixExpr",module="symox._core",frozen)]
+#[pyclass(name="_MatrixExpr",module="symox._core",frozen,subclass,extends=pyo3::PyAny)]
 #[derive(Clone)]
 pub(crate) struct PyMatrixExpr {pub m:MatrixExpr}
+
+/// The public Python classes of the node kinds (MatMul, MatAdd, ...), which
+/// derive from `_MatrixExpr` and add no storage. Every native matrix
+/// expression is allocated as the class of its kind, so `type()` and the
+/// class names match SymPy; a kind without a class keeps `_MatrixExpr`.
+static MATRIXEXPR_TYPES:std::sync::Mutex<Option<FxHashMap<String,Py<pyo3::types::PyType>>>>=std::sync::Mutex::new(None);
+
+#[pyfunction]
+fn _register_matrixexpr_type(py:Python<'_>,kind:&str,class:Bound<'_,pyo3::types::PyType>)->PyResult<()>{
+    if !class.is_subclass(&py.get_type::<PyMatrixExpr>())?{return Err(PyTypeError::new_err("matrix expression classes must derive from _MatrixExpr"));}
+    MATRIXEXPR_TYPES.lock().map_err(|_|PyValueError::new_err("matrix expression class registry poisoned"))?.get_or_insert_with(FxHashMap::default).insert(kind.to_string(),class.unbind());
+    Ok(())
+}
+
+impl<'py> IntoPyObject<'py> for PyMatrixExpr {
+    type Target = PyMatrixExpr;
+    type Output = Bound<'py, PyMatrixExpr>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Bound<'py, PyMatrixExpr>> {
+        let class=MATRIXEXPR_TYPES.lock().ok().and_then(|types|types.as_ref().and_then(|types|types.get(self.m.kind_name()).map(|c|c.clone_ref(py))));
+        match class {
+            Some(class) => {
+                use pyo3::impl_::pyclass_init::PyObjectInit;
+                let initializer = pyo3::PyClassInitializer::from(self);
+                // SAFETY: the registered class is a Python subclass of
+                // _MatrixExpr (checked at registration).
+                unsafe {
+                    let obj = initializer.into_new_object(py, class.bind(py).as_type_ptr())?;
+                    Ok(Bound::from_owned_ptr(py, obj).downcast_into_unchecked())
+                }
+            }
+            None => Bound::new(py, self),
+        }
+    }
+}
 #[pyclass(name="_SliceSpec",module="symox._core",frozen)]
 #[derive(Clone)]
 pub(crate) struct PySliceSpec{pub spec:SliceSpec}
@@ -612,4 +648,4 @@ fn _block_collapse(value:&Bound<'_,PyAny>)->PyResult<PyObject>{
     if value.is_instance_of::<PyBlockGrid>(){return Err(PyTypeError::new_err("Block grids require a BlockMatrix wrapper before collapse"));}
     let expression=to_expr(value)?;crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression).map_err(|e|error(py,e))?)
 }
-pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;m.add_function(wrap_pyfunction!(_matrix_dot_product,m)?)?;Ok(())}
+pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_function(wrap_pyfunction!(_register_matrixexpr_type,m)?)?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;m.add_function(wrap_pyfunction!(_matrix_dot_product,m)?)?;Ok(())}
