@@ -9655,3 +9655,76 @@ Probe (statements run in SymPy 1.14 and symox, same/total):
 All remaining differences are listed above.
 
 Tests: `tests/test_pw_nc_parity.py`.
+
+## matnum (wave 15): Float matrix functions and pivot zero tests
+
+Implemented:
+- Float matrices: `exp` and `log` use SymPy's Jordan route. `exp`
+  computes `jordan_form`, then `_eval_matrix_exp_jblock` on each block,
+  then `P*eJ*P.inv()`, and takes `re` when every value is real. `log`
+  runs `cancel` before and after. Before this change, the native Hermite
+  interpolation raised NotImplementedError except for spectral and small
+  antisymmetric cases. A Float with prec > 53 keeps its precision.
+  Exact and symbolic matrices still use the native path.
+- `inv` of matrices whose entries are Rational, Float or complex with
+  Float parts: a port of SymPy's `RR`/`CC` `inv_den`. This is dense
+  Gauss-Jordan (`ddm_irref`) with partial pivoting at the largest entry
+  precision. Zero entries come back as an exact `0`. Values match
+  SymPy's bit for bit, including the last digit of the exp results above.
+- `is_diagonalizable` of Float matrices follows SymPy's
+  `_is_diagonalizable`: real symmetric, then Hermitian, then the mpmath
+  eigenvectors. The native test raised NotImplementedError.
+- mpmath eigenvectors: entries are converted exactly from `_mpf_`, and real
+  entries stay `mpf`. This is what `mp.matrix(M.evalf(...))` does. The
+  decimal-string round trip changed the eigenvector signs for prec-30
+  matrices.
+- `diag**e` with a non-integer `e` gives exact `0` off the diagonal, as
+  SymPy's `a._new(..., lambda i, j: a[i,j]**exp if i == j else 0)` does.
+- Pivot zero tests (`rref`, `rank`, `nullspace`, `echelon_form`,
+  `columnspace`, `inverse_GE` and the other users of `pivot_simp`): when
+  expand, cancel and the Pythagorean rewrites leave a candidate
+  undecided, and the candidate is not a rational function of its symbols,
+  the native search now asks a host hook. The hook is
+  `symox._matrix_pivot.pivot_simplify`, which runs `simplify` and then
+  `equals(0)`, as SymPy's `_find_reasonable_pivot` passes 2 and 3 do.
+  Example: `Matrix([[cos(2*x) - cos(x)**2 + sin(x)**2, 1], [0, 0]])` used
+  that entry as a nonzero pivot, so `rref` and `nullspace` were wrong
+  (`-1/(...)`). They now give SymPy's `(Matrix([[0, 1], [0, 0]]), (1,))`
+  and `[Matrix([[1], [0]])]`. Rational-function candidates skip the hook,
+  because `cancel` is already canonical for them. A thread-local guard
+  stops the zero test, which calls `pivot_simp` itself, from re-entering
+  the hook.
+
+Probe: 230 statements against SymPy 1.14. Before: same 178, diff 36 (on
+the first 214 statements). After: same 222, diff 8. No statement went
+from same to different.
+
+Intentional divergences / remaining:
+- `Matrix([[0, 1.0], [-1.0, 0]]).log()`: SymPy gets `0.5*pi` because its
+  `cancel` expands the generators (`cancel(log(1.0*I))` gives `I*pi/2`).
+  symox's `cancel` keeps `log(1.0*I)`. This is a scalar `cancel` gap,
+  not a matrix one.
+- Symbolic `exp` (native Hermite interpolation, not SymPy's Jordan
+  route) gives equal values in other forms. Examples:
+  `[[a,1],[0,b]]`, `[[x,1],[1,x]]`, `[[0,x],[-x,0]]`, and
+  `[[0,r],[-r,0]]` with real or positive `r`, where SymPy gives
+  `cos(r), sin(r)`.
+- `singular_values()` and `charpoly()` of entries such as
+  `sin(x)**2 + cos(x)**2`: SymPy's `charpoly` runs `simplify` on each
+  EXRAW Berkowitz coefficient, which gives `[2, 0]`. symox keeps the
+  unsimplified coefficients.
+- Bareiss `det` still uses the native zero test without the host
+  `simplify`.
+- Domain inference and parameter case splits for `inv`, `det` and
+  `solve` with symbolic entries (part (3) of the task) were not reached.
+
+- Discrete Markov chains at symbolic times use `T**(a - c)`, as SymPy's
+  `trans_probs**(rv.key - given.key)` does, instead of the
+  diagonalization kernel. For a Float transition matrix,
+  `P(Eq(Y[a], 2), Eq(Y[c], 1))` raised NotImplementedError before. It
+  now gives SymPy's Piecewise, including the `1e-16*0.3**(a - c)` term.
+
+Tests: `tests/test_matnum_parity.py`. Two older tests in
+`tests/test_matrix_functions.py` and `tests/test_matrix_log.py`, and one
+in `tests/test_missing_stats_wave4_parity.py`, asserted the previous
+NotImplementedError. They now assert SymPy's values.

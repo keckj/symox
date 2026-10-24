@@ -4175,6 +4175,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ode::register(m)?;
     logic::register(m)?;
     special::register(m)?;
+    matrices::register_pivot_host();
     calculus::register(m)?;
     recurrences::register(m)?;
     transforms::register(m)?;

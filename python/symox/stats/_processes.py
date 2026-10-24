@@ -143,6 +143,10 @@ class _Markov:
     def _transition_at(self,T,elapsed):
         if elapsed.is_Rational or not isinstance(T,S.DenseMatrix):
             return (elapsed*T).exp() if self.continuous else T**elapsed
+        if not self.continuous:
+            # SymPy: trans_probs**(rv.key - given.key)
+            try:return T**elapsed
+            except (NotImplementedError,S.MatrixError):pass
         return self._symbolic_kernel(T,elapsed)
     def _symbolic_kernel(self,T,elapsed):
         # The reference transition function at a float or symbolic time:
@@ -180,7 +184,7 @@ class _Markov:
         else:
             nxt = expr.lhs
             name = {'StrictGreaterThan':'StrictLessThan','StrictLessThan':'StrictGreaterThan','GreaterThan':'LessThan','LessThan':'GreaterThan'}.get(name,name)
-        kernel = self._symbolic_kernel(T,rv.time-start.time)
+        kernel = self._transition_at(T,rv.time-start.time)
         index = range(len(states))
         def element(j):
             # Row ``curr`` of the kernel at column j (the state is a symbol).

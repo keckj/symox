@@ -84,7 +84,103 @@ def inverse_BLOCK(M, iszerofunc=_iszero):
     return BlockMatrix([[A_n, B_n], [C_n, D_n]]).as_explicit()
 
 
+def _inexact_domain(M):
+    """``construct_domain`` of the entries when it is ``RR`` or ``CC``:
+    returns ``(is_complex, prec)``, or None for any other domain."""
+    from .core.evalf import pure_complex
+    floats = complexes = False
+    precs = []
+    for e in M:
+        if e.is_Rational:
+            continue
+        if e.is_Float:
+            floats = True
+            precs.append(e._prec)
+            continue
+        parts = pure_complex(e)
+        if not parts or not all(v.is_Rational or v.is_Float for v in parts):
+            return None
+        complexes = True
+        for v in parts:
+            if v.is_Float:
+                floats = True
+                precs.append(v._prec)
+    if not floats:
+        return None
+    return complexes, max(precs) if precs else 53
+
+
+def _inv_inexact(M, complexes, prec):
+    """SymPy's ``_inv_DM`` over ``RR``/``CC``: ``inv_den`` is the dense
+    Gauss-Jordan ``ddm_irref`` of ``[M | I]`` with partial pivoting, in
+    floating-point arithmetic at the domain precision."""
+    import mpmath
+    from mpmath.libmp.libmpf import prec_to_dps
+    from . import Float, I, Integer, NonInvertibleMatrixError, Matrix
+    n = M.rows
+    dps = prec_to_dps(prec)
+    with mpmath.workprec(prec):
+        def conv(e):
+            v = e.evalf(n=dps)
+            if complexes:
+                re_, im_ = v.as_real_imag()
+                return mpmath.mpc(mpmath.mpf(re_._mpf_ if re_.is_Float else
+                                             Float(re_, dps)._mpf_),
+                                  mpmath.mpf(im_._mpf_ if im_.is_Float else
+                                             Float(im_, dps)._mpf_))
+            return mpmath.mpf(v._mpf_ if v.is_Float else Float(v, dps)._mpf_)
+        zero = mpmath.mpc(0) if complexes else mpmath.mpf(0)
+        one = mpmath.mpc(1) if complexes else mpmath.mpf(1)
+        a = [[conv(M[i, j]) for j in range(n)] +
+             [one if k == i else zero for k in range(n)] for i in range(n)]
+        m, w = n, 2 * n
+        i = 0
+        pivots = []
+        for j in range(w):
+            ip = max(range(i, m), key=lambda ip: abs(a[ip][j]))
+            a[i], a[ip] = a[ip], a[i]
+            aij = a[i][j]
+            if not aij:
+                for ip in range(i + 1, m):
+                    aij = a[ip][j]
+                    if aij:
+                        a[i], a[ip] = a[ip], a[i]
+                        break
+                else:
+                    continue
+            ai = a[i]
+            aijinv = aij**-1
+            for l in range(j, w):
+                ai[l] *= aijinv
+            for k, ak in enumerate(a):
+                if k == i or not ak[j]:
+                    continue
+                akj = ak[j]
+                ak[j] -= akj
+                for l in range(j + 1, w):
+                    ak[l] -= akj * ai[l]
+            pivots.append(j)
+            i += 1
+            if i >= m:
+                break
+        if len(pivots) != n or (pivots and pivots[-1] >= n):
+            raise NonInvertibleMatrixError("Matrix det == 0; not invertible.")
+
+        def back(v):
+            if not v:
+                return Integer(0)
+            if complexes:
+                return Float(v.real, dps) + I*Float(v.imag, dps)
+            return Float(v, dps)
+        return Matrix([[back(a[r][n + c]) for c in range(n)] for r in range(n)])
+
+
 def inv(M, method=None, iszerofunc=None, try_block_diag=False, **kwargs):
+    if method is None and iszerofunc is None and not try_block_diag \
+            and not kwargs and M.is_square and M.rows:
+        dom = _inexact_domain(M)
+        if dom is not None:
+            return _like(M, _inv_inexact(M, *dom))
     if method in ('LU', 'BLOCK') and not try_block_diag and not kwargs:
         from . import NonSquareMatrixError
         if not M.is_square:

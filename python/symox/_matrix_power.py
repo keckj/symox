@@ -92,7 +92,8 @@ def pow(self, exp, method=None):
     if exp == 1:
         return a
     if a.is_diagonal():
-        out = a.as_mutable().copy()
+        # a._new(..., lambda i, j: a[i, j]**exp if i == j else 0)
+        out = a.as_mutable().zeros(a.rows, a.cols)
         for i in range(a.rows):
             out[i, i] = a[i, i]**exp
         return _new_like(a, out)
@@ -155,10 +156,86 @@ def _eval_matrix_log_jblock(self):
     return _banded_like(self, size, bands)
 
 
+_native_exp = None
+_native_log = None
+
+
+def _native_skew_case(self):
+    # Real numeric skew-symmetric 2x2 and 3x3 matrices keep the native
+    # Rodrigues evaluator (exact dyadic lifting, two-precision agreement).
+    if self.rows not in (2, 3) or self.is_diagonal():
+        return False
+    if not all(e.is_number and e.is_real for e in self):
+        return False
+    return all((self[i, j] + self[j, i]).is_zero
+               for i in range(self.rows) for j in range(i, self.rows))
+
+
+def _float_matrix(self):
+    from . import Float
+    return self.is_square and self.rows > 0 and self.has(Float)
+
+
+def exp(self):
+    """SymPy's ``MatrixBase.exp`` (Jordan form route) for matrices with
+    Float entries; exact matrices keep the native Hermite interpolation."""
+    if not _float_matrix(self) or _native_skew_case(self):
+        return _native_exp(self)
+    from . import diag, re
+    MatrixError, _, _ = _errors()
+    try:
+        P, J = self.jordan_form()
+        cells = J.get_diag_blocks()
+    except MatrixError:
+        raise NotImplementedError(
+            "Exponentiation is implemented only for matrices for which the "
+            "Jordan normal form can be computed")
+    blocks = [cell._eval_matrix_exp_jblock() for cell in cells]
+    eJ = diag(*blocks)
+    ret = P * eJ * P.inv()
+    if all(value.is_real for value in self.values()):
+        ret = ret.applyfunc(re)
+    return _new_like(self, ret)
+
+
+def log(self, simplify=None):
+    """SymPy's ``MatrixBase.log`` (Jordan form route, ``simplify=cancel``)
+    for matrices with Float entries."""
+    from . import cancel
+    if simplify is None:
+        simplify = cancel
+    if not _float_matrix(self):
+        return _native_log(self, simplify)
+    from . import diag
+    MatrixError, _, _ = _errors()
+    try:
+        if simplify:
+            P, J = simplify(self).jordan_form()
+        else:
+            P, J = self.jordan_form()
+        cells = J.get_diag_blocks()
+    except MatrixError:
+        raise NotImplementedError(
+            "Logarithm is implemented only for matrices for which "
+            "the Jordan normal form can be computed")
+    blocks = [cell._eval_matrix_log_jblock() for cell in cells]
+    eJ = diag(*blocks)
+    if simplify:
+        ret = simplify(P * eJ * simplify(P.inv()))
+    else:
+        ret = P * eJ * P.inv()
+    return _new_like(self, self.__class__(ret))
+
+
 def install(Matrix):
-    global _native_pow
+    global _native_pow, _native_exp, _native_log
     if _native_pow is None:
         _native_pow = Matrix.__pow__
+    if _native_exp is None:
+        _native_exp = Matrix.exp
+        _native_log = Matrix.log
+    Matrix.exp = exp
+    Matrix.log = log
     Matrix.__pow__ = __pow__
     Matrix.pow = pow
     Matrix._matrix_pow_by_jordan_blocks = _matrix_pow_by_jordan_blocks

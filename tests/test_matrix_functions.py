@@ -155,8 +155,10 @@ def test_diagonal_float_evaluation_preserves_declared_precision_and_polynomial_f
     x = sx.Symbol('x')
     floating = sx.ImmutableMatrix([[.125, .25], [-.5, .75]])
     equal(floating.analytic_func(x*x+x, x), floating*floating+floating)
-    with pytest.raises(NotImplementedError):
-        floating.exp()
+    # SymPy 1.14 goes through the Jordan form of the Float matrix
+    assert str(floating.exp()) == (
+        'Matrix([[1.04589638195854, 0.385445367798660], '
+        '[-0.770890735597320, 2.00950980145519]])')
 
 
 def test_finite_codegen_uses_existing_scalar_printers_without_matrix_runtime():
