@@ -3511,8 +3511,6 @@ from . import _matrix_power  # noqa: E402
 _matrix_power.install(Matrix)
 from . import _matrix_pinv  # noqa: E402
 _matrix_pinv.install(Matrix)
-from . import _matrix_nc  # noqa: E402
-_matrix_nc.install(Matrix, ImmutableMatrix)
 
 
 def _matrix_eval_Mod(self, other):
@@ -4553,6 +4551,9 @@ from . import _matrix_definite  # noqa: E402
 _matrix_definite.install()
 from . import _matrix_inverse  # noqa: E402
 _matrix_inverse.install()
+# The noncommutative guards wrap the final Float and pivot routes installed above.
+from . import _matrix_nc  # noqa: E402
+_matrix_nc.install(Matrix, ImmutableMatrix)
 
 from . import _inverse_methods  # noqa: E402
 _inverse_methods.install(globals())
