@@ -212,8 +212,10 @@ def test_float_diagonal_keeps_scalar_precision_and_general_float_spectrum_is_uns
     assert result[0, 0]._prec >= value._prec
     np.testing.assert_allclose(complex(result[0, 0]), np.log(.125), rtol=1e-14)
     np.testing.assert_allclose(complex(result[1, 1]), np.log(.125)+1j*np.pi, rtol=1e-14)
-    with pytest.raises(NotImplementedError):
-        sx.ImmutableMatrix([[.125, .25], [-.5, .75]]).log()
+    # SymPy 1.14 goes through the Jordan form of the Float matrix
+    assert str(sx.ImmutableMatrix([[.125, .25], [-.5, .75]]).log()) == (
+        'Matrix([[-1.44283254962350, 0.546335738201036], '
+        '[-1.09267147640207, -0.0769932041209119]])')
 
 
 def test_unresolved_exact_spectrum_is_not_approximated():

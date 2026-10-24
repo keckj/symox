@@ -197,7 +197,9 @@ def test_markov_chain_float_symbolic():
     # A Sum with fresh dummies, as in SymPy: compare the printed forms.
     assert str(P(S.Eq(YN[10], 2), S.Eq(YN[5], 1))) == str((TN**5)[1, 2])
     a, c = S.symbols('a c')
-    with pytest.raises(NotImplementedError):
-        P(S.Eq(Y[a], 2), S.Eq(Y[c], 1))
+    # SymPy 1.14: trans_probs**(a - c) of the Float transition matrix
+    assert str(P(S.Eq(Y[a], 2), S.Eq(Y[c], 1))) == (
+        'Piecewise((-0.375*0.2**(a - c) - 1.11022302462516e-16*0.3**(a - c)'
+        ' + 0.375*1.0**(a - c), a > c), (Probability(Eq(Y[a], 2)), True))')
     C = ContinuousMarkovChain('C', [0, 1], S.Matrix([[-1, 1], [1, -1]]))
     assert C.limiting_distribution() == S.ImmutableMatrix([[Q(1, 2), Q(1, 2)]])

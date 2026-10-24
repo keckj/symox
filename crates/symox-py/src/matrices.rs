@@ -4,6 +4,11 @@ mod structural;
 #[path = "matrix_auxiliary.rs"]
 mod auxiliary;
 
+/// Install the host `simplify` used by the native pivot search.
+pub fn register_pivot_host() {
+    auxiliary::register_pivot_host();
+}
+
 use pyo3::exceptions::{PyIndexError, PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyInt, PyList, PySlice, PyTuple};

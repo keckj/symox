@@ -321,8 +321,13 @@ def _eigenvals_eigenvects_mpmath(M):
     norm2 = lambda v: mp.sqrt(sum(i**2 for i in v))
 
     def entry(x):
+        # mp.matrix(M.evalf(...)) in SymPy: real entries stay mpf
         re, im = x.as_real_imag()
-        return mp.mpc(mp.mpmathify(str(re)), mp.mpmathify(str(im)))
+        part = lambda v: mp.mpf(v._mpf_) if hasattr(v, '_mpf_') \
+            else mp.mpmathify(str(v))
+        if im.is_zero:
+            return part(re)
+        return mp.mpc(part(re), part(im))
 
     v1 = None
     prec = max(x._prec for x in M.atoms(Float))
@@ -428,6 +433,28 @@ def _eigenvects(M, error_when_incomplete=True, iszerofunc=None, **flags):
         raise
 
 
+_native_is_diagonalizable = None
+
+
+def _is_diagonalizable(M, reals_only=False, **kwargs):
+    # sympy.matrices.eigen._is_diagonalizable; the native test has no
+    # numerical eigenvectors, so Float matrices take SymPy's route
+    if not _float_numeric(M):
+        return _native_is_diagonalizable(M, reals_only, **kwargs)
+    if not M.is_square:
+        return False
+    if all(e.is_real for e in M) and M.is_symmetric():
+        return True
+    if all(e.is_complex for e in M) and M.is_hermitian:
+        return True
+    for val, mult, basis in M.eigenvects(simplify=True):
+        if reals_only and not val.is_real:
+            return False
+        if mult != len(basis):
+            return False
+    return True
+
+
 def _jordan_form(M, calc_transform=True, *, chop=False, **kwargs):
     from . import Float
     has_floats = M.is_square and M.has(Float)
@@ -474,6 +501,10 @@ def install():
         _wrapped_eigenvects = _core.Matrix.eigenvects
         _core.Matrix.eigenvals = _eigenvals
         _core.Matrix.eigenvects = _eigenvects
+    global _native_is_diagonalizable
+    if _native_is_diagonalizable is None:
+        _native_is_diagonalizable = _core.Matrix.is_diagonalizable
+        _core.Matrix.is_diagonalizable = _is_diagonalizable
     global _native_jordan_form
     if _native_jordan_form is None:
         _native_jordan_form = _core.Matrix.jordan_form

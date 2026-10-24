@@ -396,3 +396,20 @@ pub fn triangular(
     let _ = py;
     Ok(m.triangular_part(offset, upper))
 }
+
+/// Host `simplify`/`equals(0)` for undecided pivot candidates of the native
+/// pivot search (`symox._matrix_pivot.pivot_simplify`); errors count as
+/// undecided, as in SymPy's `_find_reasonable_pivot`.
+fn pivot_host(value:&Expr)->Option<Expr> {
+    Python::with_gil(|py| {
+        let result=py.import("symox._matrix_pivot").ok()?
+            .getattr("pivot_simplify").ok()?
+            .call1((wrap(value.clone()),)).ok()?;
+        if result.is_none() {return None;}
+        to_expr(&result).ok()
+    })
+}
+
+pub fn register_pivot_host() {
+    symox::matrix::linalg::register_pivot_host(pivot_host);
+}

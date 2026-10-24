@@ -219,7 +219,51 @@ pub fn pivot_simp(e: &Expr) -> Expr {
     if t.is_number() {
         return t;
     }
+    // SymPy's pivot search runs the full `simplify` (and then `equals(0)`)
+    // on entries its zero test leaves undecided: relations between
+    // functions such as `cos(2*x) - cos(x)**2 + sin(x)**2` are only
+    // recognised there. A rational function is already canonical after
+    // `cancel`, so the host is only asked about the other entries.
+    if let Some(host) = PIVOT_HOST.get() {
+        if beyond_rational(&c) && !PIVOT_HOST_ACTIVE.with(|a| a.get()) {
+            // the zero test itself calls `pivot_simp` on numeric parts
+            PIVOT_HOST_ACTIVE.with(|a| a.set(true));
+            let undecided = is_zero_assume(&c).is_none();
+            let s = if undecided { host(&c) } else { None };
+            PIVOT_HOST_ACTIVE.with(|a| a.set(false));
+            if let Some(s) = s {
+                return s;
+            }
+        }
+    }
     c
+}
+
+thread_local! {
+    static PIVOT_HOST_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Host simplification for undecided pivot candidates: returns the
+/// simplified value when it decides the zero test (`None` otherwise).
+pub type PivotHost = fn(&Expr) -> Option<Expr>;
+
+static PIVOT_HOST: std::sync::OnceLock<PivotHost> = std::sync::OnceLock::new();
+
+/// Install the host `simplify`/`equals` used by the pivot search (the
+/// Python bindings install SymPy-equivalent `simplify` and `equals`).
+pub fn register_pivot_host(host: PivotHost) {
+    let _ = PIVOT_HOST.set(host);
+}
+
+/// Does `e` contain anything besides a rational function of its symbols?
+fn beyond_rational(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => false,
+        Kind::Add(_, terms) => terms.iter().any(|(t, _)| beyond_rational(t)),
+        Kind::Mul(_, factors) => factors.iter().any(|(b, x)| x.as_i64().is_none() || beyond_rational(b)),
+        Kind::Pow(b, x) => x.as_i64().is_none() || beyond_rational(b),
+        _ => true,
+    }
 }
 
 /// Light stand-in for SymPy's `simplify` on generic (EX) coefficients:
