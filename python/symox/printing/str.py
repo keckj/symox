@@ -132,6 +132,9 @@ class StrPrinter(Printer):
         l = [self._print(o) for o in expr.args]
         # A native matrix expression is named by its SymPy class.
         name = getattr(expr, '_kind_tag', None) or expr.__class__.__name__
+        if name == 'Expr':
+            # A native scalar node (Trace, Determinant, ...) is named by its head.
+            name = getattr(getattr(expr, 'func', None), '__name__', None) or name
         return name + "(%s)" % ", ".join(l)
 
     def _print_BlockMatrix(self, B):

@@ -138,6 +138,17 @@ def _second(self):
     return self.args[1]
 
 
+def _side(index):
+    def side(self):
+        value = self.args[index]
+        # An explicit matrix side is stored as a native ImmutableMatrix
+        # node; SymPy's lhs/rhs is the ImmutableDenseMatrix itself.
+        if getattr(value, '_kind_tag', None) == 'ImmutableMatrix':
+            return value.as_explicit()
+        return value
+    return side
+
+
 def _set(name, attribute, value):
     type.__setattr__(_node_types.node_class(name), attribute, value)
 
@@ -168,6 +179,8 @@ def install():
                                 ('negated', negated), ('canonical', canonical),
                                 ('weak', _self), ('strict', _self)):
         _set('Relational', attribute, property(function, doc=function.__doc__))
+    _set('Relational', 'lhs', property(_side(0)))
+    _set('Relational', 'rhs', property(_side(1)))
     _set('_Greater', 'gts', property(_first))
     _set('_Greater', 'lts', property(_second))
     _set('_Less', 'gts', property(_second))

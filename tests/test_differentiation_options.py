@@ -104,7 +104,7 @@ def test_arrays_propagate_scalar_options_and_keep_matrix_jacobians():
         sx.Derivative(x*x,x),sx.Derivative(sx.sin(x),x)])
     with pytest.raises(NotImplementedError):sx.diff(array,x,evaluate=False)
     A=sx.MatrixSymbol('A',2,2)
-    assert sx.diff(sx.Trace(A),A).tolist()==[[1,0],[0,1]]
+    assert sx.diff(sx.Trace(A),A)==sx.Identity(2)
     with pytest.raises(NotImplementedError):sx.diff(sx.Trace(A),A,evaluate=False)
     with pytest.raises(NotImplementedError):sx.diff(x*A,x,evaluate=False)
 
