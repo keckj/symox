@@ -109,7 +109,16 @@ fn eez(f: &MPoly<Int>, v: usize) -> Vec<MPoly<Int>> {
     let mut rng = Rng::new(0x3ee2 + f.len() as u64);
     let mut best: Option<(Vec<Int>, Vec<Vec<Int>>)> = None;
     let mut good = 0;
-    for attempt in 0..60u64 {
+    // SymPy's dmp_zz_wang widens the evaluation range until it finds
+    // valid points; a fixed number of attempts would make an input whose
+    // leading coefficient vanishes on the first ranges look irreducible.
+    // The range keeps growing, so a nonzero leading coefficient and
+    // discriminant eventually have a non-root (inside a budget scope the
+    // attempt limit raises instead).
+    for attempt in 0u64.. {
+        if good >= 3 || (good >= 1 && attempt >= 60) {
+            break;
+        }
         super::factor_budget::event("multivariate evaluation attempts");
         let a: Vec<Int> = if attempt == 0 {
             vec![Int::zero(); ys.len()]
@@ -138,9 +147,6 @@ fn eez(f: &MPoly<Int>, v: usize) -> Vec<MPoly<Int>> {
         good += 1;
         if best.as_ref().is_none_or(|b| us.len() < b.1.len()) {
             best = Some((a, us));
-        }
-        if good >= 3 {
-            break;
         }
     }
     let Some((a, us)) = best else {

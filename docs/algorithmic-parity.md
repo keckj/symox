@@ -10175,3 +10175,127 @@ Remaining (documented, not fixed):
 Tests: `tests/test_ccdom_parity.py`; the two multivariate sqf_list gaps of
 `tests/test_gaussian_fractions_parity.py` now pass and moved to its
 reference list.
+
+## Resource limits (wave 17)
+
+Audit of every budget, cap, depth, iteration count and recursion guard in
+`crates/symox-core/src` and `python/symox`. Contract: an exhausted budget
+raises (ValueError / NotImplementedError naming the resource limit) or
+leaves the expression unevaluated, as SymPy does for what it cannot
+decide; it never returns an empty set, `[]`, False, 0, an incomplete
+factorization or a "proven" answer. No wall-clock time limit exists
+anywhere in symox (SymPy has none either).
+
+Inventory (grouped; "SymPy" column: whether the reference has an
+equivalent bound).
+
+| Where | Bounds | On exhaustion | SymPy |
+|---|---|---|---|
+| `poly/factor_budget.rs` Limits (work 2e9, attempts 2^20, degree 4096, terms 262144, coefficient bits 2^20, storage bits 2^30; were 2e7 / 4096 / 1024 / 65536 / 16384 / 2^26) | factor_list, sqf_list, Poly.factor_list scopes | ValueError "factorization resource limit: ..." | none (runs until done) |
+| `poly/factor_budget.rs` `grant` / `affordable` | extra work for Zassenhaus candidates, choice between heuristics | chooses another complete method | n/a |
+| `poly/api.rs` `guard_symbolic_factor_work` | summed coefficient-product bits before expansion (now compared to storage bits) | ValueError | none |
+| `poly/factor_multi.rs` `eez` evaluation points (was 60 attempts then `[f]`) | Wang evaluation search | continues until a lucky point exists (budget-charged), never "irreducible" by exhaustion | dmp_zz_wang widens without cap |
+| `poly/checked_factors.rs` MAX_VARIABLES (was 8, now 64) | polynomial/coefficient variables | ValueError | none |
+| `poly/factor_preflight.rs` atoms (was 8, now 64) | coefficient atoms | ValueError | none |
+| `poly/pseudo.rs` MAX_WORK (was 1e7, now 4e8), MAX_BITS 262144, MAX_TERMS 100000, MAX_STORAGE 6.4e7, inner pairs 20000 | pseudo-division, PRS, resultant, gcd | ValueError "pseudo-division resource limit" | none |
+| `poly/rootisolation.rs` 2^20 refinement steps, real_roots input degree 4096 | real root isolation, count_roots, intervals | ValueError | none |
+| `poly/gff` degree 1024, `partfrac` multiplicity 4096 | gff_list, apart | ValueError | none |
+| `poly/structure.rs` MAX_SLOTS 1e6, `py/poly_structure.rs` cyclotomic n <= 20000, orthopolys index 2^20 | dense structure, special polynomials | ValueError | none |
+| minpoly / primitive element / embedding precision caps | algebraic field construction | raise | precision loops without cap |
+| `poly/roots.rs` (user area): decompose degree 4096, nroots precision doubling x4 | decompogen, roots, nroots | raise (decompogen now re-raises NotImplementedError instead of returning `[f]`) | none / NoConvergence |
+| `solve.rs` (user area): self-power `unwrap_or_default` and solver budgets | solve | documented only, not changed | - |
+| `matrix/eigen.rs` rational-root divisors 1e12 | eigenvals of integer matrices | now falls back to `factor_list` of the characteristic polynomial (was NotImplementedError) | roots() without cap |
+| `matrix/symeigen.rs` small divisors 1e6, 200 candidates | parametric eigenvals | Cardano/radical form instead of factored form (same values) | roots() |
+| matrix auxiliaries: permanent n <= 20, berkowitz <= 512, inv_mod, LLL, svd, log densification, function_budget | matrix functions | NotImplementedError "... resource limit" | none |
+| `eigenvals(error_when_incomplete=False)` above degree 4096 | eigenvalue extraction | `{}` as SymPy does with error_when_incomplete=False | same flag semantics |
+| `ntheory/*` | factorint, isprime, congruences | always finishes (zero polynomial congruence with p > 2^24 raises) | none |
+| `series/engine.rs` `hidden_zero` (was: node count > 400 means "nonzero") | zero test of series coefficients | node count > 100000 leaves undecided (Unsupported / unknown), never "nonzero" | none |
+| `series/gruntz.rs` depth 48 | limit recursion | None (limit unevaluated) | RecursionError |
+| integrate depth 10, meijerint depth 8, transforms depth 14 | recursive integration | unevaluated Integral | similar heuristics depth |
+| `assumptions.rs` algebraic_zero above 4096 nodes | is_zero of algebraic numbers | None (unknown) | None |
+| `simplify.rs` candidate size cap | simplify candidates | candidate dropped (input kept) | ratio measure |
+| logic minimize 200000 | SOPform/POSform | raise | none |
+| evalf maxn / maxprec | evalf | same semantics as SymPy maxn | maxn |
+| `special/combinatorial.rs` MAX_EXACT 100000 (factorial, catalan, binomial), fibonacci <= 1e6, bernoulli <= 5000, legendre/polygamma index <= 2000 | exact evaluation | unevaluated (SymPy evaluates; gap) | none |
+| `special/elementary.rs` Mod integer part (was a fixed 160-bit evaluation) | `Mod(p, q)` with numeric non-rational p | precision scaled to the magnitude and confirmed at twice the precision (up to 80000 bits), else unevaluated | Expr.__int__ |
+| `py/lib.rs` `__int__` precision 80000 bits | int() of expressions | ValueError | none |
+| `ode.rs` checkodesol order (was > 256 returns False) | checkodesol | order > 4096 raises NotImplementedError (was False) | none |
+| `python/symox/_kind.py` scalar_kind depth 128 | Array/Matrix kind | iterative, no cap (was UndefinedKind) | recursion |
+| `python/symox/solvers/decompogen.py` | decompogen fallback | re-raises resource limits (was `[f]`) | none |
+| `holonomic` 64 shifts, `limitseq` dominant depth 4 | holonomic recurrences, limit_seq | partial recurrence / None (unknown), as SymPy's own heuristics | similar |
+| Python error-to-False catches: tensor canon_equal, Set.__eq__, verify_numerically, geometry contains, secondquant `_is_zero` | equality / membership helpers | False on internal error, as in SymPy's code for those helpers | same |
+| `py/poly_structure.rs:360`, `py/poly.rs:1325`, `py/poly.rs:2078` | Rust error swallowing in Python bindings | fall back to the generic (complete) path | n/a |
+
+Fixed wrong results (each was an answer SymPy does not give):
+- `factor_list(x**199 + x + 1)` (and dense random products of degree 60,
+  100, 20 with large coefficients): work / coefficient limit, now factored
+  as in SymPy.
+- `factor(x**12 + 2, extension=(-2)**(1/12))`: now factored (SymPy 32 s).
+- Bivariate `F = expand((L*x + 1)*(x + y))` with `L = prod(y - k, k=-15..15)`:
+  `factor` returned F unchanged and `Poly(F).is_irreducible` was True after
+  60 unlucky evaluation points.
+- `G = A*sin(x) - expand(A)*sin(x) + x**2`, `A = (a+b+c+d)**8`: the hidden
+  zero coefficient was declared nonzero above 400 nodes, so
+  `as_leading_term` and `limit(G/x**2, x, 0)` were wrong (now x**2 and 1).
+  `series(G, x, 0, 3)` gives `x**2 + O(x**3)`; SymPy leaves the zero
+  coefficient of x unsimplified (intentional correction: the coefficient
+  expands to 0).
+- `Mod(exp(300), 7)`, `Mod(exp(3000), 7)`: the subtracted multiple of 7 was
+  inexact (160-bit integer part); evalf gave 1.3e+82. Now exact (checked
+  against mpmath floor at k + 100 digits).
+- `Mod(fibonacci(1000001), 1000)`, `Mod(catalan(100001), 1009)`: same
+  inexact multiple; now unevaluated (SymPy evaluates the integer, residue
+  501 for fibonacci; gap below).
+- `Array([e70]).kind` (70 nested powers): UndefinedKind, now NumberKind.
+- `decompogen(x**4100 + x**2, x)`: returned `[x**4100 + x**2]` as if
+  indecomposable; now NotImplementedError (the degree limit is in the
+  user area `poly/roots.rs`).
+- `Matrix([[10**13, 1], [2, 3]]).eigenvals()` and diagonal blocks with
+  3*10**12 + 1: NotImplementedError, now the SymPy values.
+- `checkodesol` of order above 256 returned False; now checked up to
+  order 4096 and NotImplementedError above.
+
+Probes (statements driven to each budget with growing inputs, 60 s
+timeout on both sides; scratch runner, times recorded):
+- probe 1 (89 statements): 80 same before, 84 after;
+- probe 2 (77 statements): 41 same before, 60 after.
+Remaining differences are either SymPy TIMEOUT (symox raises or answers),
+form differences, or the gaps below.
+
+Remaining (documented, not fixed):
+- `count_roots(x**5000 - x - 1)`: symox over 60 s, SymPy 13.7 s (hot spot,
+  more than 4x).
+- `factor_list(x**300 + x + 1)`: factorization work limit after 0.1 s
+  (estimated before the search; SymPy 9 s).
+- `resultant(expand((x+1)**200), expand((x-2)**150 + 1), x)`: SymPy
+  20 s; symox raised the pseudo-division work limit after 5 s, and with
+  the work cap raised to 4e8 it now reaches the PRS storage limit after
+  16 s (a subresultant chain with smaller intermediate storage is needed).
+- `cyclotomic_poly(20001, x)`: structure limit (SymPy 6.5 s).
+- `decompogen(x**4100 + x**2, x)`: degree limit 4096 in `poly/roots.rs`
+  (user area; SymPy 0.4 s).
+- `bernoulli(5002)`, `legendre(2001, 1/3)`, `fibonacci(1000001)`,
+  `catalan(100001)`, `factorial(100001)`: left unevaluated above the exact
+  evaluation caps, SymPy evaluates them (1 s to 32 s).
+- `integrate(1/(x**5 + x + 1)**3, x)`: symox runs out of memory after
+  12 s (SymPy over 60 s).
+- `Poly(x**1100 + x + 1).is_irreducible`: symox False in 42 s (correct,
+  1100 = 2 mod 3 so x**2 + x + 1 divides), SymPy over 60 s.
+- Parametric companion eigenvalues
+  (`Matrix([[0, 1, 0], [0, 0, 1], [-1000003*x, x + 1000003, 1000002]])`):
+  Cardano form where SymPy finds the rational root 1000003 (same values).
+- `real_roots` degree 5001, `gff_list` degree above 1024,
+  `permanent` of 21x21: symox raises, SymPy over 60 s.
+- `inv_mod` error message text differs.
+
+Tests: `tests/test_reslimits_parity.py`.
+
+### Closing (wave 17)
+
+After this audit no budget in the table turns exhaustion into a proven
+answer: each one raises a resource-limit error, leaves the expression
+unevaluated, keeps an equivalent complete fallback, or (Wang evaluation
+points, Mod integer part, kind, eigenvalue rational roots) continues the
+computation. The remaining entries are capability gaps where SymPy
+finishes and symox raises or stays unevaluated (listed above); they are
+not wrong results. `solve.rs` and `poly/roots.rs` were documented only.

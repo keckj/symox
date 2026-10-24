@@ -54,8 +54,8 @@ fn atoms(a: &mut Vec<Expr>, b: &[Expr]) -> PResult<()> {
     for e in b {
         if !a.contains(e) {
             a.push(e.clone());
-            if a.len() > 8 {
-                return Err(limit("more than eight polynomial/coefficient atoms"));
+            if a.len() > 64 {
+                return Err(limit("more than 64 polynomial/coefficient atoms"));
             }
         }
     }

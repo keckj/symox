@@ -25,12 +25,15 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            work: 20_000_000,
-            attempts: 4096,
-            degree: 1024,
-            terms: 65_536,
-            coefficient_bits: 16_384,
-            storage_bits: 64_000_000,
+            // SymPy has no limit here: these caps only stop inputs whose
+            // cost is far beyond what the reference finishes (exhaustion
+            // raises a resource-limit ValueError, never a partial result).
+            work: 2_000_000_000,
+            attempts: 1 << 20,
+            degree: 4096,
+            terms: 262_144,
+            coefficient_bits: 1 << 20,
+            storage_bits: 1 << 30,
         }
     }
 }
@@ -412,6 +415,7 @@ mod tests {
         assert!(run(
             Limits {
                 coefficient_bits: 100_000,
+                storage_bits: 1 << 26,
                 ..Default::default()
             },
             || {

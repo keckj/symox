@@ -241,8 +241,11 @@ fn rational_roots(p: &UPoly) -> MResult<Vec<Rat>> {
         a0 = ip[k].clone();
     }
     let too_big = || MatrixError::NotImplemented("polynomial coefficients too large for root finding".into());
-    let ps = divisors(&a0).ok_or_else(too_big)?;
-    let qs = divisors(&ip[0]).ok_or_else(too_big)?;
+    let (Some(ps), Some(qs)) = (divisors(&a0), divisors(&ip[0])) else {
+        // Divisor enumeration is only a shortcut: SymPy factors the
+        // characteristic polynomial whatever its coefficient size.
+        return rational_roots_by_factoring(&ip, roots).ok_or_else(too_big);
+    };
     let pq: UPoly = ip.iter().map(|c| Rat::from_int(c.clone())).collect();
     for q in &qs {
         for pp in &ps {
@@ -258,6 +261,28 @@ fn rational_roots(p: &UPoly) -> MResult<Vec<Rat>> {
         }
     }
     Ok(roots)
+}
+
+/// Rational roots of the primitive integer polynomial `ip` (leading
+/// coefficient first) from its linear factors over Q, appended to `roots`.
+fn rational_roots_by_factoring(ip: &[Int], mut roots: Vec<Rat>) -> Option<Vec<Rat>> {
+    let x = Expr::symbol("_lambda");
+    let n = ip.len() - 1;
+    let e = add(&ip.iter().enumerate().map(|(i, c)| mul2(&int_expr(c), &x.powi((n - i) as i64))).collect::<Vec<_>>());
+    let (_, factors) = crate::poly::api::factor_list(&e).ok()?;
+    for (f, _) in factors {
+        let c = crate::integrate::poly_coeffs(&f, &x)?;
+        if c.len() != 2 {
+            continue;
+        }
+        let b = c[0].as_number().and_then(Rat::from_number)?;
+        let a = c[1].as_number().and_then(Rat::from_number)?;
+        let r = b.neg().div(&a);
+        if !roots.contains(&r) {
+            roots.push(r);
+        }
+    }
+    Some(roots)
 }
 
 /// A factor of the characteristic polynomial over Q.

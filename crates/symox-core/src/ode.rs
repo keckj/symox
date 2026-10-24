@@ -606,6 +606,15 @@ fn tidy(e: &Expr, x: &Expr) -> Expr {
 
 /// Check a candidate solution `y` of the ODE (residual is zero).
 pub fn checkodesol(ode: &Expr, f: &Expr, y: &Expr) -> bool {
+    checkodesol_checked(ode, f, y).unwrap_or(false)
+}
+
+/// Highest ODE order `checkodesol_checked` differentiates the candidate to.
+pub const CHECKODESOL_MAX_ORDER: usize = 4096;
+
+/// `checkodesol`, with `None` when the ODE order exceeds
+/// `CHECKODESOL_MAX_ORDER` (a resource limit, not a failed check).
+pub fn checkodesol_checked(ode: &Expr, f: &Expr, y: &Expr) -> Option<bool> {
     let protected=ProtectedSymbols::new([ode,f,y]);
     let parameters=crate::traverse::free_symbols(ode).into_iter()
         .chain(crate::traverse::free_symbols(f)).collect::<FxHashSet<_>>();
@@ -616,13 +625,13 @@ pub fn checkodesol(ode: &Expr, f: &Expr, y: &Expr) -> bool {
     checkodesol_inner(&protected.protect(ode),&protected.protect(f),&protected.protect(y),&constants)
 }
 
-fn checkodesol_inner(ode:&Expr,f:&Expr,y:&Expr,constants:&[Expr])->bool {
-    let Kind::Func(Func::Undefined(_), args) = f.kind() else { return false };
-    if args.len()!=1 || !args[0].is_symbol() {return false;}
+fn checkodesol_inner(ode:&Expr,f:&Expr,y:&Expr,constants:&[Expr])->Option<bool> {
+    let Kind::Func(Func::Undefined(_), args) = f.kind() else { return Some(false) };
+    if args.len()!=1 || !args[0].is_symbol() {return Some(false);}
     let x = &args[0];
     let mut order = 0;
     let e = to_symbols(&as_expr(ode), f, x, &mut order);
-    if order>256 {return false;}
+    if order>CHECKODESOL_MAX_ORDER {return None;}
     let mut map = Vec::new();
     let mut d = y.clone();
     for k in 0..=order {
@@ -631,21 +640,21 @@ fn checkodesol_inner(ode:&Expr,f:&Expr,y:&Expr,constants:&[Expr])->bool {
     }
     let r = expand(&subs(&e, &map));
     if r.is_zero() {
-        return true;
+        return Some(true);
     }
     let r = crate::simp::trigsimp(&r);
     if r.is_zero() {
-        return true;
+        return Some(true);
     }
     // numeric spot check with arbitrary constants
     let mut rs = r;
     for (index,constant) in constants.iter().enumerate() {
         rs = subs1(&rs, constant, &Expr::rational(3 * (index as i64+1) + 1, 7));
     }
-    [0.31, 0.77, 1.3].iter().all(|v| {
+    Some([0.31, 0.77, 1.3].iter().all(|v| {
         let val = subs1(&rs, x, &Expr::float(*v));
         crate::evalf::eval_c64(&val).is_some_and(|z| z.norm() < 1e-8)
-    })
+    }))
 }
 
 #[cfg(test)]
@@ -707,6 +716,7 @@ mod tests {
         let huge=crate::diff::derivative_unevaluated(&f,vec![(x.clone(),u32::MAX)]);
         assert!(dsolve(&huge,&f,&[]).is_none());
         assert!(!checkodesol(&huge,&f,&Expr::zero()));
+        assert!(checkodesol_checked(&huge,&f,&Expr::zero()).is_none());
         let empty=crate::functions::undefined("f",vec![]);
         assert!(!checkodesol(&f,&empty,&Expr::zero()));
     }

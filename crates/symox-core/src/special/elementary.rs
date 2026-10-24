@@ -142,11 +142,33 @@ fn int_value(e: &Expr) -> Option<BigInt> {
     if !crate::functions::is_numeric_value(e) {
         return None;
     }
-    let v = crate::evalf_mp::eval_mp(e, 160)?;
-    if !v.im.is_zero() {
-        return None;
+    // The integer part must be exact: scale the working precision to the
+    // magnitude (as SymPy's Expr.__int__ does) and confirm it at twice the
+    // precision.  Beyond the precision cap the caller stays unevaluated.
+    let mut precision = 160u32;
+    while precision <= 80_000 {
+        let v = crate::evalf_mp::eval_mp(e, precision)?;
+        if !v.im.is_zero() {
+            return None;
+        }
+        if !v.re.is_zero() && v.re.mag() > precision as i128 - 64 {
+            let required = v.re.mag().saturating_add(128);
+            if required > 80_000 {
+                return None;
+            }
+            precision = required as u32;
+            continue;
+        }
+        let w = crate::evalf_mp::eval_mp(e, precision * 2)?;
+        if w.im.is_zero() {
+            let (a, b) = (v.re.checked_int_trunc()?, w.re.checked_int_trunc()?);
+            if a == b {
+                return Some(a);
+            }
+        }
+        precision *= 2;
     }
-    v.re.checked_int_trunc()
+    None
 }
 
 fn real_f64(e: &Expr) -> Option<f64> {
