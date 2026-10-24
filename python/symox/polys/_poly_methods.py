@@ -24,6 +24,7 @@ Poly = _core.Poly
 
 _native = {name: getattr(Poly, name) for name in (
     "terms", "coeffs", "monoms", "LC", "LM", "as_list", "all_roots", "__eq__",
+    "TC", "nth",
 )}
 _native_reduce=Poly.__reduce__
 
@@ -128,8 +129,20 @@ def _convert_ground(f, c):
 
 # --- ordered accessors -------------------------------------------------------
 
+def _rr_zero(f, c):
+    """The reference keeps ``RR`` zeros as ``0.0`` (``Poly(0, x, domain=RR).LC()``)."""
+    if c == 0 and not getattr(c, 'is_Float', False):
+        K = _domain(f)
+        if K is not None and K.is_RR:
+            from .. import Float
+            return Float(0, precision=K.precision)
+    return c
+
+
 def _terms(f, order=None):
     terms = _native["terms"](f)
+    if len(terms) == 1 and terms[0][1] == 0:
+        terms = [(terms[0][0], _rr_zero(f, terms[0][1]))]
     if order is None or (isinstance(order, str) and order == "lex"):
         return terms
     key = monomial_key(order)
@@ -154,8 +167,18 @@ def monoms(f, order=None):
 def LC(f, order=None):
     """Leading coefficient with respect to ``order``."""
     if order is None:
-        return _native["LC"](f)
+        return _rr_zero(f, _native["LC"](f))
     return coeffs(f, order)[0]
+
+
+def TC(f):
+    """Trailing coefficient (``0.0`` for zero over ``RR``)."""
+    return _rr_zero(f, _native["TC"](f))
+
+
+def nth(f, *N):
+    """Coefficient of the monomial with exponents ``N``."""
+    return _rr_zero(f, _native["nth"](f, *N))
 
 
 def EC(f, order=None):
@@ -819,6 +842,20 @@ def trunc(f, p):
     """Reduce the integer coefficients of ``f`` modulo ``p`` (symmetric residues)."""
     K = _domain(f)
     p = _convert_ground(f, p)
+    if f.modulus is None and K is not None and K.is_RR:
+        # The reference reduces each element with the ``mpf`` floor
+        # modulo (no symmetric residues) at the precision of the domain.
+        import mpmath
+        from .. import Float
+        prec = K.precision
+        with mpmath.workprec(prec):
+            pm = mpmath.mpf(_sympify(p)._mpf_)
+            rep = {}
+            for m, c in _items(f):
+                r = mpmath.mpf(_sympify(c)._mpf_) % pm
+                if r:
+                    rep[m] = Float(r, precision=prec)
+        return _from_dict(f, rep)
     if f.modulus is None and (K is None or not K.is_ZZ):
         # The reference applies ``%`` to the domain elements; EX elements
         # are ``Expression`` objects.
@@ -1328,7 +1365,7 @@ def install():
     """Attach the SymPy-compatible methods to the native ``Poly`` class."""
     methods = {
         "terms": terms, "coeffs": coeffs, "monoms": monoms,
-        "LC": LC, "EC": EC, "LM": LM, "EM": EM, "LT": LT, "ET": ET,
+        "LC": LC, "EC": EC, "TC": TC, "nth": nth, "LM": LM, "EM": EM, "LT": LT, "ET": ET,
         "as_list": as_list,
         "__reduce__": _reduce_polynomial,
         "add_ground": add_ground, "sub_ground": sub_ground,

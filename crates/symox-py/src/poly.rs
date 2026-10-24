@@ -1032,6 +1032,63 @@ impl PyPoly {
     }
 
     fn other(&self, o: &Bound<'_, PyAny>) -> Option<PolyValue> {
+        self.other_base(o).or_else(|| self.inexact_composite_other(o))
+    }
+    /// `RR` or `RR[y]` against `ZZ[y]` or `QQ(y)`: the reference unifies
+    /// the domains (`RR` with `ZZ[y]` is `RR[y]`), so the operand converts
+    /// to the joint domain.
+    fn inexact_composite_other(&self, o: &Bound<'_, PyAny>) -> Option<PolyValue> {
+        let (me, other) = self.inexact_composite_kinds(o)?;
+        if !(me && !other) && !(!me && other && self.p.true_gens().len() == 1) {
+            return None;
+        }
+        let k = self.inexact_composite_domain(o)?;
+        let converted = o.call_method1("set_domain", (k,)).ok()?;
+        self.other_base(&converted)
+    }
+    /// Whether each side is inexact (`RR`, `RR[y]`) for a pair of an
+    /// inexact and an exact composite (`ZZ[y]`, `QQ(y)`) polynomial.
+    fn inexact_composite_kinds(&self, o: &Bound<'_, PyAny>) -> Option<(bool, bool)> {
+        let q = o.downcast::<PyPoly>().ok()?;
+        let qp = &q.get().p;
+        let inexact = |p: &PolyValue| {
+            p.algebraic.is_none() && p.field.is_none() && p.base.modulus.is_none()
+                && match &p.expression {
+                    None => p.base.domain.is_rr()
+                        && !p.base.domain_gens().iter().any(|g| g.is_constant(symox::expr::Constant::I)),
+                    Some(e) => e.ground.as_ref().is_some_and(|g| g.inexact.is_some()),
+                }
+        };
+        let composite = |p: &PolyValue| {
+            p.field.is_some() && p.expression.is_none() && p.algebraic.is_none() && p.base.modulus.is_none()
+        };
+        if inexact(&self.p) && composite(qp) {
+            Some((true, false))
+        } else if composite(&self.p) && inexact(qp) {
+            Some((false, true))
+        } else {
+            None
+        }
+    }
+    fn inexact_composite_domain<'py>(&self, o: &Bound<'py, PyAny>) -> Option<Bound<'py, PyAny>> {
+        let me = Bound::new(o.py(), self.clone()).ok()?;
+        me.getattr("domain").ok()?.call_method1("unify", (o.getattr("domain").ok()?,)).ok()
+    }
+    /// Both operands over the joint inexact domain (an exact composite
+    /// `self` against an inexact operand in several generators).
+    fn inexact_composite_both(&self, o: &Bound<'_, PyAny>) -> Option<(PolyValue, PolyValue)> {
+        let (me, _) = self.inexact_composite_kinds(o)?;
+        if me {
+            return None;
+        }
+        let k = self.inexact_composite_domain(o)?;
+        let me = Bound::new(o.py(), self.clone()).ok()?.call_method1("set_domain", (k.clone(),)).ok()?;
+        let q = o.call_method1("set_domain", (k,)).ok()?;
+        let a = me.downcast::<PyPoly>().ok()?.get().p.clone();
+        let b = q.downcast::<PyPoly>().ok()?.get().p.clone();
+        Some((a, b))
+    }
+    fn other_base(&self, o: &Bound<'_, PyAny>) -> Option<PolyValue> {
         if let Ok(q)=o.downcast::<PyPoly>() {
             let q=&q.get().p;
             if self.p.expression.is_some()||q.expression.is_some() {
@@ -1086,18 +1143,34 @@ impl PyPoly {
         let q=self.other(o)?;
         if !plain(&self.p)||!plain(&q)||self.p.base.gens!=q.base.gens||self.p.base.ngens!=q.base.ngens{return None;}
         if !self.p.base.domain.is_rr()&&!q.base.domain.is_rr(){return None;}
-        // the double-precision algorithms below; higher precisions keep the exact path
-        if self.p.base.domain.prec()>53||q.base.domain.prec()>53{return None;}
         Some(q.base)
     }
-    /// A polynomial of `rr_plain_other` back over `RR`.
-    fn rr_poly(&self,rep:symox::poly::mpoly::MPoly<Rat>)->PyPoly{let mut p=self.p.base.clone();p.rep=rep;p.domain=Domain::RR53;PyPoly{p:p.into()}}
+    /// The working precision of `rr_plain_other`: the largest of the two.
+    fn rr_prec(&self,q:&Poly)->u32{let a=if self.p.base.domain.is_rr(){self.p.base.domain.prec()}else{0};let b=if q.domain.is_rr(){q.domain.prec()}else{0};a.max(b).max(53)}
+    /// A polynomial of `rr_plain_other` back over `RealField(prec)`.
+    fn rr_poly_prec(&self,rep:symox::poly::mpoly::MPoly<Rat>,prec:u32)->PyPoly{let mut p=self.p.base.clone();p.rep=rep;p.domain=Domain::RR(prec);PyPoly{p:p.into()}}
     /// The reference `dmp_ground_content` over the field `RR` (no
     /// associated ring): one, or zero for the zero polynomial.
     fn rr_field_content(&self)->Option<Expr>{
         let p=&self.p;
         if p.expression.is_some()||p.algebraic.is_some()||p.field.is_some()||!p.base.domain.is_rr()||p.base.modulus.is_some()||p.base.has_domain_gens(){return None;}
         Some(symox::poly::convert::rat_to_expr_prec(&if p.base.rep.is_zero(){Rat::zero()}else{Rat::one()},p.base.domain.prec()))
+    }
+    /// The reference `dmp_ground_primitive` over `RR[y...]` (coefficients
+    /// in domain generators): the gcd runs over the exact `QQ[y...]` and is
+    /// monic, as `dmp_inner_gcd` on inexact grounds.
+    fn rr_ground_primitive(&self)->Option<(Expr,PyPoly)>{
+        let p=&self.p;let b=&p.base;
+        if p.expression.is_some()||p.algebraic.is_some()||p.field.is_some()||b.modulus.is_some()||!b.has_domain_gens()||!b.domain.is_rr(){return None;}
+        if b.rep.is_zero(){return Some((Expr::zero(),self.clone()));}
+        let prec=b.domain.prec();
+        let mut q=b.clone();q.domain=Domain::QQ;
+        let(mut c,mut f)=q.ground_primitive();
+        if c.rep.is_zero(){return None;}
+        let lc=c.rep.lc();
+        if lc!=Rat::one(){c.rep=c.rep.scale(&lc.inv());f.rep=f.rep.scale(&lc);}
+        c.domain=Domain::RR(prec);f.domain=Domain::RR(prec);
+        Some((c.as_expr(),PyPoly{p:f.into()}))
     }
     /// The `EX` representation and its composite Gaussian ground, when marked.
     fn gg(&self)->Option<(&ExpressionPoly,&symox::poly::gaussian_ground::GaussianGround)>{let e=self.p.expression.as_ref()?;Some((e,e.ground.as_ref()?))}
@@ -1119,6 +1192,9 @@ impl PyPoly {
         match self.other(o) {
             Some(q) => Ok(PyPoly { p: f(&self.p, &q).map_err(err)? }.into_pyobject(py)?.into_any().unbind()),
             None => {
+                if let Some((a, b)) = self.inexact_composite_both(o) {
+                    return Ok(PyPoly { p: f(&a, &b).map_err(err)? }.into_pyobject(py)?.into_any().unbind());
+                }
                 if let Ok(q)=o.downcast::<PyPoly>() {
                     self.p.checked_expression_pair(&q.get().p).map_err(err)?;
                     if self.p.algebraic.is_some() || q.get().p.algebraic.is_some() || self.p.field.is_some() || q.get().p.field.is_some() {
@@ -1707,7 +1783,7 @@ impl PyPoly {
 
     #[pyo3(signature=(g,auto=true))]
     fn gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
-        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){let(s,t,h)=symox::poly::inexact_ground::rr_gcdex(&self.p.base.rep,&q.rep).map_err(err)?;return Ok(PyTuple::new(g.py(),[self.rr_poly(s),self.rr_poly(t),self.rr_poly(h)])?.into_any().unbind());}
+        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){let k=self.rr_prec(&q);let(s,t,h)=symox::poly::inexact_ground::rr_gcdex_prec(&self.p.base.rep,&q.rep,k).map_err(err)?;return Ok(PyTuple::new(g.py(),[self.rr_poly_prec(s,k),self.rr_poly_prec(t,k),self.rr_poly_prec(h,k)])?.into_any().unbind());}
         if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};let(s,t,h)=symox::poly::inexact_ground::gcdex(&a,&b).map_err(err)?;return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
         if let Some((a,b))=self.ex_pair(g)?{let(s,t,h)=a.gcdex(&b).map_err(err)?;
             if let Some(gr)=a.ground.clone().filter(|_|auto){let f=gr.to_field();let c=|p:&ExpressionPoly|f.convert_poly(p).map_err(err);let(s,t,h)=(c(&s)?,c(&t)?,f.monic(&h).map_err(err)?);return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
@@ -1718,7 +1794,7 @@ impl PyPoly {
     }
     #[pyo3(signature=(g,auto=true))]
     fn half_gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
-        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){let(s,h)=symox::poly::inexact_ground::rr_half_gcdex(&self.p.base.rep,&q.rep).map_err(err)?;return Ok(PyTuple::new(g.py(),[self.rr_poly(s),self.rr_poly(h)])?.into_any().unbind());}
+        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){let k=self.rr_prec(&q);let(s,h)=symox::poly::inexact_ground::rr_half_gcdex_prec(&self.p.base.rep,&q.rep,k).map_err(err)?;return Ok(PyTuple::new(g.py(),[self.rr_poly_prec(s,k),self.rr_poly_prec(h,k)])?.into_any().unbind());}
         if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};let(s,h)=symox::poly::inexact_ground::half_gcdex(&a,&b).map_err(err)?;return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
         if let Some((a,b))=self.ex_pair(g)?{let(s,h)=a.half_gcdex(&b).map_err(err)?;
             if let Some(gr)=a.ground.clone().filter(|_|auto){let f=gr.to_field();let(s,h)=(f.convert_poly(&s).map_err(err)?,f.monic(&h).map_err(err)?);return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
@@ -1729,7 +1805,7 @@ impl PyPoly {
     }
     #[pyo3(signature=(g,auto=true))]
     fn invert(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly> {
-        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){return Ok(self.rr_poly(symox::poly::inexact_ground::rr_invert(&self.p.base.rep,&q.rep).map_err(err)?));}
+        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){let k=self.rr_prec(&q);return Ok(self.rr_poly_prec(symox::poly::inexact_ground::rr_invert_prec(&self.p.base.rep,&q.rep,k).map_err(err)?,k));}
         if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};return Ok(PyPoly{p:symox::poly::inexact_ground::invert(&a,&b).map_err(err)?.into()});}
         if let Some((a,b))=self.ex_pair(g)?{
             if let Some(gr)=a.ground.clone().filter(|_|auto){return Ok(PyPoly{p:gr.to_field().convert_poly(&a.invert(&b).map_err(err)?).map_err(err)?.into()});}
@@ -1740,10 +1816,10 @@ impl PyPoly {
     }
     #[pyo3(signature=(g,include=false))]
     fn cancel(&self,g:&Bound<'_,PyAny>,include:bool)->PyResult<PyObject> {
-        if let Some(q)=self.rr_plain_other(g){
+        if let Some(q)=self.rr_plain_other(g).filter(|q|self.rr_prec(q)==53){
             // `dmp_cancel` over `RR`, a field without an associated ring.
             let py=g.py();let(negated,p,q)=symox::poly::inexact_ground::rr_poly_cancel(&self.p.base.rep,&q.rep);
-            let rr=|rep|self.rr_poly(rep);
+            let rr=|rep|self.rr_poly_prec(rep,53);
             if include{
                 let p=if negated{p.neg()}else{p};
                 return Ok(PyTuple::new(py,[rr(p),rr(q)])?.into_any().unbind());
@@ -1883,6 +1959,7 @@ impl PyPoly {
             return PyTuple::new(py, [w(c.as_expr()).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()]);
         }
         if let Some(c)=self.rr_field_content(){return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),self.clone().into_pyobject(py)?.into_any()]);}
+        if let Some((c,p))=self.rr_ground_primitive(){return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),p.into_pyobject(py)?.into_any()]);}
         let (c, p) = self.p.primitive();
         PyTuple::new(py, [w(rat_expr(&c)).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()])
     }
@@ -1896,6 +1973,7 @@ impl PyPoly {
             return Ok(w(self.p.base.ground_primitive().0.as_expr()));
         }
         if let Some(c)=self.rr_field_content(){return Ok(w(c));}
+        if let Some((c,_))=self.rr_ground_primitive(){return Ok(w(c));}
         Ok(w(rat_expr(&self.p.primitive().0)))
     }
 
@@ -3239,12 +3317,13 @@ fn functional_euclid<'py>(f: &Bound<'py, PyAny>, g: &Bound<'py, PyAny>, gens: &B
 
 /// Expression `gcdex`/`half_gcdex`/`invert` of univariate float input:
 /// the reference computes over `RR` in floating point.
-fn rr_expression_pair(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Option<(Vec<Expr>,symox::poly::mpoly::MPoly<Rat>,symox::poly::mpoly::MPoly<Rat>)>>{
+fn rr_expression_pair(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Option<(Vec<Expr>,symox::poly::mpoly::MPoly<Rat>,symox::poly::mpoly::MPoly<Rat>,u32)>>{
     if kwargs.is_some_and(|k|!k.is_empty())||f.downcast::<PyPoly>().is_ok()||g.downcast::<PyPoly>().is_ok(){return Ok(None);}
     let (fe,ge)=(to_expr(f)?,to_expr(g)?);
     let Ok(ps)=Poly::from_exprs(&[fe,ge],&gens_of(gens)?) else {return Ok(None)};
-    if ps.len()!=2||ps.iter().any(|p|p.has_domain_gens()||p.modulus.is_some()||p.gens.len()!=1)||!ps.iter().any(|p|p.domain.is_rr())||ps.iter().any(|p|p.domain.prec()>53){return Ok(None);}
-    Ok(Some((ps[0].gens.clone(),ps[0].rep.clone(),ps[1].rep.clone())))
+    if ps.len()!=2||ps.iter().any(|p|p.has_domain_gens()||p.modulus.is_some()||p.gens.len()!=1)||!ps.iter().any(|p|p.domain.is_rr()){return Ok(None);}
+    let prec=ps.iter().filter(|p|p.domain.is_rr()).map(|p|p.domain.prec()).max().unwrap_or(53).max(53);
+    Ok(Some((ps[0].gens.clone(),ps[0].rep.clone(),ps[1].rep.clone(),prec)))
 }
 
 #[pyfunction]
@@ -3260,7 +3339,7 @@ fn gcdex(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Boun
     }
     if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::bezout(py,selected,false);}
     if let Some(v)=functional_euclid(f,g,gens,_kwargs,"gcdex")?{return Ok(v);}
-    if let Some((x,a,b))=rr_expression_pair(f,g,gens,_kwargs)?{let(s,t,h)=symox::poly::inexact_ground::rr_gcdex(&a,&b).map_err(err)?;let e=|p|w(symox::poly::convert::to_expr_f(&p,&x,true));return Ok(PyTuple::new(py,[e(s),e(t),e(h)])?.into_any().unbind());}
+    if let Some((x,a,b,k))=rr_expression_pair(f,g,gens,_kwargs)?{let(s,t,h)=symox::poly::inexact_ground::rr_gcdex_prec(&a,&b,k).map_err(err)?;let e=|p|w(symox::poly::convert::to_expr_prec(&p,&x,k));return Ok(PyTuple::new(py,[e(s),e(t),e(h)])?.into_any().unbind());}
     let (s,t,h)=api::gcdex(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?;
     Ok(PyTuple::new(py,[w(s),w(t),w(h)])?.into_any().unbind())
 }
@@ -3278,7 +3357,7 @@ fn half_gcdex(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: 
     }
     if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::bezout(py,selected,true);}
     if let Some(v)=functional_euclid(f,g,gens,_kwargs,"half_gcdex")?{return Ok(v);}
-    if let Some((x,a,b))=rr_expression_pair(f,g,gens,_kwargs)?{let(s,h)=symox::poly::inexact_ground::rr_half_gcdex(&a,&b).map_err(err)?;let e=|p|w(symox::poly::convert::to_expr_f(&p,&x,true));return Ok(PyTuple::new(py,[e(s),e(h)])?.into_any().unbind());}
+    if let Some((x,a,b,k))=rr_expression_pair(f,g,gens,_kwargs)?{let(s,h)=symox::poly::inexact_ground::rr_half_gcdex_prec(&a,&b,k).map_err(err)?;let e=|p|w(symox::poly::convert::to_expr_prec(&p,&x,k));return Ok(PyTuple::new(py,[e(s),e(h)])?.into_any().unbind());}
     let (s,h)=api::half_gcdex(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?;
     Ok(PyTuple::new(py,[w(s),w(h)])?.into_any().unbind())
 }
@@ -3295,7 +3374,7 @@ fn invert(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>,
     }
     if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::inverse(py,selected);}
     if let Some(v)=functional_euclid(f,g,gens,_kwargs,"invert")?{return Ok(v);}
-    if let Some((x,a,b))=rr_expression_pair(f,g,gens,_kwargs)?{return Ok(w(symox::poly::convert::to_expr_f(&symox::poly::inexact_ground::rr_invert(&a,&b).map_err(err)?,&x,true)).into_pyobject(py)?.into_any().unbind());}
+    if let Some((x,a,b,k))=rr_expression_pair(f,g,gens,_kwargs)?{return Ok(w(symox::poly::convert::to_expr_prec(&symox::poly::inexact_ground::rr_invert_prec(&a,&b,k).map_err(err)?,&x,k)).into_pyobject(py)?.into_any().unbind());}
     Ok(w(api::invert(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?).into_pyobject(py)?.into_any().unbind())
 }
 

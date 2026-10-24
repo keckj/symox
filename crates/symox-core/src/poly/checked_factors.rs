@@ -126,11 +126,31 @@ fn preflight_mode(p: &Polynomial, limits: Limits, legacy: bool) -> PResult<()> {
 fn raw(p: &Polynomial, squarefree: bool) -> PResult<Factorization> {
     if let Some(f) = &p.algebraic {
         let _scope = AlgebraicScope::new(f.number_field.clone());
-        let (unit, factors) = if squarefree {
+        let (mut unit, factors) = if squarefree {
             f.sqf_list()
         } else {
             f.factor_list()?
         };
+        // The reference `dmp_sqf_list` over ZZ_I loses the unit carried by
+        // the normalised gcds (`(I*x + 1)**2` gives `(1, [(-x + I, 2)])`,
+        // which is `-(I*x + 1)**2`). Keep the reference factors and take the
+        // unit that makes the product exact: an intentional correction.
+        if squarefree && f.gaussian.is_some() && !f.rep.is_zero() {
+            use super::int::Field;
+            let mut budget = Budget::new();
+            let mut product = MPoly::one(f.gens.len());
+            for (g, k) in &factors {
+                for _ in 0..*k {
+                    product = budget.mul(&product, &g.rep)?;
+                }
+            }
+            if !product.is_zero() {
+                let c = f.rep.lc().mul(&product.lc().inv());
+                if c != unit && product.scale(&c) == f.rep {
+                    unit = c;
+                }
+            }
+        }
         Ok(Factorization {
             unit: f.with_rep(MPoly::constant(unit, f.gens.len())).into(),
             factors: factors.into_iter().map(|(p, k)| (p.into(), k)).collect(),

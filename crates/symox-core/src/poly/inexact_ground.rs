@@ -1890,6 +1890,14 @@ pub fn element_expr(g: &GaussianGround, e: &Expr) -> PResult<Expr> {
     Ok(d.to_expr(&d.from_expr(e)?))
 }
 
+/// The numerator and denominator of an element of `RR(y...)`, `CC(y...)`
+/// (the reference `FracElement.numer` and `.denom`) as ring expressions.
+pub fn element_parts(g: &GaussianGround, e: &Expr) -> PResult<(Expr, Expr)> {
+    let d = Dom::new(g).expect("inexact ground");
+    let a = d.from_expr(e)?;
+    Ok((d.r.to_expr(&a.n, &d.symbols), d.r.to_expr(&a.d, &d.symbols)))
+}
+
 /// Domain element operations of `RR[y]`, `CC(y)`, ...: `op` is one of
 /// `+ - * / quo rem exquo gcd lcm`; `/` is the exact quotient in a ring.
 pub fn element_op(g: &GaussianGround, a: &Expr, b: &Expr, op: &str) -> PResult<Expr> {
@@ -2655,28 +2663,27 @@ pub fn infer(e: &Expr, gens: &[Expr], field: bool) -> Option<GaussianGround> {
 // point, with `dup_ff_div` dropping the leading term created by rounding.
 // Polynomials are exact rational images of their `mpf` coefficients.
 type RV = Vec<C>;
-const RRK: Inexact = Inexact { precision: 53, complex: false };
 
-fn rr_strip(mut f: RV) -> RV {
-    let n = f.iter().take_while(|c| RRK.is_zero(c)).count();
+fn rr_strip(k: Inexact, mut f: RV) -> RV {
+    let n = f.iter().take_while(|c| k.is_zero(c)).count();
     f.drain(..n);
     f
 }
-fn rr_dense(f: &MPoly<Rat>) -> RV {
+fn rr_dense(k: Inexact, f: &MPoly<Rat>) -> RV {
     let n = f.iter().map(|(e, _)| e[0] as usize).max().unwrap_or(0);
-    let mut v = vec![RRK.zero(); if f.is_zero() { 0 } else { n + 1 }];
+    let mut v = vec![k.zero(); if f.is_zero() { 0 } else { n + 1 }];
     for (e, c) in f.iter() {
-        v[n - e[0] as usize] = RRK.from_rat(c);
+        v[n - e[0] as usize] = k.from_rat(c);
     }
-    rr_strip(v)
+    rr_strip(k, v)
 }
-fn rr_sparse(f: &RV) -> MPoly<Rat> {
+fn rr_sparse(k: Inexact, f: &RV) -> MPoly<Rat> {
     let n = f.len();
     MPoly::from_terms(
         1,
         f.iter()
             .enumerate()
-            .filter(|(_, c)| !RRK.is_zero(c))
+            .filter(|(_, c)| !k.is_zero(c))
             .map(|(i, c)| {
                 let r = c.re.to_ratio_exact();
                 (vec![(n - 1 - i) as u32], Rat::new(Int::from_big(r.numer().clone()), Int::from_big(r.denom().clone())))
@@ -2685,36 +2692,36 @@ fn rr_sparse(f: &RV) -> MPoly<Rat> {
     )
 }
 /// `dup_sub`.
-fn rr_sub(f: &RV, g: &RV) -> RV {
+fn rr_sub(k: Inexact, f: &RV, g: &RV) -> RV {
     let (df, dg) = (f.len(), g.len());
     let mut h = Vec::with_capacity(df.max(dg));
     if df > dg {
         h.extend(f[..df - dg].iter().cloned());
-        h.extend(f[df - dg..].iter().zip(g).map(|(a, b)| RRK.sub(a, b)));
+        h.extend(f[df - dg..].iter().zip(g).map(|(a, b)| k.sub(a, b)));
     } else {
-        h.extend(g[..dg - df].iter().map(|b| RRK.neg(b)));
-        h.extend(f.iter().zip(&g[dg - df..]).map(|(a, b)| RRK.sub(a, b)));
+        h.extend(g[..dg - df].iter().map(|b| k.neg(b)));
+        h.extend(f.iter().zip(&g[dg - df..]).map(|(a, b)| k.sub(a, b)));
     }
-    rr_strip(h)
+    rr_strip(k, h)
 }
 /// `dup_mul` (the schoolbook product of the reference below degree 100).
-fn rr_mul(f: &RV, g: &RV) -> RV {
+fn rr_mul(k: Inexact, f: &RV, g: &RV) -> RV {
     if f.is_empty() || g.is_empty() {
         return vec![];
     }
     let (df, dg) = (f.len() - 1, g.len() - 1);
     let mut h = Vec::with_capacity(df + dg + 1);
     for i in 0..=df + dg {
-        let mut c = RRK.zero();
+        let mut c = k.zero();
         for j in i.saturating_sub(dg)..=df.min(i) {
-            c = RRK.add(&c, &RRK.mul(&f[j], &g[i - j]));
+            c = k.add(&c, &k.mul(&f[j], &g[i - j]));
         }
         h.push(c);
     }
-    rr_strip(h)
+    rr_strip(k, h)
 }
 /// `dup_ff_div` over an inexact field.
-fn rr_div(f: &RV, g: &RV) -> PResult<(RV, RV)> {
+fn rr_div(k: Inexact, f: &RV, g: &RV) -> PResult<(RV, RV)> {
     if g.is_empty() {
         return Err(zero_division());
     }
@@ -2726,24 +2733,24 @@ fn rr_div(f: &RV, g: &RV) -> PResult<(RV, RV)> {
     }
     let lc_g = g[0].clone();
     loop {
-        let c = RRK.div(&r[0], &lc_g)?;
+        let c = k.div(&r[0], &lc_g)?;
         let j = (dr - dg) as usize;
         if q.is_empty() {
-            q = vec![RRK.zero(); j + 1];
+            q = vec![k.zero(); j + 1];
             q[0] = c.clone();
         } else {
             let m = q.len() - j - 1;
-            q[m] = RRK.add(&q[m], &c);
+            q[m] = k.add(&q[m], &c);
         }
-        let mut h: RV = g.iter().map(|a| RRK.mul(a, &c)).collect();
-        h.extend(std::iter::repeat(RRK.zero()).take(j));
-        r = rr_sub(&r, &h);
+        let mut h: RV = g.iter().map(|a| k.mul(a, &c)).collect();
+        h.extend(std::iter::repeat(k.zero()).take(j));
+        r = rr_sub(k, &r, &h);
         let prev = dr;
         dr = r.len() as i64 - 1;
         if dr < dg {
             break;
         } else if dr == prev {
-            r = rr_strip(r[1..].to_vec());
+            r = rr_strip(k, r[1..].to_vec());
             dr = r.len() as i64 - 1;
             if dr < dg {
                 break;
@@ -2754,45 +2761,60 @@ fn rr_div(f: &RV, g: &RV) -> PResult<(RV, RV)> {
     }
     Ok((q, r))
 }
-fn rr_monic(f: &RV) -> PResult<RV> {
-    if f.is_empty() || RRK.is_zero(&RRK.sub(&f[0], &RRK.one())) {
+fn rr_monic(k: Inexact, f: &RV) -> PResult<RV> {
+    if f.is_empty() || k.is_zero(&k.sub(&f[0], &k.one())) {
         return Ok(f.clone());
     }
-    f.iter().map(|c| RRK.div(c, &f[0])).collect()
+    f.iter().map(|c| k.div(c, &f[0])).collect()
 }
-fn rr_half_gcdex_dense(f: &RV, g: &RV) -> PResult<(RV, RV)> {
+fn rr_half_gcdex_dense(k: Inexact, f: &RV, g: &RV) -> PResult<(RV, RV)> {
     let (mut f, mut g) = (f.clone(), g.clone());
-    let (mut a, mut b): (RV, RV) = (vec![RRK.one()], vec![]);
+    let (mut a, mut b): (RV, RV) = (vec![k.one()], vec![]);
     while !g.is_empty() {
-        let (q, r) = rr_div(&f, &g)?;
+        let (q, r) = rr_div(k, &f, &g)?;
         f = std::mem::replace(&mut g, r);
-        let nb = rr_sub(&a, &rr_mul(&q, &b));
+        let nb = rr_sub(k, &a, &rr_mul(k, &q, &b));
         a = std::mem::replace(&mut b, nb);
     }
-    let lc = f.first().cloned().unwrap_or_else(|| RRK.zero());
-    let a = a.iter().map(|c| RRK.div(c, &lc)).collect::<PResult<RV>>()?;
-    Ok((a, rr_monic(&f)?))
+    let lc = f.first().cloned().unwrap_or_else(|| k.zero());
+    let a = a.iter().map(|c| k.div(c, &lc)).collect::<PResult<RV>>()?;
+    Ok((a, rr_monic(k, &f)?))
 }
 /// `dup_half_gcdex` over `RR`.
 pub fn rr_half_gcdex(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<(MPoly<Rat>, MPoly<Rat>)> {
-    let (s, h) = rr_half_gcdex_dense(&rr_dense(f), &rr_dense(g))?;
-    Ok((rr_sparse(&s), rr_sparse(&h)))
+    rr_half_gcdex_prec(f, g, 53)
+}
+/// `dup_half_gcdex` over `RealField(precision)`.
+pub fn rr_half_gcdex_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> PResult<(MPoly<Rat>, MPoly<Rat>)> {
+    let k = Inexact { precision, complex: false };
+    let (s, h) = rr_half_gcdex_dense(k, &rr_dense(k, f), &rr_dense(k, g))?;
+    Ok((rr_sparse(k, &s), rr_sparse(k, &h)))
 }
 /// `dup_gcdex` over `RR`.
 pub fn rr_gcdex(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<(MPoly<Rat>, MPoly<Rat>, MPoly<Rat>)> {
-    let (a, b) = (rr_dense(f), rr_dense(g));
-    let (s, h) = rr_half_gcdex_dense(&a, &b)?;
-    let big_f = rr_sub(&h, &rr_mul(&s, &a));
+    rr_gcdex_prec(f, g, 53)
+}
+/// `dup_gcdex` over `RealField(precision)`.
+pub fn rr_gcdex_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> PResult<(MPoly<Rat>, MPoly<Rat>, MPoly<Rat>)> {
+    let k = Inexact { precision, complex: false };
+    let (a, b) = (rr_dense(k, f), rr_dense(k, g));
+    let (s, h) = rr_half_gcdex_dense(k, &a, &b)?;
+    let big_f = rr_sub(k, &h, &rr_mul(k, &s, &a));
     // The reference takes `dup_quo` here: the rounding remainder is dropped.
-    let (t, _) = rr_div(&big_f, &b)?;
-    Ok((rr_sparse(&s), rr_sparse(&t), rr_sparse(&h)))
+    let (t, _) = rr_div(k, &big_f, &b)?;
+    Ok((rr_sparse(k, &s), rr_sparse(k, &t), rr_sparse(k, &h)))
 }
 /// `dup_invert` over `RR`.
 pub fn rr_invert(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<MPoly<Rat>> {
-    let b = rr_dense(g);
-    let (s, h) = rr_half_gcdex_dense(&rr_dense(f), &b)?;
-    if h.len() == 1 && RRK.is_zero(&RRK.sub(&h[0], &RRK.one())) {
-        Ok(rr_sparse(&rr_div(&s, &b)?.1))
+    rr_invert_prec(f, g, 53)
+}
+/// `dup_invert` over `RealField(precision)`.
+pub fn rr_invert_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> PResult<MPoly<Rat>> {
+    let k = Inexact { precision, complex: false };
+    let b = rr_dense(k, g);
+    let (s, h) = rr_half_gcdex_dense(k, &rr_dense(k, f), &b)?;
+    if h.len() == 1 && k.is_zero(&k.sub(&h[0], &k.one())) {
+        Ok(rr_sparse(k, &rr_div(k, &s, &b)?.1))
     } else {
         Err(PolyError::NotInvertible("zero divisor".into()))
     }

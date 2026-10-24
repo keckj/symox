@@ -260,6 +260,35 @@ def _subexpressions(expr):
     return preorder_traversal(expr)
 
 
+def _float_precisions(rep,out,depth=0):
+    from . import Float
+    if isinstance(rep,Float):
+        out.append(rep._prec)
+    elif isinstance(rep,float):
+        out.append(53)
+    elif depth<8 and isinstance(rep,dict):
+        for v in rep.values():_float_precisions(v,out,depth+1)
+    elif depth<8 and isinstance(rep,(list,tuple)):
+        for v in rep:_float_precisions(v,out,depth+1)
+
+
+def _zero_float_domain(rep,result):
+    """The reference ``construct_domain`` sees every coefficient, zero ones
+    included: a ``Float`` zero (``Poly(0.0, x)``, ``Poly([0.0, 1], x)``)
+    makes the domain ``RR`` at the largest precision met."""
+    if isinstance(rep,Poly):return result
+    try:
+        K=result.domain
+    except NotImplementedError:
+        return result
+    if not (K.is_ZZ or K.is_QQ):return result
+    precs=[]
+    _float_precisions(rep,precs)
+    if not precs:return result
+    from . import RealField
+    return result.set_domain(RealField(prec=max(precs)))
+
+
 def construct(rep,gens,domain=None,modulus=None,extension=None,kwargs=None):
     gens,args=_options(gens,domain,modulus,extension,kwargs)
     if 'domain' in args:args['domain']=_domain_alias(args['domain'])
@@ -294,6 +323,8 @@ def construct(rep,gens,domain=None,modulus=None,extension=None,kwargs=None):
         else:result=Poly._from_normalized(rep,gens,domain,modulus,extension)
         if not gens and ('sort' in args or 'wrt' in args):
             result=result.reorder(*_sort(result.gens,args))
+    if domain is None and modulus is None and extension is None and not args.get('gaussian'):
+        result=_zero_float_domain(rep,result)
     if (args.get('composite') is False and domain is None and modulus is None
             and extension is None and not args.get('gaussian')):
         # The reference ``construct_domain`` skips ``_construct_composite``
