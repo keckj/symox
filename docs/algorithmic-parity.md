@@ -9270,3 +9270,54 @@ Remaining (different forms, never a wrong value):
 
 Tests: `tests/test_intrest4_parity.py`; `tests/test_integrate_methods_corpus.py`
 records the corrected `integrate(Heaviside(2*x + 4), x)`.
+
+## limrest (wave 13)
+
+Implemented (ports of the SymPy mechanisms, no case patches):
+- Bessel functions at real infinity: the Gruntz tractable rewrite uses the
+  Hankel asymptotic expansions (besselj/bessely/besseli/besselk.
+  _eval_aseries), with auxiliary asymptotic-series nodes for P, Q and the
+  I/K tails. At -oo with an integer order, the reflection formulas
+  `J(-z) = (-1)**n*J(z)`, `I(-z) = (-1)**n*I(z)`,
+  `Y(-z) = (-1)**n*(Y(z) + 2*I*J(z))`, `K(-z) = (-1)**n*K(z) - I*pi*I(z)`
+  are applied (issues 19154, 26040).
+- Taylor series at zero of besselj/besseli with an integer order and of
+  LambertW. A composed series whose low coefficients all vanish is now
+  inexact and truncated, which removes the wrong 0 of issue 21701.
+- asec/acsc/asech/acsch series go through acos/asin/acosh/asinh of 1/arg
+  (issue 10868 and the asec/acsc/asech/acsch statements of 25582/25847). The
+  constant term keeps the original function form at a regular point.
+- asin/acos/asinh/acosh at an infinite argument: principal-branch log
+  expansions (asin(exp(x)) at oo, issues 25582 and 25847).
+- Trigonometric poles whose location carries pi: the constant is cancelled
+  before the pole test (issue 14411).
+- One-sided limits onto a sqrt/log branch cut when the imaginary part of the
+  argument vanishes to first order: the side is taken from the leading term
+  of im(arg(z0 + h)) in h (issue 23752).
+- `limit(f, x, c*oo)` with a non-real direction substitutes `x -> c*x/|c|`
+  and takes the limit at oo, like Limit.doit.
+- Gruntz leadterm: a symbolic power `b**p` with b positive near 0 is split
+  as `c**p * w**(m*p) * (b/(c*w**m))**p` before retrying the symbolic power
+  leading term.
+
+Probe (sympy/series/tests/test_limits.py + test_gruntz.py): same 516 -> 560
+of 648, no statement from same to different.
+
+Remaining (unsupported or a different form):
+- Issue 22334: still `Limit` instead of `1/(k + 1)`.
+- Bessel functions at `I*oo`/`-I*oo` (besselj, bessely, besselk) and
+  `besselk(1, x)` at -oo stay unevaluated.
+- floor/ceiling limits (200, 201, 236, 237, 958), Mod (25230),
+  `acoth(sin(x)/x)` with '+-', Gruntz special-function PoleErrors (digamma,
+  loggamma, gamma), `x*Shi(x)*I`, `x**2*Ci(x)`.
+- intrest3 dependencies (`integrate(atan(a*x)/x**2, (x, 1, oo))`,
+  `integrate(DiracDelta(a*x - b), (x, -oo, oo))`) not addressed.
+- Float-vs-exact forms of issues 5164 and 5383 (`4.00000000000000` vs `4`).
+- `limit(asec(x), x, 1/2)` gives `asec(1/2)` where SymPy gives
+  `I*log(sqrt(3) + 2)` (unchanged from before, same value).
+- Deliberate differences: `limit(besseli(1, x)*sqrt(x)/exp(x), x, oo)` is
+  `sqrt(2)/(2*sqrt(pi))`; SymPy 1.14 returns `sqrt(2)*sqrt(pi)/2`, which is
+  numerically wrong. `limit(besselj(0, x)*sqrt(x), x, oo)` gives
+  `sqrt(2)*AccumBounds(-1, 1)/sqrt(pi)` where SymPy stays unevaluated.
+
+Tests: `tests/test_limrest_parity.py`.

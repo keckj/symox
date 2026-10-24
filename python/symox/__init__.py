@@ -3283,6 +3283,15 @@ def limit(e, z, z0, dir="+"):
     Returns an unevaluated :class:`Limit` when the limit cannot be computed.
     """
     ee = sympify(e)
+    zz0 = sympify(z0)
+    if (isinstance(ee, Expr) and ee.has(z) and zz0.is_infinite and zz0 not in (S.Infinity, S.NegativeInfinity)
+            and zz0 is not S.ComplexInfinity and not zz0.free_symbols):
+        # Limit.doit at a directed infinity (I*oo): z -> cdir*z, z -> oo.
+        cdir = sign(zz0)
+        cdir = cdir/abs(cdir)
+        if cdir.is_number and not cdir.has(S.Infinity, S.NaN):
+            r = limit(ee.subs(z, cdir*z), z, S.Infinity, "-")
+            return Limit(e, z, z0, dir) if isinstance(r, Limit) else r
     if isinstance(ee, Expr) and ee.has(z) and ee.has(S.Infinity, S.NegativeInfinity, S.ComplexInfinity, S.NaN):
         # Limit.doit returns itself for an expression holding oo, zoo or nan
         # (`limit(oo/x, x, oo)`, `limit((1 + x)**oo, x, 0)`).
