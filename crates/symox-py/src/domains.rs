@@ -1056,6 +1056,11 @@ impl PyDomainElement {
             let (n,d)=self.value.gaussian_fraction().map_err(err)?;
             return Ok(Self{value:if denominator {d}else{n}});
         }
+        if let Some(parts) = self.value.inexact_fraction_parts() {
+            let (n, d) = parts.map_err(err)?;
+            let domain = self.value.domain.ring().map_err(err)?;
+            return domain.convert(if denominator { &d } else { &n }).map(|value| Self { value }).map_err(coercion);
+        }
         let (domain, e) = match (&self.value.domain, &self.value.value) {
             (ExactDomain::Functions { ring: true, .. } | ExactDomain::Composite { ring: true, .. }, _) => {
                 return if denominator {

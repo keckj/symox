@@ -469,6 +469,16 @@ impl std::hash::Hash for DomainElement {
     }
 }
 impl DomainElement {
+    /// `numer` and `denom` of an element of `RR(y...)` or `CC(y...)`, as
+    /// expressions of the associated ring.
+    pub fn inexact_fraction_parts(&self) -> Option<PResult<(Expr, Expr)>> {
+        if !matches!(self.domain, ExactDomain::Composite { ring: false, .. }) {
+            return None;
+        }
+        let g = self.domain.inexact_ground()?;
+        let ElementValue::Inexact(e) = &self.value else { return None };
+        Some(super::inexact_ground::element_parts(&g, e))
+    }
     /// Element operations of `RR[y]`, `CC(y)`, ... (see `inexact_ground`).
     fn inexact_op(&self, other: &Self, op: &str) -> Option<PResult<Self>> {
         let g = self.domain.inexact_ground()?;

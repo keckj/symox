@@ -9910,3 +9910,65 @@ Remaining (documented, not fixed):
   symox returns the polynomial.
 
 Tests: `tests/test_matparam_parity.py`.
+
+## rrcc (wave 16): RR/CC and Gaussian composite domains
+
+Probe of 269 statements against SymPy 1.14 (mixed RR/ZZ[y], several
+generators over RR[y], apart/invert/gcdex, explicit CC, RR(x) fields,
+Gaussian sqf_list, CC[y] inference, `.rep`, precision with RealField(100)
+and 30-digit Floats): 220 identical before, 233 after, plus 2 intentional
+corrections. No statement that matched before differs now.
+
+Implemented:
+- `invert`, `gcdex` and `half_gcdex` over RR above 53 bits (expressions and
+  Poly methods) keep the precision of the inputs, as SymPy:
+  `invert(Float('1.5', 30)*x, x**2 + 1)` is
+  `-0.666666666666666666666666666667*x` (it gave `-2*x/3`).
+- `Poly.trunc` over RR: the floor modulo of every coefficient at the domain
+  precision (it raised TypeError).
+- Zero Float coefficients make the domain RR (`Poly(0.0, x)`,
+  `Poly([0.0, 1], x)`, the largest precision met), and the zero polynomial
+  over RR gives `0.0` for `LC`, `TC`, `nth`, `coeffs` and `terms`.
+- `numer` and `denom` of RR(x) and CC(x) elements (they returned the whole
+  fraction and 1, so printing `x/(x + 1)` in `RR.frac_field(x).field`
+  raised CoercionFailed).
+- Expression `sqf_list` with float factors builds each component on its
+  own domain, as `_symbolic_factor_list`: `sqf_list(2.0*(x - y)**2*(x + y))`
+  is `(2.0, [(x + y, 1), (x - y, 2)])` (factors were `1.0*x + 1.0*y`).
+- RR or RR[y] against ZZ[y] or QQ(y) (`+ - *`, gcd, compose, rem) unify to
+  RR[y]/RR(y) instead of raising TypeError, in one or several generators
+  and in both operand orders.
+- `content` and `primitive` over RR[y] in several generators: the monic gcd
+  over the exact QQ[y], as `dmp_inner_gcd` on inexact grounds
+  (`Poly(1.5*y*x*z + 3*y, x, z).content()` is `1.0*y`; it gave `3/2`).
+
+Intentional correction:
+- ZZ_I `sqf_list`: SymPy keeps the factors of `dmp_sqf_list` but loses their
+  unit, so `Poly((I*x + 1)**2, x).sqf_list()` is `(1, [(-x + I, 2)])`, whose
+  product is `-(I*x + 1)**2`. symox keeps the same factors and returns the
+  unit that makes the product exact: `(-1, [(-x + I, 2)])`. Same for
+  `(I*x + y)**3`, `(I*x + 2*y)**2` and `(2*I*x + 1)**2*(x + I)`; the tests
+  check the expanded product.
+
+Remaining (documented, not fixed):
+- Explicit `domain=CC` or `ComplexField(prec)` as a Poly domain (and
+  `set_domain(CC)`, `unify` with a CC Poly, `factor(..., domain=CC)`, and
+  `factor(x**2 - 2, domain=RR)`): NotImplementedError, there is no plain CC
+  coefficient backend. The inferred CC Poly (`Poly(x + I/2, x)`) is the
+  legacy RR representation with `I` as a domain generator: its gcd,
+  invert and gcdex with other CC polys raise TypeError or ValueError.
+- gcd of multivariate RR[y] polynomials (ValueError, only ring arithmetic
+  is supported in several generators), the lcm scaling over RR[y] in several
+  generators (`3.0*x**2*z + ...` in SymPy, `1.0*x**2*z + ...` in symox,
+  the same lcm up to a unit), `integrate` over RR[y] (SymPy moves to RR(y)),
+  and the sqf_list unit over RR[y] in several generators.
+- `RR.frac_field(x)` elements are stored as normalised expressions, so
+  `x/2` prints `0.5*x` (SymPy `x/2.0`).
+- Zero Floats at high precision print `0.00000000000000000000000000000`
+  (SymPy `0.0`): core Float printing.
+- `Poly(-(x - I*y)**2, x, y)` builds the legacy `ZZ[I]` domain instead of
+  `ZZ_I` after an earlier `sqf_list` or `factor_list` of the same
+  expression (state-dependent, also on main; the expanded form is right).
+- The TypeError text of `trunc` over QQ names `QQ` (SymPy `PythonMPQ`).
+
+Tests: `tests/test_rrcc_parity.py`.

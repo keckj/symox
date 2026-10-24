@@ -362,7 +362,15 @@ pub(super) fn global_list<'py>(
         return domain_list(f, gens, kwargs, squarefree, polys);
     }
     if symbolic {
-        if squarefree {
+        // Over `RR` the reference `_symbolic_factor_list` builds each
+        // multiplicative component on its own domain (`2.0*(x - y)**2`
+        // gives `(2.0, [(x - y, 2)])`): take the component route of
+        // `factor_list`.
+        let inexact = p.field.is_none()
+            && p.algebraic.is_none()
+            && p.expression.is_none()
+            && matches!(p.base.domain, symox::poly::polyobj::Domain::RR(_));
+        if squarefree && !inexact {
             let (factors, denominator) =
                 native::symbolic_list(&p, true, Limits::default()).map_err(err)?;
             return Ok(render_list(factors, denominator, f.py(), polys)?
