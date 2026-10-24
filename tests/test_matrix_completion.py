@@ -89,11 +89,12 @@ def test_explicit_domains_and_conversion_failures(cls):
         matrix.to_DM(domain=sx.QQ, field=True)
     with pytest.raises(sx.CoercionFailed):
         cls([[sx.Rational(1, 2)]]).to_DM(domain=sx.ZZ)
-    formal = cls([[sx.sin(x)]]).to_DM()
-    assert formal.domain == sx.EXRAW and formal.to_Matrix() == cls([[sx.sin(x)]])
+    formal = cls([[sx.sqrt(2)*x]]).to_DM()
+    assert formal.domain == sx.EXRAW and formal.to_Matrix() == cls([[sx.sqrt(2)*x]])
+    assert cls([[sx.sin(x)]]).to_DM().domain == sx.ZZ[sx.sin(x)]
     numerical = cls([[sx.Float('1.2')]]).to_DM()
     assert numerical.domain == sx.RR and numerical.to_Matrix() == cls([[sx.Float('1.2')]])
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(sx.OptionError):
         matrix.to_DM(unsupported=True)
     algebraic = cls([[sx.sqrt(2), 1]])
     dm = algebraic.to_DM(extension=True)

@@ -176,10 +176,34 @@ def _float_matrix(self):
     return self.is_square and self.rows > 0 and self.has(Float)
 
 
+def _jordan_exp(self):
+    # The reference always takes the Jordan route; its forms (cos/sin for
+    # [[0, r], [-r, 0]], exp(a)*... for triangular blocks) are kept for Float
+    # and symbolic matrices.  Exact numeric matrices keep the native Hermite
+    # interpolation (same values, both routes give other forms there).
+    # Known nonfinite symbols, function values or numbers keep the native
+    # rejection (ValueError).
+    from . import Float, Function, Symbol, Number
+    if not (self.is_square and self.rows > 0):
+        return False
+    if self.has(Float):
+        return True
+    if not self.free_symbols:
+        return False
+    for entry in self:
+        if any(atom.is_finite is False
+               for atom in entry.atoms(Symbol, Function, Number)):
+            return False
+        if entry.is_finite is False:
+            return False
+    return True
+
+
 def exp(self):
     """SymPy's ``MatrixBase.exp`` (Jordan form route) for matrices with
-    Float entries; exact matrices keep the native Hermite interpolation."""
-    if not _float_matrix(self) or _native_skew_case(self):
+    Float or symbolic entries; exact numeric matrices keep the native
+    Hermite interpolation."""
+    if not _jordan_exp(self) or _native_skew_case(self):
         return _native_exp(self)
     from . import diag, re
     MatrixError, _, _ = _errors()

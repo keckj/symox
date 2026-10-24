@@ -21,8 +21,8 @@ def test_new_domain_inference(kind, case):
     values = [sx.I, sx.I/2, precise, precise+sx.I, sx.sqrt(2),
               sx.sin(x), sx.exp(x), sx.sqrt(2)+x, sx.Float('0.0')]
     domains = [sx.ZZ_I, sx.QQ_I, sx.RealField(precise._prec),
-               sx.ComplexField(precise._prec), sx.EXRAW, sx.EXRAW,
-               sx.EXRAW, sx.EXRAW, sx.RR]
+               sx.ComplexField(precise._prec), sx.EXRAW, sx.ZZ[sx.sin(x)],
+               sx.ZZ[sx.exp(x)], sx.EXRAW, sx.RR]
     matrix = kind([[values[case], 0], [0, 1]])
     actual = matrix.to_DM()
     assert actual.domain == domains[case]

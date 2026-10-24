@@ -175,12 +175,61 @@ def _inv_inexact(M, complexes, prec):
         return Matrix([[back(a[r][n + c]) for c in range(n)] for r in range(n)])
 
 
+def _inexact_composite_DM(M):
+    """The ``to_DM`` of ``M`` when it is over ``RR[...]``/``CC[...]`` or
+    their fraction fields, else None (only Float entries can give these)."""
+    from . import Float
+    if not any(isinstance(x, Float) or getattr(x, 'has', None) and x.has(Float)
+               for x in M):
+        return None
+    dM = M.to_DM()
+    dom = dM.domain
+    if dom.is_Exact or dom.is_EXRAW or dom.is_RR or dom.is_CC:
+        return None
+    return dM
+
+
+def _inv_DM_inexact(M, dM):
+    """SymPy's ``_inv_DM`` for an inexact composite domain: the matrix is
+    converted to ``dom.get_exact()`` (``QQ[a]`` for ``RR[a]``) with the
+    ground's ``to_rational`` of each Float, inverted there by ``inv_den``,
+    converted back and divided by the denominator in the field."""
+    from . import Float, QQ, NonInvertibleMatrixError
+    from .polys.matrices import DomainMatrix
+    from .polys.matrices.exceptions import DMNonInvertibleMatrixError
+    dom = dM.domain
+    exact = dom.get_exact()
+    ground = dom.dom
+
+    def to_exact(value):
+        expr = dom.to_sympy(value)
+        rep = {f: QQ.to_sympy(QQ.convert_from(ground(f), ground))
+               for f in expr.atoms(Float)}
+        return exact.from_sympy(expr.xreplace(rep))
+    dE = DomainMatrix({i: {j: to_exact(v) for j, v in row.items()}
+                       for i, row in dM.to_dod().items()}, dM.shape, exact)
+    try:
+        dMi, den = dE.inv_den()
+    except DMNonInvertibleMatrixError:
+        raise NonInvertibleMatrixError("Matrix det == 0; not invertible.")
+    dMi = dMi.convert_to(dom)
+    den = dom.convert_from(den, exact)
+    if not dMi.domain.is_Field:
+        dMi = dMi.to_field()
+    return (dMi / den).to_Matrix()
+
+
 def inv(M, method=None, iszerofunc=None, try_block_diag=False, **kwargs):
     if method is None and iszerofunc is None and not try_block_diag \
             and not kwargs and M.is_square and M.rows:
         dom = _inexact_domain(M)
         if dom is not None:
             return _like(M, _inv_inexact(M, *dom))
+    if method in (None, 'DM') and iszerofunc is None and not try_block_diag \
+            and not kwargs and M.is_square and M.rows:
+        dM = _inexact_composite_DM(M)
+        if dM is not None:
+            return _like(M, _inv_DM_inexact(M, dM))
     if method in ('LU', 'BLOCK') and not try_block_diag and not kwargs:
         from . import NonSquareMatrixError
         if not M.is_square:
