@@ -9170,3 +9170,67 @@ Remaining (unsupported or a different form, never a wrong value):
   issues 5164 and 5383.
 
 Tests: `tests/test_limwrong_parity.py`.
+
+## intrest4 (wave 13): integration corpus leftovers
+
+Wrong results fixed (intentional corrections, SymPy is wrong):
+- The Meijer G rewrites of a shifted Heaviside (`Heaviside(x - b)`,
+  `Heaviside(b - x)`, `Heaviside(2*x + 4)`) hold for `x > 0` only, but
+  `meijerint_indefinite` returns them as antiderivatives on the whole real
+  line. The reference's `integrate(Heaviside(x - 1/2), (x, -1, 1))` is 2
+  (true value 1/2), `integrate(Heaviside(x - a), (x, -1, 1))` with a
+  positive is 2 at a = 0.3 (true 0.7), `Heaviside(a - x)` and
+  `Heaviside(x + a)` give 0 at a = 0.3 (true 1.3), and the antiderivative
+  of `Heaviside(2*x + 4)` has derivative 0 for x > 2. In the term loop of
+  `integrate`, a term with a Heaviside of `x` now skips the Meijer G stage
+  unless `x` is nonnegative or the definite integral runs over nonnegative
+  bounds; it goes to `manualintegrate`, as in the reference's next stage:
+  `(x - 1/2)*Heaviside(x - 1/2)`, value 1/2; `(1 - a)*Heaviside(1 - a)` for
+  a positive; `(1 - b)*Heaviside(1 - b) - (-b - 1)*Heaviside(-b - 1)`
+  without assumptions, where the reference held an integral of the invalid
+  rewrite. On (0, 1) the reference's G form is right and is kept (the
+  corpus entries stay SAME). The public `meijerint_indefinite` is
+  unchanged.
+
+Forms ported:
+- `_simpc` of `_laplace_trig_ltex`: the numerator coefficients of a pole
+  pair are rewritten in `cos` through `as_real_imag`, so
+  `laplace_transform(Heaviside(t - a)*sin(t), t, s)` with a positive is
+  `(s*cos(a - pi/2) + cos(a))*exp(-a*s)/(s**2 + 1)` and
+  `laplace_transform(sin(t + r), t, s)` with r real is
+  `(s*cos(r - pi/2) + cos(r))/(s**2 + 1)` (both EQUIV -> SAME).
+
+Corpus entries reviewed and kept:
+- DIFF (10), `laplace_transform(1/(t+1))`: SymPy's `-exp(-s)*Ei(-s)` is
+  wrong, symox's `-exp(s)*Ei(-s)` equals e**s*E1(s) and the quadrature at
+  s = 1/2, 1, 3. Intentional correction.
+- MISSING (17 of 21), `1/(x+a)`, `1/(x-a)`, `1/(1+a*x)` on (0, 1) and `1/x`
+  on (a, 1): held on purpose, SymPy's unconditional value is that of a
+  divergent integral when the pole reaches the interval (a = -1/2 for
+  `1/(x+a)`, `1/(1+a*x)` with a = -2, `1/x` with a = -1, `1/(x-a)` with
+  a = 1/2, also for the positive set). The other 4 are the documented
+  `1/(x**2+a)` holds on (0, oo).
+- MISSING (1) `cos(s*x)` on (0, oo) with s nonzero: depends on
+  `limit(sin(s*x)/s, x, oo)` (limits, task limrest).
+
+Remaining (different forms, never a wrong value):
+- `mellin_transform(besselj(0, x))` (8 EQUIV): `2**s/2` vs `2**(s - 1)`:
+  `simplify(2**(s - 1)*gamma(s/2)/gamma(1 - s/2))` picks the other form
+  of a count_ops tie (simplify candidate selection, task simp-tie).
+- `hankel_transform(exp(-a*x)/x, x, k, 0)` with real symbols: both libraries
+  integrate to `1/(k*sqrt(a**2/k**2 + 1))`; SymPy's `simplify` gives
+  `Abs(k)/(k*sqrt(a**2 + k**2))`, symox's keeps it (simplify area).
+- `ratint(1/(x**3 + x + 1))`: 82 KB vs 17 KB. `log_to_real` is the same
+  algorithm; the forms split at `roots_quadratic` of the `v` polynomial in
+  the EX domain, which calls `simplify(-c/a)` on a nested cube-root radical
+  and gets a different candidate (simplify area; `poly/roots.rs` also has
+  pending user work), and grow from there in `A**2 + B**2`.
+- `cos(x)/x` on (1, oo) (5 EQUIV): the hyperexpanded Meijer G terms are
+  combined differently (`-2*EulerGamma/sqrt(pi)` vs
+  `-(EulerGamma + 2*log(2))/sqrt(pi) - EulerGamma/sqrt(pi)`); not traced
+  within the budget.
+- `Heaviside(x - a)` on (-1, 1) with an unassumed or real a: symox now
+  evaluates (above) where SymPy holds the invalid rewrite.
+
+Tests: `tests/test_intrest4_parity.py`; `tests/test_integrate_methods_corpus.py`
+records the corrected `integrate(Heaviside(2*x + 4), x)`.

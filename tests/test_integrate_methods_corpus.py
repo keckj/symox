@@ -460,7 +460,9 @@ CASES = [
     ('test_manual.py', (), 'integrate(x*Heaviside(-x), x, manual=True)', 'Mul', 'x**2*Heaviside(-x)/2'),
     ('test_manual.py', (), 'integrate(x*Heaviside(-x), x, risch=True)', 'Integral', 'Integral(x*Heaviside(-x), x)'),
     ('test_manual.py', (), 'manualintegrate(Heaviside(2*x + 4), x)', 'Mul', '(x + 2)*Heaviside(2*x + 4)'),
-    ('test_manual.py', (), 'integrate(Heaviside(2*x + 4), x)', 'Piecewise', 'Piecewise((x, Abs(x) < 2), (x*meijerg(((0,), (1,)), ((0,), (-1,)), x*exp_polar(I*pi)/2), True))'),
+    # Intentional correction (intrest4): the reference's Meijer G form has
+    # derivative 0 for x > 2; manualintegrate's antiderivative is right.
+    ('test_manual.py', (), 'integrate(Heaviside(2*x + 4), x)', 'Mul', '(x + 2)*Heaviside(2*x + 4)'),
     ('test_manual.py', (), 'integrate(Heaviside(2*x + 4), x, heurisch=True)', 'Integral', 'Integral(Heaviside(2*x + 4), x)'),
     ('test_manual.py', (), 'integrate(Heaviside(2*x + 4), x, manual=True)', 'Mul', '(x + 2)*Heaviside(2*x + 4)'),
     ('test_manual.py', (), 'integrate(Heaviside(2*x + 4), x, risch=True)', 'Integral', 'Integral(Heaviside(2*x + 4), x)'),

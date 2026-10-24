@@ -803,8 +803,8 @@ fn pair_poles(mut xm: Vec<(Expr, Expr)>, s: &Expr) -> (Expr, Expr) {
             Some(j) => {
                 let (k1, a1) = xm.remove(j);
                 planes.push(re(&a1));
-                let c1 = ex(&add(&[k0.clone(), k1.clone()]));
-                let c0 = ex(&neg(&add(&[mul(&[k0, a1.clone()]), mul(&[k1, a0.clone()])])));
+                let c1 = simpc(&ex(&add(&[k0.clone(), k1.clone()])));
+                let c0 = simpc(&ex(&neg(&add(&[mul(&[k0, a1.clone()]), mul(&[k1, a0.clone()])]))));
                 let num = add(&[mul(&[c1, s.clone()]), c0]);
                 let den = ex(&mul(&[sub(s, &a0), sub(s, &a1)]));
                 results.push(div(&num, &den));
@@ -814,6 +814,24 @@ fn pair_poles(mut xm: Vec<(Expr, Expr)>, s: &Expr) -> (Expr, Expr) {
     }
     let plane = if planes.len() == 1 { planes.pop().unwrap() } else { max(planes) };
     (add(&results), plane)
+}
+
+/// `_simpc` of `_laplace_trig_ltex`: a numerator coefficient of a pole
+/// pair is rewritten in `cos`, through its real and imaginary parts when
+/// these are free of `im` (`-I*exp(I*a)/2 + I*exp(-I*a)/2` with `a` real
+/// becomes `cos(a - pi/2)`).
+fn simpc(c: &Expr) -> Expr {
+    let cos_rule = |e: &Expr| crate::special::rewrite::rewrite(e, &[], "cos", true);
+    let Ok(Some((r, i))) = crate::complex_parts::as_real_imag(c, true, None) else {
+        return cos_rule(c);
+    };
+    let mut has_im = false;
+    crate::traverse::preorder(&r, &mut |n| has_im |= matches!(n.kind(), Kind::Func(Func::Im, _)));
+    if has_im {
+        cos_rule(c)
+    } else {
+        cos_rule(&add(&[r, mul(&[Expr::i(), i])]))
+    }
 }
 
 fn rule_diff(f: &Expr, t: &Expr, s: &Expr, depth: u32) -> Option<R> {
