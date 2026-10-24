@@ -9,6 +9,8 @@ finite field is computed here with Poly arithmetic modulo p: the reference
 import functools
 import re
 
+from . import _inexact_functions as _inexact
+
 _NAMES = ('factor', 'factor_list', 'sqf', 'sqf_list', 'gcd', 'lcm', 'cancel',
           'div', 'quo', 'rem', 'gcdex', 'invert')
 _PATTERN = re.compile(r'^\s*(?:GF|FF)\s*\(\s*(\d+)\s*\)\s*$')
@@ -145,6 +147,26 @@ def install(namespace):
                 relabeled = _relabel_roots(name, fargs, args)
                 if relabeled is not None:
                     return _restore_roots(native(*relabeled[0], **args), relabeled[1])
+                if name in _inexact.NAMES and _inexact.selected(fargs, args):
+                    try:
+                        return native(*fargs, **args)
+                    except NotImplementedError as exc:
+                        try:
+                            return _inexact.call(name, fargs, args)
+                        except NotImplementedError:
+                            raise exc
+                if name in _inexact.EUCLID and not args and len(fargs) == 2:
+                    try:
+                        return native(*fargs, **args)
+                    except ValueError as exc:
+                        # The inferred CC (Float and I coefficients) is a
+                        # ComplexField, which the Poly methods support.
+                        if str(exc) != 'univariate polynomial expected':
+                            raise
+                        try:
+                            return _inexact.call(name, fargs, args)
+                        except Exception:
+                            raise exc
                 return native(*fargs, **args)
             wrapper._symox_ff_options = True
             return wrapper

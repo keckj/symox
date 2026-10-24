@@ -309,11 +309,6 @@ REFERENCE = [
      'ZZ_I(y)'),
     ('Poly(I*x*y, x).rep.to_list()',
      '[(0 + 1*I)*y, (0 + 0*I)]'),
-]
-
-# Reference outputs that symox does not reproduce yet; see the remaining gaps
-# in docs/algorithmic-parity.md.
-GAPS = [
     ('sqf_list(Poly((x + I*y)**2*(x - z)*z, x, z))',
      "(1, [(Poly(x*z - z**2, x, z, domain='ZZ_I[y]'), 1), (Poly(x + I*y, x, z, domain='ZZ_I[y]'), 2)])"),
     ('sqf_list(Poly((x + I/y)**2*(x - z), x, z))',
@@ -323,10 +318,4 @@ GAPS = [
 
 @pytest.mark.parametrize('case, expected', REFERENCE)
 def test_gaussian_fraction_case_matches_reference(case, expected):
-    assert outcome(case) == expected
-
-
-@pytest.mark.xfail(strict=True, reason='documented remaining gap')
-@pytest.mark.parametrize('case, expected', GAPS)
-def test_gaussian_fraction_gap(case, expected):
     assert outcome(case) == expected

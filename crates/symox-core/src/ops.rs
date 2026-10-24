@@ -1468,6 +1468,41 @@ fn infinite_power(b: &Expr, e: &Expr) -> Option<Expr> {
     }
 }
 
+/// Pow._eval_power `_half` branch: for a numeric base `b`, an integer
+/// inner exponent `a` (|a| >= 2) and an outer exponent `e = p/2`, the
+/// branch factor `exp(2*pi*I*e*floor(1/2 - a*arg(b)/(2*pi)))` is `+-1`, so
+/// `(b**a)**e = +-b**(a*e)`. A floor argument numerically too close to an
+/// integer is only accepted when it is exact (a negative real base, whose
+/// argument is pi); otherwise the power is left unevaluated.
+fn half_branch_power(bb: &Expr, be: &Expr, e: &Expr) -> Option<Expr> {
+    let a = be.as_i64()?;
+    let Kind::Num(en) = e.kind() else { return None };
+    if a == -1 || a.abs() < 2 || !en.is_rational() || en.denom().to_i64() != Some(2) || !crate::symbolic_number::is_symbolic_number(bb) {
+        return None;
+    }
+    let p = en.numer().to_i64()?;
+    let n = if crate::assumptions::is_negative(bb) == Some(true) {
+        // arg(b) = pi, floor(1/2 - a/2) is exact.
+        (1 - a).div_euclid(2)
+    } else {
+        if crate::assumptions::is_real(bb) != Some(false) {
+            return None;
+        }
+        let z = crate::evalf::eval_c64(bb)?;
+        let norm = z.norm();
+        if !z.re.is_finite() || !z.im.is_finite() || norm == 0.0 || z.re.abs() <= 1e-12 * norm {
+            return None;
+        }
+        let t = 0.5 - (a as f64) * z.arg() / (2.0 * std::f64::consts::PI);
+        if (t - t.round()).abs() < 1e-9 || t.abs() > 1e12 {
+            return None;
+        }
+        t.floor() as i64
+    };
+    let value = pow(bb, &mul2(be, e));
+    Some(if (p * n).rem_euclid(2) == 1 { neg(&value) } else { value })
+}
+
 /// Canonical power `b ** e`.
 pub fn pow(b: &Expr, e: &Expr) -> Expr {
     if !e.is_zero() {
@@ -1598,6 +1633,9 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                     || (!be.is_number() && crate::assumptions::is_even(be) == Some(true)))
             {
                 return pow(&crate::functions::abs(bb), &mul2(be, e));
+            }
+            if let Some(value) = half_branch_power(bb, be, e) {
+                return value;
             }
         }
         Kind::Mul(..) if b.has_noncommutative_host() && crate::decompose::commutativity(b) != Some(true) => {

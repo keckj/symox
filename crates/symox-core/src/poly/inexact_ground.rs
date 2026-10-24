@@ -18,7 +18,7 @@ use super::convert::{PResult, PolyError};
 use super::expression_domain::ExpressionPoly;
 use super::gaussian as gi;
 use super::gaussian_ground::GaussianGround;
-use super::int::{Int, Rat};
+use super::int::{Field as _, Int, Rat};
 use super::mpoly::MPoly;
 use crate::bigfloat::{dps_to_prec, prec_to_dps, BigFloat as BF};
 use crate::expr::{Expr, Kind};
@@ -949,6 +949,10 @@ pub struct E {
 pub struct Dom {
     r: Ring,
     field: bool,
+    /// The plain field `CC`/`ComplexField(prec)` (no domain symbols): the
+    /// elements are scalars, `gcd` is one and polynomial gcds go through
+    /// `QQ_I` (`dup_inner_gcd` of `K.is_CC`).
+    scalar: bool,
     symbols: Vec<Expr>,
     ground: GaussianGround,
 }
@@ -961,7 +965,8 @@ thread_local! {
 impl Dom {
     pub fn new(g: &GaussianGround) -> Option<Dom> {
         let k = g.inexact?;
-        Some(Dom { r: Ring { k, m: g.symbols.len(), symbols: g.symbols.clone() }, field: !g.ring, symbols: g.symbols.clone(), ground: g.clone() })
+        let scalar = g.symbols.is_empty();
+        Some(Dom { r: Ring { k, m: g.symbols.len(), symbols: g.symbols.clone() }, field: !g.ring || scalar, scalar, symbols: g.symbols.clone(), ground: g.clone() })
     }
     fn k(&self) -> &Inexact {
         &self.r.k
@@ -998,6 +1003,16 @@ impl Dom {
     }
     /// `FracElement.new`: `raw_new(*numer.cancel(denom))`.
     fn frac(&self, n: R, d: R) -> PResult<E> {
+        if self.scalar {
+            // a scalar quotient: `a / b` of `mpc` values
+            if self.r.is_one(&d) || n.is_empty() {
+                return Ok(self.raw(n));
+            }
+            if d.is_empty() {
+                return Err(reference("ZeroDivisionError", ""));
+            }
+            return Ok(self.raw(self.r.quo_ground(&n, &self.r.lc(&d))?));
+        }
         let (n, d) = self.r.cancel(&n, &d)?;
         Ok(E { n, d })
     }
@@ -1057,6 +1072,9 @@ impl Dom {
             return Err(reference("ZeroDivisionError", ""));
         }
         let k = n.unsigned_abs();
+        if self.scalar {
+            return self.frac(self.r.pow(&a.d, k)?, self.r.pow(&a.n, k)?);
+        }
         Ok(E { n: self.r.pow(&a.d, k)?, d: self.r.pow(&a.n, k)? })
     }
     fn sqr(&self, a: &E) -> PResult<E> {
@@ -1088,6 +1106,9 @@ impl Dom {
         Ok(self.raw(self.r.rem(&a.n, &b.n)?))
     }
     fn gcd(&self, a: &E, b: &E) -> PResult<E> {
+        if self.scalar {
+            return Ok(self.one());
+        }
         if !self.field {
             return Ok(self.raw(self.r.gcd(&a.n, &b.n)?));
         }
@@ -1096,6 +1117,9 @@ impl Dom {
         self.frac(p, q)
     }
     fn lcm(&self, a: &E, b: &E) -> PResult<E> {
+        if self.scalar {
+            return self.mul(a, b);
+        }
         if !self.field {
             return Ok(self.raw(self.r.lcm(&a.n, &b.n)?));
         }
@@ -1124,7 +1148,7 @@ impl Dom {
         GaussianGround::coercion_error(&self.ground, e)
     }
     pub fn to_expr(&self, a: &E) -> Expr {
-        let e = if self.field {
+        let e = if self.field && !self.scalar {
             crate::ops::div(&self.r.to_expr(&a.n, &self.symbols), &self.r.to_expr(&a.d, &self.symbols))
         } else {
             self.r.to_expr(&a.n, &self.symbols)
@@ -1132,7 +1156,7 @@ impl Dom {
         // A fraction with a constant denominator prints like several distinct
         // representations (`0.5/0.5` and `1.0/1`), so only exact round trips
         // are remembered.
-        if self.field && a.d.iter().all(|(k, _)| k.iter().all(|&x| x == 0)) {
+        if self.scalar || (self.field && a.d.iter().all(|(k, _)| k.iter().all(|&x| x == 0))) {
             return e;
         }
         CACHE.with(|c| {
@@ -1148,6 +1172,12 @@ impl Dom {
     pub fn from_expr(&self, e: &Expr) -> PResult<E> {
         if let Some(v) = CACHE.with(|c| c.borrow().get(&(e.clone(), *self.k(), self.field, self.symbols.clone())).cloned()) {
             return Ok(v);
+        }
+        if self.scalar {
+            // `ComplexField.from_sympy`: `evalf(n=dps)` of the whole number
+            if let Some(c) = self.k().from_number(e) {
+                return Ok(self.from_c(c));
+            }
         }
         self.rebuild(e)
     }
@@ -1686,6 +1716,9 @@ impl Dom {
     /// `dup_inner_gcd` over the composite domain (`dup_rr_prs_gcd` or
     /// `dup_ff_prs_gcd`).
     fn inner_gcd(&self, f: &[E], g: &[E]) -> PResult<(U, U, U)> {
+        if self.scalar {
+            return self.cc_inner_gcd(f, g);
+        }
         if let Some(r) = self.trivial_gcd(f, g)? {
             return Ok(r);
         }
@@ -1706,6 +1739,55 @@ impl Dom {
         let cff = self.d_quo(f, &h)?;
         let cfg = self.d_quo(g, &h)?;
         Ok((h, cff, cfg))
+    }
+    /// `dup_inner_gcd` over `CC`: the coefficients go to `QQ_I`
+    /// (`QQ.convert` of each part), the gcd and cofactors are computed
+    /// there (`dup_ff_prs_gcd`, a monic gcd) and come back through
+    /// `CC.from_GaussianRationalField`.
+    fn cc_inner_gcd(&self, f: &[E], g: &[E]) -> PResult<(U, U, U)> {
+        let _s = AlgebraicScope::new(gi::field());
+        let conv = |p: &[E]| -> MPoly<AN> {
+            let n = p.len();
+            MPoly::from_terms(
+                1,
+                p.iter()
+                    .enumerate()
+                    .filter_map(|(i, c)| {
+                        let (x, y) = c.n.get(&[]).map(|v| self.k().exact_parts(v)).unwrap_or((Rat::zero(), Rat::zero()));
+                        (!x.is_zero() || !y.is_zero()).then(|| (vec![(n - 1 - i) as u32], gi::make(x, y)))
+                    })
+                    .collect(),
+            )
+        };
+        let back = |p: &MPoly<AN>| -> U {
+            if p.is_zero() {
+                return Vec::new();
+            }
+            let top = p.lm()[0] as usize;
+            let mut v = vec![self.zero(); top + 1];
+            for (e, c) in p.iter() {
+                let (x, y) = gi::parts(c);
+                v[top - e[0] as usize] = self.from_c(self.k().from_parts(&x, &y));
+            }
+            self.strip(v)
+        };
+        let (fe, ge) = (conv(f), conv(g));
+        let monic = |p: &MPoly<AN>| p.scale(&p.lc().inv());
+        let constant = |c: AN| MPoly::from_terms(1, vec![(vec![0], c)]);
+        let (h, a, b) = if fe.is_zero() && ge.is_zero() {
+            (fe.clone(), fe.clone(), fe.clone())
+        } else if fe.is_zero() {
+            (monic(&ge), fe.clone(), constant(ge.lc()))
+        } else if ge.is_zero() {
+            (monic(&fe), constant(fe.lc()), ge.clone())
+        } else {
+            let h = super::algebraic_multi::gcd(&fe, &ge)?;
+            let h = monic(&h);
+            let a = super::algebraic_multi::exact(&fe, &h)?;
+            let b = super::algebraic_multi::exact(&ge, &h)?;
+            (h, a, b)
+        };
+        Ok((back(&h), back(&a), back(&b)))
     }
     fn d_gcd(&self, f: &[E], g: &[E]) -> PResult<U> {
         Ok(self.inner_gcd(f, g)?.0)
@@ -2269,7 +2351,60 @@ pub fn pexquo(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly>
     }
     k.poly(&q, &f.gens)
 }
+/// `_dmp_inner_gcd` of an inexact domain in several generators: the
+/// coefficients go to the exact domain (`RR[y].get_exact()` is `QQ[y]`,
+/// each `mpf` through `to_rational`), the gcd and cofactors are computed
+/// there and come back through the inexact ground.
+fn exact_multi_cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<Option<(ExpressionPoly, ExpressionPoly, ExpressionPoly)>> {
+    let ground = f.ground.as_ref().expect("inexact ground");
+    if f.gens.len() < 2 || !ground.ring || ground.symbols.is_empty() || ground.inexact.is_none_or(|k| k.complex) {
+        return Ok(None);
+    }
+    let k = dom(f);
+    let exact = |p: &ExpressionPoly| -> PResult<Expr> {
+        let mut terms = Vec::new();
+        for (m, c) in p.terms() {
+            let e = k.from_expr(&c)?;
+            let mut parts = Vec::new();
+            for (ey, v) in e.n.iter() {
+                let mut factors = vec![super::convert::rat_to_expr(&k.k().exact_parts(v).0)];
+                for (s, &d) in k.symbols.iter().zip(ey) {
+                    if d > 0 {
+                        factors.push(crate::ops::powi(s, d as i64));
+                    }
+                }
+                parts.push(crate::ops::mul(&factors));
+            }
+            let mut factors = vec![crate::ops::add(&parts)];
+            for (x, &d) in p.gens.iter().zip(&m) {
+                if d > 0 {
+                    factors.push(crate::ops::powi(x, d as i64));
+                }
+            }
+            terms.push(crate::ops::mul(&factors));
+        }
+        Ok(crate::ops::add(&terms))
+    };
+    let names = k.symbols.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(",");
+    let display = format!("QQ[{names}]");
+    let fa = super::fraction::FractionPoly::from_expr(&exact(f)?, &f.gens, &k.symbols, &display)?;
+    let fb = super::fraction::FractionPoly::from_expr(&exact(g)?, &f.gens, &k.symbols, &display)?;
+    let h = fa.gcd(&fb);
+    if h.rep.is_zero() {
+        return Ok(None);
+    }
+    let (cff, r1) = fa.div(&h)?;
+    let (cfg, r2) = fb.div(&h)?;
+    if !r1.rep.is_zero() || !r2.rep.is_zero() {
+        return Ok(None);
+    }
+    let back = |p: &super::fraction::FractionPoly| ground.convert_expr(&p.as_expr(), &f.gens);
+    Ok(Some((back(&h)?, back(&cff)?, back(&cfg)?)))
+}
 pub fn gcd(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+    if let Some((h, _, _)) = exact_multi_cofactors(f, g)? {
+        return Ok(h);
+    }
     let (k, h) = pair(f, g, |k, a, b| k.d_gcd(a, b))?;
     k.poly(&h, &f.gens)
 }
@@ -2278,6 +2413,9 @@ pub fn lcm(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
     k.poly(&h, &f.gens)
 }
 pub fn cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(ExpressionPoly, ExpressionPoly, ExpressionPoly)> {
+    if let Some(r) = exact_multi_cofactors(f, g)? {
+        return Ok(r);
+    }
     let (k, (h, a, b)) = pair(f, g, |k, a, b| k.inner_gcd(a, b))?;
     Ok((k.poly(&h, &f.gens)?, k.poly(&a, &f.gens)?, k.poly(&b, &f.gens)?))
 }

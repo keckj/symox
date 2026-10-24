@@ -930,6 +930,11 @@ impl PyPoly {
                 let ground=symox::poly::gaussian_ground::GaussianGround{integral:false,ring:true,symbols,inexact:Some(symox::poly::inexact_ground::Inexact{precision:53,complex:head.starts_with('C')})};
                 if !generators.is_empty(){return Ok(Self{p:ground.convert_expr(&e,&generators).map_err(err)?.into()});}
             }
+            // `_re_complexfield`: `CC`, `C`, `CC_100`.
+            let complex=match d {"C"|"CC"=>Some(53u32),_=>d.strip_prefix("CC_").or_else(||d.strip_prefix("C_")).and_then(|n|n.parse::<u32>().ok()).filter(|p|(1..=crate::MAX_REQUESTED_PRECISION).contains(p))};
+            if let Some(precision)=complex.filter(|_|!generators.is_empty()) {
+                return Ok(Self{p:symox::poly::gaussian_ground::GaussianGround::complex_field(precision).convert_expr(&e,&generators).map_err(err)?.into()});
+            }
             if let Some(parameters)=parse_domain(d,&available).map_err(err)? {
                 if generators.is_empty() {generators=infer_parameters(std::slice::from_ref(&e),&parameters);}
                 let p=FractionPoly::from_expr(&e,&generators,&parameters,d).map_err(err)?;
@@ -1033,6 +1038,14 @@ impl PyPoly {
 
     fn other(&self, o: &Bound<'_, PyAny>) -> Option<PolyValue> {
         self.other_base(o).or_else(|| self.inexact_composite_other(o))
+    }
+    /// `other`, or the other `Poly` itself when the pair unifies over a
+    /// composite or inexact ground (`QQ_I` with `RR` is `CC`).
+    fn other_or_unified(&self, o: &Bound<'_, PyAny>) -> Option<PolyValue> {
+        self.other(o).or_else(|| {
+            let q = o.downcast::<PyPoly>().ok()?.get().p.clone();
+            matches!(self.p.checked_expression_pair(&q), Ok(Some(_))).then_some(q)
+        })
     }
     /// `RR` or `RR[y]` against `ZZ[y]` or `QQ(y)`: the reference unifies
     /// the domains (`RR` with `ZZ[y]` is `RR[y]`), so the operand converts
@@ -1182,7 +1195,12 @@ impl PyPoly {
     }
     fn ex_pair(&self,o:&Bound<'_,PyAny>)->PyResult<Option<(ExpressionPoly,ExpressionPoly)>>{
         let other_ex=o.downcast::<PyPoly>().is_ok_and(|q|q.get().p.expression.is_some());
-        if self.p.expression.is_none()&&!other_ex{return Ok(None);}
+        if self.p.expression.is_none()&&!other_ex{
+            // The legacy inferred `CC` (`RR` with the generator `I`) is the
+            // reference `ComplexField`.
+            let Ok(q)=o.downcast::<PyPoly>() else {return Ok(None)};
+            return self.p.checked_expression_pair(&q.get().p).map_err(err);
+        }
         if let Ok(q)=o.downcast::<PyPoly>(){return self.p.checked_expression_pair(&q.get().p).map_err(err);}
         let q=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial"))?;
         self.p.checked_expression_pair(&q).map_err(err)
@@ -1871,17 +1889,17 @@ impl PyPoly {
     }
 
     fn gcd(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
-        let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        let q = self.other_or_unified(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         Ok(PyPoly { p: self.p.checked_gcd(&q).map_err(err)? })
     }
 
     fn lcm(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
-        let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        let q = self.other_or_unified(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         Ok(PyPoly { p: self.p.checked_lcm(&q).map_err(err)? })
     }
 
     fn cofactors<'py>(&self, py: Python<'py>, o: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyTuple>> {
-        let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        let q = self.other_or_unified(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         let (h, a, b) = self.p.checked_cofactors(&q).map_err(err)?;
         PyTuple::new(py, [PyPoly { p: (h).into() }, PyPoly { p: (a).into() }, PyPoly { p: (b).into() }])
     }
@@ -1926,8 +1944,16 @@ impl PyPoly {
         if self.ex().is_some(){return Ok(vec![(self.clone(),1)]);}
         checked_factor_views::include(&self.p,false,false)
     }
+    /// The legacy inferred `CC` (`RR` with the generator `I`) as the
+    /// reference `ComplexField` polynomial.
+    fn legacy_cc(&self)->Option<PyPoly>{
+        if self.p.expression.is_some()||!self.p.base.has_domain_gens(){return None;}
+        let (a,_)=self.p.checked_expression_pair(&self.p).ok()??;
+        a.ground.is_some().then(||PyPoly{p:a.into()})
+    }
     #[pyo3(signature=(all=false))]
     fn sqf_list_include(&self,all:bool)->PyResult<Vec<(PyPoly,u32)>>{
+        if let Some(c)=self.legacy_cc(){return c.sqf_list_include(all);}
         if let Some((f,g))=self.gg(){let(c,fs)=g.sqf_list(f,all).map_err(err)?;return gaussian_include(f,g,c,fs);}
         if let Some(f)=self.ex(){return Ok(f.sqf_list_include(all).map_err(err)?.into_iter().map(|(p,k)|(PyPoly{p:p.into()},k as u32)).collect());}
         checked_factor_views::include(&self.p,true,all)
@@ -1935,6 +1961,7 @@ impl PyPoly {
 
     #[pyo3(signature=(all=false))]
     fn sqf_list<'py>(&self, py: Python<'py>, all:bool) -> PyResult<Bound<'py, PyTuple>> {
+        if let Some(c)=self.legacy_cc(){return c.sqf_list(py,all);}
         if let Some(f)=self.ex(){
             let(c,fs)=match self.gg(){Some((f,g))=>g.sqf_list(f,all).map_err(err)?,None=>f.sqf_list(all).map_err(err)?};
             let items=fs.into_iter().map(|(p,k)|PyTuple::new(py,[PyPoly{p:p.into()}.into_pyobject(py)?.into_any(),(k as u32).into_pyobject(py)?.into_any()])).collect::<PyResult<Vec<_>>>()?;

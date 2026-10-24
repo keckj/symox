@@ -161,7 +161,13 @@ impl PyDomain {
                 }
                 symox::poly::expression_domain::ExpressionPoly::from_expr(e,gens).map(Into::into).map_err(crate::poly::err)
             }
-            ExactDomain::Expression { .. } | ExactDomain::Inexact { complex: true, .. } => Err(PyNotImplementedError::new_err("this domain is not yet supported as a polynomial coefficient backend")),
+            ExactDomain::Inexact { precision, complex: true } => {
+                if gens.is_empty() {
+                    return Err(PyNotImplementedError::new_err("polynomials over CC require generators"));
+                }
+                symox::poly::gaussian_ground::GaussianGround::complex_field(*precision).convert_expr(e, gens).map(Into::into).map_err(crate::poly::err)
+            }
+            ExactDomain::Expression { .. } => Err(PyNotImplementedError::new_err("this domain is not yet supported as a polynomial coefficient backend")),
             ExactDomain::Gaussian { integral } => {
                 let mut p = AlgebraicPoly::from_expr(e, gens, symox::poly::gaussian::field())
                     .map_err(coercion)?;

@@ -1020,10 +1020,20 @@ impl Polynomial {
     }
     fn pair(&self,o:&Self)->Option<(FractionPoly,FractionPoly)>{self.checked_fraction_pair(o).expect("compatible fraction coefficient domains")}
 
+    /// Whether two non-`EX` polynomials unify to the plain field `CC`
+    /// (a legacy float `CC` polynomial, or `RR` with `ZZ_I`/`QQ_I`), whose
+    /// arithmetic runs on the scalar `CC` ground.
+    fn complex_field_pair(&self,o:&Self)->bool{
+        if self.modulus.is_some()||o.modulus.is_some(){return false;}
+        let (Some(a),Some(b))=(super::gaussian_ground::descriptor(self),super::gaussian_ground::descriptor(o)) else {return false};
+        if !a.symbols.is_empty()||!b.symbols.is_empty(){return false;}
+        let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
+        matches!(super::gaussian_ground::unify(&a,&b,&gens),Ok(Some(g)) if g.is_scalar())
+    }
     /// The reference unification with `EX`: every other domain converts
     /// into it coefficient by coefficient, without simplification.
     pub fn checked_expression_pair(&self,o:&Self)->PResult<Option<(ExpressionPoly,ExpressionPoly)>>{
-        if self.expression.is_none()&&o.expression.is_none(){return Ok(None);}
+        if self.expression.is_none()&&o.expression.is_none()&&!self.complex_field_pair(o){return Ok(None);}
         if let Some(m)=self.modulus.or(o.modulus){
             let message=if self.expression.is_some(){format!("Cannot unify EX with GF({m})")}else{format!("Cannot unify GF({m}) with EX")};
             return Err(PolyError::Reference{kind:"UnificationFailed",message});
