@@ -481,10 +481,13 @@ fn heaviside_needs_positive_x(g: &Expr, x: &Expr) -> bool {
     if MEIJER_NONNEG_X.with(|c| c.get()) || crate::assumptions::is_nonnegative(x) == Some(true) {
         return false;
     }
+    // An argument even in x (`Heaviside(x**2 - 1)`) is rewritten in a
+    // nonnegative power of x, valid on the whole real line, as in the
+    // reference (`integrate(Heaviside(x**2 - 1), (x, -2, 2))` is 2).
     let mut found = false;
     crate::traverse::preorder(g, &mut |n| {
         if let Kind::Func(Func::Heaviside, args) = n.kind() {
-            if has(&args[0], x) {
+            if has(&args[0], x) && crate::subs::subs1(&args[0], x, &crate::ops::neg(x)) != args[0] {
                 found = true;
             }
         }
