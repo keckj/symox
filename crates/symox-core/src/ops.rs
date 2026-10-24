@@ -1785,7 +1785,7 @@ fn noncommutative_product_power(b: &Expr, e: &Expr) -> Expr {
 /// the residual power with factors of unknown sign, an even number of
 /// negative factors is made positive, and the residual (non-real, unknown
 /// sign, the odd `-1` and the noncommutative product `nc`) keeps one power.
-fn expand_power_base_split(b: &Expr, cargs: Vec<Expr>, nc: Option<Expr>, e: &Expr) -> Expr {
+pub(crate) fn expand_power_base_split(b: &Expr, cargs: Vec<Expr>, nc: Option<Expr>, e: &Expr) -> Expr {
     use crate::assumptions::fact;
     let (mut nonneg, mut neg, mut other) = (Vec::new(), Vec::new(), Vec::new());
     for x in cargs {

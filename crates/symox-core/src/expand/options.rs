@@ -428,6 +428,16 @@ fn hint_pass(
             }
             _ => crate::traverse::map_children(e, &mut visit),
         }
+    } else if matches!(hint, Hint::PowerBase) && e.is_mul() {
+        // The reference visits each factor of a product as a power node
+        // (`(a*x)**n` in `a*(a*x)**n`), not its base and exponent apart.
+        let args = e.args();
+        let transformed: Vec<_> = args.iter().map(&mut visit).collect();
+        if args.iter().zip(&transformed).all(|(a, b)| a.same_presentation(b)) {
+            e.clone()
+        } else {
+            crate::ops::mul(&transformed)
+        }
     } else {
         crate::traverse::map_children(e, &mut visit)
     };
@@ -502,13 +512,8 @@ pub fn expand_with_options(
     if options.func {
         value = crate::special::expand_func_deep(&value, options.deep);
     }
-    for (enabled, hint) in [
-        (options.log, Hint::Log),
-        (options.power_base, Hint::PowerBase),
-    ] {
-        if enabled {
-            value = hint_pass(&value, options, hint, budget, &mut FxHashMap::default())?;
-        }
+    if options.log {
+        value = hint_pass(&value, options, Hint::Log, budget, &mut FxHashMap::default())?;
     }
     reserve_arithmetic(&value, options, budget, &mut FxHashMap::default())?;
     let arithmetic = |value: &Expr, budget: &mut ExpandBudget| -> Result<Expr> {
@@ -525,6 +530,15 @@ pub fn expand_with_options(
         error.map_or(Ok(value), Err)
     };
     value = arithmetic(&value, budget)?;
+    // SymPy applies the hints in sorted order (multinomial and mul before
+    // power_base), then repeats multinomial and mul until nothing changes.
+    if options.power_base {
+        let next = hint_pass(&value, options, Hint::PowerBase, budget, &mut FxHashMap::default())?;
+        if next != value {
+            reserve_arithmetic(&next, options, budget, &mut FxHashMap::default())?;
+            value = arithmetic(&next, budget)?;
+        }
+    }
     if options.trig {
         value = hint_pass(
             &value,

@@ -9016,3 +9016,42 @@ Remaining (unsupported or a different form, never a wrong value):
   False.
 
 Tests: `tests/test_simp_rest5_parity.py`.
+
+## audit12 (wave 12): c lots c1, c2 and c4
+
+Replay of the 113 objects of the c lots c1, c2 and c4 against SymPy 1.14
+(`audits/sympy-1.14.0/triage-wave12.md`): c1 27/36 -> 27/36, c2 30/40 ->
+31/40, c4 37/37 -> 37/37. The gaps listed for these lots (`to_meijerg`,
+symbolic `fps`, stochastic processes, multiple derivatives, `nseries` of
+`x**y`, `trigsimp(old=True)`, `devise_plan_meijer`, `solve_triangulated`
+with extension, c4 pretty printing) were already closed by earlier waves.
+
+Implemented (Rust, `expand`):
+
+- The `power_base` hint is the reference `Pow._eval_expand_power_base` for
+  a commutative product base: an integer exponent distributes over every
+  factor, otherwise the nonnegative and polar factors get their own power
+  and the rest keeps one (with the reference handling of negative factors).
+  Before, a base was split only when every factor was positive, so
+  `expand((2*y)**z)` stayed `(2*y)**z` (SymPy `2**z*y**z`).
+- The hint runs after `mul` and `multinomial`, as in the reference sorted
+  hint order, so `expand((x*(y + z))**x)` with positive symbols is
+  `(x*y + x*z)**x`. A second arithmetic pass runs when it changed something.
+- The factors of a product are visited as power nodes: `expand(a*(a*x)**n)`
+  with a positive `x` is `a*a**n*x**n`.
+
+Remaining (form only, no wrong value):
+
+- `Derivative(..., evaluate=True)`, `diff` and `doit` do not sort the
+  variables with `_sort_variable_count`: `diff(f(x, y), y, x)` is
+  `Derivative(f(x, y), y, x)` (SymPy `Derivative(f(x, y), x, y)`).
+- The chain rule through an undefined function keeps the `Subs` form
+  (`Derivative(g(x), x)*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, g(x))`);
+  SymPy 1.14 writes `Derivative(f(g(x)), g(x))*Derivative(g(x), x)`.
+- `fps(exp(a*x), x)` with a symbolic coefficient returns the correct series;
+  SymPy returns `exp(a*x)` unchanged, because its `_transform_explike_DE`
+  passes `a` to `linsolve` as an unknown (NonlinearError, caught).
+- The other differences of the replay are order, set-order or already
+  documented items (see the triage file).
+
+Tests: `tests/test_audit12_parity.py`.

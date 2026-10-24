@@ -1096,6 +1096,16 @@ pub fn expand_power_base_deep(e: &Expr, force: bool, deep: bool) -> Expr {
             if force || fs.iter().all(|f| is_positive(f) == Some(true)) {
                 return mul(&fs.iter().map(|f| pow(f, x)).collect::<Vec<_>>());
             }
+            // SymPy's Pow._eval_expand_power_base: an integer exponent
+            // distributes over every commutative factor; otherwise the
+            // nonnegative and polar factors get their own power and the
+            // rest (with the sign bookkeeping of the reference) keeps one.
+            if crate::decompose::commutes(b) {
+                if crate::assumptions::fact(x, "integer") == Some(true) {
+                    return mul(&fs.iter().map(|f| pow(f, x)).collect::<Vec<_>>());
+                }
+                return crate::ops::expand_power_base_split(b, fs.to_vec(), None, x);
+            }
         }
     }
     e2
