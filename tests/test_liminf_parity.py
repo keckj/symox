@@ -103,13 +103,13 @@ def test_limit_corrections(case, expected):
 
 def test_corrections_numerically():
     import mpmath
-    mpmath.mp.dps = 30
-    X = mpmath.mpf(200)
-    assert abs(mpmath.chi(X)*X*mpmath.exp(-X) - mpmath.mpf(1)/2) < 0.01
-    assert abs(mpmath.shi(X)*X*mpmath.exp(-X) - mpmath.mpf(1)/2) < 0.01
-    assert abs(X*mpmath.exp(X)*mpmath.expint(1, X) - 1) < 0.01
-    assert abs(X*mpmath.exp(X)*mpmath.expint(mpmath.mpf(5)/2, X) - 1) < 0.02
-    assert mpmath.expint(2, X) < mpmath.mpf(10)**-80
+    with mpmath.workdps(30):
+        X = mpmath.mpf(200)
+        assert abs(mpmath.chi(X)*X*mpmath.exp(-X) - mpmath.mpf(1)/2) < 0.01
+        assert abs(mpmath.shi(X)*X*mpmath.exp(-X) - mpmath.mpf(1)/2) < 0.01
+        assert abs(X*mpmath.exp(X)*mpmath.expint(1, X) - 1) < 0.01
+        assert abs(X*mpmath.exp(X)*mpmath.expint(mpmath.mpf(5)/2, X) - 1) < 0.02
+        assert mpmath.expint(2, X) < mpmath.mpf(10)**-80
 
 
 SERIES = [

@@ -24,8 +24,8 @@ def test_system_solvers_keep_native_normal_forms():
     solutions = nonlinsolve([x**3 - 1/y, x + y - 1], [x, y])
     assert len(solutions) == 4
     import mpmath
-    mpmath.mp.dps = 80
-    residuals = lambdify([x, y], [x**3 - 1/y, x + y - 1], 'mpmath')
-    for a, b in solutions:
-        values = [lambdify([], c, 'mpmath')() for c in (a, b)]
-        assert all(abs(r) < mpmath.mpf(10)**-60 for r in residuals(*values))
+    with mpmath.workdps(80):
+        residuals = lambdify([x, y], [x**3 - 1/y, x + y - 1], 'mpmath')
+        for a, b in solutions:
+            values = [lambdify([], c, 'mpmath')() for c in (a, b)]
+            assert all(abs(r) < mpmath.mpf(10)**-60 for r in residuals(*values))
