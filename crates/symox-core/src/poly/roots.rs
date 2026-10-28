@@ -697,6 +697,16 @@ fn rats_of(f: &UPoly) -> Option<Vec<Rat>> {
         .collect()
 }
 
+/// `a*x**n + b` whose base `-b/a` has a decided real sign: the binomial
+/// presentation is then a principal real root times a root of unity.
+fn real_binomial(f: &UPoly) -> bool {
+    if f.length() != 2 || f.nth(0).is_zero() {
+        return false;
+    }
+    let base = neg(&div(&f.nth(0), &f.nth(f.deg())));
+    is_neg(&base) || is_pos(&base)
+}
+
 fn try_heuristics(f: &UPoly) -> Vec<Expr> {
     let n = f.deg();
     if n == 0 {
@@ -765,8 +775,11 @@ fn try_decompose(f: &[Rat]) -> Vec<Expr> {
             // expands a nested quartic radical through atan2, abs and arg;
             // that presentation can grow enormously without changing the
             // two preimages. Principal square roots retain their branches,
-            // and both signs retain the complete quadratic zero set.
-            roots.extend(if lifted.deg() == 2 { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
+            // and both signs retain the complete quadratic zero set. A binomial
+            // with a real base keeps the reference `roots_binomial` form
+            // (`I*sqrt(2 + sqrt(3))` rather than `sqrt(-2 - sqrt(3))`).
+            let quadratic = lifted.deg() == 2 && !real_binomial(&lifted);
+            roots.extend(if quadratic { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
         }
     }
     roots
@@ -959,7 +972,8 @@ fn try_decompose_symbolic(f: &UPoly) -> Vec<Expr> {
             // reference `alpha.expand(complex=True)`); symbolic preimages keep
             // the binomial form `sqrt(r)`.
             let numeric = lifted.c.iter().all(|x| x.is_number());
-            roots.extend(if lifted.deg() == 2 && numeric { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
+            let quadratic = lifted.deg() == 2 && numeric && !real_binomial(&lifted);
+            roots.extend(if quadratic { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
         }
     }
     roots
