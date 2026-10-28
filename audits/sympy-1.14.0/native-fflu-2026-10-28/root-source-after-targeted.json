@@ -1,0 +1,45 @@
+{
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "4df626845d69241dcb3b0503b60454fc1ff8be00e78ee5ed45ee5b51f3ff0b3e",
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "working_code_diff_sha256": "da52459dee5010d8bdf96415ef04a2c678307dcdfe55a2710723324937a7de24",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "all_manifested_main_entries_equal_frozen_snapshot_after_targeted": true,
+  "source_entries_checked": 3514,
+  "native_inputs_checked": 352,
+  "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+  "targeted": {
+    "focused": {
+      "returncode": 0,
+      "elapsed_seconds": 14.325775623321533,
+      "collected": 1860,
+      "exactly_once": true
+    },
+    "hnf-followup": {
+      "returncode": 0,
+      "elapsed_seconds": 21.48723530769348,
+      "collected": 562,
+      "exactly_once": true
+    },
+    "ordered": {
+      "returncode": 0,
+      "elapsed_seconds": 56.1540904045105,
+      "collected": 1037,
+      "exactly_once": true
+    },
+    "coupled": {
+      "returncode": 0,
+      "elapsed_seconds": 98.18340563774109,
+      "collected": 8208,
+      "exactly_once": true
+    }
+  },
+  "scope": "Snapshot source map was computed directly from MAIN before starting the targeted jobs; every entry matches after completion, before publication changes."
+}

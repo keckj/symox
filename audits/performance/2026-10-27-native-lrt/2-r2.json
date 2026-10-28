@@ -1,0 +1,95 @@
+{
+  "sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+  "module": "/home/keckj/symox-ci/wt/native-lrt-limits-20261027/python/symox/__init__.py",
+  "cpu": 24,
+  "affinity": [
+    24
+  ],
+  "reference_imported": false,
+  "iterations": 50,
+  "rounds": 5,
+  "cases": {
+    "quadratic": {
+      "median_ns_per_pair": 360640.06,
+      "rounds_ns_per_pair": [
+        375800.78,
+        360720.32,
+        356547.62,
+        359318.8,
+        360640.06
+      ],
+      "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "quartic": {
+      "median_ns_per_pair": 445018.72,
+      "rounds_ns_per_pair": [
+        450054.52,
+        443533.28,
+        449977.32,
+        445018.72,
+        443982.36
+      ],
+      "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "nonconstant_numerator": {
+      "median_ns_per_pair": 495340.04,
+      "rounds_ns_per_pair": [
+        496076.42,
+        512426.78,
+        492336.52,
+        495340.04,
+        491935.98
+      ],
+      "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "multiplicity_groups": {
+      "median_ns_per_pair": 789881.16,
+      "rounds_ns_per_pair": [
+        794703.48,
+        786899.86,
+        790982.52,
+        789881.16,
+        788773.76
+      ],
+      "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "distinct_arguments": {
+      "median_ns_per_pair": 746205.3475,
+      "rounds_ns_per_pair": [
+        749312.1675,
+        749683.3175,
+        742249.2125,
+        746205.3475,
+        738633.715
+      ],
+      "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03",
+      "pairs_per_batch": 8,
+      "native_selected_outside_timers": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  }
+}

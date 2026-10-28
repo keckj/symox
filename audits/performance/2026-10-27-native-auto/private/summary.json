@@ -1,0 +1,275 @@
+{
+  "processes": 9,
+  "cases": 14,
+  "certificates": 2016,
+  "cpu": 24,
+  "rows": [
+    {
+      "case": "QQ-CD-3-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 321307.0,
+          "repeat": 313384.0
+        },
+        "R5": {
+          "first": 314492.0,
+          "repeat": 299679.0
+        },
+        "private-enabled": {
+          "first": 326530.0,
+          "repeat": 316156.0
+        }
+      },
+      "ratio_R5_to_auto": 0.9478833234226142,
+      "ratio_disabled_to_auto": 0.9912321765204519
+    },
+    {
+      "case": "QQ-CD-3-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 321374.5,
+          "repeat": 320082.0
+        },
+        "R5": {
+          "first": 315339.5,
+          "repeat": 310943.5
+        },
+        "private-enabled": {
+          "first": 321360.5,
+          "repeat": 320513.0
+        }
+      },
+      "ratio_R5_to_auto": 0.9701431767198211,
+      "ratio_disabled_to_auto": 0.9986552807530428
+    },
+    {
+      "case": "QQ-CD-10-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 980345.0,
+          "repeat": 969671.0
+        },
+        "R5": {
+          "first": 982853.0,
+          "repeat": 957581.0
+        },
+        "private-enabled": {
+          "first": 745416.0,
+          "repeat": 705607.0
+        }
+      },
+      "ratio_R5_to_auto": 1.3571024663870965,
+      "ratio_disabled_to_auto": 1.3742366501466114
+    },
+    {
+      "case": "QQ-CD-10-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 962141.0,
+          "repeat": 926843.5
+        },
+        "R5": {
+          "first": 939024.0,
+          "repeat": 928198.5
+        },
+        "private-enabled": {
+          "first": 704405.5,
+          "repeat": 710127.5
+        }
+      },
+      "ratio_R5_to_auto": 1.3070871075968753,
+      "ratio_disabled_to_auto": 1.3051789995458563
+    },
+    {
+      "case": "QQ-CD-20-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 3457519.5,
+          "repeat": 3470530.5
+        },
+        "R5": {
+          "first": 3549389.5,
+          "repeat": 3473450.5
+        },
+        "private-enabled": {
+          "first": 2578653.0,
+          "repeat": 2497672.0
+        }
+      },
+      "ratio_R5_to_auto": 1.3906751967432072,
+      "ratio_disabled_to_auto": 1.3895061080878515
+    },
+    {
+      "case": "QQ-CD-20-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 3524748.5,
+          "repeat": 3436737.5
+        },
+        "R5": {
+          "first": 3496068.5,
+          "repeat": 3444696.0
+        },
+        "private-enabled": {
+          "first": 2559641.5,
+          "repeat": 2470079.5
+        }
+      },
+      "ratio_R5_to_auto": 1.3945688792607687,
+      "ratio_disabled_to_auto": 1.3913469181862366
+    },
+    {
+      "case": "QQ-CD-10-sparse-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 810739.0,
+          "repeat": 807710.5
+        },
+        "R5": {
+          "first": 780956.5,
+          "repeat": 801382.5
+        },
+        "private-enabled": {
+          "first": 637127.5,
+          "repeat": 631651.5
+        }
+      },
+      "ratio_R5_to_auto": 1.2687098819523108,
+      "ratio_disabled_to_auto": 1.27872806444693
+    },
+    {
+      "case": "QQ-CD-10-sparse-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 776631.5,
+          "repeat": 763567.0
+        },
+        "R5": {
+          "first": 770960.0,
+          "repeat": 769671.5
+        },
+        "private-enabled": {
+          "first": 658453.5,
+          "repeat": 655288.0
+        }
+      },
+      "ratio_R5_to_auto": 1.1745545470083383,
+      "ratio_disabled_to_auto": 1.1652387957661363
+    },
+    {
+      "case": "QQ-FF-10-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 4516898.5,
+          "repeat": 4473286.0
+        },
+        "R5": {
+          "first": 4551368.5,
+          "repeat": 4490091.0
+        },
+        "private-enabled": {
+          "first": 4216556.5,
+          "repeat": 4256982.5
+        }
+      },
+      "ratio_R5_to_auto": 1.0547590928550916,
+      "ratio_disabled_to_auto": 1.0508114609350638
+    },
+    {
+      "case": "QQ-FF-10-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 4453707.0,
+          "repeat": 4352798.0
+        },
+        "R5": {
+          "first": 4529724.0,
+          "repeat": 4348211.0
+        },
+        "private-enabled": {
+          "first": 4037829.5,
+          "repeat": 4242748.0
+        }
+      },
+      "ratio_R5_to_auto": 1.0248572387518655,
+      "ratio_disabled_to_auto": 1.0259383776740925
+    },
+    {
+      "case": "ZZ-FF-10-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 970531.0,
+          "repeat": 972221.5
+        },
+        "R5": {
+          "first": 957239.5,
+          "repeat": 998518.0
+        },
+        "private-enabled": {
+          "first": 913808.5,
+          "repeat": 859661.5
+        }
+      },
+      "ratio_R5_to_auto": 1.1615246233546577,
+      "ratio_disabled_to_auto": 1.1309352576566474
+    },
+    {
+      "case": "ZZ-FF-10-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 814011.5,
+          "repeat": 815400.5
+        },
+        "R5": {
+          "first": 809935.0,
+          "repeat": 781961.0
+        },
+        "private-enabled": {
+          "first": 685232.5,
+          "repeat": 682501.0
+        }
+      },
+      "ratio_R5_to_auto": 1.1457287242069976,
+      "ratio_disabled_to_auto": 1.1947242568142757
+    },
+    {
+      "case": "QQ-GJ-10-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 2317976.5,
+          "repeat": 2302482.0
+        },
+        "R5": {
+          "first": 2364933.5,
+          "repeat": 2362551.0
+        },
+        "private-enabled": {
+          "first": 2220080.0,
+          "repeat": 2271868.5
+        }
+      },
+      "ratio_R5_to_auto": 1.0399153824264036,
+      "ratio_disabled_to_auto": 1.0134750316754688
+    },
+    {
+      "case": "QQ-GJ-10-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 2421385.0,
+          "repeat": 2317819.5
+        },
+        "R5": {
+          "first": 2441456.5,
+          "repeat": 2363437.5
+        },
+        "private-enabled": {
+          "first": 2192563.0,
+          "repeat": 2207039.5
+        }
+      },
+      "ratio_R5_to_auto": 1.070863253693466,
+      "ratio_disabled_to_auto": 1.0501939362662063
+    }
+  ],
+  "note": "first call on each matrix after decision certification; repeat on same matrix; no process-cold claim"
+}

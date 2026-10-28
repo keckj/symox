@@ -1,0 +1,40 @@
+{
+  "native_sha256": "8323eddaa68e4c1f2c55cff6933c84fa3c4af204ed56eabf4e25a4d35bec1733",
+  "method": "5 batches x 12 distinct preconstructed inputs, evalf(30), construction excluded",
+  "gamma": {
+    "median_seconds_per_eval": 0.026040940083172853,
+    "samples": [
+      0.026031259166908665,
+      0.026267741916853993,
+      0.025946677166454418,
+      0.02609132608328461,
+      0.026040940083172853
+    ],
+    "finite": 60,
+    "values_digest": "2c46501f833326da4357046b6944c142b57de5347055c15e2d9ecb01bccde878"
+  },
+  "gauss": {
+    "median_seconds_per_eval": 0.0002938804166963867,
+    "samples": [
+      0.0018678360835716983,
+      0.0002938804166963867,
+      0.0002940934167175631,
+      0.000289835916798135,
+      0.0002918660835954749
+    ],
+    "finite": 60,
+    "values_digest": "5380bab0558f41540572289f5e9af9c0bd0d5e798cbd2e45cfcf0f719c3aa694"
+  },
+  "terminating": {
+    "median_seconds_per_eval": 0.0003141157500673823,
+    "samples": [
+      0.00047442441670379293,
+      0.0003159333333921192,
+      0.0003131229168502614,
+      0.0003137359165824212,
+      0.0003141157500673823
+    ],
+    "finite": 60,
+    "values_digest": "d4f86be616b5049b6144dbae19eb32c85f2c2b01da1ed936380800ad5a9d644c"
+  }
+}

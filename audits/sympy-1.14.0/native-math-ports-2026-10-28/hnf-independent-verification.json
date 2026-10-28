@@ -1,0 +1,44 @@
+{
+  "status": "Independently verified private GO; fresh combined RELEASE/full gate required",
+  "index_sha256": "01c2772001a6af03532db2bf82bb6a74eb276d96f1ecbc22ea2deadc1d1438c3",
+  "manifest_sha256": "5cff83f0954728687bc16ff72aee1883996bf2ec3579ee288091a877d52a1c42",
+  "archive_sha256": "1b9e40616375a42521bb63a70dbcab949a847be7e5b7ee7be13e7e07a62bfd85",
+  "safe_archive_members": 106,
+  "owned_sources": 11,
+  "base_entries_verified": 3514,
+  "actual_full_sources_verified": 3521,
+  "native_inputs_verified": 354,
+  "private_debug_native": "6341dc7a3f8c5cc8fa256585e144d43c5638af690179b67cf2fd5b4b65c7f105",
+  "patch_replay": true,
+  "raw_gates": {
+    "local": {
+      "focused": 1681,
+      "coupled": 9889,
+      "ordered": 1037,
+      "native_NoRef_calls": 3925,
+      "native_lattice_certificates": 730,
+      "fallback_NoRef_calls": 3925,
+      "fallback_lattice_certificates": 730,
+      "work_and_original_comparisons": 785,
+      "ordinary_after_cases": 5,
+      "boundary_controls": 4,
+      "positive_native_under_rejecting_audit": true
+    },
+    "demeter": {
+      "focused": 1681,
+      "coupled": 9889,
+      "ordered": 1037,
+      "native_NoRef_calls": 3925,
+      "native_lattice_certificates": 730,
+      "fallback_NoRef_calls": 3925,
+      "fallback_lattice_certificates": 730,
+      "work_and_original_comparisons": 785,
+      "ordinary_after_cases": 5,
+      "boundary_controls": 4,
+      "positive_native_under_rejecting_audit": true
+    }
+  },
+  "native_checks_reuse": "R1 Python-only refinement; actual354 compiled inputs exactly equal to the recorded DEBUG build, four units and clippy commands on both hosts. Fresh combined root gates remain required.",
+  "scope": "Stock ZZ modulo-D recurrence with complete old fallback.730valid determinant-multiple fixtures receive complete unimodular lattice certificates;55outside-hypothesis cases are legacy-output controls only. Ordinary _gcdex/add_columns bootstrap uses local semantic templates. Fifth authority witness belongs only to rejected private preliminary.",
+  "global_algorithmic_parity_certified": false
+}

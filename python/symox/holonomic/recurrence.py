@@ -222,9 +222,30 @@ class HolonomicSequence:
         return values[n]
 
 
+# Immutable identity records for the official scalar forwarding layer. These
+# are protocol certificates, not __wrapped__ metadata supplied by a caller.
+_SCALAR_DISPATCH_PROOFS = globals().get('_SCALAR_DISPATCH_PROOFS', ())
+
+
+def _scalar_dispatch_states(operation):
+    from types import FunctionType
+    pending=[operation];seen=set();states=[]
+    while pending:
+        function=pending.pop()
+        if type(function) is not FunctionType or id(function) in seen:continue
+        seen.add(id(function))
+        closure=function.__closure__
+        contents=tuple(cell.cell_contents for cell in closure or ())
+        states.append((function,function.__code__,closure,contents,function.__defaults__,function.__kwdefaults__))
+        pending.extend(value for value in contents if type(value) is FunctionType)
+    return tuple(states)
+
+
 def _install_scalar_dispatch():
     from .._core import Expr
     from functools import wraps
+    import builtins
+    global _SCALAR_DISPATCH_PROOFS
     if getattr(Expr, '_ore_dispatch_installed', False):
         return
     for name in ('__add__', '__sub__', '__mul__', '__truediv__'):
@@ -242,7 +263,13 @@ def _install_scalar_dispatch():
                     raise NotImplementedError('scalar divided by an Ore operator')
                 return original(self, other)
             return operation
-        setattr(Expr, name, factory(original, name))
+        operation=factory(original,name)
+        proof=(operation,original,_scalar_dispatch_states(operation),operation.__globals__,
+               _OreOperator,_OreOperator.__mro__,builtins.isinstance,builtins.getattr)
+        operation._symox_ore_proof=proof
+        _SCALAR_DISPATCH_PROOFS+= (proof,)
+        setattr(Expr,name,operation)
+    _install_scalar_dispatch._stock_proofs=_SCALAR_DISPATCH_PROOFS
     Expr._ore_dispatch_installed = True
 
 

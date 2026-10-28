@@ -1,0 +1,14 @@
+{
+  "original-shard45": {
+    "returncode": 0,
+    "elapsed_seconds": 18.44033646583557,
+    "collected": 1028,
+    "exactly_once": true
+  },
+  "combined": {
+    "returncode": 0,
+    "elapsed_seconds": 143.38519930839539,
+    "collected": 7357,
+    "exactly_once": true
+  }
+}

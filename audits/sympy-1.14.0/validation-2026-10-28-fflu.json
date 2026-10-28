@@ -1,0 +1,365 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "status": "accepted",
+  "scope": "Exact stock ZZ/QQ FFLU: four Rust mathematical phases, complete corrected generic fallback; current function/protocol authentication. HNF actual cached-function builtins are authenticated before capture and admission, retaining complete original mathematical callbacks/errors on refusal.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "4df626845d69241dcb3b0503b60454fc1ff8be00e78ee5ed45ee5b51f3ff0b3e",
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "working_code_diff_sha256": "da52459dee5010d8bdf96415ef04a2c678307dcdfe55a2710723324937a7de24",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 3514,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 528.4648566246033,
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0"
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 54369,
+      "xfailed": 4,
+      "skipped": 55,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 54428,
+      "collected_in_shards": 54428,
+      "finished": 54428,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 194.47296237945557
+  },
+  "rust": {
+    "host": "Demeter",
+    "unit_passed": 755,
+    "integration_tests_passed": 1,
+    "integration_fixture_cases": 651,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "core_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 24.859523057937622
+    },
+    "bindings_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox-py",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 18.540059328079224,
+      "native_inputs_unchanged": true
+    },
+    "validation_mode": "Fresh complete execution with all native source hashes verified before/after."
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-fflu-r12-20261028/python/symox/__init__.py",
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_validation": {
+    "focused": {
+      "returncode": 0,
+      "elapsed_seconds": 14.325775623321533,
+      "collected": 1860,
+      "exactly_once": true
+    },
+    "hnf-followup": {
+      "returncode": 0,
+      "elapsed_seconds": 21.48723530769348,
+      "collected": 562,
+      "exactly_once": true
+    },
+    "ordered": {
+      "returncode": 0,
+      "elapsed_seconds": 56.1540904045105,
+      "collected": 1037,
+      "exactly_once": true
+    },
+    "coupled": {
+      "returncode": 0,
+      "elapsed_seconds": 98.18340563774109,
+      "collected": 8208,
+      "exactly_once": true
+    }
+  },
+  "private_validation": {
+    "status": "Integrated for fresh complete RELEASE gate; not yet accepted",
+    "base_identity": {
+      "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+      "source_manifest_sha256": "5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35",
+      "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+      "working_code_diff_sha256": "da576c7794f7ea5d65ebf4308300b9128bac11388935d5140a019d5a8d140efa",
+      "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+      "build_command": [
+        ".venv/bin/maturin",
+        "develop",
+        "--release"
+      ]
+    },
+    "owned_source_files": [
+      {
+        "path": "crates/symox-core/src/poly/fflu.rs",
+        "base_sha256": null,
+        "final_sha256": "de0bfb1e2b9a1ad2a6df9e9cca1387fa24f2a3e282bc3c02241250c9104af572"
+      },
+      {
+        "path": "crates/symox-core/src/poly/mod.rs",
+        "base_sha256": "2bb0036f447d9ad9a0a987801d61ca8cee79a238a07aacaa5934e60912f9aab1",
+        "final_sha256": "4675647687fe9f771896fd459a17c0e0e51e613da2849807b1fbdc9c67590066"
+      },
+      {
+        "path": "crates/symox-py/src/poly_fflu.rs",
+        "base_sha256": null,
+        "final_sha256": "a95f46dad7f651ea33264b2b14c73fd4b16af16a41708610e40869d289ed0c48"
+      },
+      {
+        "path": "crates/symox-py/src/poly_ddm.rs",
+        "base_sha256": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977",
+        "final_sha256": "fbd09131d2b7d57276b75250fbab54ebec08bebfce9f3ebfc28869a43bbb395d"
+      },
+      {
+        "path": "python/symox/polys/matrices/_fflu_native.py",
+        "base_sha256": null,
+        "final_sha256": "4db26aaa7b0c2e0c4f901225614f98ba8377b062f8aacccc4aa30cf0214b0262"
+      },
+      {
+        "path": "python/symox/polys/matrices/ddm.py",
+        "base_sha256": "24676395a297d14d16838596996506bae6a0c796d7bd73c9b7bc7ad13fd03812",
+        "final_sha256": "a797d0a81663e8ff254be95947b1cb0de0308e6fa699f23e0d0819fc42ff5515"
+      },
+      {
+        "path": "tests/test_native_ddm_fflu.py",
+        "base_sha256": null,
+        "final_sha256": "e0f2c9da8528d7f81e537414ed2d5cf65b3eb3f0f5b7febd0dd0a347eeff3e3a"
+      }
+    ],
+    "native_inputs_verified": 352,
+    "private_release_native": "150a0b4659007c4fce3107a06ee8fad50dfa1cf89998b8162f717ccfcd1f5c9c",
+    "private_archive_sha256": "043451a90650d97690bbac38cb51a38fff71127eaf39f8ee4f48545ed48e4f63",
+    "safe_archive_members": 104,
+    "private_gates_raw_counters_verified": {
+      "local": {
+        "focused": 1860,
+        "coupled": 8203,
+        "ordered": 1037,
+        "native_certificates": 1616,
+        "fallback_certificates": 1616
+      },
+      "demeter": {
+        "focused": 1860,
+        "coupled": 8203,
+        "ordered": 1037,
+        "native_certificates": 1616,
+        "fallback_certificates": 1616
+      }
+    },
+    "patch_replayed": true,
+    "global_algorithmic_parity_certified": false
+  },
+  "components": [
+    {
+      "label": "four-phase-exact-fflu",
+      "private_archive_sha256": "043451a90650d97690bbac38cb51a38fff71127eaf39f8ee4f48545ed48e4f63",
+      "private_native_release": "150a0b4659007c4fce3107a06ee8fad50dfa1cf89998b8162f717ccfcd1f5c9c",
+      "mathematics": "Bareiss, permutation, lower/upper extraction, diagonal products; two reference math defects intentionally corrected in generic fallback."
+    },
+    {
+      "label": "hnf-cached-function-builtins",
+      "manifest_sha256": "6352242c4d125afd4c07a80341a9d66f628239ccff36065538472bfa7da11fc8",
+      "archive_sha256": "e66b9d53ea675c7eb647eb9643223400fc032e64901ec2968cac8f9b3155ac11",
+      "private_validation": {
+        "before_failures": 4,
+        "stock_before_passed": 1,
+        "after_new_passed": 5,
+        "focused_local": 562,
+        "focused_demeter": 562,
+        "native_unchanged": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4"
+      },
+      "scope": "Actual cached function builtins are checked before capture/admission. Complete original mathematics, callbacks and errors on refusal."
+    }
+  ],
+  "intentional_reference_corrections": [
+    {
+      "defect": "Truncated pivot-column search",
+      "repair": "Scan all columns until all rows have pivots.",
+      "old_witness": "A=[[0,0,1,2],[0,0,2,3]] reconstructed entry(1,3)=7 instead of3."
+    },
+    {
+      "defect": "Incorrect previous-pivot divisor after skipped columns",
+      "repair": "Track preceding actual pivot column for the exact Bareiss division.",
+      "old_witness": "A3x4 matrix with a leading zero column raised ZeroDivisionError."
+    }
+  ],
+  "mathematical_certificates": {
+    "relation": "P*A=L*D**(-1)*U",
+    "private_domain_cases": 404,
+    "private_calls_per_route": 1616,
+    "routes": [
+      "native",
+      "metadata-disabled complete fallback"
+    ],
+    "hosts": [
+      "local",
+      "Demeter"
+    ],
+    "independent_Fraction_checks": [
+      "full rank and pivot columns",
+      "upper echelon",
+      "permutation orientation",
+      "lower triangular and invertible",
+      "diagonal and invertible",
+      "exact product equality"
+    ],
+    "historical_prototype_cases": 404,
+    "historical_minor_exact_divisions": 1582,
+    "historical_observations": "Separate pre-port evidence, not production validation or a speed baseline."
+  },
+  "remaining_gaps": [
+    "Global mathematical parity is not certified.",
+    "Native FFLU beyond stock ZZ/QQ remains unported; complete generic arithmetic is retained.",
+    "Modulo-D/numberfield HNF, Smith forms, genuinely cold LLL mathematics, general Risch/PRDE/ODE and previous completeness/precision/resource gaps remain open."
+  ],
+  "performance": {
+    "status": "No new performance campaign requested; mathematical port and complete correctness validation prioritized.",
+    "whole_engine_gain_claimed": false
+  },
+  "integration_corpus": {
+    "status": "Latest archived corpus is R11r1; not rerun for this FFLU lot.",
+    "artifact": "audits/sympy-1.14.0/corpus-r11-2026-10-28/README.md"
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-fflu-r12-20261028",
+    "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-fflu-r12-20261028/after",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-fflu-r12-20261028",
+    "portable_review": "audits/sympy-1.14.0/native-fflu-2026-10-28/README.md",
+    "independent_checks": {
+      "prior_skips_and_xfails_preserved": true,
+      "all_initial_nodes_preserved": 52563,
+      "new_nodes_by_file": {
+        "tests/test_native_ddm_fflu.py": 1860,
+        "tests/test_native_hnf_cached_builtins.py": 5
+      },
+      "source_entries_checked": 3514,
+      "native_build_input_paths_and_hashes_verified": 352,
+      "compile_time_tsv_fixture_included": true,
+      "collection_execution_counters_equal": true,
+      "each_node_once": true,
+      "nodes": 54428,
+      "shards": 48
+    }
+  },
+  "global_algorithmic_parity_certified": false,
+  "hnf_cached_builtins_followup": {
+    "private_evidence": {
+      "status": "GO root Python correctness followup; full combined RELEASE gate is finalizer responsibility",
+      "base": {
+        "accepted_source": "5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35",
+        "hnf_sha256": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34",
+        "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4"
+      },
+      "files": [
+        {
+          "path": "python/symox/polys/matrices/_hnf_native.py",
+          "base_sha256": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34",
+          "final_sha256": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c"
+        },
+        {
+          "path": "tests/test_native_hnf_cached_builtins.py",
+          "base_sha256": null,
+          "final_sha256": "b2dc20fded67193ea21bbbd14f633b1ab71072ffda0f524e955735696e03e568"
+        }
+      ],
+      "patch_sha256": "9e3dc4c97a54419b6182bec7f82adee5a6af26797e3b9dd6a97933fa6ac48de6",
+      "patch_replay_exact": true,
+      "before": {
+        "failed": 4,
+        "passed": 1,
+        "evidence": "before.log",
+        "witness": "A=[[2,3]], add_columns cached foreign range -> native [[1]] and zero callback, original [[3]] and one callback; raising range/type errors were incorrectly omitted."
+      },
+      "after_new_regressions": {
+        "passed": 5,
+        "evidence": "after.log"
+      },
+      "local": {
+        "returncode": 0,
+        "collected": 562,
+        "exactly_once": true,
+        "source_and_native_unchanged": true,
+        "files": [
+          "tests/test_native_hnf_cached_builtins.py",
+          "tests/test_native_ddm_hnf.py",
+          "tests/test_native_matrix_function_metadata.py",
+          "tests/test_native_matrix_closure_tuple_protocol.py",
+          "tests/test_native_ddm_lu.py",
+          "tests/test_native_ddm_lu_solve.py"
+        ],
+        "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4"
+      },
+      "demeter": {
+        "returncode": 0,
+        "collected": 562,
+        "exactly_once": true,
+        "source_and_native_unchanged": true,
+        "files": [
+          "tests/test_native_hnf_cached_builtins.py",
+          "tests/test_native_ddm_hnf.py",
+          "tests/test_native_matrix_function_metadata.py",
+          "tests/test_native_matrix_closure_tuple_protocol.py",
+          "tests/test_native_ddm_lu.py",
+          "tests/test_native_ddm_lu_solve.py"
+        ],
+        "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4"
+      },
+      "scope": "HNF only; exact-function actual readonly __builtins__ identity checked before capture or admission, public CPython3.10.12/.20. Unknown/foreign function builtins preserve full Python arithmetic/callbacks/errors. Stock positive native selection under rejecting audit remains verified. No Rust input or binary change, no micro-optimization."
+    },
+    "fresh_full_gate_covers_followup": true,
+    "native_inputs_unmodified_by_python_followup": 352
+  }
+}

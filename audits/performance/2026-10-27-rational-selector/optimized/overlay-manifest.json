@@ -1,0 +1,35 @@
+{
+  "backend_identities": {
+    "r2": {
+      "package": "/home/keckj/symox-ci/wt/native-lrt-limits-20261027/python",
+      "native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+      "adapter_sha256": "add84089dc8297efa1d1dfbf25125629db2df6b498183a809a66fa1bd2bb4c77",
+      "base_source_manifest_sha256": "8f254811033a4e7791213e56e0316d752fd2dca0f99fc0c5f5fa30aa6cecc981"
+    },
+    "r3b": {
+      "package": "/home/keckj/symox-ci/wt/native-inexact-r1-20261027/python",
+      "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+      "adapter_sha256": "525ea4127a4f216750625575296c32ad28672cd91aa51f6d3157b69eaf0e0b44",
+      "base_source_manifest_sha256": "374d458fdc73fb8a75cbaa2a06952b2b29d6ccc216f1b497f82a155468b4c0ac"
+    },
+    "optimized": {
+      "package": "/home/keckj/symox-ci/wt/selector-proof-release-r3b/python",
+      "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+      "adapter_sha256": "753ad09a13189b1c98d9e062db892fc1461ef5f4010b568bf9aab242d08387aa",
+      "base_source_manifest_sha256": "374d458fdc73fb8a75cbaa2a06952b2b29d6ccc216f1b497f82a155468b4c0ac",
+      "scope": "R3b plus guard-only.patch, same8a8a release binary; NOT release R5 and no future log_to_real math"
+    }
+  },
+  "composed_product_stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/rational-selector-local-proof",
+  "composed_product_manifest_sha256": "bcd4d387df976278e81e90e147f2eeced55becc184cdb95db1255fc913f18c76",
+  "guard_functions_ast_identical": [
+    "_atan_vector_proof",
+    "_atan_forwarding_chain",
+    "_atan_stock_operators",
+    "_atan_states_match",
+    "_atan_forwarding_proof"
+  ],
+  "guard_patch_sha256": "576a7abc686f7712465930c4e0beada475e072eebc5da3364d58e532c795f4e1",
+  "native_source_changed": false,
+  "scope": "Isolated Python guard measurement, not R5"
+}

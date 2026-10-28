@@ -1,0 +1,308 @@
+{
+  "native_sha256": "576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8",
+  "reference_version": "1.14.0",
+  "limits": {
+    "seconds_per_object_per_backend": 60,
+    "address_space_gib": 8
+  },
+  "runners": {
+    "tools/sympy_parity.py": "7f4893519758811946b1cbb4e36ee069db20bdf2d235be2e683fe921414cd8d1",
+    "tools/sympy_coverage.py": "33ad08079e2075cffefacf82a6917f6c54a252061604bada5504174d18975b2c"
+  },
+  "jobs": [
+    [
+      "ordinary-00",
+      0
+    ],
+    [
+      "ordinary-01",
+      0
+    ],
+    [
+      "ordinary-02",
+      0
+    ],
+    [
+      "ordinary-03",
+      0
+    ],
+    [
+      "ordinary-04",
+      0
+    ],
+    [
+      "ordinary-05",
+      0
+    ],
+    [
+      "ordinary-06",
+      0
+    ],
+    [
+      "ordinary-07",
+      0
+    ],
+    [
+      "ordinary-08",
+      0
+    ],
+    [
+      "ordinary-09",
+      0
+    ],
+    [
+      "ordinary-10",
+      0
+    ],
+    [
+      "ordinary-11",
+      0
+    ],
+    [
+      "ordinary-12",
+      0
+    ],
+    [
+      "ordinary-13",
+      0
+    ],
+    [
+      "ordinary-14",
+      0
+    ],
+    [
+      "ordinary-15",
+      0
+    ],
+    [
+      "ordinary-16",
+      0
+    ],
+    [
+      "ordinary-17",
+      0
+    ],
+    [
+      "ordinary-18",
+      0
+    ],
+    [
+      "ordinary-19",
+      0
+    ],
+    [
+      "ordinary-20",
+      0
+    ],
+    [
+      "ordinary-21",
+      0
+    ],
+    [
+      "ordinary-22",
+      0
+    ],
+    [
+      "ordinary-23",
+      0
+    ],
+    [
+      "ordinary-24",
+      0
+    ],
+    [
+      "ordinary-25",
+      0
+    ],
+    [
+      "ordinary-26",
+      0
+    ],
+    [
+      "ordinary-27",
+      0
+    ],
+    [
+      "ordinary-28",
+      0
+    ],
+    [
+      "ordinary-29",
+      0
+    ],
+    [
+      "ordinary-30",
+      0
+    ],
+    [
+      "ordinary-31",
+      0
+    ],
+    [
+      "keywords-00",
+      0
+    ],
+    [
+      "keywords-01",
+      0
+    ],
+    [
+      "keywords-02",
+      0
+    ],
+    [
+      "keywords-03",
+      0
+    ],
+    [
+      "keywords-04",
+      0
+    ],
+    [
+      "keywords-05",
+      0
+    ],
+    [
+      "keywords-06",
+      0
+    ],
+    [
+      "keywords-07",
+      0
+    ],
+    [
+      "keywords-08",
+      0
+    ],
+    [
+      "keywords-09",
+      0
+    ],
+    [
+      "keywords-10",
+      0
+    ],
+    [
+      "keywords-11",
+      0
+    ],
+    [
+      "keywords-12",
+      0
+    ],
+    [
+      "keywords-13",
+      0
+    ],
+    [
+      "keywords-14",
+      0
+    ],
+    [
+      "keywords-15",
+      0
+    ],
+    [
+      "keywords-16",
+      0
+    ],
+    [
+      "keywords-17",
+      0
+    ],
+    [
+      "keywords-18",
+      0
+    ],
+    [
+      "keywords-19",
+      0
+    ],
+    [
+      "keywords-20",
+      0
+    ],
+    [
+      "keywords-21",
+      0
+    ],
+    [
+      "keywords-22",
+      0
+    ],
+    [
+      "keywords-23",
+      0
+    ],
+    [
+      "keywords-24",
+      0
+    ],
+    [
+      "keywords-25",
+      0
+    ],
+    [
+      "keywords-26",
+      0
+    ],
+    [
+      "keywords-27",
+      0
+    ],
+    [
+      "keywords-28",
+      0
+    ],
+    [
+      "keywords-29",
+      0
+    ],
+    [
+      "keywords-30",
+      0
+    ],
+    [
+      "keywords-31",
+      0
+    ]
+  ],
+  "coverage": {
+    "ordinary": {
+      "expected": 2916,
+      "finished": 2916,
+      "exactly_once": true,
+      "missing": [],
+      "unexpected": []
+    },
+    "keywords": {
+      "expected": 2916,
+      "finished": 2916,
+      "exactly_once": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  "counts": {
+    "ordinary": {
+      "examples_match": 2719,
+      "observation_difference": 195,
+      "no_successful_examples": 2
+    },
+    "keywords": {
+      "examples_match": 2636,
+      "observation_difference": 278,
+      "no_successful_examples": 2
+    }
+  },
+  "elapsed_seconds": 412.1049222946167,
+  "native_package_fingerprint": "4f978a4e7b2a5c935bfc60e889db2dbff688c1de2293a4d3f8131bcf64ce6937",
+  "source_manifest_sha256": "1d69c0418c5c9a5936ae050d60d7def2cc00e97e1a653adb3f2a7711e1971586",
+  "distinct_objects_with_differences": 278,
+  "interpretation": "Output observations only, no automatic mathematical classification or completeness certificate. Two objects per mode have no successful examples, and are not counted as successful matches.",
+  "example_observations_per_backend": {
+    "ordinary": 22547,
+    "keywords": 22547
+  },
+  "all_completed_example_arrays_match_input_lengths": true
+}

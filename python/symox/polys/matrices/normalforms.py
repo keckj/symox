@@ -6,6 +6,10 @@ from .domainmatrix import DomainMatrix
 from .exceptions import DMDomainError, DMShapeError
 from symox.ntheory.modular import symmetric_residue
 from symox.polys.domains import QQ, ZZ
+from ._hnf_native import try_hnf as _native_hnf,register as _register_hnf,_congruent as _hnf_congruent
+from symox._core import _ddm_hnf_dependencies as _hnf_dependencies
+from ._hnf_modular_native import try_hnf_modular as _native_hnf_modular,register as _register_hnf_modular,_congruent as _hnf_modular_congruent
+from symox._core import _ddm_hnf_modular_dependencies as _hnf_modular_dependencies
 
 
 # TODO (future work):
@@ -342,6 +346,9 @@ def _hermite_normal_form(A):
     # way up.
     m, n = A.shape
     A = A.to_ddm().copy()
+    native = _native_hnf(A,(m,n),_hnf_dependencies(_hnf_congruent))
+    if native is not None:
+        return DomainMatrix.from_rep(A.to_dfm_or_ddm())[:, native:]
     # Our goal is to put pivot entries in the rightmost columns.
     # Invariant: Before processing each row, k should be the index of the
     # leftmost column in which we have so far put a pivot.
@@ -451,6 +458,8 @@ def _hermite_normal_form_modulo_D(A, D):
     A = A.to_list()
     k = n
     R = D
+    if _native_hnf_modular(A,W,R,(m,n),_hnf_modular_dependencies(_hnf_modular_congruent)):
+        return DomainMatrix(W, (m, m), ZZ).to_dense()
     for i in range(m - 1, -1, -1):
         k -= 1
         for j in range(k - 1, -1, -1):
@@ -538,3 +547,8 @@ def hermite_normal_form(A, *, D=None, check_rank=False):
         return _hermite_normal_form_modulo_D(A, D)
     else:
         return _hermite_normal_form(A)
+
+
+_register_hnf(_hermite_normal_form.__globals__)
+
+_register_hnf_modular(_hermite_normal_form_modulo_D.__globals__)

@@ -1,0 +1,9 @@
+# Python/Rust execution inventory, 27 October 2026
+
+The [unchanged report](REPORT.md) follows public entry points through native dispatch, Python arithmetic loops, assembly and protocol adapters. It is a static source review, not a runtime profile or a mathematical-parity claim. Its links refer to the original frozen cache paths and line numbers; matching files are preserved in [source-snapshot.tar.gz](source-snapshot.tar.gz), under `input/`.
+
+The source manifest contains 1,103 files. The counted runtime files are 780 Python and 311 Rust sources. With the report's explicit comment/docstring/multiline-literal filters, they contain 135,304 Python and 156,489 Rust source lines (ratio 0.865). Physical lines, per-file counts and exclusions are in [counts.json](counts.json) and [counts.tsv](counts.tsv); [count_sources.py](count_sources.py) reproduces the method on the extracted snapshot. Tests, docs, generated caches and this audit are excluded.
+
+Remaining mathematical drivers include Risch/PRDE/Heurisch, Python ODE strategies, PolyMatrix ground linear algebra, inexact solve_lin_sys, sparse matrix algorithms and parts of conditional probability/Markov enumeration. Stock Poly/Domain primitives and many matrix/statistical kernels already delegate to Rust. The distinction matters for the README's architecture requirement: calling Rust scalar operations does not turn a Python elimination/search/reduction driver into a Rust algorithm.
+
+The report ranks PolyMatrix and inexact solve_lin_sys as concrete next ports serving the integrators, followed by AUTO/LLL and sparse algorithms. It treats the delivered dense Berkowitz package as pending integration. Counts do not establish behavior, completeness or performance; exact domain, precision, callback and error contracts remain acceptance requirements.

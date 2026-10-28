@@ -151,7 +151,8 @@ impl PolyCtx {
                 if *e < 0 {
                     return None;
                 }
-                m[i] += *e as u32;
+                let exponent=u32::try_from(*e).ok()?;
+                m[i]=m[i].checked_add(exponent)?;
             }
             let k = c.num.mul(&den.divexact(&c.den));
             out.push((m, k));
@@ -382,6 +383,7 @@ pub fn as_numer_denom(e: &Expr) -> (Expr, Expr) {
 }
 
 pub fn cancel_opts(e: &Expr, opaque_funcs: bool) -> Expr {
+    crate::poly::mpoly::checked_operation(||Ok((||{
     if e.is_atom() {
         return e.clone();
     }
@@ -402,6 +404,7 @@ pub fn cancel_opts(e: &Expr, opaque_funcs: bool) -> Expr {
         return pe;
     }
     div(&pe, &ctx.to_expr(&q))
+})())).unwrap_or_else(|_|e.clone())
 }
 
 // ----------------------------------------------------------------------

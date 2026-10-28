@@ -1,0 +1,46 @@
+{
+  "native_input_count": 347,
+  "all_paths_and_hashes_equal_initial": true,
+  "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+  "initial_rustchecks": {
+    "tests": {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "symox"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 135.782377243042
+    },
+    "clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 23.27646517753601
+    },
+    "rust_inputs_unchanged": true
+  },
+  "initial_binding_clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "-p",
+      "symox-py",
+      "--",
+      "-D",
+      "clippy::correctness"
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 18.53646230697632,
+    "native_inputs_unchanged": true
+  },
+  "note": "No reuse acceptance yet; corrected source/frozen package must be independently checked after the Python followup."
+}

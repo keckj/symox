@@ -1,0 +1,88 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/rational-selector-local-proof",
+  "rust_changed": false,
+  "files": [
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "831432ef312eb8701616609af188c356e744c80e29250fdeb82fe7b2c4cf933c",
+      "final_sha256": "c966bb72e3f6b83b6ff2fbff151f4096a7ba04eb4955517b0ac0bcd990b6ec27"
+    },
+    {
+      "path": "tests/test_lrt_stock_forwarding.py",
+      "base_sha256": "615e4b34e0d0323501bcf56960f625b8176e99573890e9aa9c6ac8cb4bd2d210",
+      "final_sha256": "a38c9bb2ec53175ede7bbf2c32ec15ad2c5d39a52249b3a7838deb94f3748cda"
+    }
+  ],
+  "frozen": true,
+  "rust_inputs_unchanged": true,
+  "validation": "1501 combined Demeter pass /353 targeted local pass",
+  "validated_debug_native_sha256": "8b8a9463eb284f8d01fc5c05717e6f318efa041ee24f122443174779edc7a02c",
+  "performance_overlay": {
+    "base_source": "374d458fdc73fb8a75cbaa2a06952b2b29d6ccc216f1b497f82a155468b4c0ac",
+    "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+    "adapter_sha256": "753ad09a13189b1c98d9e062db892fc1461ef5f4010b568bf9aab242d08387aa",
+    "scope": "R3b plus guard-only patch; not releaseR5"
+  },
+  "artifacts": [
+    {
+      "path": "selector-proof.patch",
+      "sha256": "c70d2d44a5cc467940c4d776ae5398e77d812c1a820cfd657f3020db53daa743",
+      "bytes": 8290
+    },
+    {
+      "path": "guard-only.patch",
+      "sha256": "576a7abc686f7712465930c4e0beada475e072eebc5da3364d58e532c795f4e1",
+      "bytes": 5866
+    },
+    {
+      "path": "proof.txt",
+      "sha256": "2856bf55c01a593a04bb80f458d26f54b6ec62dd7df6b31c7b6c99cde6ee3609",
+      "bytes": 2922
+    },
+    {
+      "path": "rust-identity.json",
+      "sha256": "1d0f93d07430ea77e69c51da3b9303ae263dc07b2e7faf20b88d0657b1edb3d8",
+      "bytes": 178
+    },
+    {
+      "path": "patch-check.log",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "bytes": 7
+    },
+    {
+      "path": "combined-final-demeter.log",
+      "sha256": "18da859cac0a011a04b119c7853fd9df42194379f949f9ec06271a20c3454ef9",
+      "bytes": 1713
+    },
+    {
+      "path": "targeted-third.log",
+      "sha256": "4cd4ece8f5c45597f13c2bf415ea69c50bfcba43ca47ce36500e3d2ddf94caf3",
+      "bytes": 421
+    },
+    {
+      "path": "release-candidate-check.log",
+      "sha256": "1ef287fe528df6532abecaea5f0706a73fa223b2fa4efd428169639acd687c2d",
+      "bytes": 122
+    },
+    {
+      "path": "metadata-before-vector.json",
+      "sha256": "987264a464f7cfbc968cc857f3589d601e46763ca5b4864b14cd8f793e118f6a",
+      "bytes": 578
+    },
+    {
+      "path": "metadata-after-vector.json",
+      "sha256": "1994393f88b48b3dcafcb2f7004ee721f4f4bd776dbfeda48e25a9d545de3121",
+      "bytes": 523
+    },
+    {
+      "path": "metadata-before-plain.json",
+      "sha256": "b4cea6461d7b98450ae0399771c1711bb7d523f1c17a742099d2a1353ee941d5",
+      "bytes": 515
+    },
+    {
+      "path": "metadata-after-plain.json",
+      "sha256": "bf89b8b0dd40943212a675f71e7df118c8d31ae13c0a5394c12081779915abcd",
+      "bytes": 460
+    }
+  ]
+}

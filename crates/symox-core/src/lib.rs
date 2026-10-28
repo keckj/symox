@@ -59,6 +59,8 @@ pub mod simplify;
 pub mod simptools;
 pub mod solve;
 pub mod special;
+pub mod simplex;
+pub mod stats;
 pub mod sortkey;
 pub mod subs;
 pub mod summation;

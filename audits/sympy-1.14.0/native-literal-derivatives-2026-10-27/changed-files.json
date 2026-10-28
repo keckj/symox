@@ -1,0 +1,107 @@
+[
+  {
+    "path": "crates/symox-core/src/binders.rs",
+    "base_sha256": "27ee8af73671ed590a0b9e1812f2c8bde8c9c8995d4ff3ea139f02e24f4f3800",
+    "final_sha256": "1fef817d32231c992335cf053ffb46770333084b55d912ba90c2803677faad40"
+  },
+  {
+    "path": "crates/symox-core/src/diff/integer_orders.rs",
+    "base_sha256": null,
+    "final_sha256": "7d3d4ec210284ad09ecea170eaa80f7e0077826352d1d3f42eb571f3f06d81bd"
+  },
+  {
+    "path": "crates/symox-core/src/diff/symbolic.rs",
+    "base_sha256": "48d17b3e6541fd8ca9d66c1e4e4bc23e4c5e736676b2e62c4477e597d6ee8632",
+    "final_sha256": "3b283061bff6b896c7bf67c5424b16bbf7c129447e6cc22b1a6b78584f82b283"
+  },
+  {
+    "path": "crates/symox-core/src/diff.rs",
+    "base_sha256": "c727d869d03c1c79593aa19cd482328c8d8817995b47a09b785d227fbf5dcd50",
+    "final_sha256": "9ac5d09d4e20d370cde293e122168392bdb127a52d7dbc64cb5bf1a565749d59"
+  },
+  {
+    "path": "crates/symox-core/src/expand.rs",
+    "base_sha256": "46293ab5f69a1b5b2f407e8789362624a5e908c1d4471784ab2273a49e53db9b",
+    "final_sha256": "1b7f84459308d1c61636064f1f00ba5642e80ff0e7b61024d438a520a4397e44"
+  },
+  {
+    "path": "crates/symox-core/src/expr.rs",
+    "base_sha256": "b5dba477850b2d1881248c3c3d81adc44c2746444c82e1cc51f720aafb30eac0",
+    "final_sha256": "a6129968c881282a866268ff74696acf5f8f59d2903eec58f8dbab44f32742d6"
+  },
+  {
+    "path": "crates/symox-core/src/limits/mod.rs",
+    "base_sha256": "7fa34e4d6387d194ad2d922bea95a0273d68761dc55c2048d8b6dea2096fd54c",
+    "final_sha256": "1700d827456a1e5b59b4a156850228f063acdba199319f34bda17e60ccb78fa2"
+  },
+  {
+    "path": "crates/symox-core/src/ops/deferred.rs",
+    "base_sha256": null,
+    "final_sha256": "532cd5966c027bdf61d021c0984bc0ebf477a4ad364a2011c51e267386dab405"
+  },
+  {
+    "path": "crates/symox-core/src/ops.rs",
+    "base_sha256": "3288fafffe8631e3dcd0bd440486c2e1bb5ce08ea9a4ebd8a672cef190e3c164",
+    "final_sha256": "93c8aab9476c6222f137e2d30915744a1de4c6bdf1bddd822ef2b5e1510e27b7"
+  },
+  {
+    "path": "crates/symox-core/src/printing/cse.rs",
+    "base_sha256": "680400f53786d647aa123531d95d8819e8e75c5be61c5d568d5ee6c9ba6c7f4f",
+    "final_sha256": "916c2e296b4f7b9227565f9fe4a7d86039f7bdadadc458912d0adf8d279571ee"
+  },
+  {
+    "path": "crates/symox-core/src/sets/lambda.rs",
+    "base_sha256": "0f241611f6dedb9c3fca8b1a15b0dad5afc8b9453b4f91ec71775e6bae1f451f",
+    "final_sha256": "e38a9812d290eb255ba96a12aa9046d0030fcd77bd315e4b16622a26d3a1ed2b"
+  },
+  {
+    "path": "crates/symox-core/src/simptools/mod.rs",
+    "base_sha256": "1120612a635d3d76193f9f6669af32964e0237bd63373d88fb099080902a49a1",
+    "final_sha256": "8ee6184828964a46afa35583ff84e29a3f0f0b9bd12bf6262717f1027dfed796"
+  },
+  {
+    "path": "crates/symox-core/src/special/mod.rs",
+    "base_sha256": "fc46b0718afd45c9aea8c615adee29ba79dba5f2de096285220964c24b53c433",
+    "final_sha256": "d8438a3033b113d2f579c458f522b1da65d62598af6d946ad9662632248474c6"
+  },
+  {
+    "path": "crates/symox-core/src/subs.rs",
+    "base_sha256": "180019945b38fcc221bf8f60b116fc38d15ce67d3d87231b5b478c4618e94588",
+    "final_sha256": "696350b6e56c6436c8d14de4fcd5eaf9dde13645b12a908238dd541cc248168f"
+  },
+  {
+    "path": "crates/symox-core/src/traverse.rs",
+    "base_sha256": "b48a4f4d51081bec8a395fdd5b3e504738da44ad17ed4554391b3f6834807b24",
+    "final_sha256": "ef45a8995e927736285aa8e72de3bfe9b54b402407c6a748c7aba1a3479d50ab"
+  },
+  {
+    "path": "crates/symox-py/src/lib.rs",
+    "base_sha256": "7fd6b834f03b5b07338f520c9a9c459a2d54c752e4babfb0a4f77f07a1dea5a5",
+    "final_sha256": "da739edd8a991664ab04619dcd2c6a5acc086dad1fd4297a0d4df2bc0755eb7d"
+  },
+  {
+    "path": "crates/symox-py/src/matrix_dag.rs",
+    "base_sha256": "5e9522faef47604c11c7190df41193f41c31e185a788e42e1359939e2033e265",
+    "final_sha256": "fb373380aaee6e74980ab34c0f462fdb9ccd160bfcf50e33d181aec04ef56b7b"
+  },
+  {
+    "path": "python/symox/_differentiation.py",
+    "base_sha256": "1fd95b423aece1b8e3b39c5a22f6ac37b027ffdc5d14663022c29f8cf42914ef",
+    "final_sha256": "ae6b7a2122d7cedc4ab0d1c08fb812284a60687c76d33e67d563f407115621b6"
+  },
+  {
+    "path": "python/symox/simplify/cse_main.py",
+    "base_sha256": "4fc2873e1417c4717e56eae2afc373d5a56b28eb61e2608fa28eb89a8884a225",
+    "final_sha256": "7599a59c047d7b1b6b8104d5c948755c2d2c404e4483772f235b13160338c9fd"
+  },
+  {
+    "path": "tests/test_exact_integer_power_materialization_budget.py",
+    "base_sha256": null,
+    "final_sha256": "b431d726e73150e6c2a0ad47acc972f30109c0ec363fee1d97e0abff12e26823"
+  },
+  {
+    "path": "tests/test_large_integer_derivative_orders.py",
+    "base_sha256": null,
+    "final_sha256": "e062f4beb3bd1cf4e2cc54f7bc732a439e84cd179f9e3438bf447fca86bac949"
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "label": "Solve",
+    "manifest": "/home/keckj/.cache/symox-validation/native-ddm-lu-solve-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "265b74825431185887787721e0b2d9e019fedd42cf8652ccbf48fd1699e847ce",
+    "source": "/home/keckj/.cache/symox-validation/native-ddm-lu-solve-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "265b74825431185887787721e0b2d9e019fedd42cf8652ccbf48fd1699e847ce"
+  },
+  {
+    "label": "Risch-no-step",
+    "manifest": "/home/keckj/.cache/symox-validation/native-risch-no-step-r9-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "1fc4774dd167b2d1fdeaa2d93bb4c630e16bbdc0dd12301c74ef4bc9d842763f",
+    "source": "/home/keckj/.cache/symox-validation/native-risch-no-step-r9-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "1fc4774dd167b2d1fdeaa2d93bb4c630e16bbdc0dd12301c74ef4bc9d842763f"
+  },
+  {
+    "label": "LLL-hot",
+    "manifest": "/home/keckj/.cache/symox-validation/native-lll-cache-scan-r10-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "f6e7f052fca3aea2a70c87f6e9997056d7a120f9aaa1e99ccdece2a714036473",
+    "source": "/home/keckj/.cache/symox-validation/native-lll-cache-scan-r10-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "f6e7f052fca3aea2a70c87f6e9997056d7a120f9aaa1e99ccdece2a714036473"
+  }
+]

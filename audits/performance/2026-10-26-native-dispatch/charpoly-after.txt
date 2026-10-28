@@ -1,0 +1,38 @@
+         2017 function calls (1887 primitive calls) in 0.002 seconds
+
+   Ordered by: cumulative time
+   List reduced from 217 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.002    0.002 <string>:6(<lambda>)
+        1    0.000    0.000    0.002    0.002 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_matrix_nc.py:38(method)
+        1    0.000    0.000    0.002    0.002 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_matrix_charpoly.py:51(charpoly)
+        1    0.000    0.000    0.002    0.002 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_matrix_charpoly.py:33(_default)
+        1    0.000    0.000    0.002    0.002 {function install.<locals>.charpoly at 0x7fe4471a1120}
+        1    0.000    0.000    0.002    0.002 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_purepoly.py:45(_from_coeffs)
+        1    0.000    0.000    0.002    0.002 {built-in method __new__ of type object at 0x55b7bd54a9a0}
+        1    0.000    0.000    0.001    0.001 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_poly_constructor.py:294(construct)
+        1    0.000    0.000    0.001    0.001 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_poly_constructor.py:133(_data)
+        1    0.000    0.000    0.001    0.001 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_poly_constructor.py:110(_from_terms)
+        1    0.000    0.000    0.001    0.001 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_poly_constructor.py:216(_domain_alias)
+        3    0.000    0.000    0.001    0.000 /usr/lib/python3.10/re.py:187(match)
+        3    0.000    0.000    0.001    0.000 /usr/lib/python3.10/re.py:288(_compile)
+        2    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_compile.py:783(compile)
+        2    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:1022(_find_and_load)
+        2    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:987(_find_and_load_unlocked)
+        2    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:944(parse)
+      6/2    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:436(_parse_sub)
+     14/2    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:494(_parse)
+        2    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:664(_load_unlocked)
+        1    0.000    0.000    0.000    0.000 {built-in method _from_normalized}
+        2    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:877(exec_module)
+        1    0.000    0.000    0.000    0.000 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_compat.py:572(__new__)
+        2    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:950(get_code)
+    18/14    0.000    0.000    0.000    0.000 {built-in method builtins.any}
+        2    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_compile.py:622(_code)
+  243/198    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}
+        5    0.000    0.000    0.000    0.000 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_poly_constructor.py:113(<genexpr>)
+     17/2    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_compile.py:87(_compile)
+        4    0.000    0.000    0.000    0.000 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after/symox/_poly_constructor.py:103(_bound_generator)
+
+

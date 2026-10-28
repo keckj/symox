@@ -1,0 +1,10 @@
+{
+  "native_sha256": "57a4f9a5ebb97b34bddd5f0d52efac2a1417579c1ae819e436771944de9346e9",
+  "cargo_check": "passed",
+  "python": {
+    "passed": 1158,
+    "failed": 8,
+    "elapsed_seconds": 57.37
+  },
+  "all_failures": "tests/test_lrt_stock_forwarding.py stock native selection after prior reload/protocol tests; mathematical outputs match. Fix delegated; no release/full-suite acceptance yet."
+}

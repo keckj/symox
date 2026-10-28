@@ -626,5 +626,16 @@ def install():
     S.Expr.rewrite = rewrite
 
 
+# Protocol certificates for late installation on the ordinary Expr facade.
+# Selection code authenticates these immutable lexical templates and the
+# inherited delegates; installing the wrappers retains its existing behavior.
+from types import CodeType as _StatsCodeType
+_STATS_INSTALL_CODE=install.__code__
+_STATS_DOIT_CODE=next(c for c in _STATS_INSTALL_CODE.co_consts
+                      if type(c) is _StatsCodeType and c.co_name=='doit')
+_STATS_REWRITE_CODE=next(c for c in _STATS_INSTALL_CODE.co_consts
+                         if type(c) is _StatsCodeType and c.co_name=='rewrite')
+
+
 __all__ = ['Probability','Expectation','Variance','Covariance','Moment','CentralMoment',
  'ExpectationMatrix','VarianceMatrix','CrossCovarianceMatrix']

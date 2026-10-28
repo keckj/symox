@@ -1,0 +1,31 @@
+{
+  "prior_nodes_preserved": 54428,
+  "new_nodes_by_file": {
+    "tests/test_native_hnf_code_authority.py": 1,
+    "tests/test_native_hnf_function_bootstrap.py": 4,
+    "tests/test_native_hnf_modular.py": 1676,
+    "tests/test_native_lll_first_call.py": 11,
+    "tests/test_native_risch_splitfactor.py": 191
+  },
+  "all_prior_skip_xfail_identities_and_reasons_preserved": true,
+  "source_entries_verified": 3585,
+  "actual_complete_native_paths_and_hashes_verified": 364,
+  "native_map_includes_py_contract_and_compiled_tsv": true,
+  "collection_shards_finished_counters_identical": true,
+  "each_node_exactly_once": true,
+  "nodes": 56311,
+  "shards": 48,
+  "fresh_integrated_release_LLL_triples": {
+    "comparisons": 1104,
+    "equal_errors": 4,
+    "old_bridge_public_native_calls": [
+      0,
+      1,
+      1
+    ],
+    "all_classification_states_equal": true,
+    "all_audit_events_empty": true,
+    "unchanged_runner_sha256": "13f890a8fa006463ef5e5d23170ac3f88449ac4990ecc2d6450f06070ffc27cd",
+    "all_sources_and_native_inputs_unchanged": true
+  }
+}

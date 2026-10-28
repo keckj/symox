@@ -1,0 +1,20 @@
+{
+  "README.md": "be689778c1bf906a8838b20ddc1d5de336819b977c704a3feb34a84cb74e5245",
+  "benchmark-ddm-matmul.py": "e55bfea4f69c30afd8959073c2cfab492445c45b70aaedf3b19928ea1e46201e",
+  "benchmark-ddm-rref.py": "c391c2a3c90249f1499ceb0ebede8e90fa9a7c176464be8298bf7deb0413c49a",
+  "comparison.json": "a41ad27b6d166fd1a1f5b68569c822cd77140ea529a702ae850253207b3c4e9e",
+  "matmul-after-0.json": "f1f47b81d36a225e9980e88d285a0cd86911ac4c7e74945dfbaeff9731e20831",
+  "matmul-after-1.json": "5e74bf0d26255f9061d197749c08b6959da20a96786a7ade9f983e272db60b34",
+  "matmul-after-2.json": "83410306ebdce97c613a43a4b60efbe46ffa904ad47c7d46a976fbf44a59920d",
+  "matmul-before-0.json": "1a743e5ef987fcc52847ce3301d1653461b7b5ec5f344e7e4cf3325f650e2f5f",
+  "matmul-before-1.json": "afc19b0e94b989877dbbbd8b54bf0610bb77ee6857857ea038626a0e5682fe3f",
+  "matmul-before-2.json": "8c22d0b40242d6008455c65b099f987b072f51daef23c7364582c48315e688a3",
+  "rref-after-0.json": "3992e930fce4aefef06cf4f053337888c8a2a2537a58ea945132c683bc1b0209",
+  "rref-after-1.json": "856122570774abd48db7a0628ea15cb4c75e7e2a58f0d351c29d17ddb0573350",
+  "rref-after-2.json": "5884d41498ab9979e231425427dfcd86be7bd0f72c30172d2ca26d3296bbc77b",
+  "rref-before-0.json": "e0092712e219a12b3f962284fe7793d27cc4b1eb052bb43d11cd6e52e1c6d623",
+  "rref-before-1.json": "f81163e3d0d056a5fdc2df5ee936056e0281e6e93eda0d586c3ec1c9b223a675",
+  "rref-before-2.json": "8a297f98fd477413a9da126846af48ce88075792a86199e461f62983d690dccb",
+  "run-ddm-performance.py": "bd67d9b13d4e24607fb31c96f2247f9d086709d95fed2ba20b691b25be4d8027",
+  "run-rref-performance.py": "dc0940d93eae631294ee60486a02e2bb1505f32b9e99de9e4c77f12e0816c0ec"
+}

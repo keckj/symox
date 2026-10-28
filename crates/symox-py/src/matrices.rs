@@ -1258,13 +1258,13 @@ impl PyMatrix {
         for (k, v) in rule.iter() {
             m.insert(to_expr(&k)?, to_expr(&v)?);
         }
-        Ok(self.wrapped(self.m.xreplace(&m)))
+        crate::with_derivative_errors(||Ok(self.wrapped(self.m.xreplace(&m))))
     }
 
     #[pyo3(signature = (*args, **_kwargs))]
     fn diff(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         let vars = diff_vars(args)?;
-        Ok(self.wrapped(self.m.diff_many(&vars)))
+        crate::with_derivative_errors(||Ok(self.wrapped(self.m.diff_many(&vars))))
     }
 
     #[pyo3(signature = (deep=true, **hints))]
@@ -1306,6 +1306,14 @@ impl PyMatrix {
     // linear algebra
     // ------------------------------------------------------------------
 
+    fn _has_rational_entries(&self) -> bool {
+        matrix::domain::has_rational_entries(&self.m)
+    }
+
+    fn _has_rational_polynomial_entries(&self) -> bool {
+        matrix::domain::has_rational_polynomial_entries(&self.m)
+    }
+
     #[pyo3(signature = (method="bareiss", iszerofunc=None))]
     fn det(&self, py: Python<'_>, method: &str, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
         let m = DetMethod::from_name(method).py(py)?;
@@ -1321,6 +1329,20 @@ impl PyMatrix {
         try_block_diag: bool,
     ) -> PyResult<PyMatrix> {
         Ok(self.wrapped(auxiliary::inverse(py,&self.m,method,iszerofunc,try_block_diag)?))
+    }
+
+    fn _inexact_domain(&self) -> Option<(bool,u32)> {
+        matrix::inexact::domain(&self.m).map(|domain|(domain.complex,domain.precision))
+    }
+
+    fn _inverse_inexact(&self, py: Python<'_>, complex: bool, precision: u32) -> PyResult<PyMatrix> {
+        let domain=matrix::inexact::InexactDomain{complex,precision};
+        let result=matrix::inexact::inverse(&self.m,domain,||py.check_signals());
+        match result {
+            Ok(matrix)=>Ok(self.wrapped(matrix)),
+            Err(matrix::inexact::InexactError::Matrix(error))=>Err(err(py,error)),
+            Err(matrix::inexact::InexactError::Interrupted(error))=>Err(error),
+        }
     }
 
     #[pyo3(signature=(delta=LllDelta::default()), text_signature="($self, delta=0.75)")]

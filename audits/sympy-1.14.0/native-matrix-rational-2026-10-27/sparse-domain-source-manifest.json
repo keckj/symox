@@ -1,0 +1,19 @@
+{
+  "base": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/sparse-sdm-protocol-followup",
+  "files": [
+    {
+      "path": "python/symox/polys/matrices/sdm.py",
+      "base": "e0630ea9e271bfa5bb8f953a2b33151f25853ea4b59d7588e3077e31f5bd2a52",
+      "final": "387c059559ec4b25458076a1349eae927354823b8e24c3205b60673ca2428414"
+    },
+    {
+      "path": "tests/test_native_sdm_domain_attributes.py",
+      "base": null,
+      "final": "1427240eb4746a462ad3b81ffcefa09ac956bc4b77d705f0cf4f4bc33f67c752"
+    }
+  ],
+  "patch_sha256": "c87e23991cfb591a2817c407eb2de93eb80bb73190df009d24f2134813cd2643",
+  "local_passed": 192,
+  "demeter": "pending",
+  "sources_frozen": true
+}

@@ -863,6 +863,7 @@ impl PrettyPrinter<'_> {
             Kind::Add(..) => self.print_add(e),
             Kind::Mul(..) => self.print_mul(e),
             Kind::Pow(b, x) => self.print_pow(b, x),
+            Kind::Func(Func::SymbolicDerivative,_) => {let(body,vars)=crate::diff::symbolic::parts(e).unwrap();self.print_symbolic_derivative(body,&vars)},
             Kind::Func(f, args) => self.print_func(f, args),
             Kind::Derivative(f, vars) => self.print_derivative(f, vars),
             Kind::Rel(op, a, b) => {
@@ -1624,6 +1625,19 @@ impl PrettyPrinter<'_> {
         }
     }
 
+    fn print_symbolic_derivative(&self,f:&Expr,vars:&[(Expr,Expr)])->Pict {
+        let d=if crate::traverse::free_symbols(f).len()>1&&!ascii(){"∂"}else{"d"};
+        let mut denominator:Option<Pict>=None;
+        for(v,n)in vars.iter().rev(){
+            let mut ds=self.print(v).left(&[Pict::new(d)]);
+            if !crate::diff::symbolic::one(n){ds=Pict::pow(ds,Pict::new(&crate::printer::to_str(n)));}
+            denominator=Some(match denominator{None=>ds,Some(p)=>p.right(&[Pict::new(" "),ds])});
+        }
+        let total=match crate::diff::symbolic::total(vars){Ok(total)=>total,Err(_)=>return Pict::new(&crate::printer::to_str(&crate::diff::symbolic::raw(f,vars)))};let mut head=Pict::new(d);
+        if crate::relational::gt(&total,&Expr::one())!=Expr::boolean(false){head=Pict::pow(head,Pict::new(&crate::printer::to_str(&total)));}
+        let mut head=head.below(vec![Item::Line,Item::P(denominator.unwrap())]);head.baseline+=1;
+        Pict::next(&[head,self.print(f).paren().bind(Binding::Func)]).bind(Binding::Mul)
+    }
     fn print_derivative(&self, f: &Expr, vars: &[(Expr, u32)]) -> Pict {
         let partial = crate::traverse::free_symbols(f).len() > 1;
         let d = if partial && !ascii() { "∂" } else { "d" };

@@ -307,6 +307,7 @@ impl<'a> TorchPrinter<'a> {
                 self.expr(&explicit, mask)
             }
             Kind::Func(Func::MatrixProxy(_), _) => Err(self.unsupported("a matrix expression used as a scalar")),
+            Kind::Func(Func::SymbolicDerivative,_) => Err(self.unsupported("unevaluated Derivative")),
             Kind::Func(function, args) => self.function(function, args, mask),
             Kind::Derivative(..) => Err(self.unsupported("unevaluated Derivative")),
         }

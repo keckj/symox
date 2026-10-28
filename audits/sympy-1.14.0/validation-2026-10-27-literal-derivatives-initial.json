@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "status": "failed; not accepted",
+  "scope": "First integrated literal-order derivative recipes plus CSE attribute followup over accepted inexact-domain snapshot",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "1f0bbd8365bc823e837ab20db8fd04f107b04a91dcba3ea5427870d04cb1ab93",
+    "native_sha256": "1ecf352c0c6a449df0dc7e3795c79ab150f4ff1a1c29f9239171e9806e2e6bb9",
+    "working_code_diff_sha256": "004ce636a46df8a6592430ce0d4e35df29118674d113243eaee7b7a56c862b6e",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 2756,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 439.9624216556549,
+    "native_sha256": "1ecf352c0c6a449df0dc7e3795c79ab150f4ff1a1c29f9239171e9806e2e6bb9"
+  },
+  "python": {
+    "counts": {
+      "passed": 49190,
+      "skipped": 55,
+      "failed": 1,
+      "xfailed": 4
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 49250,
+      "collected_in_shards": 49250,
+      "finished": 49250,
+      "missing": [],
+      "unexpected": []
+    },
+    "failures": [
+      {
+        "shard": "shard-15",
+        "class": "tests.test_complex_eval",
+        "name": "test_evaluator_matches_sympy[arg(sqrt(-2+I))]"
+      }
+    ],
+    "elapsed_seconds": 201.13512778282166
+  },
+  "rust": {
+    "passed": 708,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 133.10433983802795
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 0.11622190475463867
+      },
+      "rust_inputs_unchanged": true
+    },
+    "bindings_clippy_returncode": 0
+  },
+  "targeted_release_passed": 2116,
+  "failure_diagnosis": "The numeric-recipe export guard also matched ordinary canonical numeric reciprocals such as sin(theta)**(-1). It exported the parent with evaluate=False, changing SymPy argument canonicalization: identical text but structurally unequal objects. The isolated test fails on this snapshot and passes on the preceding accepted 8a8a package. A separate fix must restrict the special export path to explicitly marked recipes; original equality assertion remains unchanged.",
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-literal-derivatives-20261027",
+    "initial_demeter": "/home/keckj/.cache/symox-validation/native-literal-derivatives-20261027/demeter-initial",
+    "portable_execution": "audits/sympy-1.14.0/native-literal-derivatives-2026-10-27/initial-python-execution-evidence.tar.gz"
+  },
+  "last_accepted_release": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+  "global_algorithmic_parity_certified": false
+}

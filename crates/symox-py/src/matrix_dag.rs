@@ -63,7 +63,7 @@ impl Node{
             Self::S(e) if e.is_host()=>Vec::new(),
             Self::S(e)=>{
                 let mut out=Vec::new();match e.kind(){
-                    Kind::Sym(s)=>out.extend(s.exclude().iter().cloned().map(Self::S)),
+                    Kind::Sym(s)=>{out.extend(s.exclude().iter().cloned().map(Self::S));out.extend(s.scalar_identity().cloned().map(Self::S));},
                     Kind::Add(_,terms)=>out.extend(terms.iter().map(|(e,_)|Self::S(e.clone()))),
                     Kind::Mul(_,terms)=>for(a,b)in terms{out.push(Self::S(a.clone()));out.push(Self::S(b.clone()));},
                     Kind::Pow(a,b)|Kind::Rel(_,a,b)=>{out.push(Self::S(a.clone()));out.push(Self::S(b.clone()));},
@@ -118,6 +118,7 @@ impl<'py> Encoder<'py>{
             Node::S(e) if e.is_host()=>("s.host",e.is_canonical(),vec![crate::expr_object(py,e.clone())?]),
             Node::S(e)=>{let(tag,fields)=match e.kind(){
                 Kind::Num(n)=>("s.number",vec![number(py,n)?]),
+                Kind::Sym(s) if s.scalar_identity().is_some()=>("s.symbol.identity",vec![obj(py,s.name())?,obj(py,s.given_facts().bits())?,obj(py,self.scalar(s.scalar_identity().unwrap()))?]),
                 Kind::Sym(s)=>match s.dummy_index(){
                     Some(index)=>("s.dummy.facts",vec![obj(py,s.name())?,obj(py,s.given_facts().bits())?,obj(py,index.clone())?]),
                     None if s.wild_properties().is_some()=>("s.wild.properties",vec![obj(py,s.name())?,obj(py,s.given_facts().bits())?,obj(py,self.scalars(s.exclude()))?,crate::wildcards::properties(py,s)?.into_any().unbind()]),
@@ -127,7 +128,7 @@ impl<'py> Encoder<'py>{
                 Kind::Bool(b)=>("s.bool",vec![obj(py,*b)?]),
                 Kind::Add(c,terms)=>{let terms=terms.iter().map(|(t,c)|tuple(py,vec![obj(py,self.scalar(t))?,number(py,c)?])).collect::<PyResult<Vec<_>>>()?;("s.add",vec![number(py,c)?,obj(py,terms)?])},
                 Kind::Mul(c,terms)=>("s.mul",vec![number(py,c)?,obj(py,terms.iter().map(|(a,b)|(self.scalar(a),self.scalar(b))).collect::<Vec<_>>())?]),
-                Kind::Pow(a,b)=>("s.pow",vec![obj(py,self.scalar(a))?,obj(py,self.scalar(b))?]),
+                Kind::Pow(a,b)=>(if e.is_deferred_numeric_power(){"s.deferred_power"}else{"s.pow"},vec![obj(py,self.scalar(a))?,obj(py,self.scalar(b))?]),
                 Kind::Derivative(a,vars)=>("s.derivative",vec![obj(py,self.scalar(a))?,obj(py,vars.iter().map(|(v,n)|(self.scalar(v),*n)).collect::<Vec<_>>())?]),
                 Kind::Rel(op,a,b)=>("s.rel",vec![obj(py,op.symbol())?,obj(py,self.scalar(a))?,obj(py,self.scalar(b))?]),
                 Kind::Piecewise(pairs)=>("s.piecewise",vec![obj(py,pairs.iter().map(|(a,b)|(self.scalar(a),self.scalar(b))).collect::<Vec<_>>())?]),
@@ -164,6 +165,10 @@ impl Reader{
 fn assumptions(bits:u32)->PyResult<Assumptions>{if bits&!Assumptions::NAMES.iter().fold(0u32,|mask,(_,flag)|mask|flag.0)!=0{return Err(invalid("unknown assumption bits"));}let a=Assumptions(bits);a.closure().map_err(invalid)?;Ok(a)}
 fn constant(name:&str)->PyResult<Constant>{Ok(match name{"pi"=>Constant::Pi,"E"=>Constant::E,"I"=>Constant::I,"EulerGamma"=>Constant::EulerGamma,"Catalan"=>Constant::Catalan,"GoldenRatio"=>Constant::GoldenRatio,"TribonacciConstant"=>Constant::TribonacciConstant,"oo"=>Constant::Infinity,"-oo"=>Constant::NegInfinity,"zoo"=>Constant::ComplexInfinity,"nan"=>Constant::NaN,_=>return Err(invalid("unknown constant"))})}
 fn validate_function(function:&Func,args:&[Expr])->PyResult<()>{
+    if matches!(function,Func::SymbolicDerivative){
+        let node=Expr::from_kind(Kind::Func(function.clone(),args.to_vec()));
+        symox::diff::symbolic::validate_tree(&node,false).map_err(|error|invalid(error.to_string()))?;
+    }
     if function.arity().is_some_and(|n|n!=args.len()){return Err(invalid("function arity mismatch"));}
     if matches!(function,Func::Integral|Func::Sum|Func::Product){symox::binders::validate(function,args).map_err(invalid)?;}
     if let Func::Set(op @ (symox::sets::SetOp::Lambda|symox::sets::SetOp::IdentityFunction))=function{symox::sets::validate_lambda(*op,args).map_err(invalid)?;}
@@ -209,13 +214,14 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                         None=>Symbol::wild_with_facts(&name,exclude,given).map_err(invalid)?,
                     })
                 },
+                "s.symbol.identity"=>{arity(3)?;let name:String=f.get_item(0)?.extract()?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;Kind::Sym(Symbol::with_facts(&name,given).map_err(invalid)?.with_scalar_identity(s(2)?))},
                 "s.symbol.facts"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}Kind::Sym(if wild{Symbol::wild_with_facts(&name,exclude,given).map_err(invalid)?}else{Symbol::with_facts(&name,given).map_err(invalid)?})},
                 "s.dummy.facts"=>{arity(3)?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;Kind::Sym(Symbol::dummy_with_facts(&f.get_item(0)?.extract::<String>()?,given,Some(f.get_item(2)?.extract()?)).map_err(invalid)?)},
                 "s.constant"=>{arity(1)?;Kind::Const(constant(&f.get_item(0)?.extract::<String>()?)?)},
                 "s.bool"=>{arity(1)?;Kind::Bool(f.get_item(0)?.extract()?)},
                 "s.add"=>{arity(2)?;let mut terms=Vec::new();for pair in f.get_item(1)?.try_iter()?{let pair=pair?;if pair.len()?!=2{return Err(invalid("additive term requires reference and coefficient"));}terms.push((reader.scalar(pair.get_item(0)?.extract()?)?,read_number(&pair.get_item(1)?)?));}Kind::Add(read_number(&f.get_item(0)?)?,terms)},
                 "s.mul"=>{arity(2)?;let pairs:Vec<(usize,usize)>=f.get_item(1)?.extract()?;Kind::Mul(read_number(&f.get_item(0)?)?,pairs.into_iter().map(|(a,b)|Ok((reader.scalar(a)?,reader.scalar(b)?))).collect::<PyResult<_>>()?)},
-                "s.pow"=>{arity(2)?;Kind::Pow(s(0)?,s(1)?)},
+                "s.pow"|"s.deferred_power"=>{arity(2)?;Kind::Pow(s(0)?,s(1)?)},
                 "s.derivative"=>{arity(2)?;let vars:Vec<(usize,u32)>=f.get_item(1)?.extract()?;if vars.iter().any(|(_,n)|*n==0){return Err(invalid("derivative order must be positive"));}Kind::Derivative(s(0)?,vars.into_iter().map(|(id,n)|Ok((reader.scalar(id)?,n))).collect::<PyResult<_>>()?)},
                 "s.rel"=>{arity(3)?;let op=match f.get_item(0)?.extract::<String>()?.as_str(){"=="=>RelOp::Eq,"!="=>RelOp::Ne,"<"=>RelOp::Lt,"<="=>RelOp::Le,">"=>RelOp::Gt,">="=>RelOp::Ge,_=>return Err(invalid("unknown relation"))};Kind::Rel(op,s(1)?,s(2)?)},
                 "s.piecewise"=>{arity(1)?;let pairs:Vec<(usize,usize)>=f.get_item(0)?.extract()?;Kind::Piecewise(pairs.into_iter().map(|(a,b)|Ok((reader.scalar(a)?,reader.scalar(b)?))).collect::<PyResult<_>>()?)},
@@ -262,7 +268,10 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                     let parent=Arc::new(matrix);let function=match tag.as_str(){"s.element"=>Func::MatrixElement(parent),"s.proxy"=>Func::MatrixProxy(parent),"s.trace"=>Func::MatrixTrace(parent),_=>Func::MatrixDeterminant(parent)};Kind::Func(function,args)
                 },
                 _=>return Err(invalid("unknown scalar node tag")),
-            };Decoded::S(if canonical{Expr::from_kind(kind)}else{Expr::from_unevaluated_kind(kind)})
+            };Decoded::S(if tag=="s.deferred_power" {
+                let Kind::Pow(base,exponent)=kind else{unreachable!()};
+                symox::ops::deferred::restore(&base,&exponent).ok_or_else(||invalid("invalid deferred numeric power"))?
+            }else if canonical{Expr::from_kind(kind)}else{Expr::from_unevaluated_kind(kind)})
         }else{
             match tag.as_str(){
                 "PermutationMatrix"=>{arity(1)?;matrix_result(MatrixExpr::permutation(f.get_item(0)?.extract()?,false))?},

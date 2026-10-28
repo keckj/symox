@@ -144,8 +144,10 @@ def is_strictly_decreasing(expression, interval=S.Reals, symbol=None):
 
 
 def _native_monotonic(expression, interval, symbol):
+    from .. import _core
     result,derivative,real,interior=_context(expression,interval,symbol)
     if derivative is None:return result
+    if _core._st_constant_real_derivative(derivative,real):return True
     increasing=_direction(derivative,real,interior,True,False)
     if increasing is True:return True
     decreasing=_direction(derivative,real,interior,False,False)

@@ -640,12 +640,27 @@ class Indexed(_IndexedArithmetic):
             object.__setattr__(self, '_symbol_hash', value)
             return value
 
+    def _sympy_(self):
+        # Explicit interoperability only; native arithmetic never imports SymPy.
+        import sympy
+        from symox import to_sympy
+        from symox._public_matrix import Idx
+        shape = None if self.base.shape is None else tuple(map(to_sympy, self.base.shape))
+        base = sympy.IndexedBase(to_sympy(self.base.label), shape=shape)
+        indices = []
+        for index in self.indices:
+            if isinstance(index, Idx):
+                bounds = None if index.lower is None else (to_sympy(index.lower), to_sympy(index.upper))
+                indices.append(sympy.Idx(to_sympy(index.label), bounds))
+            else:
+                indices.append(to_sympy(index))
+        return base[tuple(indices)]
+
     def _symox_(self):
         # Flatten multidimensional references consistently when they enter
         # native scalar arithmetic (whose atoms are scalar symbols).
-        from symox import Symbol
         from symox.printing._legacy import LegacyCXX17CodePrinter
-        symbol = Symbol(LegacyCXX17CodePrinter().doprint(self))
+        symbol = _indexed_symbol(self, LegacyCXX17CodePrinter().doprint(self))
         _INDEXED_SYMBOLS.setdefault(symbol, self)
         return symbol
 
@@ -658,6 +673,67 @@ IndexedBase.__module__ = Indexed.__module__ = 'symox.tensor.indexed'
 # so that ``expr.atoms(Indexed)`` finds them (SymPy's
 # ``Tuple(A[1] + A[2] - 3).atoms(Indexed)`` is ``{A[1], A[2]}``).
 _INDEXED_SYMBOLS = {}
+
+
+def _indexed_symbol(indexed, name):
+    """Preserve structural identity when an Indexed enters scalar arithmetic."""
+    from symox import Tuple, S, _core
+    from symox._public_matrix import Idx
+    entries = []
+    for index in indexed.indices:
+        if isinstance(index, Idx):
+            fields = (S.true, index.label)
+            if index.lower is not None:
+                fields += (index.lower, index.upper)
+        else:
+            fields = (S.false, index)
+        entries.append(Tuple(*fields))
+    shape = S.false if indexed.base.shape is None else Tuple(*indexed.base.shape)
+    return _core._indexed_symbol(name, Tuple(indexed.base.label, shape, Tuple(*entries)))
+
+
+def _indexed_from_sympy(indexed):
+    """Adapt an explicitly supplied foreign Indexed without losing bounds."""
+    from symox import sympify
+    from symox._public_matrix import Idx
+    shape = indexed.base.shape
+    base = IndexedBase(sympify(indexed.base.label), None if shape is None else tuple(map(sympify, shape)))
+    indices = []
+    for index in indexed.indices:
+        if type(index).__name__ == 'Idx':
+            bounds = None if index.lower is None else (sympify(index.lower), sympify(index.upper))
+            indices.append(Idx(sympify(index.label), bounds))
+        else:
+            indices.append(sympify(index))
+    return Indexed(base, *indices)._symox_()
+
+
+def _indexed_reference(symbol):
+    """Recover metadata after native arithmetic or serialization."""
+    try:
+        indexed = _INDEXED_SYMBOLS.get(symbol)
+    except TypeError:
+        return None
+    if indexed is not None:
+        return indexed
+    identity = getattr(symbol, '_scalar_identity', None)
+    if identity is None:
+        return None
+    from symox import S
+    from symox._public_matrix import Idx
+    label, shape, entries = identity.args
+    base = IndexedBase(label, None if shape == S.false else shape.args)
+    indices = []
+    for entry in entries.args:
+        fields = entry.args
+        if fields[0] == S.true:
+            indices.append(Idx(fields[1], None if len(fields) == 2 else fields[2:]))
+        else:
+            indices.append(fields[1])
+    indexed = Indexed(base, *indices)
+    _INDEXED_SYMBOLS[symbol] = indexed
+    return indexed
+
 
 
 def _install_indexed_assumptions():
@@ -697,8 +773,8 @@ def _install_indexed_atoms():
 
     def atoms(self, *types):
         found = native_atoms(self, *types)
-        if any(t is Indexed for t in types) and _INDEXED_SYMBOLS:
-            found |= {s for s in native_atoms(self, _S.Symbol) if s in _INDEXED_SYMBOLS}
+        if any(t is Indexed for t in types):
+            found |= {s for s in native_atoms(self, _S.Symbol) if _indexed_reference(s) is not None}
         return found
 
     atoms.__doc__ = native_atoms.__doc__

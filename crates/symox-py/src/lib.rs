@@ -22,6 +22,9 @@ mod expression_inspection;
 mod wildcards;
 mod host;
 mod integration_methods;
+mod rational_protocols;
+mod risch_polynomial_reduce;
+mod risch_splitfactor;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -38,6 +41,8 @@ mod poly;
 mod ntheory;
 mod simp;
 mod simptools;
+mod simplex;
+mod stats;
 mod ode;
 mod solve;
 mod logic;
@@ -240,6 +245,7 @@ fn node_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
 
 fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     host::raise_pending()?;
+    if e.has_symbolic_derivative(){with_derivative_errors(||diff::symbolic::validate_tree(&e,false).map_err(derivative_error))?;}
     if e.has_host() {
         if let Some(value) = host::object(py, &e)? { return Ok(value); }
     }
@@ -499,7 +505,7 @@ fn validate_matrix_replacements(py: Python<'_>, e: &Expr, pairs: &[(Expr, Expr)]
                 else { matrix.element(&transform(&indices[0]), &transform(&indices[1])) }
             }).map_err(|error| matrices::err(py, error))?;
         }
-        for child in node.args() { validate(py, &child, pairs, matrix_pairs, transform, visited)?; }
+        for child in symox::inspection::scalar_children(node) { validate(py, &child, pairs, matrix_pairs, transform, visited)?; }
         Ok(())
     }
     validate(py, e, pairs, &matrix_pairs, &mut transform, &mut FxHashMap::default())
@@ -789,8 +795,8 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         if head=="Derivative" {
             let expression=to_expr(&obj.getattr("expr")?)?;
             let mut variables=Vec::new();
-            for item in obj.getattr("variable_count")?.try_iter()?{let item=item?;variables.push((to_expr(&item.get_item(0)?)?,item.get_item(1)?.extract()?));}
-            return Ok(diff::derivative_unevaluated(&expression,variables));
+            for item in obj.getattr("variable_count")?.try_iter()?{let item=item?;variables.push((to_expr(&item.get_item(0)?)?,to_expr(&item.get_item(1)?)?));}
+            return diff::symbolic::construct(&expression,variables,false).map_err(derivative_error);
         }
         if head=="Limit" {
             let args=obj.getattr("args")?;
@@ -819,6 +825,10 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         }
         if obj.getattr("is_Matrix").is_ok_and(|value| value.is_truthy().unwrap_or(false)) {
             return Ok(matrix_proxy(matrixexpr::to_matrixexpr(obj)?));
+        }
+        if head == "Indexed" {
+            let adapted=py.import("symox.codegen.ast")?.getattr("_indexed_from_sympy")?.call1((obj,))?;
+            return to_expr(&adapted);
         }
         if head == "Symbol" || head == "Dummy" || head == "Wild" {
             let name: String = obj.getattr("name")?.extract()?;
@@ -1025,7 +1035,7 @@ fn has_dirac_delta(e: &Expr) -> bool {
     match e.kind() {
         Kind::Func(Func::DiracDelta, _) => true,
         Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => false,
-        _ => e.args().iter().any(has_dirac_delta),
+        _ => symox::inspection::scalar_children(e).iter().any(has_dirac_delta),
     }
 }
 
@@ -1079,6 +1089,12 @@ fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(Integratio
     Ok((conditions,meijerg,others))
 }
 
+/// Preserve only the exact powers explicitly deferred by derivative recipes.
+/// Ordinary canonical numeric powers retain the established SymPy evaluation;
+/// explicit evaluate=False is already preserved by each node's canonical flag.
+fn held_numeric_export(e:&Expr)->bool{
+    e.has_deferred_numeric_power()
+}
 fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
     let sm = py.import("sympy")?;
     let convert_args = |args: &[Expr]| -> PyResult<Bound<'py, PyTuple>> {
@@ -1118,6 +1134,9 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             py.import("sympy.matrices.expressions.matexpr")?.getattr("MatrixElement")?
                 .call1((parent, expr_to_sympy(py, &args[0])?, expr_to_sympy(py, &args[1])?))
         }
+        Kind::Sym(s) if s.scalar_identity().is_some() => {
+            py.import("symox.codegen.ast")?.getattr("_indexed_reference")?.call1((wrap(e.clone()),))?.getattr("_sympy_")?.call0()
+        }
         Kind::Sym(s) => {
             let kwargs = PyDict::new(py);
             for keyword in s.given_facts().keywords() {
@@ -1133,7 +1152,7 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => {
             let args = convert_args(&e.args())?;
             let kwargs = PyDict::new(py);
-            kwargs.set_item("evaluate", e.is_canonical())?;
+            kwargs.set_item("evaluate", e.is_canonical()&&!held_numeric_export(e))?;
             sm.getattr(e.class_name())?.call(args, Some(&kwargs))
         }
         Kind::Func(Func::Undefined(name), args) if name.is_internal("Tuple") => sm.getattr("Tuple")?.call1(convert_args(args)?),
@@ -1152,10 +1171,16 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         }
         Kind::Func(Func::Set(symox::sets::SetOp::IdentityFunction),_)=>sm.getattr("S")?.getattr("IdentityFunction"),
         Kind::Func(Func::Set(op), args) if op.is_named() && args.is_empty() => sm.getattr(op.name()),
+        Kind::Func(Func::SymbolicDerivative,args) => {let kwargs=PyDict::new(py);kwargs.set_item("evaluate",false)?;sm.getattr("Derivative")?.call(convert_args(args)?,Some(&kwargs))},
+        Kind::Func(f @ Func::Special(symox::special::SpecialFn::Factorial|symox::special::SpecialFn::FallingFactorial),args)
+            if !e.is_canonical()||args.iter().all(Expr::is_integer_number)=>{
+                let kwargs=PyDict::new(py);kwargs.set_item("evaluate",false)?;
+                sm.getattr(f.name())?.call(convert_args(args)?,Some(&kwargs))
+            },
         Kind::Func(f, args) => sm.getattr(f.name())?.call1(convert_args(args)?),
         Kind::Rel(..) => {
             let kwargs=PyDict::new(py);
-            kwargs.set_item("evaluate",e.is_canonical())?;
+            kwargs.set_item("evaluate",e.is_canonical()&&!held_numeric_export(e))?;
             sm.getattr(e.class_name())?.call(convert_args(&e.args())?,Some(&kwargs))
         },
         Kind::Piecewise(pairs) => {
@@ -1249,6 +1274,11 @@ fn operation_count(e: &Expr) -> BigInt {
             if base.is_constant(Constant::E){1+count(exponent,memo)}
             else{count(base, memo) + if exponent.is_minus_one() { BigInt::from(1) } else { 1 + count(exponent, memo) }}
         }
+        Kind::Derivative(body, variables) => {
+            let mut result = BigInt::from(1) + count(body, memo);
+            for (variable, order) in variables { result += count(variable,memo) * BigInt::from(*order); }
+            result
+        }
         Kind::Func(Func::Subs|Func::Limit|Func::Order|Func::Set(symox::sets::SetOp::IdentityFunction),args) => args.iter().map(|a|count(a,memo)).sum(),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") || n.is_internal("Tuple") => args.iter().map(|a| count(a, memo)).sum(),
         _ => 1 + e.args().iter().map(|a| count(a, memo)).sum::<BigInt>(),
@@ -1283,6 +1313,66 @@ fn valid_diff_variable(variable: &Expr) -> bool { diff::is_valid_variable(variab
 /// SymPy's Derivative.__new__ wording (``filldedent`` adds the leading newline).
 fn cannot_diff_wrt(variable: &Expr) -> PyErr {
     PyValueError::new_err(format!("\nCan't calculate derivative wrt {}.", printer::to_str(variable)))
+}
+
+fn derivative_error(error:diff::symbolic::Error)->PyErr {
+    match error{diff::symbolic::Error::Value(message)=>PyValueError::new_err(message),diff::symbolic::Error::Type(message)=>PyTypeError::new_err(message),diff::symbolic::Error::Unsupported(message)=>PyNotImplementedError::new_err(message)}
+}
+pub(crate) fn with_derivative_errors<T>(operation:impl FnOnce()->PyResult<T>)->PyResult<T>{
+    let(result,error)=diff::symbolic::capture(operation);
+    // A host exception owns its original error, even if rebuilding also found
+    // an invalid count. The RAII frame is consumed in either case.
+    host::raise_pending()?;
+    let value=result?;
+    match error{Some(error)=>Err(derivative_error(error)),None=>Ok(value)}
+}
+fn derivative_pair_order(value:&Bound<'_,PyAny>)->PyResult<Expr>{
+    // Reference tuple/list preprocessing tests Python equality before sympify.
+    // In particular raw 0.0 is removed but an expression Float(0) is held.
+    if value.eq(0)?{return Ok(Expr::zero());}
+    derivative_order(value)
+}
+fn derivative_order(value:&Bound<'_,PyAny>)->PyResult<Expr>{
+    if value.is_instance_of::<PyInt>()&&!value.is_instance_of::<pyo3::types::PyBool>()&&!value.is_exact_instance_of::<PyInt>(){
+        let integer=value.py().get_type::<PyInt>().call1((value,))?;
+        return to_expr(&integer);
+    }
+    to_expr(value)
+}
+fn derivative_vars(args:&Bound<'_,PyTuple>)->PyResult<Vec<(Expr,Expr)>>{
+    let items=args.iter().collect::<Vec<_>>();let mut vars=Vec::new();let mut i=0;
+    while i<items.len(){
+        let item=&items[i];
+        let pair=if let Ok(tuple)=item.downcast::<PyTuple>(){
+            if tuple.len()!=2{return Err(PyValueError::new_err("expected (variable, order) pairs"));}
+            Some((to_expr(&tuple.get_item(0)?)?,derivative_pair_order(&tuple.get_item(1)?)?))
+        }else if let Ok(list)=item.downcast::<PyList>(){
+            if list.len()!=2{return Err(PyValueError::new_err("expected (variable, order) pairs"));}
+            Some((to_expr(&list.get_item(0)?)?,derivative_pair_order(&list.get_item(1)?)?))
+        }else{let e=to_expr(item)?;symox::special::tuple_items(&e).map(|pair|{if pair.len()!=2{Err(PyValueError::new_err("expected (variable, order) pairs"))}else{Ok((pair[0].clone(),pair[1].clone()))}}).transpose()?};
+        let(variable,count)=if let Some(pair)=pair{pair}else{
+            let variable=to_expr(item)?;let mut count=Expr::one();
+            if let Some(next)=items.get(i+1){
+                // A pair starts the next specification; it is not a scalar
+                // order following this variable.
+                if !next.is_instance_of::<PyTuple>()&&!next.is_instance_of::<PyList>(){
+                    let n=to_expr(next)?;
+                    if n.is_integer_number(){count=derivative_order(next)?;i+=1;}
+                }
+            }
+            (variable,count)
+        };
+        if matches!(variable.kind(),Kind::Func(Func::MatrixProxy(_),_)){return Err(PyNotImplementedError::new_err("matrix-variable derivatives require tensor expressions"));}
+        vars.push((variable,count));i+=1;
+    }
+    Ok(vars)
+}
+fn construct_derivative(expression:&Expr,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<Expr>{
+    let mut vars=derivative_vars(args)?;
+    if vars.is_empty(){let symbols=traverse::free_symbols(expression);match symbols.len(){0=>return Ok(Expr::zero()),1=>vars.push((symbols[0].clone(),Expr::one())),_=>return Err(PyValueError::new_err("specify the differentiation variables"))}}
+    // Native construction selects the unchanged u32 evaluator when all exact
+    // counts are machine orders. Conversion errors are never retried/dropped.
+    diff::symbolic::construct(expression,vars,evaluate).map_err(derivative_error)
 }
 
 pub(crate) fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>> {
@@ -1340,19 +1430,16 @@ pub(crate) fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>>
 }
 
 fn do_diff(e: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
-    let vars = diff_vars(args)?;
-    if vars.is_empty() {
-        let fs = traverse::free_symbols(e);
-        return match fs.len() {
-            0 => Ok(Expr::zero()),
-            1 if matches!(fs[0].kind(),Kind::Func(Func::MatrixProxy(_),_)) => Err(PyNotImplementedError::new_err("matrix-variable derivatives require tensor expressions")),
-            1 => Ok(diff::diff_evaluated(e, &[(fs[0].clone(), 1)])),
-            _ => Err(PyValueError::new_err(
-                "Since there is more than one variable in the expression, the variable(s) of differentiation must be supplied",
-            )),
+    if args.is_empty(){
+        let fs=traverse::free_symbols(e);
+        return match fs.len(){
+            0=>Ok(Expr::zero()),
+            1 if matches!(fs[0].kind(),Kind::Func(Func::MatrixProxy(_),_))=>Err(PyNotImplementedError::new_err("matrix-variable derivatives require tensor expressions")),
+            1=>with_derivative_errors(||Ok(diff::diff_evaluated(e,&[(fs[0].clone(),1)]))),
+            _=>Err(PyValueError::new_err("Since there is more than one variable in the expression, the variable(s) of differentiation must be supplied")),
         };
     }
-    Ok(diff::diff_evaluated(e, &vars))
+    with_derivative_errors(||construct_derivative(e,args,true))
 }
 
 /// Bind Basic.subs' public argument names before dispatching to each native type.
@@ -1455,13 +1542,19 @@ fn check_order_variables(e:&Expr,old:&Expr,new:&Expr)->Result<(),String> {
             }
             return Ok(());
         }
-        for arg in e.args() { walk(&arg,old,new,seen)?; }
+        for arg in symox::inspection::scalar_children(e) { walk(&arg,old,new,seen)?; }
         Ok(())
     }
     walk(e,old,new,&mut FxHashSet::default())
 }
 
 pub(crate) fn checked_subs(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->PyResult<Expr> {
+    if expression.has_symbolic_derivative()||expression.has_host_subs()||pairs.iter().any(|(_,e)|e.has_symbolic_derivative()||e.has_host_subs()){
+        return with_derivative_errors(||checked_subs_impl(py,expression,pairs,simultaneous));
+    }
+    checked_subs_impl(py,expression,pairs,simultaneous)
+}
+fn checked_subs_impl(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->PyResult<Expr> {
     let result=if simultaneous {
         for (old,new) in pairs {symox::binders::check_substitution(expression,old,new).map_err(PyValueError::new_err)?;check_order_variables(expression,old,new).map_err(PyValueError::new_err)?;}
         validate_matrix_replacements(py,expression,pairs,true)?;
@@ -1783,14 +1876,18 @@ impl PyExprNode {
     }
 
     fn __int__(&self) -> PyResult<BigInt> {
-        huge_integer_part(&self.e)?;
-        if let Some(integer) = fx::integer_trunc(&self.e) { return Ok(integer); }
+        let evaluated;
+        let numeric_source=if self.e.has_deferred_numeric_power() && !self.e.has_host() && fx::is_numeric_value(&self.e){
+            evaluated=fx::doit(&self.e,true);&evaluated
+        }else{&self.e};
+        huge_integer_part(numeric_source)?;
+        if let Some(integer) = fx::integer_trunc(numeric_source) { return Ok(integer); }
         // Keep the established numerical fallback for functions outside the
         // rational enclosure engine, at native MP precision rather than f64.
         // Stability is numerical evidence; it is not an interval certificate.
-        let mut precision = symox::evalf_mp::max_precision(&self.e).unwrap_or(0).saturating_add(64).max(128);
+        let mut precision = symox::evalf_mp::max_precision(numeric_source).unwrap_or(0).saturating_add(64).max(128);
         while precision <= 80_000 {
-            let value = symox::evalf_mp::eval_mp(&self.e, precision)
+            let value = symox::evalf_mp::eval_mp(numeric_source, precision)
                 .ok_or_else(|| PyTypeError::new_err("cannot convert this expression to an integer"))?;
             if !value.is_real() { return Err(PyTypeError::new_err("cannot convert a complex value to an integer")); }
             if !value.re.is_zero() && value.re.mag() > precision as i128 - 64 {
@@ -1799,7 +1896,7 @@ impl PyExprNode {
                 precision = required as u32;
                 continue;
             }
-            let refined = symox::evalf_mp::eval_mp(&self.e, precision * 2)
+            let refined = symox::evalf_mp::eval_mp(numeric_source, precision * 2)
                 .ok_or_else(|| PyTypeError::new_err("cannot refine the expression's integer part"))?;
             if refined.is_real() && value.re.to_int_trunc() == refined.re.to_int_trunc() {
                 return Ok(refined.re.to_int_trunc());
@@ -1869,7 +1966,7 @@ impl PyExprNode {
         if self.e.has_host() {
             if let Some(class) = host::class_of(py, &self.e) { return Ok(class.into_any().unbind()); }
         }
-        if matches!(self.e.kind(), Kind::Derivative(..)) {
+        if diff::symbolic::is_derivative(&self.e) {
             return Ok(loaded_symox(py)?.getattr("Derivative")?.unbind());
         }
         if matches!(self.e.kind(),Kind::Piecewise(_)){
@@ -1996,6 +2093,8 @@ impl PyExprNode {
     fn is_Symbol(&self) -> bool {
         self.e.is_symbol()
     }
+    #[getter]
+    fn _scalar_identity(&self) -> Option<PyExpr> { self.e.as_sym().and_then(|s|s.scalar_identity()).cloned().map(wrap) }
     #[getter]
     fn is_Dummy(&self) -> bool {
         self.e.as_sym().is_some_and(|s| s.is_dummy())
@@ -2124,13 +2223,15 @@ impl PyExprNode {
     }
     #[getter]
     fn is_Function(&self) -> bool {
-        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::GenericExpr | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)) && !matches!(f,Func::Undefined(head) if head.is_internal("Tuple")))
+        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::GenericExpr | Func::SymbolicDerivative | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)) && !matches!(f,Func::Undefined(head) if head.is_internal("Tuple")))
     }
     #[getter]
     fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal && f.host().is_none())}
     #[getter]
+    fn _diff_wrt(&self)->PyResult<bool>{if diff::symbolic::parts(&self.e).is_some(){with_derivative_errors(||diff::symbolic::valid_variable(&self.e).map_err(derivative_error))}else{Ok(diff::is_valid_variable(&self.e))}}
+    #[getter]
     fn is_Derivative(&self) -> bool {
-        matches!(self.e.kind(), Kind::Derivative(..))
+        diff::symbolic::is_derivative(&self.e)
     }
     #[getter]
     fn is_Subs(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Subs,_))}
@@ -2237,11 +2338,52 @@ impl PyExprNode {
     }
     #[getter]
     fn variable_count<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
-        match self.e.kind(){Kind::Derivative(_,vars)=>PyTuple::new(py,vars.iter().map(|(v,n)|(wrap(v.clone()),*n))),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only derivatives have variable_count"))}
+        if let Kind::Derivative(_,vars)=self.e.kind(){return PyTuple::new(py,vars.iter().map(|(v,n)|(wrap(v.clone()),*n)));}
+        if let Some((_,vars))=diff::symbolic::parts(&self.e){return PyTuple::new(py,vars.into_iter().map(|(v,n)|(wrap(v),wrap(n))));}
+        Err(pyo3::exceptions::PyAttributeError::new_err("only derivatives have variable_count"))
     }
     #[getter]
-    fn derivative_count(&self)->PyResult<u64>{
-        match self.e.kind(){Kind::Derivative(_,vars)=>Ok(vars.iter().map(|(_,n)|*n as u64).sum()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only derivatives have derivative_count"))}
+    fn _has_deferred_numeric_power(&self)->bool {self.e.has_deferred_numeric_power()}
+    #[getter]
+    fn _is_deferred_numeric_power(&self)->bool {self.e.is_deferred_numeric_power()}
+
+    fn _rebuild_deferred_numeric_power(&self,args:&Bound<'_,PyAny>)->PyResult<PyExpr>{
+        if !self.e.is_deferred_numeric_power(){return Err(PyValueError::new_err("not a numeric power recipe"));}
+        let args:Vec<Expr>=args.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<_>>()?;
+        if args.len()!=2{return Err(PyValueError::new_err("invalid reconstruction argument count"));}
+        with_derivative_errors(||Ok(wrap(symox::ops::deferred::rebuild(&args[0],&args[1]))))
+    }
+
+
+    fn _integer_order_value(&self)->PyResult<Option<PyExpr>>{
+        with_derivative_errors(||Ok(diff::symbolic::literal_evaluation(&self.e).map(wrap)))
+    }
+    #[getter]
+    fn derivative_count(&self,py:Python<'_>)->PyResult<PyObject>{
+        if let Kind::Derivative(_,vars)=self.e.kind(){return Ok(vars.iter().map(|(_,n)|*n as u64).sum::<u64>().into_pyobject(py)?.into_any().unbind());}
+        if let Some((_,vars))=diff::symbolic::parts(&self.e){
+            if vars.iter().any(|(_,n)|matches!(n.kind(),Kind::Bool(_))){return Err(PyTypeError::new_err("BooleanAtom not allowed in this context."));}
+            return expr_object(py,diff::symbolic::total(&vars).map_err(derivative_error)?);
+        }
+        Err(pyo3::exceptions::PyAttributeError::new_err("only derivatives have derivative_count"))
+    }
+    #[getter]
+    fn _wrt_variables(&self)->PyResult<Vec<PyExpr>>{
+        diff::symbolic::data(&self.e).map(|(_,vars)|vars.into_iter().map(|(v,_)|wrap(v)).collect()).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("only derivatives have _wrt_variables"))
+    }
+    #[getter]
+    fn _derivative_variables<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        let (_,vars)=diff::symbolic::data(&self.e).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("only derivatives have variables"))?;
+        let mut expanded=Vec::new();
+        for(v,n)in vars{
+            let count=diff::symbolic::literal(&n).ok_or_else(||PyTypeError::new_err("\nCannot give expansion for symbolic count. If you just want a list of\nall variables of differentiation, use _wrt_variables."))?;
+            for _ in 0..count{expanded.push(wrap(v.clone()));}
+        }
+        PyTuple::new(py,expanded)
+    }
+    #[getter]
+    fn canonical(&self)->PyResult<PyExpr>{
+        if diff::symbolic::is_derivative(&self.e){with_derivative_errors(||Ok(wrap(diff::symbolic::canonical(&self.e))))}else{Err(pyo3::exceptions::PyAttributeError::new_err("canonical is unavailable for this expression"))}
     }
     #[getter]
     fn is_Relational(&self) -> bool {
@@ -2482,7 +2624,7 @@ impl PyExprNode {
         // matrices replacing scalars: rebuild with the operands in their
         // original order, as the reference postprocessor does
         let structural=m.values().any(|v|v.has_matrix())&&!m.keys().any(|k|k.has_matrix());
-        let mut result=if structural {symox::matrixexpr::MatrixExpr::xreplace_promote(&self.e,&m).map_err(|e|matrices::err(rule.py(),e))?} else {subs::xreplace(&self.e,&m)};
+        let mut result=if structural {symox::matrixexpr::MatrixExpr::xreplace_promote(&self.e,&m).map_err(|e|matrices::err(rule.py(),e))?} else {if self.e.has_symbolic_derivative(){with_derivative_errors(||Ok(subs::xreplace(&self.e,&m)))?}else{subs::xreplace(&self.e,&m)}};
         if !structural && result.has_matrix() {result=symox::matrixexpr::MatrixExpr::promote_operands(&result).map_err(|e|matrices::err(rule.py(),e))?;}
         symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
         symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
@@ -2516,7 +2658,7 @@ impl PyExprNode {
             }else{return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));}
         }}
         symox::limits::check_doit(&self.e,deep).map_err(|error|PyValueError::new_err(error.to_string()))?;
-        let value=fx::doit(&self.e, deep);
+        let value=if self.e.has_symbolic_derivative(){with_derivative_errors(||Ok(fx::doit(&self.e,deep)))?}else{fx::doit(&self.e, deep)};
         host::raise_pending()?;
         Ok(wrap(value).into_pyobject(py)?.into_any().unbind())
     }
@@ -3040,6 +3182,11 @@ fn construct_node(name: &str, v: Vec<Expr>, evaluate: bool) -> PyResult<Expr> {
             if python_args(&canonical) == v { return Ok(canonical); }
         }
     }
+    if name=="Derivative"{
+        let node=Expr::from_kind(Kind::Func(Func::SymbolicDerivative,v));
+        let(body,vars)=diff::symbolic::parts(&node).ok_or_else(||PyValueError::new_err("invalid Derivative arguments"))?;
+        return diff::symbolic::construct(body,vars,evaluate).map_err(derivative_error);
+    }
     Ok(match name {
         "Add" if evaluate => ops::add(&v),
         "Mul" if evaluate => ops::mul(&v),
@@ -3122,6 +3269,13 @@ fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObj
     let expression = to_expr(obj)?;
     let key = symox::sortkey::sort_key(&expression);
     presentation_key_object(py, &key)
+}
+
+#[pyfunction]
+fn _indexed_symbol(name:&str, identity:&Bound<'_,PyAny>)->PyResult<PyExpr>{
+    let identity=to_expr(identity)?;
+    if !(identity.class_name()=="Tuple" && identity.args().len()==3) {return Err(PyValueError::new_err("invalid Indexed identity"));}
+    Ok(wrap(Expr::from_kind(Kind::Sym(symox::symbol::Symbol::new(name).with_scalar_identity(identity)))))
 }
 
 #[pyfunction]
@@ -3340,10 +3494,7 @@ fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>,evaluate:bool) 
         return Err(PyNotImplementedError::new_err("held matrix derivatives are not implemented; use diff with a scalar variable"));
     }
     let expression=to_expr(f)?;
-    let mut vars = diff_vars(args)?;
-    if vars.is_empty(){let symbols=traverse::free_symbols(&expression);match symbols.len(){0=>return Ok(wrap(Expr::zero())),1=>vars.push((symbols[0].clone(),1)),_=>return Err(PyValueError::new_err("specify the differentiation variables"))}}
-    if let Some((v,_))=vars.iter().find(|(v,_)|!valid_diff_variable(v)){return Err(cannot_diff_wrt(v));}
-    Ok(wrap(if evaluate{diff::diff_evaluated(&expression,&vars)}else{diff::derivative_unevaluated(&expression,vars)}))
+    with_derivative_errors(||construct_derivative(&expression,args,evaluate)).map(wrap)
 }
 
 #[pyfunction]
@@ -3747,6 +3898,11 @@ fn huge_integer_part(e: &Expr) -> PyResult<()> {
 #[pyfunction]
 #[pyo3(name = "_apply", signature = (name, *args, evaluate=true))]
 fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<PyExpr> {
+    if name=="Derivative"{
+        if args.is_empty(){return Err(PyValueError::new_err("Derivative expects arguments"));}
+        let variables=PyTuple::new(args.py(),args.iter().skip(1))?;
+        return py_derivative(&args.get_item(0)?,&variables,evaluate);
+    }
     if name=="Lambda"{
         if args.len()!=2{return Err(PyTypeError::new_err("Lambda requires a signature and an expression"));}
         return logic::py_lambda(&args.get_item(0)?,&args.get_item(1)?);
@@ -4142,6 +4298,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_restore_arithmetic, m)?)?;
     m.add_function(wrap_pyfunction!(_restore_logic, m)?)?;
     m.add_function(wrap_pyfunction!(py_default_sort_key, m)?)?;
+    m.add_function(wrap_pyfunction!(_indexed_symbol, m)?)?;
+    m.add_function(wrap_pyfunction!(expression_inspection::_native_count_ops, m)?)?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(py_dummy, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;
@@ -4186,6 +4344,13 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ntheory::register(m)?;
     simp::register(m)?;
     simptools::register(m)?;
+    simplex::register(m)?;
+    stats::register(m)?;
+    m.add_function(wrap_pyfunction!(integration_methods::_heurisch_cartesian_numeric_coefficients, m)?)?;
+    integration_methods::register_rational_reduction(m)?;
+    rational_protocols::register(m)?;
+    risch_polynomial_reduce::register(m)?;
+    risch_splitfactor::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
     logic::register(m)?;

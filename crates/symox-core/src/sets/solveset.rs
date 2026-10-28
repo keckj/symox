@@ -813,103 +813,218 @@ fn map_inverse(g: Inverse, phi: &dyn Fn(&Expr) -> Expr, variable: &Expr) -> Inve
     }
 }
 
-/// The reference `_invert_complex` of nested exponentials
-/// (`exp(exp(x)) - 1`): `exp(f) = g` with an image `g` adds an integer
-/// variable, `f = I*(2*k*pi + arg(g)) + log(Abs(g))` over
-/// `ProductSet(Integers, ...)`. Only sums and products with terms free of
-/// `x` and exponentials are inverted; `None` otherwise.
-fn nested_exponential(f: &Expr, x: &Expr) -> Option<Expr> {
-    let nested = any_node(f, &|e| matches!(e.kind(), Kind::Func(Func::Exp, a) if has_exponential_in(&a[0], x)));
-    if !nested {
+/// An image domain with every logarithmic preimage constrained to be finite.
+/// The tuple binder is the same tuple consumed by the ImageSet Lambda.
+fn inverse_image(inverse: Inverse, guards: &[Expr], variable: &Expr) -> Option<Expr> {
+    let image = |vars: &[Expr], body: &Expr| -> Option<Expr> {
+        let (signature, binder, base) = if vars.len() == 1 {
+            (vars[0].clone(), vars[0].clone(), integers())
+        } else {
+            let tuple = crate::special::tuple(vars.to_vec());
+            (crate::special::tuple(vec![tuple.clone()]), tuple, product_set(vec![integers(); vars.len()]))
+        };
+        let base = condition_set(&binder, &crate::logic::and(guards.to_vec()), &base);
+        let lam = lambda_checked(&signature, body).ok()?;
+        Some(image_set(&lam, &base))
+    };
+    match inverse {
+        Inverse::Finite(values) => Some(finite_set(values)),
+        Inverse::Lattice(vars, body) => image(&vars, &body),
+        Inverse::Held(vars, body, outer) => {
+            let inner = image(&vars, &body)?;
+            Some(image_set(&lambda(variable, &outer), &inner))
+        }
+    }
+}
+
+/// Whether a supported affine/exponential chain takes real values on the
+/// real line. An unknown complex coefficient cannot be assumed real: that
+/// case uses the complete complex inverse intersected with the real domain.
+fn real_exponential_chain(value: &Expr, x: &Expr) -> bool {
+    if value == x { return true; }
+    if !has(value, x) {
+        return crate::assumptions::exact_queries(|| crate::assumptions::is_real(value)) == Some(true);
+    }
+    match value.kind() {
+        Kind::Add(..) | Kind::Mul(..) => value.args().iter().all(|arg| real_exponential_chain(arg, x)),
+        Kind::Func(Func::Exp, args) if args.len() == 1 => real_exponential_chain(&args[0], x),
+        _ => false,
+    }
+}
+
+/// Invert nested exponentials with affine arguments. Each complex logarithm
+/// adds an integer variable; its argument must be nonzero, including at every
+/// previously introduced integer index. Real chains use strictly positive
+/// logarithm arguments. Unknown multipliers are split into their nonzero and
+/// zero branches rather than silently losing parameter specializations.
+fn nested_exponential(f: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
+    if !any_node(f, &|e| matches!(e.kind(), Kind::Func(Func::Exp, a) if has_exponential_in(&a[0], x))) {
         return None;
     }
-    let variable = Expr::symbol("x");
+    let dependent = if f.is_add() {
+        crate::ops::add(&f.args().into_iter().filter(|arg| has(arg, x)).collect::<Vec<_>>())
+    } else { f.clone() };
+    let real_inverse = is_real_domain(domain) && real_exponential_chain(&dependent, x);
+    let ordinary = Expr::symbol("x");
+    let variable = if x != &ordinary && has(f, &ordinary) {
+        Expr::dummy("x", crate::symbol::Assumptions::NONE)
+    } else { ordinary };
     let mut g = Inverse::Finite(vec![Expr::zero()]);
     let mut h = f.clone();
     let two_pi = mul2(&Expr::int(2), &Expr::pi());
-    for _ in 0..32 {
-        if h == *x {
-            break;
+    let mut parameters = Vec::new();
+    let mut index_guards = Vec::new();
+    let mut degenerate = Vec::new();
+    let mut domain_guards = Vec::new();
+    let mut finite_coefficients = Vec::new();
+    let mut guard_scalar = |scalar: &Expr| {
+        finite_coefficients.push(contains_expr(scalar, &complexes()));
+        // exp(a) is nonzero only for finite a. Guard its parameters too,
+        // otherwise a=-oo makes that certified multiplier collapse to zero.
+        finite_coefficients.extend(crate::traverse::free_symbols(scalar).iter()
+            .map(|parameter| contains_expr(parameter, &complexes())));
+    };
+    let mut chain = f.clone();
+    let mut inverted_exponential = false;
+    // Collect the whole chain before an empty finite preimage can stop the
+    // inversion: exp(exp(a*x))=1 has no finite-real-a roots, but a=oo still
+    // needs its original conditional equation.
+    while chain != *x {
+        match chain.kind() {
+            Kind::Add(..) | Kind::Mul(..) => {
+                let (indep, dep): (Vec<Expr>, Vec<Expr>) = chain.args().into_iter().partition(|t| !has(t, x));
+                if indep.is_empty() || dep.is_empty() { return None; }
+                if chain.is_add() {
+                    if inverted_exponential { guard_scalar(&crate::ops::add(&indep)); }
+                    chain = crate::ops::add(&dep);
+                } else {
+                    guard_scalar(&crate::ops::mul(&indep));
+                    chain = crate::ops::mul(&dep);
+                }
+            }
+            Kind::Func(Func::Exp, args) if args.len() == 1 => {
+                inverted_exponential = true;
+                chain = args[0].clone();
+            }
+            _ => return None,
         }
+    }
+    crate::traverse::preorder(f, &mut |term| {
+        let (_, denominator) = crate::simplify::numer_denom(term);
+        if !denominator.is_one() && !has(&denominator, x) {
+            domain_guards.push(crate::relational::ne(&denominator, &Expr::zero()));
+        }
+    });
+    // Inversion over C assumes a finite bound value too. Domains containing
+    // extended scalars must retain their original-equation complement rather
+    // than silently treating x=oo as a finite exponential argument.
+    if crate::assumptions::exact_queries(|| is_subset(domain,&complexes())) != Some(true) {
+        finite_coefficients.push(contains_expr(x,&complexes()));
+    }
+    let finish = |branches: Vec<Expr>, finite_coefficients: &[Expr]| {
+        let finite = crate::logic::and(finite_coefficients.to_vec());
+        let original_equation = Expr::from_unevaluated_kind(Kind::Rel(RelOp::Eq, f.clone(), Expr::zero()));
+        // A finite requested domain is exhaustively checked against the
+        // original equation. Intersecting it with an indexed family can leave
+        // even an exact non-root undecided, and needlessly loses extended
+        // bound values. The complementary guards preserve every parameter case.
+        let explicit = if finite_elements(domain).is_some() {
+            condition_set(x,&crate::logic::and(vec![finite.clone(),original_equation.clone()]),domain)
+        } else { condition_set(x, &finite, &union(branches)) };
+        // Affine inversion uses subtraction/division in C. Extended scalar
+        // specializations can instead collapse exponentials on a half-line;
+        // retain the original equation there rather than dividing by infinity
+        // or incorrectly declaring the unsupported case empty.
+        // Do not let finite-parameter assumptions simplify exp(...) != 0
+        // while this branch explicitly allows nonfinite parameters.
+        let unsupported = condition_set(x, &crate::logic::and(vec![crate::logic::not(&finite), original_equation]), domain);
+        condition_set(x, &crate::logic::and(domain_guards.clone()), &union(vec![explicit, unsupported]))
+    };
+    // Every successful step removes an outer operation from h. There is no
+    // artificial depth cap and no finite prefix of the inverse families.
+    while h != *x {
         match h.kind() {
             Kind::Add(..) => {
                 let (indep, dep): (Vec<Expr>, Vec<Expr>) = h.args().into_iter().partition(|t| !has(t, x));
-                if indep.is_empty() || dep.is_empty() {
-                    return None;
-                }
+                if indep.is_empty() || dep.is_empty() { return None; }
                 let c = crate::ops::add(&indep);
                 g = map_inverse(g, &|v| sub(v, &c), &variable);
                 h = crate::ops::add(&dep);
             }
             Kind::Mul(..) => {
                 let (indep, dep): (Vec<Expr>, Vec<Expr>) = h.args().into_iter().partition(|t| !has(t, x));
-                if indep.is_empty() || dep.is_empty() {
-                    return None;
-                }
+                if indep.is_empty() || dep.is_empty() { return None; }
                 let c = crate::ops::mul(&indep);
-                if !proved_nonzero(&c) || any_node(&c, &|e| matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::ComplexInfinity | Constant::NaN))) {
-                    return None;
+                if any_node(&c, &|e| matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::ComplexInfinity | Constant::NaN))) {
+                    return Some(finish(degenerate, &finite_coefficients));
+                }
+                let (_, denominator) = crate::simplify::numer_denom(&c);
+                parameters.push(crate::relational::ne(&denominator, &Expr::zero()));
+                match crate::assumptions::exact_queries(|| crate::assumptions::is_zero(&c)) {
+                    Some(false) => {},
+                    known => {
+                        let constant = subs1(f, &h, &Expr::zero());
+                        let condition = crate::logic::and(vec![crate::relational::eq(&c, &Expr::zero()),
+                            crate::relational::eq(&constant, &Expr::zero())]);
+                        degenerate.push(condition_set(x, &condition, domain));
+                        if known == Some(true) { return Some(finish(degenerate, &finite_coefficients)); }
+                        parameters.push(crate::relational::ne(&c, &Expr::zero()));
+                    }
                 }
                 g = map_inverse(g, &|v| div(v, &c), &variable);
                 h = crate::ops::mul(&dep);
             }
-            Kind::Func(Func::Exp, a) => {
+            Kind::Func(Func::Exp, a) if a.len() == 1 => {
                 let u = a[0].clone();
+                // Affine maps of a multiple-index image are held for the
+                // final presentation, but compose them before another log.
+                if let Inverse::Held(vars, body, outer) = g {
+                    g = Inverse::Lattice(vars, subs1(&outer, &variable, &body));
+                }
                 g = match g {
                     Inverse::Finite(values) => {
-                        let values: Vec<Expr> = values.into_iter().filter(|v| !v.is_zero()).collect();
-                        match values.as_slice() {
-                            [] => return Some(empty_set()),
-                            [value] => {
-                                if !proved_nonzero(value) {
-                                    return None;
-                                }
-                                let n = Expr::dummy("n", crate::symbol::Assumptions::NONE);
-                                let body = add2(&mul2(&Expr::i(), &add2(&mul2(&two_pi, &n), &crate::functions::func(Func::Arg, vec![value.clone()]))),
-                                    &crate::functions::log(&crate::functions::func(Func::Abs, vec![value.clone()])));
-                                let body = canonical_integer_lattice(&body, &n);
-                                Inverse::Lattice(vec![n], body)
-                            }
-                            _ => return None,
+                        let [value] = values.as_slice() else { return None; };
+                        let condition = if real_inverse {
+                            contains_expr(value, &interval(&Expr::zero(), &Expr::oo(), true, true))
+                        } else { crate::logic::and(vec![crate::relational::ne(value, &Expr::zero()),
+                            contains_expr(value, &complexes())]) };
+                        if matches!(condition.kind(), Kind::Bool(false)) { return Some(finish(degenerate, &finite_coefficients)); }
+                        parameters.push(condition);
+                        if real_inverse {
+                            Inverse::Finite(vec![crate::functions::log(value)])
+                        } else {
+                            let n = Expr::dummy("n", crate::symbol::Assumptions::INTEGER);
+                            let body = add2(&mul2(&Expr::i(), &add2(&mul2(&two_pi, &n), &crate::functions::func(Func::Arg, vec![value.clone()]))),
+                                &crate::functions::log(&crate::functions::func(Func::Abs, vec![value.clone()])));
+                            Inverse::Lattice(vec![n.clone()], canonical_integer_lattice(&body, &n))
                         }
                     }
                     Inverse::Lattice(vars, body) => {
-                        let k = Expr::dummy(&format!("k{}", vars.len()), crate::symbol::Assumptions::NONE);
+                        let nonzero_lattice = proved_nonzero(&body) || (vars.len() == 1 &&
+                            linear(&body, &vars[0]).is_some_and(|(step, offset)| proved_nonzero(&step) &&
+                                crate::assumptions::exact_queries(|| crate::assumptions::is_integer(&div(&neg(&offset), &step))) == Some(false)));
+                        if !nonzero_lattice { index_guards.push(crate::relational::ne(&body, &Expr::zero())); }
+                        let k = Expr::dummy(&format!("k{}", vars.len()), crate::symbol::Assumptions::INTEGER);
                         let body = add2(&mul2(&Expr::i(), &add2(&mul2(&two_pi, &k), &crate::functions::func(Func::Arg, vec![body.clone()]))),
                             &crate::functions::log(&crate::functions::func(Func::Abs, vec![body])));
                         let mut all = vec![k];
                         all.extend(vars);
                         Inverse::Lattice(all, body)
                     }
-                    Inverse::Held(..) => return None,
+                    Inverse::Held(..) => unreachable!("affine image composed before inversion"),
                 };
                 h = u;
             }
             _ => return None,
         }
     }
-    if h != *x {
-        return None;
+    let mut result = inverse_image(g, &index_guards, &variable)?;
+    if !is_op(domain, SetOp::Complexes) {
+        result = intersection(vec![result, domain.clone()]);
     }
-    let image = |vars: &[Expr], body: &Expr| -> Option<Expr> {
-        if vars.len() == 1 {
-            return Some(image_set(&lambda(&vars[0], body), &integers()));
-        }
-        let signature = crate::special::tuple(vec![crate::special::tuple(vars.to_vec())]);
-        let lam = crate::sets::lambda::lambda_checked(&signature, body).ok()?;
-        Some(image_set(&lam, &product_set(vec![integers(); vars.len()])))
-    };
-    match g {
-        Inverse::Finite(values) => Some(finite_set(values)),
-        Inverse::Lattice(vars, body) => image(&vars, &body),
-        Inverse::Held(vars, body, outer) => {
-            if any_node(&body, &|e| *e == variable) {
-                return None;
-            }
-            let inner = image(&vars, &body)?;
-            Some(image_set(&lambda(&variable, &outer), &inner))
-        }
-    }
+    result = condition_set(x, &crate::logic::and(parameters), &result);
+    degenerate.push(result);
+    Some(finish(degenerate, &finite_coefficients))
 }
 
 /// `_solve_trig1`: an equation in several trigonometric or hyperbolic
@@ -933,6 +1048,14 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
     let (num, den) = crate::simplify::numer_denom(&crate::simplify::together(f));
     if !has(&num, x) {
         return Some(empty_set());
+    }
+    // Preserve independent scalar denominators while inverting a chain.
+    // Clearing (exp(exp(x))-y)/a first would lose its a=oo specialization.
+    if let Some(result) = nested_exponential(f, x, domain).or_else(|| nested_exponential(&num, x, domain)) {
+        let result = if !has(&den, x) {
+            condition_set(x, &crate::relational::ne(&den, &Expr::zero()), &result)
+        } else { result };
+        return Some(exclude_poles(result, &den, x, domain, context));
     }
     if let Kind::Mul(_, facs) = num.kind() {
         if facs.iter().any(|(b, _)| (matches!(b.kind(), Kind::Func(..)) || !real && is_transcendental_in(b, x)) && has(b, x)) && facs.len() > 1 {
@@ -984,7 +1107,7 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         // of the denominator
         let r = match solve_exponential_poly(&num, &Expr::one(), x, domain, context, true, false) {
             Some(r) => r,
-            None if !has(&den, x) && is_op(domain, SetOp::Complexes) => return nested_exponential(&num, x),
+            None if !has(&den, x) => return nested_exponential(&num, x, domain),
             None => return None,
         };
         return Some(exclude_poles(r, &den, x, domain, context));
@@ -1192,7 +1315,11 @@ fn solveset_with_context(f: &Expr, x: &Expr, domain: &Expr, context: &SolveConte
         return Err(format!("{x} is not a symbol"));
     }
     if !has(f, x) {
-        return Ok(if f.is_zero() { domain.clone() } else { empty_set() });
+        return Ok(match crate::assumptions::exact_queries(|| crate::assumptions::is_zero(f)) {
+            Some(true) => domain.clone(),
+            Some(false) => empty_set(),
+            None => condition_set(x, &crate::relational::eq(f, &Expr::zero()), domain),
+        });
     }
     match solve_zero(f, x, domain, context) {
         Some(s) => Ok(s),
@@ -1655,4 +1782,112 @@ fn isolate_linear(e: &Expr, x: &Expr) -> Option<Expr> {
         else if crate::assumptions::is_positive(&a)==Some(true) {*op}
         else {return None};
     Some(crate::relational::rel(op, x, &rhs))
+}
+
+#[cfg(test)]
+mod nested_exponential_tests {
+    use super::*;
+    use crate::parser::parse_str;
+
+    fn p(source: &str) -> Expr { parse_str(source).unwrap() }
+
+    #[test]
+    fn symbolic_nested_exp_keeps_parameters_and_excludes_zero_preimages() {
+        let x = Expr::symbol("x");
+        let y = Expr::symbol("y");
+        let result = solveset(&p("exp(exp(x)) - y"), &x, &complexes()).unwrap();
+        assert!(is_op(&result, SetOp::ConditionSet), "{result}");
+        assert_eq!(crate::traverse::free_symbols(&result), vec![y.clone()]);
+        assert_eq!(subs1(&result, &y, &Expr::zero()), empty_set());
+        let one = subs1(&result, &y, &Expr::one());
+        let Some((SetOp::ImageSet, image)) = as_set(&one) else { panic!("{one}") };
+        let Some((SetOp::ConditionSet, guard)) = as_set(&image[1]) else { panic!("{one}") };
+        let excluded = crate::special::tuple(vec![Expr::zero(), Expr::zero()]);
+        let admitted = crate::special::tuple(vec![Expr::zero(), Expr::one()]);
+        assert_eq!(contains(&image[1], &excluded), Expr::boolean(false));
+        assert_eq!(contains(&image[1], &admitted), Expr::boolean(true));
+        assert!(has(&guard[1], &guard[0].args()[1]));
+    }
+
+    #[test]
+    fn real_nested_exp_and_zero_affine_coefficients() {
+        let x = Expr::symbol("x");
+        let y = Expr::symbol("y");
+        let a = Expr::symbol_with("a", crate::symbol::Assumptions::REAL);
+        let real = solveset(&p("exp(exp(x)) - y"), &x, &reals()).unwrap();
+        for target in [Expr::zero(), Expr::one(), Expr::minus_one(), Expr::i()] {
+            assert_eq!(subs1(&real, &y, &target), empty_set(), "{real} at {target}");
+        }
+        let two = solveset(&p("exp(exp(x)) - 2"), &x, &reals()).unwrap();
+        assert_eq!(two, finite_set(vec![crate::functions::log(&crate::functions::log(&Expr::int(2)))]));
+        let source = sub(&crate::functions::exp(&crate::functions::exp(&mul2(&a, &x))), &y);
+        let result = solveset(&source, &x, &reals()).unwrap();
+        let zero = subs1(&result, &a, &Expr::zero());
+        assert_eq!(subs1(&zero, &y, &crate::functions::exp(&Expr::one())), reals(), "{result}");
+        assert_eq!(subs1(&zero, &y, &Expr::int(2)), empty_set());
+    }
+
+    #[test]
+    fn nested_affine_images_compose_and_parameter_poles_stay_excluded() {
+        let x = Expr::symbol("x");
+        let y = Expr::symbol("y");
+        let a = Expr::symbol("a");
+        let result = solveset(&p("exp(2*exp(3*exp(x))) - y"), &x, &complexes()).unwrap();
+        assert!(!has(&result, &p("exp(2*exp(3*exp(x)))")), "{result}");
+        assert_eq!(crate::traverse::free_symbols(&result), vec![y.clone()]);
+        for source in ["exp(exp(x/a)) - y", "(exp(exp(x)) - y)/a"] {
+            let result = solveset(&p(source), &x, &complexes()).unwrap();
+            assert_eq!(subs1(&subs1(&result, &a, &Expr::zero()), &y, &Expr::int(2)), empty_set(), "{result}");
+        }
+        let constant = solveset(&a, &x, &complexes()).unwrap();
+        assert_eq!(subs1(&constant, &a, &Expr::zero()), complexes());
+        assert_eq!(subs1(&constant, &a, &Expr::one()), empty_set());
+        let z = Expr::symbol("z");
+        let parameter = Expr::symbol("x");
+        let result = solveset(&p("exp(exp(2*z)) - x"), &z, &complexes()).unwrap();
+        assert_eq!(crate::traverse::free_symbols(&result), vec![parameter]);
+    }
+
+    #[test]
+    fn extended_finite_bound_values_are_checked_against_the_original_equation() {
+        let x=Expr::symbol("x");let y=Expr::symbol("y");
+        let domain=finite_set(vec![Expr::neg_oo(),Expr::zero()]);
+        let result=solveset(&p("exp(exp(x))-y"),&x,&domain).unwrap();
+        assert_eq!(subs1(&result,&y,&Expr::one()),finite_set(vec![Expr::neg_oo()]));
+        assert_eq!(subs1(&result,&y,&Expr::e()),finite_set(vec![Expr::zero()]));
+    }
+
+    #[test]
+    fn nonfinite_affine_parameters_retain_the_original_equation() {
+        let x = Expr::symbol("x");
+        let a = Expr::symbol("a");
+        let y = Expr::symbol("y");
+        let source = p("exp(exp(a*x)) - y");
+        for domain in [complexes(), reals()] {
+            let result = solveset(&source, &x, &domain).unwrap();
+            for infinity in [Expr::oo(), Expr::neg_oo()] {
+                for target in [Expr::one(), Expr::int(2)] {
+                    let specialized = subs1(&subs1(&result, &a, &infinity), &y, &target);
+                    let original = subs1(&subs1(&source, &a, &infinity), &y, &target);
+                    let equation=crate::relational::eq(&original,&Expr::zero());
+                    assert_eq!(contains_expr(&infinity,&complexes()),Expr::boolean(false));
+                    let retained=crate::logic::not(&Expr::from_unevaluated_kind(Kind::Func(Func::Set(SetOp::Contains),vec![infinity.clone(),complexes()])));
+                    assert_eq!(specialized,condition_set(&x,&crate::logic::and(vec![retained,equation.clone()]),&domain), "{source} at a={infinity}, y={target}");
+                    // The retained guard is exactly true, so this is the same
+                    // original equation and complete domain as a direct solve.
+                    assert_eq!(solveset(&original,&x,&domain).unwrap(),condition_set(&x,&equation,&domain));
+                }
+            }
+        }
+        // Even a finite-target contradiction cannot discard the unsupported
+        // infinite inner shift: exp(exp(x)-oo)=0 on finite complex x.
+        let source = p("exp(exp(x) + a)");
+        let result = solveset(&source, &x, &complexes()).unwrap();
+        let original = subs1(&source, &a, &Expr::neg_oo());
+        assert_eq!(subs1(&result, &a, &Expr::neg_oo()),
+            condition_set(&x, &crate::relational::eq(&original, &Expr::zero()), &complexes()), "source={source}, result={result}");
+        let source = p("(exp(exp(x)) - y)/a");
+        let result = solveset(&source, &x, &complexes()).unwrap();
+        assert_eq!(subs1(&subs1(&result, &a, &Expr::oo()), &y, &Expr::int(2)), complexes());
+    }
 }

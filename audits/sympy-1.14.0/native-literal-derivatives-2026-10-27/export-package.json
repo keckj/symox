@@ -1,0 +1,23 @@
+{
+  "base": "/home/keckj/.cache/symox-validation/native-literal-derivatives-20261027/after",
+  "files": [
+    {
+      "path": "crates/symox-py/src/lib.rs",
+      "base_sha256": "da739edd8a991664ab04619dcd2c6a5acc086dad1fd4297a0d4df2bc0755eb7d",
+      "final_sha256": "a4446b68551e6e53bea5672c7bb59288de082b86b600e3e08cccf7f624eaca70"
+    },
+    {
+      "path": "tests/test_derivative_recipe_export_parity.py",
+      "base_sha256": null,
+      "final_sha256": "4184e82f694a19b202bde32697a45f4ce2cfd8ffc0c4eaf2b6b53b146b434fb8"
+    }
+  ],
+  "patch_sha256": "d426bd16529f1918503a0b8380dbfafb23cb33368f8a9daef6e68c1f90bdcfb9",
+  "validation": {
+    "uncorrected_R4_new_tests": "9 failed,22 passed",
+    "local_debug_targeted": "1127 passed in3.46s",
+    "demeter_debug_targeted": "1127 passed in4.62s",
+    "demeter_debug_original_shard15": "960 passed,1skipped in39.07s",
+    "native_debug_sha256": "e164b7aa2ab835d4d873128ac61ac691fedb8bcbc16b2fe4a81bf896774bb34a"
+  }
+}

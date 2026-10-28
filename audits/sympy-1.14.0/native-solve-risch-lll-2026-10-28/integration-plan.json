@@ -1,0 +1,172 @@
+{
+  "status": "integrated; private final gates and combined release/full validation pending",
+  "base_accepted_native": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/lu_solve.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "Solve",
+          "base": null,
+          "private_final": "b3eb7df99dc1d3e95441153a0f669c7b6891e5fc051e50b778c1999e7f139e5d"
+        }
+      ],
+      "candidate": "b3eb7df99dc1d3e95441153a0f669c7b6891e5fc051e50b778c1999e7f139e5d"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "current": "34cc79640caa7968297e6dd9d8b5c0480bcbf56cc26244988a528a7fed1a122d",
+      "steps": [
+        {
+          "component": "Solve",
+          "base": "34cc79640caa7968297e6dd9d8b5c0480bcbf56cc26244988a528a7fed1a122d",
+          "private_final": "bee9a127b16688978f5d14396d10d1d26b81b9c876a280f282e8006f241e403e"
+        }
+      ],
+      "candidate": "bee9a127b16688978f5d14396d10d1d26b81b9c876a280f282e8006f241e403e"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lu_solve.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "Solve",
+          "base": null,
+          "private_final": "8ddae78ca3da1b9b83bcbce3c8f9bad7b3aeed5b5bdfaf442f60d42d7168a46a"
+        }
+      ],
+      "candidate": "8ddae78ca3da1b9b83bcbce3c8f9bad7b3aeed5b5bdfaf442f60d42d7168a46a"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "current": "99dd9447e1ac117184c1e61cd50b6d6397e88ac9d2f608c8de4c61f4e50e4488",
+      "steps": [
+        {
+          "component": "Solve",
+          "base": "99dd9447e1ac117184c1e61cd50b6d6397e88ac9d2f608c8de4c61f4e50e4488",
+          "private_final": "55dcd18e46b6ec022657db5b0fb7b2d3bfd1e0091e318f73993afd0856ee90b2"
+        }
+      ],
+      "candidate": "55dcd18e46b6ec022657db5b0fb7b2d3bfd1e0091e318f73993afd0856ee90b2"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lu_solve_native.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "Solve",
+          "base": null,
+          "private_final": "e6f893348a0de27d0712fb9ad109ab944844010d9fa7697c6d2ae50ee1eb2950"
+        }
+      ],
+      "candidate": "e6f893348a0de27d0712fb9ad109ab944844010d9fa7697c6d2ae50ee1eb2950"
+    },
+    {
+      "path": "python/symox/polys/matrices/dense.py",
+      "current": "f3b034cbf4955e0264399161eb6eb39fe71b33b26e3358efd8f796e2bff2be5f",
+      "steps": [
+        {
+          "component": "Solve",
+          "base": "f3b034cbf4955e0264399161eb6eb39fe71b33b26e3358efd8f796e2bff2be5f",
+          "private_final": "ac94e17186699919a5f867937da35231de647735fa77ebbac404fa9711aa703e"
+        }
+      ],
+      "candidate": "ac94e17186699919a5f867937da35231de647735fa77ebbac404fa9711aa703e"
+    },
+    {
+      "path": "tests/test_native_ddm_lu_solve.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "Solve",
+          "base": null,
+          "private_final": "31157575c007fef2c8c28d6d40dfe57591a91a0e00c722f397701e44bdc5ea78"
+        }
+      ],
+      "candidate": "31157575c007fef2c8c28d6d40dfe57591a91a0e00c722f397701e44bdc5ea78"
+    },
+    {
+      "path": "crates/symox-py/src/risch_polynomial_reduce.rs",
+      "current": "0900fd2086e330f81863c9f30a240ae7569ee777f878b23fc7af6edd3d719b23",
+      "steps": [
+        {
+          "component": "Risch-no-step",
+          "base": "0900fd2086e330f81863c9f30a240ae7569ee777f878b23fc7af6edd3d719b23",
+          "private_final": "ca1ddfa3b7a1436e026b4fdbf7fa02f9b624e2aa76351d03f4dcaaba7efbc3d4"
+        }
+      ],
+      "candidate": "ca1ddfa3b7a1436e026b4fdbf7fa02f9b624e2aa76351d03f4dcaaba7efbc3d4"
+    },
+    {
+      "path": "python/symox/integrals/_risch_native.py",
+      "current": "464dffce10915c8902e751503ccf90921a84acec7e3c917d85e478ea940fa684",
+      "steps": [
+        {
+          "component": "Risch-no-step",
+          "base": "464dffce10915c8902e751503ccf90921a84acec7e3c917d85e478ea940fa684",
+          "private_final": "3164583604a8cafe125a296c10985800830ba35d61a9ee2257383a2c161cc9cc"
+        }
+      ],
+      "candidate": "3164583604a8cafe125a296c10985800830ba35d61a9ee2257383a2c161cc9cc"
+    },
+    {
+      "path": "tests/test_native_risch_polynomial_reduce.py",
+      "current": "2e3d88d52fbc63b3322ae9c947af2c919592a7beffeb60869b2898d7fa65bd17",
+      "steps": [
+        {
+          "component": "Risch-no-step",
+          "base": "2e3d88d52fbc63b3322ae9c947af2c919592a7beffeb60869b2898d7fa65bd17",
+          "private_final": "3cf6eda532a8520377019aad3fe5cd3b546b880a178e8658584ae6e836306074"
+        }
+      ],
+      "candidate": "3cf6eda532a8520377019aad3fe5cd3b546b880a178e8658584ae6e836306074"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lll_cache.rs",
+      "current": "f9ab1b4ef85a53ca6ddfef8e05f59b2218b8505e75edf9d93f557eaa72c773e5",
+      "steps": [
+        {
+          "component": "LLL-hot",
+          "base": "f9ab1b4ef85a53ca6ddfef8e05f59b2218b8505e75edf9d93f557eaa72c773e5",
+          "private_final": "2120787e7d24cb42dba7b11200b3e0f2442fc594ec53806c09dd0cf31452543b"
+        }
+      ],
+      "candidate": "2120787e7d24cb42dba7b11200b3e0f2442fc594ec53806c09dd0cf31452543b"
+    },
+    {
+      "path": "tests/test_native_lll_cache_scan.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL-hot",
+          "base": null,
+          "private_final": "4d709345d82be9139a881929cd2bf8d7e3c8c2772304de8e6c8bb0c272871c1c"
+        }
+      ],
+      "candidate": "4d709345d82be9139a881929cd2bf8d7e3c8c2772304de8e6c8bb0c272871c1c"
+    }
+  ],
+  "components": [
+    {
+      "label": "Solve",
+      "manifest": "/home/keckj/.cache/symox-validation/native-ddm-lu-solve-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "265b74825431185887787721e0b2d9e019fedd42cf8652ccbf48fd1699e847ce",
+      "source": "/home/keckj/.cache/symox-validation/native-ddm-lu-solve-20261028/proof/frozen-source"
+    },
+    {
+      "label": "Risch-no-step",
+      "manifest": "/home/keckj/.cache/symox-validation/native-risch-no-step-r9-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "1fc4774dd167b2d1fdeaa2d93bb4c630e16bbdc0dd12301c74ef4bc9d842763f",
+      "source": "/home/keckj/.cache/symox-validation/native-risch-no-step-r9-20261028/proof/frozen-source"
+    },
+    {
+      "label": "LLL-hot",
+      "manifest": "/home/keckj/.cache/symox-validation/native-lll-cache-scan-r10-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "f6e7f052fca3aea2a70c87f6e9997056d7a120f9aaa1e99ccdece2a714036473",
+      "source": "/home/keckj/.cache/symox-validation/native-lll-cache-scan-r10-20261028/proof/frozen-source"
+    }
+  ],
+  "merged_patch_sha256": "2bd90c38fdf87070ab30a43e0086c5faa56fae82f6e345432bb9e49c18a5e03e",
+  "ordered_patch_replay_verified": true
+}

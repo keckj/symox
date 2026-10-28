@@ -379,6 +379,7 @@ impl Context {
                     _,
                 )
                 | Kind::Derivative(..)
+                | Kind::Func(Func::SymbolicDerivative,_)
                 | Kind::Rel(..)
                 | Kind::Piecewise(_)
                 | Kind::Bool(_) => return unsupported(),

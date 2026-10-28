@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-28T14:42:47.294576+00:00",
+  "all_agents_quiet": true,
+  "scope": "No concurrent agent mathematical computation, tests, builds or other benchmarks on local host or Demeter throughout the three sequential campaigns. The host retains ordinary unrelated load, recorded by every campaign.",
+  "acks": {
+    "root": "Explicit: no compute/test/build/main edit during all three campaigns, messages only.",
+    "matrix_lu": "Explicit: final private RELEASE finished; no new compute/test/build local or Demeter until finalizer end-of-three-campaigns signal.",
+    "lll_cold": "Explicit acknowledgement relayed by root: all private83 witnesses per host closed, no active compute; read/write/copy only until campaign end.",
+    "sdm_gj_perf": "Explicit: zero calculation, test, build or benchmark active locally or on Demeter; maintains pause until explicit end-of-three-campaigns signal."
+  },
+  "root_targeted_complete": true,
+  "fresh_full_demeter_complete": true,
+  "accepted_r11_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35",
+    "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+    "working_code_diff_sha256": "da576c7794f7ea5d65ebf4308300b9128bac11388935d5140a019d5a8d140efa",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "accepted_r10_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "82feae2c9d065fd338e9439693f9c5b2bd1663b683ac2a9e411937b923e38754",
+    "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+    "working_code_diff_sha256": "a1a57da806073ce5481756822e9c3316ba9ea1718300ac206753b5e9ebb23bd4",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "campaign_order": [
+    "HNF",
+    "LU",
+    "Solve"
+  ],
+  "cpu": 24,
+  "rounds": 3,
+  "timings_recorded_at_window_start": false
+}

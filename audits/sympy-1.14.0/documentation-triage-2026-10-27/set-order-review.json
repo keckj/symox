@@ -1,0 +1,6378 @@
+{
+  "date": "2026-10-27",
+  "source_native_sha256": "576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8",
+  "scope": "Historical 26 October displayed observations only; no new runtime/domain/precision/completeness certificate and no current release replay. Every ordinary/keyword example inspected; numeric/string lexemes preserved; exceptions/statuses compared in full.",
+  "objects_with_differences": 278,
+  "objects_only_set_order": 11,
+  "observations_only_set_order": 32,
+  "objects_requiring_further_review": 267,
+  "classified": [
+    {
+      "id": "sympy.Abs.args_cnc",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "source": "(-2*x*y).args_cnc(cset=True)\n",
+          "reference_output": "[{x, 2, -1, y}, []]\n",
+          "native_output": "[{2, y, -1, x}, []]\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-06.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "source": "(-2*x*y).args_cnc(cset=True)\n",
+          "reference_output": "[{x, 2, -1, y}, []]\n",
+          "native_output": "[{2, y, -1, x}, []]\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-06.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.Abs.atoms",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "source": "(1 + x + 2*sin(y + I*pi)).atoms()\n",
+          "reference_output": "{1, 2, y, pi, I, x}\n",
+          "native_output": "{I, 1, 2, pi, x, y}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-20.json.gz"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "source": "(1 + x + 2*sin(y + I*pi)).atoms(Number, NumberSymbol)\n",
+          "reference_output": "{pi, 1, 2}\n",
+          "native_output": "{1, 2, pi}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-20.json.gz"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "source": "(1 + x + 2*sin(y + I*pi)).atoms(Number, NumberSymbol, I)\n",
+          "reference_output": "{pi, 1, 2, I}\n",
+          "native_output": "{I, 1, 2, pi}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-20.json.gz"
+        },
+        {
+          "mode": "ordinary",
+          "index": 15,
+          "source": "(1 + f(x) + 2*sin(y + I*pi)).atoms(Function)\n",
+          "reference_output": "{f(x), sin(y + I*pi)}\n",
+          "native_output": "{sin(y + I*pi), f(x)}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-20.json.gz"
+        },
+        {
+          "mode": "ordinary",
+          "index": 17,
+          "source": "(1 + x + 2*sin(y + I*pi)).atoms(Mul)\n",
+          "reference_output": "{2*sin(y + I*pi), I*pi}\n",
+          "native_output": "{I*pi, 2*sin(y + I*pi)}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-20.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "source": "(1 + x + 2*sin(y + I*pi)).atoms()\n",
+          "reference_output": "{1, 2, y, pi, I, x}\n",
+          "native_output": "{I, 1, 2, pi, x, y}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-20.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "source": "(1 + x + 2*sin(y + I*pi)).atoms(Number, NumberSymbol)\n",
+          "reference_output": "{pi, 1, 2}\n",
+          "native_output": "{1, 2, pi}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-20.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "source": "(1 + x + 2*sin(y + I*pi)).atoms(Number, NumberSymbol, I)\n",
+          "reference_output": "{pi, 1, 2, I}\n",
+          "native_output": "{I, 1, 2, pi}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-20.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "source": "(1 + f(x) + 2*sin(y + I*pi)).atoms(Function)\n",
+          "reference_output": "{f(x), sin(y + I*pi)}\n",
+          "native_output": "{sin(y + I*pi), f(x)}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-20.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 17,
+          "source": "(1 + x + 2*sin(y + I*pi)).atoms(Mul)\n",
+          "reference_output": "{2*sin(y + I*pi), I*pi}\n",
+          "native_output": "{I*pi, 2*sin(y + I*pi)}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-20.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.ImmutableDenseMatrix.atoms",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "source": "_.atoms()\n",
+          "reference_output": "{x, y}\n",
+          "native_output": "{y, x}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-04.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "source": "_.atoms()\n",
+          "reference_output": "{x, y}\n",
+          "native_output": "{y, x}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-04.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.MatMul.args_cnc",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "source": "(-2*x*y).args_cnc(cset=True)\n",
+          "reference_output": "[{x, 2, -1, y}, []]\n",
+          "native_output": "[{2, y, -1, x}, []]\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-28.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "source": "(-2*x*y).args_cnc(cset=True)\n",
+          "reference_output": "[{x, 2, -1, y}, []]\n",
+          "native_output": "[{2, y, -1, x}, []]\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-28.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.ProductSet",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "source": "set(coin**2)\n",
+          "reference_output": "{(H, H), (H, T), (T, T), (T, H)}\n",
+          "native_output": "{(H, H), (T, H), (H, T), (T, T)}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-20.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "source": "set(coin**2)\n",
+          "reference_output": "{(H, H), (H, T), (T, T), (T, H)}\n",
+          "native_output": "{(H, H), (T, H), (H, T), (T, T)}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-20.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.combinatorics.PermutationGroup.conjugacy_classes",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 1,
+          "source": "SymmetricGroup(3).conjugacy_classes()\n",
+          "reference_output": "[{Permutation(2)}, {Permutation(0, 2, 1), Permutation(0, 1, 2)}, {Permutation(0, 2), Permutation(2)(0, 1), Permutation(1, 2)}]\n",
+          "native_output": "[{Permutation(2)}, {Permutation(0, 2, 1), Permutation(0, 1, 2)}, {Permutation(1, 2), Permutation(0, 2), Permutation(2)(0, 1)}]\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-27.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 1,
+          "source": "SymmetricGroup(3).conjugacy_classes()\n",
+          "reference_output": "[{Permutation(2)}, {Permutation(0, 2, 1), Permutation(0, 1, 2)}, {Permutation(0, 2), Permutation(2)(0, 1), Permutation(1, 2)}]\n",
+          "native_output": "[{Permutation(2)}, {Permutation(0, 2, 1), Permutation(0, 1, 2)}, {Permutation(1, 2), Permutation(0, 2), Permutation(2)(0, 1)}]\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-27.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.dsolve",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 16,
+          "source": "dsolve(eq)\n",
+          "reference_output": "{Eq(y(t), -1/(C1 - cos(t))), Eq(x(t), -exp(C1)/(C2*exp(C1) - cos(t)))}\n",
+          "native_output": "{Eq(x(t), -exp(C1)/(C2*exp(C1) - cos(t))), Eq(y(t), -1/(C1 - cos(t)))}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-30.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 16,
+          "source": "dsolve(eq)\n",
+          "reference_output": "{Eq(y(t), -1/(C1 - cos(t))), Eq(x(t), -exp(C1)/(C2*exp(C1) - cos(t)))}\n",
+          "native_output": "{Eq(x(t), -exp(C1)/(C2*exp(C1) - cos(t))), Eq(y(t), -1/(C1 - cos(t)))}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-30.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.integrals.intpoly.decompose",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "source": "decompose(x**2 + x*y + x + y + x**3*y**2 + y**5, True)\n",
+          "reference_output": "{y, y**5, x**3*y**2, x**2, x*y, x}\n",
+          "native_output": "{y**5, x**3*y**2, x*y, y, x, x**2}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-28.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "source": "decompose(x**2 + x*y + x + y + x**3*y**2 + y**5, True)\n",
+          "reference_output": "{y, y**5, x**3*y**2, x**2, x*y, x}\n",
+          "native_output": "{y**5, x**3*y**2, x*y, y, x, x**2}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-28.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.itermonomials",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "source": "set(itermonomials([a, b, x], 2))\n",
+          "reference_output": "{1, b*a, x*b, a*b, a, b**2, x*a, a**2, x**2, b, x}\n",
+          "native_output": "{1, b*a, b**2, a**2, x, a, a*b, x*b, x**2, b, x*a}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-05.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "source": "set(itermonomials([a, b, x], 2))\n",
+          "reference_output": "{1, b*a, x*b, a*b, a, b**2, x*a, a**2, x**2, b, x}\n",
+          "native_output": "{1, b*a, b**2, a**2, x, a, a*b, x*b, x**2, b, x*a}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-05.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.physics.mechanics.find_dynamicsymbols",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "source": "find_dynamicsymbols(v, reference_frame=A)\n",
+          "reference_output": "{b(t), c(t), a(t)}\n",
+          "native_output": "{a(t), b(t), c(t)}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-11.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "source": "find_dynamicsymbols(v, reference_frame=A)\n",
+          "reference_output": "{b(t), c(t), a(t)}\n",
+          "native_output": "{a(t), b(t), c(t)}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-11.json.gz"
+        }
+      ]
+    },
+    {
+      "id": "sympy.solvers.solvers.denoms",
+      "verdict": "archived output differs only by literal set element order",
+      "observations": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "source": "denoms(3/x + y/z)\n",
+          "reference_output": "{x, z}\n",
+          "native_output": "{z, x}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-28.json.gz"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "source": "denoms(x/2 + y/z)\n",
+          "reference_output": "{z, 2}\n",
+          "native_output": "{2, z}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-28.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "source": "denoms(3/x + y/z)\n",
+          "reference_output": "{x, z}\n",
+          "native_output": "{z, x}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-28.json.gz"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "source": "denoms(x/2 + y/z)\n",
+          "reference_output": "{z, 2}\n",
+          "native_output": "{2, z}\n",
+          "archive": "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-28.json.gz"
+        }
+      ]
+    }
+  ],
+  "remaining": [
+    {
+      "id": "sympy.AccumBounds",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 21,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 22,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.AlgebraicField.alg_field_from_poly",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.AlgebraicField.cyclotomic_field",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.AlgebraicField.integral_basis",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.BlockDiagMatrix.transpose",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.BlockMatrix",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.ConditionSet",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Curve",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.DiagonalOf",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.DiracDelta",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Domain",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 25,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 33,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 25,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 33,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.FF",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.GroebnerBasis.contains",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.GroebnerBasis.reduce",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.ImmutableDenseMatrix",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.ImmutableDenseMatrix.QRdecomposition",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 17,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 18,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 21,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 23,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 25,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 26,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 27,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 28,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 29,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 30,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 31,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 32,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.ImmutableDenseMatrix.multiply_elementwise",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.ImmutableDenseMatrix.todok",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.ImmutableSparseMatrix",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.angle_between",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.arbitrary_point",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.are_concurrent",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.bisectors",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.intersection",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 19,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.is_parallel",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.is_perpendicular",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.parallel_line",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.perpendicular_line",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.perpendicular_segment",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line.smallest_angle_between",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line2D.perpendicular_line",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line3D",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line3D.distance",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Line3D.equation",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Plane.angle_between",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Plane.distance",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Plane.intersection",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Plane.projection_line",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Point.project",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.cofactors",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.div",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.gcd",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.lcm",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.pdiv",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.pquo",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.prem",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.quo",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Poly.rem",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Predicate",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Product.change_index",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 26,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 26,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.QQ_I",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 17,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Range",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 22,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 22,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Ray3D",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Subs",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Sum.euler_maclaurin",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.Triangle.is_similar",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.ZeroMatrix",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.all_roots",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 22,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 22,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.apart",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.apply_finite_diff",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.approximants",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.assoc_laguerre",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.assumptions.assume.UndefinedPredicate",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.block_collapse",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.bool_map",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.catalan",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.combinatorics.Collector.induced_pcgs",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.BaseVectorField",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.Commutator",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.CoordinateSymbol",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.Differential",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.LieDerivative",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.intcurve_series",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.metric_to_Ricci_components",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.metric_to_Riemann_components",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diffgeom.vectors_in_basis",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.diophantine",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 2
+    },
+    {
+      "id": "sympy.erf2inv",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.factor",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.fresnelc",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.fresnels",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.geometry.util.are_coplanar",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.get_contraction_structure",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.hankel_transform",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.harmonic",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 25,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 34,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 25,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 34,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.hn1",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.hn2",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.inverse_hankel_transform",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.jn",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.lambdify",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 17,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 34,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 36,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 38,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 72,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 75,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 92,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 98,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 17,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 34,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 36,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 38,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 72,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 75,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 92,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 98,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.matrices.expressions.combine_kronecker",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.nonlinsolve",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.nsolve",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 17,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 20,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 27,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 17,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 20,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 27,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.parsing.sym_expr.SymPyExpression",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.parsing.sym_expr.SymPyExpression.convert_to_c",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.parsing.sym_expr.SymPyExpression.convert_to_expr",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.parsing.sym_expr.SymPyExpression.convert_to_fortran",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.parsing.sym_expr.SymPyExpression.convert_to_python",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.parsing.sym_expr.SymPyExpression.return_expr",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.biomechanics.FiberForceLengthActiveDeGroote2016",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.biomechanics.FiberForceLengthPassiveDeGroote2016",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.biomechanics.FiberForceVelocityDeGroote2016",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.biomechanics.TendonForceLengthDeGroote2016",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Arch.draw",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Beam.plot_bending_moment",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Beam.plot_deflection",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Beam.plot_ild_moment",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Beam.plot_ild_reactions",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Beam.plot_ild_shear",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Beam.plot_shear_force",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Beam.plot_shear_stress",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Beam.plot_slope",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Cable.draw",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Cable.plot_tension",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Cable.solve",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.Truss.draw",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.beam.Beam3D.max_deflection",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.beam.Beam3D.plot_bending_moment",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.beam.Beam3D.plot_deflection",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.beam.Beam3D.plot_loading_results",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.beam.Beam3D.plot_shear_force",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.beam.Beam3D.plot_shear_stress",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.continuum_mechanics.beam.Beam3D.plot_slope",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.control.PIDController.dc_gain",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.control.PIDController.poles",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.control.PIDController.to_expr",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.optics.TWave",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.optics.deviation",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.optics.gaussian_conj",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.optics.refraction_angle",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.quantum.AntiCommutator",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.quantum.Bra",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.quantum.Commutator",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.quantum.Dagger",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.quantum.OrthogonalKet",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.quantum.qubit.Qubit",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.quantum.spin.JzKet",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.AnnihilateBoson",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.AnnihilateBoson.apply_operator",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.AnnihilateFermion.apply_operator",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.Bd.apply_operator",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.Commutator",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.Commutator.doit",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.Commutator.eval",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.CreateFermion.apply_operator",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.Dagger",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.Dagger.eval",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.NO",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.NO.doit",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.NO.get_subNO",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.NO.iter_q_annihilators",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.NO.iter_q_creators",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.contraction",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.matrix_rep",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.secondquant.wicks",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.units.Dimension",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.physics.wigner.wigner_9j",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plot",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plot_parametric",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plotting.PlotGrid",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plotting.PygletPlot",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 17,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 17,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plotting.plot.MatplotlibBackend.append",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plotting.plot.MatplotlibBackend.extend",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plotting.plot3d",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plotting.plot3d_parametric_line",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.plotting.plot3d_parametric_surface",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polarify",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.DomainMatrix.cancel_denom_elementwise",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.DomainMatrix.to_ddm",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.DomainMatrix.to_dense",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.DomainMatrix.to_dfm_or_ddm",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.DomainMatrix.to_sdm",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.DomainMatrix.to_sparse",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.from_dod",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.from_dok",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.from_flat_nz",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.from_list_flat",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.to_dfm_or_ddm",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.to_dod",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.to_dok",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.to_flat_nz",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.to_list",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.to_list_flat",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.polys.matrices.ddm.DDM.to_sdm",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.real_roots",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 31,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 31,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.round_two",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.satisfiable",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.simplify",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 26,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 26,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.simplify.fu.sincos_to_sum",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.simplify.hyperexpand.FormulaCollection.lookup_origin",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.simplify.hyperexpand.devise_plan",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.solve",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 38,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 57,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 81,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 82,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 38,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 57,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 81,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 82,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 2
+    },
+    {
+      "id": "sympy.solve_undetermined_coeffs",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.solvers.ode.ode.classify_sysode",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.solvers.pde.pde_1st_linear_constant_coeff",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 16,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.solvers.solveset.solve_decomposition",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.solveset",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.BetaNoncentral",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.BoundedPareto",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.CentralMoment",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.ChiSquared",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.CircularOrthogonalEnsemble",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.CircularSymplecticEnsemble",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.CircularUnitaryEnsemble",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Coin",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Covariance",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Dirichlet",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.DiscreteMarkovChain",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.DiscreteUniform",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.ExGaussian",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Expectation",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 18,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 23,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 18,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 23,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.GaussianInverse",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.GaussianOrthogonalEnsemble",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.GaussianSymplecticEnsemble",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.GaussianUnitaryEnsemble",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.H",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.JointEigenDistribution",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Levy",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.LogCauchy",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Logarithmic",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.LogitNormal",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.MatrixNormal",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.MatrixStudentT",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Moyal",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Multinomial",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.MultivariateEwens",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.MultivariateNormal",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.PoissonProcess",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.PowerFunction",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Rademacher",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.RaisedCosine",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Rayleigh",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Reciprocal",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.RobustSoliton",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Triangular",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.UniformSum",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Variance",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.WienerProcess",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.Zeta",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.correlation",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.coskewness",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.joint_eigen_distribution",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.kurtosis",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.level_spacing_distribution",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.sample",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.skewness",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.stats.where",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.symbols",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 30,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 30,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 2
+    },
+    {
+      "id": "sympy.tensor.array.expressions.PermuteDims",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.tensor.array.expressions.Reshape",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 2,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.testing.pytest.raises",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 1,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.testing.pytest.warns_deprecated_sympy",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.textplot",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.utilities.autowrap.autowrap",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 9,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.utilities.autowrap.binary_function",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.utilities.autowrap.ufuncify",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "ordinary",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 11,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 12,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.utilities.memoization.recurrence_memo",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 5,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.utilities.misc.func_name",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.vector.BaseDyadic.factor",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.vector.BaseDyadic.simplify",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 26,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 26,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.vector.CoordSys3D.orient_new",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 14,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 15,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.vector.Del.cross",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.vector.Del.dot",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.vector.ImplicitRegion.regular_point",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.vector.Laplacian",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 3,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.vector.parametric_region_list",
+      "remaining": [
+        {
+          "mode": "keywords",
+          "index": 4,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 6,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 8,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 10,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 13,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    },
+    {
+      "id": "sympy.yn",
+      "remaining": [
+        {
+          "mode": "ordinary",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        },
+        {
+          "mode": "keywords",
+          "index": 7,
+          "reason": "difference beyond literal set permutation"
+        }
+      ],
+      "set_order_observations": 0
+    }
+  ],
+  "input_sha256": {
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-00.json.gz": "84cf5162db8aa406ad66721ef4e7083ce4eb4e5e36867a6e83b91cbeaf224af2",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-01.json.gz": "52a975cbf277bd6e1403f11e02cfea0ee9c0c68017a1147451c9db0558c2148e",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-02.json.gz": "7878da1cfd650375d89e6c7c8005c0dcc43e6dfa84eec604d2371e5689ee0be8",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-03.json.gz": "94000b9b182d43b93a5006f7df853c546c77bdb05bcb5d2e0211c5b7c7aab840",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-04.json.gz": "63154257af51bf41dcee609cebf09583612ed50163871385cbb898a096cd7df8",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-05.json.gz": "d1d1f5e8b2d499d7da42ff194b085aa0a5548adffa6b418519d83f659a56a06d",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-06.json.gz": "26627513b1c264565b3fccf92253cdc3b987b5e47c5f7e40f93846d171a0b383",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-07.json.gz": "8e40c735a04ed0005eb801891cfe66b191bb33c23dabf77f6543157d97d2bc4f",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-08.json.gz": "057589df4d47714ec4b101a2285dd20096ed1e197cf25d52d9a8ba94e458c89c",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-09.json.gz": "f8eac27f20b86d51fab021b54b196d13fb3f72296456b61a3155484429e5ec0b",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-10.json.gz": "3f5879c0175bf23ea3033495456c625344114c7c2bee6cf9179d96c9475afcf1",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-11.json.gz": "0567c8e127665642e1f6448fa528cafcd6d8d50be06735d19b78da9aa32b3ea3",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-12.json.gz": "5f58840fe585a23eb6d920e1cd213fdfa096eb7efdad2f2b839cd389f0c74db1",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-13.json.gz": "fcf42a29d0e43e4cef51d27ebba520d88abc3c2fe18a6d914228880564398cef",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-14.json.gz": "3399f2c4315360c981670e94ba97a05692bdb4e9a435d6decedc9a78a5cc9e2e",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-15.json.gz": "9fe8b76b13be00228a1ed41f692eabb1b2ef4e357cc65d70912d5db53baa891c",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-16.json.gz": "1e82ebe952c4f161265a32c9aec78cb298926aeeaaa063d0b1fe409a58ca7a34",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-17.json.gz": "8c1dcaf3b5d7f9f820821636b6fb6418b1a3b19facddbe144bc349c2ffd9dc88",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-18.json.gz": "7fa55095911529932ae30ac4b8d3cf757a29ce382301453d15fe57471a187fa6",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-19.json.gz": "3d5bec30028fc39ee2e881322b0af2946176b16de91cb4e86cbdfc544cfbb9c7",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-20.json.gz": "2039904b200cb72572b5af5891e7c0c4e7b0bebd1b224a9e9be212d8f0c08eba",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-21.json.gz": "f8db6537b8243bb07e33e3de37671854c70de173c198956f8514dd91718f0800",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-22.json.gz": "cfce94cfac74ea43bfbe1b5a95fb2add57178e4c66d4506d672c4ae226dc6b8f",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-23.json.gz": "21ef7c5bd083cc0d0f67ed2c52ac8172570f0ecffa6a13c161eace130ae325b4",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-24.json.gz": "d05251e77d5635367ea6ac8ece3ba326b104614a57d99e307ecc698139a82cd4",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-25.json.gz": "ee790f041e075e0672ec33d8e20e9d8d90fa37bad4914bca0f82db227b807ac3",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-26.json.gz": "d7ce65c76c182e789cfe93203501a8858137b5c9f0fd6accc1c9ae587061abba",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-27.json.gz": "332f80a0f14ad4b9eabd82719661d9a97a15f584757633e160a7ebcfc7662fad",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-28.json.gz": "cd16bae55592fd210b60d765a74a3a0d9a793a95814d893570ca23732c6af2f1",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-29.json.gz": "02c6426a988930fc415bc7a6a2071cfe2698d51e68e7f27e907aeaa09bbe5e4f",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-30.json.gz": "31343f53512e132a104a11095018cd5422ac348f84d243e56ad3eb90e61dd81c",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/keywords-31.json.gz": "52ff453b42da17652209ecde13cc45f409c9e443fdaa11c5c932bbaa72e44d25",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-00.json.gz": "eb4395d0effdec221b15e57374276ea4c810f400dd4ac644a2db366f1a55e831",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-01.json.gz": "961a5eff7c8a5a62a0eb93fda7a901b1e38abec009dfd32bb0ecf2660a5a11e0",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-02.json.gz": "1f5b9e1ba96e68fe7f38a6d6e6e2d24c6470fba41608f7b0ddf71642f0b4dd13",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-03.json.gz": "61aa43889b895bc15297e3bb3b41ecaebe12dd82b96c9f73561a49e882d05b55",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-04.json.gz": "6ce342bc490f2676c467c28bbfaa9db68e4218ecdcc32ec79ce033986886f8d1",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-05.json.gz": "bf0bdf845cbbd8457b7e3b823d8e5664df1f5f227badb315e6832d6d862bdbe7",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-06.json.gz": "2f9bc5859fa119f7d8d1788419ebf33a0ad1dcfce005a16577ebb909f18d87f3",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-07.json.gz": "733f5a8f2640ee753a1079f2cebdef5ac690905cf89a5ffc6bfe677680d32ac4",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-08.json.gz": "69aa34571026c5cdd166facb42e2d3f4c041f52c5d6377a8b336e445d2994471",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-09.json.gz": "659ae66208a97db8008838be5c45421814780e74b87ee694c8588ac69fd90e68",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-10.json.gz": "0db17c6614e549c3d20da21428edaf7424779f6a2d5d23f1046992de5b7d03a0",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-11.json.gz": "8734f13269c23bac5be0d16750c40151ca596aca297e5eec5bbb620ab27e7fb5",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-12.json.gz": "f25433ece637e3d01431dd9554a9a7887bc1b0b7020c96e4ea9096cce32b2ebf",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-13.json.gz": "a2a3e804473777369711e281bd6c59ab655a83ecf77f510daf663dccc0fd5cb5",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-14.json.gz": "c412983f66c3f1e7a6970981d0b42a5b0efdc1f8e2be538a4fcd6fae929bf8a9",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-15.json.gz": "a5a897250626e32877318737971951080f31ef59e8f97094971addb537976455",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-16.json.gz": "1b50aee9d078461602d1a508e32bd3307608eef92ac6c9eb07646ac07ad41bfe",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-17.json.gz": "6cc176fccbf3a97b5477f8634e35f14430f14841751900085f2aa898e9251b6e",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-18.json.gz": "f9dfe9c2763f1c2c9ceb1b57cf4829dca1681ea17a9796b5e497f8ba3fe78e0e",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-19.json.gz": "d80c894d5e0ae57d7878f1f5f31953f6f6b947a64ccf30da7af7bfc1a19fad5a",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-20.json.gz": "499988f05146bcf4037872a8d9421e4b019fc0d17f109138291217bcb5e2053f",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-21.json.gz": "b4d46e1b0686bd6d2fe5acd6e8e3dbc08c454cf2abed8829633b52968abaed23",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-22.json.gz": "20914a7b8558e1425cf421b805c1029988961d54619fdbaba835f95f032f3ff4",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-23.json.gz": "a48d609b20794a17643d416c44328a8bac9fc1ab2d13645e963bb11b6bb3f460",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-24.json.gz": "36dfc3f42a31ffd2106b34f3f2e4894b68559b84f9602fbaeb07437eae638ff1",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-25.json.gz": "0bac0f1114c85e763eca33fa3cf62ef5976c4019db50617a957d5b5a58ae0775",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-26.json.gz": "a5056b65f399bc3a37af4fc8c473e536907394bb8b327965cf4a687e561a3a73",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-27.json.gz": "e79768a2a60d7ac5c96da67bd8716cd70a999c7aa3dc69ebf4e88c1ff457c8f8",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-28.json.gz": "622115d4dc7de0093b8d6d2ea1fe770e6c952588d3196265230291db136598ee",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-29.json.gz": "278abc7c29bc5db4cdd039c6e3a1864ea9fb48b580f3ad1f277ee3dd0bc64177",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-30.json.gz": "be8cce22316d58034666e2f7c6a827f19dc58e2ccf8f50954ec71298963c703a",
+    "audits/sympy-1.14.0/documentation-2026-10-26/raw/ordinary-31.json.gz": "0127c17fad9b545802b6610e2b704ce8dc6401ff457a11ca94086ca64aedab03"
+  }
+}

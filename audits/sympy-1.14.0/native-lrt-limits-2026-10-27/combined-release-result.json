@@ -1,0 +1,14 @@
+{
+  "phase": "Integrated RELEASE after LRT/Ore protocol followup",
+  "native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+  "rust_inputs_unchanged": true,
+  "cargo_check": "passed",
+  "python": {
+    "passed": 1179,
+    "failed": 0,
+    "elapsed_seconds": 32.97
+  },
+  "log": "combined-targeted.log",
+  "initial_protocol_failures": "8 stock route assertions preserved in before-ore-fix-combined-targeted.log; fixed with authenticated resultant wrapper and actual scalar method/operator/priority guards.",
+  "scope": "LRT and forwarding protocols; dense Berkowitz; Gruntz homogeneity plus winding; principal E1 Laplace; unchanged derivative/conditional/QQ/DDM controls."
+}

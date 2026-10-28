@@ -1,0 +1,78 @@
+{
+  "reference_version": "1.14.0",
+  "certificate": "Trace of t*h_x/h in QQ(x)[t]/q sums exactly to f/g; full pair coefficients/domains preserve branch representatives",
+  "checks": [
+    {
+      "case": "quadratic",
+      "f": "1",
+      "g": "x**2 + x + 1",
+      "trace_residual": "0"
+    },
+    {
+      "case": "quartic",
+      "f": "1",
+      "g": "x**4 + x + 1",
+      "trace_residual": "0"
+    },
+    {
+      "case": "nonconstant_numerator",
+      "f": "x**3 + 1",
+      "g": "x**4 + x + 1",
+      "trace_residual": "0"
+    },
+    {
+      "case": "multiplicity_groups",
+      "f": "9*x**4 - 14*x**3 - 6*x**2 - 18*x - 7",
+      "g": "(x - 2)*(x**2 + 1)*(x**2 + x + 1)",
+      "trace_residual": "0"
+    },
+    {
+      "case": "distinct_arguments",
+      "f": "x + 1",
+      "g": "x**4 + 2*x + 2",
+      "trace_residual": "0"
+    },
+    {
+      "case": "distinct_arguments",
+      "f": "x + 2",
+      "g": "x**4 + 3*x + 5",
+      "trace_residual": "0"
+    },
+    {
+      "case": "distinct_arguments",
+      "f": "x + 3",
+      "g": "x**4 + 4*x + 10",
+      "trace_residual": "0"
+    },
+    {
+      "case": "distinct_arguments",
+      "f": "x + 4",
+      "g": "x**4 + 5*x + 17",
+      "trace_residual": "0"
+    },
+    {
+      "case": "distinct_arguments",
+      "f": "x + 5",
+      "g": "x**4 + 6*x + 26",
+      "trace_residual": "0"
+    },
+    {
+      "case": "distinct_arguments",
+      "f": "x + 6",
+      "g": "x**4 + 7*x + 37",
+      "trace_residual": "0"
+    },
+    {
+      "case": "distinct_arguments",
+      "f": "x + 7",
+      "g": "x**4 + 8*x + 50",
+      "trace_residual": "0"
+    },
+    {
+      "case": "distinct_arguments",
+      "f": "x + 8",
+      "g": "x**4 + 9*x + 65",
+      "trace_residual": "0"
+    }
+  ]
+}

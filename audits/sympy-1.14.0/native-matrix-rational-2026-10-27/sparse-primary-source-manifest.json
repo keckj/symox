@@ -1,0 +1,35 @@
+{
+  "base": "/home/keckj/.cache/symox-validation/native-inexact-r1-20261027/after",
+  "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/sparse-sdm-berkowitz",
+  "base_native": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/sdm.rs",
+      "base": null,
+      "final": "9fe61643a34b90d05dd4002ac9d89af142f9c9ab087d1039ea84f7289a4dbb3f"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "base": "27d0426597d1ee37b88e6cead8cfd88718eb0feb7b326a2ffc024cfc22906ae8",
+      "final": "4f6d4297cc4ddf3fb2e1e105ddedd21dfd12bab324752b3bcb2ae0b0e73f04fd"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base": "58ef0495f1414258ff66cc2b807d4c1ed2a3f8309ba195fcea6681188aff121b",
+      "final": "abfe220d30bfad9e660ad1f4302a1dc4f419e8507cc2e9f4c8229648c632b9a5"
+    },
+    {
+      "path": "python/symox/polys/matrices/sdm.py",
+      "base": "c404ed3bb9af1f1c8a2a93094770ef8f5cb1c69553b0b557645e9f8ff33077cf",
+      "final": "cad513f415caa38f8b76c73ac4768e08c036553a953c3c276429ec91bc6ed74b"
+    },
+    {
+      "path": "tests/test_native_sdm_berkowitz.py",
+      "base": null,
+      "final": "fd82332c65f30e433537fb9c3f1304b7d19c97406663a124cdbdf7ef25c0bda8"
+    }
+  ],
+  "patch_sha256": "fba0f78da32a0a0be828a5fa83b4dfa8492129f78dbe80038667a42bb2257ac7",
+  "private_debug_native_sha256": "0c0a93466164860ba5c9fd50d1e33de70395c6d75866051484df6bee90c50c9a",
+  "status": "source frozen; Python broad gates and Demeter Rust/clippy in progress; no benchmark claim"
+}

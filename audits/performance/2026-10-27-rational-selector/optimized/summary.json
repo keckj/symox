@@ -1,0 +1,515 @@
+{
+  "fresh_processes_per_variant_backend": 3,
+  "cpu": 24,
+  "reference_runtime": "blocked in every worker",
+  "elapsed_seconds": 29.830853043997195,
+  "backend_identities": {
+    "r2": [
+      "/home/keckj/symox-ci/wt/native-lrt-limits-20261027/python",
+      "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+      "add84089dc8297efa1d1dfbf25125629db2df6b498183a809a66fa1bd2bb4c77"
+    ],
+    "r3b": [
+      "/home/keckj/symox-ci/wt/native-inexact-r1-20261027/python",
+      "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+      "525ea4127a4f216750625575296c32ad28672cd91aa51f6d3157b69eaf0e0b44"
+    ],
+    "optimized": [
+      "/home/keckj/symox-ci/wt/selector-proof-release-r3b/python",
+      "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+      "753ad09a13189b1c98d9e062db892fc1461ef5f4010b568bf9aab242d08387aa"
+    ]
+  },
+  "variants": {
+    "plain": {
+      "lrt/quadratic": {
+        "median_ns": {
+          "r2": 367160.9,
+          "r3b": 377297.2,
+          "optimized": 356488.3
+        },
+        "ratio_r3b_over_optimized": 1.0583719016865352,
+        "ratio_r2_over_optimized": 1.0299381494427728,
+        "process_medians_ns": {
+          "r2": [
+            363704.75,
+            367160.9,
+            367753.05
+          ],
+          "r3b": [
+            378611.15,
+            377297.2,
+            372195.75
+          ],
+          "optimized": [
+            357911.9,
+            356488.3,
+            353419.55
+          ]
+        },
+        "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6"
+      },
+      "lrt/quartic": {
+        "median_ns": {
+          "r2": 442974.15,
+          "r3b": 453846.8,
+          "optimized": 428721.8
+        },
+        "ratio_r3b_over_optimized": 1.0586044376563077,
+        "ratio_r2_over_optimized": 1.0332438191853086,
+        "process_medians_ns": {
+          "r2": [
+            442974.15,
+            447855.95,
+            439994.5
+          ],
+          "r3b": [
+            453846.8,
+            457423.25,
+            450033.65
+          ],
+          "optimized": [
+            428721.8,
+            435968.85,
+            428425.25
+          ]
+        },
+        "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197"
+      },
+      "lrt/nonconstant_numerator": {
+        "median_ns": {
+          "r2": 492551.45,
+          "r3b": 503053.1,
+          "optimized": 479362.5
+        },
+        "ratio_r3b_over_optimized": 1.0494210540040156,
+        "ratio_r2_over_optimized": 1.027513520561162,
+        "process_medians_ns": {
+          "r2": [
+            493153.05,
+            490470.5,
+            492551.45
+          ],
+          "r3b": [
+            508639.0,
+            503053.1,
+            502731.95
+          ],
+          "optimized": [
+            478921.65,
+            489128.15,
+            479362.5
+          ]
+        },
+        "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed"
+      },
+      "lrt/multiplicity_groups": {
+        "median_ns": {
+          "r2": 791097.65,
+          "r3b": 809404.6,
+          "optimized": 790229.2
+        },
+        "ratio_r3b_over_optimized": 1.024265618126994,
+        "ratio_r2_over_optimized": 1.00109898495272,
+        "process_medians_ns": {
+          "r2": [
+            791097.65,
+            788587.65,
+            837270.45
+          ],
+          "r3b": [
+            809404.6,
+            805584.0,
+            812371.65
+          ],
+          "optimized": [
+            790229.2,
+            793241.7,
+            788502.7
+          ]
+        },
+        "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0"
+      },
+      "lrt/distinct_arguments": {
+        "median_ns": {
+          "r2": 756412.36875,
+          "r3b": 766982.1375,
+          "optimized": 745375.09375
+        },
+        "ratio_r3b_over_optimized": 1.0289881482909422,
+        "ratio_r2_over_optimized": 1.0148076788351905,
+        "process_medians_ns": {
+          "r2": [
+            756412.36875,
+            756228.99375,
+            797395.15
+          ],
+          "r3b": [
+            766982.1375,
+            768554.06875,
+            766721.64375
+          ],
+          "optimized": [
+            743969.25,
+            750487.325,
+            745375.09375
+          ]
+        },
+        "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03"
+      },
+      "atan/linear_branch": {
+        "median_ns": {
+          "r2": 92348.35,
+          "r3b": 92144.65,
+          "optimized": 69189.1
+        },
+        "ratio_r3b_over_optimized": 1.3317798612787273,
+        "ratio_r2_over_optimized": 1.3347239666363633,
+        "process_medians_ns": {
+          "r2": [
+            92348.35,
+            89921.4,
+            97132.15
+          ],
+          "r3b": [
+            93352.05,
+            90129.9,
+            92144.65
+          ],
+          "optimized": [
+            72017.65,
+            69189.1,
+            68359.45
+          ]
+        },
+        "digest": "058bc83e0901e8a1486174fc6817ff45bb68c190a9ab69c8d7034123acf056ef"
+      },
+      "atan/quadratic": {
+        "median_ns": {
+          "r2": 104415.95,
+          "r3b": 103105.75,
+          "optimized": 80216.6
+        },
+        "ratio_r3b_over_optimized": 1.285341812043891,
+        "ratio_r2_over_optimized": 1.3016750896946516,
+        "process_medians_ns": {
+          "r2": [
+            103791.05,
+            104415.95,
+            108129.05
+          ],
+          "r3b": [
+            103105.75,
+            102555.6,
+            103495.45
+          ],
+          "optimized": [
+            81234.65,
+            79011.05,
+            80216.6
+          ]
+        },
+        "digest": "c82fd8fd618fb7cae452743587e352fbe05de6f1ed4fcbb7e77ea07f78c239c7"
+      },
+      "atan/quartic": {
+        "median_ns": {
+          "r2": 137478.45,
+          "r3b": 137746.75,
+          "optimized": 113708.5
+        },
+        "ratio_r3b_over_optimized": 1.2114024017553657,
+        "ratio_r2_over_optimized": 1.2090428595927307,
+        "process_medians_ns": {
+          "r2": [
+            136181.45,
+            137478.45,
+            147354.2
+          ],
+          "r3b": [
+            137746.75,
+            139248.85,
+            136437.0
+          ],
+          "optimized": [
+            114390.25,
+            113120.4,
+            113708.5
+          ]
+        },
+        "digest": "b950b176992c3d1e0295532bf4eb0dc2e1431057c44003ee82f0839f995ae2ff"
+      },
+      "atan/distinct_arguments": {
+        "median_ns": {
+          "r2": 124134.875,
+          "r3b": 124626.775,
+          "optimized": 99850.0875
+        },
+        "ratio_r3b_over_optimized": 1.2481388661777588,
+        "ratio_r2_over_optimized": 1.243212480910445,
+        "process_medians_ns": {
+          "r2": [
+            124134.875,
+            122996.3875,
+            129680.7125
+          ],
+          "r3b": [
+            124626.775,
+            123697.2,
+            125993.875
+          ],
+          "optimized": [
+            99850.0875,
+            98884.625,
+            100842.95
+          ]
+        },
+        "digest": "1d0eb8ff88d2298f7bc7b7afc833255ee8fab1c30b18abc2e6017961ea4a1938"
+      }
+    },
+    "vector": {
+      "lrt/quadratic": {
+        "median_ns": {
+          "r2": 1172260.4,
+          "r3b": 476705.9,
+          "optimized": 409803.05
+        },
+        "ratio_r3b_over_optimized": 1.1632561055853539,
+        "ratio_r2_over_optimized": 2.860545815849833,
+        "process_medians_ns": {
+          "r2": [
+            1247773.55,
+            1171633.7,
+            1172260.4
+          ],
+          "r3b": [
+            499379.1,
+            472340.05,
+            476705.9
+          ],
+          "optimized": [
+            409803.05,
+            416384.3,
+            408433.85
+          ]
+        },
+        "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6"
+      },
+      "lrt/quartic": {
+        "median_ns": {
+          "r2": 1307049.95,
+          "r3b": 558227.15,
+          "optimized": 492697.95
+        },
+        "ratio_r3b_over_optimized": 1.133000756345749,
+        "ratio_r2_over_optimized": 2.6528422738515554,
+        "process_medians_ns": {
+          "r2": [
+            1381977.85,
+            1298608.05,
+            1307049.95
+          ],
+          "r3b": [
+            586061.95,
+            558227.15,
+            555647.15
+          ],
+          "optimized": [
+            511963.25,
+            492697.95,
+            484316.2
+          ]
+        },
+        "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197"
+      },
+      "lrt/nonconstant_numerator": {
+        "median_ns": {
+          "r2": 1395988.4,
+          "r3b": 608170.55,
+          "optimized": 539662.4
+        },
+        "ratio_r3b_over_optimized": 1.126946309396393,
+        "ratio_r2_over_optimized": 2.586780920812715,
+        "process_medians_ns": {
+          "r2": [
+            1485355.9,
+            1381992.75,
+            1395988.4
+          ],
+          "r3b": [
+            641537.2,
+            608170.55,
+            599259.0
+          ],
+          "optimized": [
+            541664.65,
+            536117.85,
+            539662.4
+          ]
+        },
+        "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed"
+      },
+      "lrt/multiplicity_groups": {
+        "median_ns": {
+          "r2": 2598941.2,
+          "r3b": 907776.8,
+          "optimized": 839162.55
+        },
+        "ratio_r3b_over_optimized": 1.0817651478846382,
+        "ratio_r2_over_optimized": 3.097065282524822,
+        "process_medians_ns": {
+          "r2": [
+            2713802.2,
+            2595895.3,
+            2598941.2
+          ],
+          "r3b": [
+            965347.6,
+            907096.65,
+            907776.8
+          ],
+          "optimized": [
+            849608.05,
+            838203.15,
+            839162.55
+          ]
+        },
+        "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0"
+      },
+      "lrt/distinct_arguments": {
+        "median_ns": {
+          "r2": 1733851.6875,
+          "r3b": 871224.98125,
+          "optimized": 802802.7625
+        },
+        "ratio_r3b_over_optimized": 1.0852291770109599,
+        "ratio_r2_over_optimized": 2.1597480333782486,
+        "process_medians_ns": {
+          "r2": [
+            1838794.85,
+            1727144.75,
+            1733851.6875
+          ],
+          "r3b": [
+            896698.03125,
+            871224.98125,
+            862343.1625
+          ],
+          "optimized": [
+            811070.8625,
+            802802.7625,
+            799671.03125
+          ]
+        },
+        "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03"
+      },
+      "atan/linear_branch": {
+        "median_ns": {
+          "r2": 89187.45,
+          "r3b": 157324.35,
+          "optimized": 100388.75
+        },
+        "ratio_r3b_over_optimized": 1.5671511997111232,
+        "ratio_r2_over_optimized": 0.8884207642788658,
+        "process_medians_ns": {
+          "r2": [
+            90725.15,
+            89187.45,
+            85949.65
+          ],
+          "r3b": [
+            157324.35,
+            151605.25,
+            157535.25
+          ],
+          "optimized": [
+            100388.75,
+            101489.0,
+            96183.65
+          ]
+        },
+        "digest": "058bc83e0901e8a1486174fc6817ff45bb68c190a9ab69c8d7034123acf056ef"
+      },
+      "atan/quadratic": {
+        "median_ns": {
+          "r2": 119349.7,
+          "r3b": 167056.35,
+          "optimized": 109768.4
+        },
+        "ratio_r3b_over_optimized": 1.5218983787683888,
+        "ratio_r2_over_optimized": 1.087286505041524,
+        "process_medians_ns": {
+          "r2": [
+            121573.65,
+            119349.7,
+            116453.75
+          ],
+          "r3b": [
+            174082.7,
+            160052.85,
+            167056.35
+          ],
+          "optimized": [
+            109768.4,
+            110459.6,
+            108116.75
+          ]
+        },
+        "digest": "c82fd8fd618fb7cae452743587e352fbe05de6f1ed4fcbb7e77ea07f78c239c7"
+      },
+      "atan/quartic": {
+        "median_ns": {
+          "r2": 241503.55,
+          "r3b": 198268.35,
+          "optimized": 143996.15
+        },
+        "ratio_r3b_over_optimized": 1.376900354627537,
+        "ratio_r2_over_optimized": 1.677152826655435,
+        "process_medians_ns": {
+          "r2": [
+            256888.25,
+            239801.4,
+            241503.55
+          ],
+          "r3b": [
+            203968.95,
+            198268.35,
+            195026.7
+          ],
+          "optimized": [
+            145667.75,
+            143996.15,
+            141849.05
+          ]
+        },
+        "digest": "b950b176992c3d1e0295532bf4eb0dc2e1431057c44003ee82f0839f995ae2ff"
+      },
+      "atan/distinct_arguments": {
+        "median_ns": {
+          "r2": 224470.15,
+          "r3b": 181296.7875,
+          "optimized": 132187.975
+        },
+        "ratio_r3b_over_optimized": 1.3715074120773845,
+        "ratio_r2_over_optimized": 1.6981132360942814,
+        "process_medians_ns": {
+          "r2": [
+            224470.15,
+            211164.4125,
+            225560.775
+          ],
+          "r3b": [
+            204151.7125,
+            181279.4375,
+            181296.7875
+          ],
+          "optimized": [
+            130834.075,
+            132187.975,
+            138869.4375
+          ]
+        },
+        "digest": "1d0eb8ff88d2298f7bc7b7afc833255ee8fab1c30b18abc2e6017961ea4a1938"
+      }
+    }
+  }
+}

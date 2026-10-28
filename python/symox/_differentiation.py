@@ -23,6 +23,8 @@ def unsimplified_diff(expression, symbols):
     held=_core.Derivative(expression,*symbols,evaluate=False)
     if not getattr(held,'is_Derivative',False):return held
     pairs=held.variable_count
+    closed=_core.Expr._integer_order_value(held)
+    if closed is not None:return closed
     if any(not (isinstance(count,int) or getattr(count,'is_Integer',False)) for variable,count in pairs):
         raise NotImplementedError('Unsimplified derivatives of symbolic order are not implemented')
     result=expression
@@ -130,7 +132,7 @@ def _derivative_order(expression, symbols):
 def _finish_multiple(result, expression, symbols):
     """The last step of the reference Derivative: after more than one
     differentiation, ``factor_terms(signsimp(expr))``."""
-    if not isinstance(result,_core.Expr) or result.is_zero is True:
+    if not isinstance(result,_core.Expr) or result.is_zero is True or _core.Expr._has_deferred_numeric_power.__get__(result):
         return result
     order=_derivative_order(expression,symbols)
     if order is None or order <= 1:

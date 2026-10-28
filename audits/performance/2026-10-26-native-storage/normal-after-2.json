@@ -1,0 +1,50 @@
+{
+  "native_sha256": "570f18323d421702a77887b9552868e211194f83e04ff89e019095484f2db21b",
+  "method": "18 distinct preconstructed inputs per case, 3 batches of 6; construction and correctness excluded",
+  "raw_pair44": {
+    "samples_seconds_per_call": [
+      8.851999882608652e-05,
+      4.8236174431319036e-05,
+      4.74814927050223e-05
+    ],
+    "median_seconds_per_call": 4.8236174431319036e-05,
+    "values_digest": "6b521a0292c6da176915a216248a95a9e570ea077447225ba0dd32fe0243945d"
+  },
+  "raw_triple642": {
+    "samples_seconds_per_call": [
+      0.0002798515003329764,
+      0.00025279966454642516,
+      0.0002689211687538773
+    ],
+    "median_seconds_per_call": 0.0002689211687538773,
+    "values_digest": "c587681d24de0ab78b916665ab50ae9c4d0cd22db600681aa65b92b9eb7f3591"
+  },
+  "raw_float64": {
+    "samples_seconds_per_call": [
+      7.634466358770926e-05,
+      6.517667012910049e-05,
+      6.342450312028329e-05
+    ],
+    "median_seconds_per_call": 6.517667012910049e-05,
+    "values_digest": "3540dc5dc6fc9dc2adf0394cc6bc4a83c74993a0c4683ef3c1149dece22f2a28"
+  },
+  "function_fallback42": {
+    "samples_seconds_per_call": [
+      0.02003005282798161,
+      0.01980526200107609,
+      0.019697267998708412
+    ],
+    "median_seconds_per_call": 0.01980526200107609,
+    "values_digest": "2fb739caeda6d1eeeb18a20702713206fa4110b6ca16d74063b5a42a8abe4959"
+  },
+  "public_pair42": {
+    "samples_seconds_per_call": [
+      0.0002792031640031685,
+      0.00019522200454957783,
+      0.00017657766390281418
+    ],
+    "median_seconds_per_call": 0.00019522200454957783,
+    "values_digest": "0643587ada62136cb51ec9432ae62070fd74ffebf4ecd627a7faeabea48be766"
+  },
+  "independent_checks": 90
+}

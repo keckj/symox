@@ -11,7 +11,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use num_bigint::BigInt;
-use num_traits::One;
+use num_traits::{One, ToPrimitive, Zero};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use super::int::{Int, Rat};
@@ -52,6 +52,42 @@ impl fmt::Display for PolyError {
 impl std::error::Error for PolyError {}
 
 pub type PResult<T> = Result<T, PolyError>;
+
+/// Monomial storage is u32. A representation limit must never truncate an
+/// exponent or wrap a sum of exponents into a different polynomial.
+pub(crate) fn add_exponent(slot: &mut u32, exponent: i64) -> PResult<()> {
+    let limit = || PolyError::Unsupported("Polynomial exponent storage limit exceeded (32-bit monomials)".into());
+    let exponent = u32::try_from(exponent).map_err(|_| limit())?;
+    *slot = slot.checked_add(exponent).ok_or_else(limit)?;
+    Ok(())
+}
+
+/// Keep the ordinary u32 path cheap, but combine exact coefficients before
+/// enforcing the storage bound when a held source contains oversized terms.
+fn source_polynomial(nvars: usize, terms: Vec<(Rat, Vec<(usize, i64)>)>) -> PResult<MPoly<Rat>> {
+    let narrow = terms.iter().map(|(c, powers)| {
+        let mut exponents = vec![0u32; nvars];
+        if !c.is_zero() {
+            for &(i, k) in powers { add_exponent(&mut exponents[i], k)?; }
+        }
+        Ok((exponents, c.clone()))
+    }).collect::<PResult<Vec<_>>>();
+    if let Ok(narrow) = narrow { return Ok(MPoly::from_terms(nvars, narrow)); }
+    let mut wide: FxHashMap<Vec<BigInt>, Rat> = FxHashMap::default();
+    for (c, powers) in terms {
+        if c.is_zero() { continue; }
+        let mut exponents = vec![BigInt::zero(); nvars];
+        for (i, k) in powers { exponents[i] += k; }
+        wide.entry(exponents).and_modify(|a| *a = a.add(&c)).or_insert(c);
+    }
+    let narrow = wide.into_iter().filter(|(_, c)| !c.is_zero()).map(|(exponents, c)| {
+        let exponents = exponents.into_iter().map(|e| e.to_u32().ok_or_else(||
+            PolyError::Unsupported("Polynomial exponent storage limit exceeded (32-bit monomials)".into())
+        )).collect::<PResult<Vec<_>>>()?;
+        Ok((exponents, c))
+    }).collect::<PResult<Vec<_>>>()?;
+    Ok(MPoly::from_terms(nvars, narrow))
+}
 
 // ----------------------------------------------------------------------
 // generator order
@@ -95,7 +131,10 @@ pub fn sort_gens(gens: &mut [Expr]) {
 pub fn decompose_power(b: &Expr, e: &Expr) -> (Expr, i64) {
     let (base, k) = decompose_raw(b, e);
     if k < 0 {
-        (pow(&base, &Expr::minus_one()), -k)
+        match k.checked_neg() {
+            Some(k) => (pow(&base, &Expr::minus_one()), k),
+            None => (mul_factor(b,e),1),
+        }
     } else {
         (base, k)
     }
@@ -168,7 +207,10 @@ pub fn decompose_factor_signed(f: &Expr) -> (Expr, i64) {
 pub fn decompose_factor(f: &Expr) -> (Expr, i64) {
     let (b, k) = decompose_factor_signed(f);
     if k < 0 {
-        (pow(&b, &Expr::minus_one()), -k)
+        match k.checked_neg() {
+            Some(k) => (pow(&b, &Expr::minus_one()), k),
+            None => (f.clone(),1),
+        }
     } else {
         (b, k)
     }
@@ -430,22 +472,11 @@ pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
     }
     let n = gens.len();
     let sorted: Vec<Expr> = order.iter().map(|&i| gens[i].clone()).collect();
-    let polys = all_terms
-        .into_iter()
-        .map(|terms| {
-            let ts = terms
-                .into_iter()
-                .map(|(c, mono)| {
-                    let mut e = vec![0u32; n];
-                    for (g, k) in mono {
-                        e[pos[g]] += k as u32;
-                    }
-                    (e, c)
-                })
-                .collect();
-            MPoly::from_terms(n, ts)
-        })
-        .collect();
+    let polys = all_terms.into_iter().map(|terms| {
+        source_polynomial(n, terms.into_iter().map(|(c, mono)|
+            (c, mono.into_iter().map(|(g, k)| (pos[g], k)).collect())
+        ).collect())
+    }).collect::<PResult<Vec<_>>>()?;
     Ok(Converted { polys, gens: sorted, ngens: n, float, prec })
 }
 
@@ -464,7 +495,7 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
     let mut dom_index: FxHashMap<Expr, usize> = FxHashMap::default();
     let mut dom_gens: Vec<Expr> = Vec::new();
     #[allow(clippy::type_complexity)]
-    let mut all: Vec<Vec<(Vec<u32>, Rat, Vec<(usize, i64)>)>> = Vec::new();
+    let mut all: Vec<Vec<(Vec<(usize, i64)>, Rat, Vec<(usize, i64)>)>> = Vec::new();
     for e in exprs {
         check_commutative(e)?;
         check_number(e)?;
@@ -475,13 +506,13 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
                 float = true;
                 prec = prec.max(t.coeff.float_precision().unwrap_or(53));
             }
-            let mut mono = vec![0u32; k];
+            let mut mono = Vec::new();
             let mut dmono = Vec::new();
             for f in &t.factors {
                 check_number(f)?;
                 let (b, kk) = decompose_factor(f);
                 if let Some(&i) = index.get(&b) {
-                    mono[i] += kk as u32;
+                    mono.push((i, kk));
                     continue;
                 }
                 if gens.iter().any(|g| crate::traverse::has_structural(f, g)) {
@@ -510,23 +541,12 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
     let n = k + dom_gens.len();
     let mut allgens: Vec<Expr> = gens.to_vec();
     allgens.extend(order.iter().map(|&i| dom_gens[i].clone()));
-    let polys = all
-        .into_iter()
-        .map(|terms| {
-            let ts = terms
-                .into_iter()
-                .map(|(mono, c, dm)| {
-                    let mut e = mono;
-                    e.resize(n, 0);
-                    for (g, kk) in dm {
-                        e[k + pos[g]] += kk as u32;
-                    }
-                    (e, c)
-                })
-                .collect();
-            MPoly::from_terms(n, ts)
-        })
-        .collect();
+    let polys = all.into_iter().map(|terms| {
+        source_polynomial(n, terms.into_iter().map(|(mut mono, c, dm)| {
+            mono.extend(dm.into_iter().map(|(g, kk)| (k + pos[g], kk)));
+            (c, mono)
+        }).collect())
+    }).collect::<PResult<Vec<_>>>()?;
     Ok(Converted { polys, gens: allgens, ngens: k, float, prec })
 }
 
@@ -605,6 +625,33 @@ pub fn cmp_gens(a: &Expr, b: &Expr) -> Ordering {
 mod tests {
     use super::*;
     use crate::parser::parse_str;
+
+    #[test]
+    fn exponent_storage_never_truncates_or_wraps() {
+        let x=Expr::symbol("x");let y=Expr::symbol("y");
+        let too_large=pow(&x,&Expr::int(1i64<<32));
+        assert!(matches!(from_exprs(&[too_large.clone()]),Err(PolyError::Unsupported(_))));
+        assert!(matches!(from_exprs_gens(&[too_large.clone()],std::slice::from_ref(&x)),Err(PolyError::Unsupported(_))));
+        assert!(matches!(super::super::expression_domain::dict_from_expr(&too_large,std::slice::from_ref(&x)),Err(PolyError::Unsupported(_))));
+        let legal=pow(&x,&Expr::int(u32::MAX as i64));
+        let converted=from_exprs_gens(&[legal],std::slice::from_ref(&x)).unwrap();
+        assert_eq!(converted.polys[0].iter().next().unwrap().0[0],u32::MAX);
+        let held=Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,vec![(x.clone(),Expr::int(u32::MAX as i64)),(x.clone(),Expr::one())]));
+        assert!(matches!(from_exprs_gens(&[held.clone()],std::slice::from_ref(&x)),Err(PolyError::Unsupported(_))));
+        assert!(matches!(super::super::expression_domain::dict_from_expr(&held,std::slice::from_ref(&x)),Err(PolyError::Unsupported(_))));
+        let coefficient=mul(&[x.clone(),pow(&y,&Expr::int(1i64<<32))]);
+        assert!(matches!(from_exprs_gens(&[coefficient],std::slice::from_ref(&x)),Err(PolyError::Unsupported(_))));
+    }
+
+    #[test]
+    fn held_generator_factors_accumulate_their_whole_degree() {
+        let x=Expr::symbol("x");
+        let held=Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,vec![(x.clone(),Expr::one()),(x.clone(),Expr::int(2))]));
+        let dictionary=super::super::expression_domain::dict_from_expr(&held,std::slice::from_ref(&x)).unwrap();
+        assert_eq!(dictionary,vec![(vec![3],Expr::one())]);
+        let extreme=pow(&x,&Expr::int(i64::MIN));
+        assert_eq!(decompose_factor(&extreme),(extreme.clone(),1));
+    }
 
     fn gens_of(s: &str) -> Vec<String> {
         let c = from_exprs(&[parse_str(s).unwrap()]).unwrap();

@@ -15,6 +15,9 @@
 //!   `nroots` working on expressions.
 
 pub mod dense;
+pub mod ddm;
+pub mod sdm;
+pub mod fraction_free;
 pub mod gf;
 pub mod int;
 pub mod mpoly;
@@ -76,3 +79,15 @@ pub mod structure;
 pub mod orthopolys;
 pub mod partfrac;
 pub mod dispersion;
+
+pub mod lll;
+
+pub mod lu;
+
+pub mod lu_solve;
+
+pub mod hnf;
+
+pub mod fflu;
+
+pub mod hnf_modular;

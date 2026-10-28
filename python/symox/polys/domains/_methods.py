@@ -40,10 +40,17 @@ def _gaussian_composite(domain):
     return domain.is_Composite and _gaussian(domain.dom)
 
 
+def _unordered_ground(domain):
+    """Composite rings delegate coefficient signs to their ground domain."""
+    if getattr(domain, 'is_CC', False) or _gaussian(domain):
+        return True
+    return domain.is_Composite and _unordered_ground(domain.dom)
+
+
 def _has_assoc(domain, method):
     if getattr(domain, 'is_EX', False) or getattr(domain, 'is_EXRAW', False):
         return method == 'get_field'
-    if method == 'get_ring' and not domain.is_Exact:
+    if method == 'get_ring' and not domain.is_Exact and not domain.is_Composite:
         return False
     try:
         getattr(domain, method)()
@@ -53,7 +60,7 @@ def _has_assoc(domain, method):
 
 
 def is_positive(self, a):
-    if getattr(self, 'is_CC', False) or _gaussian(self) or _gaussian_composite(self):
+    if _unordered_ground(self):
         self.convert(a)
         return False
     if getattr(self, 'is_EX', False):
@@ -62,7 +69,7 @@ def is_positive(self, a):
 
 
 def is_negative(self, a):
-    if getattr(self, 'is_CC', False) or _gaussian(self) or _gaussian_composite(self):
+    if _unordered_ground(self):
         self.convert(a)
         return False
     if getattr(self, 'is_EX', False):
@@ -71,14 +78,14 @@ def is_negative(self, a):
 
 
 def is_nonnegative(self, a):
-    if getattr(self, 'is_CC', False) or _gaussian(self) or _gaussian_composite(self):
+    if _unordered_ground(self):
         self.convert(a)
         return False
     return not self.is_negative(a)
 
 
 def is_nonpositive(self, a):
-    if getattr(self, 'is_CC', False) or _gaussian(self) or _gaussian_composite(self):
+    if _unordered_ground(self):
         self.convert(a)
         return False
     return not self.is_positive(a)

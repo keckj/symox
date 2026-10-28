@@ -1,0 +1,38 @@
+{
+  "archive_sha256": "ac4d88cdf9a07bdd6be5c9e9d0e5a8ad06798e668f35f8fb41f6594601336ded",
+  "map_sha256": "ac0dd21ab84c623e560c9ff097c154f216e5a094b052d554744e16f208ef96c6",
+  "manifest_sha256": "7517ffeeef343194a6b5f5697843732ecf2a77306db1c79603436fcd93237bab",
+  "members": 83,
+  "both_hosts_raw_counters_verified": true,
+  "private_status": "REJECTED; no acceptance implied",
+  "gates": {
+    "local": {
+      "focused": {
+        "returncode": 0,
+        "collected": 119
+      },
+      "shard": {
+        "returncode": 0,
+        "collected": 1037
+      },
+      "coupled": {
+        "returncode": 1,
+        "collected": 4540
+      }
+    },
+    "demeter": {
+      "focused": {
+        "returncode": 0,
+        "collected": 119
+      },
+      "shard": {
+        "returncode": 0,
+        "collected": 1037
+      },
+      "coupled": {
+        "returncode": 1,
+        "collected": 4540
+      }
+    }
+  }
+}

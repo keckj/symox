@@ -1,0 +1,20 @@
+{
+  "manifest": "/home/keckj/.cache/symox-validation/native-hnf-builtins-r12-followup-20261028/proof/freeze-manifest.json",
+  "manifest_sha256": "6352242c4d125afd4c07a80341a9d66f628239ccff36065538472bfa7da11fc8",
+  "archive": "/home/keckj/.cache/symox-validation/native-hnf-builtins-r12-followup-20261028/delivery-proof.tar.gz",
+  "archive_sha256": "e66b9d53ea675c7eb647eb9643223400fc032e64901ec2968cac8f9b3155ac11",
+  "patch_sha256": "9e3dc4c97a54419b6182bec7f82adee5a6af26797e3b9dd6a97933fa6ac48de6",
+  "source_records": [
+    {
+      "path": "python/symox/polys/matrices/_hnf_native.py",
+      "base_sha256": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34",
+      "final_sha256": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c"
+    },
+    {
+      "path": "tests/test_native_hnf_cached_builtins.py",
+      "base_sha256": null,
+      "final_sha256": "b2dc20fded67193ea21bbbd14f633b1ab71072ffda0f524e955735696e03e568"
+    }
+  ],
+  "archive_members": 19
+}

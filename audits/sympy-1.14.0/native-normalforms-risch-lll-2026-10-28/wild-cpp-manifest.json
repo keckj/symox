@@ -1,0 +1,8 @@
+{
+  "path": "crates/symox-py/src/poly_ddm.rs",
+  "base_sha256": "0e7879b9d5e8b0cef5e81ecfad6139d6d6a09e7a57ff869135890db353119631",
+  "final_sha256": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977",
+  "patch_sha256": "254a1215aba9430da7feaaaa6f89440e9c9c5e6e9e0e349c4e40f9ce8a8c9839",
+  "native_input_count": 350,
+  "scope": "two refusal predicates, parameter/entry has_wild_properties; complete original fallback"
+}

@@ -550,7 +550,7 @@ impl PyMatrixExpr{
                 else{return Err(PyNotImplementedError::new_err("MatrixExpr doit options are unsupported"));}
             }
         }
-        Ok(matrix_object(py,&self.m.doit_with(deep,inv_expand).map_err(|e|error(py,e))?)?.unbind())
+        crate::with_derivative_errors(||Ok(matrix_object(py,&self.m.doit_with(deep,inv_expand).map_err(|e|error(py,e))?)?.unbind()))
     }
     #[pyo3(signature=(deep=true,**hints))]
     fn expand(&self,py:Python<'_>,deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<Self>{
@@ -578,7 +578,7 @@ impl PyMatrixExpr{
         if index<0{index=rows.and_then(|r|r.checked_mul(cols)).and_then(|size|size.checked_add(index)).ok_or_else(||PyIndexError::new_err("Negative single indexing requires concrete finite dimensions"))?;}
         Ok(wrap(self.m.element(&Expr::int(index.div_euclid(cols)),&Expr::int(index.rem_euclid(cols))).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind())
     }
-    fn xreplace(&self,rule:&Bound<'_,PyDict>)->PyResult<Self>{let mut matrices=Vec::new();let mut scalars=FxHashMap::default();for (a,b) in rule.iter(){if is_matrix(&a){matrices.push((to_matrixexpr(&a)?,to_matrixexpr(&b)?));}else{scalars.insert(to_expr(&a)?,to_expr(&b)?);}}Ok(wrap_matrixexpr(self.m.xreplace(&matrices,&scalars).map_err(|e|error(rule.py(),e))?))}
+    fn xreplace(&self,rule:&Bound<'_,PyDict>)->PyResult<Self>{let mut matrices=Vec::new();let mut scalars=FxHashMap::default();for (a,b) in rule.iter(){if is_matrix(&a){matrices.push((to_matrixexpr(&a)?,to_matrixexpr(&b)?));}else{scalars.insert(to_expr(&a)?,to_expr(&b)?);}}crate::with_derivative_errors(||Ok(wrap_matrixexpr(self.m.xreplace(&matrices,&scalars).map_err(|e|error(rule.py(),e))?)))}
     #[pyo3(signature=(*args,**kwargs))]
     fn subs(&self,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{
         let (args, kwargs) = crate::substitution_arguments(args, kwargs)?;
@@ -647,7 +647,7 @@ impl PyMatrixExpr{
             else if scalar.is_empty()&&matrices.len()==1{return Err(PyNotImplementedError::new_err("Matrix-symbol derivatives require tensor expressions; supply a scalar differentiation variable"));}
             else{return Err(PyValueError::new_err("Supply the scalar variable(s) of differentiation"));}
         }
-        Ok(wrap_matrixexpr(self.m.diff_many(&variables).map_err(|e|error(args.py(),e))?))
+        crate::with_derivative_errors(||Ok(wrap_matrixexpr(self.m.diff_many(&variables).map_err(|e|error(args.py(),e))?)))
     }
     fn binary_add(&self,other:&Bound<'_,PyAny>,subtract:bool,reverse:bool)->PyResult<Self>{let py=other.py();let mut a=self.m.clone();let mut b=to_matrixexpr(other)?;if reverse{std::mem::swap(&mut a,&mut b);}if subtract{b=MatrixExpr::mul(Expr::minus_one(),&[b],true).map_err(|e|error(py,e))?;}Ok(wrap_matrixexpr(MatrixExpr::add(&[a,b],true).map_err(|e|error(py,e))?))}
     fn binary_mul(&self,other:&Bound<'_,PyAny>,reverse:bool)->PyResult<Self>{let py=other.py();let result=if is_matrix(other){let peer=to_matrixexpr(other)?;let terms=if reverse{vec![peer,self.m.clone()]}else{vec![self.m.clone(),peer]};MatrixExpr::mul(Expr::one(),&terms,true)}else{MatrixExpr::mul(to_expr(other)?,&[self.m.clone()],true)};Ok(wrap_matrixexpr(result.map_err(|e|error(py,e))?))}

@@ -1,0 +1,37 @@
+{
+  "status": "verified current input paths/hashes and binary identical to the initial R6 gate",
+  "source_snapshot": "/home/keckj/.cache/symox-validation/native-matrix-rational-r6-20261027/after",
+  "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+  "native_inputs": 335,
+  "passed": 725,
+  "doctests_passed": 5,
+  "ignored": 1,
+  "checks": {
+    "tests": {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "symox"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 135.51766443252563
+    },
+    "clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 22.593412160873413
+    },
+    "rust_inputs_unchanged": true
+  },
+  "bindings_clippy_returncode": 0,
+  "native_inputs_unchanged": true
+}

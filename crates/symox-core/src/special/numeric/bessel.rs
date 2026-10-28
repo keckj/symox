@@ -12,7 +12,7 @@ use super::dd::{consts, DD};
 use super::gamma::{gamma_real, rgamma_real};
 use super::{cospi, cr, is_real_c, sinpi, PI};
 
-const EULER: f64 = 0.577_215_664_901_532_9;
+const EULER: f64 = crate::expr::EULER_GAMMA_F64;
 const ASYM_X: f64 = 25.0;
 
 fn is_int(v: f64) -> bool {

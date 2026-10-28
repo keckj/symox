@@ -532,14 +532,14 @@ def _poly_cancel(F, G):
         K = K0.get_ring()
         cq, f = f.clear_denoms(convert=True)
         cp, g = g.clear_denoms(convert=True)
-        _, p, q = f.cofactors(g)
+        _, p, q = f._sparse_cofactors(g)
         _, cp, cq = K.cofactors(K.convert(cp), K.convert(cq))
         cp, cq = K0.convert(cp, K), K0.convert(cq, K)
         p, q = p.set_domain(K0), q.set_domain(K0)
     else:
         K = K0
         cp = cq = K0.one
-        _, p, q = f.cofactors(g)
+        _, p, q = f._sparse_cofactors(g)
     p_neg, q_neg = K0.is_negative(p.LC()), K0.is_negative(q.LC())
     if p_neg and q_neg:
         p, q = -p, -q

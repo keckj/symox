@@ -15,7 +15,7 @@ use symox::Expr;
 pyo3::create_exception!(symox, DomainError, PyValueError);
 pyo3::create_exception!(symox, CoercionFailed, DomainError);
 pyo3::create_exception!(symox, ExactQuotientFailed, DomainError);
-fn element_error(e: symox::poly::convert::PolyError) -> PyErr {
+pub(super) fn element_error(e: symox::poly::convert::PolyError) -> PyErr {
     if matches!(&e, symox::poly::convert::PolyError::Failed(_)) {
         coercion(e)
     } else {
@@ -74,6 +74,58 @@ fn exact_numeric_parts(e:&Expr)->Option<(symox::number::Number,symox::number::Nu
     let (re,im)=symox::complex_parts::as_real_imag_bounded(e,true,None).ok()??;
     Some((number(&re)?,number(&im)?))
 }
+/// Explicit QQ/ZZ function-domain construction follows from_sympy on each
+/// Float. The default RR denominator bound is applied to the full stored
+/// source value, rather than first rounding a high-precision Float to 53 bits.
+fn exact_function_input(e:&Expr, parameters:&[Expr], integral_ring:bool)->PyResult<Expr> {
+    if e.float_info().max_precision.is_none() { return Ok(e.clone()); }
+    // A declared parameter may itself contain a Float; it is an opaque
+    // generator here, and must retain its original expression identity.
+    let protected:rustc_hash::FxHashMap<_,_>=parameters.iter().map(|p|(p.clone(),Expr::dummy("coefficient_parameter",Default::default()))).collect();
+    let input=symox::subs::xreplace(e,&protected);
+    fn convert(node:&Expr, integral_ring:bool, cache:&mut rustc_hash::FxHashMap<Expr,Expr>)->PyResult<Expr> {
+        if let Some(value)=cache.get(node) { return Ok(value.clone()); }
+        if node.float_info().max_precision.is_none() { return Ok(node.clone()); }
+        let result=match node.kind() {
+            symox::Kind::Num(number) if number.is_float()=>{
+                let precision=number.float_precision().unwrap();
+                let exact=symox::poly::domains::rationalize_real(node,precision,false).map_err(coercion)?;
+                if integral_ring && !exact.d.is_one() { return Err(coercion(format!("expected integer coefficient, got {node}"))); }
+                let rational=if integral_ring {exact} else {symox::poly::convert::rr_limit_rational(&exact)};
+                symox::poly::convert::rat_to_expr(&rational)
+            },
+            symox::Kind::Add(constant,terms)=>{
+                let mut parts=vec![convert(&Expr::num(constant.clone()),integral_ring,cache)?];
+                for (term,coefficient) in terms {
+                    parts.push(symox::ops::mul2(&convert(&Expr::num(coefficient.clone()),integral_ring,cache)?,&convert(term,integral_ring,cache)?));
+                }
+                symox::ops::add(&parts)
+            },
+            symox::Kind::Mul(coefficient,factors)=>{
+                let mut parts=vec![convert(&Expr::num(coefficient.clone()),integral_ring,cache)?];
+                for (base,exponent) in factors {
+                    if exponent.as_number().is_some_and(|n|n.is_integer()) {
+                        parts.push(symox::ops::pow(&convert(base,integral_ring,cache)?,exponent));
+                    } else {
+                        parts.push(Expr::from_unevaluated_kind(symox::Kind::Pow(base.clone(),exponent.clone())));
+                    }
+                }
+                symox::ops::mul(&parts)
+            },
+            symox::Kind::Pow(base,exponent) if exponent.as_number().is_some_and(|n|n.is_integer())=>{
+                symox::ops::pow(&convert(base,integral_ring,cache)?,exponent)
+            },
+            // Float exponents and opaque function arguments are not QQ
+            // coefficients. Rewriting those would accept invalid inputs.
+            _=>node.clone(),
+        };
+        cache.insert(node.clone(),result.clone());
+        Ok(result)
+    }
+    let converted=convert(&input,integral_ring,&mut rustc_hash::FxHashMap::default())?;
+    let restore=protected.into_iter().map(|(original,temporary)|(temporary,original)).collect();
+    Ok(symox::subs::xreplace(&converted,&restore))
+}
 fn numeric_hash(number:&symox::number::Number)->Option<isize> {
     match number {
         symox::number::Number::Float(value) if value.is_finite()=>crate::python_hash::exact_hash(
@@ -121,11 +173,12 @@ impl PyDomain {
             // `CC[y]` when the imaginary unit is one of them.
             let i = Expr::i();
             let complex = p.base.domain_gens().contains(&i);
+            let precision = p.domain.prec();
             let symbols: Vec<Expr> = p.base.domain_gens().iter().filter(|g| **g != i).cloned().collect();
             if symbols.is_empty() {
-                return Ok(Self { inner: ExactDomain::Inexact { precision: 53, complex: true } });
+                return Ok(Self { inner: ExactDomain::Inexact { precision, complex: true } });
             }
-            let ground = symox::poly::gaussian_ground::GaussianGround { integral: false, ring: true, symbols, inexact: Some(symox::poly::inexact_ground::Inexact { precision: 53, complex }) };
+            let ground = symox::poly::gaussian_ground::GaussianGround { integral: false, ring: true, symbols, inexact: Some(symox::poly::inexact_ground::Inexact { precision, complex }) };
             return Ok(Self { inner: ground.domain() });
         }
         if p.field.is_none() && p.algebraic.is_none() && !p.base.domain_gens().is_empty() {
@@ -153,7 +206,7 @@ impl PyDomain {
             },
         })
     }
-    pub fn poly(&self, e: &Expr, gens: &[Expr]) -> PyResult<PolyValue> {
+    pub fn poly(&self, e: &Expr, gens: &[Expr]) -> PyResult<PolyValue> {symox::poly::mpoly::guard_representation(||{
         match &self.inner {
             ExactDomain::Expression { raw:false } => {
                 if gens.is_empty() {
@@ -169,7 +222,8 @@ impl PyDomain {
             }
             ExactDomain::Expression { .. } => Err(PyNotImplementedError::new_err("this domain is not yet supported as a polynomial coefficient backend")),
             ExactDomain::Gaussian { integral } => {
-                let mut p = AlgebraicPoly::from_expr(e, gens, symox::poly::gaussian::field())
+                let input=exact_function_input(e,&[],*integral)?;
+                let mut p = AlgebraicPoly::from_expr(&input, gens, symox::poly::gaussian::field())
                     .map_err(coercion)?;
                 if *integral {
                     if let Some(message) = symox::poly::gaussian::integrality_error(&p.rep) {
@@ -187,7 +241,10 @@ impl PyDomain {
                 if gens.is_empty() {
                     return Err(PyNotImplementedError::new_err(format!("polynomials over {} require generators", self.inner)));
                 }
-                ground.convert_expr(e, gens).map(Into::into).map_err(crate::poly::err)
+                let input=if ground.inexact.is_none() {
+                    exact_function_input(e,&ground.symbols,ground.integral && ground.ring)?
+                } else {e.clone()};
+                ground.convert_expr(&input, gens).map(Into::into).map_err(crate::poly::err)
             }
             ExactDomain::Composite { .. } => {
                 // Nested rings over ZZ or QQ are stored over their flattened
@@ -197,7 +254,8 @@ impl PyDomain {
                     return Err(PyNotImplementedError::new_err(format!("polynomials over {} are not implemented", self.inner)));
                 };
                 let ExactDomain::Functions { parameters, integral, ring, .. } = &flat else { unreachable!() };
-                let mut p = FractionPoly::from_expr(e, gens, parameters, &flat.to_string()).map_err(coercion)?;
+                let input=exact_function_input(e,parameters,*integral && *ring)?;
+                let mut p = FractionPoly::from_expr(&input, gens, parameters, &flat.to_string()).map_err(coercion)?;
                 if *ring && p.rep.coeffs().iter().any(|c| !symox::poly::fraction::coefficient_in_ring(c, *integral)) {
                     return Err(coercion("coefficient outside selected ring"));
                 }
@@ -211,7 +269,8 @@ impl PyDomain {
                 integral,
                 ..
             } => {
-                let mut p = FractionPoly::from_expr(e, gens, parameters, &self.inner.to_string())
+                let input=exact_function_input(e,parameters,*integral && *ring)?;
+                let mut p = FractionPoly::from_expr(&input, gens, parameters, &self.inner.to_string())
                     .map_err(coercion)?;
                 if *ring
                     && p.rep
@@ -249,7 +308,7 @@ impl PyDomain {
                 Ok(p.into())
             }
         }
-    }
+    },||crate::poly::err(symox::poly::mpoly::exponent_limit_error()))}
     fn element(
         &self,
         obj: &Bound<'_, PyAny>,
@@ -1036,6 +1095,73 @@ impl PyDomain {
 pub struct PyDomainElement {
     pub value: DomainElement,
 }
+/// Round a real-domain literal directly, without re-evaluation or conversion
+/// through binary64. None means a nonliteral/nonfinite unsupported value.
+fn stored_real_rounding(expr: &Expr, ceiling: bool) -> Option<PyResult<num_bigint::BigInt>> {
+    use symox::bigfloat::BigFloat;
+    use symox::number::Number;
+    let round = |value: &BigFloat| if ceiling { value.checked_int_ceil() } else { value.checked_int_floor() };
+    let integer = match expr.as_number()? {
+        Number::Int(value) => Some(num_bigint::BigInt::from(*value)),
+        Number::BigInt(value) => Some(value.clone()),
+        Number::Float(value) if value.is_finite() => round(&BigFloat::from_f64(*value)),
+        Number::MpFloat(value, _) => round(value),
+        _ => return None,
+    };
+    Some(integer.ok_or_else(||pyo3::exceptions::PyOverflowError::new_err("too many digits in integer")))
+}
+
+/// Stock QQ/ZZ and finite real dyades round exactly. Other slots retain the pre-existing
+/// numeric-float path, including Python's special lookup and error semantics.
+fn round_domain_element(slf: PyRef<'_, PyDomainElement>, ceiling: bool) -> PyResult<PyObject> {
+    use pyo3::impl_::pyclass::PyClassImpl;
+    let py = slf.py();
+    py.check_signals()?;
+    let object = unsafe { Bound::from_borrowed_ptr(py, slf.as_ptr()) };
+    let class = object.get_type();
+    // The immutable macro-generated slot table supplies the trust anchor.
+    // Inspect the live numeric slot every time; no Python attribute lookup,
+    // bootstrap capture, cached result or mutable global is involved.
+    let stock_float = <PyDomainElement as PyClassImpl>::items_iter()
+        .flat_map(|items| items.slots)
+        .find(|slot| slot.slot == pyo3::ffi::Py_nb_float)
+        .map(|slot| slot.pfunc);
+    let current_float = unsafe {
+        pyo3::ffi::PyType_GetSlot(class.as_type_ptr(), pyo3::ffi::Py_nb_float)
+    };
+    if class.is(py.get_type::<PyDomainElement>())
+        && stock_float.is_some_and(|slot| !slot.is_null() && slot == current_float)
+    {
+        let integer = match (&slf.value.domain, &slf.value.value) {
+            (ExactDomain::QQ | ExactDomain::ZZ, ElementValue::Rational(rational)) => {
+                Some(if ceiling { rational.neg().floor().neg() } else { rational.floor() }.to_big())
+            }
+            (ExactDomain::RR | ExactDomain::Inexact { complex: false, .. }, ElementValue::Inexact(expr)) => {
+                stored_real_rounding(expr, ceiling).transpose()?
+            }
+            _ => None,
+        };
+        if let Some(integer) = integer {
+            let result = integer.into_pyobject(py)?.into_any().unbind();
+            py.check_signals()?;
+            return Ok(result);
+        }
+    }
+    // Calling the C numeric protocol observes the current __float__ or index
+    // slot. getattr(self, "__float__") would incorrectly run user attribute hooks.
+    // math.floor/ceil use PyFloat_AsDouble after special-method lookup. In
+    // particular its missing-slot error differs from float(object)'s error.
+    let real = unsafe { pyo3::ffi::PyFloat_AsDouble(object.as_ptr()) };
+    if real == -1.0 && PyErr::occurred(py) {
+        return Err(PyErr::fetch(py));
+    }
+    let number = pyo3::types::PyFloat::new(py, real);
+    // The actual native float's immutable rounding methods preserve arbitrary-
+    // sized integer results and NaN/infinity errors as in the original math call.
+    number.call_method0(if ceiling { "__ceil__" } else { "__floor__" })
+        .map(Bound::unbind)
+}
+
 impl PyDomainElement {
     fn gaussian_coordinate(&self,imaginary:bool)->PyResult<Self> {
         let (x,y)=self.value.gaussian_parts().ok_or_else(||PyTypeError::new_err("coordinates require a Gaussian element"))?;
@@ -1346,6 +1472,12 @@ impl PyDomainElement {
         if matches!(self.value.value,ElementValue::Inexact(_)){return Err(PyTypeError::new_err("inexact coefficients cannot be used as integer indices"));}
         self.__int__()
     }
+    fn __floor__(slf: PyRef<'_, Self>) -> PyResult<PyObject> {
+        round_domain_element(slf, false)
+    }
+    fn __ceil__(slf: PyRef<'_, Self>) -> PyResult<PyObject> {
+        round_domain_element(slf, true)
+    }
     fn __float__(&self) -> PyResult<f64> {
         match &self.value.value {
             ElementValue::Rational(r) => Ok(r.to_f64()),
@@ -1464,6 +1596,23 @@ impl PyDomainElement {
                     }
                 };
                 return Ok(answer.into_pyobject(py)?.to_owned().into_any().unbind());
+            }
+            // Inexact composite elements are not scalar numbers: a parameter
+            // makes exact_numeric_parts unavailable even for a == a. Their
+            // immutable typed values already have matching Eq/Hash semantics.
+            // Keep scalar comparisons (including cross-parent constants) above,
+            // and do not normalize expressions or coerce foreign protocols here.
+            if matches!(self.value.domain,ExactDomain::Composite{..}) {
+                if let Ok(other)=o.extract::<PyRef<'_,Self>>() {
+                    if self.value.domain==other.value.domain {
+                        let equal=self.value==other.value;
+                        return Ok(match op {
+                            CompareOp::Eq=>equal.into_pyobject(py)?.to_owned().into_any().unbind(),
+                            CompareOp::Ne=>(!equal).into_pyobject(py)?.to_owned().into_any().unbind(),
+                            _=>py.NotImplemented(),
+                        });
+                    }
+                }
             }
             return Ok(match op {CompareOp::Eq=>false.into_pyobject(py)?.to_owned().into_any().unbind(),CompareOp::Ne=>true.into_pyobject(py)?.to_owned().into_any().unbind(),_=>py.NotImplemented()});
         }

@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base_sha256": "35d51e2a5d2d667066dd18ffbfb62707a6b52188f9161e07e768b5c0dd481146",
+      "final_sha256": "8ebccd3020ba4fc7a3d5120ac28e00209fc46c763441453cf91c7d6db3e7e8c8"
+    },
+    {
+      "path": "tests/test_polymatrix_host_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "40b8342cb2c5bd2306ff4dcc0a7864021ec31433b482f52927c56f5f76a94189"
+    }
+  ],
+  "manifest": "/home/keckj/.cache/symox-validation/native-polymatrix-stats-r10-followup-r3-20261028/proof/freeze-manifest.json",
+  "manifest_sha256": "68dcc133ce87495c010086efde01c5d4c3b20e80d6c6564278c4013b4bdfb464",
+  "patch_sha256": "cfa47301732e251388c8bb8697619fde0a902c4e53e4c500dc5c0f11a49f9bf0",
+  "patch_replay_verified": true,
+  "native_inputs_unchanged": 347,
+  "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04"
+}

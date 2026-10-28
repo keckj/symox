@@ -31,6 +31,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),
         Func::Order => return crate::series::order::order_from_args(&args),
+        Func::SymbolicDerivative => return crate::diff::symbolic::rebuild(args),
         Func::Integral | Func::Sum | Func::Product=>{
             if crate::binders::validate(&f,&args).is_ok(){return crate::binders::held(f,&args[0],crate::binders::limits(&args)).unwrap();}
             return Expr::from_kind(Kind::Func(f,args));
@@ -165,7 +166,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_)
+        Func::Special(_) | Func::SymbolicDerivative | Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => None,
     };
     if let Some(v) = r { return v; }
@@ -330,6 +331,7 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
             crate::traverse::preorder(&rv, &mut |s| if matches!(s.kind(), Kind::Derivative(..)) { held = true; });
             if rv != *e && held { doit(&rv, deep) } else { rv }
         }
+        Kind::Func(Func::SymbolicDerivative,_)=>crate::diff::symbolic::doit(e,deep),
         Kind::Func(Func::Subs,args)=>crate::subs::subs_doit(&doit(&args[0],deep),&args[1].args(),&args[2].args()),
         Kind::Func(Func::Limit,args)=>{
             let body=child(&args[0]);
@@ -342,6 +344,21 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
         Kind::Add(..) if !e.is_canonical() => add(&e.args().iter().map(child).collect::<Vec<_>>()),
         Kind::Mul(..) if !e.is_canonical() => mul(&e.args().iter().map(child).collect::<Vec<_>>()),
         Kind::Pow(base, exponent) if !e.is_canonical() => pow(&child(base), &child(exponent)),
+        Kind::Piecewise(pieces) if deep => {
+            let updated:Vec<_>=pieces.iter().map(|(value,condition)| {
+                let next=doit(value,true);
+                // A fallback Integral may regenerate this exact Piecewise.
+                // Retain it at that fixed point instead of embedding the
+                // parent into itself. Pending host errors are left intact.
+                let value=if next==*e {value.clone()} else {next};
+                (value,doit(condition,true))
+            }).collect();
+            if updated.iter().zip(pieces).all(|((a,c),(b,d))|a.same_presentation(b)&&c.same_presentation(d)) {
+                e.clone()
+            } else {
+                crate::relational::piecewise(updated)
+            }
+        },
         _ if deep => crate::traverse::map_children(e, &mut |value| doit(value, true)),
         _ => e.clone(),
     }
@@ -388,6 +405,7 @@ fn is_numeric_value_uncached(e: &Expr) -> bool {
     match e.kind() {
         Kind::Num(_) => true,
         Kind::Const(c) => !c.is_infinite() && *c != Constant::NaN,
+        Kind::Func(Func::SymbolicDerivative,_)=>false,
         Kind::Sym(_) | Kind::Derivative(..) | Kind::Rel(..) | Kind::Piecewise(_) | Kind::Bool(_) => {
             false
         }

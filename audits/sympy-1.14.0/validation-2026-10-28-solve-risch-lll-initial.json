@@ -1,0 +1,107 @@
+{
+  "status": "failed",
+  "date": "2026-10-28",
+  "scope": "Initial combined QQ solve/Risch no-step/LLL keys full gate",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "d19e2f40aeaf010492e1fb880899a50337bec203ed39f3a3637ca1067d036aa1",
+    "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+    "working_code_diff_sha256": "a1a57da806073ce5481756822e9c3316ba9ea1718300ac206753b5e9ebb23bd4",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "python": {
+    "host": "Demeter",
+    "counts": {
+      "passed": 52185,
+      "skipped": 55,
+      "xfailed": 4,
+      "failed": 5
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 52249,
+      "collected_in_shards": 52249,
+      "finished": 52249,
+      "missing": [],
+      "unexpected": []
+    },
+    "failures": [
+      {
+        "shard": "shard-45",
+        "class": "tests.test_polymatrix_stats_protocol",
+        "name": "test_stats_wrappers_keep_native_route_reference_and_certificates[False-QQ]"
+      },
+      {
+        "shard": "shard-45",
+        "class": "tests.test_polymatrix_stats_protocol",
+        "name": "test_stats_wrappers_keep_native_route_reference_and_certificates[False-RF]"
+      },
+      {
+        "shard": "shard-45",
+        "class": "tests.test_polymatrix_stats_protocol",
+        "name": "test_stats_wrappers_keep_native_route_reference_and_certificates[True-QQ]"
+      },
+      {
+        "shard": "shard-45",
+        "class": "tests.test_polymatrix_stats_protocol",
+        "name": "test_stats_wrappers_keep_native_route_reference_and_certificates[True-RF]"
+      },
+      {
+        "shard": "shard-45",
+        "class": "tests.test_polymatrix_stats_protocol",
+        "name": "test_stats_registry_is_not_probed_by_commutative_ground"
+      }
+    ],
+    "elapsed_seconds": 257.2887349128723
+  },
+  "rust": {
+    "tests": {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "symox"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 135.782377243042
+    },
+    "clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 23.27646517753601
+    },
+    "rust_inputs_unchanged": true
+  },
+  "bindings_clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "-p",
+      "symox-py",
+      "--",
+      "-D",
+      "clippy::correctness"
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 18.53646230697632,
+    "native_inputs_unchanged": true
+  },
+  "diagnosis": "Five PolyMatrix stats native-route assertions fail after preceding imports/state; no acceptance and no timing of this candidate. Investigation underway.",
+  "frozen_snapshot": "/home/keckj/.cache/symox-validation/native-solve-risch-lll-r10-20261028/after",
+  "raw_evidence": "audits/sympy-1.14.0/native-solve-risch-lll-2026-10-28/initial-full-evidence.tar.gz",
+  "global_parity_certified": false
+}

@@ -1,0 +1,41 @@
+{
+  "native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+  "method": "9 distinct preconstructed QQ pairs percase;3 batches of3; exact full reference-expression and rational derivative checks after all timers; no atan addition identities",
+  "constant_den_degree16": {
+    "samples_seconds_per_call": [
+      0.00026397967788701254,
+      9.786232840269804e-05,
+      9.28846614745756e-05
+    ],
+    "median_seconds_per_call": 9.786232840269804e-05,
+    "values_digest": "c6a7285c8fb2bddc5b5e9a452ef5b94ba71cff2c7d0ff3e1a1523c7969354d21"
+  },
+  "euclid_degree4": {
+    "samples_seconds_per_call": [
+      0.0004296570162599285,
+      0.0004321483235495786,
+      0.0004379843400480847
+    ],
+    "median_seconds_per_call": 0.0004321483235495786,
+    "values_digest": "1728a681c324acc1460975ad93e4a95eaf3b37a929544c34e24c54265460d97e"
+  },
+  "euclid_degree8": {
+    "samples_seconds_per_call": [
+      0.0014884576667100191,
+      0.0015243296705496807,
+      0.0015546893506931763
+    ],
+    "median_seconds_per_call": 0.0015243296705496807,
+    "values_digest": "bb1ff0dcc41bf2a4a29f554625c9b3f337966b469c2cbfca475a47c22a7f7105"
+  },
+  "shared_factor": {
+    "samples_seconds_per_call": [
+      0.0001235899981111288,
+      0.00010989099973812699,
+      0.00010349999259536465
+    ],
+    "median_seconds_per_call": 0.00010989099973812699,
+    "values_digest": "802ee62ac2de8d5e97cedad25e4ce1451fea7d39f58eed095a74867911d4eb58"
+  },
+  "independent_exact_checks": 36
+}

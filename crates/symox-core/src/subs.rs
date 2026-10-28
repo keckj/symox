@@ -9,9 +9,24 @@ use crate::number::Number;
 use crate::ops::{add, add_from_terms, div, mul, mul2, mul_factor, pow};
 use crate::traverse::map_children;
 mod memo;
+mod conditional;
+mod rational_integrals;
 
 /// Simultaneous exact structural replacement.
 pub fn xreplace(e: &Expr, map: &FxHashMap<Expr, Expr>) -> Expr {
+    if e.has_symbolic_derivative(){
+        let(value,error)=crate::diff::symbolic::capture(||xreplace_impl(e,map));
+        if let Some(error)=error{
+            crate::diff::symbolic::record(error);
+            let mut pairs=map.iter().map(|(a,b)|(a.clone(),b.clone())).collect::<Vec<_>>();
+            pairs.sort_by_cached_key(|(a,_)|crate::sortkey::sort_key(a));
+            return held_subs(e,pairs.iter().map(|(a,_)|a.clone()).collect(),pairs.into_iter().map(|(_,b)|b).collect());
+        }
+        return value;
+    }
+    xreplace_impl(e,map)
+}
+fn xreplace_impl(e: &Expr, map: &FxHashMap<Expr, Expr>) -> Expr {
     if map.is_empty() {
         return e.clone();
     }
@@ -38,6 +53,13 @@ fn xr(
     if let Some((_,v)) = cache.get(&e.dag_id()) {
         return v.clone();
     }
+    if matches!(e.kind(),Kind::Piecewise(_)) {
+        if let Some(value)=rational_integrals::exact(e,map,&mut |original|
+            xr(original,map,mask,all_masked,held_derivatives,cache)) {
+            cache.insert(e.dag_id(),(e.clone(),value.clone()));
+            return value;
+        }
+    }
     if held_derivatives {
         if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum|Func::Product,_)) {
             let pairs=map.iter().map(|(key,value)|(key.clone(),value.clone())).collect::<Vec<_>>();
@@ -58,6 +80,19 @@ fn xr(
             cache.insert(e.dag_id(),(e.clone(),result.clone()));
             return result;
         }
+        if let Some((body,variables))=crate::diff::symbolic::parts(e){
+            if variables.iter().any(|(v,_)|map.contains_key(v)){
+                let counts=variables.iter().map(|(v,n)|(v.clone(),xr(n,map,mask,all_masked,true,cache))).collect();
+                let base=crate::diff::symbolic::construct(body,counts,false).unwrap_or_else(|error|{crate::diff::symbolic::failed(error,||held_subs(e,map.keys().cloned().collect(),map.values().cloned().collect()))});
+                let mut keys=variables.iter().map(|(v,_)|v).filter(|v|map.contains_key(*v)).cloned().collect::<Vec<_>>();
+                keys.sort_by_cached_key(crate::sortkey::sort_key);keys.dedup();
+                let other=map.iter().filter(|(k,_)|!keys.contains(k)).map(|(k,v)|(k.clone(),v.clone())).collect();
+                let base=xreplace(&base,&other);
+                if !crate::diff::symbolic::is_derivative(&base){return xreplace(&base,map);}
+                let points=keys.iter().map(|k|map[k].clone()).collect();
+                return held_subs(&base,keys,points);
+            }
+        }
         if let Kind::Derivative(_,vars)=e.kind(){
             if vars.iter().any(|(v,_)|map.contains_key(v)){
                 let mut keys:Vec<_>=map.keys().filter(|key|crate::traverse::has(e,key)).cloned().collect();
@@ -65,6 +100,23 @@ fn xr(
                 let points=keys.iter().map(|key|map[key].clone()).collect();
                 return held_subs(e,keys,points);
             }
+        }
+    }
+if let Some((body,vars))=crate::diff::symbolic::parts(e){
+        let body=xr(body,map,mask,all_masked,held_derivatives,cache);
+        let vars=vars.iter().map(|(v,n)|(xr(v,map,mask,all_masked,held_derivatives,cache),xr(n,map,mask,all_masked,held_derivatives,cache))).collect();
+        let result=crate::diff::symbolic::construct(&body,vars,false).unwrap_or_else(|error|{crate::diff::symbolic::failed(error,||held_subs(e,map.keys().cloned().collect(),map.values().cloned().collect()))});
+        cache.insert(e.dag_id(),(e.clone(),result.clone()));return result;
+    }
+    if matches!(e.kind(), Kind::Func(Func::Logic(_), _)) {
+        // The conditional predicate uses exact queries. Keep its callback
+        // cache separate from ordinary, numerically refined substitutions.
+        let mut guarded_cache=FxHashMap::default();
+    if let Some(result) = conditional::substitute(e,
+            &mut |value| xr(value, map, mask, all_masked, held_derivatives, &mut guarded_cache),
+            &|value| map.get(value).cloned()) {
+            cache.insert(e.dag_id(), (e.clone(), result.clone()));
+            return result;
         }
     }
     let r = if e.is_add() || e.is_mul() {
@@ -75,6 +127,10 @@ fn xr(
         if replaced.iter().zip(&children).all(|(a,b)|a.same_presentation(b)) {
             e.clone()
         } else if e.is_add() { add(&replaced) } else { mul(&replaced) }
+    } else if let Kind::Piecewise(pieces) = e.kind() {
+        conditional::piecewise(pieces.iter().map(|(value, condition)| (
+            xr(value, map, mask, all_masked, held_derivatives, cache),
+            xr(condition, map, mask, all_masked, held_derivatives, cache))).collect())
     } else {
         map_children(e, &mut |c| xr(c, map, mask, all_masked, held_derivatives, cache))
     };
@@ -99,6 +155,17 @@ pub fn held_subs(e:&Expr, variables:Vec<Expr>,points:Vec<Expr>)->Expr {
 /// Simultaneous substitution for symbol keys, preserving differentiation
 /// variables by routing them through the same held-Subs rules as subs1.
 pub fn simultaneous(e:&Expr,pairs:&[(Expr,Expr)])->Expr {
+    if e.has_symbolic_derivative(){
+        let(value,error)=crate::diff::symbolic::capture(||simultaneous_impl(e,pairs));
+        if let Some(error)=error{
+            crate::diff::symbolic::record(error);
+            return held_subs(e,pairs.iter().map(|(a,_)|a.clone()).collect(),pairs.iter().map(|(_,b)|b.clone()).collect());
+        }
+        return value;
+    }
+    simultaneous_impl(e,pairs)
+}
+fn simultaneous_impl(e:&Expr,pairs:&[(Expr,Expr)])->Expr {
     if pairs.is_empty(){return e.clone();}
     if e.has_host_subs() || pairs.iter().any(|(old,_)|!old.is_symbol()) {
         // Mask algebraic patterns before inserting any replacement value.
@@ -213,10 +280,21 @@ fn order_subs(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Ex
 /// Substitute a single `old -> new` (with algebraic matching of sums,
 /// products and powers).
 pub fn subs1(e: &Expr, old: &Expr, new: &Expr) -> Expr {
+    if e.has_symbolic_derivative(){
+        let(value,error)=crate::diff::symbolic::capture(||subs1_impl(e,old,new));
+        if let Some(error)=error{
+            crate::diff::symbolic::record(error);
+            return held_subs(e,vec![old.clone()],vec![new.clone()]);
+        }
+        return value;
+    }
+    subs1_impl(e,old,new)
+}
+fn subs1_impl(e: &Expr, old: &Expr, new: &Expr) -> Expr {
     if let Some(value) = memo::get(e,old,new) { return value; }
     let mut cache = FxHashMap::default();
     let value = s1(e, old, new, &mut cache);
-    memo::insert(e,old,new,&value);
+    if !e.has_symbolic_derivative()||!crate::diff::symbolic::failure_pending(){memo::insert(e,old,new,&value);}
     value
 }
 
@@ -242,7 +320,7 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
     }
     if !hooked && e.is_symbol() {
         if symbol_power == Some(e) {
-            if let Some(value) = power_subs(e, &Expr::one(), false, old, new, cache) {
+            if let Some(value) = power_subs(e, &Expr::one(), false, false, old, new, cache) {
                 return value;
             }
         }
@@ -263,6 +341,12 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
         }
         if e.is_atom() { return e.clone(); }
     }
+    if matches!(e.kind(),Kind::Piecewise(_)) {
+        if let Some(value)=rational_integrals::single(e,old,new,&mut |original|s1(original,old,new,cache)) {
+            cache.insert(e.dag_id(),(e.clone(),value.clone()));
+            return value;
+        }
+    }
     if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum|Func::Product,_)) {
         return crate::binders::substitute(e,&[(old.clone(),new.clone())],false);
     }
@@ -277,6 +361,16 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
             return value;
         }
     }
+    if (old.is_symbol() || matches!(old.kind(),Kind::Func(Func::Undefined(_),_)))
+        && matches!(e.kind(), Kind::Func(Func::Logic(_), _)) {
+        let mut guarded_cache=FxHashMap::default();
+        if let Some(result) = conditional::substitute(e,
+            &mut |value| s1(value, old, new, &mut guarded_cache),
+            &|value| (value == old).then(|| new.clone())) {
+            cache.insert(e.dag_id(), (e.clone(), result.clone()));
+            return result;
+        }
+    }
     if matches!(e.kind(),Kind::Func(Func::Order,_)) {
         if let Some(value)=order_subs(e,old,new,cache) {
             return value;
@@ -288,6 +382,9 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
             let points=args[2].args().iter().map(|p|s1(p,old,new,cache)).collect();
             return held_subs(&args[0],variables,points);
         }
+    }
+    if matches!(e.kind(),Kind::Func(Func::SymbolicDerivative,_)) {
+        if let Some(value)=crate::diff::symbolic::substitute(e,old,new,&mut |child|s1(child,old,new,cache)){return value;}
     }
     // substituting a differentiation variable: keep an unevaluated Subs
     if let Kind::Derivative(_, vars) = e.kind() {
@@ -416,12 +513,12 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
                 }
             }
         },
-        (Kind::Pow(b, x), _) => power_subs(b, x, false, old, new, cache)
+        (Kind::Pow(b, x), _) => power_subs(b, x, false, e.is_deferred_numeric_power(), old, new, cache)
             .unwrap_or_else(|| subs_children(e, old, new, cache)),
         // SymPy's exp._eval_subs views exp(z) and an old exp(w) as E**z and
         // E**w and defers to Pow._eval_subs.
         (Kind::Func(Func::Exp, a), Kind::Const(crate::expr::Constant::E)) => pow(new, &s1(&a[0], old, new, cache)),
-        (Kind::Func(Func::Exp, a), Kind::Func(Func::Exp, _)) => power_subs(&Expr::e(), &a[0], true, old, new, cache)
+        (Kind::Func(Func::Exp, a), Kind::Func(Func::Exp, _)) => power_subs(&Expr::e(), &a[0], true, false, old, new, cache)
             .unwrap_or_else(|| subs_children(e, old, new, cache)),
         _ => subs_children(e, old, new, cache),
     };
@@ -431,11 +528,12 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
 
 /// SymPy's Pow._eval_subs for `base**exponent`. `as_exp` marks the
 /// exp(z) view, in which an old exp(w) counts as the power E**w.
-fn power_subs(base: &Expr, exponent: &Expr, as_exp: bool, old: &Expr, new: &Expr,
+fn power_subs(base: &Expr, exponent: &Expr, as_exp: bool, deferred: bool, old: &Expr, new: &Expr,
     cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Option<Expr> {
     use crate::assumptions::{is_nonnegative, is_positive, is_real, real_signs};
+    let power=|base:&Expr,exponent:&Expr|if deferred{crate::ops::deferred::rebuild(base,exponent)}else{pow(base,exponent)};
     if old == base {
-        return Some(pow(new, &s1(exponent, old, new, cache)));
+        return Some(power(new, &s1(exponent, old, new, cache)));
     }
     // Pow._eval_subs._check for commutative objects: the exponent of old
     // combines with pow when pow is an integer or (b**e)**f == b**(e*f).
@@ -459,7 +557,7 @@ fn power_subs(base: &Expr, exponent: &Expr, as_exp: bool, old: &Expr, new: &Expr
         // issue 10829: (4**x).subs(2**x, y) -> y**2 when log(4, 2) is a Number
         if exponent == old_exponent {
             if let Some(l) = rational_log(base, old_base) {
-                return Some(pow(new, &Expr::num(l)));
+                return Some(power(new, &Expr::num(l)));
             }
         }
         if base == old_base {
@@ -467,7 +565,7 @@ fn power_subs(base: &Expr, exponent: &Expr, as_exp: bool, old: &Expr, new: &Expr
                 let (c1, t1) = symbol_independent(exponent);
                 let (c2, t2) = symbol_independent(old_exponent);
                 if t1 == t2 {
-                    if let Some(k) = combine(&c1, &c2) { return Some(pow(new, &k)); }
+                    if let Some(k) = combine(&c1, &c2) { return Some(power(new, &k)); }
                 }
             } else {
                 // b**(6*x + a).subs(b**(3*x), y) -> y**2 * b**a
@@ -478,13 +576,13 @@ fn power_subs(base: &Expr, exponent: &Expr, as_exp: bool, old: &Expr, new: &Expr
                     let term = s1(&term, old, new, cache);
                     let (c1, t1) = crate::decompose::as_coeff_mul(&term, &[], false);
                     if t1 == t2 {
-                        if let Some(k) = combine(&c1, &c2) { factors.push(pow(new, &k)); continue; }
+                        if let Some(k) = combine(&c1, &c2) { factors.push(power(new, &k)); continue; }
                     }
                     remaining.push(term);
                 }
                 if !factors.is_empty() {
                     let rest = add(&remaining);
-                    factors.push(if rest.is_one() { base.clone() } else { pow(base, &rest) });
+                    factors.push(if rest.is_one() { base.clone() } else { power(base, &rest) });
                     return Some(mul(&factors));
                 }
             }
@@ -501,7 +599,7 @@ fn power_subs(base: &Expr, exponent: &Expr, as_exp: bool, old: &Expr, new: &Expr
             let (c1, t1) = symbol_independent(&old_exponent);
             let (c2, t2) = symbol_independent(&mul2(exponent, &crate::functions::log(base)));
             if t1 == t2 {
-                if let Some(k) = combine(&c1, &c2) { return Some(pow(new, &k)); }
+                if let Some(k) = combine(&c1, &c2) { return Some(power(new, &k)); }
             }
         }
     }
@@ -566,6 +664,10 @@ fn subs_children(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, 
             return e.clone();
         }
         return if e.is_add() { add(&replaced) } else { mul(&replaced) };
+    }
+    if let Kind::Piecewise(pieces) = e.kind() {
+        return conditional::piecewise(pieces.iter().map(|(value, condition)| (
+            s1(value, old, new, cache), s1(condition, old, new, cache))).collect());
     }
     map_children(e, &mut |c| s1(c, old, new, cache))
 }

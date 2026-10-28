@@ -1,0 +1,13 @@
+{
+  "base": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/after",
+  "changed_files": 21,
+  "source_manifest_sha256": "51a9f9d9e43f7cc6933acded3c09bc1046fb93ceaba07336f6435726a4fd9f8e",
+  "patch_sha256": "1aa0282e164efdf2082ba91731dc61b995a7d0b040ffd9e9baf3c8614a83c4d0",
+  "release_so_sha256": "b83cdadd3d15aefd1bd3c290f32642a59bf99e72466844a9e207ed3d3e11acd7",
+  "validation": {
+    "release_focused_demeter": "1168 passed in19.43s",
+    "release_broad_demeter": "10539 passed,32skipped,1xfailed in239.85s",
+    "rust": "689 passed,1ignored;5doctests passed",
+    "clippy": "core+bindings all-targets passed"
+  }
+}

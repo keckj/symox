@@ -1,0 +1,4189 @@
+{
+  "identity": {
+    "roots": {
+      "r6r1": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027",
+      "r7": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027"
+    },
+    "source_identities": {
+      "r6r1": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "80c98adae719e1cdfc2e7621a234d0ade781cdb3bc26c4285360263b0ca719ae",
+        "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+        "working_code_diff_sha256": "b8b70b9215e6cea86dd21f9483632662ab356c5c5c24be662658a0aeda1ddc53",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      },
+      "r7": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "34632bf74a2ce56cb01c73477fdc247a7565ea9a2155d0ceaa7ba99315ff115d",
+        "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+        "working_code_diff_sha256": "c6030520b42f6cca9540edc06d071a12741d250af0e1e1a3f2ff00f1f2860128",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      }
+    },
+    "worker_sha256": "db3b6d8889f88310e7acd7dd1221cd34ff4b506a1eecee388e4ff3d2ae039dee",
+    "fixtures_sha256": "29f42888cc98bc1bca181815e713e48c51f5ac82499999b5e1d5b61a595c93d7",
+    "runner_sha256": "5c0cf18d368ad1c7e3477fbbf7fda36a89c6dcff1b0894c1a431ff2c4273de7f",
+    "cpu": 24,
+    "rounds": 3,
+    "repeated_calls": 9,
+    "certificates_outside_timers": true,
+    "timing_unit": "nanoseconds per public lll_transform call, construction/import excluded",
+    "first_call": "Fresh process for each case/arm/round; no earlier LLL or result certificates",
+    "host_before": {
+      "loadavg": [
+        4.19775390625,
+        7.69140625,
+        4.8876953125
+      ],
+      "started": 1793175452.8943222
+    }
+  },
+  "comparisons": [
+    {
+      "case": "ddm-2x2-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 460732,
+        "r7": 552729
+      },
+      "first_call_ratio_r6r1_over_r7": 0.8335585793399659,
+      "repeated_process_medians_ns": {
+        "r6r1": 210201,
+        "r7": 178545
+      },
+      "repeated_ratio_r6r1_over_r7": 1.1772998403763757
+    },
+    {
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 476457,
+        "r7": 576820
+      },
+      "first_call_ratio_r6r1_over_r7": 0.8260063798065255,
+      "repeated_process_medians_ns": {
+        "r6r1": 219086,
+        "r7": 190621
+      },
+      "repeated_ratio_r6r1_over_r7": 1.1493277235981345
+    },
+    {
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 481211,
+        "r7": 581222
+      },
+      "first_call_ratio_r6r1_over_r7": 0.8279297755418755,
+      "repeated_process_medians_ns": {
+        "r6r1": 244601,
+        "r7": 217519
+      },
+      "repeated_ratio_r6r1_over_r7": 1.1245040663114487
+    },
+    {
+      "case": "ddm-2x4-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 443756,
+        "r7": 526697
+      },
+      "first_call_ratio_r6r1_over_r7": 0.8425261583035407,
+      "repeated_process_medians_ns": {
+        "r6r1": 201624,
+        "r7": 193572
+      },
+      "repeated_ratio_r6r1_over_r7": 1.0415969251751287
+    },
+    {
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 446516,
+        "r7": 536094
+      },
+      "first_call_ratio_r6r1_over_r7": 0.8329061694404339,
+      "repeated_process_medians_ns": {
+        "r6r1": 205565,
+        "r7": 192396
+      },
+      "repeated_ratio_r6r1_over_r7": 1.0684473689681697
+    },
+    {
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 498410,
+        "r7": 564746
+      },
+      "first_call_ratio_r6r1_over_r7": 0.882538344671764,
+      "repeated_process_medians_ns": {
+        "r6r1": 248110,
+        "r7": 231640
+      },
+      "repeated_ratio_r6r1_over_r7": 1.0711017095493007
+    },
+    {
+      "case": "ddm-4x4-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 1438627,
+        "r7": 1516930
+      },
+      "first_call_ratio_r6r1_over_r7": 0.9483806108389972,
+      "repeated_process_medians_ns": {
+        "r6r1": 1178033,
+        "r7": 250529
+      },
+      "repeated_ratio_r6r1_over_r7": 4.702182182501826
+    },
+    {
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 1434729,
+        "r7": 1595110
+      },
+      "first_call_ratio_r6r1_over_r7": 0.8994545830695062,
+      "repeated_process_medians_ns": {
+        "r6r1": 1169213,
+        "r7": 261893
+      },
+      "repeated_ratio_r6r1_over_r7": 4.464468313395165
+    },
+    {
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 1454032,
+        "r7": 1641049
+      },
+      "first_call_ratio_r6r1_over_r7": 0.8860381378008823,
+      "repeated_process_medians_ns": {
+        "r6r1": 1256079,
+        "r7": 298729
+      },
+      "repeated_ratio_r6r1_over_r7": 4.2047440991668035
+    },
+    {
+      "case": "ddm-4x6-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 1767979,
+        "r7": 1874470
+      },
+      "first_call_ratio_r6r1_over_r7": 0.9431887413508885,
+      "repeated_process_medians_ns": {
+        "r6r1": 1485068,
+        "r7": 291761
+      },
+      "repeated_ratio_r6r1_over_r7": 5.09001545785763
+    },
+    {
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 1774166,
+        "r7": 1892287
+      },
+      "first_call_ratio_r6r1_over_r7": 0.9375776507474818,
+      "repeated_process_medians_ns": {
+        "r6r1": 1499525,
+        "r7": 294314
+      },
+      "repeated_ratio_r6r1_over_r7": 5.094983588956013
+    },
+    {
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 1841075,
+        "r7": 1993350
+      },
+      "first_call_ratio_r6r1_over_r7": 0.9236084982567035,
+      "repeated_process_medians_ns": {
+        "r6r1": 1562760,
+        "r7": 352043
+      },
+      "repeated_ratio_r6r1_over_r7": 4.439116812434845
+    },
+    {
+      "case": "ddm-6x6-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 3684485,
+        "r7": 3776839
+      },
+      "first_call_ratio_r6r1_over_r7": 0.9755472764393717,
+      "repeated_process_medians_ns": {
+        "r6r1": 3380772,
+        "r7": 607240
+      },
+      "repeated_ratio_r6r1_over_r7": 5.567439562611159
+    },
+    {
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 3702947,
+        "r7": 3839271
+      },
+      "first_call_ratio_r6r1_over_r7": 0.9644922174027308,
+      "repeated_process_medians_ns": {
+        "r6r1": 3409678,
+        "r7": 608734
+      },
+      "repeated_ratio_r6r1_over_r7": 5.601260977701262
+    },
+    {
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 3784255,
+        "r7": 3930798
+      },
+      "first_call_ratio_r6r1_over_r7": 0.9627192748139182,
+      "repeated_process_medians_ns": {
+        "r6r1": 3473916,
+        "r7": 668841
+      },
+      "repeated_ratio_r6r1_over_r7": 5.193933984310172
+    },
+    {
+      "case": "ddm-6x8-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 3801173,
+        "r7": 3873952
+      },
+      "first_call_ratio_r6r1_over_r7": 0.981213241671554,
+      "repeated_process_medians_ns": {
+        "r6r1": 3455402,
+        "r7": 755539
+      },
+      "repeated_ratio_r6r1_over_r7": 4.573426388313509
+    },
+    {
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 3703676,
+        "r7": 3990514
+      },
+      "first_call_ratio_r6r1_over_r7": 0.9281200366669556,
+      "repeated_process_medians_ns": {
+        "r6r1": 3445750,
+        "r7": 756784
+      },
+      "repeated_ratio_r6r1_over_r7": 4.553148586650881
+    },
+    {
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "first_call_median_ns": {
+        "r6r1": 3770044,
+        "r7": 3900393
+      },
+      "first_call_ratio_r6r1_over_r7": 0.966580547139737,
+      "repeated_process_medians_ns": {
+        "r6r1": 3497282,
+        "r7": 817323
+      },
+      "repeated_ratio_r6r1_over_r7": 4.278947246070403
+    }
+  ],
+  "timing_results": [
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 457645,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209089,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 212816,
+      "repeated_ns": [
+        217003,
+        219873,
+        213397,
+        203418,
+        215857,
+        204671,
+        212816,
+        204900,
+        204754
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 608486,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209092,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 206984,
+      "repeated_ns": [
+        243282,
+        207896,
+        210193,
+        196321,
+        195792,
+        194127,
+        192504,
+        206984,
+        229915
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 576820,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209093,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 184507,
+      "repeated_ns": [
+        246126,
+        205830,
+        200258,
+        184507,
+        182043,
+        187247,
+        180390,
+        176917,
+        175102
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 458436,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209094,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 216627,
+      "repeated_ns": [
+        232379,
+        225613,
+        215678,
+        219415,
+        213627,
+        216627,
+        212201,
+        209794,
+        245702
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 481204,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209095,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 244550,
+      "repeated_ns": [
+        258295,
+        239586,
+        239126,
+        235449,
+        254098,
+        244550,
+        278040,
+        240512,
+        245311
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 579118,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209096,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 217519,
+      "repeated_ns": [
+        269802,
+        222954,
+        217519,
+        211741,
+        213412,
+        221621,
+        208548,
+        219933,
+        211633
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 517527,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209097,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 199351,
+      "repeated_ns": [
+        229521,
+        211910,
+        210092,
+        198415,
+        192790,
+        192485,
+        192100,
+        199529,
+        199351
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 443756,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209098,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 198370,
+      "repeated_ns": [
+        209925,
+        200706,
+        197571,
+        200747,
+        207314,
+        197232,
+        198370,
+        195776,
+        198202
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 447901,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209099,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 205565,
+      "repeated_ns": [
+        220385,
+        212704,
+        208897,
+        205565,
+        209278,
+        201074,
+        203131,
+        203951,
+        201152
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 532615,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209100,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 192364,
+      "repeated_ns": [
+        233339,
+        197539,
+        194467,
+        195596,
+        192364,
+        191998,
+        187345,
+        186286,
+        189674
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 564746,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209101,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 234648,
+      "repeated_ns": [
+        275961,
+        231106,
+        245630,
+        234648,
+        241941,
+        235326,
+        228579,
+        216616,
+        227564
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 498410,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209102,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 248110,
+      "repeated_ns": [
+        290248,
+        250940,
+        248110,
+        263308,
+        229330,
+        226236,
+        261091,
+        234301,
+        230866
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1420729,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209103,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1158772,
+      "repeated_ns": [
+        1162889,
+        1161202,
+        1164704,
+        1151407,
+        1151321,
+        1150487,
+        1150706,
+        1186373,
+        1158772
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1542846,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209104,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 253386,
+      "repeated_ns": [
+        301219,
+        259963,
+        260329,
+        253386,
+        248364,
+        250066,
+        258974,
+        248347,
+        248096
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1548836,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209105,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 261893,
+      "repeated_ns": [
+        297840,
+        263952,
+        282013,
+        268945,
+        261893,
+        252367,
+        260254,
+        247759,
+        248679
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1427856,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209106,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1169472,
+      "repeated_ns": [
+        1172784,
+        1168057,
+        1169472,
+        1166140,
+        1167098,
+        1206614,
+        1155827,
+        1230394,
+        1201041
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1600486,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209107,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1288016,
+      "repeated_ns": [
+        1293775,
+        1288016,
+        1289542,
+        1289337,
+        1337266,
+        1287867,
+        1251591,
+        1206074,
+        1251849
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1666466,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209112,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 309073,
+      "repeated_ns": [
+        356152,
+        340546,
+        348675,
+        297880,
+        309073,
+        296636,
+        292125,
+        334744,
+        307502
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1866682,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209113,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 291761,
+      "repeated_ns": [
+        347679,
+        302092,
+        291761,
+        299429,
+        288790,
+        287895,
+        287642,
+        293136,
+        287616
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1801147,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209114,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1485068,
+      "repeated_ns": [
+        1563545,
+        1480232,
+        1482894,
+        1500189,
+        1489663,
+        1485068,
+        1476467,
+        1532898,
+        1476894
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1774166,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209115,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1519631,
+      "repeated_ns": [
+        1520713,
+        1489985,
+        1496365,
+        1499670,
+        1500625,
+        1529839,
+        1519631,
+        1564535,
+        1580996
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1937008,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209134,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 295538,
+      "repeated_ns": [
+        348364,
+        312285,
+        296127,
+        294805,
+        298500,
+        292024,
+        292153,
+        295538,
+        290889
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1993350,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209137,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 352043,
+      "repeated_ns": [
+        392620,
+        352043,
+        354632,
+        343409,
+        373268,
+        355735,
+        337225,
+        346468,
+        341686
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1841075,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209138,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1530147,
+      "repeated_ns": [
+        1599672,
+        1567621,
+        1530452,
+        1527291,
+        1611275,
+        1526025,
+        1526381,
+        1530147,
+        1514799
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3714835,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209139,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3360043,
+      "repeated_ns": [
+        3360043,
+        3326154,
+        3345455,
+        3366548,
+        3341898,
+        3366408,
+        3416649,
+        3444812,
+        3335974
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3774950,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209140,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 607240,
+      "repeated_ns": [
+        651127,
+        618311,
+        607240,
+        604570,
+        601978,
+        600444,
+        617677,
+        603220,
+        627575
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3765200,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209142,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 608734,
+      "repeated_ns": [
+        653233,
+        621479,
+        610200,
+        608734,
+        604895,
+        598122,
+        606927,
+        598028,
+        610662
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3628515,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209143,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3357419,
+      "repeated_ns": [
+        3418479,
+        3378040,
+        3360696,
+        3519178,
+        3349507,
+        3349369,
+        3356778,
+        3351524,
+        3357419
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3784255,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209144,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3452319,
+      "repeated_ns": [
+        3434261,
+        3450627,
+        3563622,
+        3530072,
+        3449310,
+        3436151,
+        3459111,
+        3538883,
+        3452319
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 4002169,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209145,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 675406,
+      "repeated_ns": [
+        707309,
+        675621,
+        669982,
+        664525,
+        712878,
+        704370,
+        675406,
+        662471,
+        661431
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3843584,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209146,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 755539,
+      "repeated_ns": [
+        799703,
+        755539,
+        743580,
+        747742,
+        742147,
+        778406,
+        780178,
+        756364,
+        748560
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3801173,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209154,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3517527,
+      "repeated_ns": [
+        3521631,
+        3487386,
+        3517527,
+        3491305,
+        3518881,
+        3718154,
+        3511032,
+        3495571,
+        3604971
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3703676,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209155,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3453035,
+      "repeated_ns": [
+        3453035,
+        3419722,
+        3511742,
+        3455258,
+        3468975,
+        3407820,
+        3386506,
+        3388629,
+        3462305
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 4008770,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209156,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 756784,
+      "repeated_ns": [
+        809672,
+        793918,
+        756784,
+        746561,
+        747566,
+        840565,
+        758711,
+        755347,
+        743980
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3967251,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209157,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 817323,
+      "repeated_ns": [
+        855308,
+        819245,
+        810392,
+        811083,
+        855777,
+        860061,
+        812064,
+        817323,
+        806879
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3780726,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209158,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3506944,
+      "repeated_ns": [
+        3506908,
+        3506944,
+        3596084,
+        3468055,
+        3493477,
+        3531644,
+        3513397,
+        3611238,
+        3488799
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3900393,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209159,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 818453,
+      "repeated_ns": [
+        860358,
+        821411,
+        818453,
+        816504,
+        869254,
+        855925,
+        817804,
+        816585,
+        808142
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3770044,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209160,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3497282,
+      "repeated_ns": [
+        3528726,
+        3536063,
+        3508491,
+        3484107,
+        3458368,
+        3471102,
+        3463897,
+        3507264,
+        3497282
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3862442,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209161,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3445750,
+      "repeated_ns": [
+        3582690,
+        3467026,
+        3445750,
+        3460155,
+        3418632,
+        3413198,
+        3431184,
+        3418040,
+        3474104
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3837125,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209169,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 805712,
+      "repeated_ns": [
+        833412,
+        816287,
+        791659,
+        812877,
+        805848,
+        805712,
+        746163,
+        777879,
+        789145
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3893449,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209170,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 779876,
+      "repeated_ns": [
+        784486,
+        749232,
+        745758,
+        788116,
+        779876,
+        761956,
+        776156,
+        815475,
+        793544
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3717740,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209171,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3449434,
+      "repeated_ns": [
+        3467246,
+        3462438,
+        3449434,
+        3499827,
+        3441016,
+        3505599,
+        3425469,
+        3436841,
+        3442943
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3718212,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209172,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3473916,
+      "repeated_ns": [
+        3491681,
+        3463687,
+        3863170,
+        3469213,
+        3465693,
+        3473916,
+        3553129,
+        3484808,
+        3472464
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3930798,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209173,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 668841,
+      "repeated_ns": [
+        709070,
+        671336,
+        670020,
+        668293,
+        665701,
+        668841,
+        662039,
+        654271,
+        705481
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3871984,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209194,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 617904,
+      "repeated_ns": [
+        645052,
+        617904,
+        605895,
+        607947,
+        604434,
+        600647,
+        637234,
+        634634,
+        637634
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3780486,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209195,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3433010,
+      "repeated_ns": [
+        3473513,
+        3402190,
+        3397533,
+        3440136,
+        3433010,
+        3403767,
+        3432820,
+        3442671,
+        3737062
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3684485,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209197,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3380772,
+      "repeated_ns": [
+        3465693,
+        3369959,
+        3380772,
+        3493877,
+        3415561,
+        3369183,
+        3350646,
+        3477023,
+        3365854
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 4064846,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209198,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 611707,
+      "repeated_ns": [
+        645974,
+        624729,
+        601607,
+        611707,
+        603000,
+        621302,
+        623276,
+        601478,
+        603875
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1915836,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209200,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 348668,
+      "repeated_ns": [
+        390965,
+        385548,
+        358867,
+        372908,
+        348668,
+        338146,
+        340485,
+        337244,
+        336667
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1853817,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209201,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1584282,
+      "repeated_ns": [
+        1584282,
+        1565107,
+        1575383,
+        1562552,
+        1601591,
+        1565123,
+        1618784,
+        1590376,
+        1593631
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1816842,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209203,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1499525,
+      "repeated_ns": [
+        1534581,
+        1499525,
+        1491572,
+        1546085,
+        1539188,
+        1567853,
+        1489198,
+        1499176,
+        1490072
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1880549,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209207,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 291827,
+      "repeated_ns": [
+        344296,
+        299430,
+        291560,
+        299922,
+        291827,
+        288530,
+        287525,
+        294071,
+        291481
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1874470,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209208,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 292859,
+      "repeated_ns": [
+        343676,
+        299567,
+        292859,
+        289316,
+        297102,
+        288184,
+        288453,
+        293827,
+        287708
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1767979,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209209,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1513991,
+      "repeated_ns": [
+        1513991,
+        1497971,
+        1499449,
+        1543765,
+        1583631,
+        1559128,
+        1500269,
+        1531621,
+        1499312
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1447405,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209210,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1256079,
+      "repeated_ns": [
+        1248395,
+        1264464,
+        1214131,
+        1268957,
+        1256079,
+        1196188,
+        1204116,
+        1266908,
+        1276668
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1641049,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209211,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 297983,
+      "repeated_ns": [
+        340328,
+        300260,
+        297983,
+        301049,
+        296830,
+        292304,
+        302092,
+        291083,
+        289302
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1595110,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209213,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 255306,
+      "repeated_ns": [
+        303253,
+        256234,
+        251667,
+        261099,
+        248159,
+        250648,
+        251104,
+        255306,
+        276498
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1434729,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209215,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1167575,
+      "repeated_ns": [
+        1196392,
+        1173442,
+        1158755,
+        1174046,
+        1157824,
+        1198113,
+        1167575,
+        1165603,
+        1159120
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1538462,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209216,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1192924,
+      "repeated_ns": [
+        1209901,
+        1186220,
+        1178231,
+        1192924,
+        1189339,
+        1185845,
+        1252240,
+        1261043,
+        1195518
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1516930,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209217,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 249284,
+      "repeated_ns": [
+        292753,
+        266790,
+        252271,
+        249284,
+        243840,
+        252609,
+        245188,
+        241576,
+        247282
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 586961,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209218,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 231640,
+      "repeated_ns": [
+        277549,
+        231640,
+        274469,
+        231188,
+        239357,
+        235720,
+        229425,
+        228156,
+        221673
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 516232,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209219,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 254901,
+      "repeated_ns": [
+        289530,
+        254901,
+        254841,
+        257332,
+        251072,
+        250613,
+        288075,
+        255439,
+        253025
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 439393,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209221,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 204276,
+      "repeated_ns": [
+        213297,
+        200656,
+        209282,
+        200199,
+        204276,
+        206957,
+        201744,
+        205408,
+        199269
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 536094,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209222,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 192473,
+      "repeated_ns": [
+        236362,
+        198527,
+        194763,
+        194558,
+        192473,
+        188016,
+        185560,
+        184814,
+        188273
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 526697,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209223,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 193572,
+      "repeated_ns": [
+        244624,
+        199366,
+        194044,
+        194073,
+        186900,
+        193572,
+        183618,
+        186413,
+        188432
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 451326,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209224,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 212030,
+      "repeated_ns": [
+        221951,
+        213751,
+        210323,
+        218159,
+        209208,
+        211528,
+        212030,
+        212416,
+        208367
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 490108,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209225,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 250538,
+      "repeated_ns": [
+        262903,
+        240823,
+        245454,
+        239978,
+        250463,
+        272425,
+        271638,
+        250538,
+        265392
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 615618,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209226,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 224353,
+      "repeated_ns": [
+        270478,
+        230813,
+        238952,
+        224353,
+        222913,
+        224352,
+        224710,
+        224181,
+        221372
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 605203,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209247,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 196430,
+      "repeated_ns": [
+        245740,
+        224121,
+        196430,
+        191600,
+        190591,
+        196768,
+        222465,
+        192463,
+        191134
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 476457,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209266,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 219086,
+      "repeated_ns": [
+        221275,
+        219668,
+        221955,
+        219071,
+        215926,
+        214912,
+        214651,
+        219086,
+        249085
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 464116,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209267,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 205551,
+      "repeated_ns": [
+        221570,
+        210795,
+        207742,
+        203635,
+        216465,
+        204607,
+        205551,
+        204098,
+        204092
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 543908,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209268,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 178545,
+      "repeated_ns": [
+        230121,
+        187070,
+        181897,
+        178545,
+        176882,
+        185184,
+        176158,
+        174385,
+        172405
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 460732,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209269,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 210201,
+      "repeated_ns": [
+        220598,
+        214205,
+        210158,
+        210201,
+        216861,
+        206550,
+        208578,
+        205275,
+        213161
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 552729,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209270,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 177914,
+      "repeated_ns": [
+        224521,
+        198165,
+        182032,
+        177914,
+        177725,
+        175301,
+        181954,
+        175802,
+        172028
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 550837,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209271,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 190621,
+      "repeated_ns": [
+        228709,
+        201046,
+        190621,
+        183186,
+        205954,
+        202703,
+        190167,
+        179325,
+        177977
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 487800,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209272,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 235043,
+      "repeated_ns": [
+        238307,
+        227486,
+        239579,
+        212537,
+        238960,
+        235043,
+        233684,
+        224100,
+        265978
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 481211,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209273,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 244601,
+      "repeated_ns": [
+        261343,
+        241188,
+        242132,
+        238900,
+        253454,
+        244960,
+        273235,
+        238513,
+        244601
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 581222,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209274,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 212621,
+      "repeated_ns": [
+        261986,
+        221346,
+        213227,
+        210110,
+        216104,
+        212621,
+        206240,
+        207751,
+        207886
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 531018,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209275,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 192301,
+      "repeated_ns": [
+        236668,
+        197838,
+        194566,
+        198976,
+        192301,
+        186670,
+        185452,
+        184242,
+        187638
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 439480,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209276,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 201624,
+      "repeated_ns": [
+        220136,
+        203268,
+        204427,
+        201624,
+        199613,
+        205835,
+        200805,
+        198513,
+        196955
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 446516,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209277,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 207357,
+      "repeated_ns": [
+        224672,
+        204607,
+        208220,
+        210258,
+        202355,
+        565204,
+        207357,
+        201486,
+        204064
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 542986,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209278,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 192396,
+      "repeated_ns": [
+        238022,
+        199278,
+        205277,
+        195808,
+        189697,
+        191576,
+        187402,
+        192396,
+        191344
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 563858,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209279,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 224740,
+      "repeated_ns": [
+        271477,
+        244236,
+        226007,
+        221793,
+        223703,
+        228571,
+        224740,
+        220826,
+        223772
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 469986,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209280,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 235171,
+      "repeated_ns": [
+        253410,
+        253375,
+        233978,
+        231284,
+        238006,
+        235171,
+        264889,
+        229212,
+        231833
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1438627,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209281,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1178033,
+      "repeated_ns": [
+        1197392,
+        1169174,
+        1171478,
+        1171480,
+        1178033,
+        1169332,
+        1180849,
+        1243817,
+        1196211
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1500833,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209282,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 250529,
+      "repeated_ns": [
+        292968,
+        263486,
+        250529,
+        251474,
+        246861,
+        258491,
+        247870,
+        245247,
+        244328
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1649971,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209283,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 272374,
+      "repeated_ns": [
+        341036,
+        298658,
+        290662,
+        272374,
+        267271,
+        290036,
+        269116,
+        267732,
+        271760
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1505973,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209287,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1169213,
+      "repeated_ns": [
+        1186273,
+        1169213,
+        1151082,
+        1351999,
+        1196266,
+        1288978,
+        1163418,
+        1166281,
+        1158788
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1454032,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209288,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1202018,
+      "repeated_ns": [
+        1211896,
+        1194683,
+        1193104,
+        1213158,
+        1237416,
+        1208342,
+        1202018,
+        1194450,
+        1197159
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1580107,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209289,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 298729,
+      "repeated_ns": [
+        346805,
+        302408,
+        298738,
+        301988,
+        295897,
+        292892,
+        292289,
+        298729,
+        295647
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 2022348,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209290,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 289464,
+      "repeated_ns": [
+        352546,
+        326334,
+        294292,
+        289464,
+        297576,
+        288129,
+        283372,
+        288922,
+        282441
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1738433,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209291,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1473899,
+      "repeated_ns": [
+        1469753,
+        1473899,
+        1462605,
+        1470765,
+        1495077,
+        1476383,
+        1456066,
+        1554240,
+        1475271
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1733347,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209312,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1486129,
+      "repeated_ns": [
+        1504026,
+        1481751,
+        1478700,
+        1469872,
+        1486129,
+        1529908,
+        1488999,
+        1476085,
+        1486864
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1892287,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209313,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 294314,
+      "repeated_ns": [
+        343805,
+        309644,
+        294250,
+        294314,
+        297019,
+        290318,
+        289346,
+        294504,
+        290697
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 2083299,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209314,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 359764,
+      "repeated_ns": [
+        426325,
+        379918,
+        359764,
+        366207,
+        366879,
+        334900,
+        339894,
+        333615,
+        337582
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1822262,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209315,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 1562760,
+      "repeated_ns": [
+        1584878,
+        1562032,
+        1552071,
+        1553398,
+        1771262,
+        1562760,
+        1667545,
+        1592800,
+        1562300
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3622461,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209316,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3435466,
+      "repeated_ns": [
+        3456256,
+        3356431,
+        3414743,
+        3361739,
+        3664247,
+        3435466,
+        3356110,
+        3453003,
+        3543313
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3776839,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209317,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 601443,
+      "repeated_ns": [
+        646868,
+        612787,
+        598974,
+        603111,
+        601584,
+        599774,
+        601443,
+        600149,
+        599435
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3839271,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209318,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 606089,
+      "repeated_ns": [
+        645996,
+        613274,
+        612233,
+        608920,
+        605266,
+        597955,
+        605568,
+        606089,
+        601558
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3702947,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209319,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3409678,
+      "repeated_ns": [
+        3526941,
+        3473858,
+        3409646,
+        3409678,
+        3415613,
+        3372264,
+        3519987,
+        3374048,
+        3392155
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3859542,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209320,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3627865,
+      "repeated_ns": [
+        3667583,
+        3703066,
+        3627865,
+        3585208,
+        3589096,
+        3583858,
+        3592229,
+        3766519,
+        3735672
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3795260,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209328,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 663528,
+      "repeated_ns": [
+        707657,
+        672031,
+        668390,
+        663631,
+        660462,
+        660546,
+        662342,
+        659024,
+        663528
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3873952,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209329,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 743173,
+      "repeated_ns": [
+        781300,
+        749133,
+        742946,
+        749371,
+        741354,
+        740769,
+        737875,
+        743173,
+        744334
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3835786,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209330,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3455402,
+      "repeated_ns": [
+        3438531,
+        3517760,
+        3469949,
+        3455402,
+        3502127,
+        3464245,
+        3402747,
+        3395686,
+        3416007
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3681437,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209331,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3419368,
+      "repeated_ns": [
+        3399139,
+        3419368,
+        3425861,
+        3530428,
+        3402806,
+        3387525,
+        3385073,
+        3452276,
+        3521557
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3990514,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209332,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 748768,
+      "repeated_ns": [
+        790094,
+        758677,
+        753911,
+        743180,
+        745787,
+        752991,
+        746470,
+        740462,
+        748768
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3815061,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209333,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 810014,
+      "repeated_ns": [
+        842261,
+        812973,
+        812190,
+        806725,
+        812314,
+        807741,
+        810014,
+        808039,
+        805752
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3763801,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209334,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 3488516,
+      "repeated_ns": [
+        3506697,
+        3750933,
+        3516486,
+        3479899,
+        3465610,
+        3517031,
+        3488516,
+        3472114,
+        3457515
+      ]
+    }
+  ],
+  "routing_results": [
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209335,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209343,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209406,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209409,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209411,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209412,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209413,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209414,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209435,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209437,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209438,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209439,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209440,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209441,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209442,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209443,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209444,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209445,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209447,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209448,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209450,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209451,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209452,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209453,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209454,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209455,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209456,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209457,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209458,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209459,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209460,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209461,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209500,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209501,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r6r1",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+      "package": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+      "pid": 3209502,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r7",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+      "package": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+      "pid": 3209503,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    }
+  ],
+  "certificate_count": 1152,
+  "source_hashes_unchanged": true,
+  "host_after": {
+    "loadavg": [
+      2.21728515625,
+      6.48583984375,
+      4.64697265625
+    ],
+    "ended": 1793175514.88531
+  }
+}

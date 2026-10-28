@@ -540,7 +540,7 @@ fn symbolic_factor_list_tracked(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr
 /// Natural expression factorization preserves the generators of each source
 /// multiplicative component. Re-inferring generators on the *final* factors,
 /// or keeping one global generator vector, changes SymPy's stable list order.
-pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototype:&super::fraction::Polynomial,limits:super::factor_budget::Limits)->PResult<(Expr,Vec<(super::fraction::Polynomial,u32)>)> {
+pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototype:&super::fraction::Polynomial,limits:super::factor_budget::Limits)->PResult<(Expr,Vec<(super::fraction::Polynomial,u32)>)> {super::mpoly::checked_operation(||{
     super::factor_budget::run(limits,||{
         super::factor_preflight::check(e,limits)?;
         // together/as_numer_denom are legacy recursive expression algorithms.
@@ -576,7 +576,7 @@ pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototyp
         super::checked_factors::verify_expression_factors(prototype,&coefficient,&factors,limits)?;
         Ok((coefficient,factors))
     })
-}
+})}
 /// Whether a multiplicative component of `together(e)` is a power with a
 /// non-integer exponent, so that the reference `_symbolic_factor_list`
 /// gives it a symbolic or fractional multiplicity (`sqrt(x + 1)` is
@@ -682,7 +682,7 @@ pub fn symbolic_multiplicity_factor_list(
     gens: &[Expr],
     squarefree: bool,
     limits: super::factor_budget::Limits,
-) -> PResult<(Expr, Vec<(super::fraction::Polynomial, Expr, bool)>)> {
+) -> PResult<(Expr, Vec<(super::fraction::Polynomial, Expr, bool)>)> {super::mpoly::checked_operation(||{
     super::factor_budget::run(limits, || {
         super::factor_preflight::check(e, limits)?;
         guard_symbolic_factor_work(e, limits)?;
@@ -715,7 +715,7 @@ pub fn symbolic_multiplicity_factor_list(
         let factors = reference_sort(factors, &|x, y| factor_key_lt(x, y, squarefree))?;
         Ok((div(&cp, &cq), factors))
     })
-}
+})}
 /// One component of the reference `_symbolic_factor_list` for options that
 /// select an explicit coefficient domain.
 #[derive(Clone, Debug)]
@@ -790,7 +790,7 @@ pub fn domain_symbolic_factor_list(
     squarefree: bool,
     build: &dyn Fn(&Expr) -> PResult<Option<super::fraction::Polynomial>>,
     limits: super::factor_budget::Limits,
-) -> PResult<(Expr, Vec<(DomainFactor, Expr)>)> {
+) -> PResult<(Expr, Vec<(DomainFactor, Expr)>)> {super::mpoly::checked_operation(||{
     let mut coeff = Expr::one();
     let mut factors: Vec<(DomainFactor, Expr)> = Vec::new();
     let args: Vec<Expr> = match e.kind() {
@@ -903,7 +903,7 @@ pub fn domain_symbolic_factor_list(
     }
     out.retain(|(_, k)| !k.is_zero());
     Ok((coeff, out))
-}
+})}
 /// The reference `_generic_factor_list` with domain options for expressions:
 /// `together`, numerator and denominator component lists, then the generic
 /// factor-list order.
@@ -912,7 +912,7 @@ pub fn domain_factor_list(
     squarefree: bool,
     build: &dyn Fn(&Expr) -> PResult<Option<super::fraction::Polynomial>>,
     limits: super::factor_budget::Limits,
-) -> PResult<(Expr, Vec<(super::fraction::Polynomial, u32)>)> {
+) -> PResult<(Expr, Vec<(super::fraction::Polynomial, u32)>)> {super::mpoly::checked_operation(||{
     super::factor_budget::run(limits, || {
         super::factor_preflight::check(e, limits)?;
         guard_symbolic_factor_work(e, limits)?;
@@ -947,7 +947,7 @@ pub fn domain_factor_list(
         factors.sort_by(|(a, ka), (b, kb)| compare_components(a, *ka, b, *kb, squarefree));
         Ok((div(&cp, &cq), factors))
     })
-}
+})}
 /// The reference `_symbolic_factor` with domain options: the product of the
 /// component factorizations of `together(e)`.
 pub fn domain_factor(
@@ -955,7 +955,7 @@ pub fn domain_factor(
     squarefree: bool,
     build: &dyn Fn(&Expr) -> PResult<Option<super::fraction::Polynomial>>,
     limits: super::factor_budget::Limits,
-) -> PResult<Expr> {
+) -> PResult<Expr> {super::mpoly::checked_operation(||{
     super::factor_budget::run(limits, || {
         super::factor_preflight::check(e, limits)?;
         guard_symbolic_factor_work(e, limits)?;
@@ -965,7 +965,7 @@ pub fn domain_factor(
         let product: Vec<Expr> = factors.iter().map(|(f, k)| pow(&f.as_expr(), k)).collect();
         Ok(keep_coeff(&coeff, &mul(&product)))
     })
-}
+})}
 fn guard_symbolic_factor_work(e:&Expr,limits:super::factor_budget::Limits)->PResult<()> {
     let mut stack=vec![(e.clone(),0usize,1u64)];let mut visits=0usize;let mut bits=0u64;
     let size=|n:&Number|->u64{match n{Number::Int(n)=>if n.unsigned_abs()<=1{0}else{64-n.unsigned_abs().leading_zeros() as u64},Number::BigInt(n)=>n.bits(),Number::Rational(n)=>n.numer().bits()+n.denom().bits(),Number::Float(_)=>1075,Number::MpFloat(n,_)=>n.man.bits().saturating_add(u64::try_from(n.exp.unsigned_abs()).unwrap_or(u64::MAX))}};
@@ -1065,23 +1065,23 @@ fn generic_factor(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<Expr> {
 }
 
 /// `factor(expr)`.
-pub fn factor(e: &Expr) -> PResult<Expr> {
+pub fn factor(e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
     generic_factor(e, false, None)
-}
+})}
 
 /// `factor(expr, modulus=p)` (univariate).
-pub fn factor_mod(e: &Expr, p: u64) -> PResult<Expr> {
+pub fn factor_mod(e: &Expr, p: u64) -> PResult<Expr> {super::mpoly::checked_operation(||{
     generic_factor(e, false, Some(p))
-}
+})}
 
 /// `sqf(expr, modulus=p)`.
-pub fn sqf_mod(e: &Expr, p: u64) -> PResult<Expr> {
+pub fn sqf_mod(e: &Expr, p: u64) -> PResult<Expr> {super::mpoly::checked_operation(||{
     generic_factor(e, true, Some(p))
-}
+})}
 
 /// `factor(expr, deep=True)`: factor the arguments of functions and the
 /// sub-sums first.
-pub fn factor_deep(e: &Expr) -> PResult<Expr> {
+pub fn factor_deep(e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
     if e.is_atom() {
         return Ok(e.clone());
     }
@@ -1100,12 +1100,12 @@ pub fn factor_deep(e: &Expr) -> PResult<Expr> {
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => factor(&inner),
         _ => Ok(inner),
     }
-}
+})}
 
 /// `sqf(expr)`.
-pub fn sqf(e: &Expr) -> PResult<Expr> {
+pub fn sqf(e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
     generic_factor(e, true, None)
-}
+})}
 
 fn item_poly(f: FItem) -> FItem {
     match f {
@@ -1151,32 +1151,32 @@ fn generic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(Ex
 }
 
 /// `factor_list(expr)`: `(coeff, [(factor, multiplicity)])`.
-pub fn factor_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
+pub fn factor_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {super::mpoly::checked_operation(||{
     generic_factor_list(e, false, None)
-}
+})}
 
 /// `factor_list(expr, modulus=p)`.
-pub fn factor_list_mod(e: &Expr, p: u64) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
+pub fn factor_list_mod(e: &Expr, p: u64) -> PResult<(Expr, Vec<(Expr, Expr)>)> {super::mpoly::checked_operation(||{
     generic_factor_list(e, false, Some(p))
-}
+})}
 
 /// `sqf_list(expr, modulus=p)`.
-pub fn sqf_list_mod(e: &Expr, p: u64) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
+pub fn sqf_list_mod(e: &Expr, p: u64) -> PResult<(Expr, Vec<(Expr, Expr)>)> {super::mpoly::checked_operation(||{
     generic_factor_list(e, true, Some(p))
-}
+})}
 
 /// `sqf_list(expr)`.
-pub fn sqf_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
+pub fn sqf_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {super::mpoly::checked_operation(||{
     generic_factor_list(e, true, None)
-}
+})}
 
 /// `factor_list(expr, *gens)` / `Poly.factor_list()` with explicit
 /// generators: `(coeff, [(poly, multiplicity)])`.
-pub fn poly_factor_list(e: &Expr, gens: &[Expr]) -> PResult<(Expr, Vec<(Expr, u32)>)> {
+pub fn poly_factor_list(e: &Expr, gens: &[Expr]) -> PResult<(Expr, Vec<(Expr, u32)>)> {super::mpoly::checked_operation(||{
     let p = Poly::from_expr(e, gens)?;
     let (c, fs) = p.factor_list();
     Ok((rat_expr(&c, p.domain.prec()), fs.into_iter().map(|(f, k)| (f.as_expr(), k)).collect()))
-}
+})}
 
 // ----------------------------------------------------------------------
 // gcd / lcm
@@ -1193,16 +1193,16 @@ fn rat_gcd(a: &Rat, b: &Rat) -> Rat {
 }
 
 /// `gcd(f, g)`.
-pub fn gcd(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn gcd(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     if let Some((x, y)) = numbers_of(a, b) {
         return Ok(Expr::num(rat_gcd(&x, &y).to_number()));
     }
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     Ok(ps[0].gcd(&ps[1]).as_expr())
-}
+})}
 
 /// `lcm(f, g)`.
-pub fn lcm(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn lcm(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     if let Some((x, y)) = numbers_of(a, b) {
         if x.is_zero() || y.is_zero() {
             return Ok(Expr::zero());
@@ -1213,7 +1213,7 @@ pub fn lcm(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
     }
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     Ok(ps[0].lcm(&ps[1]).as_expr())
-}
+})}
 
 fn mod_polys(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<(Poly, Poly)> {
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
@@ -1224,30 +1224,30 @@ fn mod_polys(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<(Poly, Poly)>
 }
 
 /// `gcd(f, g, modulus=p)`.
-pub fn gcd_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {
+pub fn gcd_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let (x, y) = mod_polys(a, b, gens, p)?;
     Ok(x.gcd(&y).as_expr())
-}
+})}
 
 /// `lcm(f, g, modulus=p)`.
-pub fn lcm_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {
+pub fn lcm_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let (x, y) = mod_polys(a, b, gens, p)?;
     Ok(x.lcm(&y).as_expr())
-}
+})}
 
 /// `div(f, g, modulus=p)`.
-pub fn div_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<(Expr, Expr)> {
+pub fn div_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<(Expr, Expr)> {super::mpoly::checked_operation(||{
     let (x, y) = mod_polys(a, b, gens, p)?;
     let (q, r) = x.div(&y)?;
     Ok((q.as_expr(), r.as_expr()))
-}
+})}
 
 /// `cofactors(f, g)`: `(h, f/h, g/h)`.
-pub fn cofactors(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr, Expr)> {
+pub fn cofactors(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr, Expr)> {super::mpoly::checked_operation(||{
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     let (h, x, y) = ps[0].cofactors(&ps[1]);
     Ok((h.as_expr(), x.as_expr(), y.as_expr()))
-}
+})}
 
 // ----------------------------------------------------------------------
 // extended Euclid, terms_gcd, composition
@@ -1266,20 +1266,20 @@ fn dense_expr(p: &[Rat], gens: &[Expr]) -> Expr {
 }
 
 /// `gcdex(f, g)`: `(s, t, h)` with `s*f + t*g = h = gcd(f, g)` (monic).
-pub fn gcdex(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr, Expr)> {
+pub fn gcdex(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr, Expr)> {super::mpoly::checked_operation(||{
     let (f, g, gens) = uni_pair(a, b, gens)?;
     let (h, s, t) = dense::gcdex_field(&f, &g);
     Ok((dense_expr(&s, &gens), dense_expr(&t, &gens), dense_expr(&h, &gens)))
-}
+})}
 
 /// `half_gcdex(f, g)`: `(s, h)` with `s*f = h (mod g)`.
-pub fn half_gcdex(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
+pub fn half_gcdex(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {super::mpoly::checked_operation(||{
     let (s, _, h) = gcdex(a, b, gens)?;
     Ok((s, h))
-}
+})}
 
 /// `invert(f, g)`: inverse of `f` modulo `g`.
-pub fn invert(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn invert(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     if let (Some(x), Some(m)) = (a.as_number(), b.as_number()) {
         if let (Some(x), Some(m)) = (Int::from_number(x), Int::from_number(m)) {
             if m.is_zero() { return Err(PolyError::Unsupported("division by zero".into())); }
@@ -1297,10 +1297,10 @@ pub fn invert(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
         return Err(PolyError::NotInvertible("zero divisor".into()));
     }
     Ok(dense_expr(&dense::rem(&s, &g), &gens))
-}
+})}
 
 /// `terms_gcd(f)`: pull out the common monomial and the content.
-pub fn terms_gcd(e: &Expr) -> PResult<Expr> {
+pub fn terms_gcd(e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let p = match Poly::from_expr(e, &[]) {
         Ok(p) => p,
         Err(_) => return Ok(e.clone()),
@@ -1323,26 +1323,26 @@ pub fn terms_gcd(e: &Expr) -> PResult<Expr> {
     }
     let body = mul(&[term, super::convert::to_expr_int(&prim, &p.gens)]);
     Ok(keep_coeff(&Expr::num(coeff.to_number()), &body))
-}
+})}
 
 /// `compose(f, g)`: `f(g)` (in the first generator of `f`).
-pub fn compose(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn compose(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     Ok(ps[0].compose(&ps[1]).as_expr())
-}
+})}
 
 /// `decompose(f)`: functional decomposition `[g1, ..., gn]` with
 /// `f = g1(g2(...gn))`.
-pub fn decompose(e: &Expr, gens: &[Expr]) -> PResult<Vec<Expr>> {
+pub fn decompose(e: &Expr, gens: &[Expr]) -> PResult<Vec<Expr>> {super::mpoly::checked_operation(||{
     let p = Poly::from_expr(e, gens)?;
     Ok(p.decompose()?.into_iter().map(|q| q.as_expr()).collect())
-}
+})}
 
 /// `sqf_part(f)`.
-pub fn sqf_part(e: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn sqf_part(e: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let p = Poly::from_expr(e, gens)?;
     Ok(p.sqf_part().as_expr())
-}
+})}
 
 // ----------------------------------------------------------------------
 // cancel
@@ -1390,14 +1390,14 @@ pub fn cancel_polys(p: &MPoly<Rat>, q: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) 
 /// before its numerator and denominator become polynomials, so
 /// `sqrt(4*a*b + 4*a*c)` with positive symbols is read as
 /// `2*sqrt(a)*sqrt(b + c)`.
-pub fn reference_cancel(e: &Expr) -> PResult<Expr> {
+pub fn reference_cancel(e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let e = crate::simptools::misc::signsimp(e, true);
     if matches!(e.kind(), Kind::Num(_) | Kind::Rel(..) | Kind::Bool(_)) {
         return Ok(e);
     }
     let e = crate::simptools::exprtools::factor_terms(&e, true, false, false, true);
     cancel(&e)
-}
+})}
 
 /// Whether every coefficient of `p` converts to a finite nonzero double.
 fn float_representable(p: &MPoly<Rat>) -> bool {
@@ -1408,7 +1408,7 @@ fn float_representable(p: &MPoly<Rat>) -> bool {
 }
 
 /// `cancel(expr)`.
-pub fn cancel(e: &Expr) -> PResult<Expr> {
+pub fn cancel(e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
     match e.kind() {
         Kind::Num(_) | Kind::Rel(..) | Kind::Bool(_) => return Ok(e.clone()),
         _ => {}
@@ -1462,23 +1462,23 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {
     let pe = super::convert::to_expr_prec(&pp, &c.gens, c.prec);
     let qe = super::convert::to_expr_prec(&qq, &c.gens, c.prec);
     Ok(div(&pe, &qe))
-}
+})}
 
 // ----------------------------------------------------------------------
 // division
 // ----------------------------------------------------------------------
 
 /// `div(f, g, *gens)`: `(quotient, remainder)`.
-pub fn div_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
+pub fn div_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {super::mpoly::checked_operation(||{
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     let (q, r) = ps[0].div(&ps[1])?;
     Ok((q.as_expr(), r.as_expr()))
-}
+})}
 
 /// `reduced(f, divisors, *gens)`: ordered multivariate division with
 /// remainder in lexicographic monomial order. Automatic generator detection
 /// uses the existing deterministic SymPy-compatible generator ordering.
-pub fn reduced(a: &Expr, divisors: &[Expr], gens: &[Expr]) -> PResult<(Vec<Expr>, Expr)> {
+pub fn reduced(a: &Expr, divisors: &[Expr], gens: &[Expr]) -> PResult<(Vec<Expr>, Expr)> {super::mpoly::checked_operation(||{
     use super::convert::{from_exprs, from_exprs_gens, to_expr_f};
     use super::ratfunc::{set_nvars, RF};
     use std::collections::BTreeMap;
@@ -1529,38 +1529,38 @@ pub fn reduced(a: &Expr, divisors: &[Expr], gens: &[Expr]) -> PResult<(Vec<Expr>
     let result = (q.iter().map(to_expr).collect(), to_expr(&r));
     set_nvars(old_nvars);
     Ok(result)
-}
+})}
 
 /// `rem(f, g, *gens)`.
-pub fn rem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn rem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     Ok(div_expr(a, b, gens)?.1)
-}
+})}
 
 /// `quo(f, g, *gens)`.
-pub fn quo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn quo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     Ok(div_expr(a, b, gens)?.0)
-}
+})}
 
 /// `pdiv(f, g, *gens)`: pseudo-division `(q, r)` with
 /// `lc(g)**(deg f - deg g + 1) * f = q*g + r`.
-pub fn pdiv_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
+pub fn pdiv_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {super::mpoly::checked_operation(||{
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     let (q, r) = ps[0].pdiv(&ps[1])?;
     Ok((q.as_expr(), r.as_expr()))
-}
+})}
 
 /// `prem(f, g, *gens)`: pseudo-remainder.
-pub fn prem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn prem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     Ok(pdiv_expr(a, b, gens)?.1)
-}
+})}
 
 /// `pquo(f, g, *gens)`: pseudo-quotient.
-pub fn pquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn pquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     Ok(pdiv_expr(a, b, gens)?.0)
-}
+})}
 
 /// `pexquo(f, g, *gens)`: exact pseudo-quotient.
-pub fn pexquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn pexquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let (q, r) = pdiv_expr(a, b, gens)?;
     if !r.is_zero() {
         return Err(PolyError::Unsupported(format!(
@@ -1570,16 +1570,16 @@ pub fn pexquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
         )));
     }
     Ok(q)
-}
+})}
 
 /// `exquo(f, g)`.
-pub fn exquo(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn exquo(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     Ok(ps[0].exquo(&ps[1])?.as_expr())
-}
+})}
 
 /// `degree(f, gen)`; `None` stands for `-oo`.
-pub fn degree(e: &Expr, gen: Option<&Expr>) -> PResult<Option<u32>> {
+pub fn degree(e: &Expr, gen: Option<&Expr>) -> PResult<Option<u32>> {super::mpoly::checked_operation(||{
     if let Some(n) = e.as_number() {
         return Ok(if n.is_zero() { None } else { Some(0) });
     }
@@ -1598,7 +1598,7 @@ pub fn degree(e: &Expr, gen: Option<&Expr>) -> PResult<Option<u32>> {
             Ok(p.degree(0))
         }
     }
-}
+})}
 
 // ----------------------------------------------------------------------
 // resultant / discriminant
@@ -1609,7 +1609,7 @@ fn int_with_denoms(p: &MPoly<Rat>) -> (Int, MPoly<Int>) {
 }
 
 /// `resultant(f, g, *gens)` (with respect to the first generator).
-pub fn resultant(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn resultant(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     let (da, za) = int_with_denoms(&ps[0].rep);
     let (db, zb) = int_with_denoms(&ps[1].rep);
@@ -1620,10 +1620,10 @@ pub fn resultant(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
     let scale = Rat::new(Int::one(), da.pow(m).mul(&db.pow(n)));
     let r = r.to_rat().scale(&scale);
     Ok(super::convert::to_expr_prec(&r, &ps[0].gens, ps[0].domain.prec()))
-}
+})}
 
 /// `discriminant(f, *gens)`.
-pub fn discriminant(f: &Expr, gens: &[Expr]) -> PResult<Expr> {
+pub fn discriminant(f: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let p = Poly::from_expr(f, gens)?;
     let (d, z) = int_with_denoms(&p.rep);
     let r = discriminant_mz(&z, 0);
@@ -1631,14 +1631,14 @@ pub fn discriminant(f: &Expr, gens: &[Expr]) -> PResult<Expr> {
     let n = p.rep.degree(0).max(1) as u32;
     let r = r.to_rat().scale(&Rat::new(Int::one(), d.pow(2 * n - 2)));
     Ok(super::convert::to_expr_prec(&r, &p.gens, p.domain.prec()))
-}
+})}
 
 // ----------------------------------------------------------------------
 // apart
 // ----------------------------------------------------------------------
 
 /// `apart(f, x)`: univariate partial fraction decomposition over `QQ`.
-pub fn apart(f: &Expr, x: Option<&Expr>) -> PResult<Expr> {
+pub fn apart(f: &Expr, x: Option<&Expr>) -> PResult<Expr> {super::mpoly::checked_operation(||{
     if f.is_atom() {
         return Ok(f.clone());
     }
@@ -1689,7 +1689,7 @@ pub fn apart(f: &Expr, x: Option<&Expr>) -> PResult<Expr> {
     let mut all = vec![poly_e];
     all.extend(terms);
     Ok(mul(&[Expr::num(common.to_number()), add(&all)]))
-}
+})}
 
 fn rf_expr(r: &super::ratfunc::RF, gens: &[Expr]) -> Expr {
     let n = super::convert::to_expr_int(&r.n, gens);
@@ -1799,7 +1799,7 @@ fn apart_param(pp: &Poly, qp: &Poly) -> PResult<Expr> {
 
 /// `dmp_cancel(include=False)` for univariate polynomials over `QQ`:
 /// `(cp, cq, p, q)` with positive leading coefficients.
-fn cancel_int(p: &MPoly<Rat>, q: &MPoly<Rat>) -> (Int, Int, Vec<Int>, Vec<Int>) {
+pub(crate) fn cancel_int(p: &MPoly<Rat>, q: &MPoly<Rat>) -> (Int, Int, Vec<Int>, Vec<Int>) {
     let (cq0, f) = p.clear_denoms();
     let (cp0, g) = q.clear_denoms();
     let (_, pp, qq) = super::gcd::gcd_mz(&f, &g);

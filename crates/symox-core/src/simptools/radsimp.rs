@@ -4,9 +4,105 @@ use super::exprtools::{gcd_terms, Factors};
 use super::{is_num, add_args, add_from_args, args, is_number_atom, keep_coeff, mexpand, mul_args, nodes, ordered, unevaluated_add, unevaluated_mul};
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
+use crate::poly::int::Rat;
 use crate::sortkey::cmp_default;
 use crate::{assumptions, decompose, ops, traverse};
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::cmp::Ordering;
+
+/// An exact decision for rational linear combinations of positive rational
+/// square roots. None means that this proof does not apply.
+#[derive(Debug, PartialEq, Eq)]
+pub enum SquareRootSum {
+    Rational(Rat),
+    Irrational,
+}
+
+fn rational_square_root(r: &Rat) -> Option<Rat> {
+    if r.is_negative() { return None; }
+    let n = r.n.isqrt();
+    let d = r.d.isqrt();
+    (n.mul(&n) == r.n && d.mul(&d) == r.d).then(|| Rat::new(n, d))
+}
+
+/// Distinct classes of positive rationals modulo rational squares have
+/// linearly independent square roots over QQ. Comparing square classes
+/// requires only exact integer square roots of a reduced rational ratio,
+/// not factorization, numerical recognition or a minimal polynomial.
+pub fn square_root_sum(e: &Expr) -> Option<SquareRootSum> {
+    let mut rational = Rat::zero();
+    let mut classes: Vec<(Rat, Rat)> = Vec::new();
+    for term in add_args(e) {
+        let (mut coefficient, mut radicand) = (Rat::one(), Rat::one());
+        for factor in mul_args(&term) {
+            if let Some(r) = factor.as_number().and_then(Rat::from_number) {
+                coefficient = coefficient.mul(&r);
+            } else if let Kind::Pow(base, exponent) = factor.kind() {
+                if *exponent != Expr::rational(1, 2) { return None; }
+                let r = base.as_number().and_then(Rat::from_number)?;
+                if r.is_negative() { return None; }
+                radicand = radicand.mul(&r);
+            } else {
+                return None;
+            }
+        }
+        if coefficient.is_zero() || radicand.is_zero() { continue; }
+        if let Some(root) = rational_square_root(&radicand) {
+            rational = rational.add(&coefficient.mul(&root));
+            continue;
+        }
+        let mut matched = false;
+        for (representative, sum) in &mut classes {
+            if let Some(root) = rational_square_root(&radicand.div(representative)) {
+                *sum = sum.add(&coefficient.mul(&root));
+                matched = true;
+                break;
+            }
+        }
+        if !matched { classes.push((radicand, coefficient)); }
+    }
+    Some(if classes.iter().all(|(_, c)| c.is_zero()) {
+        SquareRootSum::Rational(rational)
+    } else {
+        SquareRootSum::Irrational
+    })
+}
+
+/// The numeric-denominator preparation of radsimp. Unrecognized exact
+/// forms keep the existing host recognition callback; an error or signal
+/// stops the traversal before any further callback or replacement.
+pub fn prepare_numeric_denominators<E>(
+    e: &Expr,
+    check: &mut impl FnMut() -> Result<(), E>,
+    fallback: &mut impl FnMut(&Expr) -> Result<Option<Expr>, E>,
+) -> Result<Expr, E> {
+    let mut pending = vec![e.clone()];
+    let mut visited = FxHashSet::default();
+    let mut replacements = FxHashMap::default();
+    while let Some(node) = pending.pop() {
+        check()?;
+        if !visited.insert(node.clone()) { continue; }
+        pending.extend(node.args());
+        let Kind::Pow(base, exponent) = node.kind() else { continue };
+        if !exponent.is_integer_number() || !exponent.as_number().is_some_and(Number::is_negative)
+            || !base.is_add() || base.float_info().max_precision.is_some() || !is_num(base) {
+            continue;
+        }
+        let expanded = mexpand(base);
+        let candidate = match square_root_sum(&expanded) {
+            Some(SquareRootSum::Rational(r)) => Some(Expr::num(r.to_number())),
+            Some(SquareRootSum::Irrational) => None,
+            None => fallback(&expanded)?,
+        };
+        if let Some(candidate) = candidate {
+            if candidate != *base {
+                replacements.insert(node.clone(), ops::pow(&candidate, exponent));
+            }
+        }
+    }
+    check()?;
+    Ok(crate::subs::xreplace(e, &replacements))
+}
 
 /// `fraction(expr, exact)`: `(numerator, denominator)` without
 /// rewriting the expression.
@@ -361,6 +457,11 @@ struct Radsimp {
 
 impl Radsimp {
     fn handle(&self, expr: &Expr) -> Expr {
+        let result = self.handle_inner(expr);
+        undefined_algebraic_product(&result).unwrap_or(result)
+    }
+
+    fn handle_inner(&self, expr: &Expr) -> Expr {
         if expr.is_atom() {
             return expr.clone();
         }
@@ -507,7 +608,31 @@ pub fn radsimp(e: &Expr, symbolic: bool, max_terms: usize) -> Expr {
             }
         }
     }
-    ops::add(&[coeff, unevaluated_mul(&[n, ops::inv(&d)])])
+    let result = ops::add(&[coeff, unevaluated_mul(&[n, ops::inv(&d)])]);
+    undefined_algebraic_product(&result).unwrap_or(result)
+}
+
+/// Rationalization can expose zoo before recognizing that the remaining
+/// radical numerator is exactly zero. Decide only that concrete product:
+/// no symbolic/host query and no numerical cancellation proves a zero.
+fn undefined_algebraic_product(e: &Expr) -> Option<Expr> {
+    let Kind::Mul(coefficient, factors) = e.kind() else { return None };
+    if !factors.iter().any(|(base, exponent)|
+        base.is_constant(Constant::ComplexInfinity) && exponent.is_one()) {
+        return None;
+    }
+    let mut finite = vec![Expr::num(coefficient.clone())];
+    for (base, exponent) in factors {
+        if base.is_constant(Constant::ComplexInfinity) && exponent.is_one() { continue; }
+        finite.push(ops::pow(base, exponent));
+    }
+    let finite = ops::mul(&finite);
+    if finite.has_host() || !traverse::free_symbols(&finite).is_empty() { return None; }
+    let zero = match assumptions::is_zero_exact(&finite) {
+        Some(value) => value,
+        None => assumptions::algebraic_zero(&finite),
+    };
+    zero.then(|| Expr::constant(Constant::NaN))
 }
 
 /// `rad_rationalize(num, den)`.
@@ -581,4 +706,56 @@ pub fn split_surds(e: &Expr) -> (Expr, Expr, Expr) {
         a2v.push(ops::mul(&[c.clone(), s.clone()]));
     }
     (g2, ops::add(&a1v), ops::add(&a2v))
+}
+
+#[cfg(test)]
+mod numeric_denominator_tests {
+    use super::*;
+
+    fn parse(s: &str) -> Expr { crate::parser::parse_str(s).unwrap() }
+
+    #[test]
+    fn rational_square_classes_are_compared_exactly() {
+        let sqrt8 = Expr::from_unevaluated_kind(Kind::Pow(Expr::int(8), Expr::rational(1, 2)));
+        let sum = ops::add(&[Expr::int(3), sqrt8, ops::mul2(&Expr::int(-2), &ops::sqrt(&Expr::int(2)))]);
+        assert_eq!(square_root_sum(&sum), Some(SquareRootSum::Rational(Rat::from_i64(3))));
+        assert_eq!(square_root_sum(&parse("sqrt(2)+sqrt(3)+sqrt(5)")), Some(SquareRootSum::Irrational));
+        assert_eq!(square_root_sum(&parse("sqrt(2)+sqrt(3)+sqrt(5)+sqrt(7)+sqrt(11)")), Some(SquareRootSum::Irrational));
+        assert_eq!(square_root_sum(&parse("sqrt(2)+I")), None);
+    }
+
+    #[test]
+    fn proven_irrational_denominators_do_not_use_recognition() {
+        let expression = parse("1/(sqrt(2)+sqrt(3)+sqrt(5))");
+        let result = prepare_numeric_denominators(&expression, &mut || Ok::<_, ()>(()), &mut |_| {
+            panic!("a proved irrational square-root sum needs no numerical recognition")
+        }).unwrap();
+        assert_eq!(result, expression);
+    }
+
+    #[test]
+    fn unknown_denominators_keep_fallback_and_propagate_interrupts() {
+        let expression = parse("1/(exp(1)+sqrt(2))+1/(pi+sqrt(3))");
+        let mut calls = 0;
+        let result = prepare_numeric_denominators(&expression, &mut || Ok::<_, &str>(()), &mut |_| {
+            calls += 1;
+            Err("interrupt")
+        });
+        assert_eq!(result, Err("interrupt"));
+        assert_eq!(calls, 1);
+    }
+
+    #[test]
+    fn undefined_radical_product_requires_an_exact_zero_certificate() {
+        let zero = parse("sqrt(5-sqrt(5))*sqrt(40-8*sqrt(5))-2*sqrt(2)*(5-sqrt(5))");
+        assert!(!zero.is_zero());
+        let held = |factor: Expr| Expr::from_unevaluated_kind(Kind::Mul(
+            Number::ONE, vec![(Expr::constant(Constant::ComplexInfinity), Expr::one()),
+                (factor, Expr::one())],
+        ));
+        assert_eq!(undefined_algebraic_product(&held(zero.clone())), Some(Expr::nan()));
+        let tiny = parse("1/10000000000000000000000000000000000000000");
+        assert_eq!(undefined_algebraic_product(&held(ops::add2(&zero, &tiny))), None);
+        assert_eq!(undefined_algebraic_product(&held(parse("x"))), None);
+    }
 }

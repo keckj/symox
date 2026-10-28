@@ -1,0 +1,88 @@
+{
+  "native_sha256": "8323eddaa68e4c1f2c55cff6933c84fa3c4af204ed56eabf4e25a4d35bec1733",
+  "method": "5 batches, 12 distinct preconstructed inputs each, evalf(30); no input repeated, construction excluded",
+  "one_f_zero": {
+    "seconds_per_eval_samples": [
+      0.0017656998332616543,
+      0.0002360610833420651,
+      0.00022715233338506854,
+      0.0002289655832707164,
+      0.00022951749997446314
+    ],
+    "median_seconds_per_eval": 0.00022951749997446314,
+    "output_examples": [
+      "hyper((1/3,), (), 1)",
+      "hyper((1004/3003,), (), 1)"
+    ],
+    "counts": {
+      "positive_infinity": 0,
+      "negative_infinity": 0,
+      "held_hyper": 60,
+      "finite": 0
+    },
+    "errors": []
+  },
+  "balanced": {
+    "seconds_per_eval_samples": [
+      0.0818108681666369,
+      0.008097783416663637,
+      0.005864146000021719,
+      0.006712828999904256,
+      0.006165281999983563
+    ],
+    "median_seconds_per_eval": 0.006712828999904256,
+    "output_examples": [
+      "oo",
+      "oo"
+    ],
+    "counts": {
+      "positive_infinity": 29,
+      "negative_infinity": 0,
+      "held_hyper": 0,
+      "finite": 31
+    },
+    "errors": []
+  },
+  "signed_balanced": {
+    "seconds_per_eval_samples": [
+      0.024948750416569965,
+      0.023064813333197282,
+      0.02249457558339903,
+      0.026282897416725366,
+      0.020071990833306092
+    ],
+    "median_seconds_per_eval": 0.023064813333197282,
+    "output_examples": [
+      "hyper((-1/3, -1/4), (-7/12,), 1)",
+      "hyper((-998/3003, -1/4), (-6995/12012,), 1)"
+    ],
+    "counts": {
+      "positive_infinity": 0,
+      "negative_infinity": 0,
+      "held_hyper": 60,
+      "finite": 0
+    },
+    "errors": []
+  },
+  "gauss": {
+    "seconds_per_eval_samples": [
+      0.00030540083344021696,
+      0.00028532641666364117,
+      0.0002955771666772004,
+      0.0002813764167513,
+      0.0002815964166984486
+    ],
+    "median_seconds_per_eval": 0.00028532641666364117,
+    "output_examples": [
+      "1.24049001469903211140048462120",
+      "1.24143145464832002883158210648"
+    ],
+    "counts": {
+      "positive_infinity": 0,
+      "negative_infinity": 0,
+      "held_hyper": 0,
+      "finite": 60
+    },
+    "errors": []
+  }
+}

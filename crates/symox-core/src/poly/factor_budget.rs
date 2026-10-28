@@ -282,7 +282,7 @@ pub fn run<T>(limits: Limits, operation: impl FnOnce() -> PResult<T>) -> PResult
         } else {
             STATE.with(Cell::get)
         });
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(operation));
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||super::mpoly::checked_operation(operation)));
         // A nested scope must retain charges consumed under its parent.
         if previous.is_some() {
             std::mem::forget(restore);

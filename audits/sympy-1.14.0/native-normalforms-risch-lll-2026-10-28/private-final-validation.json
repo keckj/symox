@@ -1,0 +1,41 @@
+{
+  "status": "private HNF integration and non-auditing HNF/LU/solve admission on corrected R10r1; no full-suite/release/performance claim",
+  "revision": "R1 tainted-core-key correction; preliminary545/6270 explicitly rejected",
+  "freeze_manifest_sha256": "94793cee6bd7be1394a835794ec03ab7635f4d17113928be5dc455ecac11ad30",
+  "native_sha256": "2f9696d4238800cc2dc5b7f7564b9b1eb3dfbe2f0c39a079b46c6e93877d728f",
+  "gates": {
+    "local/focused": {
+      "passed": 551,
+      "exact_once": true,
+      "returncode": 0,
+      "elapsed_seconds": 28.41283369064331,
+      "files": 4
+    },
+    "local/coupled": {
+      "passed": 6276,
+      "exact_once": true,
+      "returncode": 0,
+      "elapsed_seconds": 128.08975267410278,
+      "files": 62
+    },
+    "demeter/focused": {
+      "passed": 551,
+      "exact_once": true,
+      "returncode": 0,
+      "elapsed_seconds": 27.762962341308594,
+      "files": 4
+    },
+    "demeter/coupled": {
+      "passed": 6276,
+      "exact_once": true,
+      "returncode": 0,
+      "elapsed_seconds": 154.33467054367065,
+      "files": 62
+    }
+  },
+  "rust_result_sha256": "1aea44722f24dd282b08e23c2c034de75e8df942b8d599598401f04ade61686a",
+  "source_files": 11,
+  "safe_patch_replay": true,
+  "native_input_hashes_unchanged": true,
+  "global_algorithmic_parity_certified": false
+}

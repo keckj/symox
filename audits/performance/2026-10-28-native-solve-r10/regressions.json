@@ -1,0 +1,16 @@
+[
+  {
+    "case": "domainmatrix_sparse-2x2-small-rhs1",
+    "mode": "first",
+    "baseline": "r9",
+    "extra_us": 7.097,
+    "extra_percent": 4.888784795651957
+  },
+  {
+    "case": "domainmatrix_sparse-8x4-tall-rhs2",
+    "mode": "first",
+    "baseline": "r9",
+    "extra_us": 74.404,
+    "extra_percent": 12.82179864309927
+  }
+]

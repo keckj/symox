@@ -1,0 +1,391 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "status": "FAILED full validation; not an accepted release",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "b85504f927fa67f93dc8b32aa50df2bce4d30f468d0a98758d8a19b5e5f049e6",
+    "native_sha256": "02fa2defc68a2eaef1930665900a76b5cb6b728bad0294c80234ac667f0ae010",
+    "working_code_diff_sha256": "ffdd3fa639e5903ee630cb27764b3d5b26d222d1910bf51fe4c95404d381f1e2",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 478.17657589912415,
+    "native_sha256": "02fa2defc68a2eaef1930665900a76b5cb6b728bad0294c80234ac667f0ae010"
+  },
+  "python": {
+    "counts": {
+      "passed": 47125,
+      "xfailed": 5,
+      "skipped": 55,
+      "failed": 60
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 47245,
+      "collected_in_shards": 47245,
+      "finished": 47245,
+      "missing": [],
+      "unexpected": []
+    },
+    "failures": [
+      {
+        "shard": "shard-45",
+        "class": "tests.test_lambda_numeric_evaluation",
+        "name": "test_ode_solver_rejects_excessive_orders_before_allocating_coefficients"
+      },
+      {
+        "shard": "shard-11",
+        "class": "tests.test_solve_expression_targets",
+        "name": "test_reference_atom_roots_labels_and_output_shapes[flags0-Derivative(f(x),x)-f(x)-x-f(x)]"
+      },
+      {
+        "shard": "shard-11",
+        "class": "tests.test_solve_expression_targets",
+        "name": "test_reference_atom_roots_labels_and_output_shapes[flags1-Derivative(f(x),x)-f(x)-x-f(x)]"
+      },
+      {
+        "shard": "shard-11",
+        "class": "tests.test_solve_expression_targets",
+        "name": "test_reference_atom_roots_labels_and_output_shapes[flags3-Derivative(f(x),x)-f(x)-x-f(x)]"
+      },
+      {
+        "shard": "shard-11",
+        "class": "tests.test_solve_expression_targets",
+        "name": "test_private_dummy_names_cannot_capture_user_symbols"
+      },
+      {
+        "shard": "shard-11",
+        "class": "tests.test_solve_expression_targets",
+        "name": "test_native_atom_solver_never_imports_reference"
+      },
+      {
+        "shard": "shard-11",
+        "class": "tests.test_missing_mechanics_wave4_parity",
+        "name": "test_beam3d_doc_slope_factor"
+      },
+      {
+        "shard": "shard-28",
+        "class": "tests.test_linear_ode_systems",
+        "name": "test_public_dsolve_accepts_linear_systems_and_initial_conditions[False]"
+      },
+      {
+        "shard": "shard-28",
+        "class": "tests.test_linear_ode_systems",
+        "name": "test_public_dsolve_accepts_linear_systems_and_initial_conditions[True]"
+      },
+      {
+        "shard": "shard-28",
+        "class": "tests.test_linear_ode_systems",
+        "name": "test_inferred_system_functions_match_explicit_function_order"
+      },
+      {
+        "shard": "shard-28",
+        "class": "tests.test_linear_ode_systems",
+        "name": "test_initial_condition_symbols_cannot_become_generated_constants"
+      },
+      {
+        "shard": "shard-12",
+        "class": "tests.test_ode_symbol_collisions",
+        "name": "test_multiple_constants_skip_all_parameter_names"
+      },
+      {
+        "shard": "shard-26",
+        "class": "tests.test_sortkey_compat",
+        "name": "test_held_calculus_keys_match_sympy[<lambda>2]"
+      },
+      {
+        "shard": "shard-41",
+        "class": "tests.test_holo_rest_parity",
+        "name": "test_multiple_derivative_final_step"
+      },
+      {
+        "shard": "shard-34",
+        "class": "tests.test_solver_checks",
+        "name": "test_linear_isolation_evaluates_relevant_held_derivatives"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x)-1st_linear]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x)-f-separable]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x)+x*f-x-1st_linear]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x)-x*f*f-Bernoulli]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x)+f-x*f*f-Bernoulli]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x,2)+f-nth_linear_constant_coeff_homogeneous]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x,3)-f-nth_linear_constant_coeff_homogeneous]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x,2)+f-x-nth_linear_constant_coeff_undetermined_coefficients]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x,2)+f-sin(x)-nth_linear_constant_coeff_undetermined_coefficients]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x,2)+f-exp(2*x)-nth_linear_constant_coeff_undetermined_coefficients]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[diff(f,x,2)+f-log(x)-nth_linear_constant_coeff_variation_of_parameters]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[x*x*diff(f,x,2)+x*diff(f,x)-f-nth_linear_euler_eq_homogeneous]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[(x*x+1)*diff(f,x)+2*x*f-1st_exact]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[(x+cos(f))*diff(f,x)+f+2*x-1st_exact]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_native_ode_family_labels_are_reference_classes[Eq(diff(f,x),f)-separable]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_accepted_ode_hints_produce_valid_solutions[diff(f,x,2)+f-x]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,x)+diff(u,y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[2*diff(u,x)+3*diff(u,y)+4*u]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,x)+diff(u,y)-x]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[2*diff(u,x)-diff(u,y)-x*y]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,x)+2*diff(u,y)+u-exp(x+y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[-2*diff(u,x)+4*diff(u,y)+5*u-exp(x+3*y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,x)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,x)+2*u-y]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,y)-u-x]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[x*diff(u,x)+y*diff(u,y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[2*x*diff(u,x)+3*y*diff(u,y)+4*u]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,x)+x*diff(u,y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[y*diff(u,x)+diff(u,y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[x*diff(u,x)+diff(u,y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[diff(u,x)+y*diff(u,y)]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[x*diff(u,x)+u-y]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_linear_pde_classification_and_solutions[y*diff(u,y)+u-x]"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_pde_solution_checks_lists_reversed_equalities_and_incorrect_values"
+      },
+      {
+        "shard": "shard-38",
+        "class": "tests.test_differential_equation_interfaces",
+        "name": "test_differential_interfaces_do_not_import_sympy"
+      },
+      {
+        "shard": "shard-29",
+        "class": "tests.test_pow_negative_base_parity",
+        "name": "test_dsolve_third_order_constant_coefficients"
+      },
+      {
+        "shard": "shard-29",
+        "class": "tests.test_ode_support_parity",
+        "name": "test_matches_reference[solve(Derivative(f(x), x) - f(x) - x, f(x))]"
+      },
+      {
+        "shard": "shard-29",
+        "class": "tests.test_ode_support_parity",
+        "name": "test_matches_reference[dsolve(x**2*f(x).diff(x, 2) + x*f(x).diff(x) + (x**2 - 4)*f(x), f(x))]"
+      },
+      {
+        "shard": "shard-30",
+        "class": "tests.test_missing_c2_parity",
+        "name": "test_matches_reference[sysode]"
+      },
+      {
+        "shard": "shard-30",
+        "class": "tests.test_remaining_symbolic_algorithms",
+        "name": "test_system_inspection_and_triangular_nonlinear_solution"
+      },
+      {
+        "shard": "shard-30",
+        "class": "tests.test_remaining_symbolic_algorithms",
+        "name": "test_linear_system_adapter_and_solution_scoring"
+      },
+      {
+        "shard": "shard-27",
+        "class": "tests.test_compare",
+        "name": "test_differential[compare_ode]"
+      },
+      {
+        "shard": "shard-32",
+        "class": "tests.test_physics_vector_mechanics",
+        "name": "test_prismatic_joint_system_and_symbolic_system"
+      },
+      {
+        "shard": "shard-14",
+        "class": "tests.test_wrong_mechanics_wave4_parity",
+        "name": "test_beam3d_deflection_constants_are_solved"
+      }
+    ],
+    "elapsed_seconds": 187.37845873832703
+  },
+  "rust": {
+    "passed": 676,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 130.51069927215576
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 22.303807497024536
+      },
+      "rust_inputs_unchanged": true
+    }
+  },
+  "isolated_targeted_tests": {
+    "passed": 601,
+    "note": "These targeted successes did not cover the established public Derivative class-query or mixed-specifier parser regressions; full suite is authoritative."
+  },
+  "triage": {
+    "class_queries": "Func::from_name(Derivative) now resolves SymbolicDerivative. Native class filter accidentally ignores compact Kind::Derivative; ODE/PDE/solve/physics and doit postprocessing lose established derivative detection. Repair in isolated branch pending full validation.",
+    "mixed_specifiers": "Lookahead after a bare variable attempted to convert a following Python tuple/list pair into a scalar expression; root fix prepared with 39 new tests, runtime rebuild pending.",
+    "failure_count": 60,
+    "next_step": "Rebuild a distinct immutable corrected release and rerun the entire suite on Demeter. Do not modify this snapshot or count it as passed."
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-derivative-20261026",
+    "immutable_local_package": "/home/keckj/.cache/symox-validation/native-derivative-20261026/after/python/symox",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-derivative-20261026",
+    "all_shards": "/home/keckj/.cache/symox-validation/native-derivative-20261026/demeter-initial"
+  },
+  "global_algorithmic_parity_certified": false
+}

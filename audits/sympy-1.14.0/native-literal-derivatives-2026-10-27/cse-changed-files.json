@@ -1,0 +1,12 @@
+[
+  {
+    "path": "python/symox/simplify/cse_main.py",
+    "base_sha256": "7599a59c047d7b1b6b8104d5c948755c2d2c404e4483772f235b13160338c9fd",
+    "final_sha256": "957beaedbe93620e67a689d1032388cf9c81ae9f0897c86f06e900ac7ab12ca5"
+  },
+  {
+    "path": "tests/test_derivative_recipe_cse_attribute_protocols.py",
+    "base_sha256": null,
+    "final_sha256": "c513077f5a585adf5a725fd4b64cb927273fa4f55fad4a5fe3a68a3556f6e195"
+  }
+]

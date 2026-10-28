@@ -173,7 +173,9 @@ fn ex(
             // SymPy's multinomial hint leaves base**-1 alone, and no other
             // hint applies to it: with an unchanged sum as base the node is
             // returned as is (a held 1/(0.99 + 0.2*I) stays held).
-            if x2.is_minus_one() && b2.is_add() && b2 == *b {
+            if e.is_deferred_numeric_power() {
+                crate::ops::deferred::rebuild(&b2, &x2)
+            } else if x2.is_minus_one() && b2.is_add() && b2 == *b {
                 e.clone()
             } else {
                 expand_pow(&b2, &x2, cache, options, opaque)
@@ -450,6 +452,7 @@ fn raw_terms(e: &Expr, gens: &mut Gens) -> Vec<RawTerm> {
                     m.push(gen_of(b, x, gens));
                 }
             }
+            Kind::Pow(..) if t.is_deferred_numeric_power() => m.push((gens.id(t.clone()),1)),
             Kind::Pow(b, x) => m.push(gen_of(b, x, gens)),
             _ => m.push((gens.id(t.clone()), 1)),
         }
@@ -526,6 +529,7 @@ fn poly_pow(p: &Poly, n: u32) -> Poly {
 
 /// Generators that can be assembled into a `Mul` without re-canonicalising.
 fn is_simple_gen(g: &Expr) -> bool {
+    if g.is_deferred_numeric_power() { return true; }
     match g.kind() {
         Kind::Sym(_) | Kind::Add(..) => true,
         Kind::Func(f, _) => !matches!(f, Func::Exp),

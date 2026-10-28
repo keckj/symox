@@ -1,0 +1,89 @@
+{
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35",
+    "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+    "working_code_diff_sha256": "da576c7794f7ea5d65ebf4308300b9128bac11388935d5140a019d5a8d140efa",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/fflu.rs",
+      "base": null,
+      "candidate": "de0bfb1e2b9a1ad2a6df9e9cca1387fa24f2a3e282bc3c02241250c9104af572"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "base": "2bb0036f447d9ad9a0a987801d61ca8cee79a238a07aacaa5934e60912f9aab1",
+      "candidate": "4675647687fe9f771896fd459a17c0e0e51e613da2849807b1fbdc9c67590066"
+    },
+    {
+      "path": "crates/symox-py/src/poly_fflu.rs",
+      "base": null,
+      "candidate": "a95f46dad7f651ea33264b2b14c73fd4b16af16a41708610e40869d289ed0c48"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977",
+      "candidate": "fbd09131d2b7d57276b75250fbab54ebec08bebfce9f3ebfc28869a43bbb395d"
+    },
+    {
+      "path": "python/symox/polys/matrices/_fflu_native.py",
+      "base": null,
+      "candidate": "4db26aaa7b0c2e0c4f901225614f98ba8377b062f8aacccc4aa30cf0214b0262"
+    },
+    {
+      "path": "python/symox/polys/matrices/ddm.py",
+      "base": "24676395a297d14d16838596996506bae6a0c796d7bd73c9b7bc7ad13fd03812",
+      "candidate": "a797d0a81663e8ff254be95947b1cb0de0308e6fa699f23e0d0819fc42ff5515"
+    },
+    {
+      "path": "tests/test_native_ddm_fflu.py",
+      "base": null,
+      "candidate": "e0f2c9da8528d7f81e537414ed2d5cf65b3eb3f0f5b7febd0dd0a347eeff3e3a"
+    },
+    {
+      "path": "python/symox/polys/matrices/_hnf_native.py",
+      "base": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34",
+      "candidate": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c"
+    },
+    {
+      "path": "tests/test_native_hnf_cached_builtins.py",
+      "base": null,
+      "candidate": "b2dc20fded67193ea21bbbd14f633b1ab71072ffda0f524e955735696e03e568"
+    }
+  ],
+  "expected_native_inputs": 352,
+  "expected_rust_units": 755,
+  "private_manifest_sha256": "39f20b1abe53e5bdfbb953360bae81b1521ed23203f3d1f846f34bbdd28f04d3",
+  "components": [
+    {
+      "label": "four-phase-exact-fflu",
+      "private_archive_sha256": "043451a90650d97690bbac38cb51a38fff71127eaf39f8ee4f48545ed48e4f63",
+      "private_native_release": "150a0b4659007c4fce3107a06ee8fad50dfa1cf89998b8162f717ccfcd1f5c9c",
+      "mathematics": "Bareiss, permutation, lower/upper extraction, diagonal products; two reference math defects intentionally corrected in generic fallback."
+    },
+    {
+      "label": "hnf-cached-function-builtins",
+      "manifest_sha256": "6352242c4d125afd4c07a80341a9d66f628239ccff36065538472bfa7da11fc8",
+      "archive_sha256": "e66b9d53ea675c7eb647eb9643223400fc032e64901ec2968cac8f9b3155ac11",
+      "private_validation": {
+        "before_failures": 4,
+        "stock_before_passed": 1,
+        "after_new_passed": 5,
+        "focused_local": 562,
+        "focused_demeter": 562,
+        "native_unchanged": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4"
+      },
+      "scope": "Actual cached function builtins are checked before capture/admission. Complete original mathematics, callbacks and errors on refusal."
+    }
+  ],
+  "fflu_patch_sha256": "e084afddb5afe123a1fe955ad7204446701eeeefeca831e0366b51c98871df86",
+  "cumulative_patch_sha256": "559c86e19a7ebb6edec5b851a11e91643936befb76c03717c6bcf43b664d379d",
+  "hnf_followup_patch_sha256": "9e3dc4c97a54419b6182bec7f82adee5a6af26797e3b9dd6a97933fa6ac48de6"
+}

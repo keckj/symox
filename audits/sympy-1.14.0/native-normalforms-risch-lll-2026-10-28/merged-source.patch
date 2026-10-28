@@ -1,0 +1,1163 @@
+--- /dev/null
++++ b/crates/symox-core/src/poly/hnf.rs
+@@ -0,0 +1,113 @@
++//! Exact ordinary column Hermite reduction, in the established operation order.
++use super::Int;
++
++pub enum Event<'a> {
++    Operation(usize,usize,&'a Int,&'a Int,&'a Int,&'a Int),
++    Set(usize,usize,&'a Int),
++}
++
++fn columns<E>(matrix:&mut [Vec<Int>],i:usize,j:usize,a:&Int,b:&Int,c:&Int,d:&Int,
++    check:&mut impl FnMut()->Result<(),E>,publish:&mut impl FnMut(Event<'_>)->Result<(),E>)->Result<(),E> {
++    publish(Event::Operation(i,j,a,b,c,d))?;
++    for (k,row) in matrix.iter_mut().enumerate(){
++        check()?;
++        let original=row[i].clone();
++        let value=a.mul(&original).add(&b.mul(&row[j]));
++        publish(Event::Set(k,i,&value))?;row[i]=value;
++        // The second expression sees the first assignment when i==j.
++        let value=c.mul(&original).add(&d.mul(&row[j]));
++        publish(Event::Set(k,j,&value))?;row[j]=value;
++    }
++    Ok(())
++}
++
++/// Reduce in place and return the first retained column. None is a shape
++/// refusal before publication, never a claim that the lattice has rank zero.
++pub fn ordinary<E>(a:&mut [Vec<Int>],n:usize,check:&mut impl FnMut()->Result<(),E>,
++    publish:&mut impl FnMut(Event<'_>)->Result<(),E>)->Result<Option<usize>,E> {
++    check()?;
++    if a.iter().any(|row|row.len()!=n){return Ok(None);}
++    let mut k=n;
++    let zero=Int::zero();let one=Int::one();let minus_one=one.neg();
++    for i in (0..a.len()).rev(){
++        check()?;
++        if k==0 {break;}
++        k-=1;
++        for j in (0..k).rev(){
++            check()?;
++            if !a[i][j].is_zero(){
++                let left=a[i][k].clone();let right=a[i][j].clone();
++                let (g,mut u,mut v)=left.gcdex(&right);
++                if !left.is_zero()&&right.div_rem_trunc(&left).1.is_zero(){
++                    v=zero.clone();u=if left.is_negative(){minus_one.clone()}else{one.clone()};
++                }
++                let r=left.div_exact_unchecked(&g);let s=right.div_exact_unchecked(&g);
++                columns(a,k,j,&u,&v,&s.neg(),&r,check,publish)?;
++            }
++        }
++        let mut pivot=a[i][k].clone();
++        if pivot.is_negative(){
++            columns(a,k,k,&minus_one,&zero,&minus_one,&zero,check,publish)?;
++            pivot=pivot.neg();
++        }
++        if pivot.is_zero(){k+=1;}
++        else {
++            for j in (k+1)..n {
++                check()?;
++                let q=a[i][j].div_mod_floor(&pivot).0;
++                columns(a,j,k,&one,&q.neg(),&zero,&one,check,publish)?;
++            }
++        }
++    }
++    check()?;
++    Ok(Some(k))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    fn ints(rows:&[&[i64]])->Vec<Vec<Int>> {rows.iter().map(|row|row.iter().copied().map(Int::from).collect()).collect()}
++    #[test]
++    fn canonical_example_and_exact_column_lattice_transformation() {
++        let original=ints(&[&[12,6,4],&[3,9,6],&[2,16,14]]);let mut a=original.clone();
++        let mut transform=ints(&[&[1,0,0],&[0,1,0],&[0,0,1]]);
++        let k=ordinary(&mut a,3,&mut ||Ok::<_,()>(()),&mut |e|{
++            if let Event::Operation(i,j,p,q,r,s)=e{
++                for row in &mut transform{
++                    let old=row[i].clone();row[i]=p.mul(&old).add(&q.mul(&row[j]));row[j]=r.mul(&old).add(&s.mul(&row[j]));
++                }
++            }Ok(())
++        }).unwrap().unwrap();
++        assert_eq!(k,0);assert_eq!(a,ints(&[&[10,0,2],&[0,15,3],&[0,0,2]]));
++        for i in 0..3 {for j in 0..3 {
++            let sum=(0..3).fold(Int::zero(),|v,l|v.add(&original[i][l].mul(&transform[l][j])));
++            assert_eq!(sum,a[i][j]);
++        }}
++    }
++    #[test]
++    fn negative_pivots_and_floor_remainders_have_reference_representatives() {
++        let mut a=ints(&[&[-2,-3]]);let mut writes=Vec::new();
++        let k=ordinary(&mut a,2,&mut ||Ok::<_,()>(()),&mut |e|{if let Event::Set(i,j,v)=e{writes.push((i,j,v.clone()));}Ok(())}).unwrap();
++        assert_eq!(k,Some(1));assert_eq!(a,ints(&[&[0,1]]));assert!(!writes.is_empty());
++        let mut b=ints(&[&[-3]]);let mut writes=Vec::new();
++        assert_eq!(ordinary(&mut b,1,&mut ||Ok::<_,()>(()),&mut |e|{if let Event::Set(_,_,v)=e{writes.push(v.clone());}Ok(())}).unwrap(),Some(0));
++        assert_eq!(writes,vec![Int::from(3),Int::from(3)]);
++    }
++    #[test]
++    fn deficient_rank_tall_shapes_and_empty_rows_preserve_column_crop() {
++        let mut a=ints(&[&[1,2,3],&[2,4,6]]);
++        let k=ordinary(&mut a,3,&mut ||Ok::<_,()>(()),&mut |_|Ok(())).unwrap().unwrap();
++        assert_eq!(k,2);assert_eq!(a,ints(&[&[0,0,1],&[0,0,2]]));
++        let mut a=ints(&[&[0,0],&[0,0],&[0,0]]);
++        assert_eq!(ordinary(&mut a,2,&mut ||Ok::<_,()>(()),&mut |_|panic!("zero publication")).unwrap(),Some(2));
++        assert_eq!(ordinary(&mut [],7,&mut ||Ok::<_,()>(()),&mut |_|panic!("empty publication")).unwrap(),Some(7));
++    }
++    #[test]
++    fn malformed_refusal_and_interruption_keep_the_published_prefix() {
++        let mut a=ints(&[&[1],&[2,3]]);let saved=a.clone();
++        assert_eq!(ordinary(&mut a,2,&mut ||Ok::<_,()>(()),&mut |_|panic!("shape publication")).unwrap(),None);assert_eq!(a,saved);
++        let mut a=ints(&[&[-3]]);let mut writes=0;
++        let result=ordinary(&mut a,1,&mut ||Ok(()),&mut |e|{if matches!(e,Event::Set(..)){writes+=1;if writes==2{return Err("interrupt");}}Ok(())});
++        assert_eq!(result,Err("interrupt"));assert_eq!(a,ints(&[&[3]]));assert_eq!(writes,2);
++    }
++}
+--- a/crates/symox-core/src/poly/mod.rs
++++ b/crates/symox-core/src/poly/mod.rs
+@@ -85,3 +85,5 @@
+ pub mod lu;
+ 
+ pub mod lu_solve;
++
++pub mod hnf;
+--- /dev/null
++++ b/crates/symox-py/src/poly_hnf.rs
+@@ -0,0 +1,95 @@
++//! Ordinary ZZ HNF publication and noncalling authentication of helper lookups.
++use pyo3::prelude::*;
++use pyo3::exceptions::PyTypeError;
++use pyo3::types::{PyCFunction,PyDict,PyInt,PyList,PyModule,PyString,PyTuple};
++use symox::poly::{hnf,domains::ExactDomain};
++use super::{sequence,entries,integers,Scalar,element_object,integer_object};
++
++fn exact_dictionary<'py>(value:&Bound<'py,PyAny>)->Option<Bound<'py,PyDict>> {
++    let dict=value.downcast_exact::<PyDict>().ok()?;
++    if dict.iter().any(|(key,_)|!key.is_exact_instance_of::<PyString>()){return None;}
++    Some(dict.clone())
++}
++
++fn lookup<'py>(globals:&Bound<'py,PyDict>,builtins:&Bound<'py,PyDict>,name:&str)->PyResult<PyObject> {
++    let value=if let Some(v)=globals.get_item(name)?{Some(v)}else{builtins.get_item(name)?};
++    Ok(value.map_or_else(||globals.py().None(),Bound::unbind))
++}
++
++fn function_globals<'py>(function:&Bound<'py,PyAny>,kind:&Bound<'py,PyAny>)
++    ->PyResult<Option<(Bound<'py,PyDict>,Bound<'py,PyDict>)>> {
++    if !function.get_type().is(kind){return Ok(None);}
++    let globals=function.getattr(pyo3::intern!(function.py(),"__globals__"))?;
++    let Some(globals)=exact_dictionary(&globals) else{return Ok(None)};
++    let Some(builtins)=globals.get_item("__builtins__")? else{return Ok(None)};
++    let builtins=if let Some(b)=exact_dictionary(&builtins){b}
++        else if let Ok(module)=builtins.downcast_exact::<PyModule>(){module.dict()}
++        else{return Ok(None)};
++    if builtins.iter().any(|(key,_)|!key.is_exact_instance_of::<PyString>()){return Ok(None);}
++    Ok(Some((globals,builtins)))
++}
++
++fn dependencies(py:Python<'_>,print_function:&Bound<'_,PyAny>,function_type:&Bound<'_,PyAny>)
++    ->PyResult<Option<PyObject>> {
++    let frame=unsafe {pyo3::ffi::PyEval_GetFrame()};
++    if frame.is_null(){return Ok(None);}
++    let frame=unsafe {Bound::from_borrowed_ptr(py,frame.cast())};
++    let globals=frame.getattr(pyo3::intern!(py,"f_globals"))?;
++    let builtins=frame.getattr(pyo3::intern!(py,"f_builtins"))?;
++    let (Some(g),Some(b))=(exact_dictionary(&globals),exact_dictionary(&builtins)) else{return Ok(None)};
++    let names=["range","len","ZZ","_gcdex","add_columns"];
++    let mut out=Vec::new();for name in names{out.push(lookup(&g,&b,name)?);}
++    let Some((gg,gb))=function_globals(out[3].bind(py),function_type)? else{return Ok(None)};
++    let Some((ag,ab))=function_globals(out[4].bind(py),function_type)? else{return Ok(None)};
++    let Some((eg,eb))=function_globals(print_function,function_type)? else{return Ok(None)};
++    out.push(lookup(&gg,&gb,"ZZ")?);
++    out.push(lookup(&ag,&ab,"range")?);out.push(lookup(&ag,&ab,"len")?);
++    out.push(lookup(&eg,&eb,"type")?);out.push(lookup(&eg,&eb,"int")?);
++    Ok(Some(PyTuple::new(py,out)?.into_any().unbind()))
++}
++
++#[pyfunction]
++#[pyo3(signature=(a,dimensions,stock=None,record_operations=false))]
++fn _ddm_hnf(a:&Bound<'_,PyAny>,dimensions:&Bound<'_,PyAny>,stock:Option<&Bound<'_,PyAny>>,
++    record_operations:bool,py:Python<'_>)->PyResult<Option<PyObject>> {
++    py.check_signals()?;
++    let Ok(dimensions)=dimensions.downcast_exact::<PyTuple>() else{return Ok(None)};
++    if dimensions.len()!=2{return Ok(None);}
++    let m=dimensions.get_item(0)?;let n=dimensions.get_item(1)?;
++    if !m.is_exact_instance_of::<PyInt>()||!n.is_exact_instance_of::<PyInt>(){return Ok(None);}
++    let (Ok(m),Ok(n))=(m.extract::<usize>(),n.extract::<usize>()) else{return Ok(None)};
++    let Some(rows)=sequence(a,stock,true) else{return Ok(None)};
++    let mut seen=rustc_hash::FxHashSet::default();
++    for row in &rows{if !row.is_exact_instance_of::<PyList>()||!seen.insert(row.as_ptr() as usize){return Ok(None);}}
++    let Some(cells)=entries(&rows,true) else{return Ok(None)};
++    if cells.len()!=m||cells.iter().any(|row|row.len()!=n){return Ok(None);}
++    let Some(mut values)=integers(&cells,Scalar::ZZ,py)? else{return Ok(None)};
++    let rows=rows.into_iter().map(|r|r.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
++    let operations=PyList::empty(py);
++    let k=hnf::ordinary(&mut values,n,&mut ||py.check_signals(),&mut |event| {
++        match event {
++            hnf::Event::Set(i,j,value)=>rows[i].set_item(j,element_object(py,symox::poly::Rat::from(value.clone()),ExactDomain::ZZ)?),
++            hnf::Event::Operation(i,j,a,b,c,d)=>{
++                if record_operations {
++                    let record=PyTuple::new(py,[i.into_pyobject(py)?.into_any().unbind(),j.into_pyobject(py)?.into_any().unbind(),
++                        integer_object(py,a)?,integer_object(py,b)?,integer_object(py,c)?,integer_object(py,d)?])?;
++                    operations.append(record)?;
++                }Ok(())
++            },
++        }
++    })?;
++    let Some(k)=k else{return Ok(None)};
++    if record_operations {Ok(Some((k,operations).into_pyobject(py)?.into_any().unbind()))}
++    else{Ok(Some(k.into_pyobject(py)?.into_any().unbind()))}
++}
++
++pub(super) fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
++    module.add_function(wrap_pyfunction!(_ddm_hnf,module)?)?;
++    let py=module.py();let function_type=py.eval(c"lambda: None",None,None)?.get_type().unbind();
++    module.add("_ddm_hnf_dependencies",PyCFunction::new_closure(py,Some(c"_ddm_hnf_dependencies"),None,
++        move |args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>|->PyResult<Option<PyObject>> {
++            if kwargs.is_some()||args.len()!=1{return Err(PyTypeError::new_err("expected comparison helper"));}
++            dependencies(args.py(),&args.get_item(0)?,function_type.bind(args.py()))
++        })?)?;
++    Ok(())
++}
+--- a/crates/symox-py/src/poly_ddm.rs
++++ b/crates/symox-py/src/poly_ddm.rs
+@@ -1,4 +1,8 @@
+ //! Representation/alias checks and in-place publication for exact dense rows.
++#[path="poly_function_metadata.rs"]
++mod function_metadata;
++#[path="poly_hnf.rs"]
++mod hnf;
+ #[path="poly_lll.rs"]
+ mod lll;
+ #[path="poly_lu.rs"]
+@@ -517,6 +521,8 @@
+ }
+ 
+ pub fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
++    function_metadata::register(module)?;
++    hnf::register(module)?;
+     lll::register(module)?;
+     lu::register(module)?;
+     lu_solve::register(module)?;
+--- /dev/null
++++ b/python/symox/polys/matrices/_hnf_native.py
+@@ -0,0 +1,150 @@
++"""Admission for the ordinary exact ZZ HNF loop; no matrix arithmetic here."""
++import builtins as _builtins
++from types import ModuleType,WrapperDescriptorType,MethodDescriptorType,GetSetDescriptorType
++from symox import _core
++from ..domains import _algebraic_methods as _am,_element_print as _ep
++from .ddm import DDM
++
++if '_CAPTURED' not in globals():
++    _CAPTURED=False
++    _TYPE=False.__class__.__class__
++    _STR=''.__class__
++    _LIST=[].__class__
++    _TUPLE=().__class__
++    _DICT={}.__class__
++    _INT=(0).__class__
++    _FUNCTION=(lambda:None).__class__
++    _ANCHORS_PLAIN=True
++    for _module in (_core,_am,_ep,_builtins):
++        if _TYPE(_module) is not ModuleType:
++            _ANCHORS_PLAIN=False;break
++        for _key in _module.__dict__:
++            if _TYPE(_key) is not _STR:
++                _ANCHORS_PLAIN=False;break
++        if not _ANCHORS_PLAIN:break
++    _READ_FUNCTION=(_core.__dict__.get('_ddm_function_metadata') if _ANCHORS_PLAIN else None)
++    _BUILTIN_FUNCTION=[].append.__class__
++    _METADATA_OK=(_ANCHORS_PLAIN and _TYPE(_am) is ModuleType and _TYPE(_ep) is ModuleType
++                  and _TYPE(_READ_FUNCTION) is _BUILTIN_FUNCTION
++                  and _READ_FUNCTION.__self__ is _core and _READ_FUNCTION.__name__=='_ddm_function_metadata')
++    _BUILTIN=[].append.__class__
++    _OBJECT=_LIST.__bases__[0]
++    _DOMAIN,_ELEMENT=(_core.Domain,_core.DomainElement) if _ANCHORS_PLAIN else (None,None)
++    _ZZ=_core.ZZ if _ANCHORS_PLAIN else None
++    _RANGE,_LEN=range,len
++    _DDM=DDM
++    _HOOKS=[(name,_ELEMENT.__dict__.get(name)) for name in (('__lt__','__neg__','__mul__','__rmul__','__add__','parent') if _TYPE(_ELEMENT) is _TYPE else ())]
++    _DOMAIN_HOOKS=[(name,_DOMAIN.__dict__.get(name)) for name in (('gcdex','is_FiniteField','is_ZZ_I','is_QQ_I') if _TYPE(_DOMAIN) is _TYPE else ())]
++    _WRAPPER_CODE=None
++    _factory_metadata=_READ_FUNCTION(_am._gaussian_binary) if _METADATA_OK else None
++    _factory_code=_factory_metadata[0] if _factory_metadata is not None else None
++    _CODE=_factory_code.__class__
++    for _constant in _factory_code.co_consts if _factory_code is not None else ():
++        if _TYPE(_constant) is _CODE and _constant.co_name=='method':_WRAPPER_CODE=_constant
++    _congruent=_ep._int_congruent if _ANCHORS_PLAIN else None
++    _PRINT_FUNCTIONS=[]
++    for _name in ('_int_congruent','_eq','_ne') if _ANCHORS_PLAIN else ():
++        _function=_ep.__dict__[_name]
++        _metadata=_READ_FUNCTION(_function) if _METADATA_OK else None
++        if _metadata is not None:_PRINT_FUNCTIONS.append((_name,_function,_metadata[0]))
++    _PRINT_BUILTINS=_ep.__dict__.get('__builtins__') if _ANCHORS_PLAIN else None
++
++
++def _core_plain():
++    if _TYPE(_core) is not ModuleType:return False
++    for key in _core.__dict__:
++        if _TYPE(key) is not _STR:return False
++    return True
++
++
++def _function_metadata(function):
++    if (not _METADATA_OK or not _core_plain()
++            or _core.__dict__.get('_ddm_function_metadata') is not _READ_FUNCTION
++            or _TYPE(function) is not _FUNCTION):return None
++    return _READ_FUNCTION(function)
++
++
++def register(namespace):
++    global _CAPTURED,_NAMESPACE,_NS_BUILTINS,_FUNCTIONS
++    if _CAPTURED:return
++    if _WRAPPER_CODE is None or _PRINT_FUNCTIONS.__len__()!=3:return
++    if _TYPE(namespace) is not _DICT:return
++    for key in namespace:
++        if _TYPE(key) is not _STR:return
++    funcs=[]
++    for name in ('_gcdex','add_columns'):
++        function=namespace.get(name)
++        if _TYPE(function) is not _FUNCTION:return
++        metadata=_function_metadata(function)
++        if metadata is None:return
++        funcs.append((name,function,metadata[0]))
++    _FUNCTIONS=funcs;_NAMESPACE=namespace;_NS_BUILTINS=namespace.get('__builtins__');_CAPTURED=True
++
++
++def _method(value,cls,name,kinds):
++    return _TYPE(value) in kinds and value.__objclass__ is cls and value.__name__==name
++
++
++def _builtins_entry(entry):
++    return entry is _builtins or entry is _builtins.__dict__
++
++
++def _plain(function,code,namespace):
++    metadata=_function_metadata(function)
++    return (metadata is not None and metadata[0] is code and metadata[1] is namespace
++            and metadata[2] is None and metadata[3] is None and metadata[4] is None)
++
++
++def _wrapper(name):
++    function=_ELEMENT.__dict__.get(name)
++    metadata=_function_metadata(function)
++    if (metadata is None or metadata[0] is not _WRAPPER_CODE
++            or metadata[1] is not _am.__dict__ or metadata[2] is not None
++            or metadata[3] is not None):return False
++    closure=metadata[4]
++    if closure is None or closure.__len__()!=3:return False
++    try:native,op,reflected=(cell.cell_contents for cell in closure)
++    except ValueError:return False
++    return (_method(native,_ELEMENT,name,(WrapperDescriptorType,)) and _TYPE(op) is ''.__class__
++            and op==name.strip('_') and reflected is False)
++
++
++def try_hnf(matrix,dimensions,dependencies):
++    if not _CAPTURED or not _core_plain() or _TYPE(dependencies) is not _TUPLE or dependencies.__len__()!=10:return None
++    for module in (_core,_am,_ep,_builtins):
++        if _TYPE(module) is not ModuleType:return None
++    if (_core.__dict__.get('Domain') is not _DOMAIN or _core.__dict__.get('DomainElement') is not _ELEMENT
++            or _TYPE(_ZZ) is not _DOMAIN):return None
++    if (_TYPE(_RANGE) is not _TYPE or _RANGE.__flags__ & (1<<9)
++            or _RANGE.__name__!='range' or _RANGE.__module__!='builtins'
++            or _TYPE(_LEN) is not _BUILTIN or _LEN.__self__ is not _builtins or _LEN.__name__!='len'):return None
++    expected=(_RANGE,_LEN,_ZZ,_FUNCTIONS[0][1],_FUNCTIONS[1][1],_ZZ,_RANGE,_LEN,_TYPE,_INT)
++    index=0
++    for value in expected:
++        if dependencies[index] is not value:return None
++        index+=1
++    if (_NAMESPACE.get('__builtins__') is not _NS_BUILTINS or not _builtins_entry(_NS_BUILTINS)
++            or _ep.__dict__.get('__builtins__') is not _PRINT_BUILTINS or not _builtins_entry(_PRINT_BUILTINS)):return None
++    for name,function,code in _FUNCTIONS:
++        if not _plain(function,code,_NAMESPACE):return None
++    for name,function,code in _PRINT_FUNCTIONS:
++        if _ep.__dict__.get(name) is not function or not _plain(function,code,_ep.__dict__):return None
++    if (_ELEMENT.__dict__.get('__eq__') is not _PRINT_FUNCTIONS[1][1]
++            or _ELEMENT.__dict__.get('__ne__') is not _PRINT_FUNCTIONS[2][1]
++            or not _method(_ep._native_eq,_ELEMENT,'__eq__',(WrapperDescriptorType,))
++            or not _method(_ep._native_ne,_ELEMENT,'__ne__',(WrapperDescriptorType,))):return None
++    for cls in (_DOMAIN,_ELEMENT):
++        if _TYPE(cls) is not _TYPE or cls.__bases__!=(_OBJECT,):return None
++        for name in ('__getattribute__','__getattr__','__class__'):
++            if name in cls.__dict__:return None
++    for name,value in _HOOKS:
++        kinds=(MethodDescriptorType,) if name=='parent' else (WrapperDescriptorType,)
++        if _ELEMENT.__dict__.get(name) is not value or not _method(value,_ELEMENT,name,kinds):return None
++    for name,value in _DOMAIN_HOOKS:
++        kinds=(MethodDescriptorType,) if name=='gcdex' else (GetSetDescriptorType,)
++        if _DOMAIN.__dict__.get(name) is not value or not _method(value,_DOMAIN,name,kinds):return None
++    if not _wrapper('__floordiv__') or not _wrapper('__mod__'):return None
++    if _TYPE(_DDM) is not _TYPE or _DDM.__bases__!=(_LIST,):return None
++    for name in ('__iter__','__len__','__getitem__','__setitem__','__new__'):
++        if _DDM.__dict__.get(name,_LIST.__dict__[name]) is not _LIST.__dict__[name]:return None
++    return _core._ddm_hnf(matrix,dimensions,_DDM)
+--- a/python/symox/polys/matrices/normalforms.py
++++ b/python/symox/polys/matrices/normalforms.py
+@@ -6,6 +6,8 @@
+ from .exceptions import DMDomainError, DMShapeError
+ from symox.ntheory.modular import symmetric_residue
+ from symox.polys.domains import QQ, ZZ
++from ._hnf_native import try_hnf as _native_hnf,register as _register_hnf,_congruent as _hnf_congruent
++from symox._core import _ddm_hnf_dependencies as _hnf_dependencies
+ 
+ 
+ # TODO (future work):
+@@ -342,6 +344,9 @@
+     # way up.
+     m, n = A.shape
+     A = A.to_ddm().copy()
++    native = _native_hnf(A,(m,n),_hnf_dependencies(_hnf_congruent))
++    if native is not None:
++        return DomainMatrix.from_rep(A.to_dfm_or_ddm())[:, native:]
+     # Our goal is to put pivot entries in the rightmost columns.
+     # Invariant: Before processing each row, k should be the index of the
+     # leftmost column in which we have so far put a pivot.
+@@ -538,3 +543,6 @@
+         return _hermite_normal_form_modulo_D(A, D)
+     else:
+         return _hermite_normal_form(A)
++
++
++_register_hnf(_hermite_normal_form.__globals__)
+--- /dev/null
++++ b/tests/test_native_ddm_hnf.py
+@@ -0,0 +1,281 @@
++"""Ordinary ZZ HNF, exact column lattices, publication and full fallbacks."""
++import ast
++import copy
++import importlib
++import random
++import types
++from fractions import Fraction
++from pathlib import Path
++
++import pytest
++import sympy as sp
++import symox as sx
++from sympy.matrices.normalforms import hermite_normal_form as reference
++from symox.polys.matrices.ddm import DDM
++from symox.polys.matrices.domainmatrix import DomainMatrix
++
++nf=importlib.import_module('symox.polys.matrices.normalforms')
++public=importlib.import_module('symox.matrices.normalforms')
++printer=importlib.import_module('symox.polys.domains._element_print')
++
++
++def domain_matrix(rows,shape):
++    return DomainMatrix.from_rep(DDM([[sx.ZZ(v) for v in row] for row in rows],shape,sx.ZZ))
++
++
++def integers(rows):return [[int(v) for v in row] for row in rows]
++
++
++def old_function(namespace=None):
++    module=ast.parse(Path(nf.__file__).read_text())
++    node=next(n for n in module.body if isinstance(n,ast.FunctionDef) and n.name=='_hermite_normal_form')
++    node.body=[n for n in node.body if not (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='native' for t in n.targets))
++               and not (isinstance(n,ast.If) and isinstance(n.test,ast.Compare) and isinstance(n.test.left,ast.Name) and n.test.left.id=='native')]
++    code=compile(ast.fix_missing_locations(ast.Module(body=[node],type_ignores=[])),nf.__file__,'exec')
++    return types.FunctionType(next(c for c in code.co_consts if type(c)is types.CodeType),nf.__dict__ if namespace is None else namespace)
++
++
++def multiply(a,b,n):
++    return [[sum(a[i][k]*b[k][j] for k in range(n)) for j in range(n)] for i in range(len(a))]
++
++
++def determinant(a):
++    n=len(a);a=[list(map(Fraction,row)) for row in a];result=Fraction(1)
++    for j in range(n):
++        p=next((i for i in range(j,n) if a[i][j]),None)
++        if p is None:return 0
++        if p!=j:a[p],a[j]=a[j],a[p];result=-result
++        pivot=a[j][j];result*=pivot
++        for i in range(j+1,n):
++            q=a[i][j]/pivot
++            for k in range(j+1,n):a[i][k]-=q*a[j][k]
++    return result
++
++
++def lattice_certificate(source,full,k,operations,n):
++    transform=[[int(i==j) for j in range(n)] for i in range(n)]
++    for i,j,a,b,c,d in operations:
++        element=[[int(p==q) for q in range(n)] for p in range(n)]
++        if i==j:
++            assert (a,b,c,d)==(-1,0,-1,0);element[i][i]=-1
++        else:
++            assert a*d-b*c==1
++            element[i][i],element[j][i],element[i][j],element[j][j]=a,b,c,d
++        transform=multiply(transform,element,n)
++    assert abs(determinant(transform))==1
++    assert multiply(source,transform,n)==full
++    assert all(value==0 for row in full for value in row[:k])
++    h=[row[k:] for row in full];pivots=[]
++    for j in range(n-k):
++        pivot=max(i for i,row in enumerate(h) if row[j])
++        assert h[pivot][j]>0
++        assert all(0<=h[pivot][right]<h[pivot][j] for right in range(j+1,n-k))
++        pivots.append(pivot)
++    assert pivots==sorted(set(pivots))
++
++
++@pytest.mark.parametrize('shape',[(0,0),(0,5),(1,0),(4,0),(1,1),(1,7),(4,2),(2,4),(4,4),(4,6),(6,4),(6,6)])
++@pytest.mark.parametrize('seed',range(12))
++def test_exact_canonical_hnf_and_independent_unimodular_lattice_certificate(shape,seed,monkeypatch):
++    m,n=shape;rng=random.Random(98317+seed*31+m*17+n)
++    rows=[[rng.randrange(-15,16) for _ in range(n)] for _ in range(m)]
++    if seed%5==0:rows=[[0]*n for _ in range(m)]
++    if seed%4==0 and n>1:
++        for row in rows:row[-1]=row[0]*3
++    a=domain_matrix(rows,shape);before=a.to_list();calls=[];native=sx._core._ddm_hnf
++    def record(*args,**kwargs):
++        result=native(*args,**kwargs);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_hnf',record)
++    actual=nf.hermite_normal_form(a)
++    expected=reference(sp.Matrix(m,n,[v for row in rows for v in row]))
++    assert actual.shape==expected.shape and integers(actual.to_list())==expected.tolist()
++    assert a.to_list()==before and calls and all(value is not None for value in calls)
++    work=a.to_ddm().copy();k,operations=native(work,shape,DDM,True)
++    full=integers(work);lattice_certificate(rows,full,k,operations,n)
++    assert actual.shape==(m,n-k) and [row[k:] for row in full]==expected.tolist()
++
++
++@pytest.mark.parametrize('entry',['matrix','immutable','dense','sparse'])
++def test_real_public_routes_select_native_without_changing_return_kind(entry,monkeypatch):
++    rows=[[12,6,4],[3,9,6],[2,16,14]];calls=[];native=sx._core._ddm_hnf
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_hnf',record)
++    if entry in ('matrix','immutable'):
++        source=(sx.Matrix if entry=='matrix' else sx.ImmutableMatrix)(rows)
++        result=public.hermite_normal_form(source)
++        assert result==sx.Matrix([[10,0,2],[0,15,3],[0,0,2]]) and source==sx.Matrix(rows)
++    else:
++        source=domain_matrix(rows,(3,3))
++        if entry=='sparse':source=source.to_sparse()
++        result=nf.hermite_normal_form(source)
++        assert integers(result.to_list())==[[10,0,2],[0,15,3],[0,0,2]] and result.domain==sx.ZZ
++        assert integers(source.to_list())==rows
++    assert calls==[0]
++
++
++@pytest.mark.parametrize('digits',[100,500,1500])
++def test_large_integer_and_negative_floor_remainders_preserve_exactness(digits):
++    big=10**digits
++    rows=[[big+1,-big-3,7],[big-1,big+9,-11],[3,-5,13]]
++    a=domain_matrix(rows,(3,3));out=nf.hermite_normal_form(a)
++    assert integers(out.to_list())==reference(sp.Matrix(rows)).tolist()
++
++
++def test_scratch_row_and_cell_publication_matches_original_identity_masks():
++    rows=[[12,6,4],[3,9,6],[2,16,14]]
++    source=domain_matrix(rows,(3,3));a=source.to_ddm().copy();b=source.to_ddm().copy()
++    original_a=[row[:] for row in a];original_b=[row[:] for row in b];a_rows=list(a);b_rows=list(b)
++    # Run the preserved scalar body with copy returning its actual supplied
++    # workspace, so publication and untouched cells are directly observable.
++    original_copy=DDM.copy
++    DDM.copy=lambda value:value
++    try:
++        expected=old_function()(DomainMatrix.from_rep(b))
++        actual=nf._hermite_normal_form(DomainMatrix.from_rep(a))
++    finally:DDM.copy=original_copy
++    assert actual==expected and integers(a)==integers(b)
++    assert all(left is right for left,right in zip(a,a_rows)) and all(left is right for left,right in zip(b,b_rows))
++    assert [[value is original_a[i][j] for j,value in enumerate(row)] for i,row in enumerate(a)]==[[value is original_b[i][j] for j,value in enumerate(row)] for i,row in enumerate(b)]
++
++
++@pytest.mark.parametrize('name',['_gcdex','add_columns','range','len'])
++def test_actual_algorithm_helpers_and_builtins_keep_callbacks(name,monkeypatch):
++    events=[];original=nf.__dict__.get(name,getattr(__import__('builtins'),name,None))
++    def hook(*args):events.append(name);return original(*args)
++    monkeypatch.setattr(nf,name,hook,raising=False)
++    a=domain_matrix([[-12,6,4],[3,9,6],[2,16,14]],(3,3))
++    expected=old_function()(a);before=events[:];events.clear();actual=nf._hermite_normal_form(a);after=events[:]
++    assert actual==expected and after==before and after
++
++
++@pytest.mark.parametrize('name',['__add__','__mul__','__rmul__','__neg__','__lt__','__floordiv__','__mod__','__eq__','__ne__','parent'])
++def test_consumed_coefficient_protocols_are_not_bypassed(name,monkeypatch):
++    events=[];original=getattr(sx._core.DomainElement,name)
++    def hook(*args):events.append(name);return original(*args)
++    monkeypatch.setattr(sx._core.DomainElement,name,hook)
++    a=domain_matrix([[-12,6,4],[3,9,6],[2,16,14]],(3,3))
++    expected=old_function()(a);before=events[:];events.clear();actual=nf._hermite_normal_form(a);after=events[:]
++    assert integers(actual.to_list())==integers(expected.to_list()) and after==before and after
++
++
++def test_zz_gcdex_callback_and_gcdex_function_global_are_preserved(monkeypatch):
++    events=[];original=sx._core.Domain.gcdex
++    def gcd(domain,*args):events.append('gcdex');return original(domain,*args)
++    monkeypatch.setattr(sx._core.Domain,'gcdex',gcd)
++    a=domain_matrix([[12,6,4],[3,9,6],[2,16,14]],(3,3))
++    expected=old_function()(a);before=events[:];events.clear();actual=nf._hermite_normal_form(a);after=events[:]
++    assert actual==expected and after==before and after
++
++
++def test_clone_namespace_does_not_hide_helper_own_range_override(monkeypatch):
++    namespace=dict(nf.__dict__);current=types.FunctionType(nf._hermite_normal_form.__code__,namespace)
++    old=old_function(namespace);events=[];real=range
++    def hook(*args):events.append(args);return real(*args)
++    monkeypatch.setattr(nf,'range',hook,raising=False)
++    a=domain_matrix([[2,3],[4,5]],(2,2))
++    expected=old(a);before=events[:];events.clear();actual=current(a);after=events[:]
++    assert actual==expected and after==before and after
++
++
++@pytest.mark.parametrize('name',['_gcdex','add_columns'])
++def test_missing_or_nonfunction_late_helper_is_not_touched_for_zero_lattice(name):
++    class Hook:
++        def __getattribute__(self,attribute):raise AssertionError('new helper attribute call')
++        def __call__(self,*args):raise AssertionError('new helper call')
++    namespace=dict(nf.__dict__);namespace[name]=Hook()
++    current=types.FunctionType(nf._hermite_normal_form.__code__,namespace)
++    a=domain_matrix([[0,0],[0,0]],(2,2))
++    assert current(a).shape==(2,0)
++    namespace.pop(name)
++    assert current(a).shape==(2,0)
++
++
++@pytest.mark.parametrize('option',['valid_D','invalid_D','check_rank_fallback','custom_check'])
++def test_outer_modular_and_rank_option_behavior_stays_on_its_original_path(option,monkeypatch):
++    calls=[];native=sx._core._ddm_hnf
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_hnf',record)
++    if option=='check_rank_fallback':
++        a=domain_matrix([[1,2],[2,4]],(2,2));out=nf.hermite_normal_form(a,D=sx.ZZ(3),check_rank=True)
++        assert integers(out.to_list())==reference(sp.Matrix([[1,2],[2,4]])).tolist() and calls
++    elif option=='invalid_D':
++        with pytest.raises(Exception) as error:nf.hermite_normal_form(domain_matrix([[1,2],[3,4]],(2,2)),D=sx.ZZ(0))
++        assert type(error.value).__name__=='DMDomainError' and calls==[]
++    elif option=='custom_check':
++        class Check:
++            def __bool__(self):raise AssertionError('unused check_rank')
++        nf.hermite_normal_form(domain_matrix([[1,2],[3,4]],(2,2)),check_rank=Check())
++        assert calls
++    else:
++        out=nf.hermite_normal_form(domain_matrix([[1,2],[3,4]],(2,2)),D=sx.ZZ(2))
++        assert integers(out.to_list())==reference(sp.Matrix([[1,2],[3,4]]),D=2).tolist() and calls==[]
++
++
++def test_other_domains_and_raw_python_integer_representations_keep_full_paths():
++    a=DomainMatrix.from_list([[1,2],[3,4]],sx.QQ)
++    with pytest.raises(Exception) as error:nf.hermite_normal_form(a)
++    assert type(error.value).__name__=='DMDomainError'
++    raw=DomainMatrix.from_rep(DDM([[1,2],[3,4]],(2,2),sx.ZZ))
++    assert nf.hermite_normal_form(raw)==old_function()(raw)
++
++
++def test_unconsumed_bool_and_presentation_hooks_do_not_disable_math(monkeypatch):
++    calls=[];native=sx._core._ddm_hnf
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    def forbidden(*args):raise AssertionError('unconsumed hook')
++    monkeypatch.setattr(sx._core,'_ddm_hnf',record)
++    for name in ('__bool__','__repr__','__str__'):
++        monkeypatch.setattr(sx._core.DomainElement,name,forbidden)
++    out=nf.hermite_normal_form(domain_matrix([[2,3],[4,5]],(2,2)))
++    assert out.shape==(2,2) and calls==[0]
++
++
++def test_print_equality_wrapper_global_type_callback_is_preserved(monkeypatch):
++    events=[];real=type
++    def hook(value):events.append('type');return real(value)
++    monkeypatch.setattr(printer,'type',hook,raising=False)
++    a=domain_matrix([[2,3],[4,5]],(2,2))
++    expected=old_function()(a);before=events[:];events.clear();actual=nf._hermite_normal_form(a);after=events[:]
++    assert integers(actual.to_list())==integers(expected.to_list()) and after==before and after
++
++
++def test_actual_working_copy_prefix_and_custom_column_publication_are_not_replayed(monkeypatch):
++    events=[];original=DDM.copy;old_columns=nf.add_columns
++    def copied(self):events.append('copy');return original(self)
++    def columns(*args):events.append('columns');return old_columns(*args)
++    monkeypatch.setattr(DDM,'copy',copied);monkeypatch.setattr(nf,'add_columns',columns)
++    a=domain_matrix([[2,3],[4,5]],(2,2))
++    expected=old_function()(a);before=events[:];events.clear();actual=nf._hermite_normal_form(a);after=events[:]
++    assert actual==expected and after==before and after.count('copy')==before.count('copy')
++
++
++def test_floordiv_native_delegate_cell_change_keeps_actual_callback(monkeypatch):
++    method=sx._core.DomainElement.__floordiv__;cell=method.__closure__[0];original=cell.cell_contents;events=[]
++    def hook(*args):events.append('divide');return original(*args)
++    cell.cell_contents=hook
++    try:
++        a=domain_matrix([[2,3],[4,5]],(2,2));expected=old_function()(a);before=events[:];events.clear()
++        actual=nf._hermite_normal_form(a);after=events[:]
++        assert actual==expected and after==before and after
++    finally:cell.cell_contents=original
++
++
++def test_aliases_in_a_custom_copy_fall_back_to_the_original_feedback(monkeypatch):
++    monkeypatch.setattr(DDM,'copy',lambda value:value)
++    def matrix():
++        row=[sx.ZZ(2),sx.ZZ(3)];rep=DDM([row,row],(2,2),sx.ZZ);rep[1]=rep[0]
++        return DomainMatrix.from_rep(rep)
++    a=matrix();b=matrix();expected=old_function()(a);actual=nf._hermite_normal_form(b)
++    assert actual==expected and b.rep[0] is b.rep[1]
++
++
++def test_numberfields_and_modular_routes_are_not_relabelled_as_native(monkeypatch):
++    numberfields=importlib.import_module('symox.polys.numberfields._normalforms')
++    def forbidden(*args,**kwargs):raise AssertionError('unported route')
++    monkeypatch.setattr(sx._core,'_ddm_hnf',forbidden)
++    a=domain_matrix([[1,2],[3,4]],(2,2))
++    assert integers(numberfields.hermite_normal_form(a).to_list())==reference(sp.Matrix([[1,2],[3,4]])).tolist()
++    assert integers(nf.hermite_normal_form(a,D=sx.ZZ(2)).to_list())==reference(sp.Matrix([[1,2],[3,4]]),D=2).tolist()
+--- /dev/null
++++ b/crates/symox-py/src/poly_function_metadata.rs
+@@ -0,0 +1,68 @@
++//! Optional public CPython function getters, without audit callbacks/layouts.
++//! Only CPython 3.10.12 and 3.10.20/Linux x86_64 are verified for this route.
++use pyo3::prelude::*;
++use pyo3::types::PyTuple;
++use std::sync::OnceLock;
++type Getter=unsafe extern "C" fn(*mut pyo3::ffi::PyObject)->*mut pyo3::ffi::PyObject;
++
++#[derive(Clone,Copy)]
++struct Getters { functions:[Getter;5],function_type:usize }
++impl Getters {
++    #[cfg(all(target_os="linux",target_arch="x86_64"))]
++    fn load()->Option<Self> {
++        use std::ffi::{c_char,c_int,c_void,CStr};
++        // Public C API: docs.python.org/3.10/c-api/function.html. Resolve it
++        // optionally: these symbols are not hard dependencies of the abi3 DSO.
++        let version=unsafe {CStr::from_ptr(pyo3::ffi::Py_GetVersion())}.to_bytes();
++        if !(version.starts_with(b"3.10.12 ")||version.starts_with(b"3.10.20 "))
++            ||version.windows(4).any(|v|v==b"PyPy"){return None;}
++        #[link(name="dl")]
++        unsafe extern "C" {
++            fn dlopen(name:*const c_char,flags:c_int)->*mut c_void;
++            fn dlsym(handle:*mut c_void,name:*const c_char)->*mut c_void;
++            fn dlclose(handle:*mut c_void)->c_int;
++        }
++        unsafe {
++            let handle=dlopen(std::ptr::null(),1); // RTLD_LAZY, process image.
++            if handle.is_null(){return None;}
++            let functions=[c"PyFunction_GetCode",c"PyFunction_GetGlobals",c"PyFunction_GetDefaults",
++                c"PyFunction_GetKwDefaults",c"PyFunction_GetClosure"].map(|name|dlsym(handle,name.as_ptr()));
++            let function_type=dlsym(handle,c"PyFunction_Type".as_ptr());
++            let _=dlclose(handle); // Interpreter image stays loaded for its life.
++            if function_type.is_null()||functions.iter().any(|p|p.is_null()){return None;}
++            Some(Self{functions:functions.map(|p|std::mem::transmute::<*mut c_void,Getter>(p)),function_type:function_type as usize})
++        }
++    }
++    #[cfg(not(all(target_os="linux",target_arch="x86_64")))]
++    fn load()->Option<Self>{None}
++
++    fn read(&self,function:&Bound<'_,PyAny>)->PyResult<Option<PyObject>> {
++        if function.get_type().as_ptr() as usize!=self.function_type{return Ok(None);}
++        let py=function.py();let mut values=Vec::with_capacity(5);
++        // Read every field anew; only public borrowed-reference getters are
++        // used. No cached function data, struct layout or Python attribute read.
++        for getter in self.functions {
++            let ptr=unsafe {getter(function.as_ptr())};
++            let value=if ptr.is_null(){
++                if PyErr::occurred(py){return Err(PyErr::fetch(py));}py.None()
++            }else{unsafe {Bound::from_borrowed_ptr(py,ptr)}.unbind()};
++            values.push(value);
++        }
++        Ok(Some(PyTuple::new(py,values)?.into_any().unbind()))
++    }
++}
++
++// Only the immutable public API addresses/type identity are retained. Each
++// function's current metadata is read anew and is never memoized.
++static GETTERS:OnceLock<Option<Getters>>=OnceLock::new();
++
++#[pyfunction]
++fn _ddm_function_metadata(function:&Bound<'_,PyAny>)->PyResult<Option<PyObject>> {
++    match GETTERS.get_or_init(Getters::load){Some(getters)=>getters.read(function),None=>Ok(None)}
++}
++
++pub(super) fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
++    let _=GETTERS.get_or_init(Getters::load);
++    module.add_function(wrap_pyfunction!(_ddm_function_metadata,module)?)?;
++    Ok(())
++}
+--- a/python/symox/polys/matrices/_lu_native.py
++++ b/python/symox/polys/matrices/_lu_native.py
+@@ -8,21 +8,51 @@
+ if '_CAPTURED' not in globals():
+     _CAPTURED=True
+     _TYPE=False.__class__.__class__
++    _STR=''.__class__
+     _LIST=[].__class__
+     _TUPLE=().__class__
+     _OBJECT=_LIST.__bases__[0]
+     _FUNCTION=(lambda:None).__class__
+-    _CODE=(lambda:None).__code__.__class__
++    _ANCHORS_PLAIN=True
++    for _module in (_core,_algebraic_methods):
++        if _TYPE(_module) is not ModuleType:
++            _ANCHORS_PLAIN=False;break
++        for _key in _module.__dict__:
++            if _TYPE(_key) is not _STR:
++                _ANCHORS_PLAIN=False;break
++        if not _ANCHORS_PLAIN:break
++    _READ_FUNCTION=(_core.__dict__.get('_ddm_function_metadata') if _ANCHORS_PLAIN else None)
++    _BUILTIN_FUNCTION=[].append.__class__
++    _METADATA_OK=(_ANCHORS_PLAIN and _TYPE(_algebraic_methods) is ModuleType
++                  and _TYPE(_READ_FUNCTION) is _BUILTIN_FUNCTION
++                  and _READ_FUNCTION.__self__ is _core and _READ_FUNCTION.__name__=='_ddm_function_metadata')
+     _BUILTIN=[].append.__class__
+-    _DOMAIN,_ELEMENT=_core.Domain,_core.DomainElement
++    _DOMAIN,_ELEMENT=(_core.Domain,_core.DomainElement) if _ANCHORS_PLAIN else (None,None)
+     _ELEMENT_HOOKS=[(name,_ELEMENT.__dict__.get(name)) for name in
+-                        ('__bool__','__mul__','__sub__','parent')]
+-    _DOMAIN_HOOKS=[(name,_DOMAIN.__dict__.get(name)) for name in ('is_ZZ_I','is_QQ_I')]
++                        (('__bool__','__mul__','__sub__','parent') if _TYPE(_ELEMENT) is _TYPE else ())]
++    _DOMAIN_HOOKS=[(name,_DOMAIN.__dict__.get(name)) for name in (('is_ZZ_I','is_QQ_I') if _TYPE(_DOMAIN) is _TYPE else ())]
+     _LEN,_RANGE,_MIN=len,range,min
+     _DIV_CODE=None
+-    for _constant in _algebraic_methods._gaussian_binary.__code__.co_consts:
++    _factory_metadata=_READ_FUNCTION(_algebraic_methods._gaussian_binary) if _METADATA_OK else None
++    _factory_code=_factory_metadata[0] if _factory_metadata is not None else None
++    _CODE=_factory_code.__class__
++    for _constant in _factory_code.co_consts if _factory_code is not None else ():
+         if _TYPE(_constant) is _CODE and _constant.co_name=='method':
+             _DIV_CODE=_constant
++
++
++def _core_plain():
++    if _TYPE(_core) is not ModuleType:return False
++    for key in _core.__dict__:
++        if _TYPE(key) is not _STR:return False
++    return True
++
++
++def _function_metadata(function):
++    if (not _METADATA_OK or not _core_plain()
++            or _core.__dict__.get('_ddm_function_metadata') is not _READ_FUNCTION
++            or _TYPE(function) is not _FUNCTION):return None
++    return _READ_FUNCTION(function)
+ 
+ 
+ def _builtin(value,name):
+@@ -35,6 +65,7 @@
+ 
+ 
+ def _protocol(dependencies):
++    if not _core_plain():return False
+     if (_TYPE(_core) is not ModuleType or _TYPE(_algebraic_methods) is not ModuleType
+             or _TYPE(_builtins) is not ModuleType):return False
+     if not _builtin(_LEN,'len') or not _builtin(_MIN,'min'):return False
+@@ -57,10 +88,11 @@
+         if (_DOMAIN.__dict__.get(name) is not original
+                 or not _native_method(original,_DOMAIN,name,(GetSetDescriptorType,))):return False
+     divide=_ELEMENT.__dict__.get('__truediv__')
+-    if (_TYPE(divide) is not _FUNCTION or divide.__code__ is not _DIV_CODE
+-            or divide.__globals__ is not _algebraic_methods.__dict__
+-            or divide.__defaults__ is not None or divide.__kwdefaults__ is not None):return False
+-    closure=divide.__closure__
++    metadata=_function_metadata(divide)
++    if (_DIV_CODE is None or metadata is None or metadata[0] is not _DIV_CODE
++            or metadata[1] is not _algebraic_methods.__dict__
++            or metadata[2] is not None or metadata[3] is not None):return False
++    closure=metadata[4]
+     if closure is None or closure.__len__()!=3:return False
+     try:
+         native,operation,reflected=(cell.cell_contents for cell in closure)
+--- a/python/symox/polys/matrices/_lu_solve_native.py
++++ b/python/symox/polys/matrices/_lu_solve_native.py
+@@ -12,18 +12,47 @@
+     _STR=''.__class__
+     _OBJECT=_LIST.__bases__[0]
+     _FUNCTION=(lambda:None).__class__
+-    _CODE=(lambda:None).__code__.__class__
+-    _DOMAIN,_ELEMENT=_core.Domain,_core.DomainElement
++    _ANCHORS_PLAIN=True
++    for _module in (_core,_algebraic_methods):
++        if _TYPE(_module) is not ModuleType:
++            _ANCHORS_PLAIN=False;break
++        for _key in _module.__dict__:
++            if _TYPE(_key) is not _STR:
++                _ANCHORS_PLAIN=False;break
++        if not _ANCHORS_PLAIN:break
++    _READ_FUNCTION=(_core.__dict__.get('_ddm_function_metadata') if _ANCHORS_PLAIN else None)
++    _BUILTIN_FUNCTION=[].append.__class__
++    _METADATA_OK=(_ANCHORS_PLAIN and _TYPE(_algebraic_methods) is ModuleType
++                  and _TYPE(_READ_FUNCTION) is _BUILTIN_FUNCTION
++                  and _READ_FUNCTION.__self__ is _core and _READ_FUNCTION.__name__=='_ddm_function_metadata')
++    _DOMAIN,_ELEMENT=(_core.Domain,_core.DomainElement) if _ANCHORS_PLAIN else (None,None)
+     _RANGE,_REVERSED=range,reversed
+-    _ELEMENT_HOOKS=[(n,_ELEMENT.__dict__.get(n)) for n in ('__bool__','__mul__','__sub__','parent')]
+-    _DOMAIN_HOOKS=[(n,_DOMAIN.__dict__.get(n)) for n in ('is_ZZ_I','is_QQ_I')]
++    _ELEMENT_HOOKS=[(n,_ELEMENT.__dict__.get(n)) for n in (('__bool__','__mul__','__sub__','parent') if _TYPE(_ELEMENT) is _TYPE else ())]
++    _DOMAIN_HOOKS=[(n,_DOMAIN.__dict__.get(n)) for n in (('is_ZZ_I','is_QQ_I') if _TYPE(_DOMAIN) is _TYPE else ())]
+     _ERROR=DMNonInvertibleMatrixError
+     _ERROR_MRO=_ERROR.__mro__
+     _ERROR_CLASSES=[(cls,list(cls.__dict__.items())) for cls in _ERROR_MRO
+                     if cls is not Exception and cls is not BaseException and cls is not _OBJECT]
+     _DIV_CODE=None
+-    for _constant in _algebraic_methods._gaussian_binary.__code__.co_consts:
++    _factory_metadata=_READ_FUNCTION(_algebraic_methods._gaussian_binary) if _METADATA_OK else None
++    _factory_code=_factory_metadata[0] if _factory_metadata is not None else None
++    _CODE=_factory_code.__class__
++    for _constant in _factory_code.co_consts if _factory_code is not None else ():
+         if _TYPE(_constant) is _CODE and _constant.co_name=='method':_DIV_CODE=_constant
++
++
++def _core_plain():
++    if _TYPE(_core) is not ModuleType:return False
++    for key in _core.__dict__:
++        if _TYPE(key) is not _STR:return False
++    return True
++
++
++def _function_metadata(function):
++    if (not _METADATA_OK or not _core_plain()
++            or _core.__dict__.get('_ddm_function_metadata') is not _READ_FUNCTION
++            or _TYPE(function) is not _FUNCTION):return None
++    return _READ_FUNCTION(function)
+ 
+ 
+ def _method(value,cls,name,kinds):
+@@ -54,6 +83,7 @@
+ 
+ 
+ def _protocol(dependencies):
++    if not _core_plain():return False
+     if (_TYPE(_core) is not ModuleType or _TYPE(_algebraic_methods) is not ModuleType
+             or _TYPE(dependencies) is not _TUPLE or dependencies.__len__()!=3):return False
+     if dependencies[0] is not _RANGE or dependencies[1] is not _REVERSED or dependencies[2] is not _ERROR:return False
+@@ -74,10 +104,11 @@
+     for name,original in _DOMAIN_HOOKS:
+         if _DOMAIN.__dict__.get(name) is not original or not _method(original,_DOMAIN,name,(GetSetDescriptorType,)):return False
+     divide=_ELEMENT.__dict__.get('__truediv__')
+-    if (_TYPE(divide) is not _FUNCTION or divide.__code__ is not _DIV_CODE
+-            or divide.__globals__ is not _algebraic_methods.__dict__
+-            or divide.__defaults__ is not None or divide.__kwdefaults__ is not None):return False
+-    closure=divide.__closure__
++    metadata=_function_metadata(divide)
++    if (_DIV_CODE is None or metadata is None or metadata[0] is not _DIV_CODE
++            or metadata[1] is not _algebraic_methods.__dict__
++            or metadata[2] is not None or metadata[3] is not None):return False
++    closure=metadata[4]
+     if closure is None or closure.__len__()!=3:return False
+     try:native,operation,reflected=(cell.cell_contents for cell in closure)
+     except ValueError:return False
+--- /dev/null
++++ b/tests/test_native_matrix_function_metadata.py
+@@ -0,0 +1,220 @@
++"""Public function metadata and complete, non-auditing matrix admission."""
++import importlib
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++import types
++
++import pytest
++import symox as sx
++
++AUDIT_PROBE='"""Fresh-process metadata audits; construct/import/AST preparation precede hook."""\nimport ast,importlib,json,sys,types\nfrom pathlib import Path\nimport symox as s\nnf=importlib.import_module(\'symox.polys.matrices.normalforms\')\ndense=importlib.import_module(\'symox.polys.matrices.dense\')\nfrom symox.polys.matrices.domainmatrix import DomainMatrix\nroute,arm=sys.argv[1:3]\nname={\'hnf\':\'_hermite_normal_form\',\'lu\':\'ddm_ilu\',\'solve\':\'ddm_ilu_solve\'}[route];module=nf if route==\'hnf\' else dense\nnode=next(n for n in ast.parse(Path(module.__file__).read_text()).body if isinstance(n,ast.FunctionDef) and n.name==name)\ndef native_node(n):\n if isinstance(n,ast.Assign):return any(isinstance(t,ast.Name) and t.id==\'native\' for t in n.targets)\n if isinstance(n,ast.If):\n  return (isinstance(n.test,ast.Compare) and isinstance(n.test.left,ast.Name) and n.test.left.id==\'native\') or (isinstance(n.test,ast.Call) and isinstance(n.test.func,ast.Name) and n.test.func.id==\'_native_ilu_solve\')\n return False\nnode.body=[n for n in node.body if not native_node(n)]\ncode=compile(ast.fix_missing_locations(ast.Module(body=[node],type_ignores=[])),module.__file__,\'exec\')\nold=types.FunctionType(next(c for c in code.co_consts if type(c)is types.CodeType),module.__dict__)\nfunction=old if arm==\'old\' else getattr(module,name)\nq=lambda rows:[[s.QQ(v) for v in row] for row in rows]\nif route==\'hnf\':\n a=DomainMatrix.from_list([[1,2],[3,4]],s.ZZ);invoke=lambda:function(a);values=lambda out:[[int(v) for v in row] for row in out.to_list()]\nelif route==\'lu\':\n a=q([[2,1],[4,3]]);invoke=lambda:function(a);values=lambda out:{\'matrix\':[[str(v) for v in row] for row in a],\'result\':out}\nelse:\n x=[[None],[None]];l=q([[1,0],[2,1]]);u=q([[2,1],[0,1]]);b=q([[4],[10]])\n invoke=lambda:function(x,l,u,[],b);values=lambda out:{\'matrix\':[[str(v) for v in row] for row in x],\'result\':out}\ncalls=[]\nkey={\'hnf\':\'_ddm_hnf\',\'lu\':\'_ddm_ilu\',\'solve\':\'_ddm_ilu_solve\'}[route]\nnative=getattr(s._core,key)\ndef trace(*args,**kwargs):\n result=native(*args,**kwargs);calls.append(result is not None if route!=\'solve\' else result);return result\nsetattr(s._core,key,trace)\nif len(sys.argv)>3 and sys.argv[3]==\'unavailable\':s._core._ddm_function_metadata=None\nevents=[]\ndef audit(event,args):\n if event==\'object.__getattr__\' and len(args)>1 and args[1] in (\'__code__\',\'__defaults__\',\'__kwdefaults__\',\'__closure__\',\'__class__\'):\n  events.append(args[1]);raise RuntimeError(\'metadata audit refusal: \'+args[1])\nsys.addaudithook(audit)\ntry:out=invoke()\nexcept Exception as error:result={\'status\':\'raised\',\'type\':type(error).__name__,\'message\':str(error)}\nelse:result={\'status\':\'returned\',\'value\':values(out)}\nassert not any(n==\'sympy\' or n.startswith(\'sympy.\') for n in sys.modules)\nprint(json.dumps({\'route\':route,\'arm\':arm,\'events\':events,\'result\':result,\'reference_imported\':False,\'native_calls\':calls}))\n'
++
++
++def fresh(route,arm,unavailable=False):
++    command=[sys.executable,'-c',AUDIT_PROBE,route,arm]
++    if unavailable:command.append('unavailable')
++    result=subprocess.run(command,capture_output=True,text=True,env=dict(os.environ,PYTHONPATH=str(Path(sx.__file__).resolve().parents[1])),timeout=45)
++    assert result.returncode==0,result.stderr
++    return json.loads(result.stdout)
++
++
++@pytest.mark.parametrize('route',['hnf','lu','solve'])
++def test_audit_refusal_has_no_metadata_event_and_matches_original(route):
++    native=fresh(route,'native');old=fresh(route,'old')
++    assert native['result']==old['result'] and native['result']['status']=='returned'
++    assert native['events']==old['events']==[]
++    assert native['native_calls']==[True] and old['native_calls']==[]
++    assert native['reference_imported'] is old['reference_imported'] is False
++
++
++@pytest.mark.parametrize('route',['hnf','lu','solve'])
++def test_missing_metadata_uses_complete_original_body_without_audit(route):
++    result=fresh(route,'native',True);old=fresh(route,'old')
++    assert result['result']==old['result'] and result['events']==[]
++    assert result['native_calls']==[]
++
++
++def test_public_metadata_matches_five_real_fields_and_refreshes_without_cache():
++    getter=sx._core._ddm_function_metadata
++    def factory(captured):
++        def function(x=2,*,keyword=3):return captured+x+keyword
++        return function
++    function=factory(7)
++    first=getter(function)
++    assert first is not None
++    assert all(a is b for a,b in zip(first,(function.__code__,function.__globals__,function.__defaults__,function.__kwdefaults__,function.__closure__)))
++    function.__defaults__=(11,);function.__kwdefaults__={'keyword':13}
++    def alternate_factory(factor):
++        def alternate(x=2,*,keyword=3):return factor*x+keyword
++        return alternate
++    replacement=alternate_factory(17);function.__code__=replacement.__code__
++    again=getter(function)
++    assert again is not first and again[0] is not first[0]
++    assert all(a is b for a,b in zip(again,(function.__code__,function.__globals__,function.__defaults__,function.__kwdefaults__,function.__closure__)))
++    function.__closure__[0].cell_contents=23
++    assert getter(function)[4][0].cell_contents==23
++
++
++def test_foreign_object_refused_without_getattribute():
++    class Foreign:
++        def __getattribute__(self,name):raise AssertionError(name)
++    assert sx._core._ddm_function_metadata(Foreign()) is None
++    assert sx._core._ddm_function_metadata(len) is None
++    with pytest.raises(TypeError):sx._core._ddm_function_metadata()
++    with pytest.raises(TypeError):sx._core._ddm_function_metadata(lambda:None,unexpected=True)
++
++
++@pytest.mark.parametrize('attribute',['__code__','__defaults__','__kwdefaults__','__closure__','__class__'])
++def test_getters_do_not_emit_attribute_audits(attribute):
++    script="""import sys,json,symox as s
++value=7
++def factory(value):
++ def function(x=2,*,kw=3):return value+x+kw
++ return function
++function=factory(value);getter=s._core._ddm_function_metadata;events=[]
++def audit(event,args):
++ if event=='object.__getattr__' and len(args)>1 and args[1]==sys.argv[1]:
++  events.append(args[1]);raise RuntimeError(args[1])
++sys.addaudithook(audit)
++result=getter(function)
++assert result is not None and len(result)==5
++print(json.dumps(events))
++"""
++    p=subprocess.run([sys.executable,'-c',script,attribute],env=dict(os.environ,PYTHONPATH=str(Path(sx.__file__).resolve().parents[1])),capture_output=True,text=True,timeout=30)
++    assert p.returncode==0,p.stderr
++    assert json.loads(p.stdout)==[]
++
++
++@pytest.mark.parametrize('helper',['_hnf_native','_lu_native','_lu_solve_native'])
++def test_initial_helper_capture_does_not_read_audited_metadata(helper):
++    script="""import sys,importlib,json,symox as s
++from symox.polys.matrices import normalforms,dense
++name='symox.polys.matrices.'+sys.argv[1]
++sys.modules.pop(name,None);events=[]
++def audit(event,args):
++ if event=='object.__getattr__' and len(args)>1 and args[1] in ('__code__','__defaults__','__kwdefaults__','__closure__'):
++  events.append(args[1]);raise RuntimeError(args[1])
++sys.addaudithook(audit)
++module=importlib.import_module(name)
++assert module._METADATA_OK
++print(json.dumps(events))
++"""
++    p=subprocess.run([sys.executable,'-c',script,helper],env=dict(os.environ,PYTHONPATH=str(Path(sx.__file__).resolve().parents[1])),capture_output=True,text=True,timeout=30)
++    assert p.returncode==0,p.stderr
++    assert json.loads(p.stdout)==[]
++
++
++@pytest.mark.parametrize('route,helper,dispatch',[('hnf','_hnf_native','_native_hnf'),('lu','_lu_native','_native_ilu'),('solve','_lu_solve_native','_native_ilu_solve')])
++def test_foreign_metadata_before_helper_import_has_no_speculative_callback(route,helper,dispatch):
++    injection="""events_foreign=[]
++class Foreign:
++ def __getattribute__(self,name):
++  events_foreign.append(name);raise AssertionError('speculative metadata access '+name)
++s._core._ddm_function_metadata=Foreign()
++module_name='symox.polys.matrices.'+%r
++sys.modules.pop(module_name,None)
++helper=importlib.import_module(module_name)
++assert helper._METADATA_OK is False and events_foreign==[]
++setattr(nf if %r=='hnf' else dense,%r,helper.try_hnf if %r=='hnf' else helper.try_ilu if %r=='lu' else helper.try_solve)
++"""%(helper,route,dispatch,route,route)
++    script=AUDIT_PROBE.replace('events=[]\ndef audit',injection+'events=[]\ndef audit').replace("'native_calls':calls}","'native_calls':calls,'foreign_events':events_foreign}")
++    p=subprocess.run([sys.executable,'-c',script,route,'native'],env=dict(os.environ,PYTHONPATH=str(Path(sx.__file__).resolve().parents[1])),capture_output=True,text=True,timeout=30)
++    assert p.returncode==0,p.stderr
++    data=json.loads(p.stdout)
++    assert data['result']==fresh(route,'old')['result']
++    assert data['native_calls']==data['events']==data['foreign_events']==[]
++
++
++@pytest.mark.parametrize('route,helper,dispatch',[('hnf','_hnf_native','_native_hnf'),('lu','_lu_native','_native_ilu'),('solve','_lu_solve_native','_native_ilu_solve')])
++def test_foreign_core_module_before_helper_import_declines_without_getattr(route,helper,dispatch):
++    injection="""from types import ModuleType
++core=s._core;original_type=type(core);events_foreign=[]
++class ForeignModule(ModuleType):
++ def __getattribute__(self,name):
++  events_foreign.append(name);raise AssertionError('speculative core access '+name)
++core.__class__=ForeignModule
++module_name='symox.polys.matrices.'+%r
++sys.modules.pop(module_name,None)
++helper=importlib.import_module(module_name)
++assert helper._METADATA_OK is False and events_foreign==[]
++setattr(nf if %r=='hnf' else dense,%r,helper.try_hnf if %r=='hnf' else helper.try_ilu if %r=='lu' else helper.try_solve)
++"""%(helper,route,dispatch,route,route)
++    script=AUDIT_PROBE.replace('events=[]\ndef audit',injection+'events=[]\ndef audit').replace("assert not any(n=='sympy'", "core.__class__=original_type\nassert not any(n=='sympy'").replace("'native_calls':calls}","'native_calls':calls,'foreign_events':events_foreign}")
++    p=subprocess.run([sys.executable,'-c',script,route,'native'],env=dict(os.environ,PYTHONPATH=str(Path(sx.__file__).resolve().parents[1])),capture_output=True,text=True,timeout=30)
++    assert p.returncode==0,p.stderr
++    data=json.loads(p.stdout)
++    assert data['result']==fresh(route,'old')['result']
++    assert data['native_calls']==data['events']==data['foreign_events']==[]
++
++
++@pytest.mark.parametrize('route,helper,dispatch,owner',[('hnf','_hnf_native','_native_hnf','_algebraic_methods'),('hnf','_hnf_native','_native_hnf','_element_print'),('lu','_lu_native','_native_ilu','_algebraic_methods'),('solve','_lu_solve_native','_native_ilu_solve','_algebraic_methods')])
++def test_foreign_anchor_module_before_helper_import_has_no_attribute_callbacks(route,helper,dispatch,owner):
++    injection="""from types import ModuleType
++owner=importlib.import_module('symox.polys.domains.'+%r);original_type=type(owner);events_foreign=[]
++class ForeignModule(ModuleType):
++ def __getattribute__(self,name):
++  events_foreign.append(name);raise AssertionError('speculative anchor access '+name)
++owner.__class__=ForeignModule
++module_name='symox.polys.matrices.'+%r
++sys.modules.pop(module_name,None)
++helper=importlib.import_module(module_name)
++assert helper._METADATA_OK is False and events_foreign==[]
++setattr(nf if %r=='hnf' else dense,%r,helper.try_hnf if %r=='hnf' else helper.try_ilu if %r=='lu' else helper.try_solve)
++"""%(owner,helper,route,dispatch,route,route)
++    script=AUDIT_PROBE.replace('events=[]\ndef audit',injection+'events=[]\ndef audit').replace("assert not any(n=='sympy'", "owner.__class__=original_type\nassert not any(n=='sympy'").replace("'native_calls':calls}","'native_calls':calls,'foreign_events':events_foreign}")
++    p=subprocess.run([sys.executable,'-c',script,route,'native'],env=dict(os.environ,PYTHONPATH=str(Path(sx.__file__).resolve().parents[1])),capture_output=True,text=True,timeout=30)
++    assert p.returncode==0,p.stderr
++    data=json.loads(p.stdout)
++    assert data['result']==fresh(route,'old')['result']
++    assert data['native_calls']==data['events']==data['foreign_events']==[]
++
++
++@pytest.mark.parametrize('route,helper,dispatch',[('hnf','_hnf_native','_native_hnf'),('lu','_lu_native','_native_ilu'),('solve','_lu_solve_native','_native_ilu_solve')])
++@pytest.mark.parametrize('anchor',['Domain','DomainElement'])
++def test_foreign_domain_anchor_before_helper_import_has_no_attribute_callbacks(route,helper,dispatch,anchor):
++    injection="""events_foreign=[]
++class Foreign:
++ def __getattribute__(self,name):
++  events_foreign.append(name);raise AssertionError('speculative domain anchor access '+name)
++setattr(s._core,%r,Foreign())
++module_name='symox.polys.matrices.'+%r
++sys.modules.pop(module_name,None)
++helper=importlib.import_module(module_name)
++assert events_foreign==[]
++setattr(nf if %r=='hnf' else dense,%r,helper.try_hnf if %r=='hnf' else helper.try_ilu if %r=='lu' else helper.try_solve)
++"""%(anchor,helper,route,dispatch,route,route)
++    script=AUDIT_PROBE.replace('events=[]\ndef audit',injection+'events=[]\ndef audit').replace("'native_calls':calls}","'native_calls':calls,'foreign_events':events_foreign}")
++    p=subprocess.run([sys.executable,'-c',script,route,'native'],env=dict(os.environ,PYTHONPATH=str(Path(sx.__file__).resolve().parents[1])),capture_output=True,text=True,timeout=30)
++    assert p.returncode==0,p.stderr
++    data=json.loads(p.stdout)
++    assert data['result']==fresh(route,'old')['result']
++    assert data['native_calls']==data['events']==data['foreign_events']==[]
++
++
++@pytest.mark.parametrize('route,helper,dispatch',[('hnf','_hnf_native','_native_hnf'),('lu','_lu_native','_native_ilu'),('solve','_lu_solve_native','_native_ilu_solve')])
++@pytest.mark.parametrize('phase',['preimport','call'])
++def test_foreign_core_key_never_invokes_equality_in_metadata_lookup(route,helper,dispatch,phase):
++    injection="""events_foreign=[]
++namespace=s._core.__dict__;key_hash=hash('_ddm_function_metadata')
++namespace.pop('_ddm_function_metadata')
++class ForeignKey:
++ def __hash__(self):return key_hash
++ def __eq__(self,other):
++  events_foreign.append('equality');raise RuntimeError('foreign core key equality')
++namespace[ForeignKey()]=17
++if %r=='preimport':
++ module_name='symox.polys.matrices.'+%r
++ sys.modules.pop(module_name,None)
++ helper=importlib.import_module(module_name)
++ assert helper._METADATA_OK is False and events_foreign==[]
++ setattr(nf if %r=='hnf' else dense,%r,helper.try_hnf if %r=='hnf' else helper.try_ilu if %r=='lu' else helper.try_solve)
++"""%(phase,helper,route,dispatch,route,route)
++    script=AUDIT_PROBE.replace('events=[]\ndef audit',injection+'events=[]\ndef audit').replace("'native_calls':calls}","'native_calls':calls,'foreign_events':events_foreign}")
++    p=subprocess.run([sys.executable,'-c',script,route,'native'],env=dict(os.environ,PYTHONPATH=str(Path(sx.__file__).resolve().parents[1])),capture_output=True,text=True,timeout=30)
++    assert p.returncode==0,p.stderr
++    data=json.loads(p.stdout)
++    assert data['result']==fresh(route,'old')['result']
++    assert data['native_calls']==data['events']==data['foreign_events']==[]

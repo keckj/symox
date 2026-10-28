@@ -1,0 +1,711 @@
+{
+  "native_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+  "counts": {
+    "principal_E1_reference_correction": 10,
+    "certified_conditional_value_with_original_integral_fallback": 20,
+    "exact_algebraic_equivalence": 5,
+    "retained_affine_nonzero_capability_gap": 1
+  },
+  "cases": [
+    {
+      "id": "tr[cplx] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "(-exp(-s)*Ei(-s), 0, True)",
+        "srepr": "Tuple(Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s', complex=True))), exp(Mul(Integer(-1), Symbol('s', complex=True)))), Integer(0), true)",
+        "elapsed_seconds": 0.0037456409772858024
+      },
+      "native_output": {
+        "ok": true,
+        "text": "(exp(s)*expint(1, s), 0, True)",
+        "srepr": "Tuple(Mul(exp(Symbol('s', complex=True)), expint(Integer(1), Symbol('s', complex=True))), Integer(0), true)",
+        "elapsed_seconds": 0.0005996020045131445
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": true
+    },
+    {
+      "id": "int[none] 1/(1+a*x) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "log(a + 1)/a",
+        "srepr": "Mul(Pow(Symbol('a'), Integer(-1)), log(Add(Integer(1), Symbol('a'))))",
+        "elapsed_seconds": 0.017157862021122128
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((1, Eq(a, 0)), ((-log(1/a) + log(1 + 1/a))/a, Contains(a, Complexes) & ~Contains(-1/a, Interval(0, 1))), (Integral(1/(a*x + 1), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Integer(1), Equality(Symbol('a'), Integer(0))), ExprCondPair(Mul(Pow(Symbol('a'), Integer(-1)), Add(Mul(Integer(-1), log(Pow(Symbol('a'), Integer(-1)))), log(Add(Integer(1), Pow(Symbol('a'), Integer(-1)))))), And(Contains(Symbol('a'), Complexes), Not(Contains(Mul(Integer(-1), Pow(Symbol('a'), Integer(-1))), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Mul(Symbol('a'), Symbol('x')), Integer(1)), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0034349890192970634
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Pow(Symbol('a'), Integer(-1)), Add(Mul(Integer(-1), log(Pow(Symbol('a'), Integer(-1)))), log(Add(Integer(1), Pow(Symbol('a'), Integer(-1))))))",
+      "condition": "And(Contains(Symbol('a'), Complexes), Unequality(Symbol('a'), Integer(0)), Not(Contains(Mul(Integer(-1), Pow(Symbol('a'), Integer(-1))), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "tr-nc[cplx] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "-exp(-s)*Ei(-s)",
+        "srepr": "Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s', complex=True))), exp(Mul(Integer(-1), Symbol('s', complex=True))))",
+        "elapsed_seconds": 0.003840386983938515
+      },
+      "native_output": {
+        "ok": true,
+        "text": "exp(s)*expint(1, s)",
+        "srepr": "Mul(exp(Symbol('s', complex=True)), expint(Integer(1), Symbol('s', complex=True)))",
+        "elapsed_seconds": 0.0006083939806558192
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": true
+    },
+    {
+      "id": "int[nz] cos(x)/x (x,1,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-(EulerGamma + 2*log(2))/sqrt(pi) - EulerGamma/sqrt(pi) - (-2*EulerGamma + 2*Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Pow(pi, Rational(-1, 2)), log(Integer(4))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(-2), EulerGamma), Mul(Integer(2), Ci(Integer(1))))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(2), log(Integer(2))), EulerGamma)), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), EulerGamma)))",
+        "elapsed_seconds": 0.5306026969919913
+      },
+      "native_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-2*log(2)/sqrt(pi) - 2*EulerGamma/sqrt(pi) + 2*(EulerGamma - Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Integer(-1), Integer(2), Pow(pi, Rational(-1, 2)), log(Integer(2))), Mul(Integer(-1), Integer(2), EulerGamma, Pow(pi, Rational(-1, 2))), Mul(Integer(2), Pow(pi, Rational(-1, 2)), Add(EulerGamma, Mul(Integer(-1), Ci(Integer(1))))), Mul(Pow(pi, Rational(-1, 2)), log(Integer(4)))))",
+        "elapsed_seconds": 0.4720058959792368
+      },
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Exact symbolic cancellation; no numeric samples."
+    },
+    {
+      "id": "int[none] 1/(x-a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(-a) + log(1 - a)",
+        "srepr": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a')))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a')))))",
+        "elapsed_seconds": 0.021673816023394465
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(-a) + log(1 - a), Contains(-a, Complexes) & ~Contains(a, Interval(0, 1))), (Integral(1/(-a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a')))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a'))))), And(Contains(Mul(Integer(-1), Symbol('a')), Complexes), Not(Contains(Symbol('a'), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Mul(Integer(-1), Symbol('a')), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0023454760084860027
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a')))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a')))))",
+      "condition": "And(Contains(Mul(Integer(-1), Symbol('a')), Complexes), Not(Contains(Symbol('a'), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "tr[nz] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "(-exp(-s)*Ei(-s), 0, True)",
+        "srepr": "Tuple(Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s', nonzero=True))), exp(Mul(Integer(-1), Symbol('s', nonzero=True)))), Integer(0), true)",
+        "elapsed_seconds": 0.004177994967903942
+      },
+      "native_output": {
+        "ok": true,
+        "text": "(exp(s)*expint(1, s), 0, True)",
+        "srepr": "Tuple(Mul(exp(Symbol('s', nonzero=True)), expint(Integer(1), Symbol('s', nonzero=True))), Integer(0), true)",
+        "elapsed_seconds": 0.0008134039817377925
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": false
+    },
+    {
+      "id": "int[none] 1/(x+a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(a) + log(a + 1)",
+        "srepr": "Add(Mul(Integer(-1), log(Symbol('a'))), log(Add(Integer(1), Symbol('a'))))",
+        "elapsed_seconds": 0.019586817012168467
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(a) + log(a + 1), Contains(a, Complexes) & ~Contains(-a, Interval(0, 1))), (Integral(1/(a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Symbol('a'))), log(Add(Symbol('a'), Integer(1)))), And(Contains(Symbol('a'), Complexes), Not(Contains(Mul(Integer(-1), Symbol('a')), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Symbol('a'), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0024498499697074294
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Symbol('a'))), log(Add(Symbol('a'), Integer(1))))",
+      "condition": "And(Contains(Symbol('a'), Complexes), Not(Contains(Mul(Integer(-1), Symbol('a')), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[none] 1/x (x,a,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(a)",
+        "srepr": "Mul(Integer(-1), log(Symbol('a')))",
+        "elapsed_seconds": 0.0031110330019146204
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(a), Contains(a, Complexes) & ~Contains(a, Interval(-oo, 0))), (Integral(1/x, (x, a, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Mul(Integer(-1), log(Symbol('a'))), And(Contains(Symbol('a'), Complexes), Not(Contains(Symbol('a'), Interval(-oo, Integer(0), true, false))))), ExprCondPair(Integral(Pow(Symbol('x'), Integer(-1)), Tuple(Symbol('x'), Symbol('a'), Integer(1))), true))",
+        "elapsed_seconds": 0.0031597859924659133
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Integer(-1), log(Symbol('a')))",
+      "condition": "And(Contains(Symbol('a'), Complexes), Not(Contains(Symbol('a'), Interval(-oo, Integer(0), true, false))))"
+    },
+    {
+      "id": "tr-nc[nz] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "-exp(-s)*Ei(-s)",
+        "srepr": "Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s', nonzero=True))), exp(Mul(Integer(-1), Symbol('s', nonzero=True))))",
+        "elapsed_seconds": 0.004204444005154073
+      },
+      "native_output": {
+        "ok": true,
+        "text": "exp(s)*expint(1, s)",
+        "srepr": "Mul(exp(Symbol('s', nonzero=True)), expint(Integer(1), Symbol('s', nonzero=True)))",
+        "elapsed_seconds": 0.0009946750360541046
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": false
+    },
+    {
+      "id": "int[none] 1/(x**2+a) (x,0,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "pi*a/(2*polar_lift(a)**(3/2))",
+        "srepr": "Mul(Rational(1, 2), pi, Symbol('a'), Pow(polar_lift(Symbol('a')), Rational(-3, 2)))",
+        "elapsed_seconds": 0.0921241560135968
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((pi/(2*sqrt(a)), Contains(a, Complexes) & ~Contains(a, Interval(-oo, 0))), (Integral(1/(a + x**2), (x, 0, oo)), True))",
+        "srepr": "Piecewise(ExprCondPair(Mul(Rational(1, 2), pi, Pow(Symbol('a'), Rational(-1, 2))), And(Contains(Symbol('a'), Complexes), Not(Contains(Symbol('a'), Interval(-oo, Integer(0), true, false))))), ExprCondPair(Integral(Pow(Add(Symbol('a'), Pow(Symbol('x'), Integer(2))), Integer(-1)), Tuple(Symbol('x'), Integer(0), oo)), true))",
+        "elapsed_seconds": 0.017792207014281303
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Rational(1, 2), pi, Pow(Symbol('a'), Rational(-1, 2)))",
+      "condition": "And(Contains(Symbol('a'), Complexes), Not(Contains(Symbol('a'), Interval(-oo, Integer(0), true, false))))"
+    },
+    {
+      "id": "int[pos] 1/(x-a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(-a) + log(1 - a)",
+        "srepr": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', positive=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', positive=True)))))",
+        "elapsed_seconds": 0.021482132957316935
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(-a) + log(1 - a), Contains(-a, Complexes) & ~Contains(a, Interval(0, 1))), (Integral(1/(-a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', positive=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', positive=True))))), And(Contains(Mul(Integer(-1), Symbol('a', positive=True)), Complexes), Not(Contains(Symbol('a', positive=True), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Mul(Integer(-1), Symbol('a', positive=True)), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0014316720189526677
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', positive=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', positive=True)))))",
+      "condition": "And(Contains(Mul(Integer(-1), Symbol('a', positive=True)), Complexes), Not(Contains(Symbol('a', positive=True), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[real] 1/(1+a*x) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "log(a + 1)/a",
+        "srepr": "Mul(Pow(Symbol('a', real=True), Integer(-1)), log(Add(Integer(1), Symbol('a', real=True))))",
+        "elapsed_seconds": 0.018392091034911573
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((1, Eq(a, 0)), ((-log(1/a) + log(1 + 1/a))/a, Contains(a, Complexes) & ~Contains(-1/a, Interval(0, 1))), (Integral(1/(a*x + 1), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Integer(1), Equality(Symbol('a', real=True), Integer(0))), ExprCondPair(Mul(Pow(Symbol('a', real=True), Integer(-1)), Add(Mul(Integer(-1), log(Pow(Symbol('a', real=True), Integer(-1)))), log(Add(Integer(1), Pow(Symbol('a', real=True), Integer(-1)))))), And(Contains(Symbol('a', real=True), Complexes), Not(Contains(Mul(Integer(-1), Pow(Symbol('a', real=True), Integer(-1))), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Mul(Symbol('a', real=True), Symbol('x')), Integer(1)), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0026480359956622124
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Pow(Symbol('a', real=True), Integer(-1)), Add(Mul(Integer(-1), log(Pow(Symbol('a', real=True), Integer(-1)))), log(Add(Integer(1), Pow(Symbol('a', real=True), Integer(-1))))))",
+      "condition": "And(Contains(Symbol('a', real=True), Complexes), Unequality(Symbol('a', real=True), Integer(0)), Not(Contains(Mul(Integer(-1), Pow(Symbol('a', real=True), Integer(-1))), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[real] 1/(x-a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(-a) + log(1 - a)",
+        "srepr": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', real=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', real=True)))))",
+        "elapsed_seconds": 0.012422967003658414
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(-a) + log(1 - a), Contains(-a, Complexes) & ~Contains(a, Interval(0, 1))), (Integral(1/(-a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', real=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', real=True))))), And(Contains(Mul(Integer(-1), Symbol('a', real=True)), Complexes), Not(Contains(Symbol('a', real=True), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Mul(Integer(-1), Symbol('a', real=True)), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.001732891018036753
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', real=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', real=True)))))",
+      "condition": "And(Contains(Mul(Integer(-1), Symbol('a', real=True)), Complexes), Not(Contains(Symbol('a', real=True), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[real] 1/(x+a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(a) + log(a + 1)",
+        "srepr": "Add(Mul(Integer(-1), log(Symbol('a', real=True))), log(Add(Integer(1), Symbol('a', real=True))))",
+        "elapsed_seconds": 0.014855546003673226
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(a) + log(a + 1), Contains(a, Complexes) & ~Contains(-a, Interval(0, 1))), (Integral(1/(a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Symbol('a', real=True))), log(Add(Symbol('a', real=True), Integer(1)))), And(Contains(Symbol('a', real=True), Complexes), Not(Contains(Mul(Integer(-1), Symbol('a', real=True)), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Symbol('a', real=True), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0020462990505620837
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Symbol('a', real=True))), log(Add(Symbol('a', real=True), Integer(1))))",
+      "condition": "And(Contains(Symbol('a', real=True), Complexes), Not(Contains(Mul(Integer(-1), Symbol('a', real=True)), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[real] 1/x (x,a,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(a)",
+        "srepr": "Mul(Integer(-1), log(Symbol('a', real=True)))",
+        "elapsed_seconds": 0.0028863539919257164
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(a), Contains(a, Complexes) & ~Contains(a, Interval(-oo, 0))), (Integral(1/x, (x, a, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Mul(Integer(-1), log(Symbol('a', real=True))), And(Contains(Symbol('a', real=True), Complexes), Not(Contains(Symbol('a', real=True), Interval(-oo, Integer(0), true, false))))), ExprCondPair(Integral(Pow(Symbol('x'), Integer(-1)), Tuple(Symbol('x'), Symbol('a', real=True), Integer(1))), true))",
+        "elapsed_seconds": 0.0020200349972583354
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Integer(-1), log(Symbol('a', real=True)))",
+      "condition": "And(Contains(Symbol('a', real=True), Complexes), Not(Contains(Symbol('a', real=True), Interval(-oo, Integer(0), true, false))))"
+    },
+    {
+      "id": "int[cplx] 1/(1+a*x) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "log(a + 1)/a",
+        "srepr": "Mul(Pow(Symbol('a', complex=True), Integer(-1)), log(Add(Integer(1), Symbol('a', complex=True))))",
+        "elapsed_seconds": 0.02765412302687764
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((1, Eq(a, 0)), ((-log(1/a) + log(1 + 1/a))/a, Contains(a, Complexes) & ~Contains(-1/a, Interval(0, 1))), (Integral(1/(a*x + 1), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Integer(1), Equality(Symbol('a', complex=True), Integer(0))), ExprCondPair(Mul(Pow(Symbol('a', complex=True), Integer(-1)), Add(Mul(Integer(-1), log(Pow(Symbol('a', complex=True), Integer(-1)))), log(Add(Integer(1), Pow(Symbol('a', complex=True), Integer(-1)))))), And(Contains(Symbol('a', complex=True), Complexes), Not(Contains(Mul(Integer(-1), Pow(Symbol('a', complex=True), Integer(-1))), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Mul(Symbol('a', complex=True), Symbol('x')), Integer(1)), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0025797149864956737
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Pow(Symbol('a', complex=True), Integer(-1)), Add(Mul(Integer(-1), log(Pow(Symbol('a', complex=True), Integer(-1)))), log(Add(Integer(1), Pow(Symbol('a', complex=True), Integer(-1))))))",
+      "condition": "And(Contains(Symbol('a', complex=True), Complexes), Unequality(Symbol('a', complex=True), Integer(0)), Not(Contains(Mul(Integer(-1), Pow(Symbol('a', complex=True), Integer(-1))), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[real] 1/(x**2+a) (x,0,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "pi*a/(2*polar_lift(a)**(3/2))",
+        "srepr": "Mul(Rational(1, 2), pi, Symbol('a', real=True), Pow(polar_lift(Symbol('a', real=True)), Rational(-3, 2)))",
+        "elapsed_seconds": 0.03503628895850852
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((pi/(2*sqrt(a)), Contains(a, Complexes) & ~Contains(a, Interval(-oo, 0))), (Integral(1/(a + x**2), (x, 0, oo)), True))",
+        "srepr": "Piecewise(ExprCondPair(Mul(Rational(1, 2), pi, Pow(Symbol('a', real=True), Rational(-1, 2))), And(Contains(Symbol('a', real=True), Complexes), Not(Contains(Symbol('a', real=True), Interval(-oo, Integer(0), true, false))))), ExprCondPair(Integral(Pow(Add(Symbol('a', real=True), Pow(Symbol('x'), Integer(2))), Integer(-1)), Tuple(Symbol('x'), Integer(0), oo)), true))",
+        "elapsed_seconds": 0.009954376029781997
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Rational(1, 2), pi, Pow(Symbol('a', real=True), Rational(-1, 2)))",
+      "condition": "And(Contains(Symbol('a', real=True), Complexes), Not(Contains(Symbol('a', real=True), Interval(-oo, Integer(0), true, false))))"
+    },
+    {
+      "id": "int[cplx] 1/(x-a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(-a) + log(1 - a)",
+        "srepr": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', complex=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', complex=True)))))",
+        "elapsed_seconds": 0.02115277503617108
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(-a) + log(1 - a), Contains(-a, Complexes) & ~Contains(a, Interval(0, 1))), (Integral(1/(-a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', complex=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', complex=True))))), And(Contains(Mul(Integer(-1), Symbol('a', complex=True)), Complexes), Not(Contains(Symbol('a', complex=True), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Mul(Integer(-1), Symbol('a', complex=True)), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0010596730280667543
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', complex=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', complex=True)))))",
+      "condition": "And(Contains(Mul(Integer(-1), Symbol('a', complex=True)), Complexes), Not(Contains(Symbol('a', complex=True), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[none] cos(x)/x (x,1,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-(EulerGamma + 2*log(2))/sqrt(pi) - EulerGamma/sqrt(pi) - (-2*EulerGamma + 2*Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Pow(pi, Rational(-1, 2)), log(Integer(4))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(-2), EulerGamma), Mul(Integer(2), Ci(Integer(1))))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(2), log(Integer(2))), EulerGamma)), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), EulerGamma)))",
+        "elapsed_seconds": 0.7334720060462132
+      },
+      "native_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-2*log(2)/sqrt(pi) - 2*EulerGamma/sqrt(pi) + 2*(EulerGamma - Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Integer(-1), Integer(2), Pow(pi, Rational(-1, 2)), log(Integer(2))), Mul(Integer(-1), Integer(2), EulerGamma, Pow(pi, Rational(-1, 2))), Mul(Integer(2), Pow(pi, Rational(-1, 2)), Add(EulerGamma, Mul(Integer(-1), Ci(Integer(1))))), Mul(Pow(pi, Rational(-1, 2)), log(Integer(4)))))",
+        "elapsed_seconds": 0.6581224440014921
+      },
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Exact symbolic cancellation; no numeric samples."
+    },
+    {
+      "id": "int[cplx] 1/(x+a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(a) + log(a + 1)",
+        "srepr": "Add(Mul(Integer(-1), log(Symbol('a', complex=True))), log(Add(Integer(1), Symbol('a', complex=True))))",
+        "elapsed_seconds": 0.01772517105564475
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(a) + log(a + 1), Contains(a, Complexes) & ~Contains(-a, Interval(0, 1))), (Integral(1/(a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Symbol('a', complex=True))), log(Add(Symbol('a', complex=True), Integer(1)))), And(Contains(Symbol('a', complex=True), Complexes), Not(Contains(Mul(Integer(-1), Symbol('a', complex=True)), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Symbol('a', complex=True), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0010399780003353953
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Symbol('a', complex=True))), log(Add(Symbol('a', complex=True), Integer(1))))",
+      "condition": "And(Contains(Symbol('a', complex=True), Complexes), Not(Contains(Mul(Integer(-1), Symbol('a', complex=True)), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[cplx] 1/x (x,a,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(a)",
+        "srepr": "Mul(Integer(-1), log(Symbol('a', complex=True)))",
+        "elapsed_seconds": 0.002140955999493599
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(a), Contains(a, Complexes) & ~Contains(a, Interval(-oo, 0))), (Integral(1/x, (x, a, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Mul(Integer(-1), log(Symbol('a', complex=True))), And(Contains(Symbol('a', complex=True), Complexes), Not(Contains(Symbol('a', complex=True), Interval(-oo, Integer(0), true, false))))), ExprCondPair(Integral(Pow(Symbol('x'), Integer(-1)), Tuple(Symbol('x'), Symbol('a', complex=True), Integer(1))), true))",
+        "elapsed_seconds": 0.0014076490188017488
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Integer(-1), log(Symbol('a', complex=True)))",
+      "condition": "And(Contains(Symbol('a', complex=True), Complexes), Not(Contains(Symbol('a', complex=True), Interval(-oo, Integer(0), true, false))))"
+    },
+    {
+      "id": "int[nz] 1/(1+a*x) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "log(a + 1)/a",
+        "srepr": "Mul(Pow(Symbol('a', nonzero=True), Integer(-1)), log(Add(Integer(1), Symbol('a', nonzero=True))))",
+        "elapsed_seconds": 0.021718128002248704
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Integral(1/(a*x + 1), (x, 0, 1))",
+        "srepr": "Integral(Pow(Add(Mul(Symbol('a', nonzero=True), Symbol('x')), Integer(1)), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1)))",
+        "elapsed_seconds": 0.004091165028512478
+      },
+      "classification": "retained_affine_nonzero_capability_gap",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 36,
+      "remaining_gap": "Assumed-nonzero affine slope keeps full Integral to retain zero specialization behavior."
+    },
+    {
+      "id": "tr[none] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "(-exp(-s)*Ei(-s), 0, True)",
+        "srepr": "Tuple(Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s'))), exp(Mul(Integer(-1), Symbol('s')))), Integer(0), true)",
+        "elapsed_seconds": 0.002968487038742751
+      },
+      "native_output": {
+        "ok": true,
+        "text": "(exp(s)*expint(1, s), 0, True)",
+        "srepr": "Tuple(Mul(exp(Symbol('s')), expint(Integer(1), Symbol('s'))), Integer(0), true)",
+        "elapsed_seconds": 0.001030170009471476
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": true
+    },
+    {
+      "id": "int[cplx] 1/(x**2+a) (x,0,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "pi*a/(2*polar_lift(a)**(3/2))",
+        "srepr": "Mul(Rational(1, 2), pi, Symbol('a', complex=True), Pow(polar_lift(Symbol('a', complex=True)), Rational(-3, 2)))",
+        "elapsed_seconds": 0.048741527018137276
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((pi/(2*sqrt(a)), Contains(a, Complexes) & ~Contains(a, Interval(-oo, 0))), (Integral(1/(a + x**2), (x, 0, oo)), True))",
+        "srepr": "Piecewise(ExprCondPair(Mul(Rational(1, 2), pi, Pow(Symbol('a', complex=True), Rational(-1, 2))), And(Contains(Symbol('a', complex=True), Complexes), Not(Contains(Symbol('a', complex=True), Interval(-oo, Integer(0), true, false))))), ExprCondPair(Integral(Pow(Add(Symbol('a', complex=True), Pow(Symbol('x'), Integer(2))), Integer(-1)), Tuple(Symbol('x'), Integer(0), oo)), true))",
+        "elapsed_seconds": 0.017663143982645124
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Rational(1, 2), pi, Pow(Symbol('a', complex=True), Rational(-1, 2)))",
+      "condition": "And(Contains(Symbol('a', complex=True), Complexes), Not(Contains(Symbol('a', complex=True), Interval(-oo, Integer(0), true, false))))"
+    },
+    {
+      "id": "int[nz] 1/(x-a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(-a) + log(1 - a)",
+        "srepr": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', nonzero=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', nonzero=True)))))",
+        "elapsed_seconds": 0.012851910956669599
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(-a) + log(1 - a), Contains(-a, Complexes) & ~Contains(a, Interval(0, 1))), (Integral(1/(-a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', nonzero=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', nonzero=True))))), And(Contains(Mul(Integer(-1), Symbol('a', nonzero=True)), Complexes), Not(Contains(Symbol('a', nonzero=True), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Mul(Integer(-1), Symbol('a', nonzero=True)), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0022550899884663522
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Mul(Integer(-1), Symbol('a', nonzero=True)))), log(Add(Integer(1), Mul(Integer(-1), Symbol('a', nonzero=True)))))",
+      "condition": "And(Contains(Mul(Integer(-1), Symbol('a', nonzero=True)), Complexes), Not(Contains(Symbol('a', nonzero=True), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "tr-nc[none] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "-exp(-s)*Ei(-s)",
+        "srepr": "Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s'))), exp(Mul(Integer(-1), Symbol('s'))))",
+        "elapsed_seconds": 0.0025813019601628184
+      },
+      "native_output": {
+        "ok": true,
+        "text": "exp(s)*expint(1, s)",
+        "srepr": "Mul(exp(Symbol('s')), expint(Integer(1), Symbol('s')))",
+        "elapsed_seconds": 0.0009650849970057607
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": true
+    },
+    {
+      "id": "int[pos] cos(x)/x (x,1,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-(EulerGamma + 2*log(2))/sqrt(pi) - EulerGamma/sqrt(pi) - (-2*EulerGamma + 2*Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Pow(pi, Rational(-1, 2)), log(Integer(4))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(-2), EulerGamma), Mul(Integer(2), Ci(Integer(1))))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(2), log(Integer(2))), EulerGamma)), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), EulerGamma)))",
+        "elapsed_seconds": 0.5808711380232126
+      },
+      "native_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-2*log(2)/sqrt(pi) - 2*EulerGamma/sqrt(pi) + 2*(EulerGamma - Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Integer(-1), Integer(2), Pow(pi, Rational(-1, 2)), log(Integer(2))), Mul(Integer(-1), Integer(2), EulerGamma, Pow(pi, Rational(-1, 2))), Mul(Integer(2), Pow(pi, Rational(-1, 2)), Add(EulerGamma, Mul(Integer(-1), Ci(Integer(1))))), Mul(Pow(pi, Rational(-1, 2)), log(Integer(4)))))",
+        "elapsed_seconds": 0.6108328449772671
+      },
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Exact symbolic cancellation; no numeric samples."
+    },
+    {
+      "id": "int[nz] 1/(x+a) (x,0,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(a) + log(a + 1)",
+        "srepr": "Add(Mul(Integer(-1), log(Symbol('a', nonzero=True))), log(Add(Integer(1), Symbol('a', nonzero=True))))",
+        "elapsed_seconds": 0.01406360004330054
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(a) + log(a + 1), Contains(a, Complexes) & ~Contains(-a, Interval(0, 1))), (Integral(1/(a + x), (x, 0, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Add(Mul(Integer(-1), log(Symbol('a', nonzero=True))), log(Add(Symbol('a', nonzero=True), Integer(1)))), And(Contains(Symbol('a', nonzero=True), Complexes), Not(Contains(Mul(Integer(-1), Symbol('a', nonzero=True)), Interval(Integer(0), Integer(1), false, false))))), ExprCondPair(Integral(Pow(Add(Symbol('a', nonzero=True), Symbol('x')), Integer(-1)), Tuple(Symbol('x'), Integer(0), Integer(1))), true))",
+        "elapsed_seconds": 0.0021417989628389478
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Add(Mul(Integer(-1), log(Symbol('a', nonzero=True))), log(Add(Symbol('a', nonzero=True), Integer(1))))",
+      "condition": "And(Contains(Symbol('a', nonzero=True), Complexes), Not(Contains(Mul(Integer(-1), Symbol('a', nonzero=True)), Interval(Integer(0), Integer(1), false, false))))"
+    },
+    {
+      "id": "int[nz] 1/x (x,a,1)",
+      "reference_output": {
+        "ok": true,
+        "text": "-log(a)",
+        "srepr": "Mul(Integer(-1), log(Symbol('a', nonzero=True)))",
+        "elapsed_seconds": 0.002392711990978569
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((-log(a), Contains(a, Complexes) & ~Contains(a, Interval(-oo, 0))), (Integral(1/x, (x, a, 1)), True))",
+        "srepr": "Piecewise(ExprCondPair(Mul(Integer(-1), log(Symbol('a', nonzero=True))), And(Contains(Symbol('a', nonzero=True), Complexes), Not(Contains(Symbol('a', nonzero=True), Interval(-oo, Integer(0), true, false))))), ExprCondPair(Integral(Pow(Symbol('x'), Integer(-1)), Tuple(Symbol('x'), Symbol('a', nonzero=True), Integer(1))), true))",
+        "elapsed_seconds": 0.002510992984753102
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Integer(-1), log(Symbol('a', nonzero=True)))",
+      "condition": "And(Contains(Symbol('a', nonzero=True), Complexes), Not(Contains(Symbol('a', nonzero=True), Interval(-oo, Integer(0), true, false))))"
+    },
+    {
+      "id": "tr[pos] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "(-exp(-s)*Ei(-s), 0, True)",
+        "srepr": "Tuple(Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s', positive=True))), exp(Mul(Integer(-1), Symbol('s', positive=True)))), Integer(0), true)",
+        "elapsed_seconds": 0.003499204001855105
+      },
+      "native_output": {
+        "ok": true,
+        "text": "(exp(s)*expint(1, s), 0, True)",
+        "srepr": "Tuple(Mul(exp(Symbol('s', positive=True)), expint(Integer(1), Symbol('s', positive=True))), Integer(0), true)",
+        "elapsed_seconds": 0.0007799409795552492
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": false
+    },
+    {
+      "id": "int[nz] 1/(x**2+a) (x,0,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "pi*a/(2*polar_lift(a)**(3/2))",
+        "srepr": "Mul(Rational(1, 2), pi, Symbol('a', nonzero=True), Pow(polar_lift(Symbol('a', nonzero=True)), Rational(-3, 2)))",
+        "elapsed_seconds": 0.03865429403958842
+      },
+      "native_output": {
+        "ok": true,
+        "text": "Piecewise((pi/(2*sqrt(a)), Contains(a, Complexes) & ~Contains(a, Interval(-oo, 0))), (Integral(1/(a + x**2), (x, 0, oo)), True))",
+        "srepr": "Piecewise(ExprCondPair(Mul(Rational(1, 2), pi, Pow(Symbol('a', nonzero=True), Rational(-1, 2))), And(Contains(Symbol('a', nonzero=True), Complexes), Not(Contains(Symbol('a', nonzero=True), Interval(-oo, Integer(0), true, false))))), ExprCondPair(Integral(Pow(Add(Symbol('a', nonzero=True), Pow(Symbol('x'), Integer(2))), Integer(-1)), Tuple(Symbol('x'), Integer(0), oo)), true))",
+        "elapsed_seconds": 0.01740554900607094
+      },
+      "classification": "certified_conditional_value_with_original_integral_fallback",
+      "proof_file": "parameter-branch-proof.md",
+      "substitution_controls": 37,
+      "formula": "Mul(Rational(1, 2), pi, Pow(Symbol('a', nonzero=True), Rational(-1, 2)))",
+      "condition": "And(Contains(Symbol('a', nonzero=True), Complexes), Not(Contains(Symbol('a', nonzero=True), Interval(-oo, Integer(0), true, false))))"
+    },
+    {
+      "id": "tr-nc[pos] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "-exp(-s)*Ei(-s)",
+        "srepr": "Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s', positive=True))), exp(Mul(Integer(-1), Symbol('s', positive=True))))",
+        "elapsed_seconds": 0.003567631996702403
+      },
+      "native_output": {
+        "ok": true,
+        "text": "exp(s)*expint(1, s)",
+        "srepr": "Mul(exp(Symbol('s', positive=True)), expint(Integer(1), Symbol('s', positive=True)))",
+        "elapsed_seconds": 0.0008664460037834942
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": false
+    },
+    {
+      "id": "int[real] cos(x)/x (x,1,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-(EulerGamma + 2*log(2))/sqrt(pi) - EulerGamma/sqrt(pi) - (-2*EulerGamma + 2*Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Pow(pi, Rational(-1, 2)), log(Integer(4))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(-2), EulerGamma), Mul(Integer(2), Ci(Integer(1))))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(2), log(Integer(2))), EulerGamma)), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), EulerGamma)))",
+        "elapsed_seconds": 0.5813467879779637
+      },
+      "native_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-2*log(2)/sqrt(pi) - 2*EulerGamma/sqrt(pi) + 2*(EulerGamma - Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Integer(-1), Integer(2), Pow(pi, Rational(-1, 2)), log(Integer(2))), Mul(Integer(-1), Integer(2), EulerGamma, Pow(pi, Rational(-1, 2))), Mul(Integer(2), Pow(pi, Rational(-1, 2)), Add(EulerGamma, Mul(Integer(-1), Ci(Integer(1))))), Mul(Pow(pi, Rational(-1, 2)), log(Integer(4)))))",
+        "elapsed_seconds": 0.5977518240106292
+      },
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Exact symbolic cancellation; no numeric samples."
+    },
+    {
+      "id": "tr[real] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "(-exp(-s)*Ei(-s), 0, True)",
+        "srepr": "Tuple(Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s', real=True))), exp(Mul(Integer(-1), Symbol('s', real=True)))), Integer(0), true)",
+        "elapsed_seconds": 0.00316948804538697
+      },
+      "native_output": {
+        "ok": true,
+        "text": "(exp(s)*expint(1, s), 0, True)",
+        "srepr": "Tuple(Mul(exp(Symbol('s', real=True)), expint(Integer(1), Symbol('s', real=True))), Integer(0), true)",
+        "elapsed_seconds": 0.00034215598134323955
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": false
+    },
+    {
+      "id": "tr-nc[real] laplace_transform(1/(t+1), t, s)",
+      "reference_output": {
+        "ok": true,
+        "text": "-exp(-s)*Ei(-s)",
+        "srepr": "Mul(Integer(-1), Ei(Mul(Integer(-1), Symbol('s', real=True))), exp(Mul(Integer(-1), Symbol('s', real=True))))",
+        "elapsed_seconds": 0.0039302409859374166
+      },
+      "native_output": {
+        "ok": true,
+        "text": "exp(s)*expint(1, s)",
+        "srepr": "Mul(exp(Symbol('s', real=True)), expint(Integer(1), Symbol('s', real=True)))",
+        "elapsed_seconds": 0.0010917820036411285
+      },
+      "classification": "principal_E1_reference_correction",
+      "domain": "Re(s)>0",
+      "proof_file": "laplace-e1-proof.md",
+      "repairs_preexisting_complex_gap": false
+    },
+    {
+      "id": "int[cplx] cos(x)/x (x,1,oo)",
+      "reference_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-(EulerGamma + 2*log(2))/sqrt(pi) - EulerGamma/sqrt(pi) - (-2*EulerGamma + 2*Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Pow(pi, Rational(-1, 2)), log(Integer(4))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(-2), EulerGamma), Mul(Integer(2), Ci(Integer(1))))), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), Add(Mul(Integer(2), log(Integer(2))), EulerGamma)), Mul(Integer(-1), Pow(pi, Rational(-1, 2)), EulerGamma)))",
+        "elapsed_seconds": 0.5540308380150236
+      },
+      "native_output": {
+        "ok": true,
+        "text": "sqrt(pi)*(-2*log(2)/sqrt(pi) - 2*EulerGamma/sqrt(pi) + 2*(EulerGamma - Ci(1))/sqrt(pi) + log(4)/sqrt(pi))/2",
+        "srepr": "Mul(Rational(1, 2), Pow(pi, Rational(1, 2)), Add(Mul(Integer(-1), Integer(2), Pow(pi, Rational(-1, 2)), log(Integer(2))), Mul(Integer(-1), Integer(2), EulerGamma, Pow(pi, Rational(-1, 2))), Mul(Integer(2), Pow(pi, Rational(-1, 2)), Add(EulerGamma, Mul(Integer(-1), Ci(Integer(1))))), Mul(Pow(pi, Rational(-1, 2)), log(Integer(4)))))",
+        "elapsed_seconds": 0.6199740379815921
+      },
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Exact symbolic cancellation; no numeric samples."
+    }
+  ],
+  "interpretation": "Scoped exact/domain/branch classification only. All10 E1 outputs are correct on Re(s)>0, including4 repaired complex entries.20parameter branches are conditional with complete original fallback;1affine-nonzero gap remains. No global parity or sampling proof."
+}

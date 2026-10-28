@@ -1,0 +1,52 @@
+{
+  "status": "Private GO independently verified, with separate test-identity-only overlay; fresh integrated RELEASE/full gate still required",
+  "index_sha256": "3014c7082930e769a76980e9fb4a72db1989301efd839221c17b53a6c5c98129",
+  "manifest_sha256": "4add7c0a2460e7afe9160e05146320af26d649bbd37b74ab2996426cc5361de1",
+  "archive_sha256": "5ff84d8d8d172a09d897e6d29e12fcfc5a222aa1efb70426bb203b68d0286e57",
+  "safe_archive_members": 97,
+  "safe_archive_files": 82,
+  "safe_archive_directories": 15,
+  "owned_sources": 13,
+  "base_entries_verified": 3514,
+  "native_inputs_verified": 360,
+  "private_debug_native": "82df3cab10a0598d5215a165b29772f0b504cfc1068724dde22fb8111f4146e0",
+  "patch_replay": true,
+  "old_metadata_load_and_read_byte_identical": true,
+  "raw_gates": {
+    "local": {
+      "metadata_subproofs": 83,
+      "primitive_functions": 24,
+      "metadata_fields_each": 5,
+      "first_public": 11,
+      "cold_triples": 1104,
+      "equal_error_triples": 4,
+      "coupled_unique_nodes": 9597,
+      "protocol_exactly_once_assertion_verified": true,
+      "inputs_unchanged": 360
+    },
+    "demeter": {
+      "metadata_subproofs": 83,
+      "primitive_functions": 24,
+      "metadata_fields_each": 5,
+      "first_public": 11,
+      "cold_triples": 1104,
+      "equal_error_triples": 4,
+      "coupled_unique_nodes": 9597,
+      "protocol_exactly_once_assertion_verified": true,
+      "inputs_unchanged": 360
+    }
+  },
+  "math_kernel_unchanged": true,
+  "scope": "Native existing exact LLL arithmetic selected at genuine first public call after the authenticated actually consumed cold prefix; complete old arithmetic for refusals. No Python bytecode/frame emulation claimed.",
+  "global_algorithmic_parity_certified": false,
+  "node_identity_followup": {
+    "index_sha256": "efbe3cd4507b555333171d9e8325180947305ff1840fad698b1e69304f7e1b45",
+    "patch_sha256": "53922830e22ab61e03f3422d3c9f69b12086702ab1d32ab06b673efdeffe4d0a",
+    "only_change": "Restore original function name, byte-identical body/setup/assertions",
+    "private_test_base": "281cffc3ddd34eafdb94697f867c451402a0662f59d2e055c6fa03ead8515bc2",
+    "integrated_test_final": "b10e2c31c6908771235538c3c2c2aaf962bdf00b60e748422290162a97cc47c6",
+    "targeted_passed": 3,
+    "original_private_delivery_unchanged": true,
+    "native_sources_unchanged": true
+  }
+}

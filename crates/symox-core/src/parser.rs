@@ -884,23 +884,19 @@ impl Parser {
                     Some(v) => self.as_expr(v)?,
                     None => return self.err("Derivative expects arguments"),
                 };
-                let order = |value: Expr| -> R<u32> {
-                    value.as_i64().and_then(|n|u32::try_from(n).ok())
-                        .ok_or_else(||ParseError{msg:"derivative order must be a nonnegative integer fitting u32".into(),pos:self.at()})
-                };
                 let mut it = it.peekable();
                 let mut vars = Vec::new();
                 while let Some(specification) = it.next() {
                     let (variable, count) = match specification {
                         Val::Tuple(pair) if pair.len()==2 => {
                             let mut pair=pair.into_iter();
-                            (self.as_expr(pair.next().unwrap())?,order(self.as_expr(pair.next().unwrap())?)?)
+                            (self.as_expr(pair.next().unwrap())?,self.as_expr(pair.next().unwrap())?)
                         }
                         Val::E(variable) => {
-                            let mut count=1;
+                            let mut count=Expr::one();
                             if let Some(Val::E(next))=it.peek() {
                                 if next.is_integer_number() {
-                                    count=order(next.clone())?;
+                                    count=next.clone();
                                     it.next();
                                 }
                             }
@@ -917,12 +913,11 @@ impl Parser {
                     let symbols=crate::traverse::free_symbols(&f);
                     match symbols.as_slice() {
                         []=>return Ok(Val::E(Expr::zero())),
-                        [symbol] if crate::diff::is_valid_variable(symbol)=>vars.push((symbol.clone(),1)),
+                        [symbol] if crate::diff::is_valid_variable(symbol)=>vars.push((symbol.clone(),Expr::one())),
                         _=>return self.err("supply differentiation variables explicitly"),
                     }
                 }
-                if name=="diff" {crate::diff::diff_evaluated(&f,&vars)}
-                else {crate::diff::derivative_unevaluated(&f,vars)}
+                crate::diff::symbolic::construct(&f,vars,name=="diff").map_err(|error|ParseError{msg:error.to_string(),pos:self.at()})?
             }
             "O" | "Order" => {
                 let mut it = args.into_iter();
@@ -1043,7 +1038,7 @@ mod matrix_parser_tests {
         assert_eq!(parse_str("diff(sin(x),x,2)").unwrap(),crate::ops::neg(&f));
         assert_eq!(parse_str("diff(x**2)").unwrap(),parse_str("2*x").unwrap());
         assert_eq!(parse_str("Derivative(sin(x),x,0)").unwrap(),f);
-        for invalid in ["Derivative(sin(x),(x,4294967296))","Derivative(sin(x),x,0,0)","diff(sin(x),x,2,3)","Derivative(sin(x),sin(x))"] {
+        for invalid in ["Derivative(sin(x),x,0,0)","diff(sin(x),x,2,3)","Derivative(sin(x),sin(x))"] {
             assert!(parse_str(invalid).is_err(),"{invalid}");
         }
     }

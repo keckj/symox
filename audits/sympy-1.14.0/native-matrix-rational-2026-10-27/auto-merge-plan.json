@@ -1,0 +1,48 @@
+{
+  "status": "prepared only; main not modified, final reports pending",
+  "stage_manifest_sha256": "c903e5c5e4bc460ebeab5c2079a3da83772fb99844f146f80988bc6bb8aeba55",
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/fraction_free.rs",
+      "current": "0d64f90de9862385f7205ccb9da36289bcd1e00621243309053e9f16a7a3857a",
+      "stage": "ceea86569e4d80329e8297bacbe58a1a332c3fca775ede5eff8abcf4d6fea827",
+      "candidate": "ceea86569e4d80329e8297bacbe58a1a332c3fca775ede5eff8abcf4d6fea827",
+      "merged": false
+    },
+    {
+      "path": "crates/symox-py/src/poly_fraction_free.rs",
+      "current": "26bac6c2de9dc6f1e4d30276694e88dcbf6b1383c5ec7806c33c157a1ed8d9fb",
+      "stage": "c847ec8b77ea99a481cccb8bc28b8ee58a577f8de53c5568f1368bad58bfa58b",
+      "candidate": "c847ec8b77ea99a481cccb8bc28b8ee58a577f8de53c5568f1368bad58bfa58b",
+      "merged": false
+    },
+    {
+      "path": "python/symox/polys/matrices/rref.py",
+      "current": "78259119fa8bb99fc11561058ba07af95b6209e8da642b32b62c012e41b2b593",
+      "stage": "28c47afe94a1b23b8818938b7638eefec083e98813edd0f860af03a9ff5fa223",
+      "candidate": "28c47afe94a1b23b8818938b7638eefec083e98813edd0f860af03a9ff5fa223",
+      "merged": false
+    },
+    {
+      "path": "python/symox/polys/matrices/domainmatrix.py",
+      "current": "ec9ecc3663e3239890a84d00529e6bc5dc7a5ccb639b9d6f6ecc68540344eb88",
+      "stage": "037d685ba487843f568ab4a32d82562aedc63a85c5eb65c21563ef25ead0dfc6",
+      "candidate": "037d685ba487843f568ab4a32d82562aedc63a85c5eb65c21563ef25ead0dfc6",
+      "merged": false
+    },
+    {
+      "path": "python/symox/polys/matrices/_rref_native.py",
+      "current": null,
+      "stage": "ae7492dd04e027e19d787880c2dfaa6e602e018f8bcb6fad17e26b4b44a2d9dd",
+      "candidate": "ae7492dd04e027e19d787880c2dfaa6e602e018f8bcb6fad17e26b4b44a2d9dd",
+      "merged": false
+    },
+    {
+      "path": "tests/test_domainmatrix_native_auto.py",
+      "current": null,
+      "stage": "c857dbd5a4e2058e1f18b1e359add9564289b9929782184fd14977fc68062ab1",
+      "candidate": "c857dbd5a4e2058e1f18b1e359add9564289b9929782184fd14977fc68062ab1",
+      "merged": false
+    }
+  ]
+}

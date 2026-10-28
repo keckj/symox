@@ -1,0 +1,23 @@
+{
+  "ended_utc": "2026-10-28T14:47:59.596609+00:00",
+  "all_three_campaigns_complete": true,
+  "all_returncodes_zero": true,
+  "campaigns": {
+    "HNF": {
+      "returncode": 0,
+      "elapsed_seconds": 65.12929344177246,
+      "command": "/home/keckj/symox-ci/venv/bin/python /home/keckj/symox-ci/wt/native-ddm-hnf-performance-r11-20261028/run.py --r10-root /home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028 --r11-root /home/keckj/symox-ci/wt/native-normalforms-risch-lll-r11-r1-20261028 --out /home/keckj/symox-ci/wt/native-ddm-hnf-performance-r11-20261028/results"
+    },
+    "LU": {
+      "returncode": 0,
+      "elapsed_seconds": 63.02553749084473,
+      "command": "/home/keckj/symox-ci/venv/bin/python /home/keckj/symox-ci/wt/native-ddm-lu-performance-r11-20261028/run.py --r10-root /home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028 --r11-root /home/keckj/symox-ci/wt/native-normalforms-risch-lll-r11-r1-20261028 --out /home/keckj/symox-ci/wt/native-ddm-lu-performance-r11-20261028/results"
+    },
+    "Solve": {
+      "returncode": 0,
+      "elapsed_seconds": 62.996535778045654,
+      "command": "/home/keckj/symox-ci/venv/bin/python /home/keckj/symox-ci/wt/native-ddm-lu-solve-performance-r11-20261028/run.py --r10-root /home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028 --r11-root /home/keckj/symox-ci/wt/native-normalforms-risch-lll-r11-r1-20261028 --out /home/keckj/symox-ci/wt/native-ddm-lu-solve-performance-r11-20261028/results"
+    }
+  },
+  "quiet_window_end_signal_sent_to_parent_and_private_owners": true
+}

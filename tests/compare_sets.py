@@ -531,6 +531,13 @@ def compare(case, sx, mx):
         return "DIFFERENT", str(got), f"error {want_err}"
     if got_err is not None:
         return "error", got_err, str(want)
+    if case == "solveset(y, x)":
+        # A parameter-independent equation is true on the entire domain
+        # precisely when y=0. SymPy's generic EmptySet loses that case.
+        # Check the complete conditional answer, not a whitelist of a diff.
+        expected = symox.ConditionSet(mx['x'], symox.Eq(mx['y'], 0), symox.S.Complexes)
+        if want is sympy.S.EmptySet and got == expected:
+            return "intentional-correction", str(got), str(want)
     if str(got) == str(want):
         return "same", str(got), str(want)
     if semantic_equal(got, want):

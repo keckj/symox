@@ -1,0 +1,13 @@
+# Native LRT, dense Berkowitz, symbolic limits and E1, 27 October 2026
+
+Accepted release `daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007`, source identity `8f254811033a4e7791213e56e0316d752fd2dca0f99fc0c5f5fa30aa6cecc981` (2,597 files).
+
+The [integrated report](../validation-2026-10-27-lrt-limits.json) records **47,833 Python passes, 55 skips and 4 known xfails** on Demeter. All **47,892** collected nodes finish exactly once across 48 disjoint shards. The full collection, commands, results, logs and execution node IDs are in [the portable execution archive](python-execution-evidence.tar.gz); [summary.json](summary.json) preserves exact coverage. **692 Rust unit tests and 5 doctests pass**, one ignored; correctness clippy passes for core and bindings. Compiler extras are enabled, and Rust inputs remain unchanged.
+
+The integrated algorithms are native stock QQ/ZZ LRT logpart, dense ZZ/QQ Berkowitz and guarded symbolic Gruntz homogeneity. Principal E1 fixes the inherited affine Laplace complex branch error on the established domain. Unsupported representations and custom protocols retain their complete prior calculations. Python additions are protocol selection, adapters and tests.
+
+The unchanged component reviews describe their private bases and targeted gates. [Proof provenance](proof-provenance.json) and per-file integration records distinguish those deliveries from the final snapshot. The initial combined targeted log preserves eight route assertions that failed after legitimate resultant forwarding/reload; the final authenticated wrapper and callback guards pass all 1,179 combined release targets. Mathematical outputs had agreed in those eight initial failures.
+
+Independent review rejected the first Gruntz candidate's false finite for a rotating complex scale under principal roots. [The exact winding proof and correction](limit-winding-proof.md) precede acceptance; no weakened assertion or speed claim substitutes for that correction. The issue 22334 regression now passes with its original mathematical assertion and without strict xfail. The E1 proof uses analytic continuation and the independent principal expint definition, not the reference's incorrect reciprocal Laplace table.
+
+Sparse Berkowitz, other LRT domains and Python mathematical drivers, general limit/transform completeness, large literal derivatives and the subsequent inexact-domain corrections remain outside this release. There is no global parity or whole-engine performance claim. The [new full corpus replay](../corpus-r2-2026-10-27/README.md) and [paired release measurements](../../performance/2026-10-27-native-lrt/README.md) have separate identified evidence.

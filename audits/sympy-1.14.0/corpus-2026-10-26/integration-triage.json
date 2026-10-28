@@ -1,0 +1,215 @@
+{
+  "counts": {
+    "intentional_reference_correction": 10,
+    "retained_parameter_integral_capability_gap": 21,
+    "exact_algebraic_equivalence": 5
+  },
+  "cases": [
+    {
+      "id": "tr[cplx] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[none] 1/(1+a*x) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "tr-nc[cplx] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[nz] cos(x)/x (x,1,oo)",
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Both exact expressions simplify to -Ci(1); no numerical sampling."
+    },
+    {
+      "id": "int[none] 1/(x-a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "tr[nz] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[none] 1/(x+a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[none] 1/x (x,a,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "tr-nc[nz] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[none] 1/(x**2+a) (x,0,oo)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[pos] 1/(x-a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[real] 1/(1+a*x) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[real] 1/(x-a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[real] 1/(x+a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[real] 1/x (x,a,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[cplx] 1/(1+a*x) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[real] 1/(x**2+a) (x,0,oo)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[cplx] 1/(x-a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[none] cos(x)/x (x,1,oo)",
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Both exact expressions simplify to -Ci(1); no numerical sampling."
+    },
+    {
+      "id": "int[cplx] 1/(x+a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[cplx] 1/x (x,a,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[nz] 1/(1+a*x) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "tr[none] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[cplx] 1/(x**2+a) (x,0,oo)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[nz] 1/(x-a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "tr-nc[none] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[pos] cos(x)/x (x,1,oo)",
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Both exact expressions simplify to -Ci(1); no numerical sampling."
+    },
+    {
+      "id": "int[nz] 1/(x+a) (x,0,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "int[nz] 1/x (x,a,1)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "tr[pos] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[nz] 1/(x**2+a) (x,0,oo)",
+      "classification": "retained_parameter_integral_capability_gap",
+      "proof": "No unconditional pole-crossing analytic continuation is accepted as the ordinary integral. Conditional finite-parameter branches remain to be implemented."
+    },
+    {
+      "id": "tr-nc[pos] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[real] cos(x)/x (x,1,oo)",
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Both exact expressions simplify to -Ci(1); no numerical sampling."
+    },
+    {
+      "id": "tr[real] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "tr-nc[real] laplace_transform(1/(t+1), t, s)",
+      "classification": "intentional_reference_correction",
+      "native_value": "-exp(s)*Ei(-s)",
+      "domain": "Re(s)>0",
+      "proof": "u=t+1 gives exp(s)*Integral(exp(-s*u)/u,(u,1,oo)); for real s>0, v=s*u gives exp(s)*E1(s)=-exp(s)*Ei(-s). The reference exp(-s) prefactor is incorrect. Analytic continuation on Re(s)>0 preserves this identity."
+    },
+    {
+      "id": "int[cplx] cos(x)/x (x,1,oo)",
+      "classification": "exact_algebraic_equivalence",
+      "common_value": "-Ci(1)",
+      "proof": "Both exact expressions simplify to -Ci(1); no numerical sampling."
+    }
+  ],
+  "policy": "Exact symbolic proof or explicit gap; no numerical samples establish absence, convergence or completeness."
+}

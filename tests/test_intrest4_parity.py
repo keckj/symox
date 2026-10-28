@@ -91,11 +91,11 @@ def test_laplace_trig_coefficients_rewritten_in_cos():
     assert laplace_transform(cos(3*t), t, s, noconds=True) == s/(s**2 + 9)
 
 
-# Corpus DIFF entries: SymPy's -exp(-s)*Ei(-s) is wrong.
+# Corpus DIFF: the prefactor is exp(s); E1 also preserves complex branches.
 
 def test_laplace_one_over_t_plus_one_value():
     v = laplace_transform(1/(t + 1), t, s, noconds=True)
-    assert v == -exp(s)*Ei(-s)
+    assert v == exp(s)*expint(1,s)
     for sv in [S(1)/2, 1, 3]:
         ref = mpmath.quad(lambda u: mpmath.exp(-float(sv)*u)/(u + 1), [0, mpmath.inf])
         assert abs(complex(v.subs(s, sv).evalf()) - complex(ref)) < 1e-10
@@ -107,7 +107,10 @@ def test_laplace_one_over_t_plus_one_value():
 def test_rational_parameter_poles_stay_held():
     c = Symbol('c', real=True)
     for f, lim in [(1/(x + c), (x, 0, 1)), (1/(x - c), (x, 0, 1)),
-                   (1/(1 + c*x), (x, 0, 1)), (1/x, (x, c, 1))]:
-        assert isinstance(integrate(f, lim), Integral)
-    assert isinstance(integrate(1/(x - a), (x, 0, 1)), Integral)
+                   (1/(1 + c*x), (x, 0, 1)), (1/(x-a), (x, 0, 1))]:
+        result=integrate(f,lim)
+        assert result.is_Piecewise
+        assert result.args[-1][0]==Integral(f,lim) and result.args[-1][1]==True
+    result=integrate(1/x,(x,c,1))
+    assert result.is_Piecewise and result.args[-1][0]==Integral(1/x,(x,c,1))
     assert integrate(1/(x + a), (x, 0, 1)) == -log(a) + log(a + 1)

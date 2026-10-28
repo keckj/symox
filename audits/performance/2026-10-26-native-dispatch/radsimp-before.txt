@@ -1,0 +1,40 @@
+Mon Oct 26 13:46:37 2026    /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/radsimp-before.prof
+
+         44846 function calls (44139 primitive calls) in 0.049 seconds
+
+   Ordered by: cumulative time
+   List reduced from 520 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.049    0.049 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/before/symox/tensor/array/_adapters.py:75(operation)
+        1    0.000    0.000    0.049    0.049 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/before/symox/_simptools.py:76(radsimp)
+        1    0.000    0.000    0.049    0.049 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/before/symox/_simptools.py:86(_radsimp_numeric_denominators)
+        1    0.000    0.000    0.048    0.048 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/before/symox/_numeric_recognition.py:89(nsimplify)
+        1    0.000    0.000    0.047    0.047 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/before/symox/_numeric_recognition.py:128(_identify)
+     57/1    0.000    0.000    0.027    0.027 <frozen importlib._bootstrap>:1022(_find_and_load)
+     57/1    0.000    0.000    0.027    0.027 <frozen importlib._bootstrap>:987(_find_and_load_unlocked)
+     53/1    0.000    0.000    0.027    0.027 <frozen importlib._bootstrap>:664(_load_unlocked)
+     52/1    0.000    0.000    0.027    0.027 <frozen importlib._bootstrap_external>:877(exec_module)
+     81/1    0.000    0.000    0.026    0.026 <frozen importlib._bootstrap>:233(_call_with_frames_removed)
+     59/1    0.002    0.000    0.026    0.026 {built-in method builtins.exec}
+        1    0.000    0.000    0.026    0.026 /home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/mpmath/__init__.py:1(<module>)
+        1    0.000    0.000    0.020    0.020 /home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/before/symox/_numeric_recognition.py:155(nsimplify_real)
+        1    0.000    0.000    0.020    0.020 /home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/mpmath/identification.py:532(identify)
+       25    0.014    0.001    0.018    0.001 /home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/mpmath/identification.py:17(pslq)
+        1    0.000    0.000    0.016    0.016 /home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/mpmath/ctx_fp.py:1(<module>)
+        1    0.000    0.000    0.015    0.015 /home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/mpmath/ctx_base.py:1(<module>)
+     27/7    0.000    0.000    0.014    0.002 {built-in method builtins.__import__}
+       52    0.000    0.000    0.010    0.000 <frozen importlib._bootstrap_external>:950(get_code)
+    55/54    0.000    0.000    0.007    0.000 <frozen importlib._bootstrap>:1053(_handle_fromlist)
+       52    0.000    0.000    0.007    0.000 <frozen importlib._bootstrap_external>:670(_compile_bytecode)
+       52    0.007    0.000    0.007    0.000 {built-in method marshal.loads}
+        1    0.000    0.000    0.006    0.006 /home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/mpmath/libmp/__init__.py:1(<module>)
+        1    0.000    0.000    0.004    0.004 /home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/mpmath/ctx_mp.py:1(<module>)
+        1    0.000    0.000    0.004    0.004 /home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/mpmath/functions/__init__.py:1(<module>)
+       55    0.000    0.000    0.004    0.000 <frozen importlib._bootstrap>:921(_find_spec)
+       54    0.000    0.000    0.003    0.000 <frozen importlib._bootstrap_external>:1431(find_spec)
+       54    0.000    0.000    0.003    0.000 <frozen importlib._bootstrap_external>:1399(_get_spec)
+       70    0.000    0.000    0.003    0.000 <frozen importlib._bootstrap_external>:1536(find_spec)
+       52    0.000    0.000    0.002    0.000 <frozen importlib._bootstrap_external>:1070(get_data)
+
+

@@ -84,35 +84,10 @@ def radsimp(expr, symbolic=True, max_terms=4):
 
 
 def _radsimp_numeric_denominators(expr):
-    """The ``d.is_number`` step of SymPy's ``radsimp`` handler.
-
-    A numeric denominator that ``nsimplify`` (``mpmath.identify``) proves
-    to be a Number is replaced by it, e.g. ``3 - (-1)**(2/3) + (-1)**(1/3)``
-    is 4. The native handler only recognizes Float values.
-    """
-    from . import Float, Pow, expand_mul, expand_multinomial
+    """Native exact preparation, retaining recognition of unknown forms."""
     if not isinstance(expr, Expr) or not expr.args:
         return expr
-    from ._numeric_recognition import nsimplify
-
-    def numeric_add_power(node):
-        return (node.is_Pow and node.exp.is_Integer and node.exp.is_negative
-                and node.base.is_Add and node.base.is_number
-                and not node.base.has(Float))
-
-    nodes = expr.find(numeric_add_power) if isinstance(expr, Expr) else ()
-    if not nodes:
-        return expr
-    replacements = {}
-    for node in nodes:
-        base = expand_mul(expand_multinomial(node.base))
-        try:
-            candidate = nsimplify(base)
-        except (ValueError, TypeError, NotImplementedError, ArithmeticError):
-            continue
-        if candidate.is_Number and candidate != base and candidate.equals(base):
-            replacements[node] = candidate**node.exp
-    return expr.xreplace(replacements) if replacements else expr
+    return _core._st_radsimp_numeric_denominators(expr)
 
 
 # --- simplify.simplify -----------------------------------------------------

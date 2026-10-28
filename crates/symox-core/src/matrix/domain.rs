@@ -165,6 +165,43 @@ pub fn matrix_domain(m: &Matrix) -> Domain {
     construct_domain(m.data())
 }
 
+/// A structural proof that every entry belongs to a rational polynomial
+/// ring in ordinary, commutative symbols. Unknown expressions deliberately
+/// keep the general domain-construction path: in particular, function values
+/// can have algebraic relations requiring EXRAW coefficient simplification.
+pub fn has_rational_polynomial_entries(m: &Matrix) -> bool {
+    use rustc_hash::FxHashMap;
+    fn exponent(e: &Expr) -> bool {
+        e.as_number().is_some_and(|n| n.is_integer() && !n.is_negative())
+    }
+    fn polynomial(e: &Expr, seen: &mut FxHashMap<Expr, bool>) -> bool {
+        if let Some(result) = seen.get(e) {
+            return *result;
+        }
+        let result = match e.kind() {
+            Kind::Num(n) => n.is_rational(),
+            Kind::Sym(s) => s.host().is_none() && s.scalar_identity().is_none() && crate::decompose::commutes(e),
+            Kind::Add(c, terms) => c.is_rational() && terms.iter().all(|(t, c)| {
+                c.is_rational() && polynomial(t, seen)
+            }),
+            Kind::Mul(c, factors) => c.is_rational() && factors.iter().all(|(b, p)| {
+                exponent(p) && polynomial(b, seen)
+            }),
+            Kind::Pow(b, p) => exponent(p) && polynomial(b, seen),
+            _ => false,
+        };
+        seen.insert(e.clone(), result);
+        result
+    }
+    let mut seen = FxHashMap::default();
+    m.data().iter().all(|e| polynomial(e, &mut seen))
+}
+
+/// Exact rational entries need no floating-point or composite-domain adapter.
+pub fn has_rational_entries(m: &Matrix) -> bool {
+    m.data().iter().all(Expr::is_rational_number)
+}
+
 // ----------------------------------------------------------------------
 // integer / rational / polynomial matrices
 // ----------------------------------------------------------------------

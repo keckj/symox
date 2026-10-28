@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "status": "accepted",
+  "scope": "Native bounded exact rational integration driver; stock ZZ/QQ AUTO statistics/decision; sparse ZZ/QQ Berkowitz with guarded cold prefix/continuation; CoreExpr presentation protocol fix.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "80c98adae719e1cdfc2e7621a234d0ade781cdb3bc26c4285360263b0ca719ae",
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+    "working_code_diff_sha256": "b8b70b9215e6cea86dd21f9483632662ab356c5c5c24be662658a0aeda1ddc53",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 3018,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 448.9416551589966,
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+    "reused_from": "/home/keckj/.cache/symox-validation/native-matrix-rational-r6-20261027/release-build-result.json",
+    "reason": "Only two Python source/test files changed for the CoreExpr presentation protocol correction; all335 native input paths/hashes and extension unchanged."
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 50416,
+      "skipped": 55,
+      "xfailed": 4,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 50475,
+      "collected_in_shards": 50475,
+      "finished": 50475,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 206.06576824188232,
+    "collection_size_delta_from_previous_accepted_release": 920
+  },
+  "rust": {
+    "status": "verified current input paths/hashes and binary identical to the initial R6 gate",
+    "source_snapshot": "/home/keckj/.cache/symox-validation/native-matrix-rational-r6-20261027/after",
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+    "native_inputs": 335,
+    "passed": 725,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 135.51766443252563
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 22.593412160873413
+      },
+      "rust_inputs_unchanged": true
+    },
+    "bindings_clippy_returncode": 0,
+    "native_inputs_unchanged": true,
+    "host": "Demeter",
+    "validation_mode": "Results reused from first R6 gate: full set of335 native input paths/hashes and the release binary verified identical in both immutable snapshots.",
+    "ordinary_warnings_preserved": true
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python/symox/__init__.py",
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_validation": {
+    "root_initial_combined": 4289,
+    "root_corrected_combined": 4333,
+    "root_original_failing_shard": 988,
+    "root_targeted_exact_once": true,
+    "private_rational_driver": 1680,
+    "private_AUTO": 1248,
+    "private_sparse_broad": 5723,
+    "private_sparse_final_protocols": 192,
+    "private_presentation_final": 1187,
+    "new_presentation_cases": 44
+  },
+  "initial_failure": "audits/sympy-1.14.0/validation-2026-10-27-matrix-rational-initial.json",
+  "repairs": [
+    "Sparse conversion builtin-type lookups and Domain attribute hooks now preserve real callbacks; both independently frozen followups are included.",
+    "First full gate found57 PolyMatrix native-route assertion failures after official units imports changed CoreExpr __str__/__repr__. Ground arithmetic does not consume those methods. Exclusion is limited to those two slots/functions; both keys must remain present so deletion cannot hide another hook at equal dictionary size.44 new tests cover counters/errors, imports, true printing errors, preserved arithmetic/attribute refusals and balanced-key forgery. Existing57 assertions retained."
+  ],
+  "remaining_gaps": [
+    "Global mathematical parity is not certified.",
+    "Native rational driver handles admitted closed QQ/ZZ expression/tuple inputs, real None/True and certified linear/quadratic logarithmic groups. General RootSum, higher-degree groups, real False, other domains/options/protocols and budget refusal retain the complete old public driver. Broad Risch/PRDE/ODE drivers remain Python.",
+    "Sparse Berkowitz retains an actual legacy cold prefix until conversion makes the stock protocol provable; a deeply decoupled cold recursion may still perform old arithmetic before native continuation. No first-call/all-sparse-algorithms claim.",
+    "AUTO statistics and decisions are native for audited stock ZZ/QQ; remaining preparation and sparse GJ elimination are subsequent ports.",
+    "LLL, exact DomainElement floor/ceil and native rational protocol-state verification belong to later private stages and are not part of this release.",
+    "Other previously documented symbolic derivative, precision/domain/completeness and integration gaps remain open."
+  ],
+  "performance": {
+    "status": "Integrated AUTO public warm calls measured with exact certificates and same-binary control; small-case overhead retained. Other speed claims keep their separate identified packages.",
+    "previous_selector": "audits/performance/2026-10-27-rational-selector/integrated-r5/README.md",
+    "integrated_AUTO": {
+      "artifact": "audits/performance/2026-10-27-native-auto/README.md",
+      "fresh_processes": 9,
+      "exact_certificates": 2016,
+      "public_cases": 14,
+      "same_binary_control": true,
+      "small_case_overheads_percent": [
+        3.0,
+        2.3
+      ]
+    }
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-matrix-rational-r6-r1-20261027",
+    "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-matrix-rational-r6-r1-20261027/after",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027",
+    "portable_review": "audits/sympy-1.14.0/native-matrix-rational-2026-10-27/README.md",
+    "independent_checks": {
+      "source_entries_checked": 3018,
+      "native_build_input_paths_and_hashes_identical": 335,
+      "same_release_binary_in_both_immutable_snapshots": true,
+      "collection_execution_counters_equal": true,
+      "each_node_once": true,
+      "nodes": 50475,
+      "shards": 48
+    }
+  },
+  "global_algorithmic_parity_certified": false,
+  "integration_corpus": {
+    "artifact": "audits/sympy-1.14.0/corpus-r6-2026-10-27/README.md",
+    "inputs_per_backend": 1210,
+    "backend_calls": 2420,
+    "exactly_once_per_backend": true,
+    "native_output_trees_identical_to_R2": 1210,
+    "parameter_controls": 21,
+    "E1_controls": 10
+  }
+}

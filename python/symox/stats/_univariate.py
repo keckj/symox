@@ -1,6 +1,7 @@
 """Scalar finite, countable and continuous probability laws."""
 import inspect
 import math
+from functools import partial
 import numpy as np
 import symox as S
 from ._base import Distribution,HALF as H,scalar,positive,check,variable,sum_expr
@@ -21,8 +22,15 @@ def _shift(n,location,moment):
 
 
 def _normal_moment(n,mu,sigma):
-    if not n.is_Integer or n < 0:return None
-    return S.Add(*(S.binomial(n,2*j)*mu**(n-2*j)*sigma**(2*j)*S.factorial(2*j)/(2**j*S.factorial(j)) for j in range(int(n)//2+1)))
+    return S._core._stats_normal_moment(n,mu,sigma)
+
+
+def _poisson_moment(n,rate):
+    result = S._core._stats_poisson_moment(rate,n)
+    if result is not None:
+        return result
+    # Symbolic orders and host parameters retain the original protocol.
+    return S.Add(*(S.stirling(n,j,kind=2)*rate**j for j in range(int(n)+1))) if n.is_Integer else None
 
 
 def _exists(value,condition,n):
@@ -88,6 +96,9 @@ def continuous_model(family,params):
         m._pdf = lambda x:S.exp(-(x-mu)**2/(2*sigma**2))/(S.sqrt(2*S.pi)*sigma)
         m._cdf = lambda x:(1+S.erf((x-mu)/(S.sqrt(2)*sigma)))/2
         m._moment = lambda n:_normal_moment(n,mu,sigma)
+        m._native_moment = m._moment
+        m._native_args = m.args
+        m._native_table = None
         m._mgf = lambda t:S.exp(mu*t+sigma**2*t**2/2)
         m._quantile = lambda p:mu+sigma*S.sqrt(2)*S.erfinv(2*p-1)
         m._sampler = lambda r,z:r.normal(float(mu),float(sigma),z)
@@ -527,11 +538,10 @@ def finite_model(family,params):
                 return S.Piecewise((mass(k),S.And(k>=0,k<=n,S.Contains(k,S.Integers))),(0,True))
             m._pdf = probability
         m.lower,m.upper = S.Min(n*success,n*failure),S.Max(n*success,n*failure)
-        def raw(k):
-            if not k.is_Integer:return None
-            base = lambda q:S.Add(*(S.stirling(q,j,kind=2)*S.ff(n,j)*p**j for j in range(int(q)+1)))
-            return _shift(k,n*failure,lambda q:(success-failure)**q*base(q))
-        m._moment = raw
+        m._moment = partial(S._core._stats_binomial_moment,n,p,success,failure)
+        m._native_moment = m._moment
+        m._native_args = m.args
+        m._native_table = None if m._table is None else m._table.copy()
         m._mgf = lambda t:((1-p)*S.exp(t*failure)+p*S.exp(t*success))**n
         m._sampler = lambda r,z:float(failure)*int(n)+(float(success)-float(failure))*r.binomial(int(n),float(p),z)
     elif family == 'BetaBinomial':
@@ -592,7 +602,10 @@ def discrete_model(family,params):
         lamda, = values;check(lamda>=0,'Poisson rate must be nonnegative')
         m._pdf = lambda k:S.exp(-lamda)*lamda**k/S.factorial(k)
         m._cdf = lambda x:S.uppergamma(S.floor(x)+1,lamda)/S.gamma(S.floor(x)+1)
-        m._moment = lambda n:S.Add(*(S.stirling(n,j,kind=2)*lamda**j for j in range(int(n)+1))) if n.is_Integer else None
+        m._moment = lambda n:_poisson_moment(n,lamda)
+        m._native_moment = m._moment
+        m._native_args = m.args
+        m._native_table = None
         m._mgf = lambda t:S.exp(lamda*(S.exp(t)-1))
         m._sampler = lambda r,z:r.poisson(float(lamda),z)
     elif family in ('Geometric','NegativeBinomial','FlorySchulz'):

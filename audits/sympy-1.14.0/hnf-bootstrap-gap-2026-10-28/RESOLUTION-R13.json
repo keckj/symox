@@ -1,0 +1,18 @@
+{
+  "status": "resolved in accepted R13 for the four original regression cases",
+  "report": "../validation-2026-10-28-math-ports.json",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "cc617a4aef2a114b2526073b6443c6b6dcb79b5c246a9cab9bb7351312a776a7",
+    "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+    "working_code_diff_sha256": "61de7ebc1cac6fef64424f60ad87dde0403ea01876c618d3010bda62af3cb269",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "original_failure_evidence_preserved": true,
+  "fifth_module_authority_case": "Only the rejected private HNF candidate; never a R12 failure."
+}

@@ -1,0 +1,138 @@
+{
+  "scope": "Exact immutable accepted corrected R10r1 RELEASE; no source/binary edits",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "82feae2c9d065fd338e9439693f9c5b2bd1663b683ac2a9e411937b923e38754",
+    "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+    "working_code_diff_sha256": "a1a57da806073ce5481756822e9c3316ba9ea1718300ac206753b5e9ebb23bd4",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+  "guard_hashes_before": {
+    "python/symox/polys/matrices/_lu_native.py": "30da2d2c1e49b327bddf5f8309073fae9bb44ea738ff1e5c6703908ac46fdf64",
+    "python/symox/polys/matrices/_lu_solve_native.py": "e6f893348a0de27d0712fb9ad109ab944844010d9fa7697c6d2ae50ee1eb2950",
+    "python/symox/polys/matrices/dense.py": "ac94e17186699919a5f867937da35231de647735fa77ebbac404fa9711aa703e",
+    "python/symox/polys/matrices/normalforms.py": "cb3b54dfc67f807e33031c933c80630abe936b8bc7180259698f03917e335dd2"
+  },
+  "guard_hashes_after": {
+    "python/symox/polys/matrices/_lu_native.py": "30da2d2c1e49b327bddf5f8309073fae9bb44ea738ff1e5c6703908ac46fdf64",
+    "python/symox/polys/matrices/_lu_solve_native.py": "e6f893348a0de27d0712fb9ad109ab944844010d9fa7697c6d2ae50ee1eb2950",
+    "python/symox/polys/matrices/dense.py": "ac94e17186699919a5f867937da35231de647735fa77ebbac404fa9711aa703e",
+    "python/symox/polys/matrices/normalforms.py": "cb3b54dfc67f807e33031c933c80630abe936b8bc7180259698f03917e335dd2"
+  },
+  "LU_solve_guards_match_pre_correction_HNF_stage": true,
+  "probe_sha256": "76b9686446b88ea2d7ff7a10eda4c63650f3968d28056484a874432c89dda59a",
+  "records": [
+    {
+      "route": "hnf",
+      "arm": "native",
+      "events": [],
+      "result": {
+        "status": "returned",
+        "value": [
+          [
+            2,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "hnf",
+      "arm": "old",
+      "events": [],
+      "result": {
+        "status": "returned",
+        "value": [
+          [
+            2,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "lu",
+      "arm": "native",
+      "events": [
+        "__code__"
+      ],
+      "result": {
+        "status": "raised",
+        "type": "RuntimeError",
+        "message": "metadata audit refusal: __code__"
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "lu",
+      "arm": "old",
+      "events": [],
+      "result": {
+        "status": "returned",
+        "value": {
+          "matrix": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2",
+              "1"
+            ]
+          ],
+          "result": []
+        }
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "solve",
+      "arm": "native",
+      "events": [
+        "__code__"
+      ],
+      "result": {
+        "status": "raised",
+        "type": "RuntimeError",
+        "message": "metadata audit refusal: __code__"
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "solve",
+      "arm": "old",
+      "events": [],
+      "result": {
+        "status": "returned",
+        "value": {
+          "matrix": [
+            [
+              "1"
+            ],
+            [
+              "2"
+            ]
+          ],
+          "result": null
+        }
+      },
+      "reference_imported": false
+    }
+  ]
+}

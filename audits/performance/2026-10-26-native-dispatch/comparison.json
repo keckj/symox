@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "94903b9bbe6a5dcf9d21080310b65143c7b6e32a7790a3e33ba42d15a57a7266",
+    "native_sha256": "345253365beafcb9192f25c35a6500b2aec1defed2484441f0c622d9b5e8a43c",
+    "working_code_diff_sha256": "eb0302ae5ed3ac9e0c7dfa0ea1eb11fff04ac4390e5376fbf3063620b58ffa8a",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "baseline_native_sha256": "8323eddaa68e4c1f2c55cff6933c84fa3c4af204ed56eabf4e25a4d35bec1733",
+  "before_environment": {
+    "allowed_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "cache_policy": "Fresh process per trial; first call after input setup, then repeated identical calls; first result retained",
+    "clock": {
+      "monotonic": true,
+      "resolution": 1e-09
+    },
+    "cpu_governor": "powersave",
+    "cpu_model": "Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz",
+    "gc_policy": "Keep Python GC enabled for both backends",
+    "load_average": [
+      1.13427734375,
+      1.94287109375,
+      2.435546875
+    ],
+    "load_average_end": [
+      1.103515625,
+      1.89599609375,
+      2.412109375
+    ],
+    "pinned_cpu": 0,
+    "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+    "thread_environment": {
+      "MKL_NUM_THREADS": "1",
+      "NUMEXPR_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    }
+  },
+  "after_environment": {
+    "allowed_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "cache_policy": "Fresh process per trial; first call after input setup, then repeated identical calls; first result retained",
+    "clock": {
+      "monotonic": true,
+      "resolution": 1e-09
+    },
+    "cpu_governor": "powersave",
+    "cpu_model": "Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz",
+    "gc_policy": "Keep Python GC enabled for both backends",
+    "load_average": [
+      3.095703125,
+      3.53662109375,
+      3.20654296875
+    ],
+    "load_average_end": [
+      3.54833984375,
+      3.6015625,
+      3.23388671875
+    ],
+    "pinned_cpu": 0,
+    "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+    "thread_environment": {
+      "MKL_NUM_THREADS": "1",
+      "NUMEXPR_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    }
+  },
+  "targeted": [
+    {
+      "case": "matrices.charpoly_generic.3",
+      "rounds": 3,
+      "first": {
+        "before_seconds": 0.015823017,
+        "after_seconds": 0.001314952,
+        "before_over_after": 12.033151780445218,
+        "after_sympy_over_symox": 1.4604041695656806
+      },
+      "warm": {
+        "before_seconds": 0.00101243625,
+        "after_seconds": 0.0004202126875,
+        "before_over_after": 2.4093424118708935,
+        "after_sympy_over_symox": 1.5586892586123888
+      }
+    },
+    {
+      "case": "matrices.charpoly_generic.4",
+      "rounds": 3,
+      "first": {
+        "before_seconds": 0.016640751000000002,
+        "after_seconds": 0.0019705210000000003,
+        "before_over_after": 8.444848342138958,
+        "after_sympy_over_symox": 1.862520282080961
+      },
+      "warm": {
+        "before_seconds": 0.001918172,
+        "after_seconds": 0.0009597751250000001,
+        "before_over_after": 1.9985639865379923,
+        "after_sympy_over_symox": 1.3712042703753131
+      }
+    },
+    {
+      "case": "matrices.inverse_rational.10",
+      "rounds": 3,
+      "first": {
+        "before_seconds": 0.016394935,
+        "after_seconds": 0.00032371600000000004,
+        "before_over_after": 50.64604468114025,
+        "after_sympy_over_symox": 8.166211104065075
+      },
+      "warm": {
+        "before_seconds": 0.002334692,
+        "after_seconds": 0.00018107584375,
+        "before_over_after": 12.893448135596497,
+        "after_sympy_over_symox": 8.520216843516735
+      }
+    },
+    {
+      "case": "matrices.inverse_rational.4",
+      "rounds": 3,
+      "first": {
+        "before_seconds": 0.014098082000000001,
+        "after_seconds": 4.7130000000000004e-05,
+        "before_over_after": 299.1318056439635,
+        "after_sympy_over_symox": 12.003296095564648
+      },
+      "warm": {
+        "before_seconds": 0.00036517475000000005,
+        "after_seconds": 6.4453388671875005e-06,
+        "before_over_after": 56.65718397818676,
+        "after_sympy_over_symox": 58.615884127272665
+      }
+    },
+    {
+      "case": "simplification.radsimp.3",
+      "rounds": 3,
+      "first": {
+        "before_seconds": 0.026442303,
+        "after_seconds": 0.00062586,
+        "before_over_after": 42.24954941999808,
+        "after_sympy_over_symox": 39.146529575304385
+      },
+      "warm": {
+        "before_seconds": 0.012372997,
+        "after_seconds": 0.0003875053125,
+        "before_over_after": 31.92987709039473,
+        "after_sympy_over_symox": 38.252767129126
+      }
+    },
+    {
+      "case": "simplification.radsimp.5",
+      "rounds": 3,
+      "first": {
+        "before_seconds": 0.025059814000000003,
+        "after_seconds": 0.00018585900000000002,
+        "before_over_after": 134.83239444955584,
+        "after_sympy_over_symox": 67.69274019552456
+      },
+      "warm": {
+        "before_seconds": 0.010859838,
+        "after_seconds": 4.8641820312500006e-05,
+        "before_over_after": 223.26134034932966,
+        "after_sympy_over_symox": 244.4739099729801
+      }
+    }
+  ],
+  "scope": "Six existing public-API workloads; three fresh process trials per backend, unchanged harness and independent result validation. First call and repeated-call medians are separate. Full 137-case screening is separate evidence and does not establish universal speed or parity."
+}

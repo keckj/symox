@@ -1,0 +1,117 @@
+{
+  "status": "FROZEN: private GO for root integration; root full release gates still required",
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "1801af86581c822b537ed5899d0e7d03ee046db1987b39f13f422fe6fe44e1f9",
+    "native_sha256": "532c4b08d546d9d580306ad7e40317e2fbbbe80aa8d77d4749b35682d3ee9c90",
+    "working_code_diff_sha256": "f5ca3791ef7713ea5bdb879dc36fd35ad3e0a60e88e98e5f5bafc3e11a25d570",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "files": [
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base_sha256": "0e7879b9d5e8b0cef5e81ecfad6139d6d6a09e7a57ff869135890db353119631",
+      "final_sha256": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977"
+    },
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base_sha256": "8ebccd3020ba4fc7a3d5120ac28e00209fc46c763441453cf91c7d6db3e7e8c8",
+      "final_sha256": "7ee776dd89bf6356bd0e8bc29d8a683608616148e1865ae310891d7eb83ad97c"
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "3ad1925f745823d0f79b70c8ab35f6905a4cce685929bf043febdbfb0aefec5c",
+      "final_sha256": "77394d2d3d5bc44de68b67ad6d1a482e3c55c8441905eee778d7f643bc260b2c"
+    },
+    {
+      "path": "python/symox/diffgeom/_adapters.py",
+      "base_sha256": "f15dc65c5898b6140c7299562bdfd6f494b2e541cd981d43bf2f02000a9c44c2",
+      "final_sha256": "ca0989ea872c3cba1538b04e05240ce7f4fe4990e27f263d94f72559fb715725"
+    },
+    {
+      "path": "python/symox/diffgeom/_coordinates.py",
+      "base_sha256": "7cbefc7768bfc3d59a33df0e62aee79317fcf3d8306227e12f178e092c4df10e",
+      "final_sha256": "02f23122c413088e4177a6f21c0ae5eae2309cf67cfdb3d039a3e8362dea8b7b"
+    },
+    {
+      "path": "tests/test_polymatrix_diffgeom_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "68f3d3c0e8007ec705f92dfe7b6775a048cf29e5473d4a3a87e930cd644fff69"
+    },
+    {
+      "path": "tests/test_log_to_atan_stock_dispatch.py",
+      "base_sha256": "b9dd5791540455611a9868ae1e8002b752b7e2b85f0440c177672d96adeeb969",
+      "final_sha256": "87da90d27160c43c6f3a51cf4da032938b1c967ab8c704dc101d3e00dc7c517c"
+    }
+  ],
+  "validation_files": [
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base_sha256": "0e7879b9d5e8b0cef5e81ecfad6139d6d6a09e7a57ff869135890db353119631",
+      "final_sha256": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977"
+    },
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base_sha256": "8ebccd3020ba4fc7a3d5120ac28e00209fc46c763441453cf91c7d6db3e7e8c8",
+      "final_sha256": "7ee776dd89bf6356bd0e8bc29d8a683608616148e1865ae310891d7eb83ad97c"
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "3ad1925f745823d0f79b70c8ab35f6905a4cce685929bf043febdbfb0aefec5c",
+      "final_sha256": "77394d2d3d5bc44de68b67ad6d1a482e3c55c8441905eee778d7f643bc260b2c"
+    },
+    {
+      "path": "python/symox/diffgeom/_adapters.py",
+      "base_sha256": "f15dc65c5898b6140c7299562bdfd6f494b2e541cd981d43bf2f02000a9c44c2",
+      "final_sha256": "ca0989ea872c3cba1538b04e05240ce7f4fe4990e27f263d94f72559fb715725"
+    },
+    {
+      "path": "python/symox/diffgeom/_coordinates.py",
+      "base_sha256": "7cbefc7768bfc3d59a33df0e62aee79317fcf3d8306227e12f178e092c4df10e",
+      "final_sha256": "02f23122c413088e4177a6f21c0ae5eae2309cf67cfdb3d039a3e8362dea8b7b"
+    },
+    {
+      "path": "tests/test_polymatrix_diffgeom_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "68f3d3c0e8007ec705f92dfe7b6775a048cf29e5473d4a3a87e930cd644fff69"
+    },
+    {
+      "path": "tests/test_log_to_atan_stock_dispatch.py",
+      "base_sha256": "b9dd5791540455611a9868ae1e8002b752b7e2b85f0440c177672d96adeeb969",
+      "final_sha256": "87da90d27160c43c6f3a51cf4da032938b1c967ab8c704dc101d3e00dc7c517c"
+    },
+    {
+      "path": "python/symox/polys/matrices/_hnf_native.py",
+      "base_sha256": "066b6a70c121d10495a9bd4db71d6a2955388cd172d66bdcba29854d355bccfd",
+      "final_sha256": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lu_native.py",
+      "base_sha256": "503b447e5faaf874b31162727a74e1fb94fafedcbd205f1ccea6fdb8f6e3e63d",
+      "final_sha256": "d2c8b5ff6d905fdfba0e4deca6814c62f99effa4a12c3ac4f914a9ce31405334"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lu_solve_native.py",
+      "base_sha256": "09a0e0ac004dc60719420fde60793c4c363a9afa06c3d5a1350ea641ee201bd4",
+      "final_sha256": "5502d395b22ed27b56c1f2fad9fa8248745e19301d0d3b0758b46922f9efb695"
+    },
+    {
+      "path": "tests/test_native_matrix_closure_tuple_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "cf6f8f406d30eafd1a701da78f64befd493813d5fca970ff10e9ed11e9da4277"
+    }
+  ],
+  "root_closure_dependency_manifest_sha256": "19346a409ab8e3cc1c2922b0e9f7d992317cdcc7c71f07d5d170c5feae0e017e",
+  "native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+  "native_profile": "debug",
+  "native_input_count": 350,
+  "native_modified_inputs": [
+    "crates/symox-py/src/poly_ddm.rs"
+  ],
+  "patch_sha256": "24d3742723f0741102f563a665f2f96f27750c8128bc27210220444d2375c7f5"
+}

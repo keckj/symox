@@ -1,0 +1,5801 @@
+{
+  "identity": {
+    "roots": {
+      "r8": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028",
+      "r9": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028",
+      "r10": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028"
+    },
+    "source_identities": {
+      "r8": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "40be6712a5d0e95745622fc3c6fd9d85689466e44c70e7a6960664c8d879c230",
+        "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+        "working_code_diff_sha256": "e785f7e9db4f55fc91f5798e852ebfe02a89210c8734b016fb424af727111efd",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      },
+      "r9": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "d81c42c90dd3bcc21e0a3bad4acf6a8fffcba60194f564e9764da8e1443cd54a",
+        "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+        "working_code_diff_sha256": "153bbd8cee4230dc3e4851c026b2ce20ae7bd437ddd44c6d6f0cca1123202673",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      },
+      "r10": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "82feae2c9d065fd338e9439693f9c5b2bd1663b683ac2a9e411937b923e38754",
+        "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+        "working_code_diff_sha256": "a1a57da806073ce5481756822e9c3316ba9ea1718300ac206753b5e9ebb23bd4",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      }
+    },
+    "worker_sha256": "7b9849c948071b6a8265c85b29a0c597dc6b73cf81ba47df05781a0ac212d0ca",
+    "fixtures_sha256": "f2e1ccc80f30c26d59bf025920f62edf1f4a7828fb0aa2a0618a608a6cbf5496",
+    "runner_sha256": "731ada1d58092412d88dda193ea96f5c1b82e2c7f7cca1d6175a17b2456fc977",
+    "cpu": 24,
+    "rounds": 3,
+    "repeated_calls": 9,
+    "certificates_outside_timers": true,
+    "first_call": "Fresh case/arm/process after real construction; no preceding reduction, derivation or certificate",
+    "timing_unit": "nanoseconds per public polynomial/hypertangent helper call, imports/construction excluded",
+    "arm_order": "Cyclic Latin-square rotation by round and case, case order reversed each odd round",
+    "host_before": {
+      "loadavg": [
+        1.36767578125,
+        3.81201171875,
+        3.404296875
+      ],
+      "started": 1793186280.3684797
+    }
+  },
+  "comparisons": [
+    {
+      "case": "polynomial_reduce-zero",
+      "first_call_median_ns": {
+        "r8": 96042,
+        "r9": 836078,
+        "r10": 87708
+      },
+      "repeated_process_medians_ns": {
+        "r8": 57206,
+        "r9": 784642,
+        "r10": 64044
+      },
+      "first_ratio_r9_over_r10": 9.532516988188078,
+      "first_ratio_r8_over_r10": 1.095019838555206,
+      "repeated_ratio_r9_over_r10": 12.251608269314847,
+      "repeated_ratio_r8_over_r10": 0.893229654612454
+    },
+    {
+      "case": "hypertangent-zero",
+      "first_call_median_ns": {
+        "r8": 255110,
+        "r9": 1074412,
+        "r10": 240782
+      },
+      "repeated_process_medians_ns": {
+        "r8": 191319,
+        "r9": 957485,
+        "r10": 187768
+      },
+      "first_ratio_r9_over_r10": 4.462177405287771,
+      "first_ratio_r8_over_r10": 1.059506109260659,
+      "repeated_ratio_r9_over_r10": 5.099298069958673,
+      "repeated_ratio_r8_over_r10": 1.018911635635465
+    },
+    {
+      "case": "polynomial_reduce-constant",
+      "first_call_median_ns": {
+        "r8": 68330,
+        "r9": 839766,
+        "r10": 77995
+      },
+      "repeated_process_medians_ns": {
+        "r8": 53301,
+        "r9": 771710,
+        "r10": 54782
+      },
+      "first_ratio_r9_over_r10": 10.76692095647157,
+      "first_ratio_r8_over_r10": 0.876081800115392,
+      "repeated_ratio_r9_over_r10": 14.086926362673871,
+      "repeated_ratio_r8_over_r10": 0.9729655726333467
+    },
+    {
+      "case": "hypertangent-constant",
+      "first_call_median_ns": {
+        "r8": 243334,
+        "r9": 1050142,
+        "r10": 274688
+      },
+      "repeated_process_medians_ns": {
+        "r8": 181883,
+        "r9": 947167,
+        "r10": 188346
+      },
+      "first_ratio_r9_over_r10": 3.823035589468779,
+      "first_ratio_r8_over_r10": 0.8858559529356943,
+      "repeated_ratio_r9_over_r10": 5.028867085045608,
+      "repeated_ratio_r8_over_r10": 0.9656854937190065
+    },
+    {
+      "case": "polynomial_reduce-tiny",
+      "first_call_median_ns": {
+        "r8": 1276765,
+        "r9": 840091,
+        "r10": 838469
+      },
+      "repeated_process_medians_ns": {
+        "r8": 1098069,
+        "r9": 800871,
+        "r10": 775607
+      },
+      "first_ratio_r9_over_r10": 1.0019344781977628,
+      "first_ratio_r8_over_r10": 1.522733696773524,
+      "repeated_ratio_r9_over_r10": 1.032573197508532,
+      "repeated_ratio_r8_over_r10": 1.41575437044792
+    },
+    {
+      "case": "hypertangent-tiny",
+      "first_call_median_ns": {
+        "r8": 1410626,
+        "r9": 1056536,
+        "r10": 1034311
+      },
+      "repeated_process_medians_ns": {
+        "r8": 1173628,
+        "r9": 951027,
+        "r10": 945654
+      },
+      "first_ratio_r9_over_r10": 1.021487734346826,
+      "first_ratio_r8_over_r10": 1.3638315748358085,
+      "repeated_ratio_r9_over_r10": 1.005681782131731,
+      "repeated_ratio_r8_over_r10": 1.2410754884979072
+    },
+    {
+      "case": "polynomial_reduce-moderate12",
+      "first_call_median_ns": {
+        "r8": 6393446,
+        "r9": 871737,
+        "r10": 851917
+      },
+      "repeated_process_medians_ns": {
+        "r8": 5896178,
+        "r9": 801213,
+        "r10": 776635
+      },
+      "first_ratio_r9_over_r10": 1.023265177241445,
+      "first_ratio_r8_over_r10": 7.504775699980162,
+      "repeated_ratio_r9_over_r10": 1.0316467838817462,
+      "repeated_ratio_r8_over_r10": 7.591955036793346
+    },
+    {
+      "case": "hypertangent-moderate12",
+      "first_call_median_ns": {
+        "r8": 6715252,
+        "r9": 1124620,
+        "r10": 1052668
+      },
+      "repeated_process_medians_ns": {
+        "r8": 6000608,
+        "r9": 976569,
+        "r10": 953800
+      },
+      "first_ratio_r9_over_r10": 1.0683520350195883,
+      "first_ratio_r8_over_r10": 6.379268677303766,
+      "repeated_ratio_r9_over_r10": 1.0238718808974627,
+      "repeated_ratio_r8_over_r10": 6.29126441602013
+    },
+    {
+      "case": "polynomial_reduce-moderate32",
+      "first_call_median_ns": {
+        "r8": 17488401,
+        "r9": 868879,
+        "r10": 898385
+      },
+      "repeated_process_medians_ns": {
+        "r8": 16283284,
+        "r9": 812928,
+        "r10": 817129
+      },
+      "first_ratio_r9_over_r10": 0.9671566199346605,
+      "first_ratio_r8_over_r10": 19.46648819826689,
+      "repeated_ratio_r9_over_r10": 0.9948588288997209,
+      "repeated_ratio_r8_over_r10": 19.92743373445319
+    },
+    {
+      "case": "hypertangent-moderate32",
+      "first_call_median_ns": {
+        "r8": 17096481,
+        "r9": 1094878,
+        "r10": 1067223
+      },
+      "repeated_process_medians_ns": {
+        "r8": 16183828,
+        "r9": 955713,
+        "r10": 963604
+      },
+      "first_ratio_r9_over_r10": 1.025913047226306,
+      "first_ratio_r8_over_r10": 16.019595717108796,
+      "repeated_ratio_r9_over_r10": 0.9918109513866692,
+      "repeated_ratio_r8_over_r10": 16.79510255250082
+    },
+    {
+      "case": "polynomial_reduce-moderate64",
+      "first_call_median_ns": {
+        "r8": 38516191,
+        "r9": 980050,
+        "r10": 984599
+      },
+      "repeated_process_medians_ns": {
+        "r8": 37220477,
+        "r9": 925785,
+        "r10": 937739
+      },
+      "first_ratio_r9_over_r10": 0.9953798449927331,
+      "first_ratio_r8_over_r10": 39.118657443284015,
+      "repeated_ratio_r9_over_r10": 0.9872523164761197,
+      "repeated_ratio_r8_over_r10": 39.69172338998378
+    },
+    {
+      "case": "hypertangent-moderate64",
+      "first_call_median_ns": {
+        "r8": 39150901,
+        "r9": 1218633,
+        "r10": 1183890
+      },
+      "repeated_process_medians_ns": {
+        "r8": 37624095,
+        "r9": 1121537,
+        "r10": 1100450
+      },
+      "first_ratio_r9_over_r10": 1.0293464764462914,
+      "first_ratio_r8_over_r10": 33.06971171308145,
+      "repeated_ratio_r9_over_r10": 1.0191621609341632,
+      "repeated_ratio_r8_over_r10": 34.18973601708392
+    }
+  ],
+  "timing_results": [
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 90984,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379926,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 56423,
+      "repeated_ns": [
+        63334,
+        58545,
+        56423,
+        55936,
+        61865,
+        55783,
+        63360,
+        55269,
+        56335
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 847207,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379927,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 802143,
+      "repeated_ns": [
+        826218,
+        793608,
+        785822,
+        870374,
+        847570,
+        771903,
+        769911,
+        812022,
+        802143
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 98339,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379929,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 59553,
+      "repeated_ns": [
+        66466,
+        62139,
+        60643,
+        59531,
+        59140,
+        59553,
+        63429,
+        58407,
+        57574
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1045311,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379930,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 961773,
+      "repeated_ns": [
+        1030736,
+        1014476,
+        961452,
+        931539,
+        983643,
+        978301,
+        961773,
+        938880,
+        921663
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 234805,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379931,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 187768,
+      "repeated_ns": [
+        203605,
+        185656,
+        201554,
+        187768,
+        182002,
+        183131,
+        179965,
+        213037,
+        191019
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 255110,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379932,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 189691,
+      "repeated_ns": [
+        205049,
+        184585,
+        187239,
+        187699,
+        184424,
+        200592,
+        193330,
+        189691,
+        200128
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 74778,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379933,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 54371,
+      "repeated_ns": [
+        58454,
+        65194,
+        54597,
+        52670,
+        53348,
+        54371,
+        53094,
+        55675,
+        52736
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 68330,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379934,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 52310,
+      "repeated_ns": [
+        55390,
+        56830,
+        52310,
+        51814,
+        50559,
+        50264,
+        60857,
+        50836,
+        58751
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 839766,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379935,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 770000,
+      "repeated_ns": [
+        800914,
+        789704,
+        810312,
+        770000,
+        769376,
+        760736,
+        780435,
+        767933,
+        767280
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 242704,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379936,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 175969,
+      "repeated_ns": [
+        194682,
+        174394,
+        178614,
+        181061,
+        177313,
+        169109,
+        173751,
+        171613,
+        175969
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1050142,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379937,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 947167,
+      "repeated_ns": [
+        984730,
+        1032720,
+        944971,
+        947167,
+        931809,
+        945529,
+        937782,
+        990639,
+        982699
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 255193,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379938,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 188346,
+      "repeated_ns": [
+        187509,
+        212966,
+        185686,
+        189182,
+        186628,
+        190022,
+        193932,
+        188346,
+        183172
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 878198,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379939,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 803180,
+      "repeated_ns": [
+        875161,
+        803180,
+        791648,
+        786209,
+        817184,
+        850789,
+        825728,
+        775716,
+        765242
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 834438,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379940,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 775607,
+      "repeated_ns": [
+        788188,
+        788149,
+        775607,
+        793501,
+        799497,
+        767402,
+        758483,
+        751894,
+        757958
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 1260852,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379941,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1098069,
+      "repeated_ns": [
+        1137500,
+        1104787,
+        1095578,
+        1102060,
+        1081507,
+        1097810,
+        1176182,
+        1098069,
+        1077051
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1051894,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379942,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 945654,
+      "repeated_ns": [
+        964039,
+        961664,
+        944113,
+        963254,
+        941985,
+        945654,
+        944260,
+        945471,
+        947403
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1397602,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379943,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1173628,
+      "repeated_ns": [
+        1274408,
+        1176524,
+        1171752,
+        1160748,
+        1171130,
+        1173628,
+        1275830,
+        1168209,
+        1231593
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1056536,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379945,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 951027,
+      "repeated_ns": [
+        975456,
+        967555,
+        954036,
+        951027,
+        959506,
+        949843,
+        941589,
+        949763,
+        938111
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 6393446,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379946,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 5896178,
+      "repeated_ns": [
+        6008318,
+        5896178,
+        5954123,
+        5807973,
+        5799717,
+        5936485,
+        5802737,
+        6168998,
+        5813721
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 854879,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379949,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 773672,
+      "repeated_ns": [
+        831655,
+        808164,
+        773672,
+        771604,
+        782903,
+        775457,
+        770528,
+        761168,
+        766227
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 847311,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379950,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 776635,
+      "repeated_ns": [
+        850804,
+        862287,
+        818295,
+        775480,
+        775162,
+        764365,
+        776635,
+        776976,
+        767293
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1084046,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379951,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 976569,
+      "repeated_ns": [
+        1011104,
+        991099,
+        994597,
+        976569,
+        982840,
+        964475,
+        935251,
+        938059,
+        927556
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1057663,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379952,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 946947,
+      "repeated_ns": [
+        978275,
+        1011854,
+        986644,
+        985458,
+        938582,
+        944070,
+        939604,
+        933973,
+        946947
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 6430684,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379953,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 6000608,
+      "repeated_ns": [
+        6227620,
+        5966480,
+        6138668,
+        6000608,
+        5904408,
+        6095497,
+        5995678,
+        6413140,
+        5934236
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 890496,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379974,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 817129,
+      "repeated_ns": [
+        837084,
+        841071,
+        852986,
+        817372,
+        816737,
+        817113,
+        817129,
+        807910,
+        810981
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 17396668,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379975,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 15950392,
+      "repeated_ns": [
+        16369940,
+        16438067,
+        15999532,
+        15853360,
+        15980252,
+        15851545,
+        15790334,
+        15835962,
+        15950392
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 868879,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379976,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 809999,
+      "repeated_ns": [
+        865113,
+        885456,
+        842883,
+        817490,
+        809999,
+        807978,
+        792294,
+        786660,
+        794618
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 17059192,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379977,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 16326503,
+      "repeated_ns": [
+        16326503,
+        16807270,
+        16422110,
+        16238169,
+        16707843,
+        16291133,
+        16331683,
+        16202027,
+        16214743
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1094878,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379978,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 955713,
+      "repeated_ns": [
+        1008268,
+        998046,
+        995598,
+        983822,
+        953817,
+        947116,
+        955713,
+        941970,
+        945634
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1077126,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379979,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 976086,
+      "repeated_ns": [
+        998101,
+        987139,
+        976086,
+        986449,
+        979445,
+        957953,
+        951876,
+        954468,
+        949825
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 980050,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379980,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 932769,
+      "repeated_ns": [
+        995339,
+        1014418,
+        959757,
+        933267,
+        931207,
+        932769,
+        926601,
+        903636,
+        897964
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 1035722,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379981,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 944835,
+      "repeated_ns": [
+        1005250,
+        978849,
+        930054,
+        922976,
+        996057,
+        955823,
+        944835,
+        940299,
+        933466
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 38046833,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379982,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 37190676,
+      "repeated_ns": [
+        37766077,
+        37487243,
+        36889872,
+        37118976,
+        37213344,
+        37013608,
+        37190676,
+        37313700,
+        36920107
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1180590,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379983,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1115035,
+      "repeated_ns": [
+        1114792,
+        1128952,
+        1131938,
+        1517661,
+        1090377,
+        1089703,
+        1131867,
+        1115035,
+        1078070
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 40461034,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379984,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 37624095,
+      "repeated_ns": [
+        38034142,
+        37865676,
+        37379606,
+        37809762,
+        37624095,
+        37684189,
+        37389344,
+        37312752,
+        37136075
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1211287,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379985,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1103950,
+      "repeated_ns": [
+        1115453,
+        1107310,
+        1095134,
+        1103950,
+        1123853,
+        1123739,
+        1089129,
+        1070768,
+        1072387
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1218633,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379993,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1135844,
+      "repeated_ns": [
+        1145093,
+        1135844,
+        1119281,
+        1153075,
+        1151411,
+        1098826,
+        1135623,
+        1190799,
+        1134381
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1191896,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379994,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1100450,
+      "repeated_ns": [
+        1117782,
+        1113789,
+        1095864,
+        1541820,
+        1100450,
+        1092659,
+        1115835,
+        1097374,
+        1081401
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 38903624,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379995,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 37008631,
+      "repeated_ns": [
+        37631125,
+        37314910,
+        36988426,
+        37254006,
+        36935971,
+        37008631,
+        36695864,
+        37138037,
+        36879823
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 984599,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379996,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 937739,
+      "repeated_ns": [
+        948410,
+        965189,
+        947080,
+        937739,
+        964357,
+        923543,
+        918518,
+        918251,
+        928247
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 38516191,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3379997,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 37405995,
+      "repeated_ns": [
+        38092623,
+        37405995,
+        37558921,
+        37640346,
+        37383930,
+        37422389,
+        37315522,
+        37351630,
+        36994744
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 1089876,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379998,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 923756,
+      "repeated_ns": [
+        1007325,
+        945885,
+        925873,
+        922082,
+        915474,
+        916152,
+        923756,
+        910493,
+        941230
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 17096481,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380006,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 16132943,
+      "repeated_ns": [
+        16322499,
+        16924248,
+        16218194,
+        16130003,
+        16084477,
+        16132943,
+        15954279,
+        16128196,
+        16270882
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1099558,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380025,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 950225,
+      "repeated_ns": [
+        1112337,
+        1073899,
+        958706,
+        968797,
+        950170,
+        950225,
+        948717,
+        941132,
+        949181
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1067223,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380028,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 953165,
+      "repeated_ns": [
+        1017859,
+        1000832,
+        953165,
+        982697,
+        957200,
+        945870,
+        937379,
+        952775,
+        935806
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 890555,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380029,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 812928,
+      "repeated_ns": [
+        862122,
+        829266,
+        820772,
+        812928,
+        824462,
+        811197,
+        796296,
+        786820,
+        784826
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 898385,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380030,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 820983,
+      "repeated_ns": [
+        845172,
+        821302,
+        816674,
+        810212,
+        820983,
+        801647,
+        806283,
+        889542,
+        1175189
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 17488401,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380031,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 17046787,
+      "repeated_ns": [
+        16237144,
+        16810364,
+        17444186,
+        17325714,
+        17046787,
+        16875251,
+        16929414,
+        17190318,
+        17134481
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1052668,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380036,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 953800,
+      "repeated_ns": [
+        971750,
+        954474,
+        1017786,
+        990444,
+        953800,
+        951941,
+        944302,
+        951926,
+        953468
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 6715252,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380037,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 6007311,
+      "repeated_ns": [
+        6197522,
+        6020180,
+        5985197,
+        6007311,
+        5977423,
+        5975161,
+        5869088,
+        6308362,
+        6038645
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1124620,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380038,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 937990,
+      "repeated_ns": [
+        994296,
+        989862,
+        973576,
+        977344,
+        937510,
+        937990,
+        935141,
+        937591,
+        930943
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 6320647,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380046,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 5864364,
+      "repeated_ns": [
+        6009622,
+        5839209,
+        5856216,
+        5851434,
+        5845717,
+        5864364,
+        5995842,
+        6186792,
+        5910112
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 871737,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380047,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 801213,
+      "repeated_ns": [
+        849012,
+        828269,
+        811755,
+        801213,
+        798332,
+        814412,
+        799624,
+        800267,
+        799909
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 851917,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380048,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 799992,
+      "repeated_ns": [
+        822729,
+        799992,
+        790657,
+        810275,
+        846191,
+        818411,
+        785187,
+        775007,
+        769697
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1049377,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380049,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 926844,
+      "repeated_ns": [
+        978053,
+        928930,
+        977905,
+        914144,
+        912858,
+        926844,
+        964554,
+        912183,
+        896128
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1034311,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380050,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 947691,
+      "repeated_ns": [
+        966731,
+        960048,
+        934267,
+        954305,
+        941914,
+        947691,
+        939762,
+        946210,
+        950519
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1424126,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380053,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1172127,
+      "repeated_ns": [
+        1207217,
+        1186944,
+        1172127,
+        1162059,
+        1184254,
+        1141793,
+        1255027,
+        1157890,
+        1152789
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 914593,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380054,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 818814,
+      "repeated_ns": [
+        866783,
+        844258,
+        825325,
+        818814,
+        817737,
+        803357,
+        811011,
+        788715,
+        839067
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 1276765,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380056,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1121440,
+      "repeated_ns": [
+        1131392,
+        1214966,
+        1214868,
+        1103960,
+        1121440,
+        1155706,
+        1093288,
+        1079379,
+        1077104
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 840091,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380057,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 783146,
+      "repeated_ns": [
+        1303627,
+        800328,
+        783146,
+        778813,
+        785057,
+        771326,
+        772425,
+        794335,
+        777033
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 248182,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380059,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 188904,
+      "repeated_ns": [
+        206029,
+        244214,
+        201021,
+        188904,
+        186435,
+        180504,
+        196967,
+        182724,
+        179810
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1118198,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380071,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 992274,
+      "repeated_ns": [
+        1034937,
+        1005164,
+        994456,
+        987059,
+        996685,
+        981692,
+        992274,
+        975499,
+        978069
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 274688,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380114,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 190857,
+      "repeated_ns": [
+        201365,
+        207647,
+        190175,
+        201729,
+        190857,
+        198272,
+        183518,
+        187019,
+        183188
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 874649,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380250,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 777029,
+      "repeated_ns": [
+        808177,
+        790127,
+        769467,
+        785385,
+        790730,
+        777029,
+        754072,
+        757290,
+        744590
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 79039,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380253,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 56782,
+      "repeated_ns": [
+        60162,
+        56297,
+        72598,
+        56782,
+        57145,
+        59851,
+        55293,
+        55671,
+        55456
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 68695,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380415,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 53301,
+      "repeated_ns": [
+        54997,
+        53301,
+        59618,
+        50850,
+        49501,
+        55082,
+        50976,
+        51615,
+        67104
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 249963,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380444,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 186944,
+      "repeated_ns": [
+        219011,
+        191965,
+        183679,
+        186969,
+        214182,
+        186944,
+        181553,
+        183429,
+        179394
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 252349,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380582,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 191622,
+      "repeated_ns": [
+        203607,
+        194161,
+        191669,
+        182017,
+        192033,
+        179670,
+        191622,
+        177191,
+        183249
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1074412,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380622,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 954512,
+      "repeated_ns": [
+        1024714,
+        969253,
+        923827,
+        928524,
+        926486,
+        913069,
+        954512,
+        957726,
+        968400
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 96042,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380631,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 61958,
+      "repeated_ns": [
+        66833,
+        61958,
+        70063,
+        60095,
+        59034,
+        58501,
+        67824,
+        63770,
+        61666
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 835654,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380632,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 776450,
+      "repeated_ns": [
+        809031,
+        790989,
+        776450,
+        763848,
+        766568,
+        765384,
+        777341,
+        765786,
+        819799
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 87619,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380634,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 67422,
+      "repeated_ns": [
+        68374,
+        64757,
+        77811,
+        59355,
+        67422,
+        59512,
+        76999,
+        62049,
+        72905
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 87708,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380635,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 64044,
+      "repeated_ns": [
+        74352,
+        66863,
+        64044,
+        62651,
+        69646,
+        63440,
+        65856,
+        59958,
+        60144
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 96810,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380694,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 57206,
+      "repeated_ns": [
+        64295,
+        59912,
+        57206,
+        56263,
+        56184,
+        61723,
+        57776,
+        56294,
+        56277
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-zero",
+      "certificates": 10,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 836078,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380696,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 784642,
+      "repeated_ns": [
+        810527,
+        794281,
+        778056,
+        771002,
+        759102,
+        791394,
+        764626,
+        784642,
+        794190
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 265920,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380700,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 191319,
+      "repeated_ns": [
+        226515,
+        193082,
+        196711,
+        191319,
+        183168,
+        197644,
+        183976,
+        181370,
+        179732
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1077508,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380701,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 957485,
+      "repeated_ns": [
+        991367,
+        1017867,
+        977051,
+        1017057,
+        955032,
+        922934,
+        917532,
+        957485,
+        911476
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-zero",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 240782,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380702,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 188414,
+      "repeated_ns": [
+        205514,
+        190834,
+        202216,
+        187181,
+        188414,
+        181799,
+        186821,
+        192099,
+        188075
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 822813,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380703,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 771710,
+      "repeated_ns": [
+        795433,
+        783233,
+        775046,
+        767622,
+        771710,
+        770148,
+        767102,
+        766090,
+        777967
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 77995,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380704,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 54782,
+      "repeated_ns": [
+        60140,
+        56450,
+        62422,
+        54782,
+        53325,
+        58467,
+        53029,
+        54639,
+        52752
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-constant",
+      "certificates": 10,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 67847,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380705,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "repeated_median_ns": 53970,
+      "repeated_ns": [
+        56134,
+        52796,
+        51164,
+        51219,
+        75922,
+        58477,
+        53970,
+        53823,
+        55250
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 306096,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380706,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 184252,
+      "repeated_ns": [
+        202747,
+        183594,
+        189170,
+        179739,
+        192266,
+        184957,
+        184252,
+        177940,
+        182762
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 243334,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380707,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 181883,
+      "repeated_ns": [
+        208300,
+        181561,
+        183418,
+        175897,
+        181979,
+        186519,
+        181883,
+        177510,
+        175819
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-constant",
+      "certificates": 10,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1049840,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380708,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 946942,
+      "repeated_ns": [
+        969853,
+        965535,
+        946942,
+        952602,
+        950146,
+        931004,
+        922205,
+        906685,
+        897053
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 1319621,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380709,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1093021,
+      "repeated_ns": [
+        1177205,
+        1108104,
+        1185406,
+        1071896,
+        1067293,
+        1084179,
+        1081464,
+        1119590,
+        1093021
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 837354,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380711,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 800871,
+      "repeated_ns": [
+        817116,
+        797864,
+        794485,
+        800871,
+        803178,
+        778879,
+        757080,
+        909560,
+        889430
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 10,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 838469,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380712,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 754746,
+      "repeated_ns": [
+        829040,
+        826357,
+        789439,
+        754746,
+        758997,
+        753864,
+        753981,
+        743532,
+        752496
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1075897,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380713,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 971465,
+      "repeated_ns": [
+        1009615,
+        985750,
+        968699,
+        971760,
+        967297,
+        971465,
+        963916,
+        960094,
+        1043382
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1026022,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380726,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 935016,
+      "repeated_ns": [
+        947903,
+        937807,
+        916407,
+        919890,
+        908282,
+        910477,
+        935016,
+        956143,
+        944853
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-tiny",
+      "certificates": 10,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1410626,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380731,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1218643,
+      "repeated_ns": [
+        1271984,
+        1264608,
+        1218643,
+        1191159,
+        1199915,
+        1293561,
+        1387284,
+        1146098,
+        1152418
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 853079,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380732,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 775424,
+      "repeated_ns": [
+        823228,
+        795080,
+        775424,
+        766643,
+        785206,
+        775788,
+        768920,
+        767296,
+        757121
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 6515784,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380733,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 5915446,
+      "repeated_ns": [
+        6151636,
+        6101143,
+        5915446,
+        5847066,
+        5931566,
+        5818016,
+        5785594,
+        6210338,
+        5822978
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 10,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 901683,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380734,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 852454,
+      "repeated_ns": [
+        875943,
+        858658,
+        865585,
+        832911,
+        812184,
+        821175,
+        834237,
+        1312601,
+        852454
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 6766168,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380755,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 5984531,
+      "repeated_ns": [
+        6562009,
+        6458963,
+        5931565,
+        5984531,
+        6449235,
+        5996813,
+        5919165,
+        5910927,
+        5898411
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1518403,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380756,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1004677,
+      "repeated_ns": [
+        1015137,
+        994149,
+        996607,
+        1000574,
+        1014531,
+        1030630,
+        1036491,
+        1004677,
+        949070
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate12",
+      "certificates": 10,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1050181,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380757,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 982091,
+      "repeated_ns": [
+        1020308,
+        1011842,
+        1029305,
+        982091,
+        954610,
+        997815,
+        962419,
+        951805,
+        943341
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 866358,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380758,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 831336,
+      "repeated_ns": [
+        852984,
+        839355,
+        815037,
+        831336,
+        844799,
+        847330,
+        802979,
+        797322,
+        797088
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 923258,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380759,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 801807,
+      "repeated_ns": [
+        860330,
+        811864,
+        796403,
+        795327,
+        790071,
+        854290,
+        839655,
+        801807,
+        787054
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 10,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 17607029,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380760,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 16283284,
+      "repeated_ns": [
+        16303677,
+        16647987,
+        16206554,
+        16338820,
+        16304576,
+        15987950,
+        16004800,
+        16283284,
+        16214970
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1060574,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380761,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 963604,
+      "repeated_ns": [
+        972699,
+        955920,
+        939680,
+        978087,
+        991410,
+        961972,
+        996839,
+        940409,
+        963604
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 17153453,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380762,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 16183828,
+      "repeated_ns": [
+        16756104,
+        16630707,
+        16123164,
+        16420869,
+        16488260,
+        15979064,
+        16121006,
+        16183828,
+        16016877
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate32",
+      "certificates": 10,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1078335,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380763,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 975830,
+      "repeated_ns": [
+        1029206,
+        1042371,
+        981611,
+        991649,
+        975830,
+        949205,
+        951966,
+        949731,
+        952049
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 38654479,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380764,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 37220477,
+      "repeated_ns": [
+        39267589,
+        37789667,
+        38052939,
+        37200028,
+        37220477,
+        37327661,
+        37179874,
+        37140063,
+        37088537
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 978769,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380765,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 925785,
+      "repeated_ns": [
+        959924,
+        944381,
+        943188,
+        932671,
+        925785,
+        924430,
+        924333,
+        914733,
+        905873
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 10,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_call_ns": 982920,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380766,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 923562,
+      "repeated_ns": [
+        957401,
+        937599,
+        923562,
+        925578,
+        919007,
+        916802,
+        927670,
+        918263,
+        912097
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1235226,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380774,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1121537,
+      "repeated_ns": [
+        1160045,
+        1122856,
+        1121537,
+        1165980,
+        1124852,
+        1120303,
+        1100930,
+        1075431,
+        1068629
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 1183890,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380775,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 1077812,
+      "repeated_ns": [
+        1133443,
+        1089617,
+        1077812,
+        1495542,
+        1076525,
+        1070233,
+        1072994,
+        1078480,
+        1063066
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate64",
+      "certificates": 10,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_call_ns": 39150901,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380776,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "repeated_median_ns": 37699326,
+      "repeated_ns": [
+        38566311,
+        37929726,
+        37386689,
+        37408958,
+        37792372,
+        37557481,
+        37857165,
+        37699326,
+        37364540
+      ]
+    }
+  ],
+  "routing_results": [
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-zero",
+      "certificates": 2,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380777,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-zero",
+      "certificates": 2,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380778,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-zero",
+      "certificates": 2,
+      "digest": "17d63ec796d29ec40216675b2c2896f2dda71996d96041610c0ca39f01f61665",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380779,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-zero",
+      "certificates": 2,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380780,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-zero",
+      "certificates": 2,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380781,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-zero",
+      "certificates": 2,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380789,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-constant",
+      "certificates": 2,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380790,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-constant",
+      "certificates": 2,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380811,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        0
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-constant",
+      "certificates": 2,
+      "digest": "4515009faee8a20f6057ac5c6da1ae6afac15a97e0297fb086832009fd072036",
+      "domains": [
+        "ZZ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380812,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": true,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-constant",
+      "certificates": 2,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380814,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-constant",
+      "certificates": 2,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380815,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-constant",
+      "certificates": 2,
+      "digest": "9d4f30e36ceb8f5cc603ec96599697eca4cc3c54df0b6b360e5f5e813d7f0d41",
+      "domains": [
+        "ZZ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380818,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 2,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380821,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 2,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380822,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-tiny",
+      "certificates": 2,
+      "digest": "558de021db26f042197a793b2529590fea3c71f9d13eeb14f5d003f0a68bf387",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380823,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-tiny",
+      "certificates": 2,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380831,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-tiny",
+      "certificates": 2,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380832,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-tiny",
+      "certificates": 2,
+      "digest": "fe73379e905cffa1db55e4c727b7ebabdc02bcea98080f848076933b5e4ec369",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380833,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 2,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380834,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 2,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380837,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate12",
+      "certificates": 2,
+      "digest": "6fbda31803f9982dfb193972f0ed594e8928af90b60049601117d65b2f8b7b2c",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380838,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate12",
+      "certificates": 2,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380839,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate12",
+      "certificates": 2,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380840,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate12",
+      "certificates": 2,
+      "digest": "9f1c1d32ce3d54c3a44553a0da0560e6d6bd20f4ad3740fb2b32580ebd0ccb70",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380841,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 2,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380842,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 2,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380843,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate32",
+      "certificates": 2,
+      "digest": "16fc0a3eb6e46510b922dc150a4be8994a7ce67293644177b186c85b14a47526",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380844,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate32",
+      "certificates": 2,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380845,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate32",
+      "certificates": 2,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380846,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate32",
+      "certificates": 2,
+      "digest": "c6037a9993b14e61fa10ddb2a9d9c10afe3000d8a9a1ce1b50af1bb1febb204c",
+      "domains": [
+        "QQ",
+        "ZZ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380847,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 2,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380848,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 2,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380849,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "polynomial_reduce-moderate64",
+      "certificates": 2,
+      "digest": "b74bf51f7f851135102297428eeeb5505bf89f37f936eb38557531be1ce09ff9",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "polynomial_reduce",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380888,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r8",
+      "case": "hypertangent-moderate64",
+      "certificates": 2,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": false,
+      "native_sha256": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+      "package": "/home/keckj/symox-ci/wt/native-sdm-irref-r8-20261028/python/symox/__init__.py",
+      "pid": 3380889,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": []
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r9",
+      "case": "hypertangent-moderate64",
+      "certificates": 2,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3380891,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "aliases": [
+        0,
+        1,
+        2
+      ],
+      "arm": "r10",
+      "case": "hypertangent-moderate64",
+      "certificates": 2,
+      "digest": "08cbd774476d87712e16935481d1ce784faa1c8e1ad9391959b25cc15905bb0a",
+      "domains": [
+        "QQ",
+        "QQ"
+      ],
+      "entry": "hypertangent",
+      "first_native_calls": [
+        true
+      ],
+      "input_unchanged": true,
+      "interpretation": "Separate untimed functional/routing process; not a timing sample",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3380892,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "remainder_aliases_input": false,
+      "second_native_calls": [
+        true
+      ]
+    }
+  ],
+  "certificate_count": 1152,
+  "source_hashes_unchanged": true,
+  "host_after": {
+    "loadavg": [
+      1.30908203125,
+      3.3564453125,
+      3.271484375
+    ],
+    "ended": 1793186343.4494064
+  }
+}

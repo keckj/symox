@@ -1,0 +1,668 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "status": "accepted",
+  "scope": "Closed-QQ Risch splitfactor exact arithmetic; existing exact Rust LLL selected at the genuine first admitted public cold call; stock-ZZ modulo-D HNF recurrence and bounded ordinary _gcdex/add_columns bootstrap authentication. All refused domains/protocols retain complete existing mathematical bodies.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "cc617a4aef2a114b2526073b6443c6b6dcb79b5c246a9cab9bb7351312a776a7",
+    "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+    "working_code_diff_sha256": "61de7ebc1cac6fef64424f60ad87dde0403ea01876c618d3010bda62af3cb269",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 3585,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 505.14324045181274,
+    "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc"
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 56252,
+      "skipped": 55,
+      "xfailed": 4,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 56311,
+      "collected_in_shards": 56311,
+      "finished": 56311,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 190.48825192451477,
+    "all_snapshot_entries_unchanged_after_execution": true
+  },
+  "rust": {
+    "host": "Demeter",
+    "unit_passed": 762,
+    "ignored": 1,
+    "integration_tests_passed": 1,
+    "integration_fixture_cases": 651,
+    "doctests_passed": 5,
+    "core_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 22.427011251449585
+    },
+    "bindings_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox-py",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 19.788917779922485,
+      "native_inputs_unchanged": true
+    },
+    "validation_mode": "Fresh full execution; complete native paths/hashes checked before and after, including Python compile-time contract and TSV."
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python/symox/__init__.py",
+    "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_validation": {
+    "lll-first-call": {
+      "returncode": 0,
+      "elapsed_seconds": 3.8165085315704346,
+      "collected": 11,
+      "exactly_once": true,
+      "files": [
+        "tests/test_native_lll_first_call.py"
+      ]
+    },
+    "lll-legacy-control": {
+      "returncode": 0,
+      "elapsed_seconds": 7.417459964752197,
+      "collected": 42,
+      "exactly_once": true,
+      "files": [
+        "tests/test_native_lll_cold_cache.py"
+      ]
+    },
+    "risch-focused": {
+      "returncode": 0,
+      "elapsed_seconds": 22.869406938552856,
+      "collected": 381,
+      "exactly_once": true,
+      "files": [
+        "tests/test_native_risch_splitfactor.py",
+        "tests/test_native_risch_polynomial_reduce.py"
+      ]
+    },
+    "hnf-focused": {
+      "returncode": 0,
+      "elapsed_seconds": 20.4783718585968,
+      "collected": 1681,
+      "exactly_once": true,
+      "files": [
+        "tests/test_native_hnf_modular.py",
+        "tests/test_native_hnf_function_bootstrap.py",
+        "tests/test_native_hnf_code_authority.py"
+      ]
+    },
+    "ordered-ground": {
+      "returncode": 0,
+      "elapsed_seconds": 58.20999526977539,
+      "collected": 1037,
+      "exactly_once": true,
+      "files": [
+        "tests/test_fraction_factor_lists.py",
+        "tests/test_ndim_array_subclasses.py",
+        "tests/test_native_ddm_lu.py",
+        "tests/test_algfield_parity.py",
+        "tests/test_solve_factor_components.py",
+        "tests/test_expr_completion.py",
+        "tests/test_downstream_function_conversion.py",
+        "tests/test_c_final_parity.py",
+        "tests/test_solve_trig_multiples_parity.py",
+        "tests/test_polymatrix_host_protocol.py",
+        "tests/test_native_joint_normal_moments.py",
+        "tests/test_algebraic_number_matching_options.py",
+        "tests/test_derivative_class_queries.py",
+        "tests/test_forms_b2_parity_misc.py",
+        "tests/test_icorpus_parity.py"
+      ]
+    },
+    "coupled": {
+      "returncode": 0,
+      "elapsed_seconds": 413.22576451301575,
+      "collected": 18313,
+      "exactly_once": true,
+      "files": [
+        "tests/test_fraction_factor_lists.py",
+        "tests/test_ndim_array_subclasses.py",
+        "tests/test_native_ddm_lu.py",
+        "tests/test_algfield_parity.py",
+        "tests/test_solve_factor_components.py",
+        "tests/test_expr_completion.py",
+        "tests/test_downstream_function_conversion.py",
+        "tests/test_c_final_parity.py",
+        "tests/test_solve_trig_multiples_parity.py",
+        "tests/test_polymatrix_host_protocol.py",
+        "tests/test_native_joint_normal_moments.py",
+        "tests/test_algebraic_number_matching_options.py",
+        "tests/test_derivative_class_queries.py",
+        "tests/test_forms_b2_parity_misc.py",
+        "tests/test_icorpus_parity.py",
+        "tests/test_recurrences.py",
+        "tests/test_function_facts.py",
+        "tests/test_domain_division.py",
+        "tests/test_real_domain_rounding.py",
+        "tests/test_polymatrix_native_ground.py",
+        "tests/test_matrix_solvers.py",
+        "tests/test_expr_head_queries.py",
+        "tests/test_wrong_quantum_wave4_parity.py",
+        "tests/test_poisson_native_moments.py",
+        "tests/test_polymatrix_stats_protocol.py",
+        "tests/test_solver_options.py",
+        "tests/test_array_codegen_validation.py",
+        "tests/test_api.py",
+        "tests/test_native_lll_classifier_callbacks.py",
+        "tests/test_pseudodivision.py",
+        "tests/test_native_ratint_logpart.py",
+        "tests/test_expression_keys_add_coefficients.py",
+        "tests/test_physics_atomic.py",
+        "tests/test_noncommutative_rest_parity.py",
+        "tests/test_missing_algebras_tensor_wave4_parity.py",
+        "tests/test_solve_forms_parity.py",
+        "tests/test_sympify_signature_parity.py",
+        "tests/test_fuzz_harness.py",
+        "tests/test_gamma_coefficient_cache_parity.py",
+        "tests/test_dummy_codegen.py",
+        "tests/test_sympy_parity_audit.py",
+        "tests/test_simp_rest2_parity.py",
+        "tests/test_matrixelement_bridge.py",
+        "tests/test_native_rational_states.py",
+        "tests/test_lrt_stock_forwarding.py",
+        "tests/test_log_to_atan_stock_dispatch.py",
+        "tests/test_native_log_to_real.py",
+        "tests/test_native_ratint_driver.py",
+        "tests/test_native_log_to_atan.py",
+        "tests/test_native_rational_reduction.py",
+        "tests/test_log_to_atan_generator_identity.py",
+        "tests/test_ratint_parity.py",
+        "tests/test_conditional_rational_integrals.py",
+        "tests/test_conditional_rational_rays.py",
+        "tests/test_conditional_integral_substitution.py",
+        "tests/test_native_risch_polynomial_reduce.py",
+        "tests/test_integ_risch_parity.py",
+        "tests/test_intrest3_parity.py",
+        "tests/test_intrest4_parity.py",
+        "tests/test_definite_params_parity.py",
+        "tests/test_polymatrix_diffgeom_protocol.py",
+        "tests/test_native_matrix_closure_tuple_protocol.py",
+        "tests/test_native_ddm_hnf.py",
+        "tests/test_native_ddm_lu_solve.py",
+        "tests/test_native_risch_splitfactor.py",
+        "tests/test_native_ddm_fflu.py",
+        "tests/test_native_hnf_cached_builtins.py",
+        "tests/test_native_matrix_function_metadata.py",
+        "tests/test_blockmatrix.py",
+        "tests/test_cse_matrix_parity.py",
+        "tests/test_dense_matrix_subclasses.py",
+        "tests/test_domainmatrix_algorithms.py",
+        "tests/test_domainmatrix_clear_denoms_native.py",
+        "tests/test_downstream_matrix_assignment.py",
+        "tests/test_functionmatrix.py",
+        "tests/test_matrix_applyfunc.py",
+        "tests/test_matrix_auxiliary.py",
+        "tests/test_matrix_blocks_slices.py",
+        "tests/test_matrix_calculus.py",
+        "tests/test_matrix_charpoly_callbacks.py",
+        "tests/test_matrix_coefficients.py",
+        "tests/test_matrix_compact_factor_solve.py",
+        "tests/test_matrix_compat.py",
+        "tests/test_matrix_completion.py",
+        "tests/test_matrix_dag_pickle.py",
+        "tests/test_matrix_determinant_callbacks.py",
+        "tests/test_matrix_diagonal.py",
+        "tests/test_matrix_expand.py",
+        "tests/test_matrix_functions.py",
+        "tests/test_matrix_index_sums.py",
+        "tests/test_matrix_inexact_native_inverse.py",
+        "tests/test_matrix_inv_mod.py",
+        "tests/test_matrix_inverse_callbacks.py",
+        "tests/test_matrix_lll.py",
+        "tests/test_matrix_log.py",
+        "tests/test_matrix_lu_callbacks.py",
+        "tests/test_matrix_native_domain_dispatch.py",
+        "tests/test_matrix_permutations.py",
+        "tests/test_matrix_products.py",
+        "tests/test_matrix_scalar_codegen.py",
+        "tests/test_matrix_series.py",
+        "tests/test_matrix_skew_exponential.py",
+        "tests/test_matrix_slices.py",
+        "tests/test_matrix_sorting.py",
+        "tests/test_matrix_spectral.py",
+        "tests/test_matrix_structural.py",
+        "tests/test_matrix_substitution_options.py",
+        "tests/test_matrix_svd.py",
+        "tests/test_matrix_zero_callbacks.py",
+        "tests/test_matrixexpr.py",
+        "tests/test_matrixexpr_algebra.py",
+        "tests/test_matrixexpr_calculus.py",
+        "tests/test_matrixexpr_protocols.py",
+        "tests/test_missing_c3_matrices_parity.py",
+        "tests/test_missing_domainmatrix_wave4_parity.py",
+        "tests/test_native_ddm_berkowitz.py",
+        "tests/test_native_ddm_determinant.py",
+        "tests/test_native_ddm_lll.py",
+        "tests/test_native_ddm_matmul.py",
+        "tests/test_native_ddm_rref.py",
+        "tests/test_native_fraction_free_matrices.py",
+        "tests/test_polymatrix_vector_protocol.py",
+        "tests/test_sparse_matrices.py",
+        "tests/test_native_lll_cold_cache.py",
+        "tests/test_domain_element_rounding.py",
+        "tests/test_polymatrix_presentation_protocol.py",
+        "tests/test_native_lll_cache_scan.py",
+        "tests/test_native_lll_first_call.py",
+        "tests/test_boolean_relational_domains.py",
+        "tests/test_complex_domain_division_rounding.py",
+        "tests/test_composite_domain_parity.py",
+        "tests/test_construct_domain.py",
+        "tests/test_domain_integration.py",
+        "tests/test_domain_keyword_parity.py",
+        "tests/test_domain_modules.py",
+        "tests/test_domain_protocols.py",
+        "tests/test_domainmatrix_native_auto.py",
+        "tests/test_domains.py",
+        "tests/test_domains_inexact_wave3_parity.py",
+        "tests/test_domains_misc_parity.py",
+        "tests/test_domains_rrcc_parity.py",
+        "tests/test_expression_domain_pivot_reduction.py",
+        "tests/test_fraction_domains.py",
+        "tests/test_gaussian_domains_parity.py",
+        "tests/test_gaussian_extension_domains.py",
+        "tests/test_global_division_domain_defaults.py",
+        "tests/test_implicit_domain_rings.py",
+        "tests/test_inexact_domain_followup_parity.py",
+        "tests/test_legacy_domain_constructors.py",
+        "tests/test_mat_rest2_parity.py",
+        "tests/test_mat_rest3_parity.py",
+        "tests/test_mat_rest4_parity.py",
+        "tests/test_mat_rest5_parity.py",
+        "tests/test_mat_rest6_parity.py",
+        "tests/test_mat_rest7_parity.py",
+        "tests/test_mat_rest8_parity.py",
+        "tests/test_mat_rest_parity.py",
+        "tests/test_native_inexact_linear_system.py",
+        "tests/test_native_sdm_berkowitz.py",
+        "tests/test_native_sdm_conversion_type_protocols.py",
+        "tests/test_native_sdm_domain_attributes.py",
+        "tests/test_nonempty_domains.py",
+        "tests/test_numeric_expression_domains.py",
+        "tests/test_numberfields_exports.py",
+        "tests/test_native_hnf_modular.py",
+        "tests/test_native_hnf_function_bootstrap.py",
+        "tests/test_native_hnf_code_authority.py"
+      ]
+    }
+  },
+  "fresh_release_first_call_LLL": {
+    "returncode": 0,
+    "elapsed_seconds": 509.7962508201599,
+    "command": [
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/.validation/compare-real-prefix-effects.py"
+    ],
+    "environment_overrides": {
+      "PYTHONPATH": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python",
+      "SYMOX_CI_PY": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python",
+      "SYMOX_PRIVATE_EFFECT_LIMIT": "0"
+    },
+    "identity": {
+      "package": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python/symox/__init__.py",
+      "native": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python/symox/_core.abi3.so",
+      "integrated_registered_entries": [
+        "_risch_splitfactor",
+        "_ddm_hnf_modular",
+        "_lll_prefix_contract"
+      ]
+    },
+    "before": {
+      "source_identity": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "cc617a4aef2a114b2526073b6443c6b6dcb79b5c246a9cab9bb7351312a776a7",
+        "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+        "working_code_diff_sha256": "61de7ebc1cac6fef64424f60ad87dde0403ea01876c618d3010bda62af3cb269",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      },
+      "source_entries": 3585,
+      "native_inputs": 364,
+      "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+      "runner_sha256": "13f890a8fa006463ef5e5d23170ac3f88449ac4990ecc2d6450f06070ffc27cd"
+    },
+    "after": {
+      "source_identity": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "cc617a4aef2a114b2526073b6443c6b6dcb79b5c246a9cab9bb7351312a776a7",
+        "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+        "working_code_diff_sha256": "61de7ebc1cac6fef64424f60ad87dde0403ea01876c618d3010bda62af3cb269",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      },
+      "source_entries": 3585,
+      "native_inputs": 364,
+      "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+      "runner_sha256": "13f890a8fa006463ef5e5d23170ac3f88449ac4990ecc2d6450f06070ffc27cd"
+    },
+    "all_sources_and_native_inputs_unchanged": true,
+    "scope": "Fresh unchanged first-call LLL runner on the integrated three-port RELEASE, all registered native entries present; no cache prewarming, no benchmark.",
+    "comparisons": 1104,
+    "all_three_modes_identical": true,
+    "old_bridge_public_native_calls": [
+      0,
+      1,
+      1
+    ],
+    "classifier_states_identical": true,
+    "no_audit_events": true,
+    "error_cases": [
+      {
+        "fixture": 634,
+        "transform": false,
+        "old_body_and_real_prefix_kernel_equal": true,
+        "same_initial_state_via_fork": true,
+        "no_private_helper_before_entry": true,
+        "actual_first_public_native_equal": true,
+        "old_native_calls": 0,
+        "bridge_native_calls": 1,
+        "public_native_calls": 1,
+        "ABC_and_nominal_before_after_equal": true,
+        "audit_events": [],
+        "error": [
+          "symox.polys.matrices.exceptions",
+          "DMRankError",
+          "input matrix contains linearly dependent rows"
+        ]
+      },
+      {
+        "fixture": 634,
+        "transform": true,
+        "old_body_and_real_prefix_kernel_equal": true,
+        "same_initial_state_via_fork": true,
+        "no_private_helper_before_entry": true,
+        "actual_first_public_native_equal": true,
+        "old_native_calls": 0,
+        "bridge_native_calls": 1,
+        "public_native_calls": 1,
+        "ABC_and_nominal_before_after_equal": true,
+        "audit_events": [],
+        "error": [
+          "symox.polys.matrices.exceptions",
+          "DMRankError",
+          "input matrix contains linearly dependent rows"
+        ]
+      },
+      {
+        "fixture": 637,
+        "transform": false,
+        "old_body_and_real_prefix_kernel_equal": true,
+        "same_initial_state_via_fork": true,
+        "no_private_helper_before_entry": true,
+        "actual_first_public_native_equal": true,
+        "old_native_calls": 0,
+        "bridge_native_calls": 1,
+        "public_native_calls": 1,
+        "ABC_and_nominal_before_after_equal": true,
+        "audit_events": [],
+        "error": [
+          "symox.polys.matrices.exceptions",
+          "DMRankError",
+          "input matrix contains linearly dependent rows"
+        ]
+      },
+      {
+        "fixture": 637,
+        "transform": true,
+        "old_body_and_real_prefix_kernel_equal": true,
+        "same_initial_state_via_fork": true,
+        "no_private_helper_before_entry": true,
+        "actual_first_public_native_equal": true,
+        "old_native_calls": 0,
+        "bridge_native_calls": 1,
+        "public_native_calls": 1,
+        "ABC_and_nominal_before_after_equal": true,
+        "audit_events": [],
+        "error": [
+          "symox.polys.matrices.exceptions",
+          "DMRankError",
+          "input matrix contains linearly dependent rows"
+        ]
+      }
+    ],
+    "raw_results_sha256": "b8126b9333cfc0f679a4e96d99ef0efe791c733b946a9bd3bca5461cc9905616"
+  },
+  "components": {
+    "risch": {
+      "status": "Independently verified private GO; no MAIN mutation; combined RELEASE/full gates still required",
+      "index_sha256": "0b3294f395e0d1f9a38638a7b134e4498d2083eaa359139a26b3771628a17473",
+      "manifest_sha256": "897b4436aa0b17da4a1929f996ad6bb380c589c73b5afbdf16eeae63569edd67",
+      "archive_sha256": "7c67a95bb0f6dc0116ae0b7c3a1867920cfafc67703d37bbc865674188c3924f",
+      "safe_archive_members": 87,
+      "owned_sources": 9,
+      "base_entries_verified": 3514,
+      "native_inputs_verified": 354,
+      "validation_inputs_verified": 360,
+      "private_debug_native": "64f3609b3a4d06759bb72d934f557f0bb4b6a0c47e964faddc6a17845ee38cae",
+      "raw_gates": {
+        "local": {
+          "focused": 381,
+          "coupled": 6638,
+          "NoRef_certificates": 12
+        },
+        "demeter": {
+          "focused": 381,
+          "coupled": 6638,
+          "NoRef_certificates": 12
+        }
+      },
+      "patch_replay": true,
+      "legacy_shared_module_byte_and_AST_prefix_unchanged": true,
+      "scope": "closed QQ stock-derivation splitfactor; complete old body for all refused domains/options; not full Risch/Hermite parity",
+      "global_algorithmic_parity_certified": false
+    },
+    "lll": {
+      "status": "Independently verified private GO; combined RELEASE/full gate required",
+      "index_sha256": "3014c7082930e769a76980e9fb4a72db1989301efd839221c17b53a6c5c98129",
+      "manifest_sha256": "4add7c0a2460e7afe9160e05146320af26d649bbd37b74ab2996426cc5361de1",
+      "archive_sha256": "5ff84d8d8d172a09d897e6d29e12fcfc5a222aa1efb70426bb203b68d0286e57",
+      "safe_archive_members": 97,
+      "safe_archive_files": 82,
+      "safe_archive_directories": 15,
+      "owned_sources": 13,
+      "base_entries_verified": 3514,
+      "native_inputs_verified": 360,
+      "private_debug_native": "82df3cab10a0598d5215a165b29772f0b504cfc1068724dde22fb8111f4146e0",
+      "patch_replay": true,
+      "old_metadata_load_and_read_byte_identical": true,
+      "raw_gates": {
+        "local": {
+          "metadata_subproofs": 83,
+          "primitive_functions": 24,
+          "metadata_fields_each": 5,
+          "first_public": 11,
+          "cold_triples": 1104,
+          "equal_error_triples": 4,
+          "coupled_unique_nodes": 9597,
+          "protocol_exactly_once_assertion_verified": true,
+          "inputs_unchanged": 360
+        },
+        "demeter": {
+          "metadata_subproofs": 83,
+          "primitive_functions": 24,
+          "metadata_fields_each": 5,
+          "first_public": 11,
+          "cold_triples": 1104,
+          "equal_error_triples": 4,
+          "coupled_unique_nodes": 9597,
+          "protocol_exactly_once_assertion_verified": true,
+          "inputs_unchanged": 360
+        }
+      },
+      "math_kernel_unchanged": true,
+      "scope": "Native existing exact LLL arithmetic selected at genuine first public call after the authenticated actually consumed cold prefix; complete old arithmetic for refusals. No Python bytecode/frame emulation claimed.",
+      "global_algorithmic_parity_certified": false,
+      "node_identity_followup": {
+        "index_sha256": "efbe3cd4507b555333171d9e8325180947305ff1840fad698b1e69304f7e1b45",
+        "patch_sha256": "53922830e22ab61e03f3422d3c9f69b12086702ab1d32ab06b673efdeffe4d0a",
+        "only_change": "Restore original function name, byte-identical body/setup/assertions",
+        "private_test_base": "281cffc3ddd34eafdb94697f867c451402a0662f59d2e055c6fa03ead8515bc2",
+        "integrated_test_final": "b10e2c31c6908771235538c3c2c2aaf962bdf00b60e748422290162a97cc47c6",
+        "targeted_passed": 3,
+        "original_private_delivery_unchanged": true,
+        "native_sources_unchanged": true
+      }
+    },
+    "hnf": {
+      "status": "Independently verified private GO; fresh combined RELEASE/full gate required",
+      "index_sha256": "01c2772001a6af03532db2bf82bb6a74eb276d96f1ecbc22ea2deadc1d1438c3",
+      "manifest_sha256": "5cff83f0954728687bc16ff72aee1883996bf2ec3579ee288091a877d52a1c42",
+      "archive_sha256": "1b9e40616375a42521bb63a70dbcab949a847be7e5b7ee7be13e7e07a62bfd85",
+      "safe_archive_members": 106,
+      "owned_sources": 11,
+      "base_entries_verified": 3514,
+      "actual_full_sources_verified": 3521,
+      "native_inputs_verified": 354,
+      "private_debug_native": "6341dc7a3f8c5cc8fa256585e144d43c5638af690179b67cf2fd5b4b65c7f105",
+      "patch_replay": true,
+      "raw_gates": {
+        "local": {
+          "focused": 1681,
+          "coupled": 9889,
+          "ordered": 1037,
+          "native_NoRef_calls": 3925,
+          "native_lattice_certificates": 730,
+          "fallback_NoRef_calls": 3925,
+          "fallback_lattice_certificates": 730,
+          "work_and_original_comparisons": 785,
+          "ordinary_after_cases": 5,
+          "boundary_controls": 4,
+          "positive_native_under_rejecting_audit": true
+        },
+        "demeter": {
+          "focused": 1681,
+          "coupled": 9889,
+          "ordered": 1037,
+          "native_NoRef_calls": 3925,
+          "native_lattice_certificates": 730,
+          "fallback_NoRef_calls": 3925,
+          "fallback_lattice_certificates": 730,
+          "work_and_original_comparisons": 785,
+          "ordinary_after_cases": 5,
+          "boundary_controls": 4,
+          "positive_native_under_rejecting_audit": true
+        }
+      },
+      "native_checks_reuse": "R1 Python-only refinement; actual354 compiled inputs exactly equal to the recorded DEBUG build, four units and clippy commands on both hosts. Fresh combined root gates remain required.",
+      "scope": "Stock ZZ modulo-D recurrence with complete old fallback.730valid determinant-multiple fixtures receive complete unimodular lattice certificates;55outside-hypothesis cases are legacy-output controls only. Ordinary _gcdex/add_columns bootstrap uses local semantic templates. Fifth authority witness belongs only to rejected private preliminary.",
+      "global_algorithmic_parity_certified": false
+    }
+  },
+  "remaining_gaps": [
+    "Global mathematical parity is not certified.",
+    "Risch splitfactor admission is closed QQ under the stock derivation, degree<=64 and coefficient bits<=4096; other cases retain the entire original body. General Risch/PRDE/ODE and previous integration completeness/precision/resource gaps remain open.",
+    "The pre-existing Hermite representative gap remains: some exact numerator/denominator Polys are inferred ZZ while SymPy1.14 retains QQ; all coefficients and independent differential identities agree before/after this port.",
+    "HNF modulo-D requires the original positive determinant-multiple/full-row-rank hypothesis for a mathematical HNF certificate.55outside-hypothesis controls preserve the original recurrence but are not claimed to certify HNF. HNF numberfields and remaining normal-form capabilities, including Smith native ports, remain open.",
+    "LLL cold routes outside the authenticated stock prefix retain the full old algorithm. Other-domain FFLU/LU and earlier domain/solution/precision gaps remain explicit."
+  ],
+  "performance": {
+    "status": "No benchmark or microcost campaign; mathematical capabilities and complete validation prioritized.",
+    "global_gain_claimed": false
+  },
+  "integration_corpus": {
+    "status": "Not rerun for this lot; latest corpus remains R11r1.",
+    "artifact": "audits/sympy-1.14.0/corpus-r11-2026-10-28/README.md"
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-math-ports-r13-20261028",
+    "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-math-ports-r13-20261028/after",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028",
+    "portable_review": "audits/sympy-1.14.0/native-math-ports-2026-10-28/README.md",
+    "independent_verification": {
+      "prior_nodes_preserved": 54428,
+      "new_nodes_by_file": {
+        "tests/test_native_hnf_code_authority.py": 1,
+        "tests/test_native_hnf_function_bootstrap.py": 4,
+        "tests/test_native_hnf_modular.py": 1676,
+        "tests/test_native_lll_first_call.py": 11,
+        "tests/test_native_risch_splitfactor.py": 191
+      },
+      "all_prior_skip_xfail_identities_and_reasons_preserved": true,
+      "source_entries_verified": 3585,
+      "actual_complete_native_paths_and_hashes_verified": 364,
+      "native_map_includes_py_contract_and_compiled_tsv": true,
+      "collection_shards_finished_counters_identical": true,
+      "each_node_exactly_once": true,
+      "nodes": 56311,
+      "shards": 48,
+      "fresh_integrated_release_LLL_triples": {
+        "comparisons": 1104,
+        "equal_errors": 4,
+        "old_bridge_public_native_calls": [
+          0,
+          1,
+          1
+        ],
+        "all_classification_states_equal": true,
+        "all_audit_events_empty": true,
+        "unchanged_runner_sha256": "13f890a8fa006463ef5e5d23170ac3f88449ac4990ecc2d6450f06070ffc27cd",
+        "all_sources_and_native_inputs_unchanged": true
+      }
+    }
+  },
+  "global_algorithmic_parity_certified": false
+}

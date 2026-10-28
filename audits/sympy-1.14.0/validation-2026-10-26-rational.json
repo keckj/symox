@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "scope": "Native Horowitz\u2013Ostrogradsky rational reduction for stock proper QQ/ZZ fractions, denominator degree at most128; complete host path retained for other inputs",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "56233b1d4a7b350b7775bc0451d338aa2888eb602745af2da99444411aee93d9",
+    "native_sha256": "3ef4ccbca497a7a0d93762006f4f6c7b5413a48231a62fa53b5aa59410f2ead7",
+    "working_code_diff_sha256": "9bd34acc0e69af1ac2c1a50db419f2d3f2c03fbac05e4812a9a90763b3c98ed4",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 479.2163178920746,
+    "native_sha256": "3ef4ccbca497a7a0d93762006f4f6c7b5413a48231a62fa53b5aa59410f2ead7",
+    "host": "/home/keckj/Documents/symox",
+    "compiler": "rustc1.84.1"
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 653,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 139.34524941444397
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 25.302160263061523
+      },
+      "rust_inputs_unchanged": true
+    }
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 46361,
+      "xfailed": 5,
+      "skipped": 55,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 46421,
+      "collected_in_shards": 46421,
+      "finished": 46421,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 163.99913597106934,
+    "new_cases_vs_previous": 34,
+    "rust_compilation_tests_passed": [
+      "tests.test_remaining_codegen::test_rust_routine_compiles_and_executes",
+      "tests.test_remaining_codegen::test_typed_rust_integer_arithmetic_and_mixed_loop_compile",
+      "tests.test_printing_completion::test_compiled_native_targets[rust-rustc]"
+    ]
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-rational-20261026/python/symox/__init__.py",
+    "native_sha256": "3ef4ccbca497a7a0d93762006f4f6c7b5413a48231a62fa53b5aa59410f2ead7",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "additional_exact_differential": {
+    "phase": "private debug candidate before release freeze",
+    "native_sha256": "d2b0c5facfec026a1378697e1c30665df509825a9d1fb1a767bb94d419f80c53",
+    "seed": 20261026,
+    "independent_exact_checks": 96,
+    "reference": "SymPy1.14.0",
+    "outputs_sha256": "9a1602db0b2aa3f56aee2968d1121b91a897393e3a1f1b4e1048c5b00b8823ca"
+  },
+  "initial_environment_correction": {
+    "initial_counts": {
+      "passed": 46358,
+      "skipped": 58,
+      "xfailed": 5
+    },
+    "reason": "The first full Python launch omitted ~/.cargo/bin from PATH; three Rust compilation tests skipped. This was not accepted as final validation. The entire collection was rerun with corrected PATH; all three compiler tests passed.",
+    "initial_evidence": "/home/keckj/.cache/symox-validation/native-rational-20261026/demeter-final/initial-without-rust-path/summary.json",
+    "source_and_binary_unchanged": true
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-rational-20261026",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-rational-20261026",
+    "source_manifest": "/home/keckj/.cache/symox-validation/native-rational-20261026/source-manifest.json",
+    "full_python_summary": "/home/keckj/.cache/symox-validation/native-rational-20261026/demeter-final/summary.json",
+    "full_rust_log": "/home/keckj/.cache/symox-validation/native-rational-20261026/demeter-final/tests.log",
+    "clippy_log": "/home/keckj/.cache/symox-validation/native-rational-20261026/demeter-final/clippy.log",
+    "immutable_package": "/home/keckj/.cache/symox-validation/native-rational-20261026/after/python/symox"
+  },
+  "remaining_gaps": [
+    "No global mathematical parity certified. The preceding complete documentation replay still has278 objects with output differences requiring review.",
+    "This route selects proper rational fractions of degree at most128 over stock QQ/ZZ. Larger degrees, other domains, custom protocols and unsupported input forms retain the prior complete reduction algorithm.",
+    "Rational integration logarithmic construction, general domains and other Python mathematical algorithms remain to be ported.",
+    "Sparse calculus, fraction-free DomainMatrix AUTO reduction and symbolic Derivative orders are separate in-progress ports, absent from this release."
+  ],
+  "global_algorithmic_parity_certified": false,
+  "performance_evidence": "audits/performance/2026-10-26-native-rational/README.md"
+}

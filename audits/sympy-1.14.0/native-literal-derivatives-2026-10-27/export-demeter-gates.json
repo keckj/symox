@@ -1,0 +1,50 @@
+{
+  "python": "/home/keckj/symox-ci/venv/bin/python",
+  "native": "e164b7aa2ab835d4d873128ac61ac691fedb8bcbc16b2fe4a81bf896774bb34a",
+  "sources": [
+    {
+      "path": "crates/symox-py/src/lib.rs",
+      "base_sha256": "da739edd8a991664ab04619dcd2c6a5acc086dad1fd4297a0d4df2bc0755eb7d",
+      "final_sha256": "a4446b68551e6e53bea5672c7bb59288de082b86b600e3e08cccf7f624eaca70"
+    },
+    {
+      "path": "tests/test_derivative_recipe_export_parity.py",
+      "base_sha256": null,
+      "final_sha256": "4184e82f694a19b202bde32697a45f4ce2cfd8ffc0c4eaf2b6b53b146b434fb8"
+    }
+  ],
+  "gates": [
+    {
+      "name": "targeted",
+      "returncode": 0,
+      "seconds": 5.728557381022256,
+      "files": [
+        "tests/test_derivative_recipe_export_parity.py",
+        "tests/test_complex_eval.py",
+        "tests/test_large_integer_derivative_orders.py",
+        "tests/test_exact_integer_power_materialization_budget.py",
+        "tests/test_derivative_recipe_cse_attribute_protocols.py"
+      ]
+    },
+    {
+      "name": "shard15",
+      "returncode": 0,
+      "seconds": 40.25152044399874,
+      "files": [
+        "tests/test_complex_eval.py",
+        "tests/test_matexpr_print_parity.py",
+        "tests/test_solveset_complex_wave4_parity.py",
+        "tests/test_exact_assumptions.py",
+        "tests/test_poly_sequence_gcd.py",
+        "tests/test_scalar_operation_counts.py",
+        "tests/test_latex_symbol_subclass_protocol.py",
+        "tests/test_poisson_native_moments.py",
+        "tests/test_numpy_sign_compat.py",
+        "tests/test_limit_gamma_asymptotics_parity.py",
+        "tests/test_schreier_slp_parity.py",
+        "tests/test_missing_c3_matrices_parity.py",
+        "tests/test_categories_completion.py"
+      ]
+    }
+  ]
+}

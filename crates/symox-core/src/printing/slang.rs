@@ -455,6 +455,7 @@ impl<'a> SlangPrinter<'a> {
                 }
                 Ok(fallback)
             }
+            Kind::Func(Func::SymbolicDerivative,_) => Err(self.unsupported("unevaluated Derivative")),
             Kind::Func(f, args) => self.function(f, args),
             Kind::Derivative(..) => Err(self.unsupported("unevaluated Derivative")),
         }

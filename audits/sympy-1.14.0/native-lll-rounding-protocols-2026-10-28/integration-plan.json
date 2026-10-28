@@ -1,0 +1,254 @@
+{
+  "status": "integrated; release build and combined full gates pending",
+  "base_accepted_native": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/lll.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": null,
+          "private_final": "c466bb254f3f228dbf14543e75d4c7434204c1a0ca919b69070cf36364307bfe"
+        }
+      ],
+      "candidate": "c466bb254f3f228dbf14543e75d4c7434204c1a0ca919b69070cf36364307bfe"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "current": "4f6d4297cc4ddf3fb2e1e105ddedd21dfd12bab324752b3bcb2ae0b0e73f04fd",
+      "candidate": "c3fa67f3148f352aadd5ec22d4deae1e0602415d4d954f07c91b74684f734b6b",
+      "steps": [
+        {
+          "component": "LLL",
+          "private_final": "cda9640e37ad83f0061983652416a5bad182061c7ee51ea5d13bc8875b99c70f",
+          "manual_merge": "Exact declaration/registration insertion; deleting these insertions reproduces current file byte-for-byte."
+        }
+      ]
+    },
+    {
+      "path": "crates/symox-core/tests/lll_parity.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": null,
+          "private_final": "4ef1855d10cd38301cb0202af1eda81e0060f55f3c5070bbef93d31665efb3f4"
+        }
+      ],
+      "candidate": "4ef1855d10cd38301cb0202af1eda81e0060f55f3c5070bbef93d31665efb3f4"
+    },
+    {
+      "path": "crates/symox-core/tests/fixtures/lll_sympy_1_14.tsv",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": null,
+          "private_final": "c7f9ef70b5bbbf9936244577e7f5baa69855f388644cd31ee7bc2fd2f49d04f0"
+        }
+      ],
+      "candidate": "c7f9ef70b5bbbf9936244577e7f5baa69855f388644cd31ee7bc2fd2f49d04f0"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lll.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": null,
+          "private_final": "0416c06de05dcb814566e0f4d7669e16d192eb6b7c2f76b5953e5bb3a6b35215"
+        }
+      ],
+      "candidate": "0416c06de05dcb814566e0f4d7669e16d192eb6b7c2f76b5953e5bb3a6b35215"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "current": "45e56e974187f978daed21969861213e4510066c3cd693e940567f07553471ce",
+      "candidate": "22fcba9d15a2592cb83f3dddd8df2628c1d79399d1e6aeb6e65d4437e695bf84",
+      "steps": [
+        {
+          "component": "LLL",
+          "private_final": "fc1d511b7548d08a56f4a52fa1ef02ebdee3cf6dffa027e5f1078513cb3774d0",
+          "manual_merge": "Exact declaration/registration insertion; deleting these insertions reproduces current file byte-for-byte."
+        }
+      ]
+    },
+    {
+      "path": "python/symox/polys/matrices/_lll_native.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": null,
+          "private_final": "b37b1754fa28cb77e3d51129d9fcca40e7228706792ff61fc65fa74d580fd825"
+        }
+      ],
+      "candidate": "b37b1754fa28cb77e3d51129d9fcca40e7228706792ff61fc65fa74d580fd825"
+    },
+    {
+      "path": "python/symox/polys/matrices/lll.py",
+      "current": "92e0426397f77856ed7b6f470114fc0929e2fe09c6333ba5e21a37085d8efc25",
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": "92e0426397f77856ed7b6f470114fc0929e2fe09c6333ba5e21a37085d8efc25",
+          "private_final": "8c49f8a695b07384cae6241424c5be1e5175fb054c81e2aa0f9dd1cd4069bc1d"
+        }
+      ],
+      "candidate": "8c49f8a695b07384cae6241424c5be1e5175fb054c81e2aa0f9dd1cd4069bc1d"
+    },
+    {
+      "path": "python/symox/polys/matrices/ddm.py",
+      "current": "b949f7f645d0dafda8cf9685bd4dda8bf148f6ff671028157e3fc0274caf0e7b",
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": "b949f7f645d0dafda8cf9685bd4dda8bf148f6ff671028157e3fc0274caf0e7b",
+          "private_final": "24676395a297d14d16838596996506bae6a0c796d7bd73c9b7bc7ad13fd03812"
+        }
+      ],
+      "candidate": "24676395a297d14d16838596996506bae6a0c796d7bd73c9b7bc7ad13fd03812"
+    },
+    {
+      "path": "tests/test_native_ddm_lll.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": null,
+          "private_final": "37e0794e37fe2d92cb8095383d805558f529ec7686cc581b12d5c6091c86b0c2"
+        }
+      ],
+      "candidate": "37e0794e37fe2d92cb8095383d805558f529ec7686cc581b12d5c6091c86b0c2"
+    },
+    {
+      "path": "tests/test_native_lll_classifier_callbacks.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL final",
+          "base": null,
+          "private_final": "53def28f84444dd813ab3553f01f10d215aacf62c9af3cce27059b1a1991cfa0"
+        }
+      ],
+      "candidate": "53def28f84444dd813ab3553f01f10d215aacf62c9af3cce27059b1a1991cfa0"
+    },
+    {
+      "path": "crates/symox-py/src/rational_protocols.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "rational states",
+          "base": null,
+          "private_final": "f8c868f8d735704ae536a0b910a28574748341c8a8598d2aad80722fcc216f2c"
+        },
+        {
+          "component": "rational bootstrap trust anchor",
+          "base": "f8c868f8d735704ae536a0b910a28574748341c8a8598d2aad80722fcc216f2c",
+          "private_final": "fbc19acda3bac8aed582afa8434530c66cfe6bf0c93dbd2aa81a892e64d99c2e"
+        }
+      ],
+      "candidate": "fbc19acda3bac8aed582afa8434530c66cfe6bf0c93dbd2aa81a892e64d99c2e"
+    },
+    {
+      "path": "crates/symox-py/src/lib.rs",
+      "current": "a4446b68551e6e53bea5672c7bb59288de082b86b600e3e08cccf7f624eaca70",
+      "candidate": "cd8e0575faf51a32a0b47f359d122d8afbbed155c748687cfff9319eda4156c9",
+      "steps": [
+        {
+          "component": "rational states",
+          "registration_patch_only": true
+        }
+      ]
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "current": "97dccc337d68a33ed7f1204a5f28fef2d42998eeaf23e6640d931f4e97914514",
+      "steps": [
+        {
+          "component": "rational states",
+          "base": "97dccc337d68a33ed7f1204a5f28fef2d42998eeaf23e6640d931f4e97914514",
+          "private_final": "3ad1925f745823d0f79b70c8ab35f6905a4cce685929bf043febdbfb0aefec5c"
+        }
+      ],
+      "candidate": "3ad1925f745823d0f79b70c8ab35f6905a4cce685929bf043febdbfb0aefec5c"
+    },
+    {
+      "path": "tests/test_native_rational_states.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "rational states",
+          "base": null,
+          "private_final": "c424178f4392758437adf0f52809e43e7555ab0e264c6771efc1b0cfb50ed207"
+        },
+        {
+          "component": "rational bootstrap trust anchor",
+          "base": "c424178f4392758437adf0f52809e43e7555ab0e264c6771efc1b0cfb50ed207",
+          "private_final": "26d2bac32244aae0524342d2089637e2d937b187d2cba08983582b376f7518d7"
+        }
+      ],
+      "candidate": "26d2bac32244aae0524342d2089637e2d937b187d2cba08983582b376f7518d7"
+    },
+    {
+      "path": "crates/symox-py/src/domains.rs",
+      "current": "d3c99d729f09d3bdaf0cb3887f99087997a6be7f593a9454961606dfe9b6da37",
+      "steps": [
+        {
+          "component": "domain-element-rounding",
+          "base": "d3c99d729f09d3bdaf0cb3887f99087997a6be7f593a9454961606dfe9b6da37",
+          "private_final": "298ba7e5113897eab15d6b183d9515b10dc863d796838ed19c430bb5e63e0b2f"
+        },
+        {
+          "component": "real-domain-rounding",
+          "base": "298ba7e5113897eab15d6b183d9515b10dc863d796838ed19c430bb5e63e0b2f",
+          "private_final": "379df0ab4eec4ecb5740ebd9de5940892a34905d3971ddc6f5b23eedd0fa9eda"
+        }
+      ],
+      "candidate": "379df0ab4eec4ecb5740ebd9de5940892a34905d3971ddc6f5b23eedd0fa9eda"
+    },
+    {
+      "path": "tests/test_domain_element_rounding.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "domain-element-rounding",
+          "base": null,
+          "private_final": "b2f1a28ec07ce8f64dd271490bc81b3768e032ba559e66391be7e40490b076b2"
+        },
+        {
+          "component": "real-domain-rounding",
+          "base": "b2f1a28ec07ce8f64dd271490bc81b3768e032ba559e66391be7e40490b076b2",
+          "private_final": "1af3fcf6ef655e8ea2a80ce3933d8f1a8e62d09e107b6e918fbe19212bb1b9f1"
+        }
+      ],
+      "candidate": "1af3fcf6ef655e8ea2a80ce3933d8f1a8e62d09e107b6e918fbe19212bb1b9f1"
+    },
+    {
+      "path": "crates/symox-core/src/bigfloat.rs",
+      "current": "7ea713b9a6e8a97702864d24c620f3cf567f6daf1fee91f24a67dd4e39f969f8",
+      "steps": [
+        {
+          "component": "real-domain-rounding",
+          "base": "7ea713b9a6e8a97702864d24c620f3cf567f6daf1fee91f24a67dd4e39f969f8",
+          "private_final": "cc44efe843054b051044940d1837e3efe5f7fae85c242096d1d505423b796625"
+        }
+      ],
+      "candidate": "cc44efe843054b051044940d1837e3efe5f7fae85c242096d1d505423b796625"
+    },
+    {
+      "path": "tests/test_real_domain_rounding.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "real-domain-rounding",
+          "base": null,
+          "private_final": "50d9d165c4912c89a63397dee38b3d84806345af9530b65814525e8a7667382c"
+        }
+      ],
+      "candidate": "50d9d165c4912c89a63397dee38b3d84806345af9530b65814525e8a7667382c"
+    }
+  ],
+  "applied_at_unix": 1793174593.7132235
+}

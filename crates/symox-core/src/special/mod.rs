@@ -61,7 +61,7 @@ pub fn orthopoly_subs_error(before: &Expr, after: &Expr) -> Option<String> {
                 if !crate::traverse::has(before, e) { return Some(msg); }
             }
         }
-        for arg in e.args() { if let Some(msg) = walk(before, &arg, seen, keep) { return Some(msg); } }
+        for arg in crate::inspection::scalar_children(e) { if let Some(msg) = walk(before, &arg, seen, keep) { return Some(msg); } }
         None
     }
     walk(before, after, &mut Default::default(), &mut Vec::new())

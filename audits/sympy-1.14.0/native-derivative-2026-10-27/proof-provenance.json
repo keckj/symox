@@ -1,0 +1,42 @@
+{
+  "symbolic-derivative-review.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative/.validation/REVIEW.md",
+    "sha256": "260ec4bd5b34d02a7276f987d1228dffffed4b460dae52efc23feb6f1793828c"
+  },
+  "log-to-atan-proof.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/log-to-atan-native/validation/log-to-atan-proof.md",
+    "sha256": "e70e9925974569f7b21f1f3336f840bd286277716f5f2cd84de3888c93ff84c8"
+  },
+  "conditional-segment-proof.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/conditional-rational-native/validation/conditional-proof.md",
+    "sha256": "524ffb73ce8697cb5b3c9032d59ca4c1d2ff14c7fb386175d8333a338c23701a"
+  },
+  "conditional-ray-proof.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/conditional-rays-native/validation/rays-proof.md",
+    "sha256": "8a85874404edd7506276df39db7eec988e765fcd4c0300e4ddf6dca45493a1b3"
+  },
+  "conditional-substitution-proof.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/conditional-substitution-native/validation/conditional-substitution-proof.md",
+    "sha256": "2fb6fb145bab89d6fcd5f8b2cb0e7add9f9fd58ebbefd481d02f8ed44418b3c3"
+  },
+  "expression-zero-payload-review.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-kernels-20261026/next-branches/expression-zero-payload-proof/REPORT.md",
+    "sha256": "64b5a425ba5b7716485bd6b9525a5bd3417d20c4cc4170becc3451fc1481969b"
+  },
+  "qq-clear-denominators-review.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-kernels-20261026/next-branches/qq-clear-denoms-proof/REPORT.md",
+    "sha256": "a6cb90522c64668af983f14a09b1c006c4d3a9a7079673d4550c162dc042a2e2"
+  },
+  "ddm-determinant-review.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-kernels-20261026/next-branches/ddm-determinant-proof/REPORT.md",
+    "sha256": "2243b150efc08de699e674fdd25cde171f6a22f368c578c5b4ef927ef8dfec7d"
+  },
+  "derivative-class-query-review.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-atoms-fix/.validation/REVIEW.md",
+    "sha256": "41f739b2119bbb2adc5f0b098f419639af5855f114668dd2270cf4a783db0d0f"
+  },
+  "stock-atan-dispatch-review.md": {
+    "original": "/home/keckj/.cache/symox-validation/native-derivative-r1-20261026/stock-atan-review.md",
+    "sha256": "8823ee3113308626ebb7fc70b8b901ab6560a65c8ab0c70e446fa4362e5aa91b"
+  }
+}

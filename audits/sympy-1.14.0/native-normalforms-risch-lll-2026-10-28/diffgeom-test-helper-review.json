@@ -1,0 +1,9 @@
+{
+  "path": "tests/test_log_to_atan_stock_dispatch.py",
+  "base_sha256": "b9dd5791540455611a9868ae1e8002b752b7e2b85f0440c177672d96adeeb969",
+  "final_sha256": "87da90d27160c43c6f3a51cf4da032938b1c967ab8c704dc101d3e00dc7c517c",
+  "all_original_test_bodies_ast_identical": true,
+  "all_original_assertions_ast_identical": true,
+  "test_functions": 17,
+  "change": "Four lines extend only setup unwrapping to official diffgeom records; the existing missing-record and cyclic-chain assertions remain unchanged."
+}

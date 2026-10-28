@@ -1,0 +1,63 @@
+{
+  "status": "GO root Python correctness followup; full combined RELEASE gate is finalizer responsibility",
+  "base": {
+    "accepted_source": "5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35",
+    "hnf_sha256": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34",
+    "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4"
+  },
+  "files": [
+    {
+      "path": "python/symox/polys/matrices/_hnf_native.py",
+      "base_sha256": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34",
+      "final_sha256": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c"
+    },
+    {
+      "path": "tests/test_native_hnf_cached_builtins.py",
+      "base_sha256": null,
+      "final_sha256": "b2dc20fded67193ea21bbbd14f633b1ab71072ffda0f524e955735696e03e568"
+    }
+  ],
+  "patch_sha256": "9e3dc4c97a54419b6182bec7f82adee5a6af26797e3b9dd6a97933fa6ac48de6",
+  "patch_replay_exact": true,
+  "before": {
+    "failed": 4,
+    "passed": 1,
+    "evidence": "before.log",
+    "witness": "A=[[2,3]], add_columns cached foreign range -> native [[1]] and zero callback, original [[3]] and one callback; raising range/type errors were incorrectly omitted."
+  },
+  "after_new_regressions": {
+    "passed": 5,
+    "evidence": "after.log"
+  },
+  "local": {
+    "returncode": 0,
+    "collected": 562,
+    "exactly_once": true,
+    "source_and_native_unchanged": true,
+    "files": [
+      "tests/test_native_hnf_cached_builtins.py",
+      "tests/test_native_ddm_hnf.py",
+      "tests/test_native_matrix_function_metadata.py",
+      "tests/test_native_matrix_closure_tuple_protocol.py",
+      "tests/test_native_ddm_lu.py",
+      "tests/test_native_ddm_lu_solve.py"
+    ],
+    "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4"
+  },
+  "demeter": {
+    "returncode": 0,
+    "collected": 562,
+    "exactly_once": true,
+    "source_and_native_unchanged": true,
+    "files": [
+      "tests/test_native_hnf_cached_builtins.py",
+      "tests/test_native_ddm_hnf.py",
+      "tests/test_native_matrix_function_metadata.py",
+      "tests/test_native_matrix_closure_tuple_protocol.py",
+      "tests/test_native_ddm_lu.py",
+      "tests/test_native_ddm_lu_solve.py"
+    ],
+    "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4"
+  },
+  "scope": "HNF only; exact-function actual readonly __builtins__ identity checked before capture or admission, public CPython3.10.12/.20. Unknown/foreign function builtins preserve full Python arithmetic/callbacks/errors. Stock positive native selection under rejecting audit remains verified. No Rust input or binary change, no micro-optimization."
+}

@@ -1,0 +1,18 @@
+{
+  "native": {
+    "outcome": {
+      "error": "RuntimeError",
+      "message": "foreign metadata key"
+    },
+    "calls": [
+      "equality"
+    ]
+  },
+  "old": {
+    "outcome": {
+      "value": "[[MPQ(2,1), MPQ(1,1)], [MPQ(2,1), MPQ(1,1)]]",
+      "result": "[]"
+    },
+    "calls": []
+  }
+}

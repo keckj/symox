@@ -1,0 +1,78 @@
+{
+  "sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+  "module": "/home/keckj/symox-ci/wt/native-derivative-r1b-20261027/python/symox/__init__.py",
+  "cpu": 24,
+  "affinity": [
+    24
+  ],
+  "reference_imported": false,
+  "iterations": 50,
+  "rounds": 5,
+  "cases": {
+    "quadratic": {
+      "median_ns_per_pair": 1096431.98,
+      "rounds_ns_per_pair": [
+        1108156.36,
+        1102135.5,
+        1096431.98,
+        1096239.18,
+        1096126.28
+      ],
+      "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": null
+    },
+    "quartic": {
+      "median_ns_per_pair": 1245087.82,
+      "rounds_ns_per_pair": [
+        1245087.82,
+        1239945.38,
+        1246183.6,
+        1237925.86,
+        1245108.56
+      ],
+      "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": null
+    },
+    "nonconstant_numerator": {
+      "median_ns_per_pair": 1322477.74,
+      "rounds_ns_per_pair": [
+        1322477.74,
+        1330305.98,
+        1321034.78,
+        1327901.98,
+        1313131.46
+      ],
+      "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": null
+    },
+    "multiplicity_groups": {
+      "median_ns_per_pair": 2554249.78,
+      "rounds_ns_per_pair": [
+        2554249.78,
+        2551671.56,
+        2696104.8,
+        2592445.7,
+        2543090.32
+      ],
+      "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": null
+    },
+    "distinct_arguments": {
+      "median_ns_per_pair": 1671588.245,
+      "rounds_ns_per_pair": [
+        1682548.15,
+        1661483.68,
+        1670876.8875,
+        1671588.245,
+        1674872.2825
+      ],
+      "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03",
+      "pairs_per_batch": 8,
+      "native_selected_outside_timers": null
+    }
+  }
+}

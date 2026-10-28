@@ -1,0 +1,32 @@
+{
+  "native_sha256": "576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8",
+  "method": "12 distinct preconstructed matrices per case; 3 batches of 4; output allocation inside public DDM.rref; independent exact reference RREF outside all timers",
+  "QQ8": {
+    "samples_seconds_per_call": [
+      7.679649570491165e-05,
+      4.285325121600181e-05,
+      4.337950667832047e-05
+    ],
+    "median_seconds_per_call": 4.337950667832047e-05,
+    "values_digest": "999487e3b22d969432ff0c64bc8a72c3562c0794a145a1c270cec6ae98062b9a"
+  },
+  "QQ20": {
+    "samples_seconds_per_call": [
+      0.00027889675402548164,
+      0.0002718554897001013,
+      0.0003057267458643764
+    ],
+    "median_seconds_per_call": 0.00027889675402548164,
+    "values_digest": "712f966488041b40df21ba89735809a11f464740aa6327b54e3652621068ac16"
+  },
+  "QQ_rectangular12x24_rank10": {
+    "samples_seconds_per_call": [
+      0.00038543500704690814,
+      0.00037720674299634993,
+      0.00038728675281163305
+    ],
+    "median_seconds_per_call": 0.00038543500704690814,
+    "values_digest": "2fded3ccce77fd8629bea67ccc8a8a5ffd34df64999b5ce116025351c9ae72ef"
+  },
+  "independent_exact_rref_checks": 36
+}

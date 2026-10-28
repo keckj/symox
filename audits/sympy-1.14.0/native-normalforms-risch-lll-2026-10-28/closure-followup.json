@@ -1,0 +1,33 @@
+{
+  "status": "Python-only closure protocol repair, root local focused green; combined/full corrected release still pending",
+  "files": [
+    {
+      "path": "python/symox/polys/matrices/_hnf_native.py",
+      "base_sha256": "066b6a70c121d10495a9bd4db71d6a2955388cd172d66bdcba29854d355bccfd",
+      "final_sha256": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lu_native.py",
+      "base_sha256": "503b447e5faaf874b31162727a74e1fb94fafedcbd205f1ccea6fdb8f6e3e63d",
+      "final_sha256": "d2c8b5ff6d905fdfba0e4deca6814c62f99effa4a12c3ac4f914a9ce31405334"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lu_solve_native.py",
+      "base_sha256": "09a0e0ac004dc60719420fde60793c4c363a9afa06c3d5a1350ea641ee201bd4",
+      "final_sha256": "5502d395b22ed27b56c1f2fad9fa8248745e19301d0d3b0758b46922f9efb695"
+    },
+    {
+      "path": "tests/test_native_matrix_closure_tuple_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "cf6f8f406d30eafd1a701da78f64befd493813d5fca970ff10e9ed11e9da4277"
+    }
+  ],
+  "patch_sha256": "20f627300ccea599f92758cf4bc1d51339ec2c1b7693ba5204b57afa13198aec",
+  "before_failures": 6,
+  "after_dedicated_passed": 6,
+  "local_focused_passed": 557,
+  "exact_once": true,
+  "native_sha256": "532c4b08d546d9d580306ad7e40317e2fbbbe80aa8d77d4749b35682d3ee9c90",
+  "native_inputs_unchanged": 350,
+  "behavior": "Tuple-subclass closures are valid CPython functions. The established arithmetic accesses cells through C without calling closure tuple hooks. Admission now declines non-exact tuples before len/iteration; old math returns complete exact results with no added hooks. Unchanged551 cases keep positive native stock assertions."
+}

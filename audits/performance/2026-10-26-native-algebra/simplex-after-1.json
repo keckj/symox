@@ -1,0 +1,74 @@
+{
+  "script_sha256": "6328c80984e6d3a232e38fff6f85fa094d6fbf09bb94f35676a0633dac15198a",
+  "native_sha256": "9405dccb462e37ed095dc19b597595b74662ce45d23556e96bf8d52e836636a2",
+  "symox_file": "/home/keckj/symox-ci/wt/native-algebra-20261026/python/symox/__init__.py",
+  "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+  "cpu_affinity": [
+    24
+  ],
+  "cases": [
+    {
+      "n": 10,
+      "first_ns": 2159172,
+      "repeated_ns": [
+        1859958,
+        1807967,
+        1868552,
+        1789738,
+        1828962,
+        1840913,
+        1765445
+      ],
+      "changed_ns": [
+        1753529,
+        1764094,
+        1760444
+      ],
+      "repeated_median_ns": 1828962,
+      "changed_median_ns": 1760444,
+      "distinct_certified_inputs": 4
+    },
+    {
+      "n": 30,
+      "first_ns": 11584997,
+      "repeated_ns": [
+        11748713,
+        11646332,
+        11349069,
+        11504200,
+        11365432,
+        11336166,
+        11394749
+      ],
+      "changed_ns": [
+        11468270,
+        11680713,
+        11362408
+      ],
+      "repeated_median_ns": 11394749,
+      "changed_median_ns": 11468270,
+      "distinct_certified_inputs": 4
+    },
+    {
+      "n": 60,
+      "first_ns": 42179296,
+      "repeated_ns": [
+        42094146,
+        42045136,
+        41760860,
+        42159414,
+        41753131,
+        41629026,
+        41445685
+      ],
+      "changed_ns": [
+        41258318,
+        41734544,
+        41366254
+      ],
+      "repeated_median_ns": 41760860,
+      "changed_median_ns": 41366254,
+      "distinct_certified_inputs": 4
+    }
+  ]
+}

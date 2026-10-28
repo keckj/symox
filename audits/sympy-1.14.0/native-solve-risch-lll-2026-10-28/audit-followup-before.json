@@ -1,0 +1,105 @@
+{
+  "native_sha256": "c4d297ac1639e311f84a1520e51b0a7a2297bc6acb365a4ae724560a22bd3405",
+  "records": [
+    {
+      "route": "hnf",
+      "arm": "native",
+      "events": [
+        "__code__"
+      ],
+      "result": {
+        "status": "raised",
+        "type": "RuntimeError",
+        "message": "metadata audit refusal: __code__"
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "hnf",
+      "arm": "old",
+      "events": [],
+      "result": {
+        "status": "returned",
+        "value": [
+          [
+            2,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "lu",
+      "arm": "native",
+      "events": [
+        "__code__"
+      ],
+      "result": {
+        "status": "raised",
+        "type": "RuntimeError",
+        "message": "metadata audit refusal: __code__"
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "lu",
+      "arm": "old",
+      "events": [],
+      "result": {
+        "status": "returned",
+        "value": {
+          "matrix": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2",
+              "1"
+            ]
+          ],
+          "result": []
+        }
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "solve",
+      "arm": "native",
+      "events": [
+        "__code__"
+      ],
+      "result": {
+        "status": "raised",
+        "type": "RuntimeError",
+        "message": "metadata audit refusal: __code__"
+      },
+      "reference_imported": false
+    },
+    {
+      "route": "solve",
+      "arm": "old",
+      "events": [],
+      "result": {
+        "status": "returned",
+        "value": {
+          "matrix": [
+            [
+              "1"
+            ],
+            [
+              "2"
+            ]
+          ],
+          "result": null
+        }
+      },
+      "reference_imported": false
+    }
+  ]
+}

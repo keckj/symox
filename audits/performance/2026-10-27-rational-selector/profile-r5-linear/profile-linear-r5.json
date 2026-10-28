@@ -1,0 +1,216 @@
+{
+  "native_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+  "package": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/__init__.py",
+  "iterations": 500,
+  "reference_imported": false,
+  "interpretation": "cProfile attribution for one vector linear atan fixture. Instrumented values are not benchmark times or speedup estimates.",
+  "functions": [
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 592,
+      "function": "log_to_atan",
+      "primitive_calls": 500,
+      "calls": 500,
+      "own_seconds": 0.00045803200000000004,
+      "cumulative_seconds": 0.081147278
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 297,
+      "function": "_stock_atan_protocol",
+      "primitive_calls": 500,
+      "calls": 500,
+      "own_seconds": 0.001230528,
+      "cumulative_seconds": 0.073675054
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 186,
+      "function": "_atan_stock_operators",
+      "primitive_calls": 500,
+      "calls": 500,
+      "own_seconds": 0.035857984,
+      "cumulative_seconds": 0.07223192
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 166,
+      "function": "_atan_forwarding_chain",
+      "primitive_calls": 2000,
+      "calls": 2000,
+      "own_seconds": 0.0055122140000000005,
+      "cumulative_seconds": 0.022158546
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 108,
+      "function": "_atan_states_match",
+      "primitive_calls": 1500,
+      "calls": 1500,
+      "own_seconds": 0.009131249000000001,
+      "cumulative_seconds": 0.018342292
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 143,
+      "function": "_atan_vector_proof",
+      "primitive_calls": 1000,
+      "calls": 1000,
+      "own_seconds": 0.004246224,
+      "cumulative_seconds": 0.013332836
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.all>",
+      "primitive_calls": 7000,
+      "calls": 7000,
+      "own_seconds": 0.004193477,
+      "cumulative_seconds": 0.009357787000000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method symox._core._log_to_atan>",
+      "primitive_calls": 500,
+      "calls": 500,
+      "own_seconds": 0.007014192000000001,
+      "cumulative_seconds": 0.007014192000000001
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 119,
+      "function": "<genexpr>",
+      "primitive_calls": 36000,
+      "calls": 36000,
+      "own_seconds": 0.004336563,
+      "cumulative_seconds": 0.004336563
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.next>",
+      "primitive_calls": 6000,
+      "calls": 6000,
+      "own_seconds": 0.0012049600000000001,
+      "cumulative_seconds": 0.002356642
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.id>",
+      "primitive_calls": 35000,
+      "calls": 35000,
+      "own_seconds": 0.0023158740000000003,
+      "cumulative_seconds": 0.0023158740000000003
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.getattr>",
+      "primitive_calls": 15500,
+      "calls": 15500,
+      "own_seconds": 0.001481888,
+      "cumulative_seconds": 0.001481888
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<built-in method builtins.len>",
+      "primitive_calls": 20000,
+      "calls": 20000,
+      "own_seconds": 0.001274519,
+      "cumulative_seconds": 0.001274519
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 171,
+      "function": "<genexpr>",
+      "primitive_calls": 4000,
+      "calls": 4000,
+      "own_seconds": 0.000934419,
+      "cumulative_seconds": 0.000934419
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 215,
+      "function": "<genexpr>",
+      "primitive_calls": 2500,
+      "calls": 2500,
+      "own_seconds": 0.000622329,
+      "cumulative_seconds": 0.000745952
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'get' of 'dict' objects>",
+      "primitive_calls": 4000,
+      "calls": 4000,
+      "own_seconds": 0.000361789,
+      "cumulative_seconds": 0.000361789
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 170,
+      "function": "<genexpr>",
+      "primitive_calls": 3000,
+      "calls": 3000,
+      "own_seconds": 0.000351792,
+      "cumulative_seconds": 0.000351792
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'add' of 'set' objects>",
+      "primitive_calls": 3000,
+      "calls": 3000,
+      "own_seconds": 0.000269452,
+      "cumulative_seconds": 0.000269452
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'get' of 'mappingproxy' objects>",
+      "primitive_calls": 1000,
+      "calls": 1000,
+      "own_seconds": 0.00013825300000000002,
+      "cumulative_seconds": 0.00013825300000000002
+    },
+    {
+      "file": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python/symox/integrals/rationaltools.py",
+      "line": 214,
+      "function": "<genexpr>",
+      "primitive_calls": 500,
+      "calls": 500,
+      "own_seconds": 8.1795e-05,
+      "cumulative_seconds": 8.1795e-05
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'get' of '_contextvars.ContextVar' objects>",
+      "primitive_calls": 500,
+      "calls": 500,
+      "own_seconds": 7.435300000000001e-05,
+      "cumulative_seconds": 7.435300000000001e-05
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'values' of 'dict' objects>",
+      "primitive_calls": 500,
+      "calls": 500,
+      "own_seconds": 5.5392e-05,
+      "cumulative_seconds": 5.5392e-05
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+      "primitive_calls": 1,
+      "calls": 1,
+      "own_seconds": 6.19e-07,
+      "cumulative_seconds": 6.19e-07
+    }
+  ]
+}

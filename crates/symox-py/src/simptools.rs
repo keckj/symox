@@ -2,7 +2,7 @@
 //! `exprtools`, `powsimp`, `sqrtdenest`, `gammasimp`, `ratsimp`, `fu`).
 //! The public signatures live in `python/symox/_simptools.py`.
 
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyArithmeticError, PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 
 use symox::expr::Expr;
@@ -11,6 +11,11 @@ use symox::simptools as st;
 use crate::{to_expr, wrap, PyExpr};
 
 type Pairs = Vec<(PyExpr, PyExpr)>;
+
+#[pyfunction]
+fn _st_constant_real_derivative(d: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<bool> {
+    Ok(st::misc::constant_real_derivative(&to_expr(d)?, &to_expr(x)?))
+}
 
 fn exprs(v: &[Bound<'_, PyAny>]) -> PyResult<Vec<Expr>> {
     v.iter().map(to_expr).collect()
@@ -44,6 +49,34 @@ fn _st_rcollect(e: &Bound<'_, PyAny>, vars: Vec<Bound<'_, PyAny>>) -> PyResult<P
 #[pyfunction]
 fn _st_radsimp(e: &Bound<'_, PyAny>, symbolic: bool, max_terms: usize) -> PyResult<PyExpr> {
     Ok(wrap(st::radsimp::radsimp(&to_expr(e)?, symbolic, max_terms)))
+}
+
+#[pyfunction]
+fn _st_radsimp_numeric_denominators(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    let py = e.py();
+    let expression = to_expr(e)?;
+    let mut fallback = |base: &Expr| -> PyResult<Option<Expr>> {
+        py.check_signals()?;
+        let nsimplify = py.import("symox._numeric_recognition")?.getattr("nsimplify")?;
+        let candidate = match nsimplify.call1((wrap(base.clone()),)) {
+            Ok(candidate) => candidate,
+            Err(error) if error.is_instance_of::<PyValueError>(py)
+                || error.is_instance_of::<PyTypeError>(py)
+                || error.is_instance_of::<PyNotImplementedError>(py)
+                || error.is_instance_of::<PyArithmeticError>(py) => return Ok(None),
+            Err(error) => return Err(error),
+        };
+        if !candidate.getattr("is_Number")?.is_truthy()? { return Ok(None); }
+        let value = to_expr(&candidate)?;
+        if value == *base { return Ok(None); }
+        if candidate.call_method1("equals", (wrap(base.clone()),))?.is_truthy()? {
+            Ok(Some(value))
+        } else {
+            Ok(None)
+        }
+    };
+    Ok(wrap(st::radsimp::prepare_numeric_denominators(
+        &expression, &mut || py.check_signals(), &mut fallback)?))
 }
 
 #[pyfunction]
@@ -424,6 +457,7 @@ fn _st_trigsimp_inverse(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(_st_constant_real_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(_st_futrig, m)?)?;
     m.add_function(wrap_pyfunction!(_st_exptrigsimp, m)?)?;
     m.add_function(wrap_pyfunction!(_st_trigsimp_inverse, m)?)?;
@@ -443,6 +477,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_st_collect_sqrt, m)?)?;
     m.add_function(wrap_pyfunction!(_st_rcollect, m)?)?;
     m.add_function(wrap_pyfunction!(_st_radsimp, m)?)?;
+    m.add_function(wrap_pyfunction!(_st_radsimp_numeric_denominators, m)?)?;
     m.add_function(wrap_pyfunction!(_st_rad_rationalize, m)?)?;
     m.add_function(wrap_pyfunction!(_st_split_surds, m)?)?;
     m.add_function(wrap_pyfunction!(_st_signsimp, m)?)?;

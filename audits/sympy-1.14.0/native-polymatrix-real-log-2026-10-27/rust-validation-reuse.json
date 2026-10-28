@@ -1,0 +1,37 @@
+{
+  "reason": "Only three Python source/test files changed; stats.install AST unchanged, all native build inputs and extension identical.",
+  "source_snapshot": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027/after",
+  "native_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+  "native_inputs": 333,
+  "rust_inputs_unchanged": true,
+  "passed": 714,
+  "doctests_passed": 5,
+  "ignored": 1,
+  "checks": {
+    "tests": {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "symox"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 165.4398546218872
+    },
+    "clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.19385862350463867
+    },
+    "rust_inputs_unchanged": true
+  },
+  "bindings_clippy_returncode": 0
+}

@@ -9,6 +9,30 @@ use symox::Expr;
 
 use crate::{to_expr, wrap};
 
+/// Certify complete QQ roots already produced by solve, without solving again.
+/// Container handling is adaptation only; all mathematical decisions are native.
+#[pyfunction]
+fn _solve_complete_rational_roots(
+    equation: &Bound<'_, PyAny>, variable: &Bound<'_, PyAny>, solutions: Vec<Bound<'_, PyAny>>,
+) -> PyResult<bool> {
+    let native = |value: &Bound<'_, PyAny>| -> Option<Expr> {
+        value.downcast::<crate::PyExprNode>().ok().map(|node| node.get().e.clone())
+    };
+    let (Some(equation), Some(variable)) = (native(equation), native(variable)) else { return Ok(false) };
+    let mut candidates = Vec::with_capacity(solutions.len());
+    for solution in solutions {
+        let value = if let Ok(mapping) = solution.downcast::<PyDict>() {
+            if mapping.len() != 1 { return Ok(false); }
+            let Some((key, value)) = mapping.iter().next() else { return Ok(false) };
+            if native(&key).as_ref() != Some(&variable) { return Ok(false); }
+            value
+        } else { solution };
+        let Some(candidate) = native(&value) else { return Ok(false) };
+        candidates.push(candidate);
+    }
+    Ok(sv::complete_rational_roots(&equation, &variable, &candidates))
+}
+
 fn set_result(py: Python<'_>, variables: &[Expr], solutions: Vec<Vec<Expr>>) -> PyResult<PyObject> {
     let symbols = PyList::new(py, variables.iter().cloned().map(wrap))?;
     let rows = solutions.into_iter().map(|row| PyTuple::new(py, row.into_iter().map(wrap))).collect::<PyResult<Vec<_>>>()?;
@@ -368,6 +392,7 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(_solve_complete_rational_roots, m)?)?;
     m.add_function(wrap_pyfunction!(_nonlinsolve_parametric, m)?)?;
     m.add_function(wrap_pyfunction!(solve, m)?)?;
     m.add_function(wrap_pyfunction!(nsolve, m)?)?;

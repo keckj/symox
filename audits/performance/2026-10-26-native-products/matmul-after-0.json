@@ -1,0 +1,68 @@
+{
+  "native_sha256": "576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8",
+  "method": "18 distinct preconstructed inputs per case, 3 batches of 6; public DDM allocates output inside call; raw accumulations preallocate nonzero targets; exact verification after all timing",
+  "int4": {
+    "samples_seconds_per_call": [
+      1.2876504721740881e-05,
+      6.689340807497501e-06,
+      6.8093359004706144e-06
+    ],
+    "median_seconds_per_call": 6.8093359004706144e-06,
+    "values_digest": "1f5e99778d7c8cfc1fb394487a7d455809eee34e85cfe6891c26c6188ac299db"
+  },
+  "int32": {
+    "samples_seconds_per_call": [
+      0.00046642434123593074,
+      0.0004369581680900107,
+      0.00043377433515464264
+    ],
+    "median_seconds_per_call": 0.0004369581680900107,
+    "values_digest": "e75d99b2672324fef8fe40faa64ee5281f1ccf35ba73bc2ed08fb52b14a09342"
+  },
+  "ZZ8": {
+    "samples_seconds_per_call": [
+      4.668450371051828e-05,
+      4.052299967346092e-05,
+      3.974616023090979e-05
+    ],
+    "median_seconds_per_call": 4.052299967346092e-05,
+    "values_digest": "b7eb1145ea463202e02a1aea7f647cfa3c9e4c6d93cc5e201062f3462a9d598b"
+  },
+  "ZZ32": {
+    "samples_seconds_per_call": [
+      0.0007212596635023752,
+      0.0007580078381579369,
+      0.0007057676751477023
+    ],
+    "median_seconds_per_call": 0.0007212596635023752,
+    "values_digest": "25be2fabe0b5146cb41d61b45c382a2f8797104d7b16ad22488a78f2001ba244"
+  },
+  "QQ8": {
+    "samples_seconds_per_call": [
+      0.00011655799850511055,
+      7.697533389242987e-05,
+      7.551933716361721e-05
+    ],
+    "median_seconds_per_call": 7.697533389242987e-05,
+    "values_digest": "6c6f34ad23bb198ccdf67a7d922af64305cbbe5ad68f38045354449c73bfcb6d"
+  },
+  "QQ24": {
+    "samples_seconds_per_call": [
+      0.0017033991656110932,
+      0.00197305649635382,
+      0.0016629360034130514
+    ],
+    "median_seconds_per_call": 0.0017033991656110932,
+    "values_digest": "d5a0fc55a077038a67206432603a80f45807bab0344db75864bb6a7cf513f6e3"
+  },
+  "QQ_accumulate16": {
+    "samples_seconds_per_call": [
+      0.0005047306670652082,
+      0.0004957003305510929,
+      0.0004960381678150346
+    ],
+    "median_seconds_per_call": 0.0004960381678150346,
+    "values_digest": "ab417415737fec5f9dcfc2f87c9d66e2599da6c6cd043106a53a150eef28a19a"
+  },
+  "independent_exact_product_checks": 126
+}

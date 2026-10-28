@@ -1,0 +1,23 @@
+{
+  "ordered_apply": [
+    {
+      "patch": "merged-source.patch",
+      "sha256": "d2e4f156100c8613e80e055a1387432a7e92456171f72cd413f7109a5c882e68"
+    },
+    {
+      "patch": "reimport-followup.patch",
+      "sha256": "31e4819451e15efffffc35c6da82ccc0910283b1cca98641173a04cd4a44a1f9"
+    }
+  ],
+  "unique_final_files": 6,
+  "final_hashes": {
+    "crates/symox-core/src/poly/sdm.rs": "420348b4d5e052760e5134c16f89a99680639b5fef67bb8d030255418d3c6af7",
+    "crates/symox-py/src/poly_fraction_free.rs": "47c75b83ec783b2a9ff87d92a245b51168b085bf7f1159167c3d3a83b4dd3eb5",
+    "python/symox/polys/matrices/_sdm_irref_native.py": "61ccf9aecfdc341b2bbece54f7644c5120af84a6100b9e2983e681a1f0847e7d",
+    "python/symox/polys/matrices/sdm.py": "2ac6dd80178970ffccab344ad1bfcddd12ae3fa1644f08d62ed4631ffeb3a137",
+    "tests/test_sdm_irref_native.py": "a04288ac57cd6da0f98cec3e21171dc3644941ff3ae2b4cda9a2227e3d7220bf",
+    "tests/test_sdm_irref_reimport.py": "220820df5bc468f92ea1e81463c7b641b5f3702dc3bee0fb8f28e7909d9b75bc"
+  },
+  "replay_matches_production": true,
+  "native_build_inputs_unchanged": 340
+}

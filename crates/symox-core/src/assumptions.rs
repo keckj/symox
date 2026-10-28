@@ -831,7 +831,7 @@ fn numerically_null(first:&crate::evalf_mp::MpComplex,last:&crate::evalf_mp::MpC
 /// The reference `Expr._eval_is_extended_positive_negative`: a number
 /// whose evaluation has no significance, which is algebraic and free of
 /// functions, is exactly zero when its minimal polynomial is the generator.
-fn algebraic_zero(e:&Expr)->bool {
+pub(crate) fn algebraic_zero(e:&Expr)->bool {
     // A root object is a number, not a `Function`, for the reference.
     fn has_function(e:&Expr)->bool {
         if crate::poly::rootof::is_rootof(e) {return false;}

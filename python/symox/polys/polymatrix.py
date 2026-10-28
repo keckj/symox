@@ -282,6 +282,10 @@ class MutablePolyDenseMatrix:
             raise ValueError("PolyMatrix %s is only for ground field elements" % name)
 
     def _rref_rows(self):
+        prepared = _native_ground(self)
+        if prepared is not None:
+            values, pivots = prepared
+            return [values[i*self._cols:(i+1)*self._cols] for i in range(self._rows)], tuple(pivots)
         rows = [[_cancel(self._entry(i, j)) for j in range(self._cols)] for i in range(self._rows)]
         pivots = []
         r = 0
@@ -315,6 +319,10 @@ class MutablePolyDenseMatrix:
     def nullspace(self):
         # If this is K[x] then computes nullspace in ground field K.
         self._ground_check('nullspace')
+        prepared = _native_ground(self, True)
+        if prepared is not None:
+            vectors, _ = prepared
+            return [self._like(self._cols, 1, vector) for vector in vectors]
         rows, pivots = self._rref_rows()
         basis = []
         for j in sorted(set(range(self._cols)) - set(pivots)):
@@ -331,3 +339,8 @@ class MutablePolyDenseMatrix:
 
 
 MutablePolyMatrix = PolyMatrix = MutablePolyDenseMatrix
+
+
+from ._polymatrix_native import register as _register_native_ground
+_native_ground = _register_native_ground(MutablePolyDenseMatrix, globals())
+del _register_native_ground

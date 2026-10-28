@@ -1,0 +1,9 @@
+# Historical documentation display triage, 27 October 2026
+
+This review reads every ordinary and keyword observation from the immutable [26 October documentation replay](../documentation-2026-10-26/README.md), native `576a9f76`. It does not rerun a current release or certify additional domains/precision/solution completeness.
+
+Of the 278 objects with differing observations, **11 objects (32 observations)** differ only by element order inside displayed set literals, across all their archived examples in both modes. **267 objects still require further review.** The original 278-object raw count remains unchanged. Names, calls, sequence order, numeric/string token spellings (including Float precision digits), statuses and exceptions are otherwise identical. No displayed expression is evaluated and no symbolic algebraic equivalence is inferred.
+
+The [complete review](set-order-review.json) lists all 32 sources and both outputs, every input archive hash and the remaining objects. The [reproducer](triage-set-order.py) parses the displayed text, preserves literal tokens and sorts only AST Set elements. Run `python triage-set-order.py /path/to/symox`; outputs are written alongside the script. It verifies that all 5,832 object/mode records are present, compares every example and requires the resulting difference indices to equal the original auditor's indices. This prevents clearing an object because its first displayed difference happens to be harmless while a later one is mathematical.
+
+The classified objects include atoms/args_cnc, a ProductSet display, conjugacy-class sets, one dsolve solution-set display, polynomial monomial sets and dynamicsymbol/denominator sets. This closes the display triage of those archived observations only; current behavior and general mathematical parity remain separate work.

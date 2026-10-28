@@ -1,0 +1,72 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/ratint-logpart-native",
+  "manifest": {
+    "status": "frozen; private Demeter validation complete",
+    "base": "new private copy of frozen main during its release build; per-file originals retained in validation",
+    "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/ratint-logpart-native",
+    "remote": "demeter:/home/keckj/symox-ci/wt/ratint-logpart-native",
+    "files": [
+      {
+        "path": "crates/symox-core/src/integrate.rs",
+        "base_sha256": "c19a7fb0ef166073918014a650c957503b5bca3d96ddf3799d8d56f74da81e3c",
+        "final_sha256": "3cff33696f024d6bc65879faabd9a465e8e6787a25e45d1848a2672c42dba904",
+        "new": false,
+        "integrated_sha256": "3cff33696f024d6bc65879faabd9a465e8e6787a25e45d1848a2672c42dba904"
+      },
+      {
+        "path": "crates/symox-core/src/integrate/logarithmic_reduction.rs",
+        "base_sha256": null,
+        "final_sha256": "9e82e520c98f61e2d6d4e0324cf65d8808dd23c8d3ed002ec29699fe0ef174b4",
+        "new": true,
+        "integrated_sha256": "9e82e520c98f61e2d6d4e0324cf65d8808dd23c8d3ed002ec29699fe0ef174b4"
+      },
+      {
+        "path": "crates/symox-py/src/integration_methods.rs",
+        "base_sha256": "e99e6e9b701a394073b8a1d6e16786898dd5b812acf519a7ca72697090795c5a",
+        "final_sha256": "824f8aaa299f90f6e6f1501f104cdd31d39f8198dd3d972ec98374ac34c48f46",
+        "new": false,
+        "integrated_sha256": "824f8aaa299f90f6e6f1501f104cdd31d39f8198dd3d972ec98374ac34c48f46"
+      },
+      {
+        "path": "python/symox/integrals/rationaltools.py",
+        "base_sha256": "ec891cd5732bed3d1d2a59079fa0cc2bb379afd79d8cdcc5b40dd825fefebb20",
+        "final_sha256": "59c13c258144319a30f31c647f46cef1fe6285b180f1558d2564deb408781959",
+        "new": false,
+        "integrated_sha256": "015ff68ea8c47502bdbe4aa51d73035627f0d426cda2202253077300ad5b6f29"
+      },
+      {
+        "path": "python/symox/_poly_constructor.py",
+        "base_sha256": "fd4a30aeb3ce04c3c775b03a4c55c8351ce199c529cd40a7385b5f7b342ba521",
+        "final_sha256": "d2a5accd024f5ef5782500e8f42f068201fe8fb58713567d6abdc5526cb19102",
+        "new": false,
+        "integrated_sha256": "d2a5accd024f5ef5782500e8f42f068201fe8fb58713567d6abdc5526cb19102"
+      },
+      {
+        "path": "tests/test_native_ratint_logpart.py",
+        "base_sha256": null,
+        "final_sha256": "db55d742be084c204040c82fc2958424bb3c78aa0578808d4a790831595b2b84",
+        "new": true,
+        "integrated_sha256": "db55d742be084c204040c82fc2958424bb3c78aa0578808d4a790831595b2b84"
+      }
+    ],
+    "patch_sha256": "06b4afe03a978f11aa2efd29bacbe509b3090e9db73cdff9bc75defb7413ce30",
+    "proof": "validation/ratint-logpart-proof.md",
+    "benchmark": "validation/lrt-benchmark.py; release-only, no timings collected",
+    "private_debug_sha256": "1ef3c8697ac6e3f7d8865b802d0ef8df5a8d05f49b2011ffb276ae70943c377f",
+    "validation": "validation/ratint-logpart-validation.json"
+  },
+  "additive_rationaltools_merge": [
+    {
+      "anchor": "# These guards only select a native route. The full general algorithm below\n# remains responsible for custom constructors, Poly methods and held evaluation.\nfrom symox import _core as _rational_core\n",
+      "inserted": "from symox import _poly_constructor as _lrt_constructor\nimport symox as _lrt_public\nimport types as _lrt_types\nfrom symox.core.sympify import sympify as _lrt_stock_sympify\n"
+    },
+    {
+      "anchor": "    (cls, name, getattr(cls, name))\n    for cls in (_rational_core.Expr, atan, _atan_nodes.node_class('atan'), _atan_nodes.node_class('Add'), _atan_nodes.node_class('Mul'), type(S.Zero), type(S.Pi))\n    for name in ('__add__', '__radd__', '__mul__', '__rmul__')))\n",
+      "inserted": "_LRT_RESULTANT = _rational_core.resultant\n_LRT_CONSTRUCT = _lrt_constructor._native_construct\n_LRT_SYMPIFY = globals().get('_LRT_SYMPIFY', _lrt_stock_sympify)\n_LRT_AS_POLY_CODE = next(code for code in _lrt_public._install_poly_methods.__code__.co_consts\n                         if isinstance(code, _lrt_types.CodeType) and code.co_name == 'as_poly')\n"
+    },
+    {
+      "anchor": "    f, g = Poly(f, x), Poly(g, x)\n\n    t = t or Dummy('t')\n",
+      "inserted": "    if (Poly is _rational_core.Poly and Poly is _ATAN_POLY and resultant is _LRT_RESULTANT\n            and _lrt_constructor.construct is _LRT_CONSTRUCT\n            and _lrt_public.sympify is _LRT_SYMPIFY\n            and type(_LRT_RESULTANT) is _lrt_types.BuiltinFunctionType\n            and _LRT_RESULTANT.__name__ == 'resultant'\n            and _LRT_RESULTANT.__module__ == 'symox._core'\n            and type(_rational_core.Expr.as_poly) is _lrt_types.FunctionType\n            and _rational_core.Expr.as_poly.__code__ is _LRT_AS_POLY_CODE\n            and _rational_core.Expr.as_poly.__globals__ is _lrt_public.__dict__\n            and _atan_evaluation.get()\n            and _ATAN_ALL(_ATAN_GETATTR(cls,name) is original for cls,name,original in _ATAN_OPERATORS)):\n        native = _rational_core._ratint_logpart(f, g, x, t)\n        if native is not None:\n            return native\n"
+    }
+  ]
+}

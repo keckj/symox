@@ -225,6 +225,13 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
             }
             out.push(')');
         }
+        Kind::Func(Func::SymbolicDerivative, _) => {
+            if let Some((body,vars))=crate::diff::symbolic::parts(e){
+                out.push_str("Derivative(");write_expr(body,out);
+                for(v,n)in vars{out.push_str(", ");if crate::diff::symbolic::one(&n){write_expr(&v,out);}else{out.push('(');write_expr(&v,out);out.push_str(", ");write_expr(&n,out);out.push(')');}}
+                out.push(')');
+            }
+        }
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');

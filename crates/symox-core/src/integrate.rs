@@ -21,6 +21,18 @@ use crate::binders::depends_on as has;
 const MAX_DEPTH: u32 = 10;
 
 mod rational_definite;
+mod rational_conditions;
+pub(crate) use rational_conditions::piecewise_original as rational_piecewise_original;
+pub mod rational_reduction;
+pub mod risch_polynomial_reduce;
+pub mod risch_splitfactor;
+pub mod log_to_atan;
+pub mod log_to_real;
+pub mod ratint_driver;
+pub mod logarithmic_reduction;
+mod cartesian;
+pub use cartesian::numeric_coefficients as heurisch_cartesian_numeric_coefficients;
+pub use cartesian::numeric_coefficients_with_status as heurisch_cartesian_numeric_coefficients_with_status;
 mod dirac;
 pub(crate) mod meijerint;
 pub(crate) mod piecewise;
@@ -332,6 +344,8 @@ fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg:
     let extended_real = |e: &Expr| crate::assumptions::fact(e, "extended_real") == Some(true);
     let improper = extended_real(a) && extended_real(b) && (has_oo(a) || has_oo(b));
     let pw = has_piecewise_or_minmax(f);
+    let allow_conditional = conds == Conds::Piecewise && meijerg.is_none()
+        && host_methods::methods() == host_methods::Methods::default();
     // A rational integrand whose poles cannot be located on the interval
     // (1/x**2 on (a, oo) with a real): the Meijer G method sees no pole,
     // and its unconditional value is wrong when one lies inside. A value
@@ -340,7 +354,11 @@ fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg:
     let try_meijerg = || -> Option<(Expr, Option<Expr>)> {
         let (value, cond) = meijerint::meijerint_definite(f, x, a, b)?;
         if undecided_poles && matches!(cond.kind(), Kind::Bool(true)) {
-            return Some((integral_definite_unevaluated(f, x, a, b), None));
+            let value=if allow_conditional {
+                rational_conditions::retained(f,x,a,b)
+                    .unwrap_or_else(||integral_definite_unevaluated(f,x,a,b))
+            } else {integral_definite_unevaluated(f,x,a,b)};
+            return Some((value,None));
         }
         Some(match conds {
             Conds::Piecewise if matches!(cond.kind(), Kind::Bool(true)) => (value, None),
@@ -365,7 +383,7 @@ fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg:
         if meijerg == Some(true) {
             return (integral_definite_unevaluated(f, x, a, b), None);
         }
-        return (integrate_definite_native(f, x, a, b, Some(false)), None);
+        return (integrate_definite_native(f, x, a, b, Some(false), allow_conditional), None);
     }
     if meijerg == Some(true) {
         // the antiderivative by `meijerint_indefinite` first, then the
@@ -382,7 +400,7 @@ fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg:
         }
         return (integral_definite_unevaluated(f, x, a, b), None);
     }
-    (integrate_definite_native(f, x, a, b, meijerg), None)
+    (integrate_definite_native(f, x, a, b, meijerg, allow_conditional), None)
 }
 
 /// Whether `f` is a rational function of `x` (integer powers only).
@@ -399,16 +417,18 @@ fn rational_in(f: &Expr, x: &Expr) -> bool {
 
 /// Definite integral of `f` over `[a, b]` through the native rules and the
 /// antiderivative.
-fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr, meijerg: Option<bool>) -> Expr {
+fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr, meijerg: Option<bool>, allow_conditional: bool) -> Expr {
     if a == b { return Expr::zero(); }
     if rational_definite::compare(a,b) == Some(std::cmp::Ordering::Greater) {
-        return neg(&integrate_definite_native(f,x,b,a,meijerg));
+        return neg(&integrate_definite_native(f,x,b,a,meijerg,false));
     }
     let unevaluated = || integral_definite_unevaluated(f,x,a,b);
     let mut degenerate = Vec::new();
     let checked = match rational_definite::analyze(f,x,a,b) {
         rational_definite::Analysis::Value(value) => return value,
-        rational_definite::Analysis::Unknown => return unevaluated(),
+        rational_definite::Analysis::Unknown => return if allow_conditional {
+            rational_conditions::retained(f,x,a,b).unwrap_or_else(unevaluated)
+        } else { unevaluated() },
         rational_definite::Analysis::Regular(value) => value,
         rational_definite::Analysis::Degenerate(value, symbols) => {
             degenerate = symbols;

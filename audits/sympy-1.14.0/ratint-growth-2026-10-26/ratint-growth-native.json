@@ -1,0 +1,13 @@
+{
+  "backend": "symox",
+  "version": "0.1.1",
+  "package": "/home/keckj/symox-ci/wt/native-calculus-20261026/python/symox/__init__.py",
+  "call": "ratint(1/(x**3+x+1),x)",
+  "compute_seconds": 0.44270903401775286,
+  "print_seconds": 0.05262146104359999,
+  "characters": 82704,
+  "text_sha256": "0a9f79be7127457be89047ff6a3eee85aad66e31d7300af8c69dae4c5338f5ff",
+  "head": "Add",
+  "interpretation": "Expression-size observation only; no equivalence or completeness claim from string length.",
+  "native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656"
+}

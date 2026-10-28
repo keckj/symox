@@ -1,0 +1,102 @@
+[
+  {
+    "file": "lrt-proof.md",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/ratint-logpart-native/validation/ratint-logpart-proof.md",
+    "sha256": "9222125e58c3814eac65b133010e45c56e96970f2dadc400c72b8f5452e26713"
+  },
+  {
+    "file": "lrt-protocol-manifest.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/ratint-logpart-protocol-followup/validation/ratint-logpart-protocol-followup-manifest.json",
+    "sha256": "4d7bd07a1c8cea2962c39fb4cc9bd995f4bce92cfc6acc69302fe6dc2832cb15"
+  },
+  {
+    "file": "lrt-ore-proof.md",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/lrt-ore-stability-fix/validation/lrt-ore-proof.md",
+    "sha256": "36cc50298e294287b9c7293f0d70d8c95aed6800b82d60b5b820c08471137151"
+  },
+  {
+    "file": "lrt-ore-manifest.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/lrt-ore-stability-fix/validation/lrt-ore-stability-manifest.json",
+    "sha256": "658ee68f3b7ff570075adfb5046b0640a78a52c0a622a17d37aaad0893d54785"
+  },
+  {
+    "file": "berkowitz-proof.md",
+    "source": "/home/keckj/.cache/symox-validation/native-kernels-20261026/next-branches/ddm-berkowitz-proof/REPORT.md",
+    "sha256": "a3e8960af14134327040b94462f938b3389385e585258e6fa9eebe6623c60a82"
+  },
+  {
+    "file": "limit-primary-proof.md",
+    "source": "/home/keckj/.cache/symox-validation/native-limit-symbolic-proof-20261026/REPORT.md",
+    "sha256": "e375b876b62fbf4e29fc13f62b225043199050d01473221be1d53de7df28086c"
+  },
+  {
+    "file": "limit-winding-proof.md",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/limit-symbolic-winding-guard/.validation/REVIEW.md",
+    "sha256": "6a0819de3ada9acd4e392a7fc49aa138b19cdc0434d3d318c7b5bbf490f97dcb"
+  },
+  {
+    "file": "laplace-e1-proof.md",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/laplace-e1-branch-native/validation/laplace-e1-proof.md",
+    "sha256": "1a2190b6e01f14ea3c239e7528ed53d2dd0ced4e85c71338d854bf3252ad28e5"
+  },
+  {
+    "file": "combined-targeted.log",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/combined-targeted.log",
+    "sha256": "f16b09e4e9c6c218ac523016c313b6c5a3f864e9e429acda5b855682450d1470"
+  },
+  {
+    "file": "combined-release-result.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/combined-release-result.json",
+    "sha256": "bea2f4b2f48a18ec18e4fefe9095ef211bc7160557e4230f4ad4477420404330"
+  },
+  {
+    "file": "initial-combined-targeted.log",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/before-ore-fix-combined-targeted.log",
+    "sha256": "78ff6c8e0655cf5f793f665f2fda5bdbdb05b248598d19d479f043879784cb6a"
+  },
+  {
+    "file": "initial-combined-result.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/before-ore-fix-combined-debug-result.json",
+    "sha256": "4db81ef36ffe24b37f4b128ae42ceb24e199331cc2376a1a7796f7e8c2325146"
+  },
+  {
+    "file": "lrt-primary-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/lrt-primary-integration.json",
+    "sha256": "189d0bee57654d452b952742df09ce123199ee13a3614fb966e9b249b30733ff"
+  },
+  {
+    "file": "lrt-protocol-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/lrt-protocol-integration.json",
+    "sha256": "6e437d48bf5877e7af4c716f63855351d839fdb428253763f8cba6e6bf4155c8"
+  },
+  {
+    "file": "lrt-ore-stability-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/lrt-ore-stability-integration.json",
+    "sha256": "3e9fc7266ea2d12cb6ce6f6c358f1383c28a0b21c60d35a1a30f9abb6d95e3d8"
+  },
+  {
+    "file": "berkowitz-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/berkowitz-integration.json",
+    "sha256": "b79e24a6c6e1e961e90ee17428e571ccdc95dcc5a0a49c67b08c2f8a5f761a49"
+  },
+  {
+    "file": "homogeneous-limit-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/homogeneous-limit-integration.json",
+    "sha256": "37e0f34e946e695c01026bf1b0d12866cc8cff0e1e47e14b32cabc2d7e16f8b9"
+  },
+  {
+    "file": "winding-limit-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/winding-limit-integration.json",
+    "sha256": "0ec9a645fa104a5d919dddec180796ab9502971b9d32be294a615854ff8529e2"
+  },
+  {
+    "file": "laplace-e1-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/laplace-e1-integration.json",
+    "sha256": "eeda6b5ca4f6132a5e66beb609ea0b0129039ce3016c2ca3991629e0b011890b"
+  },
+  {
+    "file": "xfail-22334-removal.json",
+    "source": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/xfail-22334-removal.json",
+    "sha256": "a5fdc028ade781a11e8bd2b8edf9926e3545d77d63aa340b4eb6c1ccf99c0ac2"
+  }
+]

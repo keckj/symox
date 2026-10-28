@@ -1,0 +1,1163 @@
+--- a/crates/symox-core/src/integrate.rs
++++ b/crates/symox-core/src/integrate.rs
+@@ -25,6 +25,7 @@
+ pub(crate) use rational_conditions::piecewise_original as rational_piecewise_original;
+ pub mod rational_reduction;
+ pub mod risch_polynomial_reduce;
++pub mod risch_splitfactor;
+ pub mod log_to_atan;
+ pub mod log_to_real;
+ pub mod ratint_driver;
+--- /dev/null
++++ b/crates/symox-core/src/integrate/risch_splitfactor.rs
+@@ -0,0 +1,82 @@
++//! Exact closed-QQ splitting factorization for D(t)=tau(t).
++use crate::poly::{dense,Rat};
++#[derive(Debug,PartialEq)]
++pub struct Split {
++    pub normal:Vec<Rat>,pub special:Vec<Rat>,
++    pub reuse_input:bool,pub reuse_one:bool,pub special_integer:bool,
++}
++fn gcd<E>(a:&[Rat],b:&[Rat],check:&mut impl FnMut()->Result<(),E>)->Result<Vec<Rat>,E>{
++    let(mut a,mut b)=(a.to_vec(),b.to_vec());
++    while !b.is_empty(){check()?;let r=dense::rem(&a,&b);a=b;b=if r.is_empty(){r}else{dense::monic(&r)};}
++    check()?;Ok(dense::monic(&a))
++}
++fn exact(a:&[Rat],b:&[Rat])->Option<Vec<Rat>>{
++    if b.is_empty(){return None;}let(q,r)=dense::divrem(a,b);r.is_empty().then_some(q)
++}
++/// Unsupported zero derivations decline the whole candidate. Coefficients
++/// are exact QQ; optional booleans describe the original constant branch.
++pub fn split<E>(input:&[Rat],tau:&[Rat],lower_variables:bool,
++    check:&mut impl FnMut()->Result<(),E>)->Result<Option<Split>,E>{
++    check()?;
++    if tau.is_empty()||tau.last().is_some_and(Rat::is_zero)
++        ||input.last().is_some_and(Rat::is_zero){return Ok(None);}
++    let mut p=input.to_vec();let mut s=vec![Rat::one()];let mut iterations=0;
++    if p.is_empty(){return Ok(Some(Split{normal:p,special:s,reuse_input:true,reuse_one:true,special_integer:false}));}
++    loop{
++        check()?;
++        if p.len()==1{
++            // Poly.as_poly in different lower generators re-infers the
++            // constant domain. Its ZZ gcd absorbs abs(integer content).
++            let integer_unit=lower_variables&&p[0].d.is_one();
++            if integer_unit{
++                let unit=Rat::from(p[0].n.abs());
++                p[0]=p[0].div(&unit);s=dense::scale(&s,&unit);
++            }
++            return Ok(Some(Split{normal:p,special:s,reuse_input:false,reuse_one:false,
++                special_integer:lower_variables&&iterations==0}));
++        }
++        let ordinary=dense::derivative(&p);let dp=dense::mul(&ordinary,tau);
++        let h=gcd(&p,&dp,check)?;let g=gcd(&p,&ordinary,check)?;
++        let Some(factor)=exact(&h,&g)else{return Ok(None)};
++        if factor.len()<=1{
++            return Ok(Some(Split{normal:p,special:s,reuse_input:iterations==0,
++                reuse_one:iterations==0,special_integer:false}));
++        }
++        let Some(quotient)=exact(&p,&factor)else{return Ok(None)};
++        p=quotient;s=dense::mul(&s,&factor);iterations+=1;
++    }
++}
++#[cfg(test)]mod tests{
++    use super::*;
++    fn q(a:&[i64])->Vec<Rat>{a.iter().map(|&v|Rat::from_i64(v)).collect()}
++    fn checked(p:&[Rat],tau:&[Rat],lower:bool)->Split{
++        let s=split(p,tau,lower,&mut||Ok::<_,()>(())).unwrap().unwrap();
++        assert_eq!(dense::mul(&s.normal,&s.special),p);
++        let ds=dense::mul(&dense::derivative(&s.special),tau);
++        assert!(dense::rem(&ds,&s.special).is_empty());
++        if !s.normal.is_empty(){
++            let sq=dense::divrem(&s.normal,&dense::gcd_field(&s.normal,&dense::derivative(&s.normal))).0;
++            let dn=dense::mul(&dense::derivative(&sq),tau);
++            assert_eq!(dense::gcd_field(&sq,&dn),q(&[1]));
++        }s
++    }
++    #[test]fn repeated_normal_and_special_factors_have_exact_certificates(){
++        for normal_power in 0..=5{for special_power in 0..=5{
++            let normal=(0..normal_power).fold(q(&[1]),|a,_|dense::mul(&a,&q(&[1,1])));
++            let special=(0..special_power).fold(q(&[1]),|a,_|dense::mul(&a,&q(&[1,0,1])));
++            let p=dense::scale(&dense::mul(&normal,&special),&Rat::from_i64(-6));
++            for lower in [false,true]{checked(&p,&q(&[1,0,1]),lower);}
++        }}
++    }
++    #[test]fn constant_units_domains_and_passthrough_aliases_follow_the_old_branches(){
++        let s=checked(&q(&[6]),&q(&[1]),true);assert_eq!(s.normal,q(&[1]));assert_eq!(s.special,q(&[6]));assert!(s.special_integer);
++        let s=checked(&q(&[-6]),&q(&[1]),true);assert_eq!(s.normal,q(&[-1]));assert_eq!(s.special,q(&[6]));
++        let s=checked(&q(&[6]),&q(&[1]),false);assert_eq!(s.normal,q(&[6]));assert_eq!(s.special,q(&[1]));assert!(!s.special_integer);
++        let s=checked(&q(&[1,1]),&q(&[1]),true);assert!(s.reuse_input&&s.reuse_one);
++        let s=checked(&[],&q(&[1]),true);assert!(s.reuse_input&&s.reuse_one);
++    }
++    #[test]fn zero_derivation_refuses_and_interruptions_propagate(){
++        assert!(split(&q(&[1,1]),&[],false,&mut||Ok::<_,()>(())).unwrap().is_none());
++        assert_eq!(split(&q(&[1,1]),&q(&[1]),false,&mut||Err("interrupt")),Err("interrupt"));
++    }
++}
+--- a/crates/symox-py/src/lib.rs
++++ b/crates/symox-py/src/lib.rs
+@@ -24,6 +24,7 @@
+ mod integration_methods;
+ mod rational_protocols;
+ mod risch_polynomial_reduce;
++mod risch_splitfactor;
+ 
+ use symox::expr::{Constant, Expr, Func, Kind, RelOp};
+ use symox::lambdify::Compiled;
+@@ -4349,6 +4350,7 @@
+     integration_methods::register_rational_reduction(m)?;
+     rational_protocols::register(m)?;
+     risch_polynomial_reduce::register(m)?;
++    risch_splitfactor::register(m)?;
+     solve::register(m)?;
+     ode::register(m)?;
+     logic::register(m)?;
+--- /dev/null
++++ b/crates/symox-py/src/risch_splitfactor.rs
+@@ -0,0 +1,69 @@
++//! QQ splitfactor publication after the actual kinv/One prefix.
++use pyo3::prelude::*;
++use pyo3::types::{PyInt,PyList};
++use symox::expr::{Expr,Kind};
++use symox::poly::{dense,polyobj::Domain};
++use crate::poly::PyPoly;
++fn plain(p:&symox::poly::fraction::Polynomial)->bool{
++    p.field.is_none()&&p.algebraic.is_none()&&p.expression.is_none()
++        &&p.base.modulus.is_none()&&!p.base.has_domain_gens()&&p.base.ngens==1
++        &&p.base.gens.len()==1&&matches!(p.base.domain,Domain::ZZ|Domain::QQ)
++        &&p.base.rep.degree(0)<=64&&p.base.rep.iter().all(|(_,v)|v.n.bits()<=4096&&v.d.bits()<=4096)
++}
++fn symbol(value:&Bound<'_,PyAny>)->PyResult<Option<Expr>>{
++    if !value.is_instance_of::<crate::PyExprNode>(){return Ok(None);}
++    let e=crate::to_expr(value)?;let Kind::Sym(s)=e.kind()else{return Ok(None)};
++    if s.host().is_some()||s.scalar_identity().is_some()||s.is_wild()
++        ||symox::decompose::commutativity(&e)!=Some(true)
++        ||!crate::node_type(value.py(),&e).is_some_and(|c|value.get_type().is(&c)){return Ok(None);}
++    Ok(Some(e))
++}
++#[pyfunction]
++#[allow(clippy::too_many_arguments)]
++fn _risch_splitfactor(p:&Bound<'_,PyAny>,d:&Bound<'_,PyAny>,t:&Bound<'_,PyAny>,
++    variables:&Bound<'_,PyAny>,derivations:&Bound<'_,PyAny>,level:&Bound<'_,PyAny>,
++    one:&Bound<'_,PyAny>,py:Python<'_>)->PyResult<Option<(PyObject,PyObject)>>{
++    use pyo3::impl_::pyclass::PyClassImpl;
++    py.check_signals()?;
++    let expected=<PyPoly as PyClassImpl>::items_iter().flat_map(|i|i.slots)
++        .find(|slot|slot.slot==pyo3::ffi::Py_tp_new).map(|slot|slot.pfunc);
++    let current=unsafe{pyo3::ffi::PyType_GetSlot(py.get_type::<PyPoly>().as_type_ptr(),pyo3::ffi::Py_tp_new)};
++    if !expected.is_some_and(|p|!p.is_null()&&p==current)
++        ||![p,d,one].into_iter().all(|v|v.is_exact_instance_of::<PyPoly>())
++        ||!variables.is_exact_instance_of::<PyList>()||!derivations.is_exact_instance_of::<PyList>()
++        ||!level.is_exact_instance_of::<PyInt>(){return Ok(None);}
++    let (variables,derivations)=(variables.downcast::<PyList>()?,derivations.downcast::<PyList>()?);
++    let Ok(level)=level.extract::<isize>()else{return Ok(None)};
++    if variables.is_empty()||variables.len()!=derivations.len()||level>=0||level< -(variables.len()as isize){return Ok(None);}
++    let active=(variables.len()as isize+level+1)as usize;
++    if !t.is(&variables.get_item(active-1)?)||!d.is(&derivations.get_item(active-1)?){return Ok(None);}
++    let Some(t)=symbol(t)?else{return Ok(None)};
++    let(a,b,unit)=(p.downcast::<PyPoly>()?.get(),d.downcast::<PyPoly>()?.get(),one.downcast::<PyPoly>()?.get());
++    if !plain(&a.p)||a.p.base.domain!=Domain::QQ||a.p.base.gens!=[t.clone()]
++        ||!plain(&b.p)||b.p.base.gens!=[t.clone()]||b.p.base.rep.is_zero()
++        ||!plain(&unit.p)||unit.p.base.domain!=Domain::QQ||unit.p.base.gens!=[t.clone()]
++        ||!unit.p.base.rep.is_one(){return Ok(None);}
++    let mut seen=rustc_hash::FxHashSet::default();
++    for i in 0..active{
++        py.check_signals()?;
++        let Some(v)=symbol(&variables.get_item(i)?)?else{return Ok(None)};
++        if !seen.insert(v.clone()){return Ok(None);}
++        let derivative=derivations.get_item(i)?;
++        if !derivative.is_exact_instance_of::<PyPoly>(){return Ok(None);}
++        let derivative=derivative.downcast::<PyPoly>()?.get();
++        if !plain(&derivative.p)||derivative.p.base.gens!=[v]{return Ok(None);}
++    }
++    let input=dense::from_mpoly(&a.p.base.rep,0);let tau=dense::from_mpoly(&b.p.base.rep,0);
++    let Some(result)=symox::integrate::risch_splitfactor::split(&input,&tau,active>1,&mut||py.check_signals())?else{return Ok(None)};
++    let normal=if result.reuse_input{p.clone().unbind()}else{
++        let mut out=a.p.base.clone();out.rep=dense::to_mpoly(&result.normal,0,1);out.domain=Domain::QQ;
++        PyPoly{p:out.into()}.into_pyobject(py)?.into_any().unbind()
++    };
++    let special=if result.reuse_one{one.clone().unbind()}else{
++        let mut out=a.p.base.clone();out.rep=dense::to_mpoly(&result.special,0,1);
++        out.domain=if result.special_integer{Domain::ZZ}else{Domain::QQ};
++        PyPoly{p:out.into()}.into_pyobject(py)?.into_any().unbind()
++    };
++    py.check_signals()?;Ok(Some((normal,special)))
++}
++pub(crate)fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_function(wrap_pyfunction!(_risch_splitfactor,m)?)}
+--- a/python/symox/__init__.py
++++ b/python/symox/__init__.py
+@@ -4591,3 +4591,8 @@
+ from .integrals._risch_native import register_root as _register_risch_polynomial_root
+ _register_risch_polynomial_root(globals())
+ del _register_risch_polynomial_root
++
++# Exact splitfactor shares the stock Risch protocols through C metadata.
++from .integrals._risch_splitfactor_native import register_root as _register_risch_splitfactor_root
++_register_risch_splitfactor_root(globals())
++del _register_risch_splitfactor_root
+--- a/python/symox/integrals/risch.py
++++ b/python/symox/integrals/risch.py
+@@ -25,6 +25,7 @@
+ 
+ 
+ from ._risch_native import reduce as _native_polynomial_reduce
++from ._risch_splitfactor_native import reduce as _native_splitfactor
+ 
+ def integrate(*args, **kwargs):
+     from symox import integrate as _integrate
+@@ -964,6 +965,9 @@
+         kinv.append(z)
+ 
+     One = Poly(1, DE.t, domain=p.get_domain())
++    candidate = _native_splitfactor(p, DE, One, coefficientD, z)
++    if candidate is not None:
++        return candidate
+     Dp = derivation(p, DE, coefficientD=coefficientD)
+     # XXX: Is this right?
+     if p.is_zero:
+--- a/python/symox/integrals/_risch_native.py
++++ b/python/symox/integrals/_risch_native.py
+@@ -141,3 +141,44 @@
+     except AttributeError:return None
+     return _core._risch_polynomial_reduce(p,fields['d'],fields['t'],fields['T'],
+                                         fields['D'],fields['level'],initial)
++
++
++def _prove_fields(p,de,metadata,verify_with_metadata,lookup):
++    """Shared stock-field proof for splitfactor, using a required C reader.
++
++    The original polynomial_reduce function above is deliberately unchanged.
++    Its bootstrap state remains usable by existing reload/error contracts.
++    The caller authenticates this function, all namespaces and the reader
++    before entry; a changed/reloaded verifier requests the full old body.
++    """
++    root=_ROOT
++    if root is None:return None
++    cls,slots,classes,functions,lookups,mutable,verify,verify_state,rationaltools,modules,aliases,ground,serialization,preflight=root
++    owner,serializer,selector_namespace=serialization
++    if (_TYPE(owner) is not ModuleType
++            or owner.__dict__.get('dumps') is not serializer
++            or selector_namespace.get('_CODE') is not serializer
++            or selector_namespace.get('_marshal') is not owner
++            or _ground.__dict__.get('_CODE') is not serializer):return None
++    if (_TYPE(de) is not cls or _TYPE(p) is not _core.Poly
++            or _ANY(_TYPE(m) is not kind or m.__dict__ is not ns for kind,m,ns in modules)
++            or _ANY(ns.get(name,_builtins.__dict__.get(name)) is not value for ns,name,value in aliases)
++            or _ANY(ns.get(name) is not value for ns,name,value in lookups)):return None
++    for value,items in mutable:
++        if (_TYPE(value) is not _DICT or _LEN(value)!=_LEN(items)
++                or _ANY(k is not old or v is not prior
++                    for (k,v),(old,prior)in _ZIP(value.items(),items))):return None
++    try:
++        if (not _ALL(_ground._class_unchanged(c,_metadata=metadata)for c in classes)
++                or not _ALL(_ground._unchanged(f,metadata)for f in functions)
++                or not _ground._unchanged(verify_state,metadata)
++                or not lookup(rationaltools.__dict__,'_stock_ratint_protocol',verify)
++                or _ground.__dict__.get('_ROOT') is not ground or ground is None):return None
++        _,root_functions,root_lookups,records,scalar_classes,_,_,_,_,_=ground
++        if (not _ALL(lookup(ns,n,v)for ns,n,v in root_lookups)
++                or not _ALL(_ground._unchanged(f,metadata)for f in root_functions)
++                or not _ALL(_ground._class_unchanged(c,scalar_classes,metadata)for c in records)
++                or not verify_with_metadata(None,metadata)):return None
++        fields={name:slot.__get__(de,cls)for name,slot in slots}
++    except (AttributeError,TypeError,ValueError):return None
++    return fields
+--- /dev/null
++++ b/python/symox/integrals/_risch_splitfactor_native.py
+@@ -0,0 +1,282 @@
++"""Admit the closed-QQ splitfactor kernel through stock, read-only protocols.
++
++Refusal resumes the complete Python body, after its real kinv/One prefix.
++The older polynomial_reduce selector and its executable body remain intact.
++"""
++from types import ModuleType,CodeType,CellType
++from .. import _core
++from . import _risch_native as _shared
++from ..polys import _polymatrix_native as _ground
++
++_TYPE=(0).__class__.__class__
++_FUNCTION=(lambda:None).__class__
++_BUILTIN=[].append.__class__
++_TUPLE=().__class__
++_DICT={}.__class__
++_STR=''.__class__
++_ROOT=None
++
++
++def _plain(namespace):
++    if _TYPE(namespace) is not _DICT:return False
++    for key in namespace:
++        if _TYPE(key) is not _STR:return False
++    return True
++
++
++def _metadata(function):
++    root=_ROOT
++    if root is None or _TYPE(function) is not _FUNCTION:return None
++    owner,reader=root['reader']
++    if (_TYPE(owner) is not ModuleType or _core is not owner
++            or not _plain(owner.__dict__)
++            or owner.__dict__.get('_ddm_function_metadata') is not reader):return None
++    values=reader(function)
++    if (values is None
++            or values[2] is not None and _TYPE(values[2]) is not _TUPLE
++            or values[3] is not None and _TYPE(values[3]) is not _DICT
++            or values[4] is not None and _TYPE(values[4]) is not _TUPLE):return None
++    return values
++
++
++def _states_match(states,reader,builtins):
++    for function,code,namespace,defaults,keywords,contents,attributes in states:
++        if _TYPE(function) is not _FUNCTION:return False
++        values=reader(function)
++        if (values is None or values[0] is not code or values[1] is not namespace
++                or values[2] is not defaults or values[3] is not keywords
++                or values[2] is not None and _TYPE(values[2]) is not _TUPLE
++                or values[3] is not None and _TYPE(values[3]) is not _DICT
++                or function.__builtins__ is not builtins
++                or not _plain(namespace)
++                or _TYPE(function.__dict__) is not _DICT):return False
++        current=function.__dict__
++        if len(current)!=len(attributes):return False
++        # Identity comparison avoids equality callbacks on arbitrary values.
++        for (key,value),(old,prior) in zip(current.items(),attributes):
++            if key is not old or value is not prior:return False
++        closure=values[4]
++        if closure is None:closure=()
++        elif _TYPE(closure) is not _TUPLE:return False
++        if len(closure)!=len(contents):return False
++        try:
++            for cell,value in zip(closure,contents):
++                if cell.cell_contents is not value:return False
++        except ValueError:return False
++    return True
++
++
++def _same_defaults(current,original):
++    if current is original:return True
++    if _TYPE(current) is not _TUPLE or _TYPE(original) is not _TUPLE:return False
++    return len(current)==len(original) and all(a is b for a,b in zip(current,original))
++
++
++def _same_keywords(current,original):
++    if current is original:return True
++    if not _plain(current) or not _plain(original) or len(current)!=len(original):return False
++    return all(name in current and current[name] is value for name,value in original.items())
++
++
++def _equivalent(current,original,reader,builtins,namespace,depth=0):
++    """Authenticate reload data against the kept bootstrap, without marshal.
++
++    Exact builtin/code containers only; arbitrary constants never get equality,
++    hashing or reduction calls. A function must use the real original globals
++    and actual stock f_builtins, including after a globals entry is restored.
++    """
++    if current is original:return True
++    if depth>64 or _TYPE(current) is not _TYPE(original):return False
++    kind=_TYPE(original)
++    if kind is _FUNCTION:
++        a,b=reader(current),reader(original)
++        if (a is None or b is None or a[1] is not namespace or b[1] is not namespace
++                or current.__builtins__ is not builtins or original.__builtins__ is not builtins
++                or not _same_defaults(a[2],b[2])
++                or not _same_keywords(a[3],b[3])
++                or _TYPE(current.__dict__) is not _DICT or _TYPE(original.__dict__) is not _DICT):return False
++        return (_equivalent(a[0],b[0],reader,builtins,namespace,depth+1)
++                and _equivalent(a[4],b[4],reader,builtins,namespace,depth+1)
++                and _equivalent(current.__dict__,original.__dict__,reader,builtins,namespace,depth+1))
++    if kind is CodeType:
++        a=(current.co_argcount,current.co_posonlyargcount,current.co_kwonlyargcount,
++           current.co_nlocals,current.co_stacksize,current.co_flags,current.co_code,
++           current.co_consts,current.co_names,current.co_varnames,current.co_filename,
++           current.co_name,current.co_firstlineno,current.co_lnotab,
++           current.co_linetable,current.co_freevars,current.co_cellvars)
++        b=(original.co_argcount,original.co_posonlyargcount,original.co_kwonlyargcount,
++           original.co_nlocals,original.co_stacksize,original.co_flags,original.co_code,
++           original.co_consts,original.co_names,original.co_varnames,original.co_filename,
++           original.co_name,original.co_firstlineno,original.co_lnotab,
++           original.co_linetable,original.co_freevars,original.co_cellvars)
++        return _equivalent(a,b,reader,builtins,namespace,depth+1)
++    if kind is _TUPLE:
++        return len(current)==len(original) and all(_equivalent(a,b,reader,builtins,namespace,depth+1)for a,b in zip(current,original))
++    if kind is _DICT:
++        if not _plain(current) or not _plain(original) or len(current)!=len(original):return False
++        return all(name in current and _equivalent(current[name],value,reader,builtins,namespace,depth+1)for name,value in original.items())
++    if kind is CellType:
++        try:return _equivalent(current.cell_contents,original.cell_contents,reader,builtins,namespace,depth+1)
++        except ValueError:return False
++    if kind is frozenset:
++        # The compiled membership constant used by the vector proof contains
++        # only exact Unicode names. Validate both sides before set equality.
++        if not all(_TYPE(name) is _STR for name in current):return False
++        if not all(_TYPE(name) is _STR for name in original):return False
++        return current==original
++    if any(kind is scalar for scalar in (str,bytes,int,bool,float,complex)):return current==original
++    # Other values (classes, modules, native delegates and sentinel objects)
++    # retain their original identity. Foreign constants simply decline.
++    return False
++
++
++def _lookup(namespace,name,original):
++    current=namespace.get(name)
++    if current is original:return True
++    root=_ROOT
++    return (namespace is root['rational_namespace']
++            and _equivalent(current,original,_metadata,root['builtins'],namespace))
++
++
++def register_root(namespace):
++    """Keep bootstrap delegates; never bless a later replacement snapshot."""
++    global _ROOT
++    if _ROOT is not None:return
++    if (_TYPE(_core) is not ModuleType or _TYPE(_ground) is not ModuleType
++            or _TYPE(_shared) is not ModuleType or not _plain(_core.__dict__)
++            or _shared._ROOT is None or _ground._ROOT is None):return
++    reader=_core.__dict__.get('_ddm_function_metadata')
++    kernel=_core.__dict__.get('_risch_splitfactor')
++    if (_TYPE(reader) is not _BUILTIN or reader.__self__ is not _core
++            or reader.__name__!='_ddm_function_metadata'
++            or _TYPE(kernel) is not _BUILTIN or kernel.__self__ is not _core
++            or kernel.__name__!='_risch_splitfactor'):return
++    from importlib import import_module
++    risch=import_module('symox.integrals.risch')
++    from .. import _poly_constructor as constructor
++    from ..polys import _poly_methods as methods,_evaluation as evaluation
++    rationaltools=import_module('symox.integrals.rationaltools')
++    builtins=_shared._builtins.__dict__
++    globals_builtin=builtins.get('globals')
++    if (_TYPE(globals_builtin) is not _BUILTIN
++            or globals_builtin.__self__ is not _shared._builtins
++            or globals_builtin.__name__!='globals'):return
++    for name in ('bytes','int','bool','float','complex','frozenset'):
++        value=builtins.get(name)
++        if (_TYPE(value) is not _TYPE or value.__flags__&512
++                or value.__module__!='builtins' or value.__name__!=name):return
++    self_namespace=_plain.__globals__
++    data_functions=tuple(rationaltools.__dict__[name]for name in
++        ('cancel','ratint_ratpart','ratint_logpart','log_to_real','log_to_atan'))
++    modules=[_core,_ground,_shared,risch,constructor,methods,evaluation,rationaltools,_shared._builtins,_shared._marshal]
++    allowed=tuple(m.__dict__ for m in modules if _TYPE(m) is ModuleType)
++    states=[];lookups=[];seen=set()
++    def visit(function):
++        if _TYPE(function) is not _FUNCTION or id(function) in seen:return True
++        seen.add(id(function));values=reader(function)
++        if values is None:return False
++        code,scope,defaults,keywords,closure=values
++        if (not _plain(scope) or function.__builtins__ is not builtins
++                or defaults is not None and _TYPE(defaults) is not _TUPLE
++                or keywords is not None and _TYPE(keywords) is not _DICT
++                or closure is not None and _TYPE(closure) is not _TUPLE
++                or _TYPE(function.__dict__) is not _DICT):return False
++        if closure is None:closure=()
++        try:contents=tuple(cell.cell_contents for cell in closure)
++        except ValueError:return False
++        states.append((function,code,scope,defaults,keywords,contents,tuple(function.__dict__.items())))
++        for value in contents:
++            if _TYPE(value) is _FUNCTION and not visit(value):return False
++        # These are code-state data for the stock verifier, never executed by
++        # it. Their mathematical globals are outside splitfactor's consumed
++        # path; the actual callables are still authenticated as code states.
++        if scope is rationaltools.__dict__ and any(function is value for value in data_functions):return True
++        for name in code.co_names:
++            if scope is self_namespace and name=='_ROOT':continue
++            present=name in scope;value=scope.get(name,builtins.get(name))
++            lookups.append((scope,name,present,value))
++            if (_TYPE(value) is _FUNCTION
++                    and any(value.__globals__ is m for m in allowed)
++                    and not visit(value)):return False
++        return True
++    # All new/transitive proof functions are authenticated via the C reader.
++    verify=rationaltools._stock_ratint_protocol_with_metadata
++    prove=_shared._prove_fields
++    for function in (prove,verify,_plain,_metadata,_states_match,_same_defaults,_same_keywords,_equivalent,_lookup,reduce):
++        if not visit(function):return
++    lookups.append((_shared.__dict__,'_prove_fields',True,prove))
++    lookups.append((rationaltools.__dict__,'_stock_ratint_protocol_with_metadata',True,verify))
++    for name in ('_unchanged','_lookup_unchanged','_class_unchanged'):
++        if not visit(_ground.__dict__[name]):return
++    for record in _shared._ROOT[3]+_ground._ROOT[1]:
++        if not visit(record[0]):return
++    for record in _shared._ROOT[2]+_ground._ROOT[3]:
++        for state in record[3]:
++            if not visit(state[0]):return
++    if not visit(risch.splitfactor):return
++    for name in ('get_domain','as_poly','exquo','gcd','to_field','diff'):
++        if not visit(getattr(_core.Poly,name,None)):return
++    for cls in _ground._ROOT[4]:
++        if not visit(getattr(cls,'has',None)):return
++    # Check every consumed global namespace before performing keyed lookups.
++    scopes=[]
++    for scope,_,_,_ in lookups:
++        if not any(scope is old for old in scopes):scopes.append(scope)
++    for scope,_,_ in _shared._ROOT[4]+_shared._ROOT[10]+_ground._ROOT[2]:
++        if not any(scope is old for old in scopes):scopes.append(scope)
++    for scope in scopes:
++        if not _plain(scope):return
++    aliases=tuple((m,m.__dict__)for m in modules)
++    builtin_names=_ground._ROOT[5]+('globals','bytes','int','bool','float','complex','frozenset')
++    builtin_aliases=tuple((name,builtins[name])for name in builtin_names)
++    _ROOT={'reader':(_core,reader),'kernel':kernel,'shared':_shared,
++           'shared_root':_shared._ROOT,'ground_root':_ground._ROOT,
++           'prove':prove,'verify':verify,'states':tuple(states),
++           'lookups':tuple(lookups),'scopes':tuple(scopes),'modules':aliases,
++           'builtins':builtins,'builtin_aliases':builtin_aliases,
++           'rational_namespace':rationaltools.__dict__,
++           'local_aliases':tuple((name,self_namespace[name])for name in
++                ('_plain','_metadata','_states_match','_same_defaults','_same_keywords','_equivalent','_lookup'))}
++
++
++def reduce(p,de,one,coefficientD,z):
++    root=_ROOT
++    if root is None or coefficientD is not False or z is not None:return None
++    owner,reader=root['reader']
++    # Exact owner/key checks precede consumed lookups, including hash collisions.
++    if _TYPE(owner) is not ModuleType or _core is not owner:return None
++    for key in owner.__dict__:
++        if _TYPE(key) is not _STR:return None
++    if (owner.__dict__.get('_ddm_function_metadata') is not reader
++            or owner.__dict__.get('_risch_splitfactor') is not root['kernel']):return None
++    for module,scope in root['modules']:
++        if _TYPE(module) is not ModuleType or module.__dict__ is not scope:return None
++    for scope in root['scopes']:
++        if _TYPE(scope) is not _DICT:return None
++        for key in scope:
++            if _TYPE(key) is not _STR:return None
++    builtins=root['builtins']
++    for name,value in root['builtin_aliases']:
++        if builtins.get(name) is not value:return None
++    local_namespace=_plain.__globals__
++    for name,value in root['local_aliases']:
++        if local_namespace.get(name) is not value:return None
++    if (_shared is not root['shared'] or _shared.__dict__.get('_ROOT') is not root['shared_root']
++            or _ground.__dict__.get('_ROOT') is not root['ground_root']):return None
++    # Authenticate the helpers before invoking them, without Python metadata reads.
++    for function,code,namespace,defaults,keywords,contents,attributes in root['states']:
++        values=reader(function)
++        if (values is None or values[0] is not code or values[1] is not namespace
++                or values[2] is not defaults or values[3] is not keywords
++                or values[2] is not None and _TYPE(values[2]) is not _TUPLE
++                or values[3] is not None and _TYPE(values[3]) is not _DICT
++                or values[4] is not None and _TYPE(values[4]) is not _TUPLE):return None
++    if not _states_match(root['states'],reader,builtins):return None
++    for scope,name,present,value in root['lookups']:
++        if (name in scope) is not present:return None
++        current=scope.get(name,builtins.get(name))
++        if current is not value and not (scope is root['rational_namespace']
++                and _equivalent(current,value,_metadata,builtins,scope)):return None
++    fields=root['prove'](p,de,_metadata,root['verify'],_lookup)
++    if fields is None:return None
++    return root['kernel'](p,fields['d'],fields['t'],fields['T'],fields['D'],fields['level'],one)
+--- /dev/null
++++ b/tests/test_native_risch_splitfactor.py
+@@ -0,0 +1,612 @@
++"""Exact QQ splitfactor, independent certificates, and complete old protocols."""
++from fractions import Fraction
++import importlib
++import sys
++
++import pytest
++import symox as sx
++import sympy as sp
++
++risch=importlib.import_module('symox.integrals.risch')
++selector=importlib.import_module('symox.integrals._risch_splitfactor_native')
++reference=importlib.import_module('sympy.integrals.risch')
++
++
++def fixture(seed,package,module):
++    variables=list(package.symbols('split_x split_t split_u'))[:1+seed%3]
++    active=len(variables)-(1 if seed%4==0 and len(variables)>1 else 0)
++    t=variables[active-1];mode=seed%5
++    special=[package.S.One,t,t*t+1,t*(t-1),t*t+1][mode]
++    dt=[package.S.One,t,t*t+1,2*t*(t-1),(t*t+1)/2][mode]
++    scale=[package.S.One,-6,6,package.Rational(2,3),package.Rational(-5,7)][seed%5]
++    expr=scale*(t+2)**((seed//5)%5)*special**((seed//7)%5)
++    if seed%17==0:expr=package.S.Zero
++    ds=[package.Poly(dt if i==active-1 else 1,v)for i,v in enumerate(variables)]
++    de=module.DifferentialExtension(extension={'D':ds})
++    if active<len(variables):de.decrement_level()
++    return package.Poly(expr,t,domain='QQ'),de
++
++
++def signature(pair):
++    return tuple((tuple(t.name for t in p.gens),str(p.domain),tuple(sorted(
++        (monomial,Fraction(int(v.p),int(v.q)))for monomial,v in p.as_dict().items())))for p in pair)
++
++
++def trim(p):
++    while p and not p[-1]:p.pop()
++    return p
++
++
++def dense(p):
++    d={m[0]:Fraction(int(v.p),int(v.q))for m,v in p.as_dict().items()}
++    return trim([d.get(i,Fraction())for i in range(max(d,default=-1)+1)])
++
++
++def mul(a,b):
++    if not a or not b:return []
++    p=[Fraction()]*(len(a)+len(b)-1)
++    for i,v in enumerate(a):
++        for j,w in enumerate(b):p[i+j]+=v*w
++    return trim(p)
++
++
++def add(a,b):
++    return trim([(a[i]if i<len(a)else Fraction())+(b[i]if i<len(b)else Fraction())
++                 for i in range(max(len(a),len(b)))])
++
++
++def sub(a,b):return add(a,[-v for v in b])
++
++
++def diff(p):return trim([i*p[i]for i in range(1,len(p))])
++
++
++def divrem(a,b):
++    assert b
++    a=list(a);q=[Fraction()]*max(0,len(a)-len(b)+1)
++    while a and len(a)>=len(b):
++        k=len(a)-len(b);v=a[-1]/b[-1];q[k]=v
++        for i,w in enumerate(b):a[i+k]-=v*w
++        trim(a)
++    return trim(q),a
++
++
++def gcd(a,b):
++    while b:a,b=b,divrem(a,b)[1]
++    return [v/a[-1]for v in a]if a else []
++
++
++def certificate(p,de,pair):
++    p,tau=dense(p),dense(de.d);normal,special=map(dense,pair)
++    assert mul(normal,special)==p
++    assert divrem(mul(diff(special),tau),special)[1]==[]
++    if normal:
++        sq,rem=divrem(normal,gcd(normal,diff(normal)))
++        assert rem==[] and gcd(sq,mul(diff(sq),tau))==[Fraction(1)]
++
++
++def trace(call):
++    kernel=sx._core._risch_splitfactor;calls=[];previous=sys.getprofile()
++    def profile(frame,event,arg):
++        if event=='c_call' and arg is kernel:calls.append('native')
++    sys.setprofile(profile)
++    try:return call(),calls
++    finally:sys.setprofile(previous)
++
++
++def old(monkeypatch,p,de,**kwargs):
++    with monkeypatch.context()as patch:
++        patch.setattr(risch,'_native_splitfactor',lambda *args:None)
++        return risch.splitfactor(p,de,**kwargs)
++
++
++@pytest.mark.parametrize('seed',range(96))
++def test_selected_splitfactor_matches_old_reference_and_independent_certificates(monkeypatch,seed):
++    p,de=fixture(seed,sx,risch);rp,rde=fixture(seed,sp,reference)
++    before=(de.level,de.t,de.d,tuple(de.T),tuple(de.D),tuple(p.as_dict().items()))
++    actual,calls=trace(lambda:risch.splitfactor(p,de))
++    assert calls==['native']
++    selected=selector.reduce(p,de,sx.Poly(1,de.t,domain=p.get_domain()),False,None)
++    assert selected is not None and signature(selected)==signature(actual)
++    expected=old(monkeypatch,p,de)
++    assert signature(actual)==signature(expected)==signature(reference.splitfactor(rp,rde))
++    assert (actual[0]is p)==(expected[0]is p)
++    certificate(p,de,actual)
++    assert before==(de.level,de.t,de.d,tuple(de.T),tuple(de.D),tuple(p.as_dict().items()))
++    assert all(a is b for a,b in zip(before[3],de.T))
++    assert all(a is b for a,b in zip(before[4],de.D))
++
++
++@pytest.mark.parametrize('levels',[1,2,3])
++@pytest.mark.parametrize('value',[6,-6,sx.Rational(2,3),sx.Rational(-5,7)])
++def test_constant_content_keeps_domains_units_representatives_and_product(monkeypatch,levels,value):
++    variables=list(sx.symbols('split_x split_t split_u'))[:levels];t=variables[-1]
++    de=risch.DifferentialExtension(extension={'D':[sx.Poly(1,v)for v in variables]})
++    p=sx.Poly(value,t,domain='QQ');actual,calls=trace(lambda:risch.splitfactor(p,de))
++    selected=selector.reduce(p,de,sx.Poly(1,t,domain='QQ'),False,None)
++    assert selected is not None and signature(selected)==signature(actual)
++    expected=old(monkeypatch,p,de)
++    assert calls==['native'] and signature(actual)==signature(expected)
++    assert actual[0]is not p and str(actual[0].domain)=='QQ'
++    assert str(actual[1].domain)==('QQ'if levels==1 else 'ZZ')
++    if levels>1 and (isinstance(value,int)or value.is_Integer):assert actual[1].as_expr()==abs(value)
++    certificate(p,de,actual)
++
++
++@pytest.mark.parametrize('coefficientD,z',[(True,None),(False,0),(False,False),(False,sx.Symbol('split_z'))])
++def test_other_options_preserve_complete_original_computation(monkeypatch,coefficientD,z):
++    p,de=fixture(22,sx,risch);kwargs={'coefficientD':coefficientD,'z':z}
++    assert selector.reduce(p,de,sx.Poly(1,de.t,domain=p.get_domain()),coefficientD,z)is None
++    actual,calls=trace(lambda:risch.splitfactor(p,de,**kwargs))
++    assert signature(actual)==signature(old(monkeypatch,p,de,**kwargs))
++    if coefficientD:assert calls==[]
++    # The old recursive call intentionally drops z. Its canonical QQ
++    # subproblem can independently select the exact native algorithm.
++
++
++@pytest.mark.parametrize('domain',['ZZ','RR','EX','GF(7)','QQ[y]'])
++def test_other_domains_keep_values_domains_precision_and_errors(monkeypatch,domain):
++    t,y=sx.symbols('split_t y')
++    expr=t+1+(y if domain=='QQ[y]'else 0)
++    if domain=='RR':expr=t+sx.Float('1.234567890123456789',80)
++    p=sx.Poly(expr,t,domain=domain)
++    de=risch.DifferentialExtension(extension={'D':[sx.Poly(1,t)]})
++    assert selector.reduce(p,de,sx.Poly(1,de.t,domain=p.get_domain()),False,None)is None
++    try:actual,calls=trace(lambda:risch.splitfactor(p,de))
++    except Exception as actual:
++        with pytest.raises(type(actual))as expected:old(monkeypatch,p,de)
++        assert str(actual)==str(expected.value)
++    else:
++        expected=old(monkeypatch,p,de)
++        assert actual==expected
++        assert all(a.gens==b.gens and str(a.domain)==str(b.domain)and a.as_dict()==b.as_dict()
++                   for a,b in zip(actual,expected))
++
++
++@pytest.mark.parametrize('name',['derivation','Poly','gcd','exquo','to_field','as_poly','diff','get_domain','has'])
++def test_consumed_callbacks_match_complete_old_body(monkeypatch,name):
++    p,de=fixture(22,sx,risch);events=[]
++    owner=risch if name in ('Poly','derivation')else sx.Expr if name=='has'else sx.Poly
++    original=getattr(owner,name)
++    def callback(*args,**kwargs):events.append(name);return original(*args,**kwargs)
++    monkeypatch.setattr(owner,name,callback)
++    actual,calls=trace(lambda:risch.splitfactor(p,de));observed=events[:];events.clear()
++    expected=old(monkeypatch,p,de)
++    assert calls==[] and signature(actual)==signature(expected)and events==observed and events
++
++
++@pytest.mark.parametrize('mode',['subclass','class_lookup','slot_property'])
++def test_real_extension_reads_are_preserved(monkeypatch,mode):
++    p,de=fixture(22,sx,risch);events=[]
++    if mode=='subclass':
++        class Custom(risch.DifferentialExtension):
++            def __getattribute__(self,name):events.append(name);return super().__getattribute__(name)
++        de=Custom(extension={'D':de.D})
++    elif mode=='class_lookup':
++        def callback(self,name):events.append(name);return object.__getattribute__(self,name)
++        monkeypatch.setattr(risch.DifferentialExtension,'__getattribute__',callback)
++    else:
++        descriptor=risch.DifferentialExtension.t
++        def callback(self):events.append('t');return descriptor.__get__(self,type(self))
++        monkeypatch.setattr(risch.DifferentialExtension,'t',property(callback))
++    events.clear();actual,calls=trace(lambda:risch.splitfactor(p,de));observed=events[:];events.clear()
++    expected=old(monkeypatch,p,de)
++    assert calls==[] and signature(actual)==signature(expected)and events==observed and events
++
++
++@pytest.mark.parametrize('name',['_risch_splitfactor','_prove_fields'])
++def test_foreign_native_or_shared_proof_delegate_is_never_called(monkeypatch,name):
++    p,de=fixture(22,sx,risch);events=[]
++    owner=sx._core if name=='_risch_splitfactor'else selector._shared
++    def callback(*args):events.append(name);raise RuntimeError('foreign delegate')
++    monkeypatch.setattr(owner,name,callback)
++    actual=risch.splitfactor(p,de)
++    assert signature(actual)==signature(old(monkeypatch,p,de))and events==[]
++    if name=='_prove_fields':
++        actual=risch.polynomial_reduce(p,de)
++        with monkeypatch.context()as patch:
++            patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
++            expected=risch.polynomial_reduce(p,de)
++        assert signature(actual)==signature(expected)and events==[]
++
++
++@pytest.mark.parametrize('mode',['code','defaults','foreign_globals','module_class'])
++def test_shared_proof_origin_and_function_state_are_authenticated(monkeypatch,mode):
++    from types import FunctionType,ModuleType
++    p,de=fixture(22,sx,risch);events=[];shared=selector._shared
++    if mode=='code':monkeypatch.setattr(shared._prove_fields,'__code__',(lambda p,de:None).__code__)
++    elif mode=='defaults':monkeypatch.setattr(shared._prove_fields,'__defaults__',(None,))
++    elif mode=='foreign_globals':
++        function=shared._prove_fields
++        monkeypatch.setattr(shared,'_prove_fields',FunctionType(function.__code__,dict(function.__globals__)))
++    else:
++        class Hooks(ModuleType):
++            def __getattribute__(self,name):
++                events.append(name);raise RuntimeError('foreign module lookup')
++        monkeypatch.setattr(shared,'__class__',Hooks)
++    actual,calls=trace(lambda:risch.splitfactor(p,de))
++    assert calls==[] and signature(actual)==signature(old(monkeypatch,p,de))and events==[]
++
++
++def test_missing_unused_d_member_still_runs_the_complete_old_algorithm(monkeypatch):
++    t=sx.Symbol('split_t');p=sx.Poly(t*t+1,t,domain='QQ')
++    de=risch.DifferentialExtension.__new__(risch.DifferentialExtension)
++    de.T=[t];de.D=[sx.Poly(t*t+1,t)];de.t=t;de.level=-1
++    actual,calls=trace(lambda:risch.splitfactor(p,de))
++    assert calls==[] and signature(actual)==signature(old(monkeypatch,p,de))
++
++
++@pytest.mark.parametrize('mode',['degree','bits','zero_derivation','tuple_variables','tuple_derivations','duplicate_variables','host_variable'])
++def test_nonadmitted_payloads_retain_available_original_computations(monkeypatch,mode):
++    t=sx.Symbol('split_t');p=sx.Poly(t*t+1,t,domain='QQ')
++    de=risch.DifferentialExtension(extension={'D':[sx.Poly(t*t+1,t)]})
++    if mode=='degree':p=sx.Poly((t+2)**65,t,domain='QQ')
++    elif mode=='bits':p=sx.Poly((2**4100)*(t+2),t,domain='QQ')
++    elif mode=='zero_derivation':de.D[0]=de.d=sx.Poly(0,t)
++    elif mode=='tuple_variables':de.T=tuple(de.T)
++    elif mode=='tuple_derivations':de.D=tuple(de.D)
++    elif mode=='duplicate_variables':
++        de.T=[t,t];de.D=[sx.Poly(1,t),de.d]
++    else:
++        class Host(sx.Symbol):pass
++        t=Host('split_host_t');p=sx.Poly(t*t+1,t,domain='QQ')
++        de=risch.DifferentialExtension(extension={'D':[sx.Poly(t*t+1,t)]})
++    assert selector.reduce(p,de,sx.Poly(1,de.t,domain=p.get_domain()),False,None)is None
++    actual=risch.splitfactor(p,de)
++    assert signature(actual)==signature(old(monkeypatch,p,de))
++
++
++def test_late_import_hook_observes_the_complete_original_import_log(monkeypatch):
++    import builtins
++    p,de=fixture(22,sx,risch);events=[];original=builtins.__import__
++    def callback(name,globals=None,locals=None,fromlist=(),level=0):
++        events.append((name,fromlist,level))
++        return original(name,globals,locals,fromlist,level)
++    monkeypatch.setattr(builtins,'__import__',callback)
++    actual=risch.splitfactor(p,de);observed=events[:];events.clear()
++    with monkeypatch.context()as patch:
++        patch.setattr(risch,'_native_splitfactor',lambda *args:None)
++        events.clear()
++        expected=risch.splitfactor(p,de)
++        legacy=events[:];events.clear()
++    assert signature(actual)==signature(expected)and observed==legacy and legacy
++
++
++def test_real_constructor_slot_is_proved_after_its_dictionary_is_restored():
++    import os,subprocess
++    code="""
++import symox as s
++from symox.integrals import risch
++t=s.Symbol('split_t');p=s.Poly((t*t+1)**2,t,domain='QQ');one=s.Poly(1,t,domain='QQ')
++de=risch.DifferentialExtension(extension={'D':[s.Poly(t*t+1,t)]})
++original=s.Poly.__new__
++def changed(cls,*args,**kwargs):return original(cls,*args,**kwargs)
++s.Poly.__new__=staticmethod(changed)
++s.Poly.__new__=original
++assert s._core._risch_splitfactor(p,de.d,de.t,de.T,de.D,de.level,one)is None
++def prefix(*args,**kwargs):
++ risch.Poly=s.Poly
++ return one
++errors=[]
++for mode in range(2):
++ risch.Poly=prefix
++ if mode:risch._native_splitfactor=lambda *args:None
++ try:risch.splitfactor(p,de)
++ except TypeError as error:errors.append(str(error))
++ else:raise AssertionError('changed real constructor slot was omitted')
++assert errors[0]==errors[1]
++"""
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('levels',[1,2,3])
++@pytest.mark.parametrize('caller',['canonical_representation','hermite_reduce'])
++def test_actual_risch_callers_select_splitfactor_with_exact_decomposition(monkeypatch,levels,caller):
++    def inputs(package,module):
++        variables=list(package.symbols('split_x split_t split_u'))[:levels];t=variables[-1]
++        de=module.DifferentialExtension(extension={'D':[package.Poly(1,v)for v in variables[:-1]]+[package.Poly(t*t+1,t)]})
++        return package.Poly(t+1,t,domain='QQ'),package.Poly((t+2)**3*(t*t+1)**2,t,domain='QQ'),de
++    a,d,de=inputs(sx,risch);ra,rd,rde=inputs(sp,reference)
++    actual,calls=trace(lambda:getattr(risch,caller)(a,d,de))
++    assert calls
++    with monkeypatch.context()as patch:
++        patch.setattr(risch,'_native_splitfactor',lambda *args:None)
++        expected=getattr(risch,caller)(a,d,de)
++    ref=getattr(reference,caller)(ra,rd,rde)
++    flatten=lambda result:(result[0],*result[1],*result[2])if caller=='canonical_representation'else tuple(p for pair in result for p in pair)
++    actual_signature=signature(flatten(actual));old_signature=signature(flatten(expected))
++    reference_signature=signature(flatten(ref))
++    assert actual_signature==old_signature
++    if caller=='canonical_representation':assert actual_signature==reference_signature
++    else:
++        # Existing Poly.cancel domain inference in Symox returns this integer
++        # g pair over ZZ, while SymPy retains QQ. Preserve that representative;
++        # the baseline witness is archived separately, rather than weakening
++        # the splitfactor domain comparison or claiming full Hermite parity.
++        assert tuple(row[1]for row in actual_signature[:2])==('ZZ','ZZ')
++        assert tuple(row[1]for row in reference_signature[:2])==('QQ','QQ')
++        assert tuple((row[0],row[2])for row in actual_signature[:2])==tuple((row[0],row[2])for row in reference_signature[:2])
++        assert actual_signature[2:]==reference_signature[2:]
++    A,D,tau=dense(a),dense(d),dense(de.d)
++    if caller=='canonical_representation':
++        q,(b,ds),(c,dn)=actual
++        Q,B,DS,C,DN=map(dense,(q,b,ds,c,dn))
++        assert mul(A,mul(DS,DN))==mul(D,add(mul(Q,mul(DS,DN)),add(mul(B,DN),mul(C,DS))))
++    else:
++        (ga,gd),(ha,hd),(rr,dr)=actual
++        GA,GD,HA,HD,R,DR=map(dense,(ga,gd,ha,hd,rr,dr))
++        GD2=mul(GD,GD);DG=mul(sub(mul(diff(GA),GD),mul(GA,diff(GD))),tau)
++        assert mul(A,mul(GD2,mul(HD,DR)))==add(mul(D,mul(DG,mul(HD,DR))),
++            add(mul(D,mul(HA,mul(GD2,DR))),mul(D,mul(R,mul(GD2,HD)))))
++
++
++@pytest.mark.parametrize('order',[(),('symox.diffgeom','symox.vector','symox.holonomic'),
++    ('symox.diffgeom','symox.holonomic','symox.vector'),('symox.vector','symox.diffgeom','symox.holonomic'),
++    ('symox.vector','symox.holonomic','symox.diffgeom'),('symox.holonomic','symox.diffgeom','symox.vector'),
++    ('symox.holonomic','symox.vector','symox.diffgeom')])
++def test_real_native_splitfactor_keeps_audit_log_empty_after_inputs(order):
++    import os,subprocess
++    code='''
++import importlib,sys
++import symox as s
++from symox.integrals import risch
++for name in ORDER:importlib.import_module(name)
++selector=importlib.import_module('symox.integrals._risch_splitfactor_native')
++x,t=s.symbols('audit_split_x audit_split_t')
++de=risch.DifferentialExtension(extension={'D':[s.Poly(1,x),s.Poly(t*t+1,t)]})
++p=s.Poly((t*t+1)**2*(t+2),t,domain='QQ');one=s.Poly(1,t,domain='QQ')
++events=[]
++def reject(event,args):
++ if event=='object.__getattr__':
++  events.append(args[1]);raise RuntimeError('unexpected metadata audit')
++sys.addaudithook(reject)
++selected=selector.reduce(p,de,one,False,None)
++assert selected is not None and events==[]
++actual=risch.splitfactor(p,de)
++risch._native_splitfactor=lambda *args:None
++expected=risch.splitfactor(p,de)
++assert actual==expected and events==[]
++assert [str(v.domain)for v in actual]==[str(v.domain)for v in expected]
++'''.replace('ORDER',repr(order))
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('mode',['alias','module','collision'])
++def test_c_metadata_reader_declines_foreign_origin_without_calls(monkeypatch,mode):
++    from types import ModuleType
++    p,de=fixture(22,sx,risch);one=sx.Poly(1,de.t,domain=p.domain);events=[]
++    original=sx._core._ddm_function_metadata;key=None
++    def foreign(*args):events.append('reader');raise RuntimeError('foreign reader')
++    if mode=='alias':monkeypatch.setattr(sx._core,'_ddm_function_metadata',foreign)
++    elif mode=='module':
++        class Hooks(ModuleType):
++            def __getattribute__(self,name):events.append(name);raise RuntimeError('module callback')
++        monkeypatch.setattr(sx._core,'__class__',Hooks)
++    else:
++        class Key:
++            def __hash__(self):return hash('_ddm_function_metadata')
++            def __eq__(self,other):events.append('eq');raise RuntimeError('foreign key equality')
++        monkeypatch.delattr(sx._core,'_ddm_function_metadata')
++        key=Key();sx._core.__dict__[key]=None
++    try:
++        assert selector.reduce(p,de,one,False,None)is None and events==[]
++        def outcome(call):
++            try:return ('value',signature(call()))
++            except Exception as error:return ('error',type(error),str(error))
++        actual=outcome(lambda:risch.splitfactor(p,de));observed=events[:];events.clear()
++        expected=outcome(lambda:old(monkeypatch,p,de))
++        assert actual==expected and events==observed
++        if mode=='module':assert observed
++        else:assert observed==[]
++    finally:
++        if key is not None:del sx._core.__dict__[key]
++
++
++@pytest.mark.parametrize('mode',['closure','defaults','kwdefaults','attributes','f_builtins'])
++def test_metadata_payloads_are_proved_before_any_python_container_hook(mode):
++    from types import FunctionType
++    events=[];reader=sx._core._ddm_function_metadata;builtins=selector._ROOT['builtins']
++    value=object()
++    def factory():
++        keep=value
++        def function():return keep
++        return function
++    original=factory();code=original.__code__;scope=original.__globals__
++    class Tuple(tuple):
++        def __iter__(self):events.append('iter');raise RuntimeError('foreign tuple iteration')
++        def __len__(self):events.append('len');raise RuntimeError('foreign tuple length')
++        def __getitem__(self,index):events.append('getitem');raise RuntimeError('foreign tuple indexing')
++    class Dict(dict):
++        def __iter__(self):events.append('iter');raise RuntimeError('foreign dictionary iteration')
++        def __len__(self):events.append('len');raise RuntimeError('foreign dictionary length')
++    closure=Tuple(original.__closure__)if mode=='closure'else original.__closure__
++    if mode=='f_builtins':
++        saved=scope['__builtins__'];scope['__builtins__']=Dict(builtins)
++        try:function=FunctionType(code,scope,closure=closure)
++        finally:scope['__builtins__']=saved
++    else:function=FunctionType(code,scope,closure=closure)
++    defaults=Tuple((None,))if mode=='defaults'else None
++    keywords=Dict(key=None)if mode=='kwdefaults'else None
++    function.__defaults__=defaults;function.__kwdefaults__=keywords
++    if mode=='attributes':function.__dict__=Dict()
++    states=((function,code,scope,defaults,keywords,(value,),()),)
++    assert not selector._states_match(states,reader,builtins)
++    assert events==[]
++
++
++@pytest.mark.parametrize('name',['derivation','Poly','gcd','exquo','to_field','as_poly','diff','get_domain','has'])
++def test_raising_consumed_callbacks_keep_exact_old_error_and_journal(monkeypatch,name):
++    p,de=fixture(22,sx,risch);events=[]
++    owner=risch if name in ('Poly','derivation')else sx.Expr if name=='has'else sx.Poly
++    def callback(*args,**kwargs):events.append(name);raise RuntimeError('splitfactor '+name)
++    monkeypatch.setattr(owner,name,callback)
++    with pytest.raises(RuntimeError)as actual:risch.splitfactor(p,de)
++    observed=events[:];events.clear()
++    with pytest.raises(RuntimeError)as expected:old(monkeypatch,p,de)
++    assert str(actual.value)==str(expected.value)and events==observed and events
++
++
++def test_preimport_reader_wrapper_is_not_blessed():
++    import os,subprocess
++    code='''
++import builtins,sys
++original=builtins.__import__;events=[]
++def foreign(*args):events.append('reader');raise RuntimeError('foreign metadata')
++def importing(name,globals=None,locals=None,fromlist=(),level=0):
++ result=original(name,globals,locals,fromlist,level)
++ if name=='_core' and globals and globals.get('__name__')=='symox.integrals._risch_splitfactor_native':
++  sys.modules['symox._core']._ddm_function_metadata=foreign
++ return result
++builtins.__import__=importing
++import symox as s
++from symox.integrals import risch
++selector=sys.modules['symox.integrals._risch_splitfactor_native']
++t=s.Symbol('split_t');p=s.Poly((t*t+1)**2,t,domain='QQ')
++de=risch.DifferentialExtension(extension={'D':[s.Poly(t*t+1,t)]})
++events.clear()
++assert selector._ROOT is None
++actual=risch.splitfactor(p,de);risch._native_splitfactor=lambda *args:None
++expected=risch.splitfactor(p,de)
++assert actual==expected and events==[]
++'''
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('owner_name,name',[('shared','_prove_fields'),('selector','_metadata'),
++    ('rational','_stock_ratint_protocol_with_metadata')])
++def test_consumed_namespace_keys_are_checked_before_collision_lookup(monkeypatch,owner_name,name):
++    p,de=fixture(22,sx,risch);one=sx.Poly(1,de.t,domain=p.domain);events=[]
++    owner={'shared':selector._shared,'selector':selector,
++        'rational':importlib.import_module('symox.integrals.rationaltools')}[owner_name]
++    class Key:
++        def __hash__(self):return hash(name)
++        def __eq__(self,other):events.append('eq');raise RuntimeError('foreign namespace equality')
++    monkeypatch.delattr(owner,name);key=Key();owner.__dict__[key]=None
++    try:
++        assert selector.reduce(p,de,one,False,None)is None and events==[]
++        actual=risch.splitfactor(p,de)
++        assert signature(actual)==signature(old(monkeypatch,p,de))and events==[]
++    finally:del owner.__dict__[key]
++
++
++def test_stock_rationaltools_reload_keeps_real_native_admission_without_new_audits():
++    import os,subprocess
++    code='''
++import importlib,sys
++import symox as s
++from symox.integrals import risch
++selector=importlib.import_module('symox.integrals._risch_splitfactor_native')
++rt=importlib.import_module('symox.integrals.rationaltools')
++importlib.reload(rt)
++t=s.Symbol('split_reload_t');p=s.Poly((t*t+1)**2*(t+2),t,domain='QQ');one=s.Poly(1,t,domain='QQ')
++de=risch.DifferentialExtension(extension={'D':[s.Poly(t*t+1,t)]});events=[]
++def reject(event,args):
++ if event in ('object.__getattr__','marshal.dumps'):
++  events.append(event);raise RuntimeError('unexpected metadata audit')
++sys.addaudithook(reject)
++assert selector.reduce(p,de,one,False,None)is not None
++actual=risch.splitfactor(p,de);risch._native_splitfactor=lambda *args:None
++expected=risch.splitfactor(p,de)
++assert actual==expected and events==[]
++'''
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('mode',['code','nested_constants','foreign_constant','globals','f_builtins',
++    'defaults','kwdefaults','closure','attributes'])
++def test_reloaded_helpers_are_authenticated_against_bootstrap_without_callbacks(mode):
++    import os,subprocess
++    code='''
++import importlib,sys,types
++import symox as s
++from symox.integrals import risch
++selector=importlib.import_module('symox.integrals._risch_splitfactor_native')
++rt=importlib.import_module('symox.integrals.rationaltools');importlib.reload(rt)
++t=s.Symbol('split_reload_t');p=s.Poly((t*t+1)**2*(t+2),t,domain='QQ');one=s.Poly(1,t,domain='QQ')
++de=risch.DifferentialExtension(extension={'D':[s.Poly(t*t+1,t)]});events=[]
++function=(rt._atan_stock_operators_with_metadata if MODE=='nested_constants'else rt._atan_vector_proof_with_metadata);namespace=function.__globals__
++class Foreign:
++ def __eq__(self,other):events.append('eq');raise RuntimeError('foreign constant equality')
++ def __hash__(self):events.append('hash');raise RuntimeError('foreign constant hash')
++class Tuple(tuple):
++ def __iter__(self):events.append('iter');raise RuntimeError('closure iteration')
++ def __len__(self):events.append('len');raise RuntimeError('closure length')
++class Dict(dict):
++ def __iter__(self):events.append('iter');raise RuntimeError('dictionary iteration')
++ def __len__(self):events.append('len');raise RuntimeError('dictionary length')
++mode=MODE
++if mode=='code':function.__code__=(lambda *args:None).__code__
++elif mode in ('nested_constants','foreign_constant'):
++ constants=list(function.__code__.co_consts)
++ if mode=='nested_constants':
++  i=next(i for i,v in enumerate(constants)if type(v)is types.CodeType)
++  child=constants[i];constants[i]=child.replace(co_consts=child.co_consts+('changed nested constant',))
++ else:constants.append(Foreign())
++ function.__code__=function.__code__.replace(co_consts=tuple(constants))
++elif mode=='globals':
++ rt._atan_vector_proof_with_metadata=types.FunctionType(function.__code__,dict(namespace))
++elif mode=='f_builtins':
++ saved=namespace['__builtins__'];namespace['__builtins__']=Dict(function.__builtins__)
++ try:clone=types.FunctionType(function.__code__,namespace)
++ finally:namespace['__builtins__']=saved
++ rt._atan_vector_proof_with_metadata=clone
++elif mode=='defaults':function.__defaults__=(None,)
++elif mode=='kwdefaults':function.__kwdefaults__=Dict()
++elif mode=='closure':
++ rt._atan_vector_proof_with_metadata=types.FunctionType(function.__code__,namespace,closure=Tuple(()))
++else:function.__dict__=Dict()
++def reject(event,args):
++ if event in ('object.__getattr__','marshal.dumps'):
++  events.append(event);raise RuntimeError('unexpected metadata audit')
++sys.addaudithook(reject)
++assert selector.reduce(p,de,one,False,None)is None
++actual=risch.splitfactor(p,de);risch._native_splitfactor=lambda *args:None
++expected=risch.splitfactor(p,de)
++assert actual==expected and events==[]
++'''.replace('MODE',repr(mode))
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('raises',[False,True])
++def test_fresh_bootstrap_proves_actual_math_function_builtins_after_global_restore(raises):
++    import os,subprocess
++    code='''
++import builtins,sys,types,importlib.abc,importlib.machinery
++original_len=builtins.len;events=[];installed=False
++def length(value):
++ events.append('len')
++ if RAISES:raise RuntimeError('actual derivation f_builtins')
++ return original_len(value)
++class Finder(importlib.abc.MetaPathFinder):
++ def find_spec(self,name,path=None,target=None):
++  if name!='symox.integrals.risch':return None
++  spec=importlib.machinery.PathFinder.find_spec(name,path);delegate=spec.loader
++  class Loader:
++   def create_module(self,spec):return delegate.create_module(spec)
++   def exec_module(self,r):
++    global installed
++    delegate.exec_module(r);function=r.derivation;namespace=function.__globals__
++    saved=namespace['__builtins__'];foreign=dict(function.__builtins__);foreign['len']=length
++    namespace['__builtins__']=foreign
++    try:clone=types.FunctionType(function.__code__,namespace,argdefs=function.__defaults__,closure=function.__closure__)
++    finally:namespace['__builtins__']=saved
++    assert clone.__globals__ is namespace and clone.__builtins__ is foreign
++    r.derivation=clone;installed=True
++  spec.loader=Loader();return spec
++sys.meta_path.insert(0,Finder())
++import symox as s
++from symox.integrals import risch
++selector=sys.modules['symox.integrals._risch_splitfactor_native']
++t=s.Symbol('split_fb_t');p=s.Poly((t*t+1)**2*(t+2),t,domain='QQ')
++de=risch.DifferentialExtension(extension={'D':[s.Poly(t*t+1,t)]})
++assert installed and selector._ROOT is None and selector._shared._ROOT is not None
++def outcome():
++ try:return ('value',risch.splitfactor(p,de))
++ except Exception as error:return ('error',type(error).__name__,str(error))
++events.clear();actual=outcome();observed=events[:];events.clear()
++risch._native_splitfactor=lambda *args:None
++expected=outcome()
++assert actual==expected and events==observed and events
++if RAISES:assert actual==('error','RuntimeError','actual derivation f_builtins')
++'''.replace('RAISES',repr(raises))
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())

@@ -164,22 +164,39 @@ impl RatMat {
 
     /// Characteristic polynomial coefficients `[1, c1, ..., cn]`.
     pub fn charpoly(&self) -> Vec<Rat> {
+        match self.charpoly_checked(&mut || Ok::<_,std::convert::Infallible>(())) {
+            Ok(value) => value, Err(never) => match never {},
+        }
+    }
+
+    /// Exact rational characteristic polynomial, with the established global
+    /// denominator scale and integer Berkowitz arithmetic. The caller proves
+    /// the square storage invariant; interruption errors propagate unchanged.
+    pub fn charpoly_checked<E>(&self, check: &mut impl FnMut() -> Result<(),E>) -> Result<Vec<Rat>,E> {
+        check()?;
         let n = self.rows;
         // clear all denominators with one common scale d: A = B/d,
         // det(tI - B/d) = d^-n det(d t I - B) => c_k = c'_k / d^k
         let mut d = Int::ONE;
         for r in &self.data {
+            check()?;
             d = d.lcm(&r.den);
         }
-        let b: Vec<Int> = self.data.iter().map(|r| r.num.mul(&d.divexact(&r.den))).collect();
-        let cp = berkowitz(&b, n, &Int::ONE);
+        let mut b = Vec::with_capacity(self.data.len());
+        for r in &self.data {
+            check()?;
+            b.push(r.num.mul(&d.divexact(&r.den)));
+        }
+        let cp = super::ff::berkowitz_checked(&b, n, &Int::ONE, check)?;
         let mut out = Vec::with_capacity(n + 1);
         let mut dk = Int::ONE;
         for c in cp {
+            check()?;
             out.push(Rat::new(c, dk.clone()));
             dk = dk.mul(&d);
         }
-        out
+        check()?;
+        Ok(out)
     }
 }
 
@@ -886,7 +903,7 @@ impl Matrix {
                     if let Some(Domain::Poly { ctx, .. }) = &dom {
                         if blk.rows() > 3 {
                             if let Some((pm, scales)) = PolyMat::from_matrix(&blk, ctx) {
-                                r = Some(poly_det(&pm, &scales));
+                                r = crate::poly::mpoly::checked_operation(||Ok(poly_det(&pm, &scales))).ok();
                             }
                         }
                     }
@@ -960,13 +977,13 @@ impl Matrix {
                 if let Some((pm, scales)) = PolyMat::from_matrix(self, &ctx) {
                     let scales: Vec<MPoly> =
                         scales.iter().map(|s| MPoly::constant(ctx.nvars(), s.clone())).collect();
-                    return poly_inverse(&pm, &scales);
+                    return match crate::poly::mpoly::checked_operation(||Ok(poly_inverse(&pm, &scales))) { Ok(result)=>result, Err(_)=>self.inverse_ge() };
                 }
                 self.inverse_ge()
             }
             Domain::Frac { ctx, .. } => {
                 if let Some((pm, scales)) = PolyMat::from_frac_matrix(self, &ctx) {
-                    return poly_inverse(&pm, &scales);
+                    return match crate::poly::mpoly::checked_operation(||Ok(poly_inverse(&pm, &scales))) { Ok(result)=>result, Err(_)=>self.inverse_ge() };
                 }
                 self.inverse_ge()
             }
@@ -1393,15 +1410,20 @@ impl Matrix {
             });
         }
         let dom = matrix_domain(self);
+        let mut representation_limited=matches!(dom,Domain::EX) && super::domain::has_rational_polynomial_entries(self);
         match &dom {
             Domain::Poly { ctx, .. } => {
-                if let Some(cs) = poly_charpoly(self, ctx) {
-                    return Ok(CharPoly { var, coeffs: cs, domain: dom.name() });
+                match crate::poly::mpoly::checked_operation(||Ok(poly_charpoly(self, ctx))) {
+                    Ok(Some(cs))=>return Ok(CharPoly { var, coeffs: cs, domain: dom.name() }),
+                    Err(_)=>representation_limited=true,
+                    _=>{},
                 }
             }
             Domain::Frac { ctx, .. } => {
-                if let Some(cs) = frac_charpoly(self, ctx) {
-                    return Ok(CharPoly { var, coeffs: cs, domain: dom.name() });
+                match crate::poly::mpoly::checked_operation(||Ok(frac_charpoly(self, ctx))) {
+                    Ok(Some(cs))=>return Ok(CharPoly { var, coeffs: cs, domain: dom.name() }),
+                    Err(_)=>representation_limited=true,
+                    _=>{},
                 }
             }
             _ => {}
@@ -1410,7 +1432,12 @@ impl Matrix {
         let v = berkowitz_vector_expr(self);
         let coeffs: Vec<Expr> = v.iter().map(ex_simplify).collect();
         let _ = n;
-        let domain = super::domain::construct_domain(&coeffs).name();
+        let mut domain = super::domain::construct_domain(&coeffs).name();
+        if representation_limited && domain == "EXRAW" {
+            // Store arbitrary-size parameter powers as coefficient Exprs;
+            // only the matrix-size degree in lambda is represented densely.
+            domain = "EX".into();
+        }
         Ok(CharPoly { var, coeffs, domain })
     }
 }
@@ -1641,5 +1668,21 @@ mod row_callback_tests {
         assert_eq!(matrix.inverse_lu_with(&failure),Err(MatrixError::Other("stop inverse".into())));
         let z=Expr::symbol_with("z",crate::Assumptions::ZERO);
         assert!(Matrix::column(vec![z]).inverse_adj_with(&|value|Ok(is_zero_assume(value))).is_err());
+    }
+}
+
+#[cfg(test)]
+mod checked_rational_charpoly_tests {
+    use super::*;
+    #[test]
+    fn exact_scale_empty_input_and_interruptions() {
+        let r=|n,d|Rat::new(Int::from(n),Int::from(d));
+        let matrix=RatMat{rows:2,cols:2,data:vec![r(1,2),r(7,11),r(0,1),r(2,3)]};
+        assert_eq!(matrix.charpoly_checked(&mut ||Ok::<_,()>(())).unwrap(),vec![r(1,1),r(-7,6),r(1,3)]);
+        assert_eq!(RatMat{rows:0,cols:0,data:vec![]}.charpoly_checked(&mut ||Ok::<_,()>(())).unwrap(),vec![r(1,1)]);
+        let mut calls=0;
+        let result=matrix.charpoly_checked(&mut || {calls+=1;if calls==8 {Err(23)}else{Ok(())}});
+        assert_eq!(result,Err(23)); assert_eq!(calls,8);
+        assert_eq!(matrix.data,vec![r(1,2),r(7,11),r(0,1),r(2,3)]);
     }
 }

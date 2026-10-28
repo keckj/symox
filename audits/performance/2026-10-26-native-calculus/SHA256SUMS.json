@@ -1,0 +1,20 @@
+{
+  "README.md": "44377b87d110fa76759b18f2f6564390193eb530350ef3f7e5d39d463bfdea5f",
+  "benchmark-fraction-free.py": "f51b4c47d3802f48e169687ef75abeb4841fcc251727cae27f1b9d90210b39e4",
+  "benchmark-sparse-calculus.py": "c04170dfd150275a5ee43cda1efa526956b245a988a993b6045b1f404c706d41",
+  "comparison.json": "73a90d33437f8a8a468061cf001f87def0efbf4fd530ea394519c82c9607fc19",
+  "fraction_free-after-0.json": "1210538f4a255975f63d6a99f1a07baebb6452a49271a2d742595cb3530a55f4",
+  "fraction_free-after-1.json": "a4ad1ba9db148eab4ea35d2f29291681f80156e7316e8896b7d4f1e261f2aaf5",
+  "fraction_free-after-2.json": "806dafdb5b55c5f6a22765b28b36c9978bc8bf0a6612ee66c528073e784b21be",
+  "fraction_free-before-0.json": "c602e17241c231ec6f159c549a971bbda933c1f59f5998dc2473fae00ad0fd59",
+  "fraction_free-before-1.json": "e7c8136dfd7cf1d40ff76af78c1d068bcaf23076cd4dd4458a10d8f5feb294c1",
+  "fraction_free-before-2.json": "e0bc1deea7a5549524ee210b659edc9da0caeede415bd011b4e1dd97712598ca",
+  "run-ff-performance.py": "e99be2dfd441aad8392a0c1c025336b38c1ff884d3bb8127b52ec4650860097c",
+  "run-sparse-performance.py": "000e9df19eff5766e6ee1661ab74259bfa96ec038b19e589af364b38c4740d0f",
+  "sparse_calculus-after-0.json": "ccd1be80f1752e219cdb5f95035e42c88deb9b35f94546bcb1c434afdc40d2d4",
+  "sparse_calculus-after-1.json": "41b75e6e0084d9594e9fdb24d46e4e4e4c3ea2dcb6fcd4bef83449650823aefb",
+  "sparse_calculus-after-2.json": "c20e2fcdcc224295ec093efd8ba872159de73ee5982b5d70c5d54936a0e8988c",
+  "sparse_calculus-before-0.json": "1fded76c5f038f04d77c3ac1731e84a8d36e2792c3be37aad800b9bd1619037a",
+  "sparse_calculus-before-1.json": "54d129fe5c06c848c4410aa92597e8196a8ebf85fd61b89e9c777e9633356268",
+  "sparse_calculus-before-2.json": "2bbc81e6bf550d7ad96c64d1716952f1b60ac52e474adaa8edb8f9ddd5100792"
+}

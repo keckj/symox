@@ -147,7 +147,11 @@ def install(namespace):
                 relabeled = _relabel_roots(name, fargs, args)
                 if relabeled is not None:
                     return _restore_roots(native(*relabeled[0], **args), relabeled[1])
-                if name in _inexact.NAMES and _inexact.selected(fargs, args):
+                if name in _inexact.NAMES and _inexact.selected(fargs, args, name):
+                    if name == 'cancel':
+                        # The native tuple path otherwise ignores the domain
+                        # and succeeds over QQ instead of the selected field.
+                        return _inexact.call(name, fargs, args)
                     try:
                         return native(*fargs, **args)
                     except NotImplementedError as exc:

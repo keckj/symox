@@ -2,6 +2,13 @@
 
 Reference: **SymPy 1.14.0**. Global algorithmic parity is **not certified**.
 
+Latest full replay (26 October 2026, release `576a9f76`): 2,719 ordinary-example
+objects and 2,636 keyword-call objects match, out of 2,916 per mode. There are
+278 distinct objects with differences to review. [Complete current observations](../audits/sympy-1.14.0/documentation-2026-10-26/README.md)
+include exact coverage and raw outputs. The catalog and historical evidence
+tables below retain their recorded snapshots; their older match totals are
+not the current replay totals.
+
 The catalog examines every documented module export and public callable class method.
 A binding probe checks Python argument binding, including keyword names and positional options.
 A passing binding probe does not establish that an option is implemented. A rejected probe

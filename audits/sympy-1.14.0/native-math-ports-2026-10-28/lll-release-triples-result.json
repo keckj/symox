@@ -1,0 +1,144 @@
+{
+  "returncode": 0,
+  "elapsed_seconds": 509.7962508201599,
+  "command": [
+    "/home/keckj/symox-ci/venv/bin/python",
+    "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/.validation/compare-real-prefix-effects.py"
+  ],
+  "environment_overrides": {
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python",
+    "SYMOX_CI_PY": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python",
+    "SYMOX_PRIVATE_EFFECT_LIMIT": "0"
+  },
+  "identity": {
+    "package": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python/symox/__init__.py",
+    "native": "/home/keckj/symox-ci/wt/native-math-ports-r13-20261028/python/symox/_core.abi3.so",
+    "integrated_registered_entries": [
+      "_risch_splitfactor",
+      "_ddm_hnf_modular",
+      "_lll_prefix_contract"
+    ]
+  },
+  "before": {
+    "source_identity": {
+      "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+      "source_manifest_sha256": "cc617a4aef2a114b2526073b6443c6b6dcb79b5c246a9cab9bb7351312a776a7",
+      "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+      "working_code_diff_sha256": "61de7ebc1cac6fef64424f60ad87dde0403ea01876c618d3010bda62af3cb269",
+      "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+      "build_command": [
+        ".venv/bin/maturin",
+        "develop",
+        "--release"
+      ]
+    },
+    "source_entries": 3585,
+    "native_inputs": 364,
+    "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+    "runner_sha256": "13f890a8fa006463ef5e5d23170ac3f88449ac4990ecc2d6450f06070ffc27cd"
+  },
+  "after": {
+    "source_identity": {
+      "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+      "source_manifest_sha256": "cc617a4aef2a114b2526073b6443c6b6dcb79b5c246a9cab9bb7351312a776a7",
+      "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+      "working_code_diff_sha256": "61de7ebc1cac6fef64424f60ad87dde0403ea01876c618d3010bda62af3cb269",
+      "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+      "build_command": [
+        ".venv/bin/maturin",
+        "develop",
+        "--release"
+      ]
+    },
+    "source_entries": 3585,
+    "native_inputs": 364,
+    "native_sha256": "e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc",
+    "runner_sha256": "13f890a8fa006463ef5e5d23170ac3f88449ac4990ecc2d6450f06070ffc27cd"
+  },
+  "all_sources_and_native_inputs_unchanged": true,
+  "scope": "Fresh unchanged first-call LLL runner on the integrated three-port RELEASE, all registered native entries present; no cache prewarming, no benchmark.",
+  "comparisons": 1104,
+  "all_three_modes_identical": true,
+  "old_bridge_public_native_calls": [
+    0,
+    1,
+    1
+  ],
+  "classifier_states_identical": true,
+  "no_audit_events": true,
+  "error_cases": [
+    {
+      "fixture": 634,
+      "transform": false,
+      "old_body_and_real_prefix_kernel_equal": true,
+      "same_initial_state_via_fork": true,
+      "no_private_helper_before_entry": true,
+      "actual_first_public_native_equal": true,
+      "old_native_calls": 0,
+      "bridge_native_calls": 1,
+      "public_native_calls": 1,
+      "ABC_and_nominal_before_after_equal": true,
+      "audit_events": [],
+      "error": [
+        "symox.polys.matrices.exceptions",
+        "DMRankError",
+        "input matrix contains linearly dependent rows"
+      ]
+    },
+    {
+      "fixture": 634,
+      "transform": true,
+      "old_body_and_real_prefix_kernel_equal": true,
+      "same_initial_state_via_fork": true,
+      "no_private_helper_before_entry": true,
+      "actual_first_public_native_equal": true,
+      "old_native_calls": 0,
+      "bridge_native_calls": 1,
+      "public_native_calls": 1,
+      "ABC_and_nominal_before_after_equal": true,
+      "audit_events": [],
+      "error": [
+        "symox.polys.matrices.exceptions",
+        "DMRankError",
+        "input matrix contains linearly dependent rows"
+      ]
+    },
+    {
+      "fixture": 637,
+      "transform": false,
+      "old_body_and_real_prefix_kernel_equal": true,
+      "same_initial_state_via_fork": true,
+      "no_private_helper_before_entry": true,
+      "actual_first_public_native_equal": true,
+      "old_native_calls": 0,
+      "bridge_native_calls": 1,
+      "public_native_calls": 1,
+      "ABC_and_nominal_before_after_equal": true,
+      "audit_events": [],
+      "error": [
+        "symox.polys.matrices.exceptions",
+        "DMRankError",
+        "input matrix contains linearly dependent rows"
+      ]
+    },
+    {
+      "fixture": 637,
+      "transform": true,
+      "old_body_and_real_prefix_kernel_equal": true,
+      "same_initial_state_via_fork": true,
+      "no_private_helper_before_entry": true,
+      "actual_first_public_native_equal": true,
+      "old_native_calls": 0,
+      "bridge_native_calls": 1,
+      "public_native_calls": 1,
+      "ABC_and_nominal_before_after_equal": true,
+      "audit_events": [],
+      "error": [
+        "symox.polys.matrices.exceptions",
+        "DMRankError",
+        "input matrix contains linearly dependent rows"
+      ]
+    }
+  ],
+  "raw_results_sha256": "b8126b9333cfc0f679a4e96d99ef0efe791c733b946a9bd3bca5461cc9905616"
+}

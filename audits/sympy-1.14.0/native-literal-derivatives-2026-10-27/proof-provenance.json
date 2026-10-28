@@ -1,0 +1,77 @@
+[
+  {
+    "file": "REPORT.md",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-r1b/.validation/REPORT.md",
+    "sha256": "9d3273c03785add7e7f7d4091cf0d3edf85e9e5a0655bb4c488db1454391e07a"
+  },
+  {
+    "file": "package.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-r1b/.validation/package.json",
+    "sha256": "8595e3e43637135ac4895f0cb703606899726baeb99deeda95b1e9bdf0c7f56a"
+  },
+  {
+    "file": "changed-files.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-r1b/.validation/changed-files.json",
+    "sha256": "73d05f047e69026675ce33a7fcedb3cc77a8923f61b7e669e2ff94581916ffb1"
+  },
+  {
+    "file": "direct-power-proof.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-r1b/.validation/direct-power-proof.json",
+    "sha256": "4b062276e45670177b07ef964ce87155c5843df7ae3a008cda168b4f5d0259fa"
+  },
+  {
+    "file": "final-gates.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-r1b/.validation/final-gates.json",
+    "sha256": "f4a46c355b84eb44d20e268d596e235162519f2aca1d875aa081c4a72c7dd872"
+  },
+  {
+    "file": "base-workdir-incident.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-r1b/.validation/base-workdir-incident.json",
+    "sha256": "43f7ae8e9c015ac159b61ce81b03ce23cd9021e6df3e7e8b8f0fa8135ed4684b"
+  },
+  {
+    "file": "rust-final-full.log",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-r1b/.validation/rust-final-full.log",
+    "sha256": "4cddd094673bb6eebd68e4b9d27f08f8f382ebd7f3161e7ea8f91d0f3450651e"
+  },
+  {
+    "file": "cse-REPORT.md",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-cse-attributes/.validation/REPORT.md",
+    "sha256": "ea26d9fce26cfad0fd01a9b7ecddfdb44f9a09ac062c530d3c7a4c9b41926215"
+  },
+  {
+    "file": "cse-package.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-cse-attributes/.validation/package.json",
+    "sha256": "d40d3d6f446e02db11f46de9851d710e74be7475ecfc2808784544a35934c327"
+  },
+  {
+    "file": "cse-changed-files.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-cse-attributes/.validation/changed-files.json",
+    "sha256": "e7fb0fb31a5aa7791e8f67e9c1b8201a1b77d97d4328065d37e6154e5d22eb8d"
+  },
+  {
+    "file": "cse-pytest-followup-demeter.log",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-cse-attributes/.validation/pytest-followup-demeter.log",
+    "sha256": "0245479520ff5e5a14e4944819283238c8c4f7ae7b228b7b77023c83bab1e6b8"
+  },
+  {
+    "file": "integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-literal-derivatives-20261027/integration.json",
+    "sha256": "a039b7bfb2408cc52048ccf5870471da59c1d953b50e0980a079e214b2e1cb7b"
+  },
+  {
+    "file": "cse-followup-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-literal-derivatives-20261027/cse-followup-integration.json",
+    "sha256": "d40d3d6f446e02db11f46de9851d710e74be7475ecfc2808784544a35934c327"
+  },
+  {
+    "file": "combined-targeted.log",
+    "source": "/home/keckj/.cache/symox-validation/native-literal-derivatives-20261027/combined-targeted.log",
+    "sha256": "91a93c68da11fdeb2c680e7fab4bc5b6107cef1b34a3f96d9de3b582ab542b11"
+  },
+  {
+    "file": "combined-command.json",
+    "source": "/home/keckj/.cache/symox-validation/native-literal-derivatives-20261027/combined-command.json",
+    "sha256": "fbeb3b9709c79f51092c4334bb37221f2e417e4f68762ceccfb4cb27b2d9b826"
+  }
+]

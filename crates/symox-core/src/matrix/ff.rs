@@ -196,13 +196,24 @@ pub fn rref_den<R: Ring>(a: &mut [R], rows: usize, cols: usize, one: &R) -> (R, 
 /// Berkowitz algorithm: coefficients `[1, c_1, ..., c_n]` of
 /// `det(t*I - A) = t^n + c_1 t^{n-1} + ... + c_n`.
 pub fn berkowitz<R: Ring>(a: &[R], n: usize, one: &R) -> Vec<R> {
+    match berkowitz_checked(a,n,one,&mut || Ok::<_,std::convert::Infallible>(())) {
+        Ok(value) => value, Err(never) => match never {},
+    }
+}
+
+/// The same division-free kernel with fallible interruption checkpoints.
+/// Arithmetic, zero filtering and summation order match `berkowitz` exactly.
+pub fn berkowitz_checked<R: Ring, E>(a: &[R], n: usize, one: &R,
+    check: &mut impl FnMut() -> Result<(), E>) -> Result<Vec<R>, E> {
+    check()?;
     let zero = one.zero_like();
     if n == 0 {
-        return vec![one.clone()];
+        return Ok(vec![one.clone()]);
     }
     // vector of the characteristic polynomial of the leading k x k block
     let mut v: Vec<R> = vec![one.clone(), a[0].neg()];
     for k in 1..n {
+        check()?;
         // A_{k+1} = [[A_k, C], [R, a_kk]] with R row k (cols 0..k), C col k (rows 0..k)
         let r: Vec<R> = (0..k).map(|j| a[k * n + j].clone()).collect();
         let c: Vec<R> = (0..k).map(|i| a[i * n + k].clone()).collect();
@@ -213,12 +224,14 @@ pub fn berkowitz<R: Ring>(a: &[R], n: usize, one: &R) -> Vec<R> {
         t.push(akk.neg());
         let mut x = c.clone(); // A^i C
         for i in 0..k {
+            check()?;
             let s = dot(&r, &x, &zero);
             t.push(s.neg());
             if i + 1 < k {
                 // x = A_k x
                 let mut y = Vec::with_capacity(k);
                 for row in 0..k {
+                    check()?;
                     let pairs: Vec<(&R, &R)> = (0..k)
                         .map(|col| (&a[row * n + col], &x[col]))
                         .filter(|(e, xc)| !e.is_zero() && !xc.is_zero())
@@ -231,6 +244,7 @@ pub fn berkowitz<R: Ring>(a: &[R], n: usize, one: &R) -> Vec<R> {
         // new vector = T * v, T lower triangular Toeplitz (k+2) x (k+1)
         let mut nv: Vec<R> = Vec::with_capacity(k + 2);
         for i in 0..k + 2 {
+            check()?;
             let pairs: Vec<(&R, &R)> = (0..=i.min(k))
                 .filter(|&j| i - j < t.len())
                 .map(|j| (&t[i - j], &v[j]))
@@ -240,7 +254,8 @@ pub fn berkowitz<R: Ring>(a: &[R], n: usize, one: &R) -> Vec<R> {
         }
         v = nv;
     }
-    v
+    check()?;
+    Ok(v)
 }
 
 fn dot<R: Ring>(a: &[R], b: &[R], zero: &R) -> R {
@@ -294,5 +309,19 @@ mod tests {
         let cp = berkowitz(&b, 3, &Int::ONE);
         // (t-2)(t^2-12t+11) = t^3 -14t^2 +35t -22
         assert_eq!(cp, ints(&[1, -14, 35, -22]));
+    }
+}
+
+#[cfg(test)]
+mod berkowitz_checked_tests {
+    use super::*;
+    #[test]
+    fn checked_coefficients_and_interruptions() {
+        let a = [1,2,3,4].map(Int::from);
+        assert_eq!(berkowitz_checked(&a,2,&Int::ONE,&mut ||Ok::<_,()>(())).unwrap(),
+                   [1,-5,-2].map(Int::from).to_vec());
+        let mut calls=0;
+        let failure=berkowitz_checked(&a,2,&Int::ONE,&mut || {calls+=1;if calls==4 {Err(17)}else{Ok(())}});
+        assert_eq!(failure,Err(17)); assert_eq!(calls,4);
     }
 }

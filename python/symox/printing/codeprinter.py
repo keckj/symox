@@ -77,18 +77,16 @@ def _has_indexed(e):
     holds an indexed reference when one of its free symbols is recorded
     there.
     """
-    from symox.codegen.ast import _IndexedArithmetic, _INDEXED_SYMBOLS
+    from symox.codegen.ast import _IndexedArithmetic, _indexed_reference
     if isinstance(e, _IndexedArithmetic):
         return True
     if getattr(e, 'is_Matrix', False) and hasattr(e, 'tolist'):
         return any(_has_indexed(v) for row in e.tolist() for v in row)
-    if not _INDEXED_SYMBOLS:
-        return False
     try:
         free = e.free_symbols
     except AttributeError:
         return False
-    return any(_INDEXED_SYMBOLS.get(s) is not None for s in free
+    return any(_indexed_reference(s) is not None for s in free
                if getattr(s, 'is_Symbol', False))
 
 
@@ -356,11 +354,11 @@ class CodePrinter(StrPrinter):
 
         # Symox's Indexed references are symbols in arithmetic, and their
         # indices the labels of the Idx objects.
-        from symox.codegen.ast import _INDEXED_SYMBOLS
+        from symox.codegen.ast import _indexed_reference
         from symox._public_matrix import _index_object
         arrays = expr.atoms(Indexed)
         for arr in arrays:
-            arr = _INDEXED_SYMBOLS.get(arr, arr) if getattr(arr, 'is_Symbol', False) else arr
+            arr = (_indexed_reference(arr) or arr) if getattr(arr, 'is_Symbol', False) else arr
             for p, ind in enumerate(arr.indices):
                 ind = _index_object(ind)
                 try:
@@ -484,10 +482,10 @@ class CodePrinter(StrPrinter):
         # An Indexed reference becomes a scalar symbol in native arithmetic:
         # print it as the Indexed node it stands for (``y(i + 1)`` in
         # Fortran and Octave, flattened offsets in C).
-        from symox.codegen.ast import _INDEXED_SYMBOLS
-        if _INDEXED_SYMBOLS and hasattr(self, '_print_Indexed'):
+        from symox.codegen.ast import _indexed_reference
+        if hasattr(self, '_print_Indexed'):
             try:
-                indexed = _INDEXED_SYMBOLS.get(expr)
+                indexed = _indexed_reference(expr)
             except TypeError:
                 indexed = None
             if indexed is not None:

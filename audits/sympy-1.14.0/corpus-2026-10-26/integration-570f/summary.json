@@ -1,0 +1,22 @@
+{
+  "reference_version": "1.14.0",
+  "native_sha256": "570f18323d421702a77887b9552868e211194f83e04ff89e019095484f2db21b",
+  "source_sha256": "6f6262bdb0a886e0c79a5ae11eeea34742616a66b46fde46f74ceb066f6c1d94",
+  "runner_sha256": "9279d73a4f3d2980e6d4fcbf2e24fbbe007f28ca668024d3f5ebc02609d84236",
+  "coverage": {
+    "expected": 1210,
+    "finished": 1210,
+    "exactly_once": true
+  },
+  "counts": {
+    "exact_output_match": 1164,
+    "different_output_review_required": 36,
+    "both_held_observation": 10
+  },
+  "elapsed_seconds": 22.433430433273315,
+  "limits": {
+    "seconds_per_call": 60.0,
+    "memory_gib_per_worker": 8
+  },
+  "interpretation": "Exact output and held/error observations, not completeness certification. No numerical sampling for equivalence or absence."
+}

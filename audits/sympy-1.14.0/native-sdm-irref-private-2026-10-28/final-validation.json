@@ -1,0 +1,65 @@
+{
+  "status": "private candidate validated; no main integration, release, full suite or performance claim",
+  "freeze_manifest_sha256": "e0d887d496a8e5b448e1f6c946e75a9fe43c844de1c66a1ffabaca3d71f46ad9",
+  "source_map_sha256": "800db2858911da1a18d6b60c6036e8d7837bbdbd65e0214d64132956c5791aa0",
+  "native_sha256": "6618a5093f2449a9b60c5c6fc6a08ecd4716a37b736c554df3fb848e6c33b2df",
+  "python_gates": {
+    "local_focused": {
+      "result_file": "focused-result.json",
+      "result_sha256": "f5c246961839f00ce476f41d1afbc80632a580789a97e26d97cf48a30ce0a6ff",
+      "count": 226,
+      "elapsed_seconds": 7.993772268295288,
+      "exit_code": 0,
+      "exact_once": true
+    },
+    "local_coupled": {
+      "result_file": "coupled-result.json",
+      "result_sha256": "79a22df0568ac2811f10f7507c5ab6315fb159fc0185fb8075630096f4f48d3c",
+      "count": 4689,
+      "elapsed_seconds": 72.80923771858215,
+      "exit_code": 0,
+      "exact_once": true
+    },
+    "demeter_focused": {
+      "result_file": "demeter/focused-result.json",
+      "result_sha256": "7bfb7a2babf071d88f0d87d74e6e1ef31170d7a73df69e6085ab3a760686c7c3",
+      "count": 226,
+      "elapsed_seconds": 8.935093402862549,
+      "exit_code": 0,
+      "exact_once": true
+    },
+    "demeter_coupled": {
+      "result_file": "demeter/coupled-result.json",
+      "result_sha256": "80f954629abf8344091137011fbf1e43b4643cd0833505e08d84304ca31090bf",
+      "count": 4689,
+      "elapsed_seconds": 85.34037160873413,
+      "exit_code": 0,
+      "exact_once": true
+    }
+  },
+  "rust_gates": {
+    "scope": "local only; complete Demeter Rust remains integration gate",
+    "result_file": "rust-gates-revalidated.json",
+    "sha256": "172a867d36850e1a16cf93cd78f41bde9d731e765b9534b3c5cc2777f3d56c8b",
+    "changed_core_unit_tests_passed": 5,
+    "native_input_count": 335,
+    "workspace_correctness_clippy_exit_code": 0
+  },
+  "bootstrap_regressions": {
+    "before": "bootstrap-nine-regressions-before.log",
+    "before_failures": 9,
+    "after_in_focused_count": true
+  },
+  "reference_import_control": {
+    "native_calls": [
+      true
+    ],
+    "rank": 3,
+    "exact_fraction_rref": true,
+    "input_scalar_identities_unchanged": true,
+    "reference_imported": false,
+    "source_map_sha256": "800db2858911da1a18d6b60c6036e8d7837bbdbd65e0214d64132956c5791aa0",
+    "native_sha256": "6618a5093f2449a9b60c5c6fc6a08ecd4716a37b736c554df3fb848e6c33b2df"
+  },
+  "patch_sha256": "d2e4f156100c8613e80e055a1387432a7e92456171f72cd413f7109a5c882e68"
+}

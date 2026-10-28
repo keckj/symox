@@ -1,0 +1,17 @@
+{
+  "r6_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "80c98adae719e1cdfc2e7621a234d0ade781cdb3bc26c4285360263b0ca719ae",
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+    "working_code_diff_sha256": "b8b70b9215e6cea86dd21f9483632662ab356c5c5c24be662658a0aeda1ddc53",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "baseline_python": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python",
+  "r6_python": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python",
+  "worker_sha256": "740fa76929c631334fc9673defc94c41417263b5368e96fd508e6e3adeb46cef"
+}

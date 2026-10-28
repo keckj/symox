@@ -1,5 +1,6 @@
 """Exact two-phase primal simplex with Bland pivots and arbitrary variable bounds."""
 import symox as S
+from .. import _sympify as _sympify_protocol
 
 
 class InfeasibleLPError(ValueError):pass
@@ -35,6 +36,13 @@ def _optimize(rows,basis,cost):
 
 
 def _simplex(cost,constraints):
+    from .. import _core
+    native=_core._native_simplex(cost,constraints)
+    if native is not None:
+        status,result=native
+        if status=='ok':return result
+        if status=='infeasible':raise InfeasibleLPError('\nThe constraint set is empty!')
+        if status=='unbounded':raise UnboundedLPError('\nObjective function can assume arbitrarily large values!')
     n=len(cost);rows=[];basis=[];artificial=set();width=n
     # Build a feasible artificial basis, reversing constraints with negative RHS.
     records=[]
@@ -91,6 +99,25 @@ def _bounds(bounds,n):
 
 
 def linprog(c,A=None,b=None,A_eq=None,b_eq=None,bounds=None):
+    # Inspect containers in Rust before normalizing any scalar or iterating a
+    # user protocol. Replaced public/preparation hooks keep the original route.
+    # These public wrappers are installed after this module is imported during
+    # package initialization; compare their final definitions at call time.
+    from ..core.sympify import sympify as standard_sympify
+    from .._general_simplify import simplify as standard_simplify
+    from .._native_dispatch import stock_scalar_dispatch,stock_integer_converters
+    hooks=(_matrix_rows,_bounds,_simplex,_sign,_optimize,S._core._native_simplex)
+    if (stock_integer_converters(_sympify_protocol.converter)
+            and S.sympify is standard_sympify
+            and stock_scalar_dispatch(S.simplify,standard_simplify,'simplify')
+            and all(current is original for current,original in zip(hooks,_LINPROG_HOOKS))):
+        native=S._core._native_linprog(c,A,b,A_eq,b_eq,bounds)
+        if native is not None:
+            status,result=native
+            if status=='ok':return result
+            if status=='invalid_bounds':raise InfeasibleLPError('lower bound exceeds upper bound')
+            if status=='infeasible':raise InfeasibleLPError('\nThe constraint set is empty!')
+            if status=='unbounded':raise UnboundedLPError('\nObjective function can assume arbitrarily large values!')
     c=list(map(S.sympify,list(c)));n=len(c);constraints=[]
     for matrix,rhs,relation in ((A,b,'<='),(A_eq,b_eq,'=')):
         rows=_matrix_rows(matrix,n);values=[] if rhs is None else list(map(S.sympify,list(rhs)))
@@ -184,3 +211,5 @@ def show_linprog(c,A=None,b=None,A_eq=None,b_eq=None,bounds=None):
     return sum(S.sympify(a)*x for a,x in zip(c,variables)),conditions
 
 __all__=['InfeasibleLPError','UnboundedLPError','linprog','lpmin','lpmax','show_linprog']
+
+_LINPROG_HOOKS=(_matrix_rows,_bounds,_simplex,_sign,_optimize,S._core._native_simplex)

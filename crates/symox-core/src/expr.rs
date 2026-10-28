@@ -177,6 +177,12 @@ pub enum Constant {
     TribonacciConstant,
 }
 
+// Fixed binary64 presentations, shared by numerical consumers. Encoding the
+// original bits supports Rust 1.84 while newer standard libraries add named
+// constants. No numerical value or evaluation precision changes here.
+pub(crate) const EULER_GAMMA_F64: f64 = f64::from_bits(0x3fe2_788c_fc6f_b619);
+pub(crate) const GOLDEN_RATIO_F64: f64 = f64::from_bits(0x3ff9_e377_9b97_f4a8);
+
 impl Constant {
     pub fn name(self) -> &'static str {
         match self {
@@ -199,9 +205,9 @@ impl Constant {
         Some(match self {
             Constant::Pi => std::f64::consts::PI,
             Constant::E => std::f64::consts::E,
-            Constant::EulerGamma => 0.577_215_664_901_532_9,
+            Constant::EulerGamma => crate::expr::EULER_GAMMA_F64,
             Constant::Catalan => 0.915_965_594_177_219,
-            Constant::GoldenRatio => 1.618_033_988_749_895,
+            Constant::GoldenRatio => crate::expr::GOLDEN_RATIO_F64,
             Constant::TribonacciConstant => 1.839_286_755_214_161_1,
             Constant::Infinity => f64::INFINITY,
             Constant::NegInfinity => f64::NEG_INFINITY,
@@ -278,6 +284,8 @@ pub enum Func {
     Undefined(UndefinedFunction),
     /// Held substitution: [expression, Tuple(variables), Tuple(points)].
     Subs,
+    /// Held derivative with exact non-machine orders; args: body, (variable, count)...
+    SymbolicDerivative,
     /// Held limit: [expression, variable, point, Symbol(direction)].
     Limit,
     /// Held calculus binders: [body, Tuple(variable, bounds...), ...].
@@ -351,6 +359,7 @@ impl Func {
             Func::Order => "Order",
             Func::Undefined(n) => n,
             Func::Subs=>"Subs",
+            Func::SymbolicDerivative=>"Derivative",
             Func::Limit=>"Limit",
             Func::Integral=>"Integral",
             Func::Sum=>"Sum",
@@ -373,6 +382,7 @@ impl Func {
             "exp" => Func::Exp,
             "exp_polar" => Func::ExpPolar,
             "Expr" => Func::GenericExpr,
+            "Derivative" => Func::SymbolicDerivative,
             "log" | "ln" => Func::Log,
             "sin" => Func::Sin,
             "cos" => Func::Cos,
@@ -433,7 +443,7 @@ impl Func {
             Func::MatrixElement(_) => Some(2),
             Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) | Func::Predicate(_) => Some(0),
             Func::AppliedPredicate => None,
-            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_) => None,
+            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::SymbolicDerivative | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             Func::DiracDelta | Func::Heaviside => None,
             _ => Some(1),
@@ -511,6 +521,7 @@ pub struct Node {
     mask: u64,
     kind: Kind,
     canonical: bool,
+    deferred_numeric_power: bool,
     has_matrix: bool,
     features: u16,
     exact_algebra_weight: u16,
@@ -584,12 +595,26 @@ impl Expr {
         Self::from_payload(kind, false)
     }
 
+    /// Transparent recipe metadata: public kind/args/equality remain Pow.
+    /// Only newly generated exact coefficients use this constructor.
+    pub(crate) fn deferred_numeric_power(base: Expr, exponent: Expr) -> Expr {
+        let mut value=Self::from_unevaluated_kind(Kind::Pow(base,exponent));
+        let node=Arc::get_mut(&mut value.0).expect("fresh power node is unshared");
+        node.deferred_numeric_power=true;
+        node.features|=16384;
+        value
+    }
+    pub fn is_deferred_numeric_power(&self)->bool {self.0.deferred_numeric_power}
+    pub fn has_deferred_numeric_power(&self)->bool {self.0.features&16384!=0}
+
     fn from_payload(kind: Kind, canonical: bool) -> Expr {
         let mut h = FxHasher::default();
         let mut mask = 0u64;
         let mut has_matrix = false;
         let binding_identity=match &kind {Kind::Func(Func::Subs,args)=>binding_identity::build(args),_=>None};
         let mut features:u16=if binding_identity.is_some(){1}else{0};
+        if matches!(&kind,Kind::Func(Func::Special(crate::special::SpecialFn::Hyper),_)){features|=4096;}
+        if matches!(&kind,Kind::Func(Func::SymbolicDerivative,_)){features|=8192;}
         if matches!(&kind,Kind::Sym(symbol) if symbol.host().is_some())
             || matches!(&kind,Kind::Func(Func::Undefined(head),_) if head.host().is_some()){features|=256;}
         if matches!(&kind,Kind::Sym(symbol) if symbol.host().is_some_and(|host|host.substitutes()))
@@ -734,6 +759,7 @@ impl Expr {
             exact_algebra_weight: algebra::weight(&kind,canonical),
             kind,
             canonical,
+            deferred_numeric_power: false,
             has_matrix,
             features,
             binding_identity,
@@ -805,12 +831,15 @@ impl Expr {
     pub fn has_matrix(&self) -> bool { self.0.has_matrix }
 
     /// A semantic pattern with alpha-bound names cannot use a structural mask.
+    pub fn has_symbolic_derivative(&self)->bool {self.0.features & 8192 != 0}
     pub fn has_binding_identity(&self)->bool {self.0.features & 1 != 0}
     pub fn has_calculus_binding(&self)->bool {self.0.features & 4 != 0}
     pub fn has_lambda_binding(&self)->bool {self.0.features & 8 != 0}
     /// Whether a scalar descendant preserves explicitly held arithmetic.
     pub fn has_held_arithmetic(&self)->bool {self.0.features & 16 != 0}
     pub fn has_nonfinite(&self)->bool {self.0.features & 32 != 0}
+    /// Whether a generalized hypergeometric function occurs in this DAG.
+    pub(crate) fn has_hyper(&self)->bool {self.0.features & 4096 != 0}
     pub(crate) fn has_wide_exponent(&self)->bool {self.0.features & 64 != 0}
     pub fn has_wild_properties(&self)->bool {self.0.features & 128 != 0}
     /// Whether an atom or function head of a host-language subclass occurs.

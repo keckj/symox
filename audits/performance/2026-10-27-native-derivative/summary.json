@@ -1,0 +1,116 @@
+{
+  "date": "2026-10-27",
+  "before_native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+  "after_native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+  "after_source_identity": "db859db2e5949ea295c362ae9b06b1b7819f0f28da0753790edda29b45445d2f",
+  "method": "Three fresh processes per release, alternated before/after by trial, pinned CPU24 on Demeter;9 distinct preconstructed inputs per case;3 batches of3, then median across process medians. Construction/imports excluded. Each process verifies every result independently after all timers; runtime SymPy imports blocked during native calculation. No overlapping agent builds/calculations during measurement window.",
+  "independent_exact_checks": 702,
+  "all_value_digests_identical": true,
+  "cases": [
+    {
+      "runner": "log-to-atan",
+      "case": "constant_den_degree16",
+      "before_seconds": 9.064265759661794e-05,
+      "after_seconds": 7.950000387306015e-05,
+      "before_over_after": 1.140159159505823,
+      "identical_values_digest": "c6a7285c8fb2bddc5b5e9a452ef5b94ba71cff2c7d0ff3e1a1523c7969354d21"
+    },
+    {
+      "runner": "log-to-atan",
+      "case": "euclid_degree4",
+      "before_seconds": 0.0004299383338851233,
+      "after_seconds": 0.00021445900589848557,
+      "before_over_after": 2.004757655589596,
+      "identical_values_digest": "1728a681c324acc1460975ad93e4a95eaf3b37a929544c34e24c54265460d97e"
+    },
+    {
+      "runner": "log-to-atan",
+      "case": "euclid_degree8",
+      "before_seconds": 0.0015239633309344451,
+      "after_seconds": 0.0007369123244037231,
+      "before_over_after": 2.068038870387422,
+      "identical_values_digest": "bb1ff0dcc41bf2a4a29f554625c9b3f337966b469c2cbfca475a47c22a7f7105"
+    },
+    {
+      "runner": "log-to-atan",
+      "case": "shared_factor",
+      "before_seconds": 0.00010776232617596786,
+      "after_seconds": 5.7791320917507015e-05,
+      "before_over_after": 1.8646801018753472,
+      "identical_values_digest": "802ee62ac2de8d5e97cedad25e4ce1451fea7d39f58eed095a74867911d4eb58"
+    },
+    {
+      "runner": "sparse-calculus",
+      "case": "diff_degree1000",
+      "before_seconds": 6.8160006776452065e-06,
+      "after_seconds": 6.191995150099198e-06,
+      "before_over_after": 1.1007761654231933,
+      "identical_values_digest": "e5222b739a7c56fd481208b02669757b9fa3317f79aeee456c207a260a6ee4b2"
+    },
+    {
+      "runner": "sparse-calculus",
+      "case": "diff_degree4000",
+      "before_seconds": 7.087325987716516e-06,
+      "after_seconds": 7.159328864266475e-06,
+      "before_over_after": 0.9899427896224549,
+      "identical_values_digest": "d75dc451e72bb569f866079b173d5f2a8817527702563ebbf2f8c62febc9759e"
+    },
+    {
+      "runner": "sparse-calculus",
+      "case": "integrate_degree4000",
+      "before_seconds": 9.661346363524595e-06,
+      "after_seconds": 9.807331177095572e-06,
+      "before_over_after": 0.9851147258173646,
+      "identical_values_digest": "5dff4aed985d4fc7bf3a4f8056e0d09e738ea2900b228344cdaa94571c5663d2"
+    },
+    {
+      "runner": "sparse-calculus",
+      "case": "eval_zero_degree4000",
+      "before_seconds": 0.0001861713438605269,
+      "after_seconds": 6.877132303391893e-05,
+      "before_over_after": 2.7071072017722373,
+      "identical_values_digest": "9397c57d054f7eed4cb91e7e13020714d9c26d0a41f963a57c1a6a6feb085b2e"
+    },
+    {
+      "runner": "fraction-free",
+      "case": "ZZ_FF_dense24",
+      "before_seconds": 0.0016390963379914563,
+      "after_seconds": 0.001684129994828254,
+      "before_over_after": 0.9732599876642003,
+      "identical_values_digest": "81ef565acea2d2e45a432fb807bb443316db573a64a74833c44e34276011a7a7"
+    },
+    {
+      "runner": "fraction-free",
+      "case": "QQ_FF_dense16",
+      "before_seconds": 0.0007786236625785629,
+      "after_seconds": 0.0007709669880568981,
+      "before_over_after": 1.0099312611827418,
+      "identical_values_digest": "3f4b8ef1bd01770523f32260f48630a4d5d14aa6ee4c2b64b947549780e6e1c5"
+    },
+    {
+      "runner": "fraction-free",
+      "case": "ZZ_AUTO32",
+      "before_seconds": 0.0023731660136642554,
+      "after_seconds": 0.002403236673368762,
+      "before_over_after": 0.9874874330781768,
+      "identical_values_digest": "04ea6e57bb6f02f891a1a146bde9513f52f431afb4ba99f5a1e093c5ce38d6e0"
+    },
+    {
+      "runner": "fraction-free",
+      "case": "QQ_AUTO24",
+      "before_seconds": 0.005809220000325392,
+      "after_seconds": 0.0046590506681241095,
+      "before_over_after": 1.246867744982988,
+      "identical_values_digest": "12fafb68895747e007e78e0b797b2a6c7fcebf7b757335c239b3911b343d0bb3"
+    },
+    {
+      "runner": "fraction-free",
+      "case": "ZZ_AUTO8_GJ_control",
+      "before_seconds": 0.0009420140025516351,
+      "after_seconds": 0.0008858553289125363,
+      "before_over_after": 1.0633948589642042,
+      "identical_values_digest": "ce39ae132d6db7380fab3828668aae734f8acad66455b56b44a93cec91d64ca5"
+    }
+  ],
+  "interpretation": "Scoped successful computations only. No global speedup or parity claim. Sparse calculus and unchanged FF/GJ routes are controls; the public EX zero path and QQ preparation are measured as whole public calls."
+}

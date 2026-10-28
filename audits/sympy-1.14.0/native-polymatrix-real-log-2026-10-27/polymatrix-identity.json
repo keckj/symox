@@ -1,0 +1,43 @@
+{
+  "root_base_source_manifest_sha256": "1ad26aa2fbe980b159a50f38583dce6fc0a301045b92194803207c059ef07875",
+  "root_base_native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+  "base_code_manifest_sha256": "3d2001dabd72b11532d964a5ad44275fec9161d6668677ed7a09b02bfb1525aa",
+  "final_code_manifest_sha256": "7cbe05e88d576b83fef4d7fac903f9d000da4b851bc3148490ff68008cad59d0",
+  "patch_sha256": "7c4f1582707e7cf4938dd94a9a445ba4578b80d65641ac902ca34a9e21278d33",
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/ddm.rs",
+      "base_sha256": "f8da60a058408cb9400d3453e4f89e858721115f1ecc229bc72b5df8b8536d7d",
+      "final_sha256": "f5be2609c239a3f1b02ee7114ea0416e3b418e14e276996e9febf9ca44dc0f40"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base_sha256": "58ef0495f1414258ff66cc2b807d4c1ed2a3f8309ba195fcea6681188aff121b",
+      "final_sha256": "b7dbe9002660fd65a1dbc86e1811efaf59d9492b74b66907bcd07656cb8f31c9"
+    },
+    {
+      "path": "python/symox/__init__.py",
+      "base_sha256": "fa2031eb98f7c8b2485eabf8cce71f7c9a8cf4084a53acbdfde5e736cc996d6e",
+      "final_sha256": "440c2d5f7bc8014e7cf37d40d1c3a2566423ad2613e08fa93ce104562e9001cc"
+    },
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base_sha256": null,
+      "final_sha256": "a8e9d3d2a2b9e2ce7dfe19a8546abc9325e4fdd31629cf91dc190257e22abd30"
+    },
+    {
+      "path": "python/symox/polys/polymatrix.py",
+      "base_sha256": "3deaa7a05aa90c26ebad4b45bd9034dcdbda7c7aae27f236a4eabd458519108e",
+      "final_sha256": "c4cbf19e3cf536f1dfb68fc47eddedec6528768324af89e21b74227db33a51bd"
+    },
+    {
+      "path": "tests/test_polymatrix_native_ground.py",
+      "base_sha256": null,
+      "final_sha256": "11191e0bf69c0353f767284df78dfbe6e02c04fec2e9c940dd3747b5c63c0029"
+    }
+  ],
+  "source_count": 2651,
+  "native_sha256": "a3b0fe87684dfdafded74c5b37de0563cdf4610a131a37a4ce542961df9bd5da",
+  "binding_removed_insertions_equal_base": true,
+  "protocol_registration_is_at_final_package_end": true
+}

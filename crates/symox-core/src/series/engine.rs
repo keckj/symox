@@ -749,6 +749,7 @@ impl Engine {
     }
 
     fn ser_func(&mut self, f: &Func, args: &[Expr], n: i64) -> SRes<Ser> {
+        if matches!(f,Func::SymbolicDerivative){return Err(SErr::Unsupported("Derivative with symbolic order".into()));}
         if matches!(f, Func::Heaviside | Func::DiracDelta) && !args.is_empty() {
             // One-sided expansion: the argument keeps the sign of its leading
             // coefficient on the side approached, so `Heaviside` is the

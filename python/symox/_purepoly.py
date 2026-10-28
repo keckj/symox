@@ -11,6 +11,9 @@ from collections.abc import Mapping
 from ._core import Poly as _Poly
 
 
+_stock_as_dict=None
+
+
 _ALIGNED = frozenset(('add','sub','mul','div','rem','quo','exquo','pdiv','prem',
     'pquo','pexquo','gcd','lcm','cofactors','gcdex','half_gcdex','resultant',
     'subresultants','compose','invert','unify','rat_clear_denoms','eq','ne'))
@@ -122,7 +125,11 @@ class PurePoly(_Poly,metaclass=_PurePolyType):
     def __repr__(self):return 'Pure'+_Poly.__repr__(self)
     __str__=__repr__
 
-    def __reduce__(self):return _restore,(type(self),self.as_dict(),self.gens,self.domain)
+    def __reduce__(self):
+        domain=self.domain
+        from .polys._poly_methods import _stock_coefficient_view, _native_ex_domain
+        terms=self._coefficient_payload() if _stock_coefficient_view(self) and domain is _native_ex_domain else self.as_dict()
+        return _restore,(type(self),terms,self.gens,domain)
     def __reduce_ex__(self,protocol):return self.__reduce__()
 
     def to_sympy(self):
@@ -181,3 +188,5 @@ def install():
     for name in ('__radd__','__rsub__','__rmul__'):setattr(PurePoly,name,_binary(name,True))
     for name in ('__neg__','__pos__','__abs__','__pow__'):
         setattr(PurePoly,name,_method(name,getattr(_Poly,name)))
+    global _stock_as_dict
+    if _stock_as_dict is None:_stock_as_dict=inspect.getattr_static(PurePoly,'as_dict')

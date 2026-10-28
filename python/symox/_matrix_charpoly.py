@@ -1,11 +1,15 @@
 """Characteristic-polynomial coefficient callbacks over native domains."""
 
+from ._matrix_decompositions import to_DM as _default_to_DM
+
 
 def _reference_route(M):
     """None when the native kernel already follows SymPy's ``_charpoly``,
     else ``('EXRAW', dM)`` or ``('inexact', dM)`` for the ``to_DM`` domain."""
-    if not M.is_square or not M.rows or all(
-            getattr(e, 'is_Rational', False) for e in M):
+    if not M.is_square or not M.rows or M._has_rational_entries():
+        return None
+    if getattr(M.to_DM, '__func__', None) is _default_to_DM \
+            and M._has_rational_polynomial_entries():
         return None
     from . import _core
     if any(isinstance(e, _core.Expr) and not e.is_commutative for e in M):

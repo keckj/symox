@@ -1,0 +1,76 @@
+{
+  "snapshot": "R3 source 1ad26aa2fbe980b159a50f38583dce6fc0a301045b92194803207c059ef07875",
+  "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+  "rust_changed": false,
+  "files": [
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "add84089dc8297efa1d1dfbf25125629db2df6b498183a809a66fa1bd2bb4c77",
+      "final_sha256": "525ea4127a4f216750625575296c32ad28672cd91aa51f6d3157b69eaf0e0b44"
+    },
+    {
+      "path": "python/symox/vector/_adapters.py",
+      "base_sha256": "6a4cd71868d10c36b3b8583b93786f88e210c17a8a10b66d0cdca3a12c24246b",
+      "final_sha256": "2e9df681b54b67d965e5e95cfdccfa40200d933fe31eca118027e963335b8938"
+    },
+    {
+      "path": "tests/test_lrt_stock_forwarding.py",
+      "base_sha256": "74215e37025bc98a45cd6d335635538c4bf7707632d55a8455b739991492325c",
+      "final_sha256": "615e4b34e0d0323501bcf56960f625b8176e99573890e9aa9c6ac8cb4bd2d210"
+    },
+    {
+      "path": "tests/test_log_to_atan_stock_dispatch.py",
+      "base_sha256": "28e50fc580d1b502966eec692618eec566258ee274f77158ba6a7c1d7c2a2047",
+      "final_sha256": "b9dd5791540455611a9868ae1e8002b752b7e2b85f0440c177672d96adeeb969"
+    }
+  ],
+  "frozen": true,
+  "validation": {
+    "demeter_combined": "1153 passed in 56.93s",
+    "demeter_shard_29": "944 passed in 38.38s",
+    "demeter_lrt_forwarding": "187 passed in 21.48s",
+    "local_atan_vector": "179 passed in 14.57s"
+  },
+  "artifacts": [
+    {
+      "path": "vector-dispatch.patch",
+      "sha256": "19cefdaf59e50e8c4ec446bb74d2acf31ab2ecbae60d96e6909af8ba7fb348c7",
+      "bytes": 13189
+    },
+    {
+      "path": "source-manifest.json",
+      "sha256": "d9817f621afc911be412b7d3bb7216b797cef073fec4a52517b45e69303e647a",
+      "bytes": 1205
+    },
+    {
+      "path": "proof.md",
+      "sha256": "792688d1baf16bd220190d0c3cdb08afb458872e94b4647697d9b56df6c7c274",
+      "bytes": 4067
+    },
+    {
+      "path": "patch-check.log",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "bytes": 7
+    },
+    {
+      "path": "combined-final-demeter.log",
+      "sha256": "e5e42a33d3eb4050c48f715d55d18e39a8b83f6eb03e236a38418f7fbcd3c25b",
+      "bytes": 1382
+    },
+    {
+      "path": "shard-29.log",
+      "sha256": "e1c55267754da950430b08c09df34f7b5aabd962ccc03e0b2a7061ef5ed018db",
+      "bytes": 1141
+    },
+    {
+      "path": "targeted-demeter.log",
+      "sha256": "5c7317f712ba5c4104dd9f4a07b3eb93c3bbc4df5aaa00fa5adab108a5821ad2",
+      "bytes": 261
+    },
+    {
+      "path": "atan-vector-local-final.log",
+      "sha256": "682abcfb4af8ce3c7ff07d613bb00ab8e8172015ea4124a7022986998e862a08",
+      "bytes": 261
+    }
+  ]
+}

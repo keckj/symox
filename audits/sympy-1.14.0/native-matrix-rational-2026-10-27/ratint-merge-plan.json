@@ -1,0 +1,55 @@
+{
+  "status": "prepared only; main not modified, final reports pending",
+  "stage_manifest_sha256": "e5e2c819cb18061da08f26a33122e7b4779e5d59d5b3332f6f0dba55862f32db",
+  "files": [
+    {
+      "path": "crates/symox-core/src/integrate.rs",
+      "current": "092767f0c9ac6da3dd90503bf9c2f9ee616ae677c44d5114697341766fe6d89e",
+      "stage": "537b0c7f0ff9df1e31376f31995abf32675570540632928e8ed1c1f68ac38ae1",
+      "candidate": "537b0c7f0ff9df1e31376f31995abf32675570540632928e8ed1c1f68ac38ae1",
+      "merged": false
+    },
+    {
+      "path": "crates/symox-core/src/poly/api.rs",
+      "current": "ef5b2e9f2f22133b9924013e46494e9874a86385bad710725714f2dfcf582147",
+      "stage": "c4a53413f47b425be83e213ee72ef3b416dc2fc9d519a59e9b2320143233c73d",
+      "candidate": "c4a53413f47b425be83e213ee72ef3b416dc2fc9d519a59e9b2320143233c73d",
+      "merged": false
+    },
+    {
+      "path": "crates/symox-core/src/integrate/log_to_real.rs",
+      "current": "8077627013888d4e75b417e0a25e9a7d7dd92b5779d082f650c7a7050ce291cd",
+      "stage": "b933b2d0ff33375ae6bb071823894bdd2a97e7c19c3ef76f5b4e736d786a55ef",
+      "candidate": "b933b2d0ff33375ae6bb071823894bdd2a97e7c19c3ef76f5b4e736d786a55ef",
+      "merged": false
+    },
+    {
+      "path": "crates/symox-py/src/integration_methods.rs",
+      "current": "a1c68e9650956cf6c0879a6e79ee29a932509364c9a1a2dbf0395c085da4f22c",
+      "stage": "ffa097f4854a3bc25641dfe7f5ed95a200b0fb11b492150d6f302d4bac0bbd17",
+      "candidate": "ffa097f4854a3bc25641dfe7f5ed95a200b0fb11b492150d6f302d4bac0bbd17",
+      "merged": false
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "current": "c966bb72e3f6b83b6ff2fbff151f4096a7ba04eb4955517b0ac0bcd990b6ec27",
+      "stage": "97dccc337d68a33ed7f1204a5f28fef2d42998eeaf23e6640d931f4e97914514",
+      "candidate": "97dccc337d68a33ed7f1204a5f28fef2d42998eeaf23e6640d931f4e97914514",
+      "merged": false
+    },
+    {
+      "path": "crates/symox-core/src/integrate/ratint_driver.rs",
+      "current": null,
+      "stage": "4b67c4ce6f8dcb2e6952412101539ac3c2542fd2c7796649f62cbd635b0436c1",
+      "candidate": "4b67c4ce6f8dcb2e6952412101539ac3c2542fd2c7796649f62cbd635b0436c1",
+      "merged": false
+    },
+    {
+      "path": "tests/test_native_ratint_driver.py",
+      "current": null,
+      "stage": "3d2218b21e7d2f484ca97c76a344db389e9feb368b0d9197b974c74b7ed2b69c",
+      "candidate": "3d2218b21e7d2f484ca97c76a344db389e9feb368b0d9197b974c74b7ed2b69c",
+      "merged": false
+    }
+  ]
+}

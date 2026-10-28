@@ -1,0 +1,45 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/laplace-e1-branch-native",
+  "manifest": {
+    "status": "frozen; private Demeter validation complete",
+    "base": "r1b gold copied from /home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/after",
+    "base_native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+    "base_source_manifest_identity": "db859db2e5949ea295c362ae9b06b1b7819f0f28da0753790edda29b45445d2f",
+    "files": [
+      {
+        "path": "crates/symox-core/src/transforms/laplace.rs",
+        "base_sha256": "715c59c08325c7f7d0f09aa58fd7412a76b2645f9d92f7604f7acaa042996159",
+        "final_sha256": "a061ed3773354bee9faa437391379dc5557b5d3acb29828036aaabfc154fcbc8",
+        "new": false,
+        "integrated_sha256": "a061ed3773354bee9faa437391379dc5557b5d3acb29828036aaabfc154fcbc8"
+      },
+      {
+        "path": "crates/symox-core/src/transforms/util.rs",
+        "base_sha256": "6cb250f852f59df0fce307749fd78215c97b663f20b4cb3f2df1e227bf01a42a",
+        "final_sha256": "86533eff45d45784da66cd357405bc24dced8d7fcde0246e626556938c7a3be3",
+        "new": false,
+        "integrated_sha256": "86533eff45d45784da66cd357405bc24dced8d7fcde0246e626556938c7a3be3"
+      },
+      {
+        "path": "tests/test_intrest4_parity.py",
+        "base_sha256": "38fa49ec2b710d3960f30a6fb6c7b95af84e81eb4f65df9a33dbb4d056118ff5",
+        "final_sha256": "20e4e2cc22f60a0600d38b33b605e4cab1e5f905aadd6aaa78472f2218db0a93",
+        "new": false,
+        "integrated_sha256": "20e4e2cc22f60a0600d38b33b605e4cab1e5f905aadd6aaa78472f2218db0a93"
+      },
+      {
+        "path": "tests/test_laplace_e1_branch.py",
+        "base_sha256": null,
+        "final_sha256": "e8f59fb117cb83085d2ff412956f7635368b1980cdec9dd2715c6713c63ace91",
+        "new": true,
+        "integrated_sha256": "e8f59fb117cb83085d2ff412956f7635368b1980cdec9dd2715c6713c63ace91"
+      }
+    ],
+    "patch_sha256": "d80f8fb3faf0e7bb56e9e89031aa2b8ca32b366196f6632e2f042f34b8980a6c",
+    "private_demeter": "/home/keckj/symox-ci/wt/laplace-e1-branch-native",
+    "private_debug_sha256": "8603d5e49ce911c22320d7ee9048fb4dc2324f51f7eff717102c0a462a39bd74",
+    "proof": "validation/laplace-e1-proof.md",
+    "validation": "validation/laplace-e1-validation.json",
+    "description": "Use principal E1 in the existing reciprocal affine and positive logarithmic affine Laplace rules; same guards, ROC, conditions and fallbacks. No Python product, bindings, runtime SymPy or forced branch rewrites."
+  }
+}

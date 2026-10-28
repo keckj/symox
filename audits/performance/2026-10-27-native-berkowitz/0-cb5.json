@@ -1,0 +1,77 @@
+{
+  "native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+  "symox_file": "/home/keckj/symox-ci/wt/native-derivative-r1b-20261027/python/symox/__init__.py",
+  "affinity": [
+    24
+  ],
+  "iterations": 3,
+  "rounds": 5,
+  "cases": {
+    "ZZ_4": {
+      "median_ns": 88181.66666666667,
+      "rounds_ns": [
+        90599.44444444444,
+        88886.33333333333,
+        88181.66666666667,
+        88043.55555555556,
+        87425.77777777777
+      ],
+      "inputs": 3,
+      "digest": "dd5d02fab12099fa530abb7d1097e881e098304b0af08a6a530226bbf47e1568",
+      "native_selections_outside_timers": null
+    },
+    "ZZ_8": {
+      "median_ns": 469044.88888888893,
+      "rounds_ns": [
+        477051.3333333333,
+        468652.88888888893,
+        466348.77777777775,
+        471085.55555555556,
+        469044.88888888893
+      ],
+      "inputs": 3,
+      "digest": "3a883da0a68fbcc0fbd030539e531a24d67af0b279387b644b0ef899a5a75293",
+      "native_selections_outside_timers": null
+    },
+    "ZZ_12": {
+      "median_ns": 1350470.8888888888,
+      "rounds_ns": [
+        1353282.2222222222,
+        1351136.5555555555,
+        1350470.8888888888,
+        1346082.6666666667,
+        1345394.6666666667
+      ],
+      "inputs": 3,
+      "digest": "6a0266d6676e8253c36e8db5f6def287f1c6131dbb67ca70bdbc27862df344d5",
+      "native_selections_outside_timers": null
+    },
+    "QQ_4": {
+      "median_ns": 101904.77777777777,
+      "rounds_ns": [
+        112314.55555555556,
+        108162.22222222223,
+        101904.77777777777,
+        98956.55555555556,
+        98785.77777777777
+      ],
+      "inputs": 3,
+      "digest": "e9b04114954a5ae7775f6ef813a1e54d3e639e940486f48554702242ab7bdf6d",
+      "native_selections_outside_timers": null
+    },
+    "QQ_8": {
+      "median_ns": 717494.5555555555,
+      "rounds_ns": [
+        739755.2222222221,
+        728781.8888888889,
+        713698.1111111111,
+        708551.7777777779,
+        717494.5555555555
+      ],
+      "inputs": 3,
+      "digest": "7b214b23a834328e7a71a0e90ed25329210efb4ff370893e089ba563524d3e56",
+      "native_selections_outside_timers": null
+    }
+  },
+  "reference_imported": false
+}

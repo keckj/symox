@@ -1,0 +1,17 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-limit-symbolic-20261026",
+  "files": {
+    "crates/symox-core/src/limits/gruntz.rs": {
+      "base": "a5a53a06fe180612f29ba2299563f460362c2dbf250c9ad13ffbe3c4b453e9c6",
+      "final": "83912328ca19164ea71c8c491667cbfc529e311fa5184e761acbb2c07d2e7f02"
+    },
+    "crates/symox-core/src/limits/tests.rs": {
+      "base": "6ad81afcaad773fef83cfcea80c63cc20d97680f594ab91fd7f37bc7b3f4fc05",
+      "final": "20c9e37c782d83f6bbad90723f07aa21072a57a286799cfd1f32267eecff02a3"
+    },
+    "tests/test_gruntz_homogeneous_symbolic_powers.py": {
+      "base": null,
+      "final": "65563e5272ab5b4765105e2875b58be0be4c2e0aefc2de02bf96bcf3f72e076d"
+    }
+  }
+}

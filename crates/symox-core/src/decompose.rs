@@ -112,6 +112,9 @@ pub fn has_noncommutative_atoms(e:&Expr)->bool{
 pub fn commutativity(e:&Expr)->Option<bool>{
     fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Option<bool>)>)->Option<bool>{
         if let Some((_,value))=cache.get(&e.dag_id()){return *value;}
+        if let Kind::Func(crate::expr::Func::SymbolicDerivative,args)=e.kind(){
+            return args.first().and_then(|body|visit(body,cache));
+        }
         if e.has_noncommutative_host(){
             let value=host_commutativity(e,cache);
             cache.insert(e.dag_id(),(e.clone(),value));return value;

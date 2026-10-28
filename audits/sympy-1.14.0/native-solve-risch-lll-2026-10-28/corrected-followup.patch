@@ -1,0 +1,236 @@
+--- a/python/symox/polys/_polymatrix_native.py
++++ b/python/symox/polys/_polymatrix_native.py
+@@ -11,6 +11,7 @@
+ _ROOT=None
+ _FORWARDING=None
+ _STATS=None
++_HOST_FREE_SYMBOLS=None
+ _RELOADABLE={}
+ _TYPE_DICT=type.__dict__['__dict__']
+ _TYPE_BASES=type.__dict__['__bases__']
+@@ -89,6 +90,31 @@
+     return True
+ 
+ 
++def _host_free_symbols_installed(cls,old,current):
++    saved=_HOST_FREE_SYMBOLS
++    if saved is None or cls is not saved[0]:return False
++    _,module,namespace,getter,installer,property_type,functions,lookups,hooks=saved
++    if ('free_symbols' in old or _LEN(current)!=_LEN(old)+1
++            or not _ALL(current.get(name) is value for name,value in old.items())):return False
++    if (_TYPE(module) is not ModuleType or _MODULES.get('symox._host') is not module
++            or module.__dict__ is not namespace
++            or not _ALL(target.get(name) is value for target,name,value in lookups)
++            or not _ALL(_unchanged(function) for function in functions)
++            or getter.__globals__ is not namespace or installer.__globals__ is not namespace
++            or any(name in namespace for name in ('property','set'))
++            or hooks.get('free_symbols') is not True):return False
++    # A shadowed builtin at package import must not bless a property subtype.
++    # Its descriptor lookups can themselves execute Python callbacks.
++    if (_TYPE(property_type) is not _TYPE or property_type.__flags__ & (1<<9)
++            or property_type.__name__!='property' or property_type.__module__!='builtins'):return False
++    value=current.get('free_symbols')
++    # This single official late addition is below the canonical scalar classes'
++    # own free_symbols descriptor in their MRO. Ground arithmetic cannot consume
++    # it. Keep rejecting foreign properties and every other class mutation.
++    return (_TYPE(value) is property_type and value.fget is getter
++            and value.fset is None and value.fdel is None)
++
++
+ def _class_unchanged(record, classes=()):
+     cls,bases,items,functions=record
+     current=_TYPE_DICT.__get__(cls);parents=_TYPE_BASES.__get__(cls)
+@@ -101,6 +127,7 @@
+             or not _ALL(_unchanged(function) for function in functions)):return False
+     if (_LEN(current)==_LEN(items)
+             and _ALL(current.get(name) is value for name,value in relevant)):return True
++    if classes and _host_free_symbols_installed(cls,dict(items),current):return True
+     if classes and _STATS is not None and cls is _STATS[0] and _stats_installed(cls,dict(items),current):return True
+     if cls is not _core.Expr or not classes or _FORWARDING is None:return False
+     old=dict(items)
+@@ -120,9 +147,9 @@
+ 
+ def register_root(namespace):
+     """Called once at the end of package installation, before user hooks."""
+-    global _ROOT,_FORWARDING,_STATS
++    global _ROOT,_FORWARDING,_STATS,_HOST_FREE_SYMBOLS
+     import builtins
+-    from .. import _noncommutative as nc, _node_types as nodes
++    from .. import _noncommutative as nc, _node_types as nodes, _host as host
+     from ..tensor.array import _adapters as arrays
+     from . import _finite_field_options as finite, _inexact_functions as inexact
+     from importlib import import_module
+@@ -132,6 +159,22 @@
+     rationaltools=import_module('symox.integrals.rationaltools')
+     from .._basic import Basic
+     from .._public_core import Dict
++    host_namespace=host.__dict__
++    host_getter=host._tree_free_symbols;host_installer=host._install_free_symbols
++    host_lookups=((host_namespace,'_tree_free_symbols',host_getter),
++                  (host_namespace,'_install_free_symbols',host_installer),
++                  (host_namespace,'HostTree',host.HostTree),
++                  (host_namespace,'_hooks',host._hooks),
++                  (host_namespace,'_core',_core),
++                  (_core.__dict__,'_host_contains',_core._host_contains),
++                  (builtins.__dict__,'property',property),
++                  (builtins.__dict__,'set',set))
++    # A module override of either builtin also changes the real function lookup.
++    host_lookups+=_TUPLE((host_namespace,name,host_namespace.get(name))
++                         for name in ('property','set'))
++    _HOST_FREE_SYMBOLS=(host.HostTree,host,host_namespace,host_getter,host_installer,
++                       property,(_function(host_getter),_function(host_installer)),
++                       host_lookups,host._hooks)
+     cancel=namespace['cancel']
+     functions=[];lookups=[];seen=set()
+     modules=(nc.__dict__,arrays.__dict__,finite.__dict__,inexact.__dict__,nodes.__dict__,sympification.__dict__,core_sympify.__dict__,rationaltools.__dict__)
+--- /dev/null
++++ b/tests/test_polymatrix_host_protocol.py
+@@ -0,0 +1,148 @@
++"""One authenticated late host hook must not disable exact ground arithmetic."""
++import importlib
++import types
++import sys
++import os
++import subprocess
++
++import pytest
++import symox as sx
++
++from symox import _host
++
++pm=importlib.import_module('symox.polys.polymatrix')
++guard=importlib.import_module('symox.polys._polymatrix_native')
++
++
++def install():
++    class Host(sx.Symbol):
++        @property
++        def free_symbols(self):return set()
++    return Host
++
++
++def matrix(kind):
++    x,y,z=sx.symbols('host_ground_x host_ground_y host_ground_z')
++    field=sx.QQ if kind=='QQ' else sx.QQ.frac_field(y,z)
++    entries=[[1,2,3],[3,7,8]] if kind=='QQ' else [[y/(z+1),1,2],[2*y/(z+1),3,5]]
++    return pm.PolyMatrix(entries,x,ring=field)
++
++
++@pytest.mark.parametrize('kind',['QQ','RF'])
++@pytest.mark.parametrize('operation',['rref','nullspace'])
++def test_official_host_hook_keeps_native_ground_and_full_public_result(monkeypatch,kind,operation):
++    install();a=matrix(kind);calls=[];native=sx._core._polymatrix_ground
++    def spy(*args):
++        result=native(*args);calls.append(result is not None);return result
++    monkeypatch.setattr(sx._core,'_polymatrix_ground',spy)
++    before=tuple(a._items);host_calls=[];getter_code=_host._tree_free_symbols.__code__
++    def profile(frame,event,arg):
++        if event=='call' and frame.f_code is getter_code:host_calls.append(event)
++    previous=sys.getprofile();sys.setprofile(profile)
++    try:result=getattr(a,operation)()
++    finally:sys.setprofile(previous)
++    assert calls and all(calls) and host_calls==[]
++    monkeypatch.setattr(pm,'_native_ground',lambda *args:None)
++    sys.setprofile(profile)
++    try:expected=getattr(a,operation)()
++    finally:sys.setprofile(previous)
++    assert expected==result and host_calls==[]
++    assert tuple(a._items)==before and all(a is b for a,b in zip(a._items,before))
++
++
++@pytest.mark.parametrize('kind',['QQ','RF'])
++@pytest.mark.parametrize('operation',['rref','nullspace'])
++@pytest.mark.parametrize('raises',[False,True])
++def test_foreign_host_getter_is_not_called_by_candidate_or_complete_old_body(monkeypatch,kind,operation,raises):
++    install();a=matrix(kind);calls=[]
++    def callback(self):
++        calls.append('free_symbols')
++        if raises:raise RuntimeError('foreign host getter')
++        return set()
++    monkeypatch.setattr(_host.HostTree,'free_symbols',property(callback))
++    assert pm._native_ground(a) is None and calls==[]
++    result=getattr(a,operation)();observed=calls[:];calls.clear()
++    monkeypatch.setattr(pm,'_native_ground',lambda *args:None)
++    assert getattr(a,operation)()==result
++    assert calls==observed==[]
++
++
++@pytest.mark.parametrize('mode',['getter_code','getter_defaults','getter_alias','getter_foreign_globals',
++    'installer_code','installer_defaults','installer_alias','property_setter','unrelated',
++    'builtin_shadow','core_alias','module','module_class'])
++def test_only_exact_authenticated_official_host_property_is_admitted(monkeypatch,mode):
++    install();a=matrix('QQ');calls=[]
++    def callback(*args):calls.append('callback');raise RuntimeError('foreign host protocol')
++    if mode=='getter_code':monkeypatch.setattr(_host._tree_free_symbols,'__code__',(lambda self:None).__code__)
++    elif mode=='getter_defaults':monkeypatch.setattr(_host._tree_free_symbols,'__defaults__',(callback,))
++    elif mode=='getter_alias':monkeypatch.setattr(_host,'_tree_free_symbols',callback)
++    elif mode=='getter_foreign_globals':
++        f=_host._tree_free_symbols;foreign=types.FunctionType(f.__code__,dict(f.__globals__))
++        monkeypatch.setattr(_host.HostTree,'free_symbols',property(foreign))
++    elif mode=='installer_code':monkeypatch.setattr(_host._install_free_symbols,'__code__',(lambda:None).__code__)
++    elif mode=='installer_defaults':monkeypatch.setattr(_host._install_free_symbols,'__defaults__',(callback,))
++    elif mode=='installer_alias':monkeypatch.setattr(_host,'_install_free_symbols',callback)
++    elif mode=='property_setter':monkeypatch.setattr(_host.HostTree,'free_symbols',property(_host._tree_free_symbols,callback))
++    elif mode=='unrelated':monkeypatch.setattr(_host.HostTree,'unrelated_callback',callback,raising=False)
++    elif mode=='builtin_shadow':monkeypatch.setattr(_host,'property',callback,raising=False)
++    elif mode=='core_alias':monkeypatch.setattr(_host,'_core',object())
++    elif mode=='module_class':
++        class Hooks(types.ModuleType):
++            def __getattribute__(self,name):
++                calls.append(name)
++                if name=='__dict__':raise RuntimeError('foreign module lookup')
++                return super().__getattribute__(name)
++        monkeypatch.setattr(_host,'__class__',Hooks)
++    else:
++        fake=types.ModuleType(_host.__name__);fake.__dict__.update(_host.__dict__)
++        monkeypatch.setitem(__import__('sys').modules,_host.__name__,fake)
++    assert pm._native_ground(a) is None and calls==[]
++
++
++@pytest.mark.parametrize('operation',['rref','nullspace'])
++def test_real_host_coefficient_keeps_full_failure_and_its_free_symbol_protocol(monkeypatch,operation):
++    calls=[]
++    class Rate(sx.Symbol):
++        @property
++        def free_symbols(self):
++            calls.append('host coefficient');raise RuntimeError('host coefficient free_symbols')
++    x=sx.Symbol('host_ground_x');rate=Rate('opaque_host_rate')
++    a=pm.PolyMatrix([[rate+1,1]],x,ring=sx.QQ)
++    assert pm._native_ground(a) is None and calls==[]
++    with pytest.raises(sx.CoercionFailed) as actual:getattr(a,operation)()
++    observed=calls[:];calls.clear()
++    monkeypatch.setattr(pm,'_native_ground',lambda *args:None)
++    with pytest.raises(type(actual.value)) as expected:getattr(a,operation)()
++    assert str(actual.value)==str(expected.value) and calls==observed==[]
++    # The coefficient's real host protocol is still active and observable.
++    with pytest.raises(RuntimeError,match='host coefficient free_symbols'):
++        a._items[0].free_symbols
++    assert calls==['host coefficient']
++
++
++def test_shadowed_property_before_import_declines_without_descriptor_callbacks():
++    code="""
++import builtins
++calls=[]
++class ForeignProperty(builtins.property):
++    def __getattribute__(self,name):
++        if name in ('fget','fset','fdel'):
++            calls.append(name)
++        return super().__getattribute__(name)
++builtins.property=ForeignProperty
++import symox as s
++from symox import _host
++from symox.polys import polymatrix as pm
++class Host(s.Symbol):
++    @property
++    def free_symbols(self):return set()
++x=s.Symbol('foreign_property_x');a=pm.PolyMatrix([[1,2,3],[3,7,8]],x,ring=s.QQ)
++calls.clear()
++selected=pm._native_ground(a)
++assert selected is None and calls==[],calls
++result=a.rref();observed=calls[:];calls.clear()
++pm._native_ground=lambda *args:None
++assert a.rref()==result
++assert calls==observed==[],(calls,observed)
++"""
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())

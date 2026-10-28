@@ -140,8 +140,13 @@ def test_sec_csc_multiple_argument():
         for root in solve(equation, x):
             residual = equation.subs(a, S(7)/3).subs(x, root.subs(a, S(7)/3))
             assert abs(complex(residual.evalf())) < 1e-12
-    with pytest.raises(NotImplementedError):
-        solve(sec(x/2) - 3, x)
+    # Rational slopes now extend SymPy 1.14's unsupported case. With
+    # t=exp(I*x/2), every root of 3*t**2-2*t+3 must occur exactly once.
+    roots = solve(sec(x/2) - 3, x)
+    assert len(roots) == 2
+    images = {sp.simplify(exp(I*root/2)) for root in roots}
+    assert images == {S(1)/3 - 2*sqrt(2)*I/3, S(1)/3 + 2*sqrt(2)*I/3}
+    assert all(sp.expand(3*t**2-2*t+3) == 0 for t in images)
 
 
 def test_nonlinsolve_generic_parameters():

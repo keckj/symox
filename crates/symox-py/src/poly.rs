@@ -19,6 +19,10 @@ mod root_analysis;
 mod checked_factor_views;
 #[path="poly_structure.rs"]
 mod structural;
+#[path="poly_ddm.rs"]
+mod ddm;
+#[path="poly_fraction_free.rs"]
+pub(crate) mod fraction_free;
 
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
@@ -71,6 +75,7 @@ pub(crate) fn err(e: PolyError) -> PyErr {
         PolyError::ExactQuotientFailed(message)=>domains::ExactQuotientFailed::new_err(message.clone()),
         PolyError::NotInvertible(message)=>an_rational::NotInvertible::new_err(message.clone()),
         PolyError::Unsupported(s) if s.contains("division by zero") || s.contains("modulo by zero") => PyZeroDivisionError::new_err(s.clone()),
+        PolyError::Unsupported(s) if s.contains("exponent storage limit") => PyNotImplementedError::new_err(s.clone()),
         // The reference raises PolynomialError, a ValueError subclass here.
         PolyError::Generator(message) => Python::with_gil(|py| structural::polynomial_error(py, "PolynomialError", message.clone())),
         PolyError::Reference{kind,message}=>Python::with_gil(|py|reference_error(py,kind,message)),
@@ -240,7 +245,7 @@ impl PyGroebnerBasis {
         method: Option<&str>,
         polys: Option<bool>,
         extension: Option<&Bound<'_,PyAny>>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<Self> {symox::poly::mpoly::guard_representation(||{
         let selected=domains::Selection::new(domain,modulus,extension)?;
         let domain=selected.legacy.as_deref();
         let modulus=selected.modulus;
@@ -459,7 +464,7 @@ impl PyGroebnerBasis {
             expression: false,
             options: String::new(),
         })
-    }
+    },||err(symox::poly::mpoly::exponent_limit_error()))}
 
     fn objects(&self, py: Python<'_>) -> PyResult<Vec<PyObject>> {
         self.basis
@@ -570,7 +575,7 @@ impl PyGroebnerBasis {
     }
 
     /// Convert orders through the finite-dimensional quotient algebra.
-    fn fglm(&self, order: &str) -> PyResult<Self> {
+    fn fglm(&self, order: &str) -> PyResult<Self> {symox::poly::mpoly::guard_representation(||{
         use symox::poly::groebner::{fglm, CoefficientField, MonomialOrder};
         let target = MonomialOrder::parse(order)
             .ok_or_else(|| PyValueError::new_err("order must be 'lex', 'grlex', or 'grevlex'"))?;
@@ -619,7 +624,7 @@ impl PyGroebnerBasis {
             Poly {rep,gens:self.generators.clone(),ngens:self.generators.len(),domain:self.coefficient_domain,modulus:self.prime}.into()
         }).collect();
         Ok(result)
-    }
+    },||err(symox::poly::mpoly::exponent_limit_error()))}
     #[getter]
     fn is_zero_dimensional(&self) -> bool {
         if self.expression {
@@ -701,7 +706,7 @@ impl PyGroebnerBasis {
         py: Python<'_>,
         f: &Bound<'_, PyAny>,
         auto: bool,
-    ) -> PyResult<(Vec<PyObject>, PyObject)> {
+    ) -> PyResult<(Vec<PyObject>, PyObject)> {symox::poly::mpoly::guard_representation(||{
         if self.expression {
             let input=self.expression_input(f)?;
             let reps=self.expression_reps();
@@ -781,9 +786,9 @@ impl PyGroebnerBasis {
             q.into_iter().map(object).collect::<PyResult<_>>()?,
             object(r)?,
         ))
-    }
+    },||err(symox::poly::mpoly::exponent_limit_error()))}
 
-    fn contains(&self, f: &Bound<'_, PyAny>) -> PyResult<bool> {
+    fn contains(&self, f: &Bound<'_, PyAny>) -> PyResult<bool> {symox::poly::mpoly::guard_representation(||{
         if self.expression {
             let input=self.expression_input(f)?;
             let reps=self.expression_reps();
@@ -815,7 +820,7 @@ impl PyGroebnerBasis {
         )
         .1
         .is_zero())
-    }
+    },||err(symox::poly::mpoly::exponent_limit_error()))}
 }
 
 /// A reduced basis over `ZZ_I` is the field basis with cleared
@@ -947,6 +952,20 @@ impl PyPoly {
         if domain.is_none(){
             if let Some(selection)=symox::poly::gaussian::default_selection(std::slice::from_ref(&e),&generators){
                 return Self::gaussian_poly(&e,selection.gens,selection.integral);
+            }
+            if generators.is_empty() && symox::traverse::has(&e,&Expr::i()) {
+                // `_dict_from_expr_no_gens` treats I as a coefficient even
+                // when another coefficient is inexact. The legacy reader
+                // otherwise promotes I to an independent generator, losing
+                // ComplexField inference (and its coefficient precision).
+                if let Ok(converted)=symox::poly::convert::from_exprs(std::slice::from_ref(&e)) {
+                    if converted.float && converted.gens.contains(&Expr::i()) {
+                        generators=converted.gens.into_iter().filter(|g|*g!=Expr::i()).collect();
+                        if generators.is_empty(){
+                            return Err(structural::polynomial_error(expr.py(),"GeneratorsNeeded","Cannot initialize from 'dict' without generators".into()));
+                        }
+                    }
+                }
             }
             if generators.is_empty()&&symox::traverse::has(&e,&Expr::i())&&symox::poly::convert::from_exprs(std::slice::from_ref(&e)).is_ok_and(|c|!c.float&&c.gens==[Expr::i()]){
                 return Err(structural::polynomial_error(expr.py(),"GeneratorsNeeded","Cannot initialize from 'dict' without generators".into()));
@@ -1249,7 +1268,7 @@ fn poly_obj(py: Python<'_>, p: impl Into<PolyValue>) -> PyResult<PyObject> {
     Ok(PyPoly { p: domains::normalize_poly(p.into())? }.into_pyobject(py)?.into_any().unbind())
 }
 
-fn degree_obj(py: Python<'_>, d: Option<u32>) -> PyResult<PyObject> {
+fn degree_obj(py: Python<'_>, d: Option<u64>) -> PyResult<PyObject> {
     match d {
         Some(k) => Ok(k.into_pyobject(py)?.into_any().unbind()),
         None => Ok(w(Expr::neg_oo()).into_pyobject(py)?.into_any().unbind()),
@@ -1309,11 +1328,108 @@ impl PyPoly {
         Ok(Self{p:Poly::new(MPoly::from_terms(1,terms),vec![gen.e],1,selected).into()})
     }
 
+    /// Structured EX coefficients must reach the native representation before
+    /// Add/Mul can erase falsy Float payloads or merge dependent generators.
+    #[staticmethod]
+    #[pyo3(signature=(terms,gens,domain=None,modulus=None,extension=None))]
+    fn _from_coefficient_terms(terms:&Bound<'_,PyDict>,gens:&Bound<'_,PyTuple>,domain:Option<&Bound<'_,PyAny>>,modulus:Option<u64>,extension:Option<&Bound<'_,PyAny>>)->PyResult<Option<Self>>{
+        if !domains::selects_expression(domain) || modulus.is_some() || extension.is_some(){return Ok(None);}
+        let generators=gens_of(gens)?;
+        domains::require_expression_generators(domain,!generators.is_empty())?;
+        if !generators.iter().all(symox::poly::expression_domain::native_coefficient_payload){return Ok(None);}
+        let mut coefficients=Vec::new();
+        for(m,c)in terms.iter(){
+            let m=m.downcast::<PyTuple>()?;
+            if m.len()!=generators.len(){return Err(PyValueError::new_err("coefficient term has an invalid exponent vector"));}
+            let c=to_expr(&c)?;
+            if !symox::poly::expression_domain::native_coefficient_payload(&c){return Ok(None);}
+            let mut monomial=Vec::new();let mut outside=false;
+            for exponent in m.iter(){
+                let exponent=to_expr(&exponent)?;
+                let Some(n)=exponent.as_number().filter(|n|n.is_integer() && !n.is_negative()) else{return Err(PyValueError::new_err("monomial exponents must be nonnegative integers"));};
+                match n.to_i64().and_then(|n|u32::try_from(n).ok()){
+                    Some(n)=>monomial.push(n),
+                    None=>outside=true,
+                }
+            }
+            if outside{
+                if symox::poly::expression_domain::EX(c).truthy(){return Err(err(symox::poly::mpoly::exponent_limit_error()));}
+            }else{coefficients.push((monomial,c));}
+        }
+        Ok(Some(Self{p:ExpressionPoly::from_terms(coefficients,&generators).map_err(err)?.into()}))
+    }
+    #[staticmethod]
+    fn _is_numeric_zero(polynomial:PyRef<'_,Self>,value:&Bound<'_,PyAny>)->bool{
+        polynomial.ex().is_some_and(ExpressionPoly::has_native_coefficient_payload)
+            && value.extract::<PyExpr>().is_ok_and(|value|value.e.as_number().is_some_and(|n|n.is_zero()))
+    }
+    #[staticmethod]
+    fn _is_native_coefficient_payload(value:&Bound<'_,PyAny>)->bool{
+        let expression=if let Ok(value)=value.extract::<PyExpr>(){value.e}
+            else if let Ok(value)=value.extract::<PyRef<'_,domains::PyDomainElement>>(){
+                if !matches!(value.value.domain,symox::poly::domains::ExactDomain::Expression{raw:false}){return false;}
+                let symox::poly::domains::ElementValue::Expression(e)=&value.value.value else{return false};e.clone()
+            }
+            else if value.get_type().is(&value.py().get_type::<pyo3::types::PyInt>()) || value.get_type().is(&value.py().get_type::<pyo3::types::PyFloat>()){
+                let Ok(value)=to_expr(value)else{return false};value
+            }else{return false};
+        symox::poly::expression_domain::native_coefficient_payload(&expression)
+    }
+    #[staticmethod]
+    fn _native_dense_coefficient_payload<'py>(rep:&Bound<'py,PyAny>,level:i64)->PyResult<Option<Bound<'py,PyDict>>>{
+        let Ok(level)=usize::try_from(level)else{return Ok(None)};
+        let output=PyDict::new(rep.py());
+        let mut pending=vec![(rep.clone(),level,Vec::<usize>::new())];
+        while let Some((row,level,prefix))=pending.pop(){
+            if !row.get_type().is(&row.py().get_type::<PyList>()){return Ok(None);}
+            let row=row.downcast::<PyList>()?;
+            if row.len() as u128>u128::from(u32::MAX)+1{return Ok(None);}
+            if level==0{
+                for(i,c)in row.iter().enumerate(){
+                    if !Self::_is_native_coefficient_payload(&c){return Ok(None);}
+                    let mut m=prefix.clone();m.push(row.len()-1-i);
+                    output.set_item(PyTuple::new(rep.py(),m)?,c)?;
+                }
+            }else{
+                for i in (0..row.len()).rev(){
+                    let mut m=prefix.clone();m.push(row.len()-1-i);
+                    pending.push((row.get_item(i)?,level-1,m));
+                }
+            }
+        }
+        Ok(Some(output))
+    }
+    #[staticmethod]
+    fn _native_dict_coefficient_payload(rep:&Bound<'_,PyDict>,level:i64)->bool{
+        let Ok(level)=usize::try_from(level)else{return false};
+        let Some(width)=level.checked_add(1)else{return false};
+        for(m,c)in rep.iter(){
+            if !m.get_type().is(&m.py().get_type::<PyTuple>()){return false;}
+            let Ok(m)=m.downcast::<PyTuple>()else{return false};
+            if m.len()!=width || !Self::_is_native_coefficient_payload(&c){return false;}
+            for exponent in m.iter(){
+                if !exponent.get_type().is(&m.py().get_type::<pyo3::types::PyInt>()) || exponent.extract::<u32>().is_err(){return false;}
+            }
+        }
+        true
+    }
+    fn _coefficient_payload<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyDict>>{
+        let output=PyDict::new(py);
+        let terms=if let Some(p)=self.ex().filter(|p|p.ground.is_none() && p.has_native_coefficient_payload()){p.coefficient_payload().map_err(err)?}else{let mut terms=self.p.terms();terms.reverse();terms};
+        for(m,c)in terms{output.set_item(PyTuple::new(py,m)?,w(c))?;}
+        Ok(output)
+    }
     /// Backend constructor used after public option/input normalization.
     #[staticmethod]
     #[pyo3(signature=(rep,gens,domain=None,modulus=None,extension=None))]
     fn _from_normalized(rep:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,domain:Option<&Bound<'_,PyAny>>,modulus:Option<u64>,extension:Option<&Bound<'_,PyAny>>)->PyResult<Self>{
         let expr=rep;
+        if modulus.is_none() && extension.is_none(){if let Ok(source)=expr.downcast::<PyPoly>(){
+            let source=source.get();let wanted=gens_of(gens)?;
+            if source.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()) && (domain.is_none() || domains::selects_expression(domain)) && (wanted.is_empty() || wanted==source.p.true_gens()){
+                return Ok(Self{p:source.p.clone()});
+            }
+        }}
         if expr.getattr("is_Matrix").is_ok_and(|flag|flag.is_truthy().unwrap_or(false)) {
             return Err(PyTypeError::new_err("a noncommutative matrix cannot be a scalar polynomial"));
         }
@@ -1430,6 +1546,7 @@ impl PyPoly {
 
     fn set_domain(&self,domain:&Bound<'_,PyAny>)->PyResult<Self>{
         let selected=domains::Selection::new(Some(domain),None,None)?;
+        if domains::selects_expression(Some(domain)) && self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}
         if let (Some(f),Some(d))=(self.ex(),&selected.native){
             use symox::poly::domains::ExactDomain as D;
             let fail=|message:String|err(PolyError::Reference{kind:"CoercionFailed",message});
@@ -1455,6 +1572,27 @@ impl PyPoly {
                 _=>{}
             }
         }
+        if selected.native.as_ref().is_some_and(|d|matches!(d.inner,symox::poly::domains::ExactDomain::Gaussian{integral:false}))
+            && self.domain_descriptor().is_ok_and(|d|matches!(d.inner,symox::poly::domains::ExactDomain::Inexact{complex:true,..})) {
+                let d=selected.native.as_ref().unwrap();
+                let f=ExpressionPoly::from_expr(&self.p.as_expr(),self.p.true_gens()).map_err(err)?;
+                // QQ_I.from_ComplexField converts each mpc component with
+                // QQ.convert(mpf), which goes through the default RealField.
+                // Reproduce that explicit conversion rather than feeding
+                // Float expressions to the exact algebraic-field reader.
+                let mut terms=Vec::new();
+                for (m,c) in f.terms(){
+                    let value=symox::evalf_mp::eval_mp(&c,53).ok_or_else(||domains::CoercionFailed::new_err("expected a finite complex number"))?;
+                    let real=symox::evalf_mp::to_expr(symox::evalf_mp::MpComplex::real(value.re),53);
+                    let imag=symox::evalf_mp::to_expr(symox::evalf_mp::MpComplex::real(value.im),53);
+                    let real=symox::poly::domains::rationalize_real(&real,53,true).map_err(err)?;
+                    let imag=symox::poly::domains::rationalize_real(&imag,53,true).map_err(err)?;
+                    let coefficient=symox::ops::add2(&Expr::num(real.to_number()),&symox::ops::mul2(&Expr::i(),&Expr::num(imag.to_number())));
+                    terms.push((m,coefficient));
+                }
+                let exact=ExpressionPoly::from_terms(terms,&f.gens).map_err(err)?;
+                return Ok(Self{p:d.poly(&exact.as_expr(),self.p.true_gens())?});
+            }
         if let (Some((f,g)),Some(d))=(self.gg(),&selected.native){
             if symox::poly::gaussian_ground::GaussianGround::from_domain(&d.inner).is_none(){
                 // dmp_convert from the Gaussian ground: the first coefficient
@@ -1476,8 +1614,8 @@ impl PyPoly {
         let expr=w(self.p.as_expr()).into_pyobject(py)?.into_any();
         Self::_from_normalized(&expr,&gens,Some(domain),None,None)
     }
-    fn to_field(&self)->PyResult<Self>{let d=self.domain_descriptor()?.get_field();Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
-    fn to_ring(&self)->PyResult<Self>{let d=self.domain_descriptor()?.get_ring()?;Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
+    fn to_field(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_field();Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
+    fn to_ring(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_ring()?;Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
 
     #[getter]
     fn free_symbols<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PySet>> {
@@ -1504,12 +1642,12 @@ impl PyPoly {
     #[pyo3(signature = (gen=None))]
     fn degree(&self, py: Python<'_>, gen: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         let i = self.gen_index(gen)?;
-        degree_obj(py, self.p.degree(i))
+        degree_obj(py, self.p.degree(i).map(u64::from))
     }
 
     fn degree_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         // The zero polynomial has degree -oo in every generator, as in SymPy.
-        let v = (0..self.p.ngens).map(|i| degree_obj(py, self.p.degree(i))).collect::<PyResult<Vec<_>>>()?;
+        let v = (0..self.p.ngens).map(|i| degree_obj(py, self.p.degree(i).map(u64::from))).collect::<PyResult<Vec<_>>>()?;
         PyTuple::new(py, v)
     }
 
@@ -1747,6 +1885,9 @@ impl PyPoly {
         if let Ok(q) = o.downcast::<PyPoly>() {
             let q = &q.get().p;
             // SymPy's Poly.__eq__ also requires equal coefficient domains.
+            if let (Some(a),Some(b))=(self.p.expression.as_ref(),q.expression.as_ref()){
+                if a.ground.is_none() && b.ground.is_none() && a.has_native_coefficient_payload() && b.has_native_coefficient_payload(){return a==b;}
+            }
             return self.p.true_gens() == q.true_gens() && self.p.domain_str() == q.domain_str() && self.p.modulus == q.modulus && self.p.as_expr() == q.as_expr();
         }
         match self.other(o) {
@@ -1904,6 +2045,16 @@ impl PyPoly {
         PyTuple::new(py, [PyPoly { p: (h).into() }, PyPoly { p: (a).into() }, PyPoly { p: (b).into() }])
     }
 
+    fn _sparse_cofactors<'py>(&self, py: Python<'py>, o: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyTuple>> {
+        if let Some((a,b))=self.ex_pair(o)?.and_then(|(a,b)|a.inexact_pair(&b)) {
+            if a.ground.as_ref().is_some_and(|g|g.inexact.is_some_and(|k|k.complex || (a.gens.len() >= 2 && !g.symbols.is_empty()))) {
+                let (h,p,q)=symox::poly::inexact_ground::sparse_cofactors(&a,&b).map_err(err)?;
+                return PyTuple::new(py,[PyPoly{p:h.into()},PyPoly{p:p.into()},PyPoly{p:q.into()}]);
+            }
+        }
+        self.cofactors(py,o)
+    }
+
     fn factor_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         if let Some((f,g))=self.gg(){
             let(c,fs)=g.factor_list(f).map_err(err)?;
@@ -2026,6 +2177,7 @@ impl PyPoly {
     fn diff(&self, gens: &Bound<'_, PyTuple>) -> PyResult<PyPoly> {
         let mut p = self.p.clone();
         if gens.is_empty() {
+            if let Some(e)=p.expression.as_ref(){return Ok(PyPoly{p:e.diff(1,0).map_err(err)?.into()});}
             return Ok(PyPoly { p: (p.diff(0)).into() });
         }
         for spec in gens.iter() {
@@ -2036,9 +2188,21 @@ impl PyPoly {
                 (spec.get_item(0)?, spec.get_item(1)?.extract::<i64>()?)
             } else {(spec,1)};
             let i = self.gen_index(Some(&generator))?;
-            for _ in 0..order.max(0) {
-                if p.is_zero() {break;}
-                p = p.diff(i);
+            if let Some(e)=p.expression.as_ref(){
+                let order=match usize::try_from(order.max(0)){
+                    Ok(order)=>order,
+                    Err(_) if order>e.degree(i)=>{
+                        let mut zero=ExpressionPoly::zero(&e.gens);zero.ground=e.ground.clone();
+                        p=zero.into();continue;
+                    }
+                    Err(_)=>return Err(pyo3::exceptions::PyOverflowError::new_err("derivative order exceeds the addressable range")),
+                };
+                p=e.diff(order,i).map_err(err)?.into();
+            }else{
+                for _ in 0..order.max(0) {
+                    if p.is_zero() {break;}
+                    p = p.diff(i);
+                }
             }
         }
         Ok(PyPoly { p: p.into() })
@@ -2050,6 +2214,14 @@ impl PyPoly {
             Some(a) => (self.gen_index(Some(x))?, to_expr(a)?),
             None => (0, to_expr(x)?),
         };
+        if val.as_number().is_some_and(|n|n.is_zero()){
+            if let Some(e)=self.ex(){
+                return match e.eval_zero(i).map_err(err)?{
+                    Ok(value)=>Ok(w(value).into_pyobject(py)?.into_any().unbind()),
+                    Err(p)=>poly_obj(py,p),
+                };
+            }
+        }
         let g = self.p.true_gens()[i].clone();
         let r = symox::subs::subs(&self.p.as_expr(), &[(g, val)]);
         let r = symox::expand::expand(&r);
@@ -2154,10 +2326,32 @@ impl PyPoly {
 
     #[pyo3(signature = (*gens, auto=true))]
     fn integrate(&self, gens: &Bound<'_, PyTuple>, auto:bool) -> PyResult<PyPoly> {
-        if let Some(f)=self.ex().filter(|f|symox::poly::inexact_ground::is_inexact(f)&&f.gens.len()==1){
+        if let Some(f)=self.ex(){
             let mut f=f.clone();
-            let count=if gens.is_empty(){1}else{let mut n=0;for spec in gens.iter(){let c=if let Ok(t)=spec.downcast::<PyTuple>(){if t.len()!=2{return Err(PyValueError::new_err("integration specification must be (generator, order)"));}t.get_item(1)?.extract::<i64>()?}else{1};n+=c.max(0) as usize;}n};
-            f=symox::poly::inexact_ground::integrate(&f,count,auto).map_err(err)?;
+            if gens.is_empty(){return Ok(PyPoly{p:f.integrate_with_options(1,0,auto).map_err(err)?.into()});}
+            for spec in gens.iter(){
+                let (generator,count)=if let Ok(t)=spec.downcast::<PyTuple>(){
+                    if t.len()!=2{return Err(PyValueError::new_err("integration specification must be (generator, order)"));}
+                    (t.get_item(0)?,t.get_item(1)?.extract::<i64>()?)
+                }else{(spec,1)};
+                let j=self.gen_index(Some(&generator))?;
+                let count=match usize::try_from(count.max(0)){
+                    Ok(count)=>count,
+                    Err(_) if f.is_zero()=>{f=f.integrate_with_options(0,j,auto).map_err(err)?;continue;}
+                    Err(_)=>{
+                        // Preserve the old first integration step: an EX
+                        // coefficient can simplify to zero before any final
+                        // coordinate or addressability limit applies.
+                        let first=f.integrate_with_options(1,j,auto).map_err(err)?;
+                        if first.terms().is_empty(){
+                            let mut zero=ExpressionPoly::zero(&first.gens);zero.ground=first.ground;
+                            f=zero;continue;
+                        }
+                        return Err(pyo3::exceptions::PyOverflowError::new_err("integration order exceeds the addressable range"));
+                    }
+                };
+                f=f.integrate_with_options(count,j,auto).map_err(err)?;
+            }
             return Ok(PyPoly{p:f.into()});
         }
         let mut p=if self.ex().is_some(){self.p.clone()}else{self.p.integration_domain(auto)};
@@ -2878,7 +3072,7 @@ fn py_div<'py>(f: &Bound<'py, PyAny>, g: &Bound<'py, PyAny>, gens: &Bound<'py, P
 
 #[pyfunction]
 #[pyo3(signature = (f, G, *gens, order="lex", domain=None, modulus=None, polys=None, auto=None, extension=None, **_kwargs))]
-fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, G: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, polys: Option<bool>, auto: Option<bool>, extension: Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, G: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, polys: Option<bool>, auto: Option<bool>, extension: Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {symox::poly::mpoly::guard_representation(||{
     let g=G;
     let gaussian=_kwargs.map(|kw|kw.get_item("gaussian")).transpose()?.flatten();
     let gaussian_domain=named_gaussian_domain(py,gaussian.as_ref(),&[("domain",domain.is_some_and(|d|!d.is_none())),("extension",extension.is_some_and(|e|!e.is_none())),("modulus",modulus.is_some())])?;
@@ -2902,7 +3096,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, G: &Bound<'_, PyAny>, gen
     let mut selected=domains::Selection::new(domain,modulus,extension)?;
     let domain=selected.legacy.as_deref();
     let modulus=selected.modulus;
-    use symox::poly::convert::{from_exprs, from_exprs_gens, to_expr_f};
+    use symox::poly::convert::{from_exprs, from_exprs_gens};
     use symox::poly::groebner::{reduce_with_options, CoefficientField, MonomialOrder};
     let monomial_order = MonomialOrder::parse(order)
         .ok_or_else(|| PyValueError::new_err("order must be 'lex', 'grlex', or 'grevlex'"))?;
@@ -3033,7 +3227,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, G: &Bound<'_, PyAny>, gen
     };
     let qs = PyList::new(py,q.into_iter().map(object).collect::<PyResult<Vec<_>>>()?)?;
     PyTuple::new(py,[qs.into_any(),object(r)?.into_bound(py)])
-}
+},||err(symox::poly::mpoly::exponent_limit_error()))}
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
@@ -3563,6 +3757,8 @@ fn primitive_element(py:Python<'_>,extension:&Bound<'_,PyAny>,x:Option<&Bound<'_
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    ddm::register(m)?;
+    fraction_free::register(m)?;
     domains::register(m)?;
     division::register(m)?;
     root_analysis::register(m)?;

@@ -3242,7 +3242,7 @@ def _order_part(i):
             if i == 0:
                 return self.args[0]
             if i == 1:
-                return tuple(v for v, n in self.variable_count for _ in range(n))
+                return self._derivative_variables
         if self.is_Limit:
             if i == 0:
                 return self.args[0]
@@ -4581,3 +4581,18 @@ def _publish_mutable_matrix():
 
 _publish_mutable_matrix()
 del _publish_mutable_matrix
+
+# Capture the final scalar cancellation protocol for exact ground PolyMatrix kernels.
+from .polys._polymatrix_native import register_root as _register_polymatrix_root
+_register_polymatrix_root(globals())
+del _register_polymatrix_root
+
+# Authenticate the final Risch polynomial-reduction protocol before user hooks.
+from .integrals._risch_native import register_root as _register_risch_polynomial_root
+_register_risch_polynomial_root(globals())
+del _register_risch_polynomial_root
+
+# Exact splitfactor shares the stock Risch protocols through C metadata.
+from .integrals._risch_splitfactor_native import register_root as _register_risch_splitfactor_root
+_register_risch_splitfactor_root(globals())
+del _register_risch_splitfactor_root

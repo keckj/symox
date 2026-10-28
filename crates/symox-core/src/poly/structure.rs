@@ -118,7 +118,9 @@ fn transform(
             }
             output.push((t, c));
         }
-        return Ok(super::expression_domain::ExpressionPoly::from_terms(output, &gens)?.into());
+        let mut result=super::expression_domain::ExpressionPoly::from_terms(output, &gens)?;
+        result.ground=a.ground.clone();
+        return Ok(result.into());
     }
     if let Some(a) = &p.algebraic {
         let mut result = a.with_rep(changed(&a.rep, a.gens.len(), indices, &map, &inverse)?);
@@ -277,7 +279,9 @@ fn remap(
     if let Some(a) = &p.expression {
         expression_check(a)?;
         let terms = a.terms().into_iter().filter_map(|(e, c)| map(&e).map(|t| (t, c))).collect();
-        return Ok(super::expression_domain::ExpressionPoly::from_summed_terms(terms, &gens)?.into());
+        let mut result = super::expression_domain::ExpressionPoly::from_summed_terms(terms, &gens)?;
+        result.ground = a.ground.clone();
+        return Ok(result.into());
     }
     if let Some(a) = &p.algebraic {
         let mut result = a.with_rep(remapped(&a.rep, a.gens.len(), width, &map)?);
@@ -322,11 +326,18 @@ pub fn homogenize(p: &Polynomial, s: &Expr) -> PResult<Polynomial> {
             gens.len() - 1
         }
     };
-    if degree > u32::MAX as u64 {
-        return Err(resource("homogeneous degree"));
+    // The total degree may exceed one exponent's storage width. Only the
+    // new coordinate must fit: x**N*y**N + x**N can homogenize to
+    // x**N*y**N + x**N*z**N when 2*N exceeds u32.
+    let fits = with_support(p, |support| support.iter().all(|e| {
+        let missing = degree - e.iter().map(|&k| u64::from(k)).sum::<u64>();
+        u64::from(e.get(index).copied().unwrap_or(0)) + missing <= u64::from(u32::MAX)
+    }))?;
+    if !fits {
+        return Err(super::mpoly::exponent_limit_error());
     }
     let width = gens.len();
-    // powers[index] + missing <= degree, so the new exponent fits in u32.
+    // The support preflight proves each resulting coordinate fits in u32.
     remap(p, gens, |e| {
         let mut powers = e.to_vec();
         powers.resize(width, 0);
@@ -620,5 +631,23 @@ mod tests {
         assert!(!super::cyclotomic_p(&v(&[1, 0, 1, 0, 1]), false)); // Phi_3 * Phi_6
         assert!(!super::cyclotomic_p(&v(&[1, 2, 1]), false));
         assert!(!super::cyclotomic_p(&v(&[2, 1]), false));
+    }
+}
+
+#[cfg(test)]
+mod wide_total_degree_tests {
+    use super::*;
+    use super::super::{polyobj::{Poly,Domain},int::Rat};
+    #[test]
+    fn wide_total_degree_homogenization_checks_coordinates_only() {
+        let n=1u32<<31;
+        let x=Expr::symbol("x");let y=Expr::symbol("y");let z=Expr::symbol("z");
+        let p:Polynomial=Poly::new(MPoly::from_terms(2,vec![(vec![n,n],Rat::one()),(vec![n,0],Rat::one())]),vec![x,y.clone()],2,Domain::ZZ).into();
+        let h=homogenize(&p,&z).unwrap();
+        assert_eq!(h.monoms(),vec![vec![n,n,0],vec![n,0,n]]);
+        assert_eq!(homogeneous_order(&h).unwrap(),HomogeneousOrder::Degree(1u64<<32));
+        assert_eq!(homogenize(&p,&y).unwrap().monoms(),vec![vec![n,n]]);
+        let q=p.base.with_rep(p.base.rep.add(&MPoly::one(2)));
+        assert!(homogenize(&q.into(),&z).is_err());
     }
 }

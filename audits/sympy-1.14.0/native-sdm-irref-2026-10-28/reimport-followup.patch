@@ -1,0 +1,68 @@
+--- a/python/symox/polys/matrices/_sdm_irref_native.py
++++ b/python/symox/polys/matrices/_sdm_irref_native.py
+@@ -42,6 +42,11 @@
+ def register_irref(stock,namespace):
+     """Keep first bootstrap evidence; a reload cannot bless new callbacks."""
+     global _PROTOCOL
++    if _PROTOCOL is not None and _PROTOCOL[2][0][0] is not namespace:
++        # A fresh module owns different global lookups. Never authorize it
++        # using snapshots of a module removed from sys.modules. Ordinary
++        # reload reuses its dictionary and keeps the existing proof.
++        return _decline_irref
+     if _PROTOCOL is None:
+         names=('sorted','min','set','dict','enumerate','len')
+         aliases=tuple((namespace,name,namespace.get(name,_BUILTINS[name])) for name in names)
+@@ -53,6 +58,10 @@
+         bootstrap=_stock_aliases(aliases+((namespace,'all',_ALL),(namespace,'any',_ANY)))
+         _PROTOCOL=(stock,_DICT.__get__(stock)['__dict__'],aliases,bootstrap)
+     return native_irref
++
++
++def _decline_irref(matrix):
++    return None
+ 
+ 
+ def native_irref(matrix):
+--- /dev/null
++++ b/tests/test_sdm_irref_reimport.py
+@@ -0,0 +1,40 @@
++import os
++import subprocess
++import sys
++import pytest
++
++
++@pytest.mark.parametrize("name", ["min", "sorted", "set", "dict", "enumerate", "len", "defaultdict"])
++@pytest.mark.parametrize("container", ["dict", "sdm"])
++def test_reimported_module_preserves_its_own_consumed_callbacks(name, container):
++    source = r"""
++import builtins, collections, importlib, sys
++import symox as s
++old = importlib.import_module('symox.polys.matrices.sdm')
++a = {0: {0: s.QQ(1), 1: s.QQ(2)}, 1: {0: s.QQ(3), 1: s.QQ(4)}}
++assert old._native_irref(a) is not None
++del sys.modules['symox.polys.matrices.sdm']
++new = importlib.import_module('symox.polys.matrices.sdm')
++assert new is not old
++name, kind = sys.argv[1:]
++original = getattr(collections if name == 'defaultdict' else builtins, name)
++events = []
++def changed(*args, **kwargs):
++    events.append(name)
++    return original(*args, **kwargs)
++matrix = a if kind == 'dict' else new.SDM(a, (2, 2), s.QQ)
++setattr(new, name, changed)
++events.clear()
++actual = new.sdm_irref(matrix)
++observed = events[:]
++new._native_irref = lambda *args: None
++events.clear()
++expected = new.sdm_irref(matrix)
++legacy = events[:]
++assert actual == expected
++assert observed == legacy and observed, (observed, legacy)
++# A second namespace must neither overwrite nor disable the original proof.
++assert old._native_irref(a) is not None
++"""
++    subprocess.run([sys.executable, "-c", source, name, container],
++                   check=True, env=os.environ.copy(), timeout=20)

@@ -1,0 +1,42 @@
+{
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "04d221ece837895da0cdafd2ca80a3a737faf848f73ea5275dbfd5613b846634",
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+    "working_code_diff_sha256": "b8b70b9215e6cea86dd21f9483632662ab356c5c5c24be662658a0aeda1ddc53",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "files": [
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base_sha256": "272f7d4522cdb3c4c614ed227538cf05c1073a3624a5c470978dfd9e6f447047",
+      "final_sha256": "35d51e2a5d2d667066dd18ffbfb62707a6b52188f9161e07e768b5c0dd481146"
+    },
+    {
+      "path": "tests/test_polymatrix_presentation_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "6b94078b4e8968563dc7bbbde54e372f52a3ecaa5097b5f0953e358d72f04ab4"
+    }
+  ],
+  "patch_sha256": "ffe15698a39f732a1341a53d323a3ab65a3f3aebde56d61b86de001329fc1c2e",
+  "manifest_sha256": "ee296b15bbc273b7b736868eab6c5bf07116f1a8c67173021efdb78e9066ba51",
+  "source_files": 2994,
+  "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+  "native_unchanged": true,
+  "validation": {
+    "baseline_shard19": "57 failed,931 passed",
+    "local_shard19": 988,
+    "local_focused": 184,
+    "demeter_shard19": 988,
+    "demeter_coupling": 1187,
+    "exact_once": true,
+    "before_after_verified_files": 2994,
+    "existing_assertions_unchanged": true,
+    "git_apply_check": "main already contains exact final files; reverse apply --check passed"
+  }
+}

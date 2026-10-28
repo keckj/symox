@@ -899,7 +899,15 @@ fn contains_float(e: &Expr) -> bool {
 
 /// Roots of the characteristic polynomial of a block.
 fn block_roots(blk: &Matrix) -> MResult<Vec<(Expr, usize)>> {
-    let cp = blk.charpoly("lambda")?;
+    let mut cp = blk.charpoly("lambda")?;
+    // EXRAW coefficients require the same simplification as the public
+    // characteristic polynomial before roots are grouped. Treating related
+    // transcendental generators as independent can split one eigenvalue's
+    // algebraic multiplicity (e.g. cos(2*x)-cos(x)^2+sin(x)^2 == 0).
+    // Host-defined simplification protocols keep their established route.
+    if matches!(cp.domain.as_str(), "EX" | "EXRAW") && !cp.coeffs.iter().any(Expr::has_host) {
+        cp.coeffs = cp.coeffs.iter().map(crate::simplify::simplify).collect();
+    }
     // rational coefficients?
     let rats: Option<Vec<Rat>> = cp
         .coeffs

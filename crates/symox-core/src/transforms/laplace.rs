@@ -208,7 +208,10 @@ fn simple_pow(b: &Expr, n: &Expr, t: &Expr, s: &Expr) -> Option<R> {
             return None;
         }
         if n == &int(-1) {
-            return ok(neg(&div(&mul(&[exp(&bas), ei(&neg(&bas))]), &a)), z);
+            // beta=c/a is positive: exp(beta*s)*E1(beta*s)/a is
+            // analytic on Re(s)>0. Replacing E1(z) by -Ei(-z) would
+            // lose +/-i*pi off the positive real s axis.
+            return ok(div(&mul(&[exp(&bas), e1(&bas)]), &a), z);
         }
         if n == &rat(-1, 2) {
             let pi = Expr::pi();
@@ -364,7 +367,9 @@ fn simple_func(head: &Func, args: &[Expr], t: &Expr, s: &Expr) -> Option<R> {
                 return None;
             }
             let q = div(&mul(&[s.clone(), c.clone()]), &a);
-            let r = div(&sub(&log(&c), &mul(&[exp(&q), ei(&neg(&q))])), s);
+            // Integration by parts uses the same principal E1 transform
+            // of 1/(a*t+c). Preserve it also for complex frequency shifts.
+            let r = div(&add(&[log(&c), mul(&[exp(&q), e1(&q)])]), s);
             ok(r, z)
         }
         Func::Sin => {
@@ -907,4 +912,23 @@ fn expand_rule(f: &Expr, t: &Expr, s: &Expr, depth: u32) -> Option<R> {
         return Some(lt(&r, t, s, depth + 1));
     }
     None
+}
+
+
+#[cfg(test)]
+mod e1_branch_tests {
+    use super::*;
+    use crate::parser::parse_str;
+    fn p(s:&str)->Expr{parse_str(s).unwrap()}
+    #[test]
+    fn shifted_reciprocal_and_log_keep_principal_e1() {
+        let t=Expr::symbol("t");let s=Expr::symbol("s");
+        for (f,want) in [("1/(t+1)","exp(s)*expint(1,s)"),
+            ("1/(2*t+3)","exp(3*s/2)*expint(1,3*s/2)/2"),
+            ("log(t+1)","exp(s)*expint(1,s)/s"),
+            ("log(2*t+3)","(log(3)+exp(3*s/2)*expint(1,3*s/2))/s")] {
+            let (got,plane,condition)=laplace_transform(&p(f),&t,&s,false);
+            assert_eq!(got,p(want));assert!(plane.is_zero());assert_eq!(condition,Expr::boolean(true));
+        }
+    }
 }

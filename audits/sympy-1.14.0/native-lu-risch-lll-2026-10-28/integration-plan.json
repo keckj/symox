@@ -1,0 +1,321 @@
+{
+  "status": "integrated; private final gates and combined release/full validation pending",
+  "base_accepted_native": "7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6",
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/lu.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "LU",
+          "base": null,
+          "private_final": "9136586e48725079981326269280b99c87c96eb2a333fad0407e77965c672a3f"
+        }
+      ],
+      "candidate": "9136586e48725079981326269280b99c87c96eb2a333fad0407e77965c672a3f"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "current": "c3fa67f3148f352aadd5ec22d4deae1e0602415d4d954f07c91b74684f734b6b",
+      "steps": [
+        {
+          "component": "LU",
+          "base": "c3fa67f3148f352aadd5ec22d4deae1e0602415d4d954f07c91b74684f734b6b",
+          "private_final": "34cc79640caa7968297e6dd9d8b5c0480bcbf56cc26244988a528a7fed1a122d"
+        }
+      ],
+      "candidate": "34cc79640caa7968297e6dd9d8b5c0480bcbf56cc26244988a528a7fed1a122d"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lu.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "LU",
+          "base": null,
+          "private_final": "c3557a59e8bda84cb6df9a1b18264d1ddf874500b507d20bb3f58e2107afe39d"
+        }
+      ],
+      "candidate": "c3557a59e8bda84cb6df9a1b18264d1ddf874500b507d20bb3f58e2107afe39d"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "current": "22fcba9d15a2592cb83f3dddd8df2628c1d79399d1e6aeb6e65d4437e695bf84",
+      "steps": [
+        {
+          "component": "LU",
+          "base": "22fcba9d15a2592cb83f3dddd8df2628c1d79399d1e6aeb6e65d4437e695bf84",
+          "private_final": "99dd9447e1ac117184c1e61cd50b6d6397e88ac9d2f608c8de4c61f4e50e4488"
+        }
+      ],
+      "candidate": "99dd9447e1ac117184c1e61cd50b6d6397e88ac9d2f608c8de4c61f4e50e4488"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lu_native.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "LU",
+          "base": null,
+          "private_final": "30da2d2c1e49b327bddf5f8309073fae9bb44ea738ff1e5c6703908ac46fdf64"
+        }
+      ],
+      "candidate": "30da2d2c1e49b327bddf5f8309073fae9bb44ea738ff1e5c6703908ac46fdf64"
+    },
+    {
+      "path": "python/symox/polys/matrices/dense.py",
+      "current": "06f98fcb7871200f44e54190eb1c84d9d92748144ec06cba62aa53a36af8950a",
+      "steps": [
+        {
+          "component": "LU",
+          "base": "06f98fcb7871200f44e54190eb1c84d9d92748144ec06cba62aa53a36af8950a",
+          "private_final": "f3b034cbf4955e0264399161eb6eb39fe71b33b26e3358efd8f796e2bff2be5f"
+        }
+      ],
+      "candidate": "f3b034cbf4955e0264399161eb6eb39fe71b33b26e3358efd8f796e2bff2be5f"
+    },
+    {
+      "path": "tests/test_native_ddm_lu.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "LU",
+          "base": null,
+          "private_final": "baa629f9770240681b8e139443ce6df92b0b0e148d24c2e6a3e088384306e3b4"
+        }
+      ],
+      "candidate": "baa629f9770240681b8e139443ce6df92b0b0e148d24c2e6a3e088384306e3b4"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lll_cache.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL",
+          "base": null,
+          "private_final": "f9ab1b4ef85a53ca6ddfef8e05f59b2218b8505e75edf9d93f557eaa72c773e5"
+        }
+      ],
+      "candidate": "f9ab1b4ef85a53ca6ddfef8e05f59b2218b8505e75edf9d93f557eaa72c773e5"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lll.rs",
+      "current": "0416c06de05dcb814566e0f4d7669e16d192eb6b7c2f76b5953e5bb3a6b35215",
+      "steps": [
+        {
+          "component": "LLL",
+          "base": "0416c06de05dcb814566e0f4d7669e16d192eb6b7c2f76b5953e5bb3a6b35215",
+          "private_final": "ca68ec57acc9b584616a420ba7f81d634f01b1883054d79e60cfad2dc0b1e115"
+        }
+      ],
+      "candidate": "ca68ec57acc9b584616a420ba7f81d634f01b1883054d79e60cfad2dc0b1e115"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lll_native.py",
+      "current": "b37b1754fa28cb77e3d51129d9fcca40e7228706792ff61fc65fa74d580fd825",
+      "steps": [
+        {
+          "component": "LLL",
+          "base": "b37b1754fa28cb77e3d51129d9fcca40e7228706792ff61fc65fa74d580fd825",
+          "private_final": "37916371f2d7f400f8322471110fc47f2322a3d0b0cce1be9029bc518e8811b1"
+        },
+        {
+          "component": "LLL-getters",
+          "base": "37916371f2d7f400f8322471110fc47f2322a3d0b0cce1be9029bc518e8811b1",
+          "private_final": "77f44aa9c787af80e772f5f2b72328273955b908d989a4cc73600ee51f47ec4d"
+        }
+      ],
+      "candidate": "77f44aa9c787af80e772f5f2b72328273955b908d989a4cc73600ee51f47ec4d"
+    },
+    {
+      "path": "tests/test_native_lll_cold_cache.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "LLL",
+          "base": null,
+          "private_final": "4b0b28deb77fadff7b3145ec31c055e010f320f054acff0dfe269233156d981c"
+        },
+        {
+          "component": "LLL-getters",
+          "base": "4b0b28deb77fadff7b3145ec31c055e010f320f054acff0dfe269233156d981c",
+          "private_final": "f7abf87c91809c9627c18b48037dff9501d76980b562361958ca250f5901bb60"
+        }
+      ],
+      "candidate": "f7abf87c91809c9627c18b48037dff9501d76980b562361958ca250f5901bb60"
+    },
+    {
+      "path": "crates/symox-core/src/integrate.rs",
+      "current": "537b0c7f0ff9df1e31376f31995abf32675570540632928e8ed1c1f68ac38ae1",
+      "steps": [
+        {
+          "component": "Risch",
+          "base": "537b0c7f0ff9df1e31376f31995abf32675570540632928e8ed1c1f68ac38ae1",
+          "private_final": "066c0473bf2099a5699a1f5893bc8a5fa5a7fdc1a65e318d86f13e37c37646bf"
+        }
+      ],
+      "candidate": "066c0473bf2099a5699a1f5893bc8a5fa5a7fdc1a65e318d86f13e37c37646bf"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/risch_polynomial_reduce.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "Risch",
+          "base": null,
+          "private_final": "6613d26f151b556ef54fa79f271c8fa73ba464e0dedf44a32d693033c4f5d9f9"
+        }
+      ],
+      "candidate": "6613d26f151b556ef54fa79f271c8fa73ba464e0dedf44a32d693033c4f5d9f9"
+    },
+    {
+      "path": "crates/symox-py/src/lib.rs",
+      "current": "cd8e0575faf51a32a0b47f359d122d8afbbed155c748687cfff9319eda4156c9",
+      "steps": [
+        {
+          "component": "Risch",
+          "base": "cd8e0575faf51a32a0b47f359d122d8afbbed155c748687cfff9319eda4156c9",
+          "private_final": "a56f0c4c9be7ec0d881150b5ad1e5a234ce8566d4c1eba5eed5c8bb8eba4fdd7"
+        }
+      ],
+      "candidate": "a56f0c4c9be7ec0d881150b5ad1e5a234ce8566d4c1eba5eed5c8bb8eba4fdd7"
+    },
+    {
+      "path": "crates/symox-py/src/risch_polynomial_reduce.rs",
+      "current": null,
+      "steps": [
+        {
+          "component": "Risch",
+          "base": null,
+          "private_final": "0900fd2086e330f81863c9f30a240ae7569ee777f878b23fc7af6edd3d719b23"
+        }
+      ],
+      "candidate": "0900fd2086e330f81863c9f30a240ae7569ee777f878b23fc7af6edd3d719b23"
+    },
+    {
+      "path": "python/symox/__init__.py",
+      "current": "440c2d5f7bc8014e7cf37d40d1c3a2566423ad2613e08fa93ce104562e9001cc",
+      "steps": [
+        {
+          "component": "Risch",
+          "base": "440c2d5f7bc8014e7cf37d40d1c3a2566423ad2613e08fa93ce104562e9001cc",
+          "private_final": "4b80c6a467145cb5fdba0dd4e94028901e7b63626552dd411fbd0bf5ff97762d"
+        }
+      ],
+      "candidate": "4b80c6a467145cb5fdba0dd4e94028901e7b63626552dd411fbd0bf5ff97762d"
+    },
+    {
+      "path": "python/symox/integrals/risch.py",
+      "current": "d18755e7b4ba98ff8e77ef2bdca5fe36df4c810bd0c62aad4c06bc9d3cfc1ac0",
+      "steps": [
+        {
+          "component": "Risch",
+          "base": "d18755e7b4ba98ff8e77ef2bdca5fe36df4c810bd0c62aad4c06bc9d3cfc1ac0",
+          "private_final": "0bdd26a9751309c27d58d4c6273f880cdc12674c07922b7582db0732f2c9e987"
+        }
+      ],
+      "candidate": "0bdd26a9751309c27d58d4c6273f880cdc12674c07922b7582db0732f2c9e987"
+    },
+    {
+      "path": "python/symox/integrals/_risch_native.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "Risch",
+          "base": null,
+          "private_final": "29cae01b4593e04769611d68b0fe2e6efb53117f83f2474ff68b6a422e1fafd7"
+        },
+        {
+          "component": "Risch-reload",
+          "base": "29cae01b4593e04769611d68b0fe2e6efb53117f83f2474ff68b6a422e1fafd7",
+          "private_final": "061da4a98a31b1093fed5f66925c83316ccf87a405e08436d38d5a0778783afb"
+        },
+        {
+          "component": "Risch-serializer",
+          "base": "061da4a98a31b1093fed5f66925c83316ccf87a405e08436d38d5a0778783afb",
+          "private_final": "a65210beafe22a34b3ca1cda949091dace2826b664df01be3d006a524767e569"
+        },
+        {
+          "component": "Risch-delegate",
+          "base": "a65210beafe22a34b3ca1cda949091dace2826b664df01be3d006a524767e569",
+          "private_final": "464dffce10915c8902e751503ccf90921a84acec7e3c917d85e478ea940fa684"
+        }
+      ],
+      "candidate": "464dffce10915c8902e751503ccf90921a84acec7e3c917d85e478ea940fa684"
+    },
+    {
+      "path": "tests/test_native_risch_polynomial_reduce.py",
+      "current": null,
+      "steps": [
+        {
+          "component": "Risch",
+          "base": null,
+          "private_final": "3c0abf9825a4db31b5f0fc451945f855bd4023835112d1a7219770d0f14a151c"
+        },
+        {
+          "component": "Risch-reload",
+          "base": "3c0abf9825a4db31b5f0fc451945f855bd4023835112d1a7219770d0f14a151c",
+          "private_final": "6cc37a7e2d33b686883f3414fddcb6ac44de99a276da2af6a249dbba48a07ab0"
+        },
+        {
+          "component": "Risch-serializer",
+          "base": "6cc37a7e2d33b686883f3414fddcb6ac44de99a276da2af6a249dbba48a07ab0",
+          "private_final": "f23a71c76cf02211ddf514aa5d7b73631d44e8e0250235d6a755fc3f50a3e444"
+        },
+        {
+          "component": "Risch-delegate",
+          "base": "f23a71c76cf02211ddf514aa5d7b73631d44e8e0250235d6a755fc3f50a3e444",
+          "private_final": "2e3d88d52fbc63b3322ae9c947af2c919592a7beffeb60869b2898d7fa65bd17"
+        }
+      ],
+      "candidate": "2e3d88d52fbc63b3322ae9c947af2c919592a7beffeb60869b2898d7fa65bd17"
+    }
+  ],
+  "components": [
+    {
+      "label": "LU",
+      "manifest": "/home/keckj/.cache/symox-validation/native-ddm-lu-r7-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "3d776a3d8366d948b7522f830343de69f155655f5eae5ed4d0abafe2d739c12b",
+      "source": "/home/keckj/.cache/symox-validation/native-ddm-lu-r7-20261028/proof/frozen-source"
+    },
+    {
+      "label": "LLL",
+      "manifest": "/home/keckj/.cache/symox-validation/native-lll-cold-r7-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "2c93f09879c0c9d83e41f370d82302ba6db277c53253d1bffe06fec298abd239",
+      "source": "/home/keckj/.cache/symox-validation/native-lll-cold-r7-20261028/proof/frozen-source"
+    },
+    {
+      "label": "Risch",
+      "manifest": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-r7-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "d3b39697444083506c21d6e3570f7485aa5e9d2edc900007ec4e79c78e774206",
+      "source": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-r7-20261028/proof/frozen-source"
+    },
+    {
+      "label": "LLL-getters",
+      "manifest": "/home/keckj/.cache/symox-validation/native-lll-cold-getters-r9-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "29e93fe0541d8d73f82368af677b737cc8c765dde3d14a575bc2ec2243d13d8e",
+      "source": "/home/keckj/.cache/symox-validation/native-lll-cold-getters-r9-20261028/proof/frozen-source"
+    },
+    {
+      "label": "Risch-reload",
+      "manifest": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-followup-r7-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "cc7f18eb444cb127aae3ccb9d21d3e5fe6cd5df9fbaab99682ec92c4e8a5a5e6",
+      "source": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-followup-r7-20261028/proof/frozen-source"
+    },
+    {
+      "label": "Risch-serializer",
+      "manifest": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-serializer-r7-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "f0b99aec51ee92472b336abc7418639c7a5f8f80e02324e8c00d2695c21e0084",
+      "source": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-serializer-r7-20261028/proof/frozen-source"
+    },
+    {
+      "label": "Risch-delegate",
+      "manifest": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-serializer-delegate-r7-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "ba5cc28d2045806c18521146f1298d3a5fb63d1bbc1e327671d3a803f677b6cb",
+      "source": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-serializer-delegate-r7-20261028/proof/frozen-source"
+    }
+  ],
+  "merged_patch_sha256": "960af42cc220fc24d6134cad337ab322dcce0e429cf1803be34bdb0e1b9d5491",
+  "ordered_patch_replay_verified": true,
+  "final_patch_replay_verified": true
+}

@@ -36,7 +36,7 @@ impl Signature {
                 .monomial
                 .iter()
                 .zip(monomial)
-                .map(|(a, b)| a + b)
+                .map(|(a, b)| super::mpoly::exponent_add(*a,*b))
                 .collect(),
             position: self.position,
         }
@@ -250,9 +250,9 @@ struct ResultWithTrace<C: Field> {
 }
 
 /// Compute F5B without retaining polynomial transformation matrices.
-pub fn f5b<C: Field>(input: &[MPoly<C>], order: MonomialOrder) -> PResult<Vec<MPoly<C>>> {
+pub fn f5b<C: Field>(input: &[MPoly<C>], order: MonomialOrder) -> PResult<Vec<MPoly<C>>> {super::mpoly::checked_operation(||{
     Ok(run(input, order, false)?.basis)
-}
+})}
 
 /// An independently checkable equality-of-ideals and Groebner certificate.
 #[derive(Clone, Debug)]
@@ -265,14 +265,14 @@ pub struct CertifiedBasis<C: Field> {
 pub fn f5b_certified<C: Field>(
     input: &[MPoly<C>],
     order: MonomialOrder,
-) -> PResult<CertifiedBasis<C>> {
+) -> PResult<CertifiedBasis<C>> {super::mpoly::checked_operation(||{
     let result = run(input, order, true)?;
     Ok(CertifiedBasis {
         basis: result.basis,
         witnesses: result.witnesses.unwrap(),
         stats: result.stats,
     })
-}
+})}
 impl<C: Field> CertifiedBasis<C> {
     pub fn verify(&self, input: &[MPoly<C>], order: MonomialOrder) -> bool {
         if self.witnesses.len() != self.basis.len() {
@@ -634,7 +634,7 @@ pub fn f5b_modular(
     input: &[MPoly<Rat>],
     order: MonomialOrder,
     prime: u64,
-) -> PResult<Vec<MPoly<Rat>>> {
+) -> PResult<Vec<MPoly<Rat>>> {super::mpoly::checked_operation(||{
     let _scope = PrimeScope::new(prime)?;
     let converted = input
         .iter()
@@ -656,7 +656,7 @@ pub fn f5b_modular(
             )
         })
         .collect())
-}
+})}
 
 #[cfg(test)]
 mod tests {

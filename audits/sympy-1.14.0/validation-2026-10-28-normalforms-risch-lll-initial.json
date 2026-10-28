@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-28",
+  "status": "failed initial complete gate; not accepted",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "1801af86581c822b537ed5899d0e7d03ee046db1987b39f13f422fe6fe44e1f9",
+    "native_sha256": "532c4b08d546d9d580306ad7e40317e2fbbbe80aa8d77d4749b35682d3ee9c90",
+    "working_code_diff_sha256": "f5ca3791ef7713ea5bdb879dc36fd35ad3e0a60e88e98e5f5bafc3e11a25d570",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 3379,
+  "python": {
+    "counts": {
+      "passed": 52433,
+      "xfailed": 4,
+      "skipped": 55,
+      "failed": 4
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 52496,
+      "collected_in_shards": 52496,
+      "finished": 52496,
+      "missing": [],
+      "unexpected": []
+    },
+    "failures": [
+      {
+        "shard": "shard-30",
+        "class": "tests.test_polymatrix_host_protocol",
+        "name": "test_official_host_hook_keeps_native_ground_and_full_public_result[rref-QQ]"
+      },
+      {
+        "shard": "shard-30",
+        "class": "tests.test_polymatrix_host_protocol",
+        "name": "test_official_host_hook_keeps_native_ground_and_full_public_result[rref-RF]"
+      },
+      {
+        "shard": "shard-30",
+        "class": "tests.test_polymatrix_host_protocol",
+        "name": "test_official_host_hook_keeps_native_ground_and_full_public_result[nullspace-QQ]"
+      },
+      {
+        "shard": "shard-30",
+        "class": "tests.test_polymatrix_host_protocol",
+        "name": "test_official_host_hook_keeps_native_ground_and_full_public_result[nullspace-RF]"
+      }
+    ],
+    "shards": 48,
+    "each_node_once": true
+  },
+  "rust": {
+    "unit_passed": 751,
+    "integration_tests_passed": 1,
+    "integration_fixture_cases": 651,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "core_clippy_returncode": 0,
+    "bindings_clippy_returncode": 0,
+    "native_inputs": 350,
+    "inputs_unchanged": true
+  },
+  "root_targeted": {
+    "combined": {
+      "returncode": 0,
+      "elapsed_seconds": 145.98979830741882,
+      "collected": 7576,
+      "exactly_once": true
+    }
+  },
+  "diagnosis": "Exact shard30 isolates _core.Expr class proof divergence after tests/test_downstream_function_conversion.py::test_callable_slots_are_confined_to_lambdas_and_predicates imports official diffgeom dispatch. No captured function or lookup invalidated, HostTree remains valid. New HNF/LU/Cmetadata does not cause this refusal; official arithmetic/atoms/rcall wrapper proof is being examined. Existing native-admission assertions remain intact.",
+  "cache": "/home/keckj/.cache/symox-validation/native-normalforms-risch-lll-r11-20261028",
+  "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-normalforms-risch-lll-r11-20261028/after",
+  "performance": "No R11 measurements started; full gate must pass first.",
+  "global_algorithmic_parity_certified": false
+}

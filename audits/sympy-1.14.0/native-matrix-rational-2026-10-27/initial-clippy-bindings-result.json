@@ -1,0 +1,14 @@
+{
+  "command": [
+    "cargo",
+    "clippy",
+    "-p",
+    "symox-py",
+    "--",
+    "-D",
+    "clippy::correctness"
+  ],
+  "returncode": 0,
+  "elapsed_seconds": 41.53553032875061,
+  "native_inputs_unchanged": true
+}

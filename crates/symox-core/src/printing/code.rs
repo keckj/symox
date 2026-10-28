@@ -466,6 +466,7 @@ impl<'a> CodePrinter<'a> {
                 }
                 self.print_pow(b, x)
             }
+            Kind::Func(Func::SymbolicDerivative,_) => Err(CodeError::Unsupported("Derivative".into())),
             Kind::Func(..) => {
                 if let Some(m) = self.macro_for(e) {
                     return Ok(m.to_string());
@@ -606,7 +607,7 @@ impl<'a> CodePrinter<'a> {
             },
             Constant::EulerGamma => match l {
                 Lang::NumPy => "numpy.euler_gamma".into(),
-                _ => self.number_symbol("EulerGamma", 0.577_215_664_901_532_9),
+                _ => self.number_symbol("EulerGamma", crate::expr::EULER_GAMMA_F64),
             },
             Constant::Catalan | Constant::GoldenRatio | Constant::TribonacciConstant => {
                 self.number_symbol(c.name(), c.approx_f64().unwrap())

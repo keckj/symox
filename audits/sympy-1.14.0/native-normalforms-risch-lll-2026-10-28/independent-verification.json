@@ -1,0 +1,15 @@
+{
+  "prior_skips_and_xfails_preserved": true,
+  "all_initial_nodes_preserved": 52496,
+  "new_nodes_by_file": {
+    "tests/test_native_matrix_closure_tuple_protocol.py": 6,
+    "tests/test_polymatrix_diffgeom_protocol.py": 61
+  },
+  "source_entries_checked": 3436,
+  "native_build_input_paths_and_hashes_verified": 350,
+  "compile_time_tsv_fixture_included": true,
+  "collection_execution_counters_equal": true,
+  "each_node_once": true,
+  "nodes": 52563,
+  "shards": 48
+}

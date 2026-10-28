@@ -1,0 +1,131 @@
+{
+  "sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+  "module": "/home/keckj/symox-ci/wt/native-lrt-limits-20261027/python/symox/__init__.py",
+  "variant": "vector",
+  "cpu": 24,
+  "affinity": [
+    24
+  ],
+  "reference_imported": false,
+  "iterations": 20,
+  "rounds": 5,
+  "cases": {
+    "lrt/quadratic": {
+      "median_ns_per_pair": 1154389.8,
+      "rounds_ns_per_pair": [
+        1154389.8,
+        1146669.55,
+        1165863.7,
+        1158092.7,
+        1145107.5
+      ],
+      "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": []
+    },
+    "lrt/quartic": {
+      "median_ns_per_pair": 1298429.6,
+      "rounds_ns_per_pair": [
+        1295709.85,
+        1298429.6,
+        1305618.4,
+        1297114.9,
+        1316712.5
+      ],
+      "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": []
+    },
+    "lrt/nonconstant_numerator": {
+      "median_ns_per_pair": 1374848.55,
+      "rounds_ns_per_pair": [
+        1379642.7,
+        1374848.55,
+        1371973.05,
+        1383776.05,
+        1371099.05
+      ],
+      "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": []
+    },
+    "lrt/multiplicity_groups": {
+      "median_ns_per_pair": 2581711.05,
+      "rounds_ns_per_pair": [
+        2589964.95,
+        2591421.2,
+        2581711.05,
+        2552702.5,
+        2553454.0
+      ],
+      "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": []
+    },
+    "lrt/distinct_arguments": {
+      "median_ns_per_pair": 1731833.41875,
+      "rounds_ns_per_pair": [
+        1719321.09375,
+        1736091.8125,
+        1745626.95625,
+        1731833.41875,
+        1709390.41875
+      ],
+      "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03",
+      "pairs_per_batch": 8,
+      "native_selected_outside_timers": []
+    },
+    "atan/linear_branch": {
+      "median_ns_per_pair": 85085.3,
+      "rounds_ns_per_pair": [
+        87623.4,
+        85085.3,
+        84558.4,
+        87845.05,
+        84751.6
+      ],
+      "digest": "058bc83e0901e8a1486174fc6817ff45bb68c190a9ab69c8d7034123acf056ef",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": []
+    },
+    "atan/quadratic": {
+      "median_ns_per_pair": 112692.6,
+      "rounds_ns_per_pair": [
+        114602.45,
+        112692.6,
+        112730.9,
+        112496.15,
+        112144.5
+      ],
+      "digest": "c82fd8fd618fb7cae452743587e352fbe05de6f1ed4fcbb7e77ea07f78c239c7",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": []
+    },
+    "atan/quartic": {
+      "median_ns_per_pair": 238807.6,
+      "rounds_ns_per_pair": [
+        238807.6,
+        236360.2,
+        238876.35,
+        242689.35,
+        237269.6
+      ],
+      "digest": "b950b176992c3d1e0295532bf4eb0dc2e1431057c44003ee82f0839f995ae2ff",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": []
+    },
+    "atan/distinct_arguments": {
+      "median_ns_per_pair": 207386.75,
+      "rounds_ns_per_pair": [
+        208833.8625,
+        207386.75,
+        207106.9875,
+        207898.5,
+        206589.7625
+      ],
+      "digest": "1d0eb8ff88d2298f7bc7b7afc833255ee8fab1c30b18abc2e6017961ea4a1938",
+      "pairs_per_batch": 4,
+      "native_selected_outside_timers": []
+    }
+  }
+}

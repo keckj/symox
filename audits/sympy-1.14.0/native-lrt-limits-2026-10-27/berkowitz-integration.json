@@ -1,0 +1,25 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-kernels-20261026/next-branches/ddm_berkowitz",
+  "files": {
+    "crates/symox-core/src/matrix/ff.rs": {
+      "base": "cb791b4393dd6e14b3151b2eb6c2898950918a7df0fb66cfe23bd5b012e77479",
+      "final": "58e7a9b2db2713aad24a0ae175ad2352319700325f63bb4f5a4e91671755e3ca"
+    },
+    "crates/symox-core/src/matrix/linalg.rs": {
+      "base": "82c3cbdac91868a6585aac41e0c32f999d4ada1cd5ac49804a5cb13ea4235d5d",
+      "final": "82f93149d9dc151030b6f4993f51bc3dd11345c8f58704e4a01e5a58a899fdce"
+    },
+    "crates/symox-py/src/poly_ddm.rs": {
+      "base": "c603b6cf3ee39cf2c63f15880112324f0f959fae955968c73e54a403921c6bff",
+      "final": "d9ad84696776b622dcfebe44154fa4ada43bae6ed2ee3941f1acabf0244f042f"
+    },
+    "python/symox/polys/matrices/dense.py": {
+      "base": "2386f5b8795a669922d8dc92c6d610463c0f944e950c122fcadcc88dfcb0f3b6",
+      "final": "06f98fcb7871200f44e54190eb1c84d9d92748144ec06cba62aa53a36af8950a"
+    },
+    "tests/test_native_ddm_berkowitz.py": {
+      "base": null,
+      "final": "96bd5545573352633d8706138888362ed69ba5cfc87dda7d248a0098544e239d"
+    }
+  }
+}

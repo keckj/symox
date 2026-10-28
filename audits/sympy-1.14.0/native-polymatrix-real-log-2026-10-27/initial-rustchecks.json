@@ -1,0 +1,26 @@
+{
+  "tests": {
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "symox"
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 165.4398546218872
+  },
+  "clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "-p",
+      "symox",
+      "--",
+      "-D",
+      "clippy::correctness"
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 0.19385862350463867
+  },
+  "rust_inputs_unchanged": true
+}

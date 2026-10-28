@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "scope": "Native architecture follow-up: complex multivariate polynomial operations, guarded nested exponentials, exact hypergeometric poles, native radsimp and matrix dispatch, monotonicity and indexed identity regressions",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "94903b9bbe6a5dcf9d21080310b65143c7b6e32a7790a3e33ba42d15a57a7266",
+    "native_sha256": "345253365beafcb9192f25c35a6500b2aec1defed2484441f0c622d9b5e8a43c",
+    "working_code_diff_sha256": "eb0302ae5ed3ac9e0c7dfa0ea1eb11fff04ac4390e5376fbf3063620b58ffa8a",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 455.0183172225952,
+    "native_sha256": "345253365beafcb9192f25c35a6500b2aec1defed2484441f0c622d9b5e8a43c"
+  },
+  "python": {
+    "host": "demeter",
+    "suite": "Complete tests collection including tests/extra and compare_printing.py",
+    "shards": 48,
+    "counts": {
+      "passed": 45174,
+      "xfailed": 6,
+      "skipped": 55,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 45235,
+      "collected_in_shards": 45235,
+      "finished": 45235,
+      "missing": [],
+      "unexpected": []
+    },
+    "skip_reasons": {
+      "set TRISPLYNE_PATH to run the real consumer integration tests": 4,
+      "Set TRISPLYNE_PRINTERS to run the trisplyne integration checks": 27,
+      "reference returns nan/infinite pseudo-roots; independently checked below": 4,
+      "pytest-style module, collected on its own": 1,
+      "TeX rendering tools unavailable": 1,
+      "Graphviz unavailable": 1,
+      "TeX converters unavailable": 1,
+      "Slang cuda device unavailable: Failed to create device!\n/project/src/sgl/device/device.cpp:280 in function Device": 15,
+      "AdaptiveCpp SDK not installed; set SYMOX_ACPP to test compilation": 1
+    },
+    "elapsed_seconds": 185.0333023071289,
+    "environment": {
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+      "packages": {
+        "pytest": "9.1.1",
+        "sympy": "1.14.0",
+        "mpmath": "1.3.0",
+        "numpy": "2.2.6",
+        "torch": "2.14.1",
+        "jax": "0.6.2",
+        "slangpy": "0.43.1"
+      },
+      "compilers": {
+        "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+        "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+        "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+        "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+      },
+      "symox_file": "/home/keckj/symox-ci/wt/autonomy-final-20261026T124300Z/python/symox/__init__.py",
+      "native_sha256": "345253365beafcb9192f25c35a6500b2aec1defed2484441f0c622d9b5e8a43c"
+    },
+    "new_regressions": {
+      "test_complex_multivariate_cancel_parity.py": 75,
+      "test_hyper_unit_singularities_parity.py": 82,
+      "test_symbolic_nested_exp_parity.py": 46,
+      "test_matrix_native_domain_dispatch.py": 27,
+      "test_radsimp_native_numeric_preparation.py": 27,
+      "test_monotonic_constant_parameters.py": 9,
+      "test_indexed_identity_parity.py": 9
+    }
+  },
+  "rust": {
+    "host": "local",
+    "unit_tests_passed": 587,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 80.66876673698425
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 18.499139070510864
+      },
+      "rust_inputs_unchanged": true
+    }
+  },
+  "protocol": {
+    "execution": "48 disjoint file shards of full collection; no ignore filters; each collected node finishes exactly once",
+    "environment_changes": "Rust minimal toolchain installed on demeter; PATH explicitly includes ~/.cargo/bin. Fortran already installed. SYMOX_CI_PY is snapshot/python; no JAX precision/platform overrides.",
+    "initial_screening": "Preliminary f59 release: 32 failing tests. Domain conventions, binding dispatch, monotonicity proof consumer and pre-existing Indexed metadata collision corrected. Mathematical identities and complete branch guards justify representation-contract changes. Native convergent Gauss shortcut removed after measured 40x regression."
+  },
+  "performance_evidence": "../performance/2026-10-26-native-dispatch/comparison.json",
+  "evidence": {
+    "local_directory": "/home/keckj/.cache/symox-validation/autonomy-20261026T124300Z",
+    "demeter_directory": "/home/keckj/symox-ci/wt/autonomy-final-20261026T124300Z/.validation",
+    "final_results": "demeter-final/summary.json",
+    "preliminary_results": "demeter-preliminary/summary.json",
+    "source_manifest": "source-manifest.json"
+  },
+  "remaining_gaps": [
+    "Python mathematical algorithms remain to port to Rust; this batch does not complete the architecture migration.",
+    "The pre-existing held-equation partial-substitution gap (y=0 then a=-oo) is retained as a strict expected failure.",
+    "Multivariate operations over real fraction grounds RR(y) retain their existing explicit unsupported error.",
+    "General complex/irrational/symbolic hypergeometric certification, shifted reciprocal-trig inverses and remaining TODO capabilities are not closed.",
+    "The complete documentation-example audit and standalone ODE/integration corpora were not replayed; no global mathematical parity claim."
+  ]
+}

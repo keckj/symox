@@ -30,6 +30,7 @@ import sys
 import tempfile
 
 import numpy as np
+import pytest
 import sympy
 from sympy.printing.numpy import NumPyPrinter
 
@@ -479,8 +480,12 @@ static dim3_ blockIdx = {0}, threadIdx = {0}, blockDim = {1}, gridDim = {1};
 #define __device__
 #define __forceinline__ inline
 #define __restrict__
-static inline double rsqrt(double x) { return 1.0 / sqrt(x); }
-static inline float rsqrtf(float x) { return 1.0f / sqrtf(x); }
+static inline double symox_test_cuda_rsqrt(double x) { return 1.0 / sqrt(x); }
+static inline float symox_test_cuda_rsqrtf(float x) { return 1.0f / sqrtf(x); }
+// CUDA intrinsics belong to this CPU test shim. libc may export rsqrt and
+// rsqrtf too, so map calls after the system headers without redeclaring them.
+#define rsqrt(x) symox_test_cuda_rsqrt(x)
+#define rsqrtf(x) symox_test_cuda_rsqrtf(x)
 #define __sinf(x) sinf(x)
 #define __cosf(x) cosf(x)
 #define __tanf(x) tanf(x)
@@ -609,10 +614,28 @@ def test_cse_api():
     assert str(reps[0][0]) == "t0" and str(red[0]) == "t0**2 + sin(t0)"
     reps, red = symox.cse(e, list=False)
     assert str(red) == "x0**2 + sin(x0)"
-    reps, red = symox.cse({"a": e, "b": symox.cos(x + y)})
-    assert set(red) == {"a", "b"} and str(red["b"]) == "cos(x0)"
-    reps, red = symox.cse([e], optimizations="none")
-    assert len(reps) == 1
+    reference_x, reference_y = sympy.symbols("x y")
+    reference_e = (reference_x + reference_y)**2 + sympy.sin(reference_x + reference_y)
+    expressions = {"a": e, "b": symox.cos(x + y)}
+    reference_expressions = {"a": reference_e, "b": sympy.cos(reference_x + reference_y)}
+    # list=True, the default, iterates a mapping over its keys. Preserving
+    # the mapping and transforming its values requires list=False.
+    assert symox.cse(expressions) == sympy.cse(reference_expressions) == ([], ["a", "b"])
+    reps, red = symox.cse(expressions, list=False)
+    reference_reps, reference_red = sympy.cse(reference_expressions, list=False)
+    assert [(str(a), str(b)) for a, b in reps] == \
+        [(str(a), str(b)) for a, b in reference_reps]
+    assert {key: str(value) for key, value in red.items()} == \
+        {key: str(value) for key, value in reference_red.items()}
+    for optimizations in (None, []):
+        reps, red = symox.cse([e], optimizations=optimizations)
+        assert len(reps) == 1
+        assert _back(reps, red) == [e]
+    # Only 'basic' is a named optimization set in SymPy 1.14; 'none' is
+    # parsed as an invalid iterable of preprocessing/postprocessing pairs.
+    for module, expression in ((symox, e), (sympy, reference_e)):
+        with pytest.raises(ValueError):
+            module.cse([expression], optimizations="none")
 
 
 if __name__ == "__main__":

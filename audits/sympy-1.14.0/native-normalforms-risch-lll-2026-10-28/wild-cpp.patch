@@ -1,0 +1,20 @@
+--- a/crates/symox-py/src/poly_ddm.rs
++++ b/crates/symox-py/src/poly_ddm.rs
+@@ -363,7 +363,7 @@
+     if !rational && !(domain.is_field()
+         &&matches!(domain.composite_base(),Some(symox::poly::domains::CompositeBase::Rational{..}))
+         &&!parameters.is_empty()
+-        &&parameters.iter().all(|p|p.is_symbol()&&!p.has_host()
++        &&parameters.iter().all(|p|p.is_symbol()&&!p.has_host()&&!p.has_wild_properties()
+             &&symox::assumptions::fact(p,"commutative")==Some(true))) {return Ok(None);}
+     let items=items.downcast::<PyList>()?;
+     if rows.checked_mul(cols)!=Some(items.len()) {return Ok(None);}
+@@ -372,7 +372,7 @@
+         if i%64==0 {py.check_signals()?;}
+         if !stock.iter().any(|t|value.get_type().is(&t)) {return Ok(None);}
+         let Ok(value)=value.extract::<PyRef<'_,crate::PyExprNode>>() else{return Ok(None)};
+-        if !symox::poly::expression_domain::native_coefficient_payload(&value.e) {return Ok(None);}
++        if value.e.has_wild_properties()||!symox::poly::expression_domain::native_coefficient_payload(&value.e) {return Ok(None);}
+         let mut floating=false;
+         symox::traverse::preorder(&value.e,&mut |e| {
+             if e.as_number().is_some_and(symox::Number::is_float) {floating=true;}

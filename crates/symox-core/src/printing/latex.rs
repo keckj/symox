@@ -417,6 +417,7 @@ impl<'a> LatexPrinter<'a> {
             Kind::Add(..) => self.print_add(e),
             Kind::Mul(..) => self.print_mul(e),
             Kind::Pow(b, x) => self.print_pow(e, b, x),
+            Kind::Func(Func::SymbolicDerivative,_) => {let(body,vars)=crate::diff::symbolic::parts(e).unwrap();self.print_symbolic_derivative(body,&vars)},
             Kind::Func(..) => self.print_func(e, None),
             Kind::Derivative(f, vars) => self.print_derivative(f, vars),
             Kind::Rel(op, a, b) => {
@@ -1182,6 +1183,18 @@ impl<'a> LatexPrinter<'a> {
         }
     }
 
+    fn print_symbolic_derivative(&self,f:&Expr,vars:&[(Expr,Expr)])->String {
+        let d=if crate::traverse::free_symbols(f).len()>1{r"\partial".to_string()}else{self.diff_op.clone()};
+        let mut denominator=String::new();
+        for(v,n)in vars.iter().rev(){
+            if crate::diff::symbolic::one(n){denominator.push_str(&format!("{d} {}",self.print(v)));}
+            else{denominator.push_str(&format!("{d} {}^{{{}}}",self.parenthesize_super(self.print(v)),self.print(n)));}
+        }
+        let total=match crate::diff::symbolic::total(vars){Ok(total)=>total,Err(_)=>return crate::printer::to_str(&crate::diff::symbolic::raw(f,vars))};
+        let numerator=if crate::diff::symbolic::one(&total){d}else{format!("{d}^{{{}}}",self.print(&total))};
+        let body=if minus_sign(f){Self::parens(&self.print(f))}else{self.parenthesize(f,PREC_MUL,true)};
+        format!("\\frac{{{numerator}}}{{{denominator}}} {body}")
+    }
     fn print_derivative(&self, f: &Expr, vars: &[(Expr, u32)]) -> String {
         let partial = crate::traverse::free_symbols(f).len() > 1;
         let d = if partial { r"\partial".to_string() } else { self.diff_op.clone() };

@@ -7,7 +7,7 @@ use crate::functions::{func, is_numeric_value};
 use crate::number::Number;
 use crate::ops::{add, mul, pow};
 
-const EULER_GAMMA: f64 = 0.577_215_664_901_532_9;
+const EULER_GAMMA: f64 = crate::expr::EULER_GAMMA_F64;
 
 // Memoize by physical identity, retaining owners of temporary nodes from doit.
 // A root numeric evaluation owns the scope; nested special-function and power
@@ -219,7 +219,7 @@ pub fn apply_c64(f: &Func, a: &[C64]) -> Option<C64> {
             }
             realonly(best)
         }
-        Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_)
+        Func::SymbolicDerivative | Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => return None,
         Func::ExpPolar => {
             if x.im <= -std::f64::consts::PI || x.im > std::f64::consts::PI { return None; }
@@ -292,6 +292,7 @@ pub fn evalf(e: &Expr) -> Expr {
             let x2 = if x.is_integer_number() { x.clone() } else { evalf(x) };
             pow(&evalf(b), &x2)
         }
+        Kind::Func(Func::SymbolicDerivative,_)=>e.clone(),
         Kind::Func(f, args) => func(f.clone(), args.iter().map(evalf).collect()),
         Kind::Derivative(..) => e.clone(),
         Kind::Rel(op, a, b) => crate::relational::rel(*op, &evalf(a), &evalf(b)),

@@ -1,0 +1,20 @@
+{
+  "after.log": "91907e6098922157aed0fcc02273b6d90959214c7c1e747213dfe43d7adbb9ae",
+  "base-hnf.py": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34",
+  "base.json": "3c210810dbf73b1ea4f388390b5eade36bb8a1f26d378c6ee10098b98ab97890",
+  "before.log": "df81572e49d181d1df7c4e728c3ec99de073bf1ff15e9407678676d7d8334dd1",
+  "candidate.patch": "9e3dc4c97a54419b6182bec7f82adee5a6af26797e3b9dd6a97933fa6ac48de6",
+  "demeter/command.json": "abbdc204a5610e7ab123e7f368f0dc5c3fb8ab6a1e6230c2aaa7038812c06b13",
+  "demeter/execution.json": "fa15250bcff3fd722e38307d892abbe7ac09bcbe9eb9418220b1be45548b5f19",
+  "demeter/pytest.log": "55bb2265856f0ad9d93ec06554890937f083e8d5c36e965d4cfdea2c581a3e08",
+  "demeter/result.json": "d0e95895186f83cbab412a6ba864d445ce5564300a42e78527579c5ebe1aa056",
+  "final-validation.json": "85780b68a9c42383838d60115ea08b93ce18c235de07fe6820ec13cd8d828f7b",
+  "local/command.json": "b8ce3881316b7082c471abffaeebabe5bd2da6cbf98ccc2654e9d675af787962",
+  "local/execution.json": "fa15250bcff3fd722e38307d892abbe7ac09bcbe9eb9418220b1be45548b5f19",
+  "local/pytest.log": "ca021a76c32baab9e0b68d272a8a0180c86bc143b262c40d4fae8c4c5edfff75",
+  "local/result.json": "d0e95895186f83cbab412a6ba864d445ce5564300a42e78527579c5ebe1aa056",
+  "source-base/python/symox/polys/matrices/_hnf_native.py": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34",
+  "source-final/python/symox/polys/matrices/_hnf_native.py": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c",
+  "source-final/tests/test_native_hnf_cached_builtins.py": "b2dc20fded67193ea21bbbd14f633b1ab71072ffda0f524e955735696e03e568",
+  "validation_plugin.py": "117c9aa888b617d895b1fbb2183eb427b470cb35310c485467509a19cbb2fa26"
+}

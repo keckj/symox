@@ -360,7 +360,11 @@ def _simplified_solutions(solutions,equation,symbol,flags):
     as_dict=bool(solutions) and all(isinstance(s,dict) for s in solutions)
     if not as_dict and not all(hasattr(s,'free_symbols') for s in solutions):
         return solutions
-    kept=set() if 'simplify' in flags else _high_order_roots(equation,symbol,solutions,as_dict)
+    from . import _core
+    if 'simplify' in flags or _core._solve_complete_rational_roots(equation,symbol,solutions):
+        kept=set()
+    else:
+        kept=_high_order_roots(equation,symbol,solutions,as_dict)
     if kept is None:
         return solutions
     found=[]

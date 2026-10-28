@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "status": "accepted",
+  "scope": "Native stock QQ/ZZ Lazard-Rioboo-Trager logpart, authenticated stock scalar/resultant forwarding and callback fallbacks; native dense ZZ/QQ Berkowitz; certified symbolic Gruntz homogeneity with independent complex-winding guard; principal E1 affine Laplace branch correction.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "8f254811033a4e7791213e56e0316d752fd2dca0f99fc0c5f5fa30aa6cecc981",
+    "native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+    "working_code_diff_sha256": "c96b0b13b49506f4cc1a5d8a2be8e7811fc46a8455aeb2f19b0387ed18c8173a",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 2597,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 608.3486168384552,
+    "native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+    "host": "/home/keckj/Documents/symox",
+    "compiler": "rustc 1.84.1"
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 692,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 127.66637825965881
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 0.11596965789794922
+      },
+      "rust_inputs_unchanged": true
+    },
+    "bindings_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox-py",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "log": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/demeter-final/clippy-bindings.log",
+      "ordinary_warnings_preserved": true
+    }
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 47833,
+      "skipped": 55,
+      "xfailed": 4,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 47892,
+      "collected_in_shards": 47892,
+      "finished": 47892,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 191.42110896110535,
+    "new_cases_vs_previous_accepted_release": 382,
+    "strict_xfail_removed": "tests/test_limwrong_parity.py::test_issue_22334_value; mathematical assertion unchanged",
+    "compiler_tests_enabled": true,
+    "known_xfails": [
+      {
+        "node": "tests/test_accumbounds_wave4_parity.py::test_AccumBounds_powf",
+        "scope": "Symbolic interval powers remain partial."
+      },
+      {
+        "node": "tests/test_pow_negative_base_parity.py::test_power_of_product_matches_reference[-sqrt(6)/3-th--sqrt(3)*6**(3/4)*I/9]",
+        "scope": "Order-dependent Mul flattening output; documented exact equivalent form, not a missing value."
+      },
+      {
+        "node": "tests/test_limacc_parity.py::test_dirac_delta_evalf_subs[expr2-subs2-2.0*DiracDelta(0)]",
+        "scope": "evalf retains an exact coefficient instead of the reference Float coefficient around held DiracDelta."
+      },
+      {
+        "node": "tests/test_limacc_parity.py::test_dirac_delta_evalf_subs[expr3-subs3-DiracDelta(0) + 1.0]",
+        "scope": "evalf retains an exact constant instead of the reference Float constant around held DiracDelta."
+      }
+    ]
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-lrt-limits-20261027/python/symox/__init__.py",
+    "native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_validation": {
+    "phase": "Integrated RELEASE after LRT/Ore protocol followup",
+    "native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+    "rust_inputs_unchanged": true,
+    "cargo_check": "passed",
+    "python": {
+      "passed": 1179,
+      "failed": 0,
+      "elapsed_seconds": 32.97
+    },
+    "log": "combined-targeted.log",
+    "initial_protocol_failures": "8 stock route assertions preserved in before-ore-fix-combined-targeted.log; fixed with authenticated resultant wrapper and actual scalar method/operator/priority guards.",
+    "scope": "LRT and forwarding protocols; dense Berkowitz; Gruntz homogeneity plus winding; principal E1 Laplace; unchanged derivative/conditional/QQ/DDM controls."
+  },
+  "repairs_and_rejected_candidates": [
+    "Initial private Gruntz normalization incorrectly treated a winding complex scale as positive beneath principal roots. An independent exact two-subsequence proof rejects the false finite; a neutral scale and rational dependence certificate now precede positive normalization. The uncorrected candidate was not accepted.",
+    "Initial combined targeted run preserved eight native-route assertion failures after legitimate resultant wrapper installation/reload; original mathematical outputs agreed. The final protocol followup authenticates that wrapper and guards actual scalar-priority descriptors/operators/public Expr.as_poly overrides before native dispatch.",
+    "The accepted cb5 atan priority-descriptor callback gap is repaired by the shared guard in this snapshot.",
+    "Affine Laplace now returns exp(beta*s)*expint(1,beta*s)/a on its existing guarded domain. This intentionally corrects the inherited complex branch bug; the reference reciprocal Laplace table is also incorrect and is not used as the oracle."
+  ],
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027",
+    "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/after",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-lrt-limits-20261027",
+    "full_python_summary": "/home/keckj/.cache/symox-validation/native-lrt-limits-20261027/demeter-final/summary.json",
+    "portable_review": "audits/sympy-1.14.0/native-lrt-limits-2026-10-27/README.md",
+    "portable_execution": "audits/sympy-1.14.0/native-lrt-limits-2026-10-27/python-execution-evidence.tar.gz"
+  },
+  "performance": {
+    "artifact": "audits/performance/2026-10-27-native-lrt/README.md",
+    "before_native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+    "after_native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+    "fresh_processes_per_backend": 3,
+    "full_pair_checks": 144,
+    "independent_exact_trace_certificates": 12,
+    "all_digests_identical": true,
+    "scope": "Five measured LRT families improve 2.26x\u20133.23x; repeated calls after input construction, no whole-engine gain or completeness claim."
+  },
+  "remaining_gaps": [
+    "Global mathematical parity is not certified. The documented-example replay still has 278 differing objects requiring scoped review; ODE corpus completeness remains open.",
+    "LRT native coverage is stock univariate QQ/ZZ within its representation guard; unsupported domains, sizes and custom protocols retain the complete prior algorithm. log_to_real and the rational/Risch/PRDE/Heurisch drivers remain partly Python.",
+    "Berkowitz coverage is eligible stock ZZ/QQ dense rows. Sparse Berkowitz, AUTO selection and LU/FFLU/LLL/normalforms remain separate work, with prior complete paths preserved.",
+    "Gruntz homogeneity does not solve all symbolic or complex limits. The complex winding example remains undecided rather than falsely finite; other finite shifted-difference/root examples may remain held. The four remaining strict xfails are enumerated separately; issue 22210 remains another tracked capability gap.",
+    "E1 repair covers the two existing affine reciprocal/logarithm rules and their certified shifts/moments, preserving guards and ROC. General transform branch completeness is not established.",
+    "Large literal derivative formulas and general symbolic-order closed forms are queued, not part of this release.",
+    "Inexact linear-system Rust dispatch, exact CC product/quotient rounding and typed composite equality are integrated into the next working-tree batch, awaiting their own release and complete gate. They are not attributed to this snapshot.",
+    "Previously tracked implicit EX Float-zero conversions, nonzero sparse evaluation and assumed-nonzero affine integral specializations remain separate gaps."
+  ],
+  "global_algorithmic_parity_certified": false,
+  "integration_corpus": {
+    "artifact": "audits/sympy-1.14.0/corpus-r2-2026-10-27/README.md",
+    "expected": 1210,
+    "backend_calls": 2420,
+    "exactly_once_per_backend": true,
+    "raw_counts": {
+      "exact_output_match": 1164,
+      "different_output_review_required": 36,
+      "both_held_observation": 10
+    },
+    "reviewed_differences": {
+      "principal_E1_reference_correction": 10,
+      "certified_conditional_value_with_original_integral_fallback": 20,
+      "exact_algebraic_equivalence": 5,
+      "retained_affine_nonzero_capability_gap": 1
+    },
+    "changed_native_records_vs_cb5": 10,
+    "unchanged_native_records_vs_cb5": 1200,
+    "native_parameter_controls_passed": 21,
+    "native_E1_controls_passed": 10,
+    "repaired_complex_records": 4,
+    "native_reference_imported": false
+  },
+  "berkowitz_performance": {
+    "artifact": "audits/performance/2026-10-27-native-berkowitz/README.md",
+    "before_native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+    "after_native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+    "fresh_processes_per_backend": 3,
+    "exact_coefficient_vector_checks": 180,
+    "independent_Cayley_Hamilton_certificates": 15,
+    "all_digests_identical": true,
+    "scope": "Five measured public DDM.charpoly dense ZZ/QQ families gain 5.2x\u201313.7x after input construction; nine calls per timed round, no whole-engine claim."
+  }
+}

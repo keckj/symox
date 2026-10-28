@@ -876,6 +876,16 @@ impl Gruntz {
         for s in &exps {
             crate::expand::expand(&sub(s, &s0)).as_number()?;
         }
+        // w approaches zero through positive reals, but w**s0 need not be
+        // positive when s0 is nonreal: its phase can wind indefinitely. Test
+        // with a neutral scale BEFORE positivity can simplify nested roots.
+        // Rational dependence on that scale commutes with complex scaling;
+        // fractional powers do not in general preserve principal branches.
+        if crate::assumptions::exact_queries(|| crate::assumptions::is_real(&s0)) != Some(true) {
+            let neutral = Expr::dummy("Pneutral", crate::symbol::Assumptions::NONE);
+            let trial = subst_w_powers(f, w, &s0, &neutral)?;
+            if !rational_in_scale(&trial, &neutral) { return None; }
+        }
         let pp = Expr::dummy("P", crate::symbol::Assumptions::POSITIVE);
         let g = subst_w_powers(f, w, &s0, &pp)?;
         let mut left = vec![];
@@ -883,18 +893,84 @@ impl Gruntz {
         if !left.is_empty() || p_degree(&g, &pp).is_none() {
             return None;
         }
-        let r = match self.leadterm_in(&g, w, logw) {
-            Ok((c, e)) => {
-                let m = p_degree(&c, &pp)?;
+        // Keep every previously successful calculation, including its exact
+        // grouping. Failure to eliminate P from the old coefficient is also a
+        // reason to try homogeneity, not an early return before that fallback.
+        let previous = match self.leadterm_in(&g, w, logw) {
+            Ok((c, e)) => p_degree(&c, &pp).and_then(|m| {
                 let c1 = div(&c, &pow(&pp, &Expr::num(m.clone())));
-                if depends(&c1, &pp) {
-                    return None;
-                }
-                Ok((c1, add(&[e, mul2(&Expr::num(m), &s0)])))
-            }
-            Err(err) => Err(err),
+                (!depends(&c1, &pp)).then(|| Ok((c1, add(&[e, mul2(&Expr::num(m), &s0)]))))
+            }),
+            Err(error) => Some(Err(error)),
         };
-        Some(r)
+        if matches!(&previous, Some(Ok(_))) {
+            return previous;
+        }
+        // P is fresh and positive. Exact homogeneity proves
+        // g(P,w) = P**m*g(1,w), without distributing any fractional power
+        // across a sign or a complex branch. Only rational degrees enter this
+        // new route; all other cases retain their original calculation.
+        let Some(m) = p_degree(&g, &pp).filter(|m| m.is_rational()) else { return previous; };
+        let mut map = FxHashMap::default();
+        map.insert(pp.clone(), Expr::one());
+        let plain = xreplace(&g, &map);
+        // A finite final coefficient alone is insufficient: cancellation of
+        // (k+1)/(k+1) could hide a denominator that vanishes when k=-1.
+        // Certify the bases of reciprocal/nonintegral powers before allowing
+        // the series arithmetic to cancel such parameter factors.
+        if !self.normalized_power_domain(&plain, w, logw) {
+            return previous;
+        }
+        match self.leadterm_in(&plain, w, logw) {
+            Ok((c, e)) if !depends(&c, w) && !depends(&c, &pp)
+                && crate::assumptions::is_finite(&c) == Some(true)
+                && crate::assumptions::is_zero(&c) == Some(false) =>
+                Some(Ok((c, add(&[e, mul2(&Expr::num(m), &s0)])))),
+            _ => previous,
+        }
+    }
+
+    /// Sufficient domain certificate for the homogeneity fallback only. The
+    /// established series/fallback paths are unchanged when it is undecidable.
+    fn normalized_power_domain(&mut self, e: &Expr, w: &Expr, logw: &Expr) -> bool {
+        for child in e.args() {
+            if !self.normalized_power_domain(&child, w, logw) { return false; }
+        }
+        let mut certify = |base: &Expr, exponent: &Expr| {
+            let integer = exponent.as_number().is_some_and(|p| p.is_integer());
+            if exponent.as_number().is_some_and(|p| p.is_integer() && !p.is_negative()) {
+                return true;
+            }
+            let coefficient = if depends(base, w) {
+                let l = self.fresh("logw");
+                match self.lt_cancel(base, w, &l, logw) {
+                    Ok(Some((c, _))) if !depends(&c, w) => c,
+                    _ => return false,
+                }
+            } else { base.clone() };
+            if crate::assumptions::is_finite(&coefficient) != Some(true)
+                || crate::assumptions::is_zero(&coefficient) != Some(false) {
+                return false;
+            }
+            if integer || crate::assumptions::is_positive(&coefficient) == Some(true)
+                || crate::assumptions::is_real(&coefficient) == Some(false) {
+                return true;
+            }
+            // On the negative real branch cut the principal coefficient uses
+            // argument +pi. A real base or a certified upper-half-plane base
+            // has that continuation. A lower-half-plane approach must retain
+            // its old calculation, rather than silently using argument +pi.
+            let mut positive = FxHashMap::default();
+            positive.insert(w.clone(), Expr::dummy("wpos", crate::symbol::Assumptions::POSITIVE));
+            let near = xreplace(base, &positive);
+            crate::assumptions::is_real(&near) == Some(true)
+                || crate::assumptions::is_nonnegative(&fx::im(&near)) == Some(true)
+        };
+        match e.kind() {
+            Kind::Pow(base, exponent) => certify(base, exponent),
+            Kind::Mul(_, factors) => factors.iter().all(|(base, exponent)| certify(base, exponent)),
+            _ => true,
+        }
     }
 
     /// `b**p` with a symbolic `p` and a base `b ~ c*w**m` that is real and
@@ -1346,6 +1422,25 @@ fn subst_w_powers(e: &Expr, w: &Expr, s0: &Expr, pp: &Expr) -> Option<Expr> {
     }
 }
 
+/// The scale-dependent operations must be rational, over arbitrary
+/// scale-independent coefficients. Together with p_degree homogeneity this
+/// proves g(P,w)=P**m*g(1,w) for every nonzero complex P, not only positive P.
+/// In particular an integral *total degree* does not make sqrt(P**2) safe.
+fn rational_in_scale(e: &Expr, scale: &Expr) -> bool {
+    if !depends(e, scale) || e == scale { return true; }
+    let power = |base: &Expr, exponent: &Expr| {
+        !depends(exponent, scale) && (!depends(base, scale)
+            || (exponent.as_number().is_some_and(|n| n.is_integer())
+                && rational_in_scale(base, scale)))
+    };
+    match e.kind() {
+        Kind::Pow(base, exponent) => power(base, exponent),
+        Kind::Mul(_, factors) => factors.iter().all(|(base, exponent)| power(base, exponent)),
+        Kind::Add(_, terms) => terms.iter().all(|(term, _)| rational_in_scale(term, scale)),
+        _ => false,
+    }
+}
+
 /// Degree of `e` in `P` when every sum is homogeneous in `P` and `P`
 /// occurs only in products and numeric powers.
 fn p_degree(e: &Expr, pp: &Expr) -> Option<crate::number::Number> {
@@ -1389,4 +1484,65 @@ fn p_degree(e: &Expr, pp: &Expr) -> Option<crate::number::Number> {
         }
         _ => None,
     }
+}
+
+#[cfg(test)]
+mod homogeneous_domain_tests {
+    use super::*;
+    use crate::symbol::Assumptions as A;
+
+    #[test]
+    fn normalized_reciprocal_requires_a_nonzero_leading_coefficient() {
+        let w=Expr::symbol("w"); let x=Expr::symbol_with("x",A::POSITIVE);
+        for (facts,expected) in [(A::POSITIVE,true),(A::NONNEGATIVE,true),(A::REAL,false),(A::NEGATIVE,false),(A::NONE,false)] {
+            let k=Expr::symbol_with("k",facts);
+            let denominator=sub(&pow(&add(&[Expr::one(),w.clone()]),&add(&[k,Expr::one()])),&Expr::one());
+            let expression=pow(&denominator,&Expr::minus_one());
+            assert_eq!(Gruntz::new(&x).normalized_power_domain(&expression,&w,&neg(&x)),expected,"{expression}");
+        }
+    }
+
+    #[test]
+    fn normalized_fractional_powers_preserve_branch_sides() {
+        let w=Expr::symbol("w"); let x=Expr::symbol_with("x",A::POSITIVE);
+        let real_negative=pow(&sub(&Expr::minus_one(),&w),&Expr::rational(1,2));
+        assert!(Gruntz::new(&x).normalized_power_domain(&real_negative,&w,&neg(&x)));
+        for (correction,allowed) in [(mul2(&Expr::i(),&w),true),(neg(&mul2(&Expr::i(),&w)),false)] {
+            let branch=pow(&add(&[Expr::minus_one(),correction]),&Expr::rational(1,2));
+            assert_eq!(Gruntz::new(&x).normalized_power_domain(&branch,&w,&neg(&x)),allowed);
+        }
+    }
+}
+
+#[cfg(test)]
+mod winding_scale_tests {
+    use super::*;
+    #[test]
+    fn complex_scale_certificate_requires_integer_dependent_powers() {
+        let p=Expr::symbol("P");
+        for source in ["P","P**3","1/P","(P*w+P)/(P*w-P)","sqrt(w)*P"] {
+            let e=crate::parser::parse_str(source).unwrap();
+            assert!(rational_in_scale(&e,&p),"{e}");
+        }
+        for source in ["sqrt(P)","sqrt(P*w)","sqrt(-P)","sqrt(P**2)","sqrt(P)/sqrt(-P)","P**P","P**w","exp(P)"] {
+            let e=crate::parser::parse_str(source).unwrap();
+            assert!(!rational_in_scale(&e,&p),"{e}");
+        }
+    }
+    #[test]
+    fn positive_scale_simplification_is_not_used_as_a_winding_certificate() {
+        let w=Expr::symbol("w");let x=Expr::symbol("x");
+        let e=crate::parser::parse_str("sqrt(w**I*((1+w)**(1+I)-1))/sqrt(-w**I*((1+w)**(1+I)-1))").unwrap();
+        assert!(Gruntz::new(&x).symbolic_power_leadterm(&e,&w,&neg(&x)).is_none());
+    }
+    #[test]
+    fn proven_real_scale_retains_nonintegral_homogeneous_powers() {
+        let w=Expr::symbol("w");let x=Expr::symbol("x");
+        let k=Expr::symbol_with("k",crate::symbol::Assumptions::REAL);
+        let base=pow(&w,&k);
+        let e=div(&pow(&base,&Expr::rational(1,2)),&pow(&neg(&base),&Expr::rational(1,2)));
+        let actual=Gruntz::new(&x).symbolic_power_leadterm(&e,&w,&neg(&x)).unwrap().unwrap();
+        assert_eq!(actual,(neg(&Expr::i()),Expr::zero()));
+    }
+
 }

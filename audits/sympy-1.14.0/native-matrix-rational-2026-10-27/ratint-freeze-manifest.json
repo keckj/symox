@@ -1,0 +1,122 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/ratint-driver-native",
+  "files": [
+    {
+      "path": "crates/symox-core/src/integrate.rs",
+      "base_sha256": "092767f0c9ac6da3dd90503bf9c2f9ee616ae677c44d5114697341766fe6d89e",
+      "final_sha256": "537b0c7f0ff9df1e31376f31995abf32675570540632928e8ed1c1f68ac38ae1"
+    },
+    {
+      "path": "crates/symox-core/src/poly/api.rs",
+      "base_sha256": "ef5b2e9f2f22133b9924013e46494e9874a86385bad710725714f2dfcf582147",
+      "final_sha256": "c4a53413f47b425be83e213ee72ef3b416dc2fc9d519a59e9b2320143233c73d"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/log_to_real.rs",
+      "base_sha256": "8077627013888d4e75b417e0a25e9a7d7dd92b5779d082f650c7a7050ce291cd",
+      "final_sha256": "b933b2d0ff33375ae6bb071823894bdd2a97e7c19c3ef76f5b4e736d786a55ef"
+    },
+    {
+      "path": "crates/symox-py/src/integration_methods.rs",
+      "base_sha256": "a1c68e9650956cf6c0879a6e79ee29a932509364c9a1a2dbf0395c085da4f22c",
+      "final_sha256": "ffa097f4854a3bc25641dfe7f5ed95a200b0fb11b492150d6f302d4bac0bbd17"
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "c966bb72e3f6b83b6ff2fbff151f4096a7ba04eb4955517b0ac0bcd990b6ec27",
+      "final_sha256": "97dccc337d68a33ed7f1204a5f28fef2d42998eeaf23e6640d931f4e97914514"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/ratint_driver.rs",
+      "base_sha256": null,
+      "final_sha256": "4b67c4ce6f8dcb2e6952412101539ac3c2542fd2c7796649f62cbd635b0436c1"
+    },
+    {
+      "path": "tests/test_native_ratint_driver.py",
+      "base_sha256": null,
+      "final_sha256": "3d2218b21e7d2f484ca97c76a344db389e9feb368b0d9197b974c74b7ed2b69c"
+    }
+  ],
+  "scope": "Native bounded QQ/ZZ real rational integration driver; old public body intact",
+  "frozen": true,
+  "validated_debug_native_sha256": "c2783f3e58c5200e6d07dedc0c8d2d6fe819129bd5ed3ca0bc0d321e6fb52203",
+  "validation_package": "/home/keckj/symox-ci/wt/ratint-driver-native/python",
+  "validation": {
+    "targeted_python": "179 passed in11.72s",
+    "coupled_python": "1680 passed in236.87s",
+    "core_integrate_tests": "23 passed (3new driver)",
+    "cargo_check": "passed final",
+    "clippy_correctness": "passed final"
+  },
+  "preflight": "Effective numerator/denominator degrees and coefficient-growth bounds before as_numer_denom on expression and tuple routes; <=32degrees, <=4096bits,64depth,4096nodes; complete fallback on refusal",
+  "performance": "No performance measurement for this driver; DEBUG is not a performance baseline",
+  "not_a_full_repository_suite": true,
+  "main_base_hashes_checked_before_integration": "main-base-check.json, all five true",
+  "artifacts": [
+    {
+      "path": "ratint-driver.patch",
+      "sha256": "8b5f7ec8c69f0e973e10356e2ed7191515f15ca30b700a88f1d1a0db23f63691",
+      "bytes": 42320
+    },
+    {
+      "path": "source-manifest.json",
+      "sha256": "e5e2c819cb18061da08f26a33122e7b4779e5d59d5b3332f6f0dba55862f32db",
+      "bytes": 1831
+    },
+    {
+      "path": "proof.txt",
+      "sha256": "e327a8bb9876aa8e179476a197f7fea6752284a05df4627ee93b84f447143de1",
+      "bytes": 10345
+    },
+    {
+      "path": "base-manifest.json",
+      "sha256": "02fa259d39ec3b9342b38c5e0678db83064df348af9ffde78cef2e1a8bc5a287",
+      "bytes": 752
+    },
+    {
+      "path": "patch-check.log",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "bytes": 7
+    },
+    {
+      "path": "main-base-check.json",
+      "sha256": "2a7f156e0cbec5636195108f36a419a51dc81d88e3d2907f9103250ba031026d",
+      "bytes": 257
+    },
+    {
+      "path": "demeter-source-native-sha256.txt",
+      "sha256": "4302dec806d9989e073f3dcf9e5f24b04edb0a9a20248aad628ae67c5387a96c",
+      "bytes": 838
+    },
+    {
+      "path": "pytest-bounded.log",
+      "sha256": "7db713d91838820d357e91ea01d58bbc58be19e33a9d2c9d81cc32a902da45a2",
+      "bytes": 261
+    },
+    {
+      "path": "combined-final.log",
+      "sha256": "25159caf83e98d476f59b283e086ca921c8a493a7ef2440285d67c52a2dd2db4",
+      "bytes": 1953
+    },
+    {
+      "path": "rust-bounded.log",
+      "sha256": "33074371c3db840179214964448d79d85f2c2fa45cff8aacd785ff6413f5b94c",
+      "bytes": 5634
+    },
+    {
+      "path": "check-final.log",
+      "sha256": "eab38339fd94ea11dee429503cd23c1e7591a5b2b976300df2ec3c9f6736a862",
+      "bytes": 3211
+    },
+    {
+      "path": "clippy-final.log",
+      "sha256": "ba886e6b0223b07ca34288a5e2bae0d8338242d4442b1187ef24f87ad953cf9e",
+      "bytes": 481010
+    },
+    {
+      "path": "build-bounded.log",
+      "sha256": "560aee501e2952a707e75d72ff819cef6d8470d947f3ddd8c17bbd82379afd73",
+      "bytes": 3211
+    }
+  ]
+}

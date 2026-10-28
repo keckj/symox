@@ -1,0 +1,188 @@
+{
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "82feae2c9d065fd338e9439693f9c5b2bd1663b683ac2a9e411937b923e38754",
+    "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+    "working_code_diff_sha256": "a1a57da806073ce5481756822e9c3316ba9ea1718300ac206753b5e9ebb23bd4",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/hnf.rs",
+      "base": null,
+      "candidate": "91a0bb6612b2f12322ccb1318a6a26366f4a05744f89e7368e28961cfa6c426d"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "base": "bee9a127b16688978f5d14396d10d1d26b81b9c876a280f282e8006f241e403e",
+      "candidate": "2bb0036f447d9ad9a0a987801d61ca8cee79a238a07aacaa5934e60912f9aab1"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base": "55dcd18e46b6ec022657db5b0fb7b2d3bfd1e0091e318f73993afd0856ee90b2",
+      "candidate": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977"
+    },
+    {
+      "path": "crates/symox-py/src/poly_function_metadata.rs",
+      "base": null,
+      "candidate": "d6c11bb938a4dce4cd65b3482cc19e5d756cb6da6992cd1db0bebd39573c124a"
+    },
+    {
+      "path": "crates/symox-py/src/poly_hnf.rs",
+      "base": null,
+      "candidate": "ac331923f8d0af1757063c988a640d5866fbf62f9afe10ebb53963925583bbba"
+    },
+    {
+      "path": "python/symox/diffgeom/_adapters.py",
+      "base": "f15dc65c5898b6140c7299562bdfd6f494b2e541cd981d43bf2f02000a9c44c2",
+      "candidate": "ca0989ea872c3cba1538b04e05240ce7f4fe4990e27f263d94f72559fb715725"
+    },
+    {
+      "path": "python/symox/diffgeom/_coordinates.py",
+      "base": "7cbefc7768bfc3d59a33df0e62aee79317fcf3d8306227e12f178e092c4df10e",
+      "candidate": "02f23122c413088e4177a6f21c0ae5eae2309cf67cfdb3d039a3e8362dea8b7b"
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base": "3ad1925f745823d0f79b70c8ab35f6905a4cce685929bf043febdbfb0aefec5c",
+      "candidate": "77394d2d3d5bc44de68b67ad6d1a482e3c55c8441905eee778d7f643bc260b2c"
+    },
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base": "8ebccd3020ba4fc7a3d5120ac28e00209fc46c763441453cf91c7d6db3e7e8c8",
+      "candidate": "7ee776dd89bf6356bd0e8bc29d8a683608616148e1865ae310891d7eb83ad97c"
+    },
+    {
+      "path": "python/symox/polys/matrices/_hnf_native.py",
+      "base": null,
+      "candidate": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lu_native.py",
+      "base": "30da2d2c1e49b327bddf5f8309073fae9bb44ea738ff1e5c6703908ac46fdf64",
+      "candidate": "d2c8b5ff6d905fdfba0e4deca6814c62f99effa4a12c3ac4f914a9ce31405334"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lu_solve_native.py",
+      "base": "e6f893348a0de27d0712fb9ad109ab944844010d9fa7697c6d2ae50ee1eb2950",
+      "candidate": "5502d395b22ed27b56c1f2fad9fa8248745e19301d0d3b0758b46922f9efb695"
+    },
+    {
+      "path": "python/symox/polys/matrices/normalforms.py",
+      "base": "cb3b54dfc67f807e33031c933c80630abe936b8bc7180259698f03917e335dd2",
+      "candidate": "60dd243702916a25afc70bfe4104cbe45c3f8e08f2c2dbad300baf11b033f44c"
+    },
+    {
+      "path": "tests/test_log_to_atan_stock_dispatch.py",
+      "base": "b9dd5791540455611a9868ae1e8002b752b7e2b85f0440c177672d96adeeb969",
+      "candidate": "87da90d27160c43c6f3a51cf4da032938b1c967ab8c704dc101d3e00dc7c517c"
+    },
+    {
+      "path": "tests/test_native_ddm_hnf.py",
+      "base": null,
+      "candidate": "88c035d12df5e92d79949643366f1afe4efad69068691d1f8386504ef088ef4b"
+    },
+    {
+      "path": "tests/test_native_matrix_closure_tuple_protocol.py",
+      "base": null,
+      "candidate": "cf6f8f406d30eafd1a701da78f64befd493813d5fca970ff10e9ed11e9da4277"
+    },
+    {
+      "path": "tests/test_native_matrix_function_metadata.py",
+      "base": null,
+      "candidate": "b2787cba82874a1ad39013c0d004f2cf13b2b2c37f98f3b8aa20b6a98680e1f4"
+    },
+    {
+      "path": "tests/test_polymatrix_diffgeom_protocol.py",
+      "base": null,
+      "candidate": "68f3d3c0e8007ec705f92dfe7b6775a048cf29e5473d4a3a87e930cd644fff69"
+    }
+  ],
+  "components": [
+    {
+      "label": "hnf-and-audit-metadata",
+      "manifest": "/home/keckj/.cache/symox-validation/native-ddm-hnf-r10r1-merge-r11-20261028/proof/freeze-manifest-r1.json",
+      "manifest_sha256": "94793cee6bd7be1394a835794ec03ab7635f4d17113928be5dc455ecac11ad30",
+      "source": "/home/keckj/.cache/symox-validation/native-ddm-hnf-r10r1-merge-r11-20261028/proof/frozen-source",
+      "native_profile": "debug",
+      "native_sha256": "2f9696d4238800cc2dc5b7f7564b9b1eb3dfbe2f0c39a079b46c6e93877d728f",
+      "validation": {
+        "local/focused": {
+          "passed": 551,
+          "exact_once": true,
+          "returncode": 0,
+          "elapsed_seconds": 28.41283369064331,
+          "files": 4
+        },
+        "local/coupled": {
+          "passed": 6276,
+          "exact_once": true,
+          "returncode": 0,
+          "elapsed_seconds": 128.08975267410278,
+          "files": 62
+        },
+        "demeter/focused": {
+          "passed": 551,
+          "exact_once": true,
+          "returncode": 0,
+          "elapsed_seconds": 27.762962341308594,
+          "files": 4
+        },
+        "demeter/coupled": {
+          "passed": 6276,
+          "exact_once": true,
+          "returncode": 0,
+          "elapsed_seconds": 154.33467054367065,
+          "files": 62
+        }
+      },
+      "private_archive_sha256": "95508c7ae3f94ddbb129e6936a76f21bb0d6b32a5c5e9e29263afd47b4cff29b"
+    },
+    {
+      "label": "root-closure-tuple-repair",
+      "manifest": "/home/keckj/.cache/symox-validation/native-normalforms-risch-lll-r11-r1-20261028/closure-followup.json",
+      "validation": {
+        "before_failures": 6,
+        "after_passed": 6,
+        "local_focused_passed": 557,
+        "full_corrected_gate_pending": true
+      }
+    },
+    {
+      "label": "official-diffgeom-forwarding",
+      "manifest": "/home/keckj/.cache/symox-validation/native-polymatrix-diffgeom-r11-followup-r1-20261028/proof/freeze-manifest.json",
+      "manifest_sha256": "c0853061e04b4b772afdd8b1fa8adb0386fc5ef2ee9d5cb2c3e4e382654f3f42",
+      "private_archive_sha256": "3c82e282a51914e6b6e37eade799e0ad37c7d9b87494bed70bb436d7d46f3796",
+      "validation": {
+        "hosts": {
+          "local": {
+            "focused": 123,
+            "shard": 1037,
+            "coupled": 4544
+          },
+          "demeter": {
+            "focused": 123,
+            "shard": 1037,
+            "coupled": 4544
+          }
+        },
+        "private_native_profile": "debug",
+        "private_native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+        "no_reference_both_hosts": true,
+        "release_native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+        "root_full_gate_pending": true
+      }
+    }
+  ],
+  "expected_native_inputs": 350,
+  "expected_rust_units": 751,
+  "patch_replay_verified": true,
+  "patch_sha256": "3912847391e592f92130b81eae308737296f89b90fec4b4343a8ce7766bd236f",
+  "scope": "OrdinaryZZ HNF, audit/closure-safe QQ LU/solve/HNF metadata, bounded authentic official diffgeom scalar forwarding for PolyMatrix QQ/RF; Wild-properties callbacks preserve complete original fallback.",
+  "initial_failed_gate": "audits/sympy-1.14.0/validation-2026-10-28-normalforms-risch-lll-initial.json"
+}

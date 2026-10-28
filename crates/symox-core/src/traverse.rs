@@ -10,6 +10,7 @@ use crate::relational::{piecewise, rel};
 /// Rebuild `e` with every direct child mapped through `f`, using the
 /// canonical constructors. Returns `e` itself when nothing changed.
 pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
+    if matches!(e.kind(),Kind::Func(Func::SymbolicDerivative,_)){return e.clone();}
     match e.kind() {
         Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => e.clone(),
         Kind::Add(c, terms) => {
@@ -53,7 +54,7 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
             if nb.same_presentation(b) && nx.same_presentation(x) {
                 return e.clone();
             }
-            pow(&nb, &nx)
+            if e.is_deferred_numeric_power(){crate::ops::deferred::rebuild(&nb,&nx)}else{pow(&nb,&nx)}
         }
         Kind::Func(fun, args) => {
             if let Func::MatrixDotProduct(a,b)=fun {
@@ -207,7 +208,12 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
                 if matches!(op, crate::sets::SetOp::ConditionSet)
                     && args.len() >= 2 => {
                 // The binder applies to the body/condition, but not the base set.
-                for symbol in free_symbols(&args[1]).into_iter().filter(|s| *s != args[0]) {
+                let bound = if crate::special::tuple_items(&args[0]).is_some() {
+                    crate::sets::lambda_checked(&args[0], &args[1]).ok()
+                        .and_then(|lambda| crate::sets::lambda_parts(&lambda).map(|(variables, _)| variables))
+                        .unwrap_or_else(|| vec![args[0].clone()])
+                } else { vec![args[0].clone()] };
+                for symbol in free_symbols(&args[1]).into_iter().filter(|s| !bound.contains(s)) {
                     if seen.insert(symbol.clone()) {
                         out.push(symbol);
                     }
@@ -231,6 +237,12 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
             // present in a held derivative. Read its compact body directly;
             // Expr::args() expands each variable according to its order.
             Kind::Derivative(body,_) => rec(body,seen,out,visited),
+            Kind::Func(Func::SymbolicDerivative,_)=>{
+                if let Some((body,variables))=crate::diff::symbolic::parts(e){
+                    rec(body,seen,out,visited);
+                    for(_,count)in variables{rec(&count,seen,out,visited);}
+                }
+            },
             _ => {
                 for a in e.args() {
                     rec(&a, seen, out, visited)

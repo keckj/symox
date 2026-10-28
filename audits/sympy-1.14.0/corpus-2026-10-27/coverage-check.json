@@ -1,0 +1,17 @@
+{
+  "cases": 1210,
+  "backend_calls": 2420,
+  "every_case_once_per_backend": true,
+  "unique_case_ids": 1210,
+  "all_outputs_successful": true,
+  "native_identities": 16,
+  "reference_identities": 16,
+  "reference_version": "1.14.0",
+  "native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+  "limits": {
+    "seconds_per_call": 60.0,
+    "memory_gib_per_worker": 8
+  },
+  "jobs": 16,
+  "native_sympy_import": "blocked by unchanged versioned worker meta_path finder"
+}

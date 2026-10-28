@@ -1,0 +1,15 @@
+{
+  "expected_cases": 1210,
+  "finished_cases": 1210,
+  "backend_calls": 2420,
+  "exactly_once_per_backend": true,
+  "native_identities": 16,
+  "reference_identities": 16,
+  "jobs": 16,
+  "limits": {
+    "seconds_per_call": 60.0,
+    "memory_gib_per_worker": 8
+  },
+  "all_outputs_successful": true,
+  "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c"
+}

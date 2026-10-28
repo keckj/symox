@@ -145,7 +145,7 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
         Kind::Pow(..) => (3, 2, Cow::Borrowed("Pow")),
         Kind::Func(Func::Max, _) => (5, 0, Cow::Borrowed("Max")),
         Kind::Func(Func::Min, _) => (5, 0, Cow::Borrowed("Min")),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..)), _) => (5, 0, Cow::Owned(f.name().into())),
+        Kind::Func(f @ (Func::SymbolicDerivative | Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..)), _) => (5, 0, Cow::Owned(f.name().into())),
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, Cow::Borrowed("ComplexRootOf")),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, Cow::Owned(head.name.to_string())),
         Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {
@@ -262,6 +262,7 @@ impl KeyCache {
                 return self.composite((5,0,"Lambda"),KArgs::List(vec![variables,body]));
             }
             Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction),_)=>return self.composite((5,0,"IdentityFunction"),KArgs::List(vec![])),
+            Kind::Func(Func::SymbolicDerivative,args)=>{let keys=args.iter().map(|arg|self.key(arg)).collect();return self.composite((5,0,"Derivative"),KArgs::List(keys));},
             Kind::Derivative(expression, variables) => {
                 let mut args = vec![self.key(expression)];
                 for (variable, count) in variables {
@@ -328,7 +329,7 @@ impl KeyCache {
             _ => (rest, None),
         };
         let heaviside = matches!(expr.kind(), Kind::Func(Func::Heaviside, args) if args.len() == 1);
-        if heaviside || matches!(expr.kind(), Kind::Derivative(..) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
+        if heaviside || matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::SymbolicDerivative,_) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
             let mut key = (*self.key(&expr)).clone();
             key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
             key.coeff = coeff;

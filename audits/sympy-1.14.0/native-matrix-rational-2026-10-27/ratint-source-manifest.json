@@ -1,0 +1,41 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/ratint-driver-native",
+  "files": [
+    {
+      "path": "crates/symox-core/src/integrate.rs",
+      "base_sha256": "092767f0c9ac6da3dd90503bf9c2f9ee616ae677c44d5114697341766fe6d89e",
+      "final_sha256": "537b0c7f0ff9df1e31376f31995abf32675570540632928e8ed1c1f68ac38ae1"
+    },
+    {
+      "path": "crates/symox-core/src/poly/api.rs",
+      "base_sha256": "ef5b2e9f2f22133b9924013e46494e9874a86385bad710725714f2dfcf582147",
+      "final_sha256": "c4a53413f47b425be83e213ee72ef3b416dc2fc9d519a59e9b2320143233c73d"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/log_to_real.rs",
+      "base_sha256": "8077627013888d4e75b417e0a25e9a7d7dd92b5779d082f650c7a7050ce291cd",
+      "final_sha256": "b933b2d0ff33375ae6bb071823894bdd2a97e7c19c3ef76f5b4e736d786a55ef"
+    },
+    {
+      "path": "crates/symox-py/src/integration_methods.rs",
+      "base_sha256": "a1c68e9650956cf6c0879a6e79ee29a932509364c9a1a2dbf0395c085da4f22c",
+      "final_sha256": "ffa097f4854a3bc25641dfe7f5ed95a200b0fb11b492150d6f302d4bac0bbd17"
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "c966bb72e3f6b83b6ff2fbff151f4096a7ba04eb4955517b0ac0bcd990b6ec27",
+      "final_sha256": "97dccc337d68a33ed7f1204a5f28fef2d42998eeaf23e6640d931f4e97914514"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/ratint_driver.rs",
+      "base_sha256": null,
+      "final_sha256": "4b67c4ce6f8dcb2e6952412101539ac3c2542fd2c7796649f62cbd635b0436c1"
+    },
+    {
+      "path": "tests/test_native_ratint_driver.py",
+      "base_sha256": null,
+      "final_sha256": "3d2218b21e7d2f484ca97c76a344db389e9feb368b0d9197b974c74b7ed2b69c"
+    }
+  ],
+  "scope": "Native bounded QQ/ZZ real rational integration driver; old public body intact"
+}

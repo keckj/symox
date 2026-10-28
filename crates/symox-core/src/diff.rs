@@ -1,5 +1,8 @@
 //! Symbolic differentiation.
 
+pub mod symbolic;
+mod integer_orders;
+
 use rustc_hash::FxHashMap;
 
 use crate::expr::{Expr, Func, Kind};
@@ -9,6 +12,7 @@ use crate::ops::{add, div, mul, mul2, mul_factor, neg, pow, sqrt, sub};
 pub fn is_valid_variable(variable: &Expr) -> bool {
     match variable.kind() {
         Kind::Sym(_) | Kind::Func(Func::MatrixElement(_), _) => true,
+        Kind::Func(Func::SymbolicDerivative, _) => symbolic::valid_variable(variable).unwrap_or_else(|error|{symbolic::record(error);false}),
         Kind::Derivative(inner, variables) => {
             let Kind::Func(Func::Undefined(head), arguments) = inner.kind() else { return false; };
             !head.internal && variables.iter().all(|(variable, _)| {
@@ -31,6 +35,7 @@ pub fn diff(e: &Expr, x: &Expr) -> Expr {
 
 /// n-th derivative.
 pub fn diff_n(e: &Expr, x: &Expr, n: u32) -> Expr {
+    if n>1 {if let Some(value)=integer_orders::evaluate(e,x,&num_bigint::BigInt::from(n)){return value;}}
     let mut r = e.clone();
     for _ in 0..n {
         r = diff(&r, x);
@@ -73,6 +78,9 @@ fn sort_block(d: &Expr, v: &Expr, wrt: bool) -> bool {
     if d.is_symbol() {
         return false;
     }
+    if let Some((_,variables))=symbolic::parts(d) {
+        return variables.iter().any(|(k,_)|sort_block(k,v,true));
+    }
     if let Kind::Derivative(_, variables) = d.kind() {
         return variables.iter().any(|(k, _)| sort_block(k, v, true));
     }
@@ -97,6 +105,24 @@ pub fn sort_variable_count(vc: &[(Expr, u32)]) -> Vec<(Expr, u32)> {
     if vc.len() <= 1 {
         return vc.to_vec();
     }
+    let order = variable_order(vc);
+    let mut merged: Vec<(Expr, u32)> = Vec::with_capacity(vc.len());
+    for i in order {
+        let (v, c) = &vc[i];
+        if let Some((w, m)) = merged.last_mut() {
+            if w == v {
+                if let Some(total) = m.checked_add(*c) {
+                    *m = total;
+                    continue;
+                }
+            }
+        }
+        merged.push((v.clone(), *c));
+    }
+    merged
+}
+
+pub(super) fn variable_order<T>(vc: &[(Expr,T)]) -> Vec<usize> {
     let n = vc.len();
     let mut edges: Vec<(usize, usize)> = Vec::new();
     for i in 0..n {
@@ -108,14 +134,17 @@ pub fn sort_variable_count(vc: &[(Expr, u32)]) -> Vec<(Expr, u32)> {
     }
     // O = dict(zip(ordered(uniq(variables)), range(len(vc))))
     let mut unique: Vec<Expr> = Vec::new();
-    for (v, _) in vc {
+    for (v,_) in vc {
         if !unique.contains(v) {
             unique.push(v.clone());
         }
     }
-    let mut keyed: Vec<(usize, crate::sortkey::Key, Expr)> =
-        unique.into_iter().map(|v| (sympy_nodes(&v), crate::sortkey::sort_key(&v), v)).collect();
-    keyed.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+    let mut keyed: Vec<(crate::number::Number, crate::sortkey::Key, Expr)> =
+        unique.into_iter().map(|v| {
+            let weight=if symbolic::parts(&v).is_some(){symbolic::node_weight(&v)}else{crate::number::Number::from_bigint(sympy_nodes(&v).into())};
+            (weight,crate::sortkey::sort_key(&v),v)
+        }).collect();
+    keyed.sort_by(|a,b|a.0.cmp_value(&b.0).unwrap_or_else(||a.0.cmp_struct(&b.0)).then_with(||a.1.cmp(&b.1)));
     let rank = |i: usize| keyed.iter().position(|(_, _, v)| *v == vc[i].0).unwrap_or(0);
     // topological_sort((V, E), key=lambda i: O[v(i)])
     let mut start: Vec<usize> = (0..n).filter(|i| !edges.iter().any(|(_, u)| u == i)).collect();
@@ -143,22 +172,9 @@ pub fn sort_variable_count(vc: &[(Expr, u32)]) -> Vec<(Expr, u32)> {
         }
     }
     if order.len() != n {
-        return vc.to_vec();
+        return (0..vc.len()).collect();
     }
-    let mut merged: Vec<(Expr, u32)> = Vec::with_capacity(n);
-    for i in order {
-        let (v, c) = &vc[i];
-        if let Some((w, m)) = merged.last_mut() {
-            if w == v {
-                if let Some(total) = m.checked_add(*c) {
-                    *m = total;
-                    continue;
-                }
-            }
-        }
-        merged.push((v.clone(), *c));
-    }
-    merged
+    order
 }
 
 /// `Derivative.canonical` applied to every derivative of `e`, as the
@@ -174,6 +190,7 @@ pub fn canonical_derivatives(e: &Expr) -> Expr {
         }
         let value = match e.kind() {
             Kind::Num(_) | Kind::Const(_) | Kind::Sym(_) | Kind::Bool(_) => e.clone(),
+            Kind::Func(Func::SymbolicDerivative, _) => symbolic::canonical(e),
             Kind::Derivative(inner, variables) => {
                 let body = walk(inner, memo);
                 let sorted = if variables.len() > 1 { sort_variable_count(variables) } else { variables.clone() };
@@ -332,6 +349,8 @@ fn d_func(
     x: &Expr,
     cache: &mut FxHashMap<usize, (Expr,Expr)>,
 ) -> Expr {
+    if matches!(f,Func::SymbolicDerivative) {return symbolic::differentiate(e,x);}
+
     if matches!(f, Func::GenericExpr) {
         return derivative_unevaluated(e, vec![(x.clone(), 1)]);
     }

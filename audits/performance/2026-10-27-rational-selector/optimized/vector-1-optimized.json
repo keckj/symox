@@ -1,0 +1,160 @@
+{
+  "adapter_sha256": "753ad09a13189b1c98d9e062db892fc1461ef5f4010b568bf9aab242d08387aa",
+  "sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+  "module": "/home/keckj/symox-ci/wt/selector-proof-release-r3b/python/symox/__init__.py",
+  "variant": "vector",
+  "cpu": 24,
+  "affinity": [
+    24
+  ],
+  "reference_imported": false,
+  "iterations": 20,
+  "rounds": 5,
+  "cases": {
+    "lrt/quadratic": {
+      "median_ns_per_pair": 416384.3,
+      "rounds_ns_per_pair": [
+        422299.45,
+        413762.75,
+        418036.4,
+        416384.3,
+        403534.25
+      ],
+      "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "lrt/quartic": {
+      "median_ns_per_pair": 492697.95,
+      "rounds_ns_per_pair": [
+        492621.05,
+        492718.9,
+        490378.15,
+        492697.95,
+        493175.3
+      ],
+      "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "lrt/nonconstant_numerator": {
+      "median_ns_per_pair": 536117.85,
+      "rounds_ns_per_pair": [
+        545402.35,
+        536117.85,
+        532975.3,
+        531664.45,
+        539605.05
+      ],
+      "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "lrt/multiplicity_groups": {
+      "median_ns_per_pair": 838203.15,
+      "rounds_ns_per_pair": [
+        833490.95,
+        840181.8,
+        839380.75,
+        835855.8,
+        838203.15
+      ],
+      "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "lrt/distinct_arguments": {
+      "median_ns_per_pair": 802802.7625,
+      "rounds_ns_per_pair": [
+        802802.7625,
+        802368.775,
+        808360.725,
+        804038.73125,
+        793218.09375
+      ],
+      "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03",
+      "pairs_per_batch": 8,
+      "native_selected_outside_timers": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "atan/linear_branch": {
+      "median_ns_per_pair": 101489.0,
+      "rounds_ns_per_pair": [
+        105889.45,
+        101489.0,
+        104855.2,
+        98308.8,
+        98520.5
+      ],
+      "digest": "058bc83e0901e8a1486174fc6817ff45bb68c190a9ab69c8d7034123acf056ef",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "atan/quadratic": {
+      "median_ns_per_pair": 110459.6,
+      "rounds_ns_per_pair": [
+        113109.75,
+        111119.0,
+        110368.2,
+        110428.95,
+        110459.6
+      ],
+      "digest": "c82fd8fd618fb7cae452743587e352fbe05de6f1ed4fcbb7e77ea07f78c239c7",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "atan/quartic": {
+      "median_ns_per_pair": 143996.15,
+      "rounds_ns_per_pair": [
+        148288.5,
+        143996.15,
+        143808.55,
+        143703.95,
+        144927.8
+      ],
+      "digest": "b950b176992c3d1e0295532bf4eb0dc2e1431057c44003ee82f0839f995ae2ff",
+      "pairs_per_batch": 1,
+      "native_selected_outside_timers": [
+        true
+      ]
+    },
+    "atan/distinct_arguments": {
+      "median_ns_per_pair": 132187.975,
+      "rounds_ns_per_pair": [
+        131592.075,
+        132187.975,
+        132184.975,
+        132271.15,
+        134807.95
+      ],
+      "digest": "1d0eb8ff88d2298f7bc7b7afc833255ee8fab1c30b18abc2e6017961ea4a1938",
+      "pairs_per_batch": 4,
+      "native_selected_outside_timers": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  }
+}

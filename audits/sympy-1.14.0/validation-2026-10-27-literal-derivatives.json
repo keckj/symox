@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "status": "accepted",
+  "scope": "Native literal nonnegative Int/BigInt derivative recipes for finite numeric affine elementary functions and certified polynomial degree cases; local exact coefficient representation; guarded CSE reconstruction and canonical ordinary SymPy exports.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "2eb95e7788af6673c6bf1f8dfd2faed142d976880d62f577948ffc2a9b4702d7",
+    "native_sha256": "3243129bfe3e4ec0611ebe7761b5988f5bba3312df8a9e9911fea5c7a785eaee",
+    "working_code_diff_sha256": "8b7b5aec6c5eaab2fa504a7e4873f275164c3bd1821f1aae9c77e409987d16c0",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 2769,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 184.65694642066956,
+    "native_sha256": "3243129bfe3e4ec0611ebe7761b5988f5bba3312df8a9e9911fea5c7a785eaee"
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 49222,
+      "skipped": 55,
+      "xfailed": 4,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 49281,
+      "collected_in_shards": 49281,
+      "finished": 49281,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 210.801837682724,
+    "collection_size_delta_from_previous_accepted_release": 707,
+    "original_failed_export_case_reexecuted_and_passed": true
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 708,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 140.06892466545105
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 0.11116909980773926
+      },
+      "rust_inputs_unchanged": true
+    },
+    "bindings_clippy_returncode": 0,
+    "ordinary_warnings_preserved": true
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-literal-derivatives-r1-20261027/python/symox/__init__.py",
+    "native_sha256": "3243129bfe3e4ec0611ebe7761b5988f5bba3312df8a9e9911fea5c7a785eaee",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_validation": {
+    "initial_root_release": 2116,
+    "corrected_root_release": 2567,
+    "private_literal_focused": 1168,
+    "private_literal_broad": 10539,
+    "private_CSE_attributes": 1171,
+    "private_export_targeted": 1127,
+    "private_export_original_shard": 960,
+    "new_export_cases_before_fix": "9 failed,22 passed"
+  },
+  "initial_failure": "audits/sympy-1.14.0/validation-2026-10-27-literal-derivatives-initial.json",
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-literal-derivatives-r1-20261027",
+    "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-literal-derivatives-r1-20261027/after",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-literal-derivatives-r1-20261027",
+    "portable_review": "audits/sympy-1.14.0/native-literal-derivatives-2026-10-27/README.md"
+  },
+  "representation_contract": {
+    "ordinary_num_pow_unchanged_sha256": "65072b8f76bc8732cf5ecf39c72f05834132072fe2cc84ee2c78eb47c2a9a27d",
+    "global_or_TLS_evaluation_cap_added": false,
+    "local_recipe": "Immutable Node metadata, inherited feature bit and private matrix-DAG opcode; public kind/args/Eq/hash/printing unchanged.",
+    "complete_explicit_paths": "Pow/func/int/doit retain complete ordinary evaluation, tested on 2**524289; giant values are not allocated merely for validation.",
+    "ordinary_export": "Only explicit recipe descendants suppress eager SymPy parent normalization. Every unmarked subtree follows the preceding canonical export path."
+  },
+  "repairs": [
+    "A private global power bound was discarded before integration; ordinary num_pow remains byte-identical.",
+    "CSE initially bypassed actual Integer attribute probes; the followup preserves root/base getattribute/getattr callbacks against forced old reconstruction.",
+    "The initial export guard caught canonical numeric reciprocals. The accepted fix checks only explicit recipe metadata; original equality assertion retained."
+  ],
+  "provenance_incident": {
+    "record": "audits/sympy-1.14.0/native-literal-derivatives-2026-10-27/base-workdir-incident.json",
+    "scope": "Four new proof metadata files were temporarily written to older r1b .validation. Production sources/binary were unchanged.",
+    "repair": "Only the four additions were removed; absence in original/remote and all2526 source/binary entries were verified, original five validation files unchanged. Accidental bytes were reconstructed after removal; chronology is explicit."
+  },
+  "remaining_gaps": [
+    "No global mathematical parity certified. Literal exact orders/finite closed coefficients do not cover all symbolic counts, functions or domains.",
+    "Issue22210 remains open: symbolic x/constant formulae need type-sensitive substitution preserving Float-count behavior.",
+    "Unsupported lower derivatives of nontrivial polynomial products, host/inexact/free coefficient parameters and other functions retain complete prior paths; budget refusal is not zero.",
+    "Matrix.diff has separate machine-order parser limits. Explicit cancel/simplify may request full coefficient materialization; public factorial/FF and generic held-Factorial.doit limitations are unchanged.",
+    "PolyMatrix RREF/nullspace and low-degree log_to_real belong to the next working-tree build. Sparse algorithms and broad Risch/PRDE/ODE drivers remain open.",
+    "Two small Atan/vector selector cases show measured R3b overhead; a separate optimization is being validated without removing callback checks."
+  ],
+  "performance": {
+    "status": "No speedup inferred from an old held/unsupported derivative. Earlier timings retain their own source identities; selector controls record gains and small-case regressions separately."
+  },
+  "global_algorithmic_parity_certified": false,
+  "selector_performance_control": {
+    "artifact": "audits/performance/2026-10-27-rational-selector/README.md",
+    "scope": "R2/R3b plus R3b guard-only overlay; not the later integrated R5 binary",
+    "initial_checks": 684,
+    "confirmation_checks": 1026,
+    "independent_exact_certificates": 19,
+    "residual": "vector linear Atan89.187->100.389us,+12.6% againstR2; no hidden case exclusion"
+  }
+}

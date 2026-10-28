@@ -27,6 +27,17 @@ _native = {name: getattr(Poly, name) for name in (
     "TC", "nth",
 )}
 _native_reduce=Poly.__reduce__
+_native_as_dict=Poly.as_dict
+_stock_poly_dict=Poly.__dict__
+_native_ex_domain=_core.EX
+
+
+def _stock_coefficient_view(f):
+    if _stock_poly_dict.get('as_dict') is not _native_as_dict:return False
+    if type(f) is Poly:return True
+    from .. import _purepoly
+    return type(f) is _purepoly.PurePoly and _purepoly.inspect.getattr_static(_purepoly.PurePoly,'as_dict') is _purepoly._stock_as_dict
+
 
 _SAME = object()
 
@@ -37,7 +48,8 @@ def _restore_polynomial(cls,terms,gens,domain):return cls(terms,*gens,domain=dom
 def _reduce_polynomial(f):
     try:domain=f.domain
     except NotImplementedError:return _native_reduce(f)
-    return _restore_polynomial,(type(f),f.as_dict(),f.gens,domain)
+    terms=f._coefficient_payload() if _stock_coefficient_view(f) and domain is _native_ex_domain else f.as_dict()
+    return _restore_polynomial,(type(f),terms,f.gens,domain)
 
 
 def _S():
@@ -210,7 +222,7 @@ def ET(f, order=None):
 
 def as_list(f, native=False):
     """Nested dense coefficient lists, leading coefficient first."""
-    rep = dict(_items(f))
+    rep = f._coefficient_payload() if _stock_coefficient_view(f) else dict(_items(f))
     n = len(f.gens)
 
     def build(level, prefix):

@@ -93,6 +93,10 @@ from .dense import (
         )
 
 from .lll import ddm_lll, ddm_lll_transform
+from ._fflu_native import (try_eliminate as _native_fflu, try_permutation as _native_fflu_p,
+                          try_lower as _native_fflu_l, try_diagonal as _native_fflu_d,
+                          register as _register_fflu, _congruent as _fflu_congruent)
+from symox._core import _ddm_fflu_dependencies as _fflu_dependencies
 
 
 if GROUND_TYPES != 'flint':
@@ -980,8 +984,13 @@ class DDM(list):
         LU = self.copy()
         perm = list(range(rows))
         rank = 0
+        previous_pivot_column = None
+        if _native_fflu(LU,perm,K,(rows,cols),DDM,_fflu_dependencies(_fflu_congruent,0)):
+            return LU,perm
 
-        for j in range(min(rows, cols)):
+        for j in range(cols):
+            if rank == rows:
+                break
             # Skip columns where all entries are zero
             if all(LU[i][j] == K.zero for i in range(rows)):
                 continue
@@ -1007,11 +1016,12 @@ class DDM(list):
             for i in range(rank + 1, rows):
                 multiplier = LU[i][j]
                 # Denominator is previous pivot or 1
-                denominator = LU[rank - 1][rank - 1] if rank > 0 else K.one
+                denominator = LU[rank - 1][previous_pivot_column] if rank > 0 else K.one
                 for k in range(j + 1, cols):
                     LU[i][k] = K.exquo(pivot * LU[i][k] - LU[rank][k] * multiplier, denominator)
                 # Keep the multiplier for L matrix
                 LU[i][j] = multiplier
+            previous_pivot_column = j
             rank += 1
 
         return LU, perm
@@ -1035,38 +1045,41 @@ class DDM(list):
         # Phase 2: Construct P, L, D matrices
         # Create P from permutation
         P = self.zeros((rows, rows), K)
-        for i, pi in enumerate(perm):
-            P[i][pi] = K.one
+        if not _native_fflu_p(P,perm,K,(rows,cols),DDM,_fflu_dependencies(_fflu_congruent,1)):
+            for i, pi in enumerate(perm):
+                P[i][pi] = K.one
 
         # Create L matrix
         L = self.zeros((rows, rows), K)
-        i = j = 0
-        while i < rows and j < cols:
-            if U[i][j] != K.zero:
-                # Found non-zero pivot
-                # Diagonal entry is the pivot
-                L[i][i] = U[i][j]
-                for l in range(i + 1, rows):
-                    # Off-diagonal entries are the multipliers
-                    L[l][i] = U[l][j]
-                    # zero out the entries in U
-                    U[l][j] = K.zero
-                i += 1
-            j += 1
+        if not _native_fflu_l(U,L,K,(rows,cols),DDM,_fflu_dependencies(_fflu_congruent,2)):
+            i = j = 0
+            while i < rows and j < cols:
+                if U[i][j] != K.zero:
+                    # Found non-zero pivot
+                    # Diagonal entry is the pivot
+                    L[i][i] = U[i][j]
+                    for l in range(i + 1, rows):
+                        # Off-diagonal entries are the multipliers
+                        L[l][i] = U[l][j]
+                        # zero out the entries in U
+                        U[l][j] = K.zero
+                    i += 1
+                j += 1
 
-        # Fill remaining diagonal of L with ones
-        for i in range(i, rows):
-            L[i][i] = K.one
+            # Fill remaining diagonal of L with ones
+            for i in range(i, rows):
+                L[i][i] = K.one
 
         # Create D matrix - using FLINT's approach with accumulator
         D = self.zeros((rows, rows), K)
         if rows >= 1:
             D[0][0] = L[0][0]
         di = K.one
-        for i in range(1, rows):
-            # Accumulate product of pivots
-            di = L[i - 1][i - 1] * L[i][i]
-            D[i][i] = di
+        if not _native_fflu_d(L,D,K,(rows,cols),DDM,_fflu_dependencies(_fflu_congruent,3)):
+            for i in range(1, rows):
+                # Accumulate product of pivots
+                di = L[i - 1][i - 1] * L[i][i]
+                D[i][i] = di
 
         return P, L, D, U
 
@@ -1179,5 +1192,14 @@ class DDM(list):
         return ddm_lll_transform(A, delta=delta)
 
 
+from . import dense as _dense_operations
+_dense_operations._native_ddm_type = DDM
+
 from .sdm import SDM
 from .dfm import DFM
+
+# Authenticate constructor protocols while the package initializes.
+from . import lll as _lll_module
+_lll_module._lll_native.register(DDM, _lll_module)
+
+_register_fflu(DDM)

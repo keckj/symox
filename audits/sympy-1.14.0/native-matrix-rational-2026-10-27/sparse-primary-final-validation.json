@@ -1,0 +1,30 @@
+{
+  "source_manifest_sha256": "b0c7334604900d7c029ab43de559c1d75d5a3926e5b3bf955d0f9607a5227f61",
+  "source_frozen_and_verified": true,
+  "native_sha256": "0c0a93466164860ba5c9fd50d1e33de70395c6d75866051484df6bee90c50c9a",
+  "local": {
+    "focused": 185,
+    "broad": 5723,
+    "rust_focused": 4
+  },
+  "demeter": {
+    "focused": 185,
+    "broad": 5723,
+    "rust_passed": 703,
+    "rust_ignored": 1,
+    "clippy_exit": 0
+  },
+  "logs": {
+    "pytest-frozen-focused.log": "d272cc63eb444e0ee3e4749c7393f4aa5e30430ae77246dd2947ef48e2313eab",
+    "pytest-broad-matrix-domain.log": "b0890aed0701ff7540d2c8c230e29cd5e23f9f98ca06ebf2ae486922ce1113fb",
+    "rust-sparse-final.log": "974d9ace9b721adb7051e05506129c5155f43f8c19ddee6893c354eacd0d3623",
+    "demeter-focused.log": "c053950369ffaa1d9233f5c425ee93b8ef092e76587d472d35f6d63b65d54b69",
+    "demeter-broad.log": "2ef1aee019df6d7e1f22e663ad2cba83d8de9bee96d350d011409ea43858ce41",
+    "demeter-core-tests.log": "4ec5edaa9c60776949194b3ddf8ca22e6ad603ce20929088c0fed9840f0e9896",
+    "demeter-clippy.log": "38c0c1971764217a64027d98f8f81910eacb62d51bc1c2358bea01ea674b2598",
+    "source-hash-verification.json": "3d3eb99bf4cb359ea422962a6e4c40b3530ffee8b54d39f31adfe871c5900c40",
+    "first-public-route.json": "a0b7ce2a0eb6c52a2a98645d86e53628493f564cbb334d63dc5c6773034208dd"
+  },
+  "followup_required": "../sparse-sdm-protocol-followup/.validation/source-manifest.json",
+  "benchmark_claim": null
+}

@@ -1,0 +1,52 @@
+{
+  "index_sha256": "7a86b7cd074c49ecb44ef697891ae25a081dae3dbb411b430be72c1ad4fb7281",
+  "manifest_sha256": "c0853061e04b4b772afdd8b1fa8adb0386fc5ef2ee9d5cb2c3e4e382654f3f42",
+  "archive_sha256": "3c82e282a51914e6b6e37eade799e0ad37c7d9b87494bed70bb436d7d46f3796",
+  "archive_map_sha256": "8e4abb4fc5e55de83f38cf5cf59f7ca3c0d0af3c1896b2de9493c3860c9b3967",
+  "members_checked": 83,
+  "base_entries_checked": 3379,
+  "native_inputs": 350,
+  "validation_input_entries": 361,
+  "owned_files": 7,
+  "root_dependency_files": 4,
+  "gates": {
+    "local": {
+      "focused": {
+        "passed": 123,
+        "exact_once": true,
+        "returncode": 0
+      },
+      "shard": {
+        "passed": 1037,
+        "exact_once": true,
+        "returncode": 0
+      },
+      "coupled": {
+        "passed": 4544,
+        "exact_once": true,
+        "returncode": 0
+      }
+    },
+    "demeter": {
+      "focused": {
+        "passed": 123,
+        "exact_once": true,
+        "returncode": 0
+      },
+      "shard": {
+        "passed": 1037,
+        "exact_once": true,
+        "returncode": 0
+      },
+      "coupled": {
+        "passed": 4544,
+        "exact_once": true,
+        "returncode": 0
+      }
+    }
+  },
+  "reference_imports_blocked_both_hosts": true,
+  "private_debug_native": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+  "release_native": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+  "root_full_release_gate_pending": true
+}

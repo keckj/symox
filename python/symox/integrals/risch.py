@@ -24,6 +24,9 @@ from symox.core.sorting import ordered, default_sort_key
 from symox.polys.polyerrors import PolynomialError
 
 
+from ._risch_native import reduce as _native_polynomial_reduce
+from ._risch_splitfactor_native import reduce as _native_splitfactor
+
 def integrate(*args, **kwargs):
     from symox import integrate as _integrate
     return _integrate(*args, **kwargs)
@@ -962,6 +965,9 @@ def splitfactor(p, DE, coefficientD=False, z=None):
         kinv.append(z)
 
     One = Poly(1, DE.t, domain=p.get_domain())
+    candidate = _native_splitfactor(p, DE, One, coefficientD, z)
+    if candidate is not None:
+        return candidate
     Dp = derivation(p, DE, coefficientD=coefficientD)
     # XXX: Is this right?
     if p.is_zero:
@@ -1119,6 +1125,9 @@ def polynomial_reduce(p, DE):
     deg(r) < deg_t(Dt).
     """
     q = Poly(0, DE.t)
+    native = _native_polynomial_reduce(p, DE, q)
+    if native is not None:
+        return native
     while p.degree(DE.t) >= DE.d.degree(DE.t):
         m = p.degree(DE.t) - DE.d.degree(DE.t) + 1
         q0 = Poly(DE.t**m, DE.t).mul(Poly(p.as_poly(DE.t).LC()/

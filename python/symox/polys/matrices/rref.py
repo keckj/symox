@@ -28,6 +28,7 @@
 #   https://github.com/sympy/sympy/pull/25443
 
 from symox.polys.domains import ZZ
+from ._rref_native import native_choose_method as _native_choose_method
 
 from symox.polys.matrices.sdm import SDM, sdm_irref, sdm_rref_den
 from symox.polys.matrices.ddm import DDM
@@ -243,6 +244,9 @@ def _dm_rref_choose_method(M, method, *, denominator=False):
             use_fmt = 'sparse'
 
     else:
+        native=_native_choose_method(M)
+        if native is not None:return native,'sparse'
+
         # The sparse implementations are always faster
         use_fmt = 'sparse'
 

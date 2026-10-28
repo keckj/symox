@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "status": "accepted",
+  "initial_failed_gate": "audits/sympy-1.14.0/validation-2026-10-28-solve-risch-lll-initial.json",
+  "followup_note": "Python-only authenticated HostTree free_symbols extension proof; initial five admission failures and snapshot preserved separately. Fresh complete Python/Rust gates run on this corrected package.",
+  "scope": "Exact stock QQ forward/back triangular solve; read-only refusal of Risch no-step admission before heavy proof; Unicode-safe callback-free ABC metadata reads for LLL; authenticated official HostTree property extension proof.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "82feae2c9d065fd338e9439693f9c5b2bd1663b683ac2a9e411937b923e38754",
+    "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+    "working_code_diff_sha256": "a1a57da806073ce5481756822e9c3316ba9ea1718300ac206753b5e9ebb23bd4",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 3299,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 520.093638420105,
+    "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+    "validation_note": "Native build from initial R10 retained for a forthcoming Python-only guard followup; full native inputs and binary will be checked again before freeze. Corrected full Rust/Python gates will execute fresh."
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 52218,
+      "xfailed": 4,
+      "skipped": 55,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 52277,
+      "collected_in_shards": 52277,
+      "finished": 52277,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 194.21634578704834
+  },
+  "rust": {
+    "host": "Demeter",
+    "unit_passed": 747,
+    "integration_tests_passed": 1,
+    "integration_fixture_cases": 651,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "core_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 21.28811812400818
+    },
+    "bindings_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox-py",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 18.200969457626343,
+      "native_inputs_unchanged": true
+    },
+    "validation_mode": "Fresh complete execution on347 native inputs, no earlier result reuse."
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+    "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_validation": {
+    "original-shard45": {
+      "returncode": 0,
+      "elapsed_seconds": 18.44033646583557,
+      "collected": 1028,
+      "exactly_once": true
+    },
+    "combined": {
+      "returncode": 0,
+      "elapsed_seconds": 143.38519930839539,
+      "collected": 7357,
+      "exactly_once": true
+    }
+  },
+  "repairs": [
+    "Official HostTree.free_symbols installation no longer invalidates unrelated QQ/RF matrix admission. The optional property is accepted only with authenticated module, exact static property type, getter/installer code, namespaces, defaults and closures; altered callbacks and unrelated class changes still decline without speculative access.",
+    "QQ triangular solve preserves actual shape/permutation/y prefixes, reads actual caller dependencies without premature late lookups, publishes y/x and errors in historical order, and retains whole fallback for custom/aliased/destructor/error protocols.",
+    "Risch preflight reads only typed polynomial payload and original C d member, returns no mathematical answer, and only declines the optimization. The entire original body follows, so changed getters, constructors, errors and no-step aliases remain effective.",
+    "LLL metadata probe validates ALL dictionary keys as exact Unicode without encoding, before one consumed-key lookup. This prevents user equality/hash hooks and preserves unsupported/missing metadata. Unused surrogate attributes no longer cause UnicodeEncodeError. No ABC classification/cache mutation or old-dump reuse is added."
+  ],
+  "remaining_gaps": [
+    "Global mathematical parity is not certified.",
+    "Triangular solve native admission is stock QQ; GF/RR/ZZ, custom or unsafe-alias configurations and unproven exception protocols keep their complete old paths.",
+    "The Risch no-step preflight is a refusal only, not a partial solution or an assertion that no reduction is possible. General Risch/PRDE/ODE remains work.",
+    "LLL genuinely cold mathematics remains Python. The key-only probe is an overhead/Unicode repair, not a claim that first-call scalar LLL has been ported.",
+    "Earlier normalforms/FFLU, domain/precision/completeness, symbolic derivative, integration and resource gaps remain explicit.",
+    "Post-gate protocol review reproduced a Python function-metadata audit-hook regression in stock LU/solve: a hook installed after imports can raise on added __code__ reads absent from the old mathematical body. Native optional public metadata getters and HNF integration are under correction in R11. The full-suite and timing results above remain scoped observations, not audit-hook or global parity certification."
+  ],
+  "performance": {
+    "status": "Three integrated release campaigns complete, all raw cases and regressions retained.",
+    "certificates": 3456,
+    "campaigns": {
+      "solve": {
+        "review": "audits/performance/2026-10-28-native-solve-r10/README.md",
+        "certificates": 1152,
+        "cases": 18,
+        "fresh_processes": 144,
+        "ratios_R9_over_R10": {
+          "first": {
+            "minimum": 0.8863535345358234,
+            "maximum": 3.945545554679302
+          },
+          "repeated": {
+            "minimum": 1.0353678119732983,
+            "maximum": 4.889053433675736
+          }
+        },
+        "slower_medians_retained": 2
+      },
+      "lll": {
+        "review": "audits/performance/2026-10-28-native-lll-r10/README.md",
+        "certificates": 1152,
+        "cases": 18,
+        "fresh_processes": 144,
+        "ratios_R9_over_R10": {
+          "first": {
+            "minimum": 0.9768119503235398,
+            "maximum": 1.1202008129169219
+          },
+          "repeated": {
+            "minimum": 0.963635982975034,
+            "maximum": 1.0698325416566148
+          }
+        },
+        "slower_medians_retained": 10
+      },
+      "risch": {
+        "review": "audits/performance/2026-10-28-native-risch-r10/README.md",
+        "certificates": 1152,
+        "cases": 12,
+        "fresh_processes": 144,
+        "ratios_R9_over_R10": {
+          "first": {
+            "minimum": 0.9671566199346605,
+            "maximum": 10.76692095647157
+          },
+          "repeated": {
+            "minimum": 0.9872523164761197,
+            "maximum": 14.086926362673871
+          }
+        },
+        "slower_medians_retained": 10
+      }
+    },
+    "whole_engine_gain_claimed": false
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-solve-risch-lll-r10-r1-20261028",
+    "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-solve-risch-lll-r10-r1-20261028/after",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028",
+    "portable_review": "audits/sympy-1.14.0/native-solve-risch-lll-2026-10-28/README.md",
+    "independent_checks": {
+      "source_entries_checked": 3299,
+      "native_build_input_paths_and_hashes_verified": 347,
+      "compile_time_tsv_fixture_included": true,
+      "collection_execution_counters_equal": true,
+      "each_node_once": true,
+      "nodes": 52277,
+      "shards": 48
+    }
+  },
+  "global_algorithmic_parity_certified": false,
+  "integration_corpus": {
+    "artifact": "audits/sympy-1.14.0/corpus-r10-2026-10-28/README.md",
+    "inputs_per_backend": 1210,
+    "backend_calls": 2420,
+    "exactly_once_per_backend": true,
+    "native_output_trees_identical_to_R2": 1210,
+    "parameter_controls": 21,
+    "E1_controls": 10
+  },
+  "post_gate_protocol_gap": {
+    "evidence": "audits/sympy-1.14.0/native-solve-risch-lll-2026-10-28/audit-followup-before.json",
+    "processes": 6,
+    "scope": "R9 LU/R10 solve and private HNF: native admission raises under rejecting audit hook; original body succeeds.",
+    "production_evidence": "audits/sympy-1.14.0/native-solve-risch-lll-2026-10-28/audit-r10r1-production-before.json",
+    "production_scope": "Six identical probes on immutable RELEASE R10r1: old ordinaryHNF has0metadata events; LU/solve admissions raise on__code__ while old mathematical bodies succeed. PrivateHNF before correction is separate c4d297ac.",
+    "resolved_by": {
+      "report": "audits/sympy-1.14.0/validation-2026-10-28-normalforms-risch-lll.json",
+      "source_identity": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35",
+        "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+        "working_code_diff_sha256": "da576c7794f7ea5d65ebf4308300b9128bac11388935d5140a019d5a8d140efa",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      },
+      "scope": "LU/solve/HNF audit gap fixed; known limitations in other protocols remain separate."
+    }
+  }
+}

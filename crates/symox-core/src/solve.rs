@@ -15,6 +15,8 @@ use crate::traverse::{free_symbols, has};
 
 mod algebraic;
 mod recast;
+mod rational_coverage;
+pub use rational_coverage::complete_rational_roots;
 mod trig;
 pub use recast::{solve_atom,solve_atom_system};
 pub(crate) mod lambert;
@@ -160,6 +162,93 @@ fn denominator_vanishes(den: &Expr, x: &Expr, s: &Expr) -> bool {
     crate::evalf_mp::eval_mp(&d, 64).is_some_and(|v| v.abs(64).cmp(&crate::bigfloat::BigFloat::one().ldexp(-30)).is_lt())
 }
 
+/// Compare a logarithm's algebraic argument with one without evaluating
+/// the logarithm. For log(Abs(z)), compare |z|^2 instead: both comparisons
+/// have the same sign. A rectangle containing zero proves nothing.
+fn logarithm_argument_shift(argument: &Expr) -> Option<crate::poly::enclosure::CBox> {
+    use crate::poly::enclosure::{enclose, CBox};
+    if !free_symbols(argument).is_empty() {
+        return None;
+    }
+    if let Kind::Func(Func::Abs, args) = argument.kind() {
+        let modulus_squared = enclose(&args[0], 64).ok()?.norm2(64);
+        if !modulus_squared.positive() { return None; }
+        Some(CBox::real(modulus_squared).sub(&CBox::one(), 64))
+    } else {
+        if !enclose(argument, 64).ok()?.excludes_zero() { return None; }
+        enclose(&sub(argument, &Expr::one()), 64).ok()
+    }
+}
+
+/// Additional exact zero decisions needed by candidate-assumption checks.
+/// In particular Im(-I*log(z)) = -log(Abs(z)) is nonzero whenever a
+/// certified algebraic enclosure separates |z|^2 from one. Products retain
+/// an undecided factor instead of declaring it nonzero from a sample.
+fn certified_candidate_zero(value: &Expr) -> Option<bool> {
+    use crate::poly::enclosure::enclose;
+    let rectangle = match value.kind() {
+        Kind::Func(Func::Log, args) if args.len() == 1 => logarithm_argument_shift(&args[0])?,
+        Kind::Mul(coefficient, factors) if !coefficient.is_zero() => {
+            for (base, exponent) in factors {
+                // A nonzero finite number to a rational power is nonzero.
+                // This only supplies a negative zero verdict, so a zero base
+                // or an unsupported exponent remains undecided here.
+                let ordinary = crate::assumptions::is_zero(base) == Some(false)
+                    && crate::assumptions::is_finite(base) == Some(true);
+                if !exponent.is_rational_number()
+                    || !(ordinary || certified_candidate_zero(base) == Some(false)) {
+                    return None;
+                }
+            }
+            return Some(false);
+        }
+        _ if free_symbols(value).is_empty() => enclose(value, 64).ok()?,
+        _ => return None,
+    };
+    if rectangle.is_exact_zero() { Some(true) }
+    else if rectangle.excludes_zero() { Some(false) }
+    else { None }
+}
+
+/// The sign of a real logarithm follows the argument's position relative
+/// to one. This extends the algebraic sign check without approximating a
+/// transcendental expression or rejecting symbolic parameter signs.
+fn certified_candidate_sign(value: &Expr) -> Option<i32> {
+    use crate::poly::enclosure::enclose;
+    let interval = match value.kind() {
+        Kind::Func(Func::Log, args) if args.len() == 1 => {
+            let positive = if let Kind::Func(Func::Abs, inner) = args[0].kind() {
+                enclose(&inner[0], 64).ok()?.norm2(64).positive()
+            } else {
+                let argument = enclose(&args[0], 64).ok()?;
+                argument.im.is_exact_zero() && argument.re.positive()
+            };
+            if !positive { return None; }
+            let shifted = logarithm_argument_shift(&args[0])?;
+            if !shifted.im.is_exact_zero() { return None; }
+            shifted.re
+        }
+        Kind::Mul(coefficient, factors) if coefficient.is_rational() => {
+            let mut sign = if coefficient.is_positive() { 1 } else if coefficient.is_negative() { -1 } else { 0 };
+            for (base, exponent) in factors {
+                if !exponent.is_one() { return None; }
+                sign *= certified_candidate_sign(base)?;
+            }
+            return Some(sign);
+        }
+        _ if free_symbols(value).is_empty() => {
+            let rectangle = enclose(value, 64).ok()?;
+            if !rectangle.im.is_exact_zero() { return None; }
+            rectangle.re
+        }
+        _ => return None,
+    };
+    if interval.positive() { Some(1) }
+    else if interval.negative() { Some(-1) }
+    else if interval.is_exact_zero() { Some(0) }
+    else { None }
+}
+
 fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
     use crate::assumptions as query;
     let Some(symbol) = variable.as_sym() else { return true; };
@@ -187,7 +276,8 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
             else { None }
         }).or_else(|| {
             let imaginary_part = im(value);
-            if matches!(imaginary_part.kind(), Kind::Func(Func::Im, _)) { None } else { query::is_zero(&imaginary_part) }
+            if matches!(imaginary_part.kind(), Kind::Func(Func::Im, _)) { None }
+            else { query::is_zero(&imaginary_part).or_else(|| certified_candidate_zero(&imaginary_part)) }
         });
         let zero = query::is_zero(value).or_else(||algebraic.and_then(|f|f.zero));
         let nonzero=match real {Some(false)=>Some(false),Some(true)=>zero.map(|z|!z),None=>zero.filter(|z|*z).map(|_|false)};
@@ -216,13 +306,13 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
             else { None }
         };
         let positive=query::is_positive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>0))
-            .or_else(||certified_sign().map(|s|s>0));
+            .or_else(||certified_sign().or_else(||certified_candidate_sign(value)).map(|s|s>0));
         let negative=query::is_negative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<0))
-            .or_else(||certified_sign().map(|s|s<0));
+            .or_else(||certified_sign().or_else(||certified_candidate_sign(value)).map(|s|s<0));
         let nonnegative=query::is_nonnegative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>=0))
-            .or_else(||certified_sign().map(|s|s>=0));
+            .or_else(||certified_sign().or_else(||certified_candidate_sign(value)).map(|s|s>=0));
         let nonpositive=query::is_nonpositive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<=0))
-            .or_else(||certified_sign().map(|s|s<=0));
+            .or_else(||certified_sign().or_else(||certified_candidate_sign(value)).map(|s|s<=0));
         assumptions.iter().all(|(name,expected)|{
             let known=match name {
                 "real"=>real,"integer"=>integer,"rational"=>rational,"irrational"=>irrational,
@@ -1356,10 +1446,22 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
                 Func::Sin => vec![(g.clone(), asin(&rhs)), (g, sub(&Expr::pi(), &asin(&rhs)))],
                 Func::Cos => vec![(g.clone(), acos(&rhs)), (g, sub(&mul2(&Expr::int(2), &Expr::pi()), &acos(&rhs)))],
                 Func::Tan => vec![(g, atan(&rhs))],
-                // The reference reaches `sec` and `csc` through `rewrite(exp)`
-                // and a simplified logarithm; only the closed forms that
-                // simplify to multiples of `pi` are reproduced.
+                // The reference reaches `sec` and `csc` through
+                // `rewrite(exp)` and a simplified logarithm. Keep the short
+                // inverse forms for the unit argument when they evaluate.
                 Func::Sec | Func::Csc => {
+                    // Reciprocal sine/cosine never has a finite zero.
+                    if rhs.is_zero() || crate::assumptions::exact_queries(|| crate::assumptions::is_zero(&rhs)) == Some(true) {
+                        return Some(vec![]);
+                    }
+                    // `_tsolve` rewrites sec/csc to exponentials before
+                    // solving the polynomial in exp(I*x). Even when acos
+                    // or asin evaluates exactly, division of only its
+                    // principal branches by k loses the other kth roots
+                    // (sec(2*x) + 1 needs both -pi/2 and pi/2).
+                    if g != *x && trig::rational_affine_argument(&g, x).is_some() {
+                        return sec_csc_multiple(matches!(func, Func::Sec), &g, &rhs, x, depth);
+                    }
                     let r = div(&Expr::one(), &rhs);
                     let v = if matches!(func, Func::Sec) { acos(&r) } else { asin(&r) };
                     if contains_node(&v, |e| matches!(e.kind(), Kind::Func(Func::Acos | Func::Asin, _)))
@@ -1413,8 +1515,7 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
 /// `r*t**2 - 2*I*t - r = 0` (`csc`), and `x = -I*log(t)`. At the top level
 /// the reference simplify takes a positive rational content `1/m` out of the
 /// logarithm: `-I*log(1/3 - 2*sqrt(2)*I/3)` is `I*(log(3) - log(1 -
-/// 2*sqrt(2)*I))`. Only the argument `x` itself is handled; other arguments
-/// keep raising, as their reference forms are not reproduced.
+/// 2*sqrt(2)*I))`. Integer multiples use `sec_csc_multiple` below.
 fn sec_csc_exp(secant: bool, g: &Expr, rhs: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if g != x {
         return sec_csc_multiple(secant, g, rhs, x, depth);
@@ -1458,47 +1559,73 @@ fn sec_csc_exp(secant: bool, g: &Expr, rhs: &Expr, x: &Expr, depth: u32) -> Opti
     Some(out)
 }
 
-/// `sec(k*x) = rhs` or `csc(k*x) = rhs` for `k` 2 or 3. The reference
-/// `rewrite(exp)` gives a quadratic in `u = exp(I*k*x)`; each root `u` gives
-/// the `k` roots of `t**k = u` and `x = -I*log(t)`, whose simplified forms
+/// `sec(p*x/q+b) = rhs` or `csc(p*x/q+b) = rhs`, with positive coprime p,q.
+/// Put t=exp(I*x/q): every quadratic root u of exp(I*(p*x/q+b)) gives
+/// all p roots of t**p=u*exp(-I*b), then x=-I*q*log(t). These are the finite
+/// exponential representatives in -pi*q < Re(x) <= pi*q, not a claim to
+/// enumerate the infinite periodic solution families (solveset owns those).
+/// Negative slopes normalize by sec's evenness and csc's oddness. The forms
 /// are `-I*log(u)/k` for the principal root and `-I*log(w*u**(1/k))` for the
 /// other roots of unity `w` (`-1`, or `-(1 -+ sqrt(3)*I)/2`).
 fn sec_csc_multiple(secant: bool, g: &Expr, rhs: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
+    use num_traits::ToPrimitive;
     if has(rhs, x) || rhs.is_zero() {
         return None;
     }
-    let k = div(g, x).as_number()?.clone();
-    let k = if k == Number::int(2) {
-        2
-    } else if k == Number::int(3) {
-        3
-    } else {
+    let (mut slope, mut offset) = trig::rational_affine_argument(g, x)?;
+    let mut target = rhs.clone();
+    if slope.is_negative() {
+        slope = slope.neg(); offset = neg(&offset);
+        if !secant { target = neg(&target); }
+    }
+    let (p, q) = slope.numer_denom()?;
+    let k = p.to_i64()?;
+    if k < 1 || offset.has_nonfinite() || target.has_nonfinite() {
         return None;
-    };
+    }
+    let scale = Expr::num(Number::from_bigint(q));
+    // The quadratic expressions have the intrinsic condition target != 0:
+    // sec/csc never vanish. Specializing the equation to zero was handled
+    // above; unlike a symbolic slope, it cannot introduce a constant identity.
     let u = Expr::dummy("u", crate::Assumptions::NONE);
     let u2 = pow(&u, &Expr::int(2));
     let middle = if secant { mul2(&Expr::int(-2), &u) } else { mul(&[Expr::int(-2), Expr::i(), u.clone()]) };
-    let last = if secant { rhs.clone() } else { neg(rhs) };
-    let p = add(&[mul2(rhs, &u2), middle, last]);
+    let last = if secant { target.clone() } else { neg(&target) };
+    let p = add(&[mul2(&target, &u2), middle, last]);
     let roots = solve_rec(&p, &u, depth + 1)?;
-    if roots.len() != 2 {
+    // rhs = +-1 gives a double root. It is one u value, but still
+    // has all k distinct exponential preimages (u is never zero).
+    if roots.len() != 2 && !(roots.len() == 1 && target.is_number()) {
         return None;
     }
     let minus_i = neg(&Expr::i());
+    let phase = exp(&mul2(&minus_i, &offset));
     let mut out = Vec::new();
-    for r in roots {
+    for root in roots {
+        let r = mul2(&root, &phase);
         if r.is_zero() {
             return None;
         }
-        out.push(div(&mul2(&minus_i, &log(&r)), &Expr::int(k)));
+        out.push(div(&mul(&[scale.clone(), minus_i.clone(), log(&r)]), &Expr::int(k)));
         if k == 2 {
-            out.push(mul2(&minus_i, &log(&neg(&sqrt(&r)))));
-        } else {
+            out.push(mul(&[scale.clone(), minus_i.clone(), log(&neg(&sqrt(&r)))]));
+        } else if k == 3 {
             let cube = pow(&r, &Expr::num(Number::ONE.div(&Number::int(3))?));
             let half = Expr::num(Number::int(-1).div(&Number::int(2))?);
             let s3i = mul2(&sqrt(&Expr::int(3)), &Expr::i());
             for w in [sub(&Expr::one(), &s3i), add2(&Expr::one(), &s3i)] {
-                out.push(mul2(&minus_i, &log(&mul(&[half.clone(), w, cube.clone()]))));
+                out.push(mul(&[scale.clone(), minus_i.clone(), log(&mul(&[half.clone(), w, cube.clone()]))]));
+            }
+        } else {
+            // All roots of t**k = r: the principal root times every kth
+            // root of unity. Keep principal radicals compact, rather than
+            // converting their nested algebraic coefficients to polar form.
+            // No search budget may return only a prefix of these roots.
+            let root = pow(&r, &Expr::rational(1, k));
+            for j in 1..k {
+                let angle = mul(&[Expr::int(2), Expr::pi(), Expr::rational(j, k)]);
+                let unity = add2(&cos(&angle), &mul2(&Expr::i(), &sin(&angle)));
+                out.push(mul(&[scale.clone(), minus_i.clone(), log(&mul2(&unity, &root))]));
             }
         }
     }
@@ -2232,6 +2359,82 @@ mod tests {
         assert_eq!(solve_with_check(&sinc, &x, false).unwrap(), vec![Expr::zero(), Expr::pi()]);
         let candidate = sub(&sqrt(&Expr::int(2)), &Expr::int(2));
         assert_eq!(solve(&sub(&positive, &candidate), &positive).unwrap(), Vec::<Expr>::new());
+    }
+
+    #[test]
+    fn sec_csc_integer_multiples_keep_every_exponential_preimage() {
+        let x = Expr::symbol("x");
+        for (equation, count) in [("sec(2*x) + 1", 2), ("csc(2*x) - 2", 4),
+                                  ("sec(3*x) + 1", 3), ("sec(4*x) - 3", 8),
+                                  ("csc(5*x) - 2", 10)] {
+            let equation = parse_str(equation).unwrap();
+            let roots = solve(&equation, &x).unwrap();
+            assert_eq!(roots.len(), count, "{equation}");
+            for (i, root) in roots.iter().enumerate() {
+                assert!(crate::evalf_mp::max_precision(root).is_none(), "{root}");
+                let value = crate::evalf::eval_c64(root).unwrap();
+                assert!(crate::evalf::eval_c64(&subs1(&equation, &x, root)).unwrap().norm() < 1e-10,
+                        "{equation} at {root}");
+                for other in &roots[..i] {
+                    assert!((value - crate::evalf::eval_c64(other).unwrap()).norm() > 1e-10);
+                }
+            }
+        }
+        assert_eq!(s("sec(2*x) + 1"), "[-pi/2, pi/2]");
+    }
+
+    #[test]
+    fn sec_csc_shifted_rational_slopes_keep_all_preimages() {
+        let x = Expr::symbol("x");
+        for (source, count) in [
+            ("sec(2*x+1)+1", 2), ("csc(2*x+1)-2", 4),
+            ("sec(-2*x+1)+1", 2), ("csc(-2*x+1)-2", 4),
+            ("sec(x/2+1)-2", 2), ("csc(3*x/2+1)-2", 6),
+            ("sec(-2*x/3+I)-3", 4), ("csc(2*x/3+I)-1", 2),
+        ] {
+            let equation = parse_str(source).unwrap();
+            let roots = solve(&equation, &x).unwrap();
+            assert_eq!(roots.len(), count, "{source}");
+            for (index, root) in roots.iter().enumerate() {
+                assert!(crate::evalf_mp::max_precision(root).is_none());
+                assert!(crate::evalf::eval_c64(&subs1(&equation, &x, root)).unwrap().norm() < 1e-9,
+                        "{source} at {root}");
+                let value = crate::evalf::eval_c64(root).unwrap();
+                for previous in &roots[..index] {
+                    assert!((value-crate::evalf::eval_c64(previous).unwrap()).norm() > 1e-9);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn trig_affine_decomposition_rejects_symbolic_or_nonlinear_slopes() {
+        let x = Expr::symbol("x");
+        for source in ["a*x+b", "x**2+1", "sin(x)+1", "x**100000000+1", "b"] {
+            assert!(trig::rational_affine_argument(&parse_str(source).unwrap(), &x).is_none(), "{source}");
+        }
+        let (slope, offset) = trig::rational_affine_argument(&parse_str("-3*x/2+b").unwrap(), &x).unwrap();
+        assert_eq!(slope, Number::int(-3).div(&Number::int(2)).unwrap());
+        assert_eq!(offset, Expr::symbol("b"));
+    }
+
+    #[test]
+    fn logarithmic_candidate_assumptions_are_certified() {
+        use crate::symbol::Assumptions as A;
+        let real = Expr::symbol_with("real", A::REAL);
+        for head in [sec as fn(&Expr) -> Expr, csc] {
+            let equation = sub(&head(&mul2(&Expr::int(4), &real)), &Expr::rational(1, 2));
+            let roots = solve(&equation, &real).unwrap();
+            assert!(roots.is_empty(), "{equation}: {roots:?}");
+        }
+        let positive = Expr::symbol_with("positive", A::POSITIVE);
+        let negative = Expr::symbol_with("negative", A::NEGATIVE);
+        let small = log(&sub(&Expr::int(2), &sqrt(&Expr::int(3))));
+        assert!(solve(&sub(&positive, &small), &positive).unwrap().is_empty());
+        assert_eq!(solve(&sub(&negative, &small), &negative).unwrap(), vec![small]);
+        let t = Expr::symbol("t");
+        let undecided = neg(&mul2(&Expr::i(), &log(&abs(&t))));
+        assert!(matches_assumptions(&real, &undecided));
     }
 
     #[test]

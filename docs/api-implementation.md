@@ -4,6 +4,13 @@
 
 These implementations use Symox's native expressions. They do not import SymPy to perform calculations. A name in the inventory does not establish full compatibility with its SymPy protocol. The [algorithmic parity contract](algorithmic-parity.md) and [versioned audit](sympy-parity-audit.md) track behavioral evidence separately.
 
+Native expressions do not imply native algorithms: the current Python package
+also contains mathematical algorithms, including solving, integration,
+domain-matrix operations and statistics. Porting these computations into Rust
+while preserving their capabilities is outstanding architectural work, tracked
+in the [active TODO](../TODO.md). API coverage and Python test counts do not
+establish compliance with the Rust-engine architecture stated in the README.
+
 ## Linear programming and logic
 
 `solvers.simplex` implements an exact two-phase simplex method with Bland pivoting. `linprog` accepts inequalities, equalities and bounds; `lpmin` and `lpmax` convert symbolic relations and handle free variables. Infeasible and unbounded problems raise the corresponding exceptions. Coefficients must support the exact comparisons required for pivoting; this is not a constraint solver for undecidable symbolic parameters.

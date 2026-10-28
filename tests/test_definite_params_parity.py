@@ -70,7 +70,18 @@ HELD = [
 @pytest.mark.parametrize('assumption,call', HELD)
 def test_values_wrong_for_some_parameters_stay_held(assumption, call):
     actual = evaluate(sx, assumption, call)
-    assert isinstance(actual.to_sympy(), sp.Integral)
+    if not (assumption=='nz' and call=='integrate(1/(1+a*x), (x, 0, 1))') and call in ('integrate(1/(x+a), (x, 0, 1))',
+                'integrate(1/(x-a), (x, 0, 1))',
+                'integrate(1/(1+a*x), (x, 0, 1))',
+                'integrate(1/x, (x, a, 1))'):
+        # A proven pole-free branch is now available. The full original
+        # Integral remains the default on its excluded parameter domain.
+        assert actual.is_Piecewise
+        fallback,condition=actual.args[-1]
+        assert condition==sx.true
+        assert fallback==evaluate(sx,assumption,call.replace('integrate(', 'Integral('))
+    else:
+        assert isinstance(actual.to_sympy(), sp.Integral)
 
 
 @pytest.mark.parametrize('integrand,limits', [

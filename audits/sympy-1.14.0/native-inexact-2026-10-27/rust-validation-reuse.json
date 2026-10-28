@@ -1,0 +1,38 @@
+{
+  "reason": "Only four Python source/test files changed after the complete native build and Demeter Rust gates; every native build input and the extension hash is byte-identical.",
+  "source_snapshot": "/home/keckj/.cache/symox-validation/native-inexact-20261027/after",
+  "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+  "rust_inputs": 330,
+  "rust_inputs_unchanged": true,
+  "passed": 699,
+  "doctests_passed": 5,
+  "ignored": 1,
+  "rust_checks": {
+    "tests": {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "symox"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 127.11480617523193
+    },
+    "clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.12881112098693848
+    },
+    "rust_inputs_unchanged": true
+  },
+  "bindings_clippy_returncode": 0,
+  "native_input_manifest": "/home/keckj/.cache/symox-validation/native-inexact-20261027/rust-build-input.json"
+}

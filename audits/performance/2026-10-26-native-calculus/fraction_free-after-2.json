@@ -1,0 +1,240 @@
+{
+  "native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+  "method": "9 distinct preconstructed full-row-rank rectangular matrices percase, 3 batches of3; public rref_den output allocation, method selection and conversions inside timers; exact independent checks after alltiming",
+  "ZZ_FF_dense24": {
+    "samples_seconds_per_call": [
+      0.0018804326731090744,
+      0.0017445926593306165,
+      0.001754673682929327
+    ],
+    "median_seconds_per_call": 0.001754673682929327,
+    "selected_methods": [
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ]
+    ],
+    "values_digest": "81ef565acea2d2e45a432fb807bb443316db573a64a74833c44e34276011a7a7"
+  },
+  "QQ_FF_dense16": {
+    "samples_seconds_per_call": [
+      0.0010333309958999355,
+      0.0008523840030344824,
+      0.0008583406646115085
+    ],
+    "median_seconds_per_call": 0.0008583406646115085,
+    "selected_methods": [
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ],
+      [
+        "FF",
+        "dense"
+      ]
+    ],
+    "values_digest": "3f4b8ef1bd01770523f32260f48630a4d5d14aa6ee4c2b64b947549780e6e1c5"
+  },
+  "ZZ_AUTO32": {
+    "samples_seconds_per_call": [
+      0.002689456334337592,
+      0.0025695916653300324,
+      0.0025775486525769034
+    ],
+    "median_seconds_per_call": 0.0025775486525769034,
+    "selected_methods": [
+      [
+        "FF",
+        "sparse"
+      ],
+      [
+        "FF",
+        "sparse"
+      ],
+      [
+        "FF",
+        "sparse"
+      ],
+      [
+        "FF",
+        "sparse"
+      ],
+      [
+        "FF",
+        "sparse"
+      ],
+      [
+        "FF",
+        "sparse"
+      ],
+      [
+        "FF",
+        "sparse"
+      ],
+      [
+        "FF",
+        "sparse"
+      ],
+      [
+        "FF",
+        "sparse"
+      ]
+    ],
+    "values_digest": "04ea6e57bb6f02f891a1a146bde9513f52f431afb4ba99f5a1e093c5ce38d6e0"
+  },
+  "QQ_AUTO24": {
+    "samples_seconds_per_call": [
+      0.0065187566603223486,
+      0.006251237335770081,
+      0.006472897657658905
+    ],
+    "median_seconds_per_call": 0.006472897657658905,
+    "selected_methods": [
+      [
+        "CD",
+        "sparse"
+      ],
+      [
+        "CD",
+        "sparse"
+      ],
+      [
+        "CD",
+        "sparse"
+      ],
+      [
+        "CD",
+        "sparse"
+      ],
+      [
+        "CD",
+        "sparse"
+      ],
+      [
+        "CD",
+        "sparse"
+      ],
+      [
+        "CD",
+        "sparse"
+      ],
+      [
+        "CD",
+        "sparse"
+      ],
+      [
+        "CD",
+        "sparse"
+      ]
+    ],
+    "values_digest": "12fafb68895747e007e78e0b797b2a6c7fcebf7b757335c239b3911b343d0bb3"
+  },
+  "ZZ_AUTO8_GJ_control": {
+    "samples_seconds_per_call": [
+      0.0010378850080693762,
+      0.001023651003682365,
+      0.001030311337672174
+    ],
+    "median_seconds_per_call": 0.001030311337672174,
+    "selected_methods": [
+      [
+        "GJ",
+        "sparse"
+      ],
+      [
+        "GJ",
+        "sparse"
+      ],
+      [
+        "GJ",
+        "sparse"
+      ],
+      [
+        "GJ",
+        "sparse"
+      ],
+      [
+        "GJ",
+        "sparse"
+      ],
+      [
+        "GJ",
+        "sparse"
+      ],
+      [
+        "GJ",
+        "sparse"
+      ],
+      [
+        "GJ",
+        "sparse"
+      ],
+      [
+        "GJ",
+        "sparse"
+      ]
+    ],
+    "values_digest": "ce39ae132d6db7380fab3828668aae734f8acad66455b56b44a93cec91d64ca5"
+  },
+  "independent_exact_checks": 45
+}

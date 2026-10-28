@@ -1,0 +1,370 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "status": "failed; not accepted",
+  "scope": "First combined native rational driver, AUTO selection and sparse Berkowitz release, including two required sparse callback followups.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "04d221ece837895da0cdafd2ca80a3a737faf848f73ea5275dbfd5613b846634",
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+    "working_code_diff_sha256": "b8b70b9215e6cea86dd21f9483632662ab356c5c5c24be662658a0aeda1ddc53",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 2993,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 448.9416551589966,
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab"
+  },
+  "targeted_release_passed": 4289,
+  "python": {
+    "counts": {
+      "passed": 50315,
+      "failed": 57,
+      "skipped": 55,
+      "xfailed": 4
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 50431,
+      "collected_in_shards": 50431,
+      "finished": 50431,
+      "missing": [],
+      "unexpected": []
+    },
+    "failures": [
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[0-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[0-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[0-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[0-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[1-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[1-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[1-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[1-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[2-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[2-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[2-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[2-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[3-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[3-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[3-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[3-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[4-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[4-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[4-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[4-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[5-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[5-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[5-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[5-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[6-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[6-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[6-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[6-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[7-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[7-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[7-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[7-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[8-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[8-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[8-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[8-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[9-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[9-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[9-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[9-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[10-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[10-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[10-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[10-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[11-QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[11-RF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[11-multi]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_reference_full_rref_canonical_basis_and_exact_certificates[11-ZRF]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_empty_zero_and_full_rank_spaces_are_proven_not_unhandled[0-0]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_empty_zero_and_full_rank_spaces_are_proven_not_unhandled[0-4]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_empty_zero_and_full_rank_spaces_are_proven_not_unhandled[3-0]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_empty_zero_and_full_rank_spaces_are_proven_not_unhandled[1-1]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_empty_zero_and_full_rank_spaces_are_proven_not_unhandled[3-5]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_prde_constant_system_uses_selected_integer_rational_function_field"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_prde_parametric_polynomial_solution_and_nullspace_certificate"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_large_exact_coefficient_limbs_are_preserved_in_reduction_and_basis[QQ]"
+      },
+      {
+        "shard": "shard-19",
+        "class": "tests.test_polymatrix_native_ground",
+        "name": "test_large_exact_coefficient_limbs_are_preserved_in_reduction_and_basis[RF]"
+      }
+    ],
+    "elapsed_seconds": 210.88930678367615
+  },
+  "rust": {
+    "passed": 725,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 135.51766443252563
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 22.593412160873413
+      },
+      "rust_inputs_unchanged": true
+    },
+    "bindings_clippy_returncode": 0
+  },
+  "diagnosis": "All57 failures are PolyMatrix native-route preconditions in shard19 (spy calls empty); value/certificate comparisons pass. Exact import/collection/runtime state refusing the guard is under investigation in a separate followup. No test assertion is removed.",
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-matrix-rational-r6-20261027",
+    "portable_execution": "audits/sympy-1.14.0/native-matrix-rational-2026-10-27/initial-python-execution-evidence.tar.gz"
+  },
+  "last_accepted_native": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+  "global_algorithmic_parity_certified": false
+}

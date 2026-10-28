@@ -45,13 +45,13 @@ def test_held_derivatives_infer_one_variable_and_evaluate_later():
 
 
 @pytest.mark.parametrize('case',['negative','float','boolean','count_first','extra_count',
-    'zero_extra','bad_variable','bad_pair','too_large'])
+    'zero_extra','bad_variable','bad_pair'])
 def test_invalid_specs_raise_before_computation(case):
     x=sx.Symbol('x')
     args={
         'negative':(x,-1),'float':(x,2.0),'boolean':(x,True),
         'count_first':(2,),'extra_count':(x,2,3),'zero_extra':(x,0,0),
-        'bad_variable':(sx.sin(x),),'bad_pair':((x,2,3),),'too_large':(x,2**32),
+        'bad_variable':(sx.sin(x),),'bad_pair':((x,2,3),),
     }[case]
     for call in [lambda:sx.diff(sx.sin(x),*args),
                  lambda:sx.sin(x).diff(*args),

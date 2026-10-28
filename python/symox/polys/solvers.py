@@ -74,17 +74,21 @@ def _solve_inexact(matrix,rhs,symbols,ring,_raw):
     (``(k - c)/(k**2 - 2*c*k + c**2)`` instead of ``1/(k - c)``)."""
     K=ring.domain;n=len(symbols)
     rows=[[K.convert(matrix[i,j]) for j in range(n)]+[K.convert(rhs[i,0])] for i in range(matrix.rows)]
-    pivots=[];r=0
-    for col in range(n+1):
-        piv=next((i for i in range(r,len(rows)) if rows[i][col]),None)
-        if piv is None:continue
-        rows[r],rows[piv]=rows[piv],rows[r]
-        inv=K.one/rows[r][col];rows[r]=[v*inv for v in rows[r]]
-        for i in range(len(rows)):
-            if i!=r and rows[i][col]:
-                f=rows[i][col];rows[i]=[a-f*b for a,b in zip(rows[i],rows[r])]
-        pivots.append(col);r+=1
-        if r==len(rows):break
+    prepared=_native_inexact_rref(rows,K,n+1)
+    if prepared is not None:
+        rows,pivots=prepared
+    else:
+        pivots=[];r=0
+        for col in range(n+1):
+            piv=next((i for i in range(r,len(rows)) if rows[i][col]),None)
+            if piv is None:continue
+            rows[r],rows[piv]=rows[piv],rows[r]
+            inv=K.one/rows[r][col];rows[r]=[v*inv for v in rows[r]]
+            for i in range(len(rows)):
+                if i!=r and rows[i][col]:
+                    f=rows[i][col];rows[i]=[a-f*b for a,b in zip(rows[i],rows[r])]
+            pivots.append(col);r+=1
+            if r==len(rows):break
     if pivots and pivots[-1]==n:return None
     answer={}
     for i,p in enumerate(pivots):
@@ -113,3 +117,8 @@ def solve_lin_sys(eqs,ring,_raw=True):
         else:answer[variable]=value
     return answer
 __all__=['PolyNonlinearError','RawMatrix','eqs_to_matrix','sympy_eqs_to_ring','solve_lin_sys']
+
+
+from ._inexact_linear import register as _register_inexact_rref
+_native_inexact_rref = _register_inexact_rref(globals())
+del _register_inexact_rref

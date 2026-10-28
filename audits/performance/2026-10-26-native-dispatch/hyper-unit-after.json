@@ -1,0 +1,88 @@
+{
+  "native_sha256": "345253365beafcb9192f25c35a6500b2aec1defed2484441f0c622d9b5e8a43c",
+  "method": "5 batches, 12 distinct preconstructed inputs each, evalf(30); no input repeated, construction excluded",
+  "one_f_zero": {
+    "seconds_per_eval_samples": [
+      4.457025018685575e-05,
+      3.666608336061472e-05,
+      3.6216250009601936e-05,
+      3.739958356163697e-05,
+      3.6378499923254516e-05
+    ],
+    "median_seconds_per_eval": 3.666608336061472e-05,
+    "output_examples": [
+      "oo",
+      "oo"
+    ],
+    "counts": {
+      "positive_infinity": 60,
+      "negative_infinity": 0,
+      "held_hyper": 0,
+      "finite": 0
+    },
+    "errors": []
+  },
+  "balanced": {
+    "seconds_per_eval_samples": [
+      7.686733351874864e-05,
+      7.506849973045367e-05,
+      7.46425833616134e-05,
+      7.439658323467786e-05,
+      7.33961666507336e-05
+    ],
+    "median_seconds_per_eval": 7.46425833616134e-05,
+    "output_examples": [
+      "oo",
+      "oo"
+    ],
+    "counts": {
+      "positive_infinity": 60,
+      "negative_infinity": 0,
+      "held_hyper": 0,
+      "finite": 0
+    },
+    "errors": []
+  },
+  "signed_balanced": {
+    "seconds_per_eval_samples": [
+      7.761424997928164e-05,
+      7.556466668271848e-05,
+      7.440174977091374e-05,
+      7.508391687830833e-05,
+      7.526891658926615e-05
+    ],
+    "median_seconds_per_eval": 7.526891658926615e-05,
+    "output_examples": [
+      "-oo",
+      "-oo"
+    ],
+    "counts": {
+      "positive_infinity": 0,
+      "negative_infinity": 60,
+      "held_hyper": 0,
+      "finite": 0
+    },
+    "errors": []
+  },
+  "gauss": {
+    "seconds_per_eval_samples": [
+      0.0021854378334561866,
+      0.0003043303331651259,
+      0.00030395975015077664,
+      0.00030199233333405573,
+      0.0002988418333795077
+    ],
+    "median_seconds_per_eval": 0.00030395975015077664,
+    "output_examples": [
+      "1.24049001469903211140048462120",
+      "1.24143145464832002883158210648"
+    ],
+    "counts": {
+      "positive_infinity": 0,
+      "negative_infinity": 0,
+      "held_hyper": 0,
+      "finite": 60
+    },
+    "errors": []
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35",
+    "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+    "working_code_diff_sha256": "da576c7794f7ea5d65ebf4308300b9128bac11388935d5140a019d5a8d140efa",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "all_manifested_main_entries_equal_frozen_snapshot_after_targeted": true,
+  "source_entries_checked": 3436,
+  "native_inputs_checked": 350,
+  "native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+  "targeted": {
+    "original-shard30": {
+      "returncode": 0,
+      "elapsed_seconds": 57.87530064582825,
+      "collected": 1037,
+      "exactly_once": true
+    },
+    "combined": {
+      "returncode": 0,
+      "elapsed_seconds": 154.84104466438293,
+      "collected": 7643,
+      "exactly_once": true
+    }
+  },
+  "scope": "Snapshot source map was computed directly from MAIN before starting the targeted jobs; every entry matches after completion, before publication changes."
+}

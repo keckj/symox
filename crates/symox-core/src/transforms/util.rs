@@ -152,8 +152,8 @@ pub fn uppergamma(a: &Expr, x: &Expr) -> Expr {
 pub fn lowergamma(a: &Expr, x: &Expr) -> Expr {
     special(SpecialFn::LowerGamma, vec![a.clone(), x.clone()])
 }
-pub fn ei(x: &Expr) -> Expr {
-    special(SpecialFn::Ei, vec![x.clone()])
+pub fn e1(x: &Expr) -> Expr {
+    special(SpecialFn::Expint, vec![Expr::one(), x.clone()])
 }
 pub fn digamma(x: &Expr) -> Expr {
     special(SpecialFn::Digamma, vec![x.clone()])

@@ -1,0 +1,137 @@
+[
+  {
+    "round": 0,
+    "arm": "R5",
+    "meaning": "R5",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "R5"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python",
+    "expected_native": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b"
+  },
+  {
+    "round": 0,
+    "arm": "private-disabled",
+    "meaning": "R6 disabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "private-disabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python",
+    "expected_native": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab"
+  },
+  {
+    "round": 0,
+    "arm": "private-enabled",
+    "meaning": "R6 enabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "private-enabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python",
+    "expected_native": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab"
+  },
+  {
+    "round": 1,
+    "arm": "private-enabled",
+    "meaning": "R6 enabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "private-enabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python",
+    "expected_native": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab"
+  },
+  {
+    "round": 1,
+    "arm": "private-disabled",
+    "meaning": "R6 disabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "private-disabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python",
+    "expected_native": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab"
+  },
+  {
+    "round": 1,
+    "arm": "R5",
+    "meaning": "R5",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "R5"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python",
+    "expected_native": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b"
+  },
+  {
+    "round": 2,
+    "arm": "R5",
+    "meaning": "R5",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "R5"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python",
+    "expected_native": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b"
+  },
+  {
+    "round": 2,
+    "arm": "private-disabled",
+    "meaning": "R6 disabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "private-disabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python",
+    "expected_native": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab"
+  },
+  {
+    "round": 2,
+    "arm": "private-enabled",
+    "meaning": "R6 enabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-r6r1-replay-20261027/worker.py",
+      "private-enabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-matrix-rational-r6-r1-20261027/python",
+    "expected_native": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab"
+  }
+]

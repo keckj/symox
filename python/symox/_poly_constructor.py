@@ -108,6 +108,8 @@ def _bound_generator(coefficient,gens):
 
 
 def _from_terms(terms,gens,domain,modulus,extension):
+    direct=Poly._from_coefficient_terms(terms,gens,domain,modulus,extension)
+    if direct is not None:return direct
     from . import Add,Mul,Dummy
     slots=gens if all(getattr(g,'is_Symbol',False) for g in gens) else tuple(Dummy('g') for g in gens)
     if slots==gens and any(_bound_generator(c,gens) for c in terms.values()):
@@ -119,6 +121,9 @@ def _from_terms(terms,gens,domain,modulus,extension):
     expression=Add(*(coefficient*Mul(*(g**e for g,e in zip(slots,monomial)))
                      for monomial,coefficient in terms.items()))
     result=Poly._from_normalized(expression,slots,domain,modulus,extension)
+    if domain is None and modulus is None and extension is None and result.domain.is_EX:
+        direct=Poly._from_coefficient_terms(terms,gens,result.domain)
+        if direct is not None:return direct
     if slots==gens:return result
     try:return result._with_gens(*gens)
     except ValueError as error:
@@ -240,17 +245,19 @@ def _real_coefficients(rep,gens,args):
     from . import Add,Mul,RR,expand
     from .core.expr import Expr
     if not isinstance(rep,Expr) or any(getattr(g,'is_number',False) for g in gens):return rep
+    ground=args.get('domain')
+    if not getattr(ground,'is_RR',False):ground=RR
     def symbolic_number(e):
-        return e.is_number and not e.is_Number and e in RR
+        return e.is_number and not e.is_Number and e in ground
     if not any(symbolic_number(a) for a in _subexpressions(rep)):return rep
     if args.get('expand',True):rep=expand(rep)
     terms=[]
     for term in Add.make_args(rep):
         numeric=[];rest=[]
         for factor in Mul.make_args(term):
-            (numeric if factor.is_number and factor in RR else rest).append(factor)
+            (numeric if factor.is_number and factor in ground else rest).append(factor)
         coefficient=Mul(*numeric)
-        if not coefficient.is_Number:coefficient=coefficient.evalf(RR.dps)
+        if not coefficient.is_Number:coefficient=ground.to_sympy(ground.from_sympy(coefficient))
         terms.append(Mul(coefficient,*rest))
     return Add(*terms)
 
@@ -334,3 +341,7 @@ def construct(rep,gens,domain=None,modulus=None,extension=None,kwargs=None):
             result=result.set_domain('EX')
     if args.get('field'):result=result.to_field()
     return result
+
+
+# Immutable bootstrap reference used only to select native stock algorithms.
+_native_construct = construct

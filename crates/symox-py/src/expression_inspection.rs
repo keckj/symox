@@ -38,7 +38,7 @@ fn class_matches(e:&Expr,name:&str)->bool{
 fn function_node(e:&Expr)->bool{
     match e.kind(){
         Kind::Func(Func::Undefined(head),_)=>!head.is_internal("Tuple")&&!head.is_internal("UnevaluatedExpr")&&!head.is_internal("Order"),
-        Kind::Func(Func::Set(_)|Func::Logic(_)|Func::Max|Func::Min|Func::Subs|Func::Limit|Func::Integral|Func::Sum|Func::Product|Func::MatrixElement(_)|Func::MatrixProxy(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..),_)=>false,
+        Kind::Func(Func::SymbolicDerivative|Func::Set(_)|Func::Logic(_)|Func::Max|Func::Min|Func::Subs|Func::Limit|Func::Integral|Func::Sum|Func::Product|Func::MatrixElement(_)|Func::MatrixProxy(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..),_)=>false,
         Kind::Func(_,_)=>true,
         Kind::Piecewise(_)=>true,
         _=>false,
@@ -71,7 +71,11 @@ fn filter(py:Python<'_>,value:&Bound<'_,PyAny>)->PyResult<Filter>{
         if let Ok(name)=value.getattr("__name__").and_then(|name|name.extract::<String>()){
             // The public Expr class is a category checked by isinstance, not
             // the generic expression head of the same name.
-            let category=name=="Expr"&&value.is_instance_of::<PyType>();
+            // Derivative has machine and expression-count representations.
+            // Its public class/instance protocol must select both, rather
+            // than interpreting its name as a callable Func head. A user
+            // callable with the same name also retains its Python protocol.
+            let category=name=="Derivative"||(name=="Expr"&&value.is_instance_of::<PyType>());
             if let Some(function)=Func::from_name(&name).filter(|_|!category){
                 if value.is_instance_of::<PyType>(){return Ok(Filter::Head(function,value.clone().unbind()));}
                 return Ok(Filter::Function(function));
@@ -116,4 +120,32 @@ pub(crate) fn atoms(py:Python<'_>, e:&Expr, types:&Bound<'_,PyTuple>)->PyResult<
         if include{result.add(match object{Some(value)=>value,None=>expr_object(py,node)?})?;}
     }
     Ok(result.into_any().unbind())
+}
+
+
+/// Public scalar count_ops; None preserves the Python host/matrix protocol.
+#[pyfunction]
+#[pyo3(signature=(value,visual,kind=None))]
+pub(crate) fn _native_count_ops(py:Python<'_>,value:&Bound<'_,PyAny>,visual:bool,kind:Option<&str>)->PyResult<Option<PyObject>> {
+    use symox::inspection::operation_counts::{count,CountError};
+    let mut expression=to_expr(value)?;
+    if let Some(kind)=kind {
+        expression=symox::inspection::operation_counts::presentation(kind,expression.args())
+            .ok_or_else(||pyo3::exceptions::PyValueError::new_err("unsupported operation-count presentation"))?;
+    }
+    let counts=count(&expression).map_err(|error|match error {
+        CountError::Cycle=>pyo3::exceptions::PyValueError::new_err(error.message()),
+        _=>PyNotImplementedError::new_err(error.message()),
+    })?;
+    counts.map(|counts|if visual {
+        // String case conversion is an API convention. Use this Python's
+        // Unicode version, including undefined function names from user code.
+        let terms=counts.labels.iter().map(|(label,number)| {
+            let label:String=pyo3::types::PyString::new(py,label).call_method0("upper")?.extract()?;
+            Ok(symox::ops::mul2(&Expr::num(symox::number::Number::from_bigint(number.clone())),&Expr::symbol(&label)))
+        }).collect::<PyResult<Vec<_>>>()?;
+        expr_object(py,symox::ops::add(&terms))
+    } else {
+        Ok(counts.total().into_pyobject(py)?.into_any().unbind())
+    }).transpose()
 }

@@ -1,0 +1,178 @@
+{
+  "status": "integrated; release build/combined gate still pending",
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/sdm.rs",
+      "current": null,
+      "stage": "9fe61643a34b90d05dd4002ac9d89af142f9c9ab087d1039ea84f7289a4dbb3f",
+      "candidate": "9fe61643a34b90d05dd4002ac9d89af142f9c9ab087d1039ea84f7289a4dbb3f",
+      "merged": false,
+      "component": "sparse"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "current": "27d0426597d1ee37b88e6cead8cfd88718eb0feb7b326a2ffc024cfc22906ae8",
+      "stage": "4f6d4297cc4ddf3fb2e1e105ddedd21dfd12bab324752b3bcb2ae0b0e73f04fd",
+      "candidate": "4f6d4297cc4ddf3fb2e1e105ddedd21dfd12bab324752b3bcb2ae0b0e73f04fd",
+      "merged": false,
+      "component": "sparse"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "current": "b7dbe9002660fd65a1dbc86e1811efaf59d9492b74b66907bcd07656cb8f31c9",
+      "stage": "abfe220d30bfad9e660ad1f4302a1dc4f419e8507cc2e9f4c8229648c632b9a5",
+      "candidate": "45e56e974187f978daed21969861213e4510066c3cd693e940567f07553471ce",
+      "merged": true,
+      "component": "sparse"
+    },
+    {
+      "path": "python/symox/polys/matrices/sdm.py",
+      "current": "c404ed3bb9af1f1c8a2a93094770ef8f5cb1c69553b0b557645e9f8ff33077cf",
+      "stage": "cad513f415caa38f8b76c73ac4768e08c036553a953c3c276429ec91bc6ed74b",
+      "candidate": "387c059559ec4b25458076a1349eae927354823b8e24c3205b60673ca2428414",
+      "merged": false,
+      "primary_stage": "cad513f415caa38f8b76c73ac4768e08c036553a953c3c276429ec91bc6ed74b",
+      "followup_stage": "e0630ea9e271bfa5bb8f953a2b33151f25853ea4b59d7588e3077e31f5bd2a52",
+      "second_followup_stage": "387c059559ec4b25458076a1349eae927354823b8e24c3205b60673ca2428414",
+      "component": "sparse"
+    },
+    {
+      "path": "tests/test_native_sdm_berkowitz.py",
+      "current": null,
+      "stage": "fd82332c65f30e433537fb9c3f1304b7d19c97406663a124cdbdf7ef25c0bda8",
+      "candidate": "fd82332c65f30e433537fb9c3f1304b7d19c97406663a124cdbdf7ef25c0bda8",
+      "merged": false,
+      "component": "sparse"
+    },
+    {
+      "path": "tests/test_native_sdm_conversion_type_protocols.py",
+      "current": null,
+      "stage": "e952e2bfa15d95dbe6a4146175a49471eef4c410b57dcd78a684c50c268eec4e",
+      "candidate": "e952e2bfa15d95dbe6a4146175a49471eef4c410b57dcd78a684c50c268eec4e",
+      "merged": false,
+      "component": "sparse"
+    },
+    {
+      "path": "tests/test_native_sdm_domain_attributes.py",
+      "current": null,
+      "stage": "1427240eb4746a462ad3b81ffcefa09ac956bc4b77d705f0cf4f4bc33f67c752",
+      "candidate": "1427240eb4746a462ad3b81ffcefa09ac956bc4b77d705f0cf4f4bc33f67c752",
+      "merged": false,
+      "component": "sparse"
+    },
+    {
+      "path": "crates/symox-core/src/poly/fraction_free.rs",
+      "current": "0d64f90de9862385f7205ccb9da36289bcd1e00621243309053e9f16a7a3857a",
+      "stage": "ceea86569e4d80329e8297bacbe58a1a332c3fca775ede5eff8abcf4d6fea827",
+      "candidate": "ceea86569e4d80329e8297bacbe58a1a332c3fca775ede5eff8abcf4d6fea827",
+      "merged": false,
+      "component": "auto"
+    },
+    {
+      "path": "crates/symox-py/src/poly_fraction_free.rs",
+      "current": "26bac6c2de9dc6f1e4d30276694e88dcbf6b1383c5ec7806c33c157a1ed8d9fb",
+      "stage": "c847ec8b77ea99a481cccb8bc28b8ee58a577f8de53c5568f1368bad58bfa58b",
+      "candidate": "c847ec8b77ea99a481cccb8bc28b8ee58a577f8de53c5568f1368bad58bfa58b",
+      "merged": false,
+      "component": "auto"
+    },
+    {
+      "path": "python/symox/polys/matrices/rref.py",
+      "current": "78259119fa8bb99fc11561058ba07af95b6209e8da642b32b62c012e41b2b593",
+      "stage": "28c47afe94a1b23b8818938b7638eefec083e98813edd0f860af03a9ff5fa223",
+      "candidate": "28c47afe94a1b23b8818938b7638eefec083e98813edd0f860af03a9ff5fa223",
+      "merged": false,
+      "component": "auto"
+    },
+    {
+      "path": "python/symox/polys/matrices/domainmatrix.py",
+      "current": "ec9ecc3663e3239890a84d00529e6bc5dc7a5ccb639b9d6f6ecc68540344eb88",
+      "stage": "037d685ba487843f568ab4a32d82562aedc63a85c5eb65c21563ef25ead0dfc6",
+      "candidate": "037d685ba487843f568ab4a32d82562aedc63a85c5eb65c21563ef25ead0dfc6",
+      "merged": false,
+      "component": "auto"
+    },
+    {
+      "path": "python/symox/polys/matrices/_rref_native.py",
+      "current": null,
+      "stage": "ae7492dd04e027e19d787880c2dfaa6e602e018f8bcb6fad17e26b4b44a2d9dd",
+      "candidate": "ae7492dd04e027e19d787880c2dfaa6e602e018f8bcb6fad17e26b4b44a2d9dd",
+      "merged": false,
+      "component": "auto"
+    },
+    {
+      "path": "tests/test_domainmatrix_native_auto.py",
+      "current": null,
+      "stage": "c857dbd5a4e2058e1f18b1e359add9564289b9929782184fd14977fc68062ab1",
+      "candidate": "c857dbd5a4e2058e1f18b1e359add9564289b9929782184fd14977fc68062ab1",
+      "merged": false,
+      "component": "auto"
+    },
+    {
+      "path": "crates/symox-core/src/integrate.rs",
+      "current": "092767f0c9ac6da3dd90503bf9c2f9ee616ae677c44d5114697341766fe6d89e",
+      "stage": "537b0c7f0ff9df1e31376f31995abf32675570540632928e8ed1c1f68ac38ae1",
+      "candidate": "537b0c7f0ff9df1e31376f31995abf32675570540632928e8ed1c1f68ac38ae1",
+      "merged": false,
+      "component": "ratint"
+    },
+    {
+      "path": "crates/symox-core/src/poly/api.rs",
+      "current": "ef5b2e9f2f22133b9924013e46494e9874a86385bad710725714f2dfcf582147",
+      "stage": "c4a53413f47b425be83e213ee72ef3b416dc2fc9d519a59e9b2320143233c73d",
+      "candidate": "c4a53413f47b425be83e213ee72ef3b416dc2fc9d519a59e9b2320143233c73d",
+      "merged": false,
+      "component": "ratint"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/log_to_real.rs",
+      "current": "8077627013888d4e75b417e0a25e9a7d7dd92b5779d082f650c7a7050ce291cd",
+      "stage": "b933b2d0ff33375ae6bb071823894bdd2a97e7c19c3ef76f5b4e736d786a55ef",
+      "candidate": "b933b2d0ff33375ae6bb071823894bdd2a97e7c19c3ef76f5b4e736d786a55ef",
+      "merged": false,
+      "component": "ratint"
+    },
+    {
+      "path": "crates/symox-py/src/integration_methods.rs",
+      "current": "a1c68e9650956cf6c0879a6e79ee29a932509364c9a1a2dbf0395c085da4f22c",
+      "stage": "ffa097f4854a3bc25641dfe7f5ed95a200b0fb11b492150d6f302d4bac0bbd17",
+      "candidate": "ffa097f4854a3bc25641dfe7f5ed95a200b0fb11b492150d6f302d4bac0bbd17",
+      "merged": false,
+      "component": "ratint"
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "current": "c966bb72e3f6b83b6ff2fbff151f4096a7ba04eb4955517b0ac0bcd990b6ec27",
+      "stage": "97dccc337d68a33ed7f1204a5f28fef2d42998eeaf23e6640d931f4e97914514",
+      "candidate": "97dccc337d68a33ed7f1204a5f28fef2d42998eeaf23e6640d931f4e97914514",
+      "merged": false,
+      "component": "ratint"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/ratint_driver.rs",
+      "current": null,
+      "stage": "4b67c4ce6f8dcb2e6952412101539ac3c2542fd2c7796649f62cbd635b0436c1",
+      "candidate": "4b67c4ce6f8dcb2e6952412101539ac3c2542fd2c7796649f62cbd635b0436c1",
+      "merged": false,
+      "component": "ratint"
+    },
+    {
+      "path": "tests/test_native_ratint_driver.py",
+      "current": null,
+      "stage": "3d2218b21e7d2f484ca97c76a344db389e9feb368b0d9197b974c74b7ed2b69c",
+      "candidate": "3d2218b21e7d2f484ca97c76a344db389e9feb368b0d9197b974c74b7ed2b69c",
+      "merged": false,
+      "component": "ratint"
+    }
+  ],
+  "source_files": 20,
+  "base_accepted_native": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+  "rust_inputs_changed": true,
+  "private_gates": {
+    "sparse_broad_local_and_demeter": 5723,
+    "sparse_final_followup_local_and_demeter": 192,
+    "auto_coupled_local_and_demeter": 1248,
+    "ratint_coupled_demeter": 1680,
+    "ratint_targeted": 179
+  }
+}

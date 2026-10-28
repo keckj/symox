@@ -1,0 +1,12 @@
+{
+  "phase": "Integrated RELEASE inexact linear + certified CC rounding + composite equality over accepted R2",
+  "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+  "rust_inputs_unchanged": true,
+  "python": {
+    "passed": 1826,
+    "failed": 0,
+    "elapsed_seconds": 35.45
+  },
+  "scope": "All674new inexact tests plus established domains/Heurisch/DDM/LRT/Ore/Derivative controls",
+  "log": "combined-targeted.log"
+}

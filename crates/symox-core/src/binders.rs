@@ -60,7 +60,7 @@ pub fn validate_tree(e:&Expr)->Result<(),String> {
             let mut fields=Vec::new();parent.scalar_fields(&mut fields);
             for scalar in fields{walk(&scalar,seen)?;}
         }
-        for arg in e.args() { walk(&arg,seen)?; }
+        for arg in crate::inspection::scalar_children(e) { walk(&arg,seen)?; }
         Ok(())
     }
     walk(e,&mut FxHashMap::default())
@@ -278,7 +278,7 @@ pub fn check_substitution(e:&Expr,old:&Expr,new:&Expr)->Result<(),String> {
             let mut fields=Vec::new();parent.scalar_fields(&mut fields);
             for scalar in fields{walk(&scalar,old,new,seen)?;}
         }
-        for arg in e.args(){walk(&arg,old,new,seen)?;}Ok(())
+        for arg in crate::inspection::scalar_children(e){walk(&arg,old,new,seen)?;}Ok(())
     }
     walk(e,old,new,&mut FxHashMap::default())
 }

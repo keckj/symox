@@ -1,0 +1,41 @@
+{
+  "native_sha256": "3ef4ccbca497a7a0d93762006f4f6c7b5413a48231a62fa53b5aa59410f2ead7",
+  "method": "9 distinct preconstructed QQ fractions per case; three batches of3; independent exact identity, square-free denominator and reference pair after all timing",
+  "repeated_order2": {
+    "samples_seconds_per_call": [
+      0.00024061533622443676,
+      0.00020385265816003084,
+      0.00020492300003146133
+    ],
+    "median_seconds_per_call": 0.00020492300003146133,
+    "values_digest": "46925af9ab5baba22490177cad62820df3bc8167a73ee6445340ba5fd41363f9"
+  },
+  "repeated_order6": {
+    "samples_seconds_per_call": [
+      0.0005382626744297644,
+      0.0005097663185248772,
+      0.0005347590000989536
+    ],
+    "median_seconds_per_call": 0.0005347590000989536,
+    "values_digest": "7cfa934d01f5ec76762ca95cc4f390918814736689eec800af68035151242ec4"
+  },
+  "repeated_order12": {
+    "samples_seconds_per_call": [
+      0.0034453896805644035,
+      0.003347351332195103,
+      0.0036645076664475105
+    ],
+    "median_seconds_per_call": 0.0034453896805644035,
+    "values_digest": "5c8d01014f3328df00bff064a375eb893f609a3fa113d4d22e2163e9f2f9097a"
+  },
+  "square_free_degree12": {
+    "samples_seconds_per_call": [
+      0.00016766099724918604,
+      0.00017952366033568978,
+      0.00018259066079432765
+    ],
+    "median_seconds_per_call": 0.00017952366033568978,
+    "values_digest": "033ba942cc781ab25a1c99178d0f341949659e156bdfdf0101d19fa11f0ddbdd"
+  },
+  "independent_exact_checks": 36
+}

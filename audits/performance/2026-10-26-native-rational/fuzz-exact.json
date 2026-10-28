@@ -1,0 +1,8 @@
+{
+  "phase": "private debug candidate before release freeze",
+  "native_sha256": "d2b0c5facfec026a1378697e1c30665df509825a9d1fb1a767bb94d419f80c53",
+  "seed": 20261026,
+  "independent_exact_checks": 96,
+  "reference": "SymPy1.14.0",
+  "outputs_sha256": "9a1602db0b2aa3f56aee2968d1121b91a897393e3a1f1b4e1048c5b00b8823ca"
+}

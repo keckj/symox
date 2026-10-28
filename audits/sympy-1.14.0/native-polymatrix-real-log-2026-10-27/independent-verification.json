@@ -1,0 +1,9 @@
+{
+  "source_files_checked": 2879,
+  "native_build_inputs_exact_set_and_hashes_checked": 333,
+  "native_equal_in_failed_and_corrected_snapshots": true,
+  "collection_execution_counter_equal": true,
+  "each_node_once": true,
+  "nodes": 49555,
+  "shards": 48
+}

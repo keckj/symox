@@ -1,0 +1,12 @@
+{
+  "proof/REPORT.md": "678bb732e83e8ac16222687b17d89186eba41ea45d2f9541a918154d0df88923",
+  "proof/after-targeted.log": "1319cffe602011c7cc98d2804244f10d6cc38b50432b73e376086e5031232794",
+  "proof/base/python/symox/polys/matrices/_sdm_irref_native.py": "a8a76b0dc965018fbb6f33378c81cf3e0c5e0d48baed24282755291bd2ec8f3a",
+  "proof/base/tests/test_sdm_irref_reimport.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "proof/before-initial-construction.log": "4eaac2805b78fb1457c1a42874e1bb3115e0050921e682b051cbfa8e06d628a2",
+  "proof/before.log": "96655c753bafa7b0bf2e7ce01ddc7e1a98c3f174e2f86c0a83531c1a2aa7946a",
+  "proof/followup.patch": "31e4819451e15efffffc35c6da82ccc0910283b1cca98641173a04cd4a44a1f9",
+  "proof/freeze-manifest.json": "c785927f229d60f2cec1c79324aa3eae8d136b3ee9dcf192620a2d704154600e",
+  "source/tests/test_sdm_irref_reimport.py": "220820df5bc468f92ea1e81463c7b641b5f3702dc3bee0fb8f28e7909d9b75bc",
+  "source/python/symox/polys/matrices/_sdm_irref_native.py": "61ccf9aecfdc341b2bbece54f7644c5120af84a6100b9e2983e681a1f0847e7d"
+}

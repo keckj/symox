@@ -1,0 +1,123 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/log-to-real-native",
+  "rust_frozen": true,
+  "files": [
+    {
+      "path": "crates/symox-core/src/integrate.rs",
+      "base_sha256": "3cff33696f024d6bc65879faabd9a465e8e6787a25e45d1848a2672c42dba904",
+      "final_sha256": "092767f0c9ac6da3dd90503bf9c2f9ee616ae677c44d5114697341766fe6d89e"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/log_to_atan.rs",
+      "base_sha256": "ddf988dcf74fa1ab8ac78a76d2e302a9c64e2fd803befb499836a59039b5ff6b",
+      "final_sha256": "d43e663c23ff69d9858d0be9be272132ae292fa302d0ee63fe3d60226c156ac3"
+    },
+    {
+      "path": "crates/symox-py/src/integration_methods.rs",
+      "base_sha256": "824f8aaa299f90f6e6f1501f104cdd31d39f8198dd3d972ec98374ac34c48f46",
+      "final_sha256": "a1c68e9650956cf6c0879a6e79ee29a932509364c9a1a2dbf0395c085da4f22c"
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "525ea4127a4f216750625575296c32ad28672cd91aa51f6d3157b69eaf0e0b44",
+      "final_sha256": "831432ef312eb8701616609af188c356e744c80e29250fdeb82fe7b2c4cf933c"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/log_to_real.rs",
+      "base_sha256": null,
+      "final_sha256": "8077627013888d4e75b417e0a25e9a7d7dd92b5779d082f650c7a7050ce291cd"
+    },
+    {
+      "path": "tests/test_native_log_to_real.py",
+      "base_sha256": null,
+      "final_sha256": "7491093a70ec9486887619435cf0b7f671cd9e77d9cb02a198f28f8952f6bad1"
+    }
+  ],
+  "frozen": true,
+  "base_description": "Private copy after R3b vector dispatch correction; existing-file base hashes are authoritative, no main or earlier stage edited",
+  "validation_package": "/home/keckj/symox-ci/wt/log-to-real-native/python",
+  "validated_native_debug_sha256": "8b8a9463eb284f8d01fc5c05717e6f318efa041ee24f122443174779edc7a02c",
+  "validation": {
+    "focused_rust": "4 passed (2 existing QQ Atan + 2 new)",
+    "cargo_check": "passed final",
+    "clippy_correctness": "passed final",
+    "python_final_targeted": "132 passed in 10.28s",
+    "python_final_collection": "133 passed, 1366 deselected in 12.52s",
+    "python_associated_before_final_admission_guard": "1498 passed in 214.31s",
+    "rational_integration_before_final_admission_guard": "214 passed in 99.75s",
+    "independent_symbolic_elimination": "7 exact identities, SymPy1.14 isolated script"
+  },
+  "performance": "Not measured; DEBUG is not a performance baseline; selector benchmark prepared but not run",
+  "artifacts": [
+    {
+      "path": "log-to-real.patch",
+      "sha256": "15113c2f266201af9b6cdd21689a00ae8fd210e2bf08742abadecbbc878288de",
+      "bytes": 31304
+    },
+    {
+      "path": "source-manifest.json",
+      "sha256": "da51bf31ec742cf33302597b73124d0140e58c18eff3ba67e0f9e96172164cec",
+      "bytes": 1514
+    },
+    {
+      "path": "audit-and-proof.txt",
+      "sha256": "fe0ffb8a03f0e736ec2cfed6c6d4a75b1ebdbdac60ed396cf3c4cb769ce22b6e",
+      "bytes": 7728
+    },
+    {
+      "path": "exact-elimination-certificates.json",
+      "sha256": "67f09b27535048e3f58706227945eec2d65bae4b652e632d08b7f53e03606492",
+      "bytes": 459
+    },
+    {
+      "path": "certify-elimination.py",
+      "sha256": "4f6b43b2f264f08992e58fca9c945c42e3f28dd35d09b56491e91085ee38c775",
+      "bytes": 1204
+    },
+    {
+      "path": "patch-check.log",
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061",
+      "bytes": 7
+    },
+    {
+      "path": "cargo-check-final.log",
+      "sha256": "90d4f4ed766c8b51853071785953ecd2a8d39e74427e61e9da7cbafcc9870730",
+      "bytes": 3117
+    },
+    {
+      "path": "build-debug-final.log",
+      "sha256": "f12a4effa34acbbff98dc49b767676e86b86ffc4b73964b3c2f62168b3292949",
+      "bytes": 3117
+    },
+    {
+      "path": "clippy-final.log",
+      "sha256": "966103cd1fdfc496a1f47da1337096b5b2205224a73c96e2a20fde07ded4d8c6",
+      "bytes": 480913
+    },
+    {
+      "path": "rust-focused.log",
+      "sha256": "e4db5ea5e8da403a2cb618b8abee30c51db7a420071c1619b0a67b8062093a2f",
+      "bytes": 3740
+    },
+    {
+      "path": "pytest-final.log",
+      "sha256": "d01a525752dad732cca19824f2a9173804de69e4f83fe732b054c6fa42d0ed31",
+      "bytes": 181
+    },
+    {
+      "path": "collection-final.log",
+      "sha256": "9093839753a035bd2e5f79bcb2326169fead02ab1341efcd76e1eb64a30cafe2",
+      "bytes": 198
+    },
+    {
+      "path": "combined-final.log",
+      "sha256": "f40f9ad62d0138e8e87aeb28c16649ee7992baaf1cda972a33330f078fc35566",
+      "bytes": 1713
+    },
+    {
+      "path": "rational-integration.log",
+      "sha256": "86b69a01c47af54d38d1e949261834274828f78d338f8bff6cca7b97775acae7",
+      "bytes": 271
+    }
+  ]
+}

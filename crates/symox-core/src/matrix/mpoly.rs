@@ -45,7 +45,7 @@ fn lex(a: &Mono, b: &Mono) -> Ordering {
 
 #[inline]
 fn mono_mul(a: &Mono, b: &Mono) -> Mono {
-    a.iter().zip(b.iter()).map(|(x, y)| x + y).collect()
+    a.iter().zip(b.iter()).map(|(x, y)| crate::poly::mpoly::exponent_add(*x,*y)).collect()
 }
 
 #[inline]
@@ -228,6 +228,9 @@ impl MPoly {
         if self.is_zero() || o.is_zero() {
             return MPoly::zero(self.nvars);
         }
+        if !self.product_fits(o) {
+            return Self::wide_sum_products(&[(self,o)],self.nvars);
+        }
         if self.terms.len() == 1 {
             return o.mul_term(&self.terms[0].0, &self.terms[0].1);
         }
@@ -274,6 +277,9 @@ impl MPoly {
 
     /// `sum a_i * b_i`, accumulated in one table instead of a chain of merges.
     pub fn sum_products(pairs: &[(&MPoly, &MPoly)], nvars: usize) -> MPoly {
+        if pairs.iter().any(|(a,b)|!a.product_fits(b)) {
+            return Self::wide_sum_products(pairs,nvars);
+        }
         let size: usize = pairs.iter().map(|(a, b)| a.terms.len() * b.terms.len()).sum();
         if pairs.len() < 2 || size <= 256 {
             let mut acc = MPoly::zero(nvars);
@@ -302,6 +308,32 @@ impl MPoly {
         MPoly { nvars, terms: t }
     }
 
+    fn product_fits(&self, other:&Self)->bool {
+        self.is_zero() || other.is_zero() || (0..self.nvars).all(|v|self.degree(v).checked_add(other.degree(v)).is_some())
+    }
+
+    /// Matrix dot products can cancel high terms across several products.
+    /// Keep all those products in one wide sparse accumulator before checking.
+    fn wide_sum_products(pairs:&[(&MPoly,&MPoly)], nvars:usize)->MPoly {
+        let mut accumulated:FxHashMap<Vec<u64>,Int>=FxHashMap::default();
+        for (a,b) in pairs {
+            for (ma,ca) in &a.terms {
+                for (mb,cb) in &b.terms {
+                    let exponent=ma.iter().zip(mb).map(|(a,b)|u64::from(*a)+u64::from(*b)).collect();
+                    let product=ca.mul(cb);
+                    if product.is_zero() { continue; }
+                    let coefficient=accumulated.entry(exponent).or_insert(Int::ZERO);
+                    *coefficient=coefficient.add(&product);
+                }
+            }
+        }
+        let terms=accumulated.into_iter().filter(|(_,c)|!c.is_zero()).map(|(m,c)| {
+            let exponent=m.into_iter().map(|e|u32::try_from(e).unwrap_or_else(|_|crate::poly::mpoly::exponent_overflow())).collect();
+            (exponent,c)
+        }).collect();
+        MPoly::from_terms(nvars,terms)
+    }
+
     pub fn pow(&self, n: u32) -> MPoly {
         let mut r = MPoly::one(self.nvars);
         let mut b = self.clone();
@@ -320,6 +352,9 @@ impl MPoly {
 
     /// `self * a - o * b`.
     pub fn mul_sub(&self, a: &MPoly, o: &MPoly, b: &MPoly) -> MPoly {
+        if !self.product_fits(a) || !o.product_fits(b) {
+            return Self::wide_sum_products(&[(self,a),(&o.neg(),b)],self.nvars);
+        }
         self.mul(a).sub(&o.mul(b))
     }
 
@@ -405,8 +440,8 @@ impl MPoly {
         self.terms.iter().map(|(m, _)| m[v]).max().unwrap_or(0)
     }
 
-    pub fn total_degree(&self) -> u32 {
-        self.terms.iter().map(|(m, _)| m.iter().sum::<u32>()).max().unwrap_or(0)
+    pub fn total_degree(&self) -> u64 {
+        self.terms.iter().map(|(m, _)| m.iter().map(|&k| u64::from(k)).sum::<u64>()).max().unwrap_or(0)
     }
 
     pub fn uses_var(&self, v: usize) -> bool {
@@ -473,7 +508,8 @@ impl MPoly {
         for (k, c) in cs.iter().enumerate() {
             for (m, x) in &c.terms {
                 let mut mm = m.clone();
-                mm[v] += k as u32;
+                let k=u32::try_from(k).unwrap_or_else(|_|crate::poly::mpoly::exponent_overflow());
+                mm[v] = crate::poly::mpoly::exponent_add(mm[v],k);
                 terms.push((mm, x.clone()));
             }
         }
@@ -571,7 +607,7 @@ fn interpolate(h: &MPoly, x: &Int, v: usize) -> MPoly {
             }
             if !d.is_zero() {
                 let mut mm = m.clone();
-                mm[v] += k;
+                mm[v] = crate::poly::mpoly::exponent_add(mm[v],k);
                 terms.push((mm, d.clone()));
             }
             c = c.sub(&d).divexact(x);
@@ -871,5 +907,30 @@ mod tests {
         let w = x.pow(3).sub(&y.pow(3)); // (x-y)(x^2+xy+y^2)
         let t = x.pow(2).sub(&y.pow(2)); // (x-y)(x+y)
         assert_eq!(gcd(&w, &t), x.sub(&y));
+    }
+}
+
+#[cfg(test)]
+mod exponent_storage_tests {
+    use super::*;
+    #[test]
+    fn matrix_exponent_storage_preserves_cancelled_dot_products() {
+        let p=MPoly::monomial(1,Mono::from_slice(&[1<<31]),Int::ONE);
+        let q=p.neg();
+        let result=crate::poly::mpoly::checked_operation(||Ok(MPoly::sum_products(&[(&p,&p),(&p,&q)],1))).unwrap();
+        assert!(result.is_zero());
+        assert!(crate::poly::mpoly::checked_operation(||Ok(p.mul(&p))).is_err());
+        assert!(crate::poly::mpoly::checked_operation(||Ok(p.mul_sub(&p,&p,&p))).unwrap().is_zero());
+    }
+}
+
+#[cfg(test)]
+mod wide_total_degree_tests {
+    use super::*;
+    #[test]
+    fn wide_total_degree_matrix_metadata_is_exact() {
+        let p=MPoly::monomial(2,Mono::from_slice(&[1<<31,1<<31]),Int::ONE);
+        assert_eq!(p.total_degree(),1u64<<32);
+        assert_eq!(MPoly::zero(2).total_degree(),0);
     }
 }

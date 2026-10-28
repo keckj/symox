@@ -1,0 +1,93 @@
+[
+  {
+    "case": "matrix-2x2-small",
+    "mode": "first",
+    "baseline": "r10",
+    "extra_us": 633.163,
+    "extra_percent": 3.8897311057034756
+  },
+  {
+    "case": "matrix-2x2-small",
+    "mode": "repeated",
+    "baseline": "r10",
+    "extra_us": 91.906,
+    "extra_percent": 21.468549110479884
+  },
+  {
+    "case": "domainmatrix_dense-2x2-small",
+    "mode": "first",
+    "baseline": "r10",
+    "extra_us": 101.769,
+    "extra_percent": 55.823176417671384
+  },
+  {
+    "case": "domainmatrix_dense-2x2-small",
+    "mode": "repeated",
+    "baseline": "r10",
+    "extra_us": 98.248,
+    "extra_percent": 80.89317766397156
+  },
+  {
+    "case": "domainmatrix_sparse-2x2-small",
+    "mode": "first",
+    "baseline": "r10",
+    "extra_us": 106.185,
+    "extra_percent": 54.96345604372852
+  },
+  {
+    "case": "domainmatrix_sparse-2x2-small",
+    "mode": "repeated",
+    "baseline": "r10",
+    "extra_us": 97.244,
+    "extra_percent": 75.19001631472733
+  },
+  {
+    "case": "matrix-2x4-wide",
+    "mode": "first",
+    "baseline": "r10",
+    "extra_us": 266.196,
+    "extra_percent": 1.597965330954887
+  },
+  {
+    "case": "matrix-4x2-tall",
+    "mode": "first",
+    "baseline": "r10",
+    "extra_us": 485.368,
+    "extra_percent": 2.94720052443469
+  },
+  {
+    "case": "matrix-4x2-tall",
+    "mode": "repeated",
+    "baseline": "r10",
+    "extra_us": 72.907,
+    "extra_percent": 12.212064159944248
+  },
+  {
+    "case": "domainmatrix_dense-4x2-tall",
+    "mode": "first",
+    "baseline": "r10",
+    "extra_us": 81.537,
+    "extra_percent": 38.873791406831046
+  },
+  {
+    "case": "domainmatrix_dense-4x2-tall",
+    "mode": "repeated",
+    "baseline": "r10",
+    "extra_us": 69.468,
+    "extra_percent": 45.08771815957371
+  },
+  {
+    "case": "domainmatrix_sparse-4x2-tall",
+    "mode": "first",
+    "baseline": "r10",
+    "extra_us": 76.201,
+    "extra_percent": 35.043159545456625
+  },
+  {
+    "case": "domainmatrix_sparse-4x2-tall",
+    "mode": "repeated",
+    "baseline": "r10",
+    "extra_us": 71.445,
+    "extra_percent": 45.165470809495204
+  }
+]

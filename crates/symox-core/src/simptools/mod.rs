@@ -634,7 +634,7 @@ pub fn map_args(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
         Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => e.clone(),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Func(..) | Kind::Rel(..) => {
             if let Kind::Func(fun, _) = e.kind() {
-                if matches!(fun, Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..) | Func::Subs | Func::Integral | Func::Sum | Func::Limit) {
+                if matches!(fun, Func::SymbolicDerivative | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..) | Func::Subs | Func::Integral | Func::Sum | Func::Limit) {
                     return traverse::map_children(e, f);
                 }
             }
@@ -651,10 +651,11 @@ pub fn map_args(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
 
 /// `expr.func(*args)` with evaluation.
 pub fn rebuild(e: &Expr, new: &[Expr]) -> Expr {
+    if matches!(e.kind(),Kind::Func(Func::SymbolicDerivative,_)){return e.clone();}
     match e.kind() {
         Kind::Add(..) => ops::add(new),
         Kind::Mul(..) => ops::mul(new),
-        Kind::Pow(..) => ops::pow(&new[0], &new[1]),
+        Kind::Pow(..) => if e.is_deferred_numeric_power(){ops::deferred::rebuild(&new[0],&new[1])}else{ops::pow(&new[0], &new[1])},
         Kind::Func(fun, _) => crate::functions::func(fun.clone(), new.to_vec()),
         Kind::Rel(op, ..) => crate::relational::rel(*op, &new[0], &new[1]),
         _ => e.clone(),

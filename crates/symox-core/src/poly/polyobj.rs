@@ -258,14 +258,14 @@ impl Poly {
         self.true_gens().iter().position(|x| x == g)
     }
 
-    pub fn total_degree(&self) -> Option<u32> {
+    pub fn total_degree(&self) -> Option<u64> {
         if self.rep.is_zero() {
             return None;
         }
         Some(
             self.rep
                 .iter()
-                .map(|(e, _)| e[..self.ngens].iter().sum::<u32>())
+                .map(|(e, _)| e[..self.ngens].iter().map(|&k| u64::from(k)).sum::<u64>())
                 .max()
                 .unwrap(),
         )
@@ -759,8 +759,8 @@ impl Poly {
     }
 
     /// Total degrees (in the generators) of the terms.
-    fn term_degrees(&self) -> Vec<u32> {
-        self.terms().iter().map(|(m, _)| m.iter().sum()).collect()
+    fn term_degrees(&self) -> Vec<u64> {
+        self.terms().iter().map(|(m, _)| m.iter().map(|&k| u64::from(k)).sum()).collect()
     }
 
     pub fn is_linear(&self) -> bool {
@@ -1130,5 +1130,22 @@ mod reference_generator_unification {
         assert_eq!(unify_gens(&s(&["b"]), &s(&["a"])), s(&["b", "a"]));
         assert_eq!(unify_gens(&s(&["a"]), &s(&["b"])), s(&["a", "b"]));
         assert_eq!(unify_gens(&s(&["x", "z"]), &s(&["y", "z"])), s(&["x", "y", "z"]));
+    }
+}
+
+#[cfg(test)]
+mod wide_total_degree_tests {
+    use super::*;
+    #[test]
+    fn wide_total_degree_metadata_and_orders_keep_legal_coordinates() {
+        let n=1u32<<31;
+        let rep=MPoly::from_terms(2,vec![(vec![n,n],Rat::one()),(vec![0,0],Rat::one())]);
+        let p=Poly::new(rep,vec![Expr::symbol("x"),Expr::symbol("y")],2,Domain::ZZ);
+        assert_eq!(p.total_degree(),Some(1u64<<32));
+        assert!(!p.is_linear());assert!(!p.is_quadratic());assert!(!p.is_homogeneous());
+        use super::super::groebner::MonomialOrder;
+        for order in [MonomialOrder::Grlex,MonomialOrder::Grevlex] {
+            assert_eq!(order.compare(&[n,n],&[u32::MAX,0]),std::cmp::Ordering::Greater);
+        }
     }
 }

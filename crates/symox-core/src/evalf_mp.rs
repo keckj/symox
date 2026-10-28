@@ -7,6 +7,7 @@ use crate::bigfloat::{ln2, pi, BigFloat};
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
 mod memo;
+mod gamma;
 
 /// A complex number with arbitrary precision parts.
 #[derive(Clone, Debug)]
@@ -337,7 +338,7 @@ pub fn substitute_for_evalf(e: &Expr, pairs: &[(Expr, Expr)]) -> Expr {
         if seen.insert(e.dag_id(), e.clone()).is_some() { return true; }
         if e.has_matrix() { return false; }
         match e.kind() {
-            Kind::Derivative(..) | Kind::Rel(..) | Kind::Piecewise(..) | Kind::Bool(..) => false,
+            Kind::Derivative(..) | Kind::Func(Func::SymbolicDerivative,_) | Kind::Rel(..) | Kind::Piecewise(..) | Kind::Bool(..) => false,
             Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product
                 | Func::Set(..) | Func::Logic(..), _) => false,
             _ => crate::inspection::scalar_children(e).iter().all(|child| scalar(child, seen)),
@@ -537,6 +538,16 @@ pub fn to_expr(value: MpComplex, prec: u32) -> Expr {
 pub fn evalf(e: &Expr, prec: u32) -> Expr {
     if e.is_zero() { return Expr::zero(); }
     let options=OPTIONS.with(|cell|cell.get());
+    // This is a proof from the exact source parameters, not a rounded host
+    // evaluation. Do not invoke a numerical backend at a certified pole.
+    // A pending interruption still belongs to the caller and must survive.
+    if !host_interrupted() && e.has_hyper() && crate::functions::is_numeric_value(e) {
+        let proved = certified_hyper_unit_values(e);
+        if !proved.same_presentation(e) {
+            RESIDUE.with(|cell| cell.take());
+            return evalf(&proved, prec);
+        }
+    }
     let memoized=EvalfOptions{residue:false,..options}==EvalfOptions::default();
     if memoized { if let Some(value) = memo::get(e,prec,options.residue) { return value; } }
     if let Some(value) = eval_mp_root(e, prec) {
@@ -1014,6 +1025,91 @@ fn host_arg(e: &Expr, p: u32) -> Option<HostArg> {
     ev(e, p).map(HostArg::Number)
 }
 
+/// Parameter lists are numerical arguments too (`hyper(ap, bq, z)`). A
+/// tuple itself is not a number, so testing only `Expr::is_number` drops
+/// hypergeometric singularities before the host can return their infinity.
+fn numeric_host_arg(e: &Expr) -> bool {
+    match crate::special::tuple_items(e) {
+        Some(items) => items.iter().all(numeric_host_arg),
+        None => e.is_number(),
+    }
+}
+
+/// Exact real numerical parameters of pF_(p-1) at z=1, with its
+/// convergence excess sum(bq)-sum(ap). Float parameters are their stored
+/// binary rationals, never decimal approximations or rounded samples. No
+/// nonpositive integer may occur: a numerator may terminate the series,
+/// while a denominator may make it undefined.
+fn hyper_unit_parameters(args: &[Expr]) -> Option<(Vec<Number>, Vec<Number>, Number)> {
+    fn exact_nonpole(e: &Expr) -> Option<Number> {
+        let n = e.as_number()?;
+        let exact = if n.is_rational() { n.clone() } else {
+            let value = n.to_bigfloat(n.float_precision()?);
+            // Converting a Float with an enormous binary exponent to a
+            // rational would allocate that entire integer. Keep the host
+            // path when a bounded exact conversion is unavailable.
+            if value.mag().abs() > 4096 || value.exp.abs() > 8192 { return None; }
+            Number::from_ratio(value.to_ratio_exact())
+        };
+        (!(exact.is_integer() && !exact.is_positive())).then_some(exact)
+    }
+    let [ap, bq, z] = args else { return None };
+    if !z.as_number()?.sub(&Number::ONE).is_zero() { return None; }
+    let (ap, bq) = (crate::special::tuple_items(ap)?, crate::special::tuple_items(bq)?);
+    if ap.len() != bq.len() + 1 { return None; }
+    let ap = ap.iter().map(exact_nonpole).collect::<Option<Vec<_>>>()?;
+    let bq = bq.iter().map(exact_nonpole).collect::<Option<Vec<_>>>()?;
+    let mut balance = Number::ZERO;
+    for (parameters, numerator) in [(&ap, true), (&bq, false)] {
+        for parameter in parameters {
+            balance = if numerator { balance.sub(parameter) } else { balance.add(parameter) };
+        }
+    }
+    Some((ap, bq, balance))
+}
+
+/// For real nonterminating parameters the terms are asymptotic to
+/// C*n^(-excess-1), C=prod Gamma(b)/prod Gamma(a). At z=1 and excess<=0
+/// they eventually have one sign and their sum diverges in that direction.
+/// Gamma's sign is positive above zero and (-1)^floor(x) below it. All
+/// these decisions use exact rationals, including the original Float bits.
+/// Terminating/forbidden parameters and oscillating boundary points retain
+/// the established evaluation paths.
+fn hyper_unit_divergence(e: &Expr) -> Option<Expr> {
+    let Kind::Func(Func::Special(crate::special::SpecialFn::Hyper), args) = e.kind() else { return None };
+    hyper_unit_divergence_args(args)
+}
+
+fn hyper_unit_divergence_args(args: &[Expr]) -> Option<Expr> {
+    let (ap, bq, excess) = hyper_unit_parameters(args)?;
+    if excess.is_positive() { return None; }
+    let mut negative = false;
+    for parameter in ap.iter().chain(&bq) {
+        if parameter.is_negative() && parameter.floor().numer_denom()?.0.bit(0) { negative = !negative; }
+    }
+    Some(if negative { Expr::neg_oo() } else { Expr::oo() })
+}
+
+/// Replace proved unit poles before numerical arithmetic sees them. The
+/// aggregate feature bit skips all other expressions in O(1), and a DAG memo
+/// avoids revisiting shared descendants. Only numeric scalar expressions are
+/// passed here: bound calculus, sets and symbolic/host expressions keep their
+/// existing partial-evaluation rules. Unproved hyper nodes are not rebuilt.
+fn certified_hyper_unit_values(e: &Expr) -> Expr {
+    fn visit(e: &Expr, memo: &mut rustc_hash::FxHashMap<usize, (Expr, Expr)>) -> Expr {
+        if !e.has_hyper() { return e.clone(); }
+        if let Some((_, value)) = memo.get(&e.dag_id()) { return value.clone(); }
+        let value = if matches!(e.kind(), Kind::Func(Func::Special(crate::special::SpecialFn::Hyper), _)) {
+            hyper_unit_divergence(e).unwrap_or_else(|| e.clone())
+        } else {
+            crate::traverse::map_children(e, &mut |child| visit(child, memo))
+        };
+        memo.insert(e.dag_id(), (e.clone(), value.clone()));
+        value
+    }
+    visit(e, &mut rustc_hash::FxHashMap::default())
+}
+
 fn host_eval(name: &str, args: &[Expr], p: u32) -> Option<MpComplex> {
     let host = *SPECIAL_HOST.get()?;
     let values = |q: u32| args.iter().map(|arg| host_arg(arg, q + HOST_ARGUMENT_GUARD)).collect::<Option<Vec<_>>>();
@@ -1027,6 +1123,8 @@ fn host_eval(name: &str, args: &[Expr], p: u32) -> Option<MpComplex> {
 /// (Floats, not rounded) whose value is unavailable, that non-finite value;
 /// `None` otherwise.
 pub fn nonfinite_value(e: &Expr, prec: u32) -> Option<Expr> {
+    if host_interrupted() { return None; }
+    if let Some(value) = hyper_unit_divergence(e) { return Some(value); }
     let host = *SPECIAL_HOST.get()?;
     let Kind::Func(f, args) = e.kind() else { return None };
     let name = match f {
@@ -1038,7 +1136,7 @@ pub fn nonfinite_value(e: &Expr, prec: u32) -> Option<Expr> {
         Func::LogGamma => "loggamma",
         _ => return None,
     };
-    if args.is_empty() || !args.iter().all(|arg| arg.is_number()) {
+    if args.is_empty() || !args.iter().all(numeric_host_arg) {
         return None;
     }
     let values = |q: u32| args.iter().map(|arg| host_arg(arg, q + HOST_ARGUMENT_GUARD)).collect::<Option<Vec<_>>>();
@@ -1234,6 +1332,12 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
     if let Func::Special(s) = f {
         if *s == crate::special::SpecialFn::MeijerG {
             return meijerg_host(args, p);
+        }
+        if *s == crate::special::SpecialFn::Hyper {
+            // ev returns only finite multiprecision numbers. Never let a
+            // rounded host value turn a proved pole inside a sum/power into
+            // a spurious finite number; public evalf rewrites these poles.
+            if hyper_unit_divergence_args(args).is_some() { return None; }
         }
         let value = crate::special::mp::eval(*s, args, p).or_else(|| host_eval(s.name(), args, p))?;
         // SymPy's Ei._eval_evalf: an argument on the ray polar_lift(-1)*(0, oo)
@@ -1501,6 +1605,7 @@ fn erfc_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
 }
 
 fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
+    if host_interrupted() {return None;}
     // integers: factorial; otherwise Spouge's approximation with a = prec*ln2/ln(2pi)
     let t = x.to_int_trunc();
     if BigFloat::from_int(&t) == *x {
@@ -1536,22 +1641,7 @@ fn gamma_spouge(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     let a = (((prec + 40) as f64) * std::f64::consts::LN_2 / (2.0 * std::f64::consts::PI).ln()).ceil() as i64;
     let z = x.sub(&BigFloat::one(), wp);
     let af = BigFloat::from_i64(a);
-    // c0 = sqrt(2 pi)
-    let mut sum = pi(wp).ldexp(1).sqrt(wp)?;
-    let mut fact = BigFloat::one(); // (k-1)!
-    for k in 1..a {
-        let kf = BigFloat::from_i64(k);
-        // c_k = (-1)^(k-1) (a-k)^(k-1/2) e^(a-k) / (k-1)!
-        let amk = BigFloat::from_i64(a - k);
-        let e1 = amk.powf(&BigFloat::from_i64(2 * k - 1).ldexp(-1), wp)?;
-        let e2 = amk.checked_exp(wp)?;
-        let mut ck = e1.mul(&e2, wp).div(&fact, wp)?;
-        if k % 2 == 0 {
-            ck = ck.neg();
-        }
-        sum = sum.add(&ck.div(&z.add(&kf, wp), wp)?, wp);
-        fact = fact.mul(&kf, wp);
-    }
+    let sum=gamma::sum(&z,wp,a)?;
     // gamma(z+1) = (z+a)^(z+1/2) e^(-(z+a)) * sum
     let za = z.add(&af, wp);
     let half = BigFloat::from_parts(BigInt::from(1), -1i64);
@@ -1562,6 +1652,80 @@ fn gamma_spouge(x: &BigFloat, prec: u32) -> Option<BigFloat> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn hyper_unit_pole_requires_exact_parameter_balance() {
+        let third = Expr::rational(1, 3);
+        let twice = Expr::rational(2, 3);
+        let ap = [third.clone(), third];
+        let near = crate::ops::div(&Expr::one(), &Expr::int(10).powi(40));
+        for z in [Expr::one(), Expr::num(Number::float(1.0))] {
+            assert!(hyper_unit_divergence(&crate::special::hyper(&ap, &[twice.clone()], &z)).is_some());
+            assert!(hyper_unit_divergence(&crate::special::hyper(&ap, &[crate::ops::add2(&twice, &near)], &z)).is_none());
+        }
+        assert!(hyper_unit_divergence(&crate::special::hyper(&ap, &[twice], &crate::ops::sub(&Expr::one(), &near))).is_none());
+        let thirds = [Expr::rational(1, 3), Expr::rational(1, 3), Expr::rational(1, 3)];
+        assert!(hyper_unit_divergence(&crate::special::hyper(&thirds, &[Expr::rational(1, 2), Expr::rational(1, 2)], &Expr::one())).is_some());
+    }
+
+    #[test]
+    fn hyper_unit_signed_divergence_excludes_terminating_and_forbidden_parameters() {
+        let cases = [
+            (vec![(1, 3)], vec![], Some(Expr::oo())),
+            (vec![(1, 3), (1, 3)], vec![(1, 2)], Some(Expr::oo())),
+            (vec![(-1, 3), (-1, 3)], vec![(-2, 3)], Some(Expr::neg_oo())),
+            (vec![(-2, 3), (1, 3)], vec![(-1, 3)], Some(Expr::oo())),
+            (vec![(-3, 2), (1, 1)], vec![(-3, 4)], Some(Expr::neg_oo())),
+            (vec![(-2, 1), (1, 3)], vec![(4, 3)], None),
+            (vec![(1, 1), (2, 1)], vec![(-1, 1)], None),
+            (vec![(1, 3), (1, 3)], vec![(1, 1)], None),
+        ];
+        for (ap, bq, expected) in cases {
+            let parameters = |v: Vec<(i64, i64)>| v.into_iter().map(|(p, q)| Expr::rational(p, q)).collect::<Vec<_>>();
+            let e = crate::special::hyper(&parameters(ap), &parameters(bq), &Expr::one());
+            assert_eq!(hyper_unit_divergence(&e), expected, "{e}");
+            if let Some(expected) = expected { assert_eq!(super::evalf(&e, 100), expected, "{e}"); }
+        }
+    }
+
+    #[test]
+    fn hyper_unit_compositions_propagate_infinity_without_finite_samples() {
+        let h = crate::special::hyper(&[Expr::rational(1, 3)], &[], &Expr::one());
+        let held_zero = Expr::from_unevaluated_kind(Kind::Mul(Number::ZERO, vec![(h.clone(), Expr::one())]));
+        let cases = [
+            (crate::ops::add2(&Expr::one(), &h), Expr::oo()),
+            (crate::ops::mul2(&Expr::int(-2), &h), Expr::neg_oo()),
+            (crate::ops::pow(&h, &Expr::int(-1)), Expr::zero()),
+            (crate::ops::pow(&h, &Expr::int(2)), Expr::oo()),
+            (crate::functions::exp(&crate::ops::neg(&h)), Expr::zero()),
+            (held_zero, Expr::nan()),
+        ];
+        for (expression, expected) in cases {
+            assert!(expression.has_hyper());
+            let proved = certified_hyper_unit_values(&expression);
+            assert_eq!(proved, expected, "{expression}");
+            assert!(!proved.has_hyper());
+            let value = super::evalf(&expression, 100);
+            assert_eq!(value, expected, "{expression}");
+        }
+        assert!(ev(&crate::ops::add2(&Expr::one(), &h), 100).is_none());
+        let mut shared = h;
+        for _ in 0..80 {
+            shared = Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,
+                vec![(shared.clone(), Number::ONE), (shared, Number::ONE)]));
+        }
+        assert_eq!(super::evalf(&shared, 100), Expr::oo());
+    }
+
+    #[test]
+    fn hyper_unit_proof_preserves_a_pending_interrupt() {
+        let h = crate::special::hyper(&[Expr::rational(1, 3)], &[], &Expr::one());
+        let _scope = HostErrorScope::enter(true);
+        HOST_FATAL.with(|cell| cell.set(true));
+        assert_eq!(super::evalf(&h, 100), h);
+        assert!(host_interrupted());
+        HOST_FATAL.with(|cell| cell.set(false));
+    }
+
     #[test]
     fn shared_dag_evaluation_is_linear_and_precision_specific() {
         use super::*;

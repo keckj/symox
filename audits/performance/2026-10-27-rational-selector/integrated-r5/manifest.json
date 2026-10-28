@@ -1,0 +1,57 @@
+{
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "2955abf8b02c1e520ddb921d17e56614b8f4c5d391b1fb87730118881665dbe0",
+    "native_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+    "working_code_diff_sha256": "2a93cf27fd5518ac319b7eac190a0f913568431e171b4106d3db98a448b82ab8",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "elapsed_seconds": 29.757557873032056,
+  "fresh_processes": 18,
+  "exact_input_pairs_per_worker": 19,
+  "exact_checks": 1026,
+  "native_selection": "Every R5 case selected the native kernel outside timers; monkeypatches removed before timing. R2/R3b route traces retained in raw files.",
+  "timing": "Three fresh processes per backend/variant, five batches of20 calls per input pair; medians of process medians, CPU24. Imports, setup, certificates, route spies outside timers.",
+  "load": "No task pytest/cargo/maturin running in Demeter preflight. A background media transcoder used about one CPU; ordinary host services remained active. No cold-start or whole-engine inference.",
+  "scope": "Direct public ratint_logpart/log_to_atan calls, plain or official vector import; accepted R5r1 integrated release, no overlay.",
+  "remaining_regression": {
+    "case": "vector atan/linear_branch",
+    "r2_us": 85.12185000000001,
+    "r5_us": 101.02015,
+    "relative_overhead": 0.18677108169054124
+  },
+  "files": {
+    "atan-exact-certificates.json": "0ac146f797650c8b0517518750688f2f85376e0c2279646b48955a55c8853856",
+    "atan-fixtures.json": "f7d15579828acb4b6ba9c367b583e6779c8d9169d289e0d3bc784e97c12188f9",
+    "lrt-exact-trace-certificates.json": "43e9f03c1136ff0f22145ff8832335ff46c17598ab211e405d2a28934bba69dc",
+    "lrt-fixtures.json": "f1eeed47c31f57c216115cd69785b7a09934368d930e124e54dfd49b0f0cdba1",
+    "plain-0-r2.json": "7947f250d4a347ff3cbffee54d76c04b878675300e2e96c4359601f7e7ae7002",
+    "plain-0-r3b.json": "6e2bd015df0d57adb18e3af290be7d4da9d2aca70d9e4964aa1ae4ec635deb13",
+    "plain-0-r5.json": "32987894c303c220f13f733e30ed56ccbd2f0fbd350f9862789fe969a10f3e81",
+    "plain-1-r2.json": "122be088adba04ea4e37e413a496fc74daa138406386f46929e6a945f6201c39",
+    "plain-1-r3b.json": "514f0d3c3c52483ee9f6e997c9cc0aa4c21716d2fadd4861cd6c25a2dfde254e",
+    "plain-1-r5.json": "6013519a7f330e5a85648f18bf58d6f163daae0739ed5966428b46a90219152e",
+    "plain-2-r2.json": "dc6c3a60b83de9ac9538b575e1c68d7b12f23600b25dcf02749bd7a63e7a66bf",
+    "plain-2-r3b.json": "5cd1819caf7b0cf0b85cfa8069c38d164f311bff588affc73d88faf7e87643e5",
+    "plain-2-r5.json": "8ed162e7c1865ba39f88152f72f4eabe5a175d4e824fd3e349a9b43495d45354",
+    "run.log": "9e9267722f2f1146cae84276aa10b7f68820b3b4ed41add181a6ba8ec6e15d22",
+    "run.py": "278067e0b1e0b6c8b5cc8820f93908c357cade30db1ca9e33e41758078e36926",
+    "source-identity.json": "b05dbce15480d1f5dba667a26ae5ea0173b9f463a29d71ddee4fe2700e2cd6a9",
+    "summary.json": "9c695df7b4a9201270c9e8ac3b316fc71666c5246396f9b9c826ee4dfa63dea1",
+    "vector-0-r2.json": "0f12e2de7ada81c4f75a452cc06971b94b12d16f2954fd20667f18d08f10e6f0",
+    "vector-0-r3b.json": "fff8b722d5132a139d047405828dc533fbe56ad052d61c6fe4b46ac30c327dc7",
+    "vector-0-r5.json": "a242c321c33ed99d2b0892d10a32bd808474fe48b321507a4ccdd3182b397adf",
+    "vector-1-r2.json": "d9988fe283c30744796dbbc14fe22164c98195ec9c0de7d25e9bc945ef3c5694",
+    "vector-1-r3b.json": "6f3f6c56c607fb6789a58a14bd3651f903561a6ac817b685336f846cbc8728bf",
+    "vector-1-r5.json": "5d20f67f000014d728f5aba7574a533c2c547e27d5e48412c6d0ab5eb95852e6",
+    "vector-2-r2.json": "cf3f6d759b07788f3d0df09bec2e946841fa32d38da9c9c4da90092c25fddce9",
+    "vector-2-r3b.json": "1af9b29d2e93a4be922ca9a21f0ab1481594940b6d70ca909112d0e92c3f85cc",
+    "vector-2-r5.json": "4b5b39377e2973eb48b473054ddace4796189bc0fd0dba5d76cd6ff9244c2d7a",
+    "worker.py": "2329f58091f1a8da83e1ec73027dfa926b4f486babe3102cdc2f371e27c085e6"
+  }
+}

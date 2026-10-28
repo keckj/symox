@@ -1,0 +1,119 @@
+[
+  {
+    "round": 0,
+    "arm": "R5",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "R5"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python"
+  },
+  {
+    "round": 0,
+    "arm": "private-disabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "private-disabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/after-release/python"
+  },
+  {
+    "round": 0,
+    "arm": "private-enabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "private-enabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/after-release/python"
+  },
+  {
+    "round": 1,
+    "arm": "private-enabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "private-enabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/after-release/python"
+  },
+  {
+    "round": 1,
+    "arm": "private-disabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "private-disabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/after-release/python"
+  },
+  {
+    "round": 1,
+    "arm": "R5",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "R5"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python"
+  },
+  {
+    "round": 2,
+    "arm": "R5",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "R5"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/native-polymatrix-real-log-r1-20261027/python"
+  },
+  {
+    "round": 2,
+    "arm": "private-disabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "private-disabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/after-release/python"
+  },
+  {
+    "round": 2,
+    "arm": "private-enabled",
+    "command": [
+      "taskset",
+      "-c",
+      "24",
+      "/home/keckj/symox-ci/venv/bin/python",
+      "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/worker.py",
+      "private-enabled"
+    ],
+    "PYTHONPATH": "/home/keckj/symox-ci/wt/domainmatrix-auto-benchmark-20261027/after-release/python"
+  }
+]

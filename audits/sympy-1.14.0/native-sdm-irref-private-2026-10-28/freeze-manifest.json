@@ -1,0 +1,46 @@
+{
+  "status": "private candidate; not integrated or full-suite certified",
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "80c98adae719e1cdfc2e7621a234d0ade781cdb3bc26c4285360263b0ca719ae",
+    "native_sha256": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+    "working_code_diff_sha256": "b8b70b9215e6cea86dd21f9483632662ab356c5c5c24be662658a0aeda1ddc53",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/sdm.rs",
+      "base_sha256": "9fe61643a34b90d05dd4002ac9d89af142f9c9ab087d1039ea84f7289a4dbb3f",
+      "final_sha256": "420348b4d5e052760e5134c16f89a99680639b5fef67bb8d030255418d3c6af7"
+    },
+    {
+      "path": "crates/symox-py/src/poly_fraction_free.rs",
+      "base_sha256": "c847ec8b77ea99a481cccb8bc28b8ee58a577f8de53c5568f1368bad58bfa58b",
+      "final_sha256": "47c75b83ec783b2a9ff87d92a245b51168b085bf7f1159167c3d3a83b4dd3eb5"
+    },
+    {
+      "path": "python/symox/polys/matrices/_sdm_irref_native.py",
+      "base_sha256": null,
+      "final_sha256": "a8a76b0dc965018fbb6f33378c81cf3e0c5e0d48baed24282755291bd2ec8f3a"
+    },
+    {
+      "path": "python/symox/polys/matrices/sdm.py",
+      "base_sha256": "387c059559ec4b25458076a1349eae927354823b8e24c3205b60673ca2428414",
+      "final_sha256": "2ac6dd80178970ffccab344ad1bfcddd12ae3fa1644f08d62ed4631ffeb3a137"
+    },
+    {
+      "path": "tests/test_sdm_irref_native.py",
+      "base_sha256": null,
+      "final_sha256": "a04288ac57cd6da0f98cec3e21171dc3644941ff3ae2b4cda9a2227e3d7220bf"
+    }
+  ],
+  "native_profile": "dev/debug",
+  "native_sha256": "6618a5093f2449a9b60c5c6fc6a08ecd4716a37b736c554df3fb848e6c33b2df",
+  "patch_sha256": "d2e4f156100c8613e80e055a1387432a7e92456171f72cd413f7109a5c882e68",
+  "source_map_sha256": "800db2858911da1a18d6b60c6036e8d7837bbdbd65e0214d64132956c5791aa0"
+}

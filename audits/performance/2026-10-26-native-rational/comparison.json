@@ -1,0 +1,80 @@
+{
+  "before_native_sha256": "576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8",
+  "after_native_sha256": "3ef4ccbca497a7a0d93762006f4f6c7b5413a48231a62fa53b5aa59410f2ead7",
+  "method": "3 fresh processes per release, alternating order; CPU24, BLAS/OMP1; distinct preconstructed fractions; median of process medians; no reference imports in native calculations; exact checks after timers",
+  "independent_exact_checks": 216,
+  "cases": {
+    "repeated_order2": {
+      "before_seconds": 0.002683252348409345,
+      "after_seconds": 0.00020492300003146133,
+      "ratio_before_over_after": 13.093954060780838,
+      "process_medians_seconds": {
+        "before": [
+          0.002673885338784506,
+          0.002714978666820874,
+          0.002683252348409345
+        ],
+        "after": [
+          0.00020492300003146133,
+          0.00019891168146083751,
+          0.00021000433480367064
+        ]
+      },
+      "values_digest": "46925af9ab5baba22490177cad62820df3bc8167a73ee6445340ba5fd41363f9"
+    },
+    "repeated_order6": {
+      "before_seconds": 0.006979504658374935,
+      "after_seconds": 0.0005347590000989536,
+      "ratio_before_over_after": 13.051682453373248,
+      "process_medians_seconds": {
+        "before": [
+          0.00698807934531942,
+          0.006949400994926691,
+          0.006979504658374935
+        ],
+        "after": [
+          0.0005347590000989536,
+          0.000528792676050216,
+          0.0005569286683263878
+        ]
+      },
+      "values_digest": "7cfa934d01f5ec76762ca95cc4f390918814736689eec800af68035151242ec4"
+    },
+    "repeated_order12": {
+      "before_seconds": 0.015475262674347809,
+      "after_seconds": 0.003446753660682589,
+      "ratio_before_over_after": 4.489808149295797,
+      "process_medians_seconds": {
+        "before": [
+          0.01553806367640694,
+          0.015475262674347809,
+          0.015405843674670905
+        ],
+        "after": [
+          0.0034453896805644035,
+          0.003446753660682589,
+          0.0036590493206555643
+        ]
+      },
+      "values_digest": "5c8d01014f3328df00bff064a375eb893f609a3fa113d4d22e2163e9f2f9097a"
+    },
+    "square_free_degree12": {
+      "before_seconds": 0.0036991723463870585,
+      "after_seconds": 0.00017952366033568978,
+      "ratio_before_over_after": 20.605486427081573,
+      "process_medians_seconds": {
+        "before": [
+          0.0037899616678866246,
+          0.0036991723463870585,
+          0.0036794916765453913
+        ],
+        "after": [
+          0.00017952366033568978,
+          0.0001789270124087731,
+          0.00019436900038272142
+        ]
+      },
+      "values_digest": "033ba942cc781ab25a1c99178d0f341949659e156bdfdf0101d19fa11f0ddbdd"
+    }
+  }
+}

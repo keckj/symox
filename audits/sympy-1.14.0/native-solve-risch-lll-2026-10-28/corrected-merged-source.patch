@@ -1,0 +1,1351 @@
+diff --git a/crates/symox-core/src/poly/lu_solve.rs b/crates/symox-core/src/poly/lu_solve.rs
+new file mode 100644
+index 0000000..4c13fb5
+--- /dev/null
++++ b/crates/symox-core/src/poly/lu_solve.rs
+@@ -0,0 +1,108 @@
++//! Exact QQ forward/back substitution in the established column-major order.
++use super::Rat;
++
++#[derive(Debug,PartialEq,Eq)]
++pub enum Failure<E> { Interrupted(E), NonInvertible }
++
++pub enum Event<'a> {
++    Y(usize,usize,&'a Rat,bool), // true copies the original RHS object
++    X(usize,usize,&'a Rat),
++}
++
++/// Shape refusal happens before any publication. The caller has performed the
++/// real public prefix, including row permutations and scratch allocation.
++pub fn solve<E>(l:&[Vec<Rat>],u:&[Vec<Rat>],b:&[Vec<Rat>],columns:usize,
++    check:&mut impl FnMut()->Result<(),E>,
++    publish:&mut impl FnMut(Event<'_>)->Result<(),E>)->Result<bool,Failure<E>> {
++    check().map_err(Failure::Interrupted)?;
++    let m=u.len();
++    let Some(first)=u.first() else{return Ok(true)};
++    let n=first.len();
++    if m<n||l.len()!=m||b.len()!=m||u.iter().any(|row|row.len()!=n)
++        ||l.iter().any(|row|row.len()!=m)||b.iter().any(|row|row.len()!=columns){return Ok(false);}
++    let mut y=vec![vec![Rat::zero();columns];m];
++    let mut x=vec![vec![Rat::zero();columns];n];
++    for k in 0..columns {
++        for i in 0..m {
++            check().map_err(Failure::Interrupted)?;
++            let mut rhs=b[i][k].clone();
++            for j in 0..i {
++                check().map_err(Failure::Interrupted)?;
++                rhs=rhs.sub(&l[i][j].mul(&y[j][k]));
++            }
++            publish(Event::Y(i,k,&rhs,i==0)).map_err(Failure::Interrupted)?;
++            y[i][k]=rhs;
++        }
++    }
++    if m>n {
++        for row in y.iter().skip(n) {
++            for value in row {
++                check().map_err(Failure::Interrupted)?;
++                if !value.is_zero(){return Err(Failure::NonInvertible);}
++            }
++        }
++    }
++    for k in 0..columns {
++        for i in (0..n).rev() {
++            check().map_err(Failure::Interrupted)?;
++            if u[i][i].is_zero(){return Err(Failure::NonInvertible);}
++            let mut rhs=y[i][k].clone();
++            for j in (i+1)..n {
++                check().map_err(Failure::Interrupted)?;
++                rhs=rhs.sub(&u[i][j].mul(&x[j][k]));
++            }
++            let value=rhs.mul(&u[i][i].inv());
++            publish(Event::X(i,k,&value)).map_err(Failure::Interrupted)?;
++            x[i][k]=value;
++        }
++    }
++    check().map_err(Failure::Interrupted)?;
++    Ok(true)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::poly::Int;
++    fn q(n:i64,d:i64)->Rat {Rat::new(Int::from(n),Int::from(d))}
++    fn rows(values:&[&[i64]])->Vec<Vec<Rat>> {values.iter().map(|row|row.iter().map(|&v|q(v,1)).collect()).collect()}
++
++    #[test]
++    fn exact_multiple_rhs_preserves_forward_then_descending_publication() {
++        let l=rows(&[&[1,0],&[2,1]]);let u=rows(&[&[3,4],&[0,5]]);let b=rows(&[&[7,8],&[9,10]]);
++        let mut events=Vec::new();
++        assert_eq!(solve(&l,&u,&b,2,&mut ||Ok::<_,()>(()),&mut |event| {
++            events.push(match event {Event::Y(i,k,v,copy)=>(false,i,k,v.clone(),copy),Event::X(i,k,v)=>(true,i,k,v.clone(),false)});Ok(())
++        }),Ok(true));
++        assert_eq!(events,vec![(false,0,0,q(7,1),true),(false,1,0,q(-5,1),false),(false,0,1,q(8,1),true),(false,1,1,q(-6,1),false),
++            (true,1,0,q(-1,1),false),(true,0,0,q(11,3),false),(true,1,1,q(-6,5),false),(true,0,1,q(64,15),false)]);
++    }
++
++    #[test]
++    fn tall_consistency_errors_follow_complete_forward_publication() {
++        let l=rows(&[&[1,0,0],&[2,1,0],&[3,4,1]]);let u=rows(&[&[2,1],&[0,3],&[0,0]]);
++        let mut output=Vec::new();
++        assert_eq!(solve(&l,&u,&rows(&[&[4],&[14],&[36]]),1,&mut ||Ok::<_,()>(()),&mut |e| {if let Event::X(i,_,v)=e {output.push((i,v.clone()));}Ok(())}),Ok(true));
++        assert_eq!(output,vec![(1,q(2,1)),(0,q(1,1))]);
++        let mut count=0;
++        assert_eq!(solve(&l,&u,&rows(&[&[4],&[14],&[37]]),1,&mut ||Ok::<_,()>(()),&mut |e| {assert!(matches!(e,Event::Y(..)));count+=1;Ok(())}),Err(Failure::NonInvertible));
++        assert_eq!(count,3);
++    }
++
++    #[test]
++    fn zero_pivot_keeps_completed_x_prefix_and_empty_rhs_does_not_probe_pivots() {
++        let l=rows(&[&[1,0],&[0,1]]);let u=rows(&[&[0,1],&[0,2]]);let mut output=Vec::new();
++        assert_eq!(solve(&l,&u,&rows(&[&[1,2],&[4,6]]),2,&mut ||Ok::<_,()>(()),&mut |e| {if let Event::X(i,k,v)=e {output.push((i,k,v.clone()));}Ok(())}),Err(Failure::NonInvertible));
++        assert_eq!(output,vec![(1,0,q(2,1))]);
++        assert_eq!(solve(&l,&u,&[vec![],vec![]],0,&mut ||Ok::<_,()>(()),&mut |_|panic!("empty RHS publication")),Ok(true));
++    }
++
++    #[test]
++    fn shape_refusal_and_interrupted_publication_do_not_report_success() {
++        let l=rows(&[&[1,0],&[0,1]]);let u=rows(&[&[2,1],&[0,3]]);
++        assert_eq!(solve(&l,&u,&[vec![q(1,1)]],1,&mut ||Ok::<_,()>(()),&mut |_|panic!("shape publication")),Ok(false));
++        let mut completed=0;
++        let result=solve(&l,&u,&rows(&[&[1],&[2]]),1,&mut ||Ok(()),&mut |_| {if completed==2 {Err("interrupt")}else{completed+=1;Ok(())}});
++        assert_eq!(result,Err(Failure::Interrupted("interrupt")));assert_eq!(completed,2);
++    }
++}
+diff --git a/crates/symox-core/src/poly/mod.rs b/crates/symox-core/src/poly/mod.rs
+index cc04adb..6660098 100644
+--- a/crates/symox-core/src/poly/mod.rs
++++ b/crates/symox-core/src/poly/mod.rs
+@@ -83,3 +83,5 @@ pub mod dispersion;
+ pub mod lll;
+ 
+ pub mod lu;
++
++pub mod lu_solve;
+diff --git a/crates/symox-py/src/poly_ddm.rs b/crates/symox-py/src/poly_ddm.rs
+index eb04d8b..90c4ef9 100644
+--- a/crates/symox-py/src/poly_ddm.rs
++++ b/crates/symox-py/src/poly_ddm.rs
+@@ -3,6 +3,8 @@
+ mod lll;
+ #[path="poly_lu.rs"]
+ mod lu;
++#[path="poly_lu_solve.rs"]
++mod lu_solve;
+ use pyo3::prelude::*;
+ use pyo3::types::{PyInt,PyList,PyTuple,PyDict};
+ use symox::poly::{Int,Rat,domains::{DomainElement,ElementValue,ExactDomain}};
+@@ -517,6 +519,7 @@ fn _sdm_berk_combine(q:&Bound<'_,PyAny>,t:&Bound<'_,PyAny>,degree:&Bound<'_,PyAn
+ pub fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
+     lll::register(module)?;
+     lu::register(module)?;
++    lu_solve::register(module)?;
+     module.add_function(wrap_pyfunction!(_ddm_imatmul,module)?)?;
+     module.add_function(wrap_pyfunction!(_ddm_irref,module)?)?;
+     module.add_function(wrap_pyfunction!(_ddm_irref_den,module)?)?;
+diff --git a/crates/symox-py/src/poly_lll_cache.rs b/crates/symox-py/src/poly_lll_cache.rs
+index 69e4d74..e1253ca 100644
+--- a/crates/symox-py/src/poly_lll_cache.rs
++++ b/crates/symox-py/src/poly_lll_cache.rs
+@@ -14,17 +14,17 @@ fn native_dump(function: &Bound<'_, PyAny>, owner: &Bound<'_, PyAny>) -> PyResul
+     if function.downcast_exact::<PyCFunction>().is_err()
+         || unsafe { pyo3::ffi::PyCFunction_GetSelf(function.as_ptr()) } != owner.as_ptr()
+     { return Ok(false); }
+-    // Iteration avoids hashing/equality on arbitrary module dictionary keys.
+-    let mut module_name = false;
+-    for (i, (key, value)) in owner.dict().iter().enumerate() {
++    // Validate all keys before the sole name lookup, without encoding unrelated
++    // metadata or dispatching hashing/equality on a foreign key.
++    let namespace = owner.dict();
++    for (i, (key, _)) in namespace.iter().enumerate() {
+         if i % 64 == 0 { function.py().check_signals()?; }
+-        let Ok(key) = key.downcast_exact::<PyString>() else { return Ok(false); };
+-        if key.extract::<String>()? == "__name__" {
+-            let Ok(value) = value.downcast_exact::<PyString>() else { return Ok(false); };
+-            module_name = value.extract::<String>()? == "_abc";
+-        }
++        if key.downcast_exact::<PyString>().is_err() { return Ok(false); }
+     }
+-    Ok(module_name && function.getattr("__name__")?.extract::<String>()? == "_get_dump")
++    let Some(name) = namespace.get_item("__name__")? else { return Ok(false); };
++    let Ok(name) = name.downcast_exact::<PyString>() else { return Ok(false); };
++    // Exact unicode equality works on codepoints, including unpaired surrogates.
++    Ok(name.as_any().eq("_abc")? && function.getattr("__name__")?.extract::<String>()? == "_get_dump")
+ }
+ 
+ /// Bootstrap captures are evidence only if the captured objects really are
+@@ -77,15 +77,18 @@ fn _lll_cache_is_cold(
+     // Basic's metaclass lookup hooks nor an overridden __dict__ are consulted.
+     let descriptor = py.get_type::<PyType>().getattr("__dict__")?.get_item("__dict__")?;
+     let dictionary = descriptor.call_method1("__get__", (basic,))?;
+-    let mut data = None;
+-    for (i, item) in dictionary.call_method0("items")?.try_iter()?.enumerate() {
++    // Validate every key before a lookup: a str subclass could otherwise
++    // supply hashing/equality hooks, even when _abc_impl was encountered first.
++    // No key encoding is needed, so unrelated surrogate names remain harmless.
++    for (i, key) in dictionary.try_iter()?.enumerate() {
+         if i % 64 == 0 { py.check_signals()?; }
+-        let item = item?.downcast_into_exact::<PyTuple>()?;
+-        let key = item.get_item(0)?;
+-        let Ok(key) = key.downcast_exact::<PyString>() else { return Ok(None); };
+-        if key.extract::<String>()? == "_abc_impl" { data = Some(item.get_item(1)?.unbind()); }
++        if key?.downcast_exact::<PyString>().is_err() { return Ok(None); }
+     }
+-    let Some(data) = data else { return Ok(None); };
++    let data = match dictionary.get_item("_abc_impl") {
++        Ok(data) => data.unbind(),
++        Err(error) if error.is_instance_of::<pyo3::exceptions::PyKeyError>(py) => return Ok(None),
++        Err(error) => return Err(error),
++    };
+     // _abc._get_dump reads only _abc_impl. A native holder exposes the actual
+     // data without running user attribute hooks on Basic or its metaclass.
+     // CPython versions rejecting a holder simply retain the original guard.
+diff --git a/crates/symox-py/src/poly_lu_solve.rs b/crates/symox-py/src/poly_lu_solve.rs
+new file mode 100644
+index 0000000..fe79fbb
+--- /dev/null
++++ b/crates/symox-py/src/poly_lu_solve.rs
+@@ -0,0 +1,91 @@
++//! Canonical QQ triangular solve, retaining actual scratch/output publication.
++use pyo3::prelude::*;
++use pyo3::types::{PyInt,PyList,PyTuple,PyDict,PyString};
++use symox::poly::{lu_solve,domains::ExactDomain};
++use super::{sequence,entries,rationals,scalar,Scalar,element_object};
++
++/// Read actual caller lookups without evaluating late globals too early.
++/// In particular missing/replaced reversed/error names must not precede the
++/// established forward substitution and consistency failure. Real frame
++/// dictionaries have immutable C getters; no user module/attribute hooks run.
++#[pyfunction]
++fn _ddm_ilu_solve_dependencies(py:Python<'_>)->PyResult<Option<PyObject>> {
++    let frame=unsafe {pyo3::ffi::PyEval_GetFrame()};
++    if frame.is_null(){return Ok(None);}
++    let frame=unsafe {Bound::from_borrowed_ptr(py,frame.cast())};
++    let globals=frame.getattr(pyo3::intern!(py,"f_globals"))?;
++    let builtins=frame.getattr(pyo3::intern!(py,"f_builtins"))?;
++    let (Ok(globals),Ok(builtins))=(globals.downcast_exact::<PyDict>(),builtins.downcast_exact::<PyDict>()) else{return Ok(None)};
++    // A non-string dictionary key could execute user equality during lookup.
++    if globals.iter().chain(builtins.iter()).any(|(key,_)|!key.is_exact_instance_of::<PyString>()){return Ok(None);}
++    let mut values=Vec::new();
++    for name in ["range","reversed","DMNonInvertibleMatrixError"] {
++        let value=if let Some(value)=globals.get_item(name)?{Some(value)}else{builtins.get_item(name)?};
++        values.push(value.map_or_else(||py.None(),Bound::unbind));
++    }
++    Ok(Some(PyTuple::new(py,values)?.into_any().unbind()))
++}
++
++#[pyfunction]
++#[allow(clippy::too_many_arguments)] // Explicit real prefix objects, never cached mutable proof state.
++fn _ddm_ilu_solve(x:&Bound<'_,PyAny>,l:&Bound<'_,PyAny>,u:&Bound<'_,PyAny>,
++    b:&Bound<'_,PyAny>,y:&Bound<'_,PyAny>,dimensions:&Bound<'_,PyAny>,
++    stock:&Bound<'_,PyAny>,exception:&Bound<'_,PyAny>,py:Python<'_>)->PyResult<bool> {
++    py.check_signals()?;
++    let Ok(dimensions)=dimensions.downcast_exact::<PyTuple>() else{return Ok(false)};
++    if dimensions.len()!=3{return Ok(false);}
++    let mut sizes=Vec::new();
++    for v in dimensions.iter(){
++        if !v.is_exact_instance_of::<PyInt>(){return Ok(false);}
++        let Ok(v)=v.extract::<usize>() else{return Ok(false)};sizes.push(v);
++    }
++    let (m,n,o)=(sizes[0],sizes[1],sizes[2]);
++    if m<n{return Ok(false);}
++    let stock=if stock.is_none(){None}else{Some(stock)};
++    let Some(xrows)=sequence(x,stock,true) else{return Ok(false)};
++    let Some(yrows)=sequence(y,None,true) else{return Ok(false)};
++    let Some(lrows)=sequence(l,stock,false) else{return Ok(false)};
++    let Some(urows)=sequence(u,stock,false) else{return Ok(false)};
++    let Some(brows)=sequence(b,stock,false) else{return Ok(false)};
++    let mut destinations=rustc_hash::FxHashSet::default();
++    for row in xrows.iter().chain(&yrows){
++        if !row.is_exact_instance_of::<PyList>()||!destinations.insert(row.as_ptr() as usize){return Ok(false);}
++    }
++    if lrows.iter().chain(&urows).chain(&brows).any(|row|destinations.contains(&(row.as_ptr() as usize))){return Ok(false);}
++    let Some(xcells)=entries(&xrows,true) else{return Ok(false)};
++    let Some(ycells)=entries(&yrows,true) else{return Ok(false)};
++    let Some(lcells)=entries(&lrows,false) else{return Ok(false)};
++    let Some(ucells)=entries(&urows,false) else{return Ok(false)};
++    let Some(bcells)=entries(&brows,false) else{return Ok(false)};
++    if xcells.len()!=n||ycells.len()!=m||lcells.len()!=m||ucells.len()!=m||bcells.len()!=m
++        ||xcells.iter().chain(&ycells).chain(&bcells).any(|row|row.len()!=o)
++        ||lcells.iter().any(|row|row.len()!=m)||ucells.iter().any(|row|row.len()!=n){return Ok(false);}
++    // User destructors in overwritten arbitrary placeholders can mutate source
++    // rows/protocols. None and canonical immutable QQ cells cannot do that.
++    if xcells.iter().flatten().any(|v|!v.is_none()&&scalar(v)!=Some(Scalar::QQ))
++        ||ycells.iter().flatten().any(|v|!v.is_none()){return Ok(false);}
++    let Some(l)=rationals(&lcells,py)? else{return Ok(false)};
++    let Some(u)=rationals(&ucells,py)? else{return Ok(false)};
++    let Some(b)=rationals(&bcells,py)? else{return Ok(false)};
++    let xr=xrows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
++    let yr=yrows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
++    match lu_solve::solve(&l,&u,&b,o,&mut ||py.check_signals(),&mut |event| {
++        match event {
++            lu_solve::Event::Y(i,k,value,from_b)=>{
++                if from_b {yr[i].set_item(k,&bcells[i][k])}
++                else {yr[i].set_item(k,element_object(py,value.clone(),ExactDomain::QQ)?)}
++            },
++            lu_solve::Event::X(i,k,value)=>xr[i].set_item(k,element_object(py,value.clone(),ExactDomain::QQ)?),
++        }
++    }) {
++        Ok(done)=>Ok(done),
++        Err(lu_solve::Failure::Interrupted(error))=>Err(error),
++        Err(lu_solve::Failure::NonInvertible)=>Err(PyErr::from_value(exception.call0()?)),
++    }
++}
++
++pub(super) fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
++    module.add_function(wrap_pyfunction!(_ddm_ilu_solve,module)?)?;
++    module.add_function(wrap_pyfunction!(_ddm_ilu_solve_dependencies,module)?)?;
++    Ok(())
++}
+diff --git a/crates/symox-py/src/risch_polynomial_reduce.rs b/crates/symox-py/src/risch_polynomial_reduce.rs
+index 01eff3f..f0afe4c 100644
+--- a/crates/symox-py/src/risch_polynomial_reduce.rs
++++ b/crates/symox-py/src/risch_polynomial_reduce.rs
+@@ -76,6 +76,53 @@ fn _risch_polynomial_reduce(p:&Bound<'_,PyAny>,d:&Bound<'_,PyAny>,t:&Bound<'_,Py
+     py.check_signals()?;Ok(Some((q,r)))
+ }
+ 
++/// Read-only admission hint. True only refuses native optimization; the
++/// Python caller always executes its entire established body afterwards.
++#[pyfunction]
++fn _risch_decline_no_step(p:&Bound<'_,PyAny>,de:&Bound<'_,PyAny>,slot:&Bound<'_,PyAny>,
++    py:Python<'_>)->PyResult<bool> {
++    let stored=|value:&symox::poly::fraction::Polynomial| {
++        value.field.is_none()&&value.algebraic.is_none()&&value.expression.is_none()
++            &&value.base.modulus.is_none()&&value.base.ngens==1
++            &&matches!(value.base.domain,Domain::ZZ|Domain::QQ)
++    };
++    if !p.is_exact_instance_of::<PyPoly>(){return Ok(false);}
++    let p=p.downcast::<PyPoly>()?.get();
++    if !stored(&p.p){return Ok(false);}
++    if p.p.base.rep.is_zero(){return Ok(true);}
++    // The exact immutable CPython member-descriptor type supplies its C
++    // descr_get slot. No DE.__getattribute__, property, __getattr__, mutable
++    // Python method lookup or binding of descriptor.__get__ is performed.
++    if slot.get_type().as_type_ptr()!=std::ptr::addr_of_mut!(pyo3::ffi::PyMemberDescr_Type){return Ok(false);}
++    let pointer=unsafe{pyo3::ffi::PyType_GetSlot(slot.get_type().as_type_ptr(),pyo3::ffi::Py_tp_descr_get)};
++    let read=if pointer.is_null() {
++        // Python3.9 limits GetSlot to heap types. Clear only that unsupported
++        // lookup, then invoke this exact immutable C descriptor's own getter.
++        if PyErr::occurred(py) {
++            let error=PyErr::fetch(py);
++            if !error.is_instance_of::<pyo3::exceptions::PySystemError>(py){return Err(error);}
++        }
++        slot.call_method1("__get__",(de,))
++    }else{
++        let get: pyo3::ffi::descrgetfunc=unsafe{std::mem::transmute(pointer)};
++        let value=unsafe{get(slot.as_ptr(),de.as_ptr(),std::ptr::null_mut())};
++        unsafe{Bound::from_owned_ptr_or_err(py,value)}
++    };
++    let value=match read {
++        Ok(value)=>value,
++        Err(error) if error.is_instance_of::<pyo3::exceptions::PyAttributeError>(py)
++            ||error.is_instance_of::<pyo3::exceptions::PyTypeError>(py)=>return Ok(false),
++        Err(error)=>return Err(error),
++    };
++    if !value.is_exact_instance_of::<PyPoly>(){return Ok(false);}
++    let d=value.downcast::<PyPoly>()?.get();
++    if !stored(&d.p){return Ok(false);}
++    // Degree in the first variable is stored in the leading monomial. The
++    // comparison is O(1), independent of coefficients and without algebra.
++    Ok(p.p.base.rep.degree(0)<d.p.base.rep.degree(0))
++}
++
+ pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()> {
++    m.add_function(wrap_pyfunction!(_risch_decline_no_step,m)?)?;
+     m.add_function(wrap_pyfunction!(_risch_polynomial_reduce,m)?)
+ }
+diff --git a/python/symox/integrals/_risch_native.py b/python/symox/integrals/_risch_native.py
+index bd75bdd..31feb33 100644
+--- a/python/symox/integrals/_risch_native.py
++++ b/python/symox/integrals/_risch_native.py
+@@ -43,6 +43,10 @@ def register_root(namespace):
+     from . import rationaltools
+     cls=risch.DifferentialExtension
+     slots=tuple((name,cls.__dict__[name])for name in ('t','d','T','D','level'))
++    preflight=_core.__dict__.get('_risch_decline_no_step')
++    if (_TYPE(preflight) is not BuiltinFunctionType or preflight.__self__ is not _core
++            or preflight.__name__!='_risch_decline_no_step'):return
++    preflight=(_core,preflight,slots[1][1])
+     # Slot reads below use the original native member descriptors directly.
+     classes=(_ground._class(_core.Poly),_ground._class(cls),
+              _ground._class(nodes.node_class('NegativeInfinity')))
+@@ -73,13 +77,17 @@ def register_root(namespace):
+                   ('type','all','any','len','getattr','isinstance','sum','zip','tuple','dict','list','__import__'))
+     aliases+=tuple((risch.__dict__,name,risch.__dict__.get(name,_builtins.__dict__.get(name)))for name in ('Poly','len','zip','derivation'))
+     _ROOT=(cls,slots,classes,tuple(functions),tuple(lookups),tuple(mutable),
+-           verify,verify_state,rationaltools,lookup_classes,aliases,_ground._ROOT,serialization)
++           verify,verify_state,rationaltools,lookup_classes,aliases,_ground._ROOT,serialization,preflight)
+ 
+ 
+ def reduce(p,de,initial):
+     root=_ROOT
+     if root is None:return None
+-    cls,slots,classes,functions,lookups,mutable,verify,verify_state,rationaltools,modules,aliases,ground,serialization=root
++    cls,slots,classes,functions,lookups,mutable,verify,verify_state,rationaltools,modules,aliases,ground,serialization,preflight=root
++    core_owner,decline,d_slot=preflight
++    if (_core is not core_owner or _TYPE(core_owner) is not ModuleType
++            or core_owner.__dict__.get('_risch_decline_no_step') is not decline):return None
++    if decline(p,de,d_slot):return None
+     owner,serializer,selector_namespace=serialization
+     if (_TYPE(_ground) is not ModuleType
+             or _ground.__dict__.get('_CODE') is not serializer
+diff --git a/python/symox/polys/_polymatrix_native.py b/python/symox/polys/_polymatrix_native.py
+index f67e625..ea2b992 100644
+--- a/python/symox/polys/_polymatrix_native.py
++++ b/python/symox/polys/_polymatrix_native.py
+@@ -11,6 +11,7 @@ _TUPLE=tuple
+ _ROOT=None
+ _FORWARDING=None
+ _STATS=None
++_HOST_FREE_SYMBOLS=None
+ _RELOADABLE={}
+ _TYPE_DICT=type.__dict__['__dict__']
+ _TYPE_BASES=type.__dict__['__bases__']
+@@ -89,6 +90,31 @@ def _stats_installed(cls,old,current):
+     return True
+ 
+ 
++def _host_free_symbols_installed(cls,old,current):
++    saved=_HOST_FREE_SYMBOLS
++    if saved is None or cls is not saved[0]:return False
++    _,module,namespace,getter,installer,property_type,functions,lookups,hooks=saved
++    if ('free_symbols' in old or _LEN(current)!=_LEN(old)+1
++            or not _ALL(current.get(name) is value for name,value in old.items())):return False
++    if (_TYPE(module) is not ModuleType or _MODULES.get('symox._host') is not module
++            or module.__dict__ is not namespace
++            or not _ALL(target.get(name) is value for target,name,value in lookups)
++            or not _ALL(_unchanged(function) for function in functions)
++            or getter.__globals__ is not namespace or installer.__globals__ is not namespace
++            or any(name in namespace for name in ('property','set'))
++            or hooks.get('free_symbols') is not True):return False
++    # A shadowed builtin at package import must not bless a property subtype.
++    # Its descriptor lookups can themselves execute Python callbacks.
++    if (_TYPE(property_type) is not _TYPE or property_type.__flags__ & (1<<9)
++            or property_type.__name__!='property' or property_type.__module__!='builtins'):return False
++    value=current.get('free_symbols')
++    # This single official late addition is below the canonical scalar classes'
++    # own free_symbols descriptor in their MRO. Ground arithmetic cannot consume
++    # it. Keep rejecting foreign properties and every other class mutation.
++    return (_TYPE(value) is property_type and value.fget is getter
++            and value.fset is None and value.fdel is None)
++
++
+ def _class_unchanged(record, classes=()):
+     cls,bases,items,functions=record
+     current=_TYPE_DICT.__get__(cls);parents=_TYPE_BASES.__get__(cls)
+@@ -101,6 +127,7 @@ def _class_unchanged(record, classes=()):
+             or not _ALL(_unchanged(function) for function in functions)):return False
+     if (_LEN(current)==_LEN(items)
+             and _ALL(current.get(name) is value for name,value in relevant)):return True
++    if classes and _host_free_symbols_installed(cls,dict(items),current):return True
+     if classes and _STATS is not None and cls is _STATS[0] and _stats_installed(cls,dict(items),current):return True
+     if cls is not _core.Expr or not classes or _FORWARDING is None:return False
+     old=dict(items)
+@@ -120,9 +147,9 @@ def _class_unchanged(record, classes=()):
+ 
+ def register_root(namespace):
+     """Called once at the end of package installation, before user hooks."""
+-    global _ROOT,_FORWARDING,_STATS
++    global _ROOT,_FORWARDING,_STATS,_HOST_FREE_SYMBOLS
+     import builtins
+-    from .. import _noncommutative as nc, _node_types as nodes
++    from .. import _noncommutative as nc, _node_types as nodes, _host as host
+     from ..tensor.array import _adapters as arrays
+     from . import _finite_field_options as finite, _inexact_functions as inexact
+     from importlib import import_module
+@@ -132,6 +159,22 @@ def register_root(namespace):
+     rationaltools=import_module('symox.integrals.rationaltools')
+     from .._basic import Basic
+     from .._public_core import Dict
++    host_namespace=host.__dict__
++    host_getter=host._tree_free_symbols;host_installer=host._install_free_symbols
++    host_lookups=((host_namespace,'_tree_free_symbols',host_getter),
++                  (host_namespace,'_install_free_symbols',host_installer),
++                  (host_namespace,'HostTree',host.HostTree),
++                  (host_namespace,'_hooks',host._hooks),
++                  (host_namespace,'_core',_core),
++                  (_core.__dict__,'_host_contains',_core._host_contains),
++                  (builtins.__dict__,'property',property),
++                  (builtins.__dict__,'set',set))
++    # A module override of either builtin also changes the real function lookup.
++    host_lookups+=_TUPLE((host_namespace,name,host_namespace.get(name))
++                         for name in ('property','set'))
++    _HOST_FREE_SYMBOLS=(host.HostTree,host,host_namespace,host_getter,host_installer,
++                       property,(_function(host_getter),_function(host_installer)),
++                       host_lookups,host._hooks)
+     cancel=namespace['cancel']
+     functions=[];lookups=[];seen=set()
+     modules=(nc.__dict__,arrays.__dict__,finite.__dict__,inexact.__dict__,nodes.__dict__,sympification.__dict__,core_sympify.__dict__,rationaltools.__dict__)
+diff --git a/python/symox/polys/matrices/_lu_solve_native.py b/python/symox/polys/matrices/_lu_solve_native.py
+new file mode 100644
+index 0000000..ae2746a
+--- /dev/null
++++ b/python/symox/polys/matrices/_lu_solve_native.py
+@@ -0,0 +1,94 @@
++"""Protocol checks for exact QQ triangular substitution; no arithmetic here."""
++from types import ModuleType,WrapperDescriptorType,MethodDescriptorType,GetSetDescriptorType
++from symox import _core
++from ..domains import _algebraic_methods
++from .exceptions import DMNonInvertibleMatrixError
++
++if '_CAPTURED' not in globals():
++    _CAPTURED=True
++    _TYPE=False.__class__.__class__
++    _LIST=[].__class__
++    _TUPLE=().__class__
++    _STR=''.__class__
++    _OBJECT=_LIST.__bases__[0]
++    _FUNCTION=(lambda:None).__class__
++    _CODE=(lambda:None).__code__.__class__
++    _DOMAIN,_ELEMENT=_core.Domain,_core.DomainElement
++    _RANGE,_REVERSED=range,reversed
++    _ELEMENT_HOOKS=[(n,_ELEMENT.__dict__.get(n)) for n in ('__bool__','__mul__','__sub__','parent')]
++    _DOMAIN_HOOKS=[(n,_DOMAIN.__dict__.get(n)) for n in ('is_ZZ_I','is_QQ_I')]
++    _ERROR=DMNonInvertibleMatrixError
++    _ERROR_MRO=_ERROR.__mro__
++    _ERROR_CLASSES=[(cls,list(cls.__dict__.items())) for cls in _ERROR_MRO
++                    if cls is not Exception and cls is not BaseException and cls is not _OBJECT]
++    _DIV_CODE=None
++    for _constant in _algebraic_methods._gaussian_binary.__code__.co_consts:
++        if _TYPE(_constant) is _CODE and _constant.co_name=='method':_DIV_CODE=_constant
++
++
++def _method(value,cls,name,kinds):
++    return _TYPE(value) in kinds and value.__objclass__ is cls and value.__name__==name
++
++
++def _error_stock():
++    if _TYPE(_ERROR) is not _TYPE:return False
++    mro=_ERROR.__mro__
++    if mro.__len__()!=_ERROR_MRO.__len__():return False
++    index=0
++    for original in _ERROR_MRO:
++        if mro[index] is not original:return False
++        index+=1
++    for cls,items in _ERROR_CLASSES:
++        if _TYPE(cls) is not _TYPE:return False
++        current=cls.__dict__
++        if current.__len__()!=items.__len__():return False
++        for name in current:
++            if _TYPE(name) is not _STR:return False
++        for name,value in items:
++            if current.get(name) is not value:return False
++        # Canonical DomainMatrix exception classes declare no user constructors,
++        # getters or finalizers. A modification before import is not trusted.
++        for name in current:
++            if name not in ('__module__','__doc__','__weakref__'):return False
++    return True
++
++
++def _protocol(dependencies):
++    if (_TYPE(_core) is not ModuleType or _TYPE(_algebraic_methods) is not ModuleType
++            or _TYPE(dependencies) is not _TUPLE or dependencies.__len__()!=3):return False
++    if dependencies[0] is not _RANGE or dependencies[1] is not _REVERSED or dependencies[2] is not _ERROR:return False
++    for kind,name in ((_RANGE,'range'),(_REVERSED,'reversed')):
++        if (_TYPE(kind) is not _TYPE or kind.__flags__ & (1<<9)
++                or kind.__module__!='builtins' or kind.__name__!=name):return False
++    if not _error_stock():return False
++    if (_core.__dict__.get('Domain') is not _DOMAIN or _core.__dict__.get('DomainElement') is not _ELEMENT):return False
++    for cls in (_DOMAIN,_ELEMENT):
++        if _TYPE(cls) is not _TYPE or cls.__bases__!=(_OBJECT,):return False
++        for name in ('__getattribute__','__getattr__','__class__'):
++            if name in cls.__dict__:return False
++    if '__isub__' in _ELEMENT.__dict__:return False
++    for name,original in _ELEMENT_HOOKS:
++        if _ELEMENT.__dict__.get(name) is not original:return False
++        kinds=(MethodDescriptorType,) if name=='parent' else (WrapperDescriptorType,)
++        if not _method(original,_ELEMENT,name,kinds):return False
++    for name,original in _DOMAIN_HOOKS:
++        if _DOMAIN.__dict__.get(name) is not original or not _method(original,_DOMAIN,name,(GetSetDescriptorType,)):return False
++    divide=_ELEMENT.__dict__.get('__truediv__')
++    if (_TYPE(divide) is not _FUNCTION or divide.__code__ is not _DIV_CODE
++            or divide.__globals__ is not _algebraic_methods.__dict__
++            or divide.__defaults__ is not None or divide.__kwdefaults__ is not None):return False
++    closure=divide.__closure__
++    if closure is None or closure.__len__()!=3:return False
++    try:native,operation,reflected=(cell.cell_contents for cell in closure)
++    except ValueError:return False
++    return (_method(native,_ELEMENT,'__truediv__',(WrapperDescriptorType,))
++            and _TYPE(operation) is _STR and operation=='truediv' and reflected is False)
++
++
++def try_solve(x,l,u,b,y,dimensions,stock,dependencies):
++    if not _protocol(dependencies):return False
++    if stock is not None:
++        if _TYPE(stock) is not _TYPE or stock.__bases__!=(_LIST,):return False
++        for name in ('__iter__','__len__','__getitem__','__setitem__','__new__'):
++            if stock.__dict__.get(name,_LIST.__dict__[name]) is not _LIST.__dict__[name]:return False
++    return _core._ddm_ilu_solve(x,l,u,b,y,dimensions,stock,_ERROR)
+diff --git a/python/symox/polys/matrices/dense.py b/python/symox/polys/matrices/dense.py
+index 417169a..20e77c6 100644
+--- a/python/symox/polys/matrices/dense.py
++++ b/python/symox/polys/matrices/dense.py
+@@ -48,6 +48,8 @@ from symox.polys.matrices._typing import RingElement
+ from symox import _core
+ from ._fraction_free import stock_domain as _ff_stock_domain
+ from ._lu_native import try_ilu as _native_ilu
++from ._lu_solve_native import try_solve as _native_ilu_solve
++from symox._core import _ddm_ilu_solve_dependencies as _ilu_solve_dependencies
+ 
+ 
+ _native_ddm_type = None  # Registered after the stock DDM class is defined.
+@@ -832,6 +834,8 @@ def ddm_ilu_solve(x, L, U, swaps, b):
+ 
+     # solve Ly = b
+     y = [[None] * o for _ in range(m)]
++    if _native_ilu_solve(x,L,U,b,y,(m,n,o),_native_ddm_type,_ilu_solve_dependencies()):
++        return
+     for k in range(o):
+         for i in range(m):
+             rhs = b[i][k]
+diff --git a/tests/test_native_ddm_lu_solve.py b/tests/test_native_ddm_lu_solve.py
+new file mode 100644
+index 0000000..3e1d684
+--- /dev/null
++++ b/tests/test_native_ddm_lu_solve.py
+@@ -0,0 +1,309 @@
++"""QQ triangular solve: exact systems, publication prefixes and real hooks."""
++import ast
++import builtins
++import copy
++import importlib
++import inspect
++import random
++import types
++from fractions import Fraction
++from pathlib import Path
++
++import pytest
++import symox as sx
++from symox.polys.matrices.ddm import DDM
++from symox.polys.matrices.domainmatrix import DomainMatrix
++from symox.polys.matrices.exceptions import DMNonInvertibleMatrixError
++from sympy.polys.matrices.dense import ddm_ilu_solve as reference
++
++dense=importlib.import_module('symox.polys.matrices.dense')
++
++
++def qq(rows):
++    return [[sx.QQ(Fraction(v).numerator,Fraction(v).denominator) for v in row] for row in rows]
++
++
++def values(rows):
++    return [[None if v is None else Fraction(str(v)) for v in row] for row in rows]
++
++
++def old_function(namespace=None):
++    tree=ast.parse(Path(dense.__file__).read_text())
++    function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='ddm_ilu_solve')
++    function.body=[n for n in function.body if not (isinstance(n,ast.If)
++                   and isinstance(n.test,ast.Call) and isinstance(n.test.func,ast.Name)
++                   and n.test.func.id=='_native_ilu_solve')]
++    code=compile(ast.fix_missing_locations(ast.Module(body=[function],type_ignores=[])),dense.__file__,'exec')
++    return types.FunctionType(next(c for c in code.co_consts if type(c)is types.CodeType),dense.__dict__ if namespace is None else namespace)
++
++
++def factors(source):
++    m=len(source);n=len(source[0]) if m else 0
++    return DDM(qq(source),(m,n),sx.QQ).lu()
++
++
++@pytest.mark.parametrize('shape',[(1,1),(2,2),(3,3),(5,5),(4,2),(5,3)])
++@pytest.mark.parametrize('rhs_columns',[0,1,3])
++@pytest.mark.parametrize('seed',range(8))
++def test_exact_solution_and_multiple_rhs_match_reference_with_independent_certificate(shape,rhs_columns,seed,monkeypatch):
++    m,n=shape;rng=random.Random(90443+seed*29+m*17+n)
++    a=[[Fraction((i==j)*20+rng.randrange(-5,6),rng.randrange(1,7)) for j in range(n)] for i in range(m)]
++    known=[[Fraction(rng.randrange(-9,10),rng.randrange(1,9)) for _ in range(rhs_columns)] for _ in range(n)]
++    b=[[sum(a[i][j]*known[j][k] for j in range(n)) for k in range(rhs_columns)] for i in range(m)]
++    lower,upper,swaps=factors(a);rhs=qq(b)
++    x=[[None]*rhs_columns for _ in range(n)];expected=[[None]*rhs_columns for _ in range(n)]
++    row_ids=list(x);calls=[];native=sx._core._ddm_ilu_solve
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_ilu_solve',record)
++    reference(expected,lower,upper,swaps,rhs)
++    assert dense.ddm_ilu_solve(x,lower,upper,swaps,rhs) is None
++    assert values(x)==values(expected)==known and calls==[True]
++    assert all(a is b for a,b in zip(x,row_ids))
++    assert [[sum(a[i][j]*values(x)[j][k] for j in range(n)) for k in range(rhs_columns)] for i in range(m)]==b
++
++
++@pytest.mark.parametrize('entry',['ddm','dense','sparse'])
++@pytest.mark.parametrize('shape',[(2,2),(3,3),(4,2)])
++def test_real_public_solve_uses_native_substitution_and_preserves_operands(entry,shape,monkeypatch):
++    m,n=shape;raw=[[int(i==j)*10+(i+1)*(j+2) for j in range(n)] for i in range(m)]
++    rhs=[[sum(raw[i][j]*(j+k+1) for j in range(n)) for k in range(2)] for i in range(m)]
++    a=DDM(qq(raw),shape,sx.QQ);b=DDM(qq(rhs),(m,2),sx.QQ)
++    if entry!='ddm':
++        a=DomainMatrix.from_rep(a);b=DomainMatrix.from_rep(b)
++        if entry=='sparse':a=a.to_sparse();b=b.to_sparse()
++    calls=[];native=sx._core._ddm_ilu_solve
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_ilu_solve',record)
++    out=a.lu_solve(b)
++    rows=out if entry=='ddm' else out.to_list()
++    assert values(rows)==[[Fraction(j+k+1) for k in range(2)] for j in range(n)] and calls==[True]
++    assert values(a if entry=='ddm' else a.to_list())==raw
++    assert values(b if entry=='ddm' else b.to_list())==rhs
++
++
++def test_combined_lu_storage_and_swapped_rhs_keep_the_original_conventions():
++    combined=qq([[1,2],[3,-2]]);rhs=qq([[5],[6]]);x=[[None],[None]]
++    assert dense.ddm_ilu_solve(x,combined,combined,[],rhs) is None
++    assert values(x)==[[Fraction(-4)],[Fraction(9,2)]]
++
++
++@pytest.mark.parametrize('case',['inconsistent','singular_first','singular_last','zero_columns','zero_rhs'])
++def test_noninvertibility_and_completed_x_prefix_match_old_function(case):
++    if case=='inconsistent':l=qq([[1,0,0],[2,1,0],[3,4,1]]);u=qq([[2,1],[0,3],[0,0]]);b=qq([[4],[14],[37]]);x=[[None],[None]]
++    elif case=='zero_columns':l=qq([[1,0],[0,1]]);u=[[],[]];b=qq([[0],[1]]);x=[]
++    elif case=='zero_rhs':l=qq([[1,0],[0,1]]);u=qq([[0,1],[0,0]]);b=[[],[]];x=[[],[]]
++    else:l=qq([[1,0],[0,1]]);u=qq([[0,1],[0,2]] if case=='singular_first' else [[2,1],[0,0]]);b=qq([[1,2],[4,6]]);x=[[None,None],[None,None]]
++    old_x=copy.deepcopy(x)
++    try:expected=old_function()(old_x,l,u,[],b)
++    except Exception as error:
++        with pytest.raises(type(error)) as actual:dense.ddm_ilu_solve(x,l,u,[],b)
++        assert str(actual.value)==str(error)
++    else:assert dense.ddm_ilu_solve(x,l,u,[],b)==expected
++    assert values(x)==values(old_x)
++
++
++@pytest.mark.parametrize('kind',['mismatch','empty_b','underdetermined','ragged_x','ragged_l','ragged_u','ragged_b'])
++def test_shape_failures_preserve_order_message_and_mutation_prefix(kind):
++    l=qq([[1,0],[2,1]]);u=qq([[2,1],[0,3]]);b=qq([[1],[2]]);x=[[None],[None]]
++    if kind=='mismatch':b=b[:1]
++    elif kind=='empty_b':b=[]
++    elif kind=='underdetermined':u=qq([[1,2,3],[0,1,2]])
++    elif kind=='ragged_x':x=[[None],[]]
++    elif kind=='ragged_l':l=qq([[1],[2]])
++    elif kind=='ragged_u':u=qq([[2,1],[0]])
++    elif kind=='ragged_b':b=qq([[1],[]])
++    old_x=copy.deepcopy(x)
++    try:expected=old_function()(old_x,l,u,[],b)
++    except Exception as error:
++        with pytest.raises(type(error)) as actual:dense.ddm_ilu_solve(x,l,u,[],b)
++        assert str(actual.value)==str(error)
++    else:assert dense.ddm_ilu_solve(x,l,u,[],b)==expected
++    assert values(x)==values(old_x)
++
++
++@pytest.mark.parametrize('alias',['xrows','x_l','x_u','x_b'])
++def test_aliases_decline_without_losing_existing_feedback(alias,monkeypatch):
++    def inputs():
++        l=qq([[1,0],[2,1]]);u=qq([[2,1],[0,3]]);b=qq([[1,2],[3,4]]);x=qq([[0,0],[0,0]])
++        if alias=='xrows':x[1]=x[0]
++        elif alias=='x_l':x=l
++        elif alias=='x_u':x=u
++        else:x=b
++        return x,l,u,b
++    old_x,ol,ou,ob=inputs();x,l,u,b=inputs();calls=[];native=sx._core._ddm_ilu_solve
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_ilu_solve',record)
++    try:expected=old_function()(old_x,ol,ou,[],ob)
++    except Exception as error:
++        with pytest.raises(type(error)):dense.ddm_ilu_solve(x,l,u,[],b)
++    else:assert dense.ddm_ilu_solve(x,l,u,[],b)==expected
++    assert values(x)==values(old_x) and all(value is False for value in calls)
++
++
++@pytest.mark.parametrize('name',['len','range','reversed'])
++def test_real_builtins_and_cloned_globals_keep_their_actual_callbacks(name):
++    events=[];real=getattr(builtins,name)
++    def hook(*args):events.append(name);return real(*args)
++    namespace=dict(dense.__dict__);namespace[name]=hook
++    current=types.FunctionType(dense.ddm_ilu_solve.__code__,namespace);old=old_function(namespace)
++    l=qq([[1,0],[2,1]]);u=qq([[2,1],[0,3]]);b=qq([[1,2],[3,4]])
++    a=[[None,None],[None,None]];old(a,l,u,[],b);before=events[:];events.clear()
++    x=[[None,None],[None,None]];current(x,l,u,[],b)
++    assert values(x)==values(a) and events==before and events
++
++
++@pytest.mark.parametrize('name',['__bool__','__mul__','__sub__','__truediv__','parent','__isub__'])
++def test_modified_arithmetic_callbacks_and_added_inplace_subtraction_are_not_skipped(name,monkeypatch):
++    events=[];original=getattr(sx._core.DomainElement,name,None) or sx._core.DomainElement.__sub__
++    def hook(*args):events.append(name);return original(*args)
++    monkeypatch.setattr(sx._core.DomainElement,name,hook,raising=False)
++    l=qq([[1,0],[2,1]]);u=qq([[2,1],[0,3]]);b=qq([[1],[3]])
++    a=[[None],[None]];old_function()(a,l,u,[],b);before=events[:];events.clear()
++    x=[[None],[None]];dense.ddm_ilu_solve(x,l,u,[],b);after=events[:]
++    assert values(x)==values(a) and after==before and after
++
++
++def test_actual_swap_iterator_and_rhs_copy_hooks_are_not_replayed():
++    events=[]
++    class Pair(tuple):
++        def __iter__(self):events.append('pair');return super().__iter__()
++    class Swaps(list):
++        def __bool__(self):events.append('bool');return True
++        def __iter__(self):events.append('iter');return super().__iter__()
++    swaps=Swaps([Pair((0,1))]);l=qq([[1,0],[2,1]]);u=qq([[2,1],[0,3]]);b=qq([[1],[3]])
++    a=[[None],[None]];old_function()(a,l,u,swaps,b);before=events[:];events.clear()
++    x=[[None],[None]];dense.ddm_ilu_solve(x,l,u,swaps,b)
++    assert values(x)==values(a) and events==before
++
++
++def test_custom_exception_constructor_sees_original_completed_scratch_and_partial_x(monkeypatch):
++    events=[]
++    def construct(self):
++        frame=inspect.currentframe().f_back
++        while frame is not None and frame.f_code.co_name!='ddm_ilu_solve':frame=frame.f_back
++        assert frame is not None
++        state=frame.f_locals
++        events.append((values(state['y']),values(state['x']),state['y'][0][0] is state['b'][0][0]))
++    monkeypatch.setattr(DMNonInvertibleMatrixError,'__init__',construct)
++    l=qq([[1,0],[0,1]]);u=qq([[0,1],[0,2]]);b=qq([[1,2],[4,6]])
++    with pytest.raises(DMNonInvertibleMatrixError):old_function()([[None,None],[None,None]],l,u,[],b)
++    before=events[:];events.clear()
++    with pytest.raises(DMNonInvertibleMatrixError):dense.ddm_ilu_solve([[None,None],[None,None]],l,u,[],b)
++    assert events==before and events[0][2] is True
++
++
++def test_overwritten_placeholder_destructors_can_mutate_future_pivots(monkeypatch):
++    def run(function):
++        events=[];l=qq([[1,0],[0,1]]);u=qq([[1,0],[0,1]]);b=qq([[2],[3]])
++        class Token:
++            def __del__(self):events.append('delete');u[0][0]=sx.QQ(2)
++        x=[[Token()],[Token()]];function(x,l,u,[],b)
++        return values(x),events
++    assert run(dense.ddm_ilu_solve)==run(old_function())==([[Fraction(1)],[Fraction(3)]],['delete','delete'])
++
++
++@pytest.mark.parametrize('missing',['reversed','DMNonInvertibleMatrixError'])
++def test_missing_late_names_do_not_precede_forward_substitution_or_singularity(missing):
++    namespace=dict(dense.__dict__);lookups=dict(vars(builtins));lookups.pop(missing,None)
++    namespace['__builtins__']=lookups;namespace.pop(missing,None)
++    current=types.FunctionType(dense.ddm_ilu_solve.__code__,namespace);old=old_function(namespace)
++    l=qq([[1,0],[0,1]]);u=qq([[0,1],[0,2]]);b=qq([[1,2],[4,6]])
++    def failure(function):
++        x=[[None,None],[None,None]]
++        try:function(x,l,u,[],b)
++        except Exception as error:
++            trace=error.__traceback__
++            while trace is not None and trace.tb_frame.f_code.co_name!='ddm_ilu_solve':trace=trace.tb_next
++            return type(error),str(error),values(x),values(trace.tb_frame.f_locals['y'])
++        raise AssertionError('expected failure')
++    assert failure(current)==failure(old)
++
++
++@pytest.mark.parametrize('domain',['integers','fractions','ZZ','GF','RR','QQ_I'])
++def test_other_coefficient_domains_retain_original_types_and_complete_failures(domain):
++    if domain=='integers':convert=int
++    elif domain=='fractions':convert=Fraction
++    else:convert={'ZZ':sx.ZZ,'GF':sx.GF(7),'RR':sx.RealField(139),'QQ_I':sx.QQ_I}[domain]
++    l=[[convert(v) for v in row] for row in [[1,0],[2,1]]]
++    u=[[convert(v) for v in row] for row in [[2,1],[0,3]]]
++    b=[[convert(v) for v in row] for row in [[1],[3]]]
++    a=[[None],[None]];x=[[None],[None]]
++    try:expected=old_function()(a,l,u,[],b)
++    except Exception as error:
++        with pytest.raises(type(error)) as actual:dense.ddm_ilu_solve(x,l,u,[],b)
++        assert str(actual.value)==str(error)
++    else:assert dense.ddm_ilu_solve(x,l,u,[],b)==expected
++    assert x==a and [[type(v) for v in row] for row in x]==[[type(v) for v in row] for row in a]
++
++
++def test_readonly_tuple_sources_and_zero_unknowns_have_complete_exact_routes(monkeypatch):
++    calls=[];native=sx._core._ddm_ilu_solve
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_ilu_solve',record)
++    l=tuple(tuple(row) for row in qq([[1,0],[2,1]]))
++    u=tuple(tuple(row) for row in qq([[2,1],[0,3]]))
++    b=tuple(tuple(row) for row in qq([[1],[3]]));x=[[None],[None]]
++    dense.ddm_ilu_solve(x,l,u,[],b)
++    assert values(x)==[[Fraction(1,3)],[Fraction(1,3)]] and calls==[True]
++    calls.clear();dense.ddm_ilu_solve([],qq([[1,0],[0,1]]),[[],[]],[],qq([[0],[0]]))
++    assert calls==[True]
++
++
++@pytest.mark.parametrize('length_call',range(4))
++def test_actual_length_prefix_is_not_replayed_when_dimensions_are_modified(length_call):
++    events=[];namespace=dict(dense.__dict__)
++    def length(value):
++        index=len(events);events.append(index)
++        return len(value)-1 if index==length_call else len(value)
++    namespace['len']=length
++    current=types.FunctionType(dense.ddm_ilu_solve.__code__,namespace);old=old_function(namespace)
++    l=qq([[1,0],[2,1]]);u=qq([[2,1],[0,3]]);b=qq([[1,2],[3,4]])
++    def run(function):
++        events.clear();x=[[None,None],[None,None]]
++        try:result=function(x,l,u,[],b)
++        except Exception as error:return type(error),str(error),values(x),events[:]
++        return result,values(x),events[:]
++    assert run(current)==run(old)
++
++
++def test_self_restoring_range_is_consumed_only_in_the_actual_scratch_prefix(monkeypatch):
++    events=[];namespace=dict(dense.__dict__)
++    def hook(*args):
++        events.append(args);namespace.pop('range');return range(*args)
++    namespace['range']=hook
++    current=types.FunctionType(dense.ddm_ilu_solve.__code__,namespace)
++    x=[[None],[None]]
++    current(x,qq([[1,0],[2,1]]),qq([[2,1],[0,3]]),[],qq([[1],[3]]))
++    assert events==[(2,)] and values(x)==[[Fraction(1,3)],[Fraction(1,3)]]
++
++
++@pytest.mark.parametrize('digits',[100,500,1500])
++def test_large_exact_coefficients_and_multiple_rhs_do_not_cross_binary64(digits):
++    large=10**digits;tiny=Fraction(1,large)
++    raw_l=[[1,0],[Fraction(large,3),1]];raw_u=[[Fraction(large,7),tiny],[0,Fraction(13,17)]]
++    known=[[tiny,Fraction(large,19)],[Fraction(23,29),-tiny]]
++    y=[[sum(Fraction(raw_u[i][j])*known[j][k] for j in range(2)) for k in range(2)] for i in range(2)]
++    rhs=[[sum(Fraction(raw_l[i][j])*y[j][k] for j in range(2)) for k in range(2)] for i in range(2)]
++    x=[[None,None],[None,None]]
++    assert dense.ddm_ilu_solve(x,qq(raw_l),qq(raw_u),[],qq(rhs)) is None
++    assert values(x)==known
++
++
++def test_non_string_namespace_key_does_not_add_early_user_equality_calls():
++    events=[]
++    class Key:
++        def __hash__(self):return hash('reversed')
++        def __eq__(self,other):events.append('key');raise RuntimeError('late lookup')
++    namespace=dict(dense.__dict__);namespace[Key()]=None
++    current=types.FunctionType(dense.ddm_ilu_solve.__code__,namespace);old=old_function(namespace)
++    l=qq([[1,0],[2,1]]);u=qq([[2,1],[0,3]]);b=qq([[1],[3]])
++    def run(function):
++        events.clear();x=[[None],[None]]
++        try:function(x,l,u,[],b)
++        except RuntimeError as error:return str(error),values(x),events[:]
++        raise AssertionError('expected equality hook')
++    assert run(current)==run(old)
+diff --git a/tests/test_native_lll_cache_scan.py b/tests/test_native_lll_cache_scan.py
+new file mode 100644
+index 0000000..2228d69
+--- /dev/null
++++ b/tests/test_native_lll_cache_scan.py
+@@ -0,0 +1,157 @@
++"""Probe metadata names are not coefficients and must not run encoding/equality."""
++import subprocess
++import sys
++import types
++
++import pytest
++import symox as s
++
++
++@pytest.mark.parametrize('key',['\ud800','unused_\udfff','mixed_\ud800_\udfff'])
++def test_unread_surrogate_class_key_does_not_change_a_readonly_probe(key):
++    import _abc
++    from symox._basic import Basic
++    # A private holder shares only the real opaque ABC data. No classifier runs.
++    shadow=type('Shadow',(),{'_abc_impl':Basic.__dict__['_abc_impl'],key:None})
++    fp=lambda state:tuple(tuple(sorted(map(id,g))) for g in state[:3])+(state[3],)
++    before=fp(_abc._get_dump(types.SimpleNamespace(_abc_impl=Basic.__dict__['_abc_impl'])))
++    result=s._core._lll_cache_is_cold(shadow,s._core.DomainElement,_abc._get_dump,_abc)
++    after=fp(_abc._get_dump(types.SimpleNamespace(_abc_impl=Basic.__dict__['_abc_impl'])))
++    assert type(result) is bool and before==after
++
++
++@pytest.mark.parametrize('key',['\ud800','unused_\udfff','mixed_\ud800_\udfff'])
++def test_true_public_cold_call_ignores_unread_surrogate_basic_attribute(key):
++    script='''
++import sys
++class NoReference:
++ def find_spec(self,name,*args):
++  if name=='sympy' or name.startswith('sympy.'):raise AssertionError(name)
++sys.meta_path.insert(0,NoReference())
++import symox as s
++from symox._basic import Basic
++from symox.polys.matrices.ddm import DDM
++from symox.polys.matrices import _lll_native as p
++type.__setattr__(Basic,KEY,None)
++a=DDM([[s.ZZ(3),s.ZZ(2)],[s.ZZ(2),s.ZZ(0)]],(2,2),s.ZZ)
++actual=a.lll_transform()
++p.prefix=lambda *args:False
++expected=a.lll_transform()
++assert actual==expected
++assert [[int(c) for c in row] for row in actual[0]]==[[2,0],[-1,2]]
++assert not any(n=='sympy' or n.startswith('sympy.') for n in sys.modules)
++'''.replace('KEY',repr(key))
++    result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=40)
++    assert result.returncode==0,result.stdout+result.stderr
++
++
++@pytest.mark.parametrize('foreign_first',[False,True])
++def test_all_keys_are_validated_before_the_abc_data_lookup(foreign_first):
++    import _abc
++    from symox._basic import Basic
++    events=[];armed=False
++    class Key(str):
++        def __hash__(self):return hash('_abc_impl')
++        def __eq__(self,other):
++            if armed:events.append('equality');raise AssertionError('untrusted key equality')
++            return False
++    foreign=Key('foreign')
++    pairs=[(foreign,None),('_abc_impl',Basic.__dict__['_abc_impl'])]
++    if not foreign_first:pairs.reverse()
++    shadow=type('Shadow',(),dict(pairs))
++    assert any(type(k) is Key for k in type.__dict__['__dict__'].__get__(shadow))
++    armed=True
++    result=s._core._lll_cache_is_cold(shadow,s._core.DomainElement,_abc._get_dump,_abc)
++    assert result is None and events==[]
++
++
++def test_missing_abc_data_is_an_unsupported_probe_without_attribute_hooks():
++    import _abc
++    events=[]
++    class Meta(type):
++        def __getattribute__(cls,name):events.append(name);raise AssertionError(name)
++    class Shadow(metaclass=Meta):pass
++    assert s._core._lll_cache_is_cold(Shadow,s._core.DomainElement,_abc._get_dump,_abc) is None
++    assert events==[]
++
++
++@pytest.mark.parametrize('key',['\ud800','unused_\udfff','mixed_\ud800_\udfff'])
++def test_unread_surrogate_module_key_does_not_change_a_readonly_probe(monkeypatch,key):
++    import _abc
++    from symox._basic import Basic
++    fp=lambda state:tuple(tuple(sorted(map(id,g))) for g in state[:3])+(state[3],)
++    before=fp(_abc._get_dump(Basic))
++    monkeypatch.setitem(_abc.__dict__,key,None)
++    result=s._core._lll_cache_is_cold(Basic,s._core.DomainElement,_abc._get_dump,_abc)
++    assert type(result) is bool and fp(_abc._get_dump(Basic))==before
++
++
++@pytest.mark.parametrize('key',['\ud800','unused_\udfff','mixed_\ud800_\udfff'])
++def test_true_public_cold_call_ignores_unread_surrogate_abc_module_attribute(key):
++    script='''
++import symox as s,_abc
++from symox.polys.matrices.ddm import DDM
++from symox.polys.matrices import _lll_native as p
++_abc.__dict__[KEY]=None
++a=DDM([[s.ZZ(3),s.ZZ(2)],[s.ZZ(2),s.ZZ(0)]],(2,2),s.ZZ)
++actual=a.lll_transform();p.prefix=lambda *args:False;expected=a.lll_transform()
++assert actual==expected
++assert [[int(c) for c in row] for row in actual[0]]==[[2,0],[-1,2]]
++'''.replace('KEY',repr(key))
++    result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=40)
++    assert result.returncode==0,result.stdout+result.stderr
++
++
++@pytest.mark.parametrize('kind',['surrogate','object','str_subclass'])
++def test_uninterpretable_module_name_declines_without_encoding_or_hooks(monkeypatch,kind):
++    import _abc
++    from symox._basic import Basic
++    events=[]
++    if kind=='surrogate':name='\ud800'
++    elif kind=='object':
++        class Name:
++            def __str__(self):events.append('str');raise AssertionError('name coerced')
++        name=Name()
++    else:
++        class Name(str):
++            def __eq__(self,other):events.append('eq');raise AssertionError('subclass equality')
++            __hash__=str.__hash__
++        name=Name('_abc')
++    monkeypatch.setitem(_abc.__dict__,'__name__',name)
++    assert s._core._lll_cache_is_cold(Basic,s._core.DomainElement,_abc._get_dump,_abc) is None
++    assert events==[]
++
++
++def test_module_keys_are_all_validated_before_name_lookup():
++    import _abc
++    from symox._basic import Basic
++    events=[];armed=False
++    class Key:
++        def __hash__(self):return hash('__name__')
++        def __eq__(self,other):
++            if armed:events.append('eq');raise AssertionError('foreign module key compared')
++            return False
++    key=Key();name=_abc.__dict__.pop('__name__')
++    try:
++        _abc.__dict__[key]=None;_abc.__dict__['__name__']=name;armed=True
++        assert s._core._lll_cache_is_cold(Basic,s._core.DomainElement,_abc._get_dump,_abc) is None
++        assert events==[]
++    finally:
++        armed=False;del _abc.__dict__[key];_abc.__dict__['__name__']=name
++
++
++def test_readonly_probe_emits_no_audit_event_and_does_not_warm_cache():
++    script='''
++import symox as s,sys,_abc
++from symox._basic import Basic
++fp=lambda state:tuple(tuple(sorted(map(id,g))) for g in state[:3])+(state[3],)
++before=fp(_abc._get_dump(Basic));events=[]
++sys.addaudithook(lambda name,args:events.append(name))
++result=s._core._lll_cache_is_cold(Basic,s._core.DomainElement,_abc._get_dump,_abc)
++probe_events=events[:];events.clear()
++after=fp(_abc._get_dump(Basic))
++assert type(result) is bool and before==after
++assert probe_events==[],probe_events
++'''
++    result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=40)
++    assert result.returncode==0,result.stdout+result.stderr
+diff --git a/tests/test_native_risch_polynomial_reduce.py b/tests/test_native_risch_polynomial_reduce.py
+index 1c62a66..03b5ef6 100644
+--- a/tests/test_native_risch_polynomial_reduce.py
++++ b/tests/test_native_risch_polynomial_reduce.py
+@@ -41,7 +41,8 @@ def test_selected_complete_loop_matches_old_and_reference_with_exact_certificate
+         out=native(*args);calls.append(out is not None);return out
+     monkeypatch.setattr(sx._core,'_risch_polynomial_reduce',spy)
+     actual=risch.polynomial_reduce(p,de)
+-    assert calls==[True]
++    no_step=p.is_zero or p.degree(de.t)<de.d.degree(de.t)
++    assert calls==([] if no_step else [True])
+     with monkeypatch.context() as patch:
+         patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
+         old=risch.polynomial_reduce(p,de)
+@@ -359,3 +360,103 @@ if input_kind=='valid':assert actual[0]=='value'
+ else:assert actual[0:2]==('error','AttributeError')
+ """
+     subprocess.run([sys.executable,'-c',source,scenario,input_kind],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('zero',[True,False])
++def test_no_step_declines_before_heavy_proof_and_runs_the_original_body(monkeypatch,zero):
++    t=sx.Symbol('risch_fast_t');p=sx.Poly(0 if zero else sx.Rational(7,3),t,domain='QQ')
++    de=risch.DifferentialExtension(extension={'D':[sx.Poly(t*t+1,t)]})
++    def forbidden(*args,**kwargs):raise AssertionError('heavy proof entered')
++    monkeypatch.setattr(protocol._ground,'_class_unchanged',forbidden)
++    q,r=risch.polynomial_reduce(p,de)
++    assert q.is_zero and str(q.domain)=='ZZ' and r is p
++
++
++@pytest.mark.parametrize('zero',[True,False])
++@pytest.mark.parametrize('mode',['t_getter','d_getter','lookup','degree_error','constructor','constructor_token'])
++def test_fast_refusal_preserves_real_getters_errors_and_constructor_prefix(monkeypatch,zero,mode):
++    t=sx.Symbol('risch_fast_t');p=sx.Poly(0 if zero else 7,t)
++    de=risch.DifferentialExtension(extension={'D':[sx.Poly(t*t+1,t)]});events=[]
++    if mode in ('t_getter','d_getter'):
++        name=mode[0];member=risch.DifferentialExtension.__dict__[name]
++        def getter(self):events.append(name);return member.__get__(self,type(self))
++        monkeypatch.setattr(risch.DifferentialExtension,name,property(getter))
++    elif mode=='lookup':
++        def getter(self,name):events.append(name);return object.__getattribute__(self,name)
++        monkeypatch.setattr(risch.DifferentialExtension,'__getattribute__',getter)
++    elif mode=='degree_error':
++        original=sx.Poly.degree
++        def degree(self,*args,**kwargs):
++            events.append('degree')
++            if self is p:raise RuntimeError('real degree error')
++            return original(self,*args,**kwargs)
++        monkeypatch.setattr(sx.Poly,'degree',degree)
++    else:
++        original=risch.Poly;token=object()
++        def constructor(*args,**kwargs):
++            events.append('constructor')
++            return token if mode=='constructor_token' else original(*args,**kwargs)
++        monkeypatch.setattr(risch,'Poly',constructor)
++    def outcome():
++        try:return ('value',risch.polynomial_reduce(p,de))
++        except Exception as error:return ('error',type(error),str(error))
++    actual=outcome();observed=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
++        old=outcome()
++    assert actual==old and events==observed and events
++    if mode in ('constructor','constructor_token'):assert events==['constructor']
++    if mode=='degree_error':assert actual[0:2]==('error',RuntimeError)
++    else:assert actual[1][1]is p
++
++
++def test_payload_suggested_no_step_never_returns_a_partial_mathematical_answer(monkeypatch):
++    t=sx.Symbol('risch_fast_t');p=sx.Poly(7,t)
++    de=risch.DifferentialExtension(extension={'D':[sx.Poly(t*t+1,t)]})
++    actual_d=sx.Poly(1,t);de.D[0]=actual_d;events=[]
++    def getter(self):events.append('real d');return actual_d
++    monkeypatch.setattr(risch.DifferentialExtension,'d',property(getter))
++    # The original member still stores t^2+1, so the read-only hint declines.
++    # The REAL getter makes the original body integrate7 instead of returning7.
++    q,r=risch.polynomial_reduce(p,de);observed=events[:];events.clear()
++    with monkeypatch.context()as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
++        old=risch.polynomial_reduce(p,de)
++    assert (q,r)==old and events==observed and events
++    assert q==sx.Poly(7*t,t)and r.is_zero
++
++
++@pytest.mark.parametrize('registration',[False,True])
++@pytest.mark.parametrize('kind',['python','python_raising','wrong_native_name'])
++def test_new_preflight_origin_is_not_an_arbitrary_captured_alias(monkeypatch,registration,kind):
++    p,de=input_case(19,sx,risch);events=[]
++    if kind=='wrong_native_name':foreign=sx._core._risch_polynomial_reduce
++    else:
++        def foreign(*args):
++            events.append('foreign preflight')
++            if kind=='python_raising':raise AssertionError('foreign preflight called')
++            return True
++        foreign.__name__='_risch_decline_no_step';foreign.__self__=sx._core
++    monkeypatch.setattr(sx._core,'_risch_decline_no_step',foreign)
++    if registration:
++        monkeypatch.setattr(protocol,'_ROOT',None)
++        protocol.register_root(sx.__dict__)
++        assert protocol._ROOT is None
++    actual=risch.polynomial_reduce(p,de)
++    with monkeypatch.context()as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
++        old=risch.polynomial_reduce(p,de)
++    assert actual==old and events==[]
++
++
++def test_uninitialized_or_shadowed_member_remains_an_unknown_hint(monkeypatch):
++    t=sx.Symbol('risch_fast_t');p=sx.Poly(7,t)
++    de=risch.DifferentialExtension.__new__(risch.DifferentialExtension);de.t=t
++    actual_d=sx.Poly(t*t+1,t);events=[]
++    def getter(self):events.append('d');return actual_d
++    monkeypatch.setattr(risch.DifferentialExtension,'d',property(getter))
++    actual=risch.polynomial_reduce(p,de);observed=events[:];events.clear()
++    with monkeypatch.context()as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
++        old=risch.polynomial_reduce(p,de)
++    assert actual==old and actual[1]is p and events==observed==['d']
+diff --git a/tests/test_polymatrix_host_protocol.py b/tests/test_polymatrix_host_protocol.py
+new file mode 100644
+index 0000000..3a03ff1
+--- /dev/null
++++ b/tests/test_polymatrix_host_protocol.py
+@@ -0,0 +1,148 @@
++"""One authenticated late host hook must not disable exact ground arithmetic."""
++import importlib
++import types
++import sys
++import os
++import subprocess
++
++import pytest
++import symox as sx
++
++from symox import _host
++
++pm=importlib.import_module('symox.polys.polymatrix')
++guard=importlib.import_module('symox.polys._polymatrix_native')
++
++
++def install():
++    class Host(sx.Symbol):
++        @property
++        def free_symbols(self):return set()
++    return Host
++
++
++def matrix(kind):
++    x,y,z=sx.symbols('host_ground_x host_ground_y host_ground_z')
++    field=sx.QQ if kind=='QQ' else sx.QQ.frac_field(y,z)
++    entries=[[1,2,3],[3,7,8]] if kind=='QQ' else [[y/(z+1),1,2],[2*y/(z+1),3,5]]
++    return pm.PolyMatrix(entries,x,ring=field)
++
++
++@pytest.mark.parametrize('kind',['QQ','RF'])
++@pytest.mark.parametrize('operation',['rref','nullspace'])
++def test_official_host_hook_keeps_native_ground_and_full_public_result(monkeypatch,kind,operation):
++    install();a=matrix(kind);calls=[];native=sx._core._polymatrix_ground
++    def spy(*args):
++        result=native(*args);calls.append(result is not None);return result
++    monkeypatch.setattr(sx._core,'_polymatrix_ground',spy)
++    before=tuple(a._items);host_calls=[];getter_code=_host._tree_free_symbols.__code__
++    def profile(frame,event,arg):
++        if event=='call' and frame.f_code is getter_code:host_calls.append(event)
++    previous=sys.getprofile();sys.setprofile(profile)
++    try:result=getattr(a,operation)()
++    finally:sys.setprofile(previous)
++    assert calls and all(calls) and host_calls==[]
++    monkeypatch.setattr(pm,'_native_ground',lambda *args:None)
++    sys.setprofile(profile)
++    try:expected=getattr(a,operation)()
++    finally:sys.setprofile(previous)
++    assert expected==result and host_calls==[]
++    assert tuple(a._items)==before and all(a is b for a,b in zip(a._items,before))
++
++
++@pytest.mark.parametrize('kind',['QQ','RF'])
++@pytest.mark.parametrize('operation',['rref','nullspace'])
++@pytest.mark.parametrize('raises',[False,True])
++def test_foreign_host_getter_is_not_called_by_candidate_or_complete_old_body(monkeypatch,kind,operation,raises):
++    install();a=matrix(kind);calls=[]
++    def callback(self):
++        calls.append('free_symbols')
++        if raises:raise RuntimeError('foreign host getter')
++        return set()
++    monkeypatch.setattr(_host.HostTree,'free_symbols',property(callback))
++    assert pm._native_ground(a) is None and calls==[]
++    result=getattr(a,operation)();observed=calls[:];calls.clear()
++    monkeypatch.setattr(pm,'_native_ground',lambda *args:None)
++    assert getattr(a,operation)()==result
++    assert calls==observed==[]
++
++
++@pytest.mark.parametrize('mode',['getter_code','getter_defaults','getter_alias','getter_foreign_globals',
++    'installer_code','installer_defaults','installer_alias','property_setter','unrelated',
++    'builtin_shadow','core_alias','module','module_class'])
++def test_only_exact_authenticated_official_host_property_is_admitted(monkeypatch,mode):
++    install();a=matrix('QQ');calls=[]
++    def callback(*args):calls.append('callback');raise RuntimeError('foreign host protocol')
++    if mode=='getter_code':monkeypatch.setattr(_host._tree_free_symbols,'__code__',(lambda self:None).__code__)
++    elif mode=='getter_defaults':monkeypatch.setattr(_host._tree_free_symbols,'__defaults__',(callback,))
++    elif mode=='getter_alias':monkeypatch.setattr(_host,'_tree_free_symbols',callback)
++    elif mode=='getter_foreign_globals':
++        f=_host._tree_free_symbols;foreign=types.FunctionType(f.__code__,dict(f.__globals__))
++        monkeypatch.setattr(_host.HostTree,'free_symbols',property(foreign))
++    elif mode=='installer_code':monkeypatch.setattr(_host._install_free_symbols,'__code__',(lambda:None).__code__)
++    elif mode=='installer_defaults':monkeypatch.setattr(_host._install_free_symbols,'__defaults__',(callback,))
++    elif mode=='installer_alias':monkeypatch.setattr(_host,'_install_free_symbols',callback)
++    elif mode=='property_setter':monkeypatch.setattr(_host.HostTree,'free_symbols',property(_host._tree_free_symbols,callback))
++    elif mode=='unrelated':monkeypatch.setattr(_host.HostTree,'unrelated_callback',callback,raising=False)
++    elif mode=='builtin_shadow':monkeypatch.setattr(_host,'property',callback,raising=False)
++    elif mode=='core_alias':monkeypatch.setattr(_host,'_core',object())
++    elif mode=='module_class':
++        class Hooks(types.ModuleType):
++            def __getattribute__(self,name):
++                calls.append(name)
++                if name=='__dict__':raise RuntimeError('foreign module lookup')
++                return super().__getattribute__(name)
++        monkeypatch.setattr(_host,'__class__',Hooks)
++    else:
++        fake=types.ModuleType(_host.__name__);fake.__dict__.update(_host.__dict__)
++        monkeypatch.setitem(__import__('sys').modules,_host.__name__,fake)
++    assert pm._native_ground(a) is None and calls==[]
++
++
++@pytest.mark.parametrize('operation',['rref','nullspace'])
++def test_real_host_coefficient_keeps_full_failure_and_its_free_symbol_protocol(monkeypatch,operation):
++    calls=[]
++    class Rate(sx.Symbol):
++        @property
++        def free_symbols(self):
++            calls.append('host coefficient');raise RuntimeError('host coefficient free_symbols')
++    x=sx.Symbol('host_ground_x');rate=Rate('opaque_host_rate')
++    a=pm.PolyMatrix([[rate+1,1]],x,ring=sx.QQ)
++    assert pm._native_ground(a) is None and calls==[]
++    with pytest.raises(sx.CoercionFailed) as actual:getattr(a,operation)()
++    observed=calls[:];calls.clear()
++    monkeypatch.setattr(pm,'_native_ground',lambda *args:None)
++    with pytest.raises(type(actual.value)) as expected:getattr(a,operation)()
++    assert str(actual.value)==str(expected.value) and calls==observed==[]
++    # The coefficient's real host protocol is still active and observable.
++    with pytest.raises(RuntimeError,match='host coefficient free_symbols'):
++        a._items[0].free_symbols
++    assert calls==['host coefficient']
++
++
++def test_shadowed_property_before_import_declines_without_descriptor_callbacks():
++    code="""
++import builtins
++calls=[]
++class ForeignProperty(builtins.property):
++    def __getattribute__(self,name):
++        if name in ('fget','fset','fdel'):
++            calls.append(name)
++        return super().__getattribute__(name)
++builtins.property=ForeignProperty
++import symox as s
++from symox import _host
++from symox.polys import polymatrix as pm
++class Host(s.Symbol):
++    @property
++    def free_symbols(self):return set()
++x=s.Symbol('foreign_property_x');a=pm.PolyMatrix([[1,2,3],[3,7,8]],x,ring=s.QQ)
++calls.clear()
++selected=pm._native_ground(a)
++assert selected is None and calls==[],calls
++result=a.rref();observed=calls[:];calls.clear()
++pm._native_ground=lambda *args:None
++assert a.rref()==result
++assert calls==observed==[],(calls,observed)
++"""
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())

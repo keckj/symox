@@ -1,0 +1,87 @@
+[
+  {
+    "file": "polymatrix-REPORT.md",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-ground-r3-20261027/proof/REPORT.md",
+    "sha256": "4130078274efc29d7f350e2405f208fc0a6e5daae9716fae7ac34dec9114213d"
+  },
+  {
+    "file": "polymatrix-identity.json",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-ground-r3-20261027/proof/identity.json",
+    "sha256": "6550a870b760f3b8e62bdae8436b56cb3efb7d1f5dc2169e3c050283d56db3df"
+  },
+  {
+    "file": "log-real-audit-and-proof.txt",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/log-to-real-native/validation/audit-and-proof.txt",
+    "sha256": "fe0ffb8a03f0e736ec2cfed6c6d4a75b1ebdbdac60ed396cf3c4cb769ce22b6e"
+  },
+  {
+    "file": "log-real-manifest.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/log-to-real-native/validation/freeze-manifest.json",
+    "sha256": "47d823decc6421eb3473e480e6f4a19a7ad6a735ebe0e91b4cb6ff5873ffb74a"
+  },
+  {
+    "file": "log-real-certificates.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/log-to-real-native/validation/exact-elimination-certificates.json",
+    "sha256": "67f09b27535048e3f58706227945eec2d65bae4b652e632d08b7f53e03606492"
+  },
+  {
+    "file": "selector-proof.txt",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/rational-selector-local-proof/validation/proof.txt",
+    "sha256": "2856bf55c01a593a04bb80f458d26f54b6ec62dd7df6b31c7b6c99cde6ee3609"
+  },
+  {
+    "file": "selector-manifest.json",
+    "source": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/rational-selector-local-proof/validation/freeze-manifest.json",
+    "sha256": "bcd4d387df976278e81e90e147f2eeced55becc184cdb95db1255fc913f18c76"
+  },
+  {
+    "file": "polymatrix-protocol-REPORT.md",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-vector-protocol-20261027/followup-213/proof/REPORT.md",
+    "sha256": "2e279c147a9ee00cb4e74f384e07e034fdd74b904d8aa8fae31d16ea70744259"
+  },
+  {
+    "file": "polymatrix-protocol-identity.json",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-vector-protocol-20261027/followup-213/proof/identity.json",
+    "sha256": "bc058d1f6c314a10c57c2d753dfa26341cca9d5546b1611dfe25d5d3f2888315"
+  },
+  {
+    "file": "polymatrix-protocol-demeter.log",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-vector-protocol-20261027/followup-213/proof/demeter-final.log",
+    "sha256": "2ba3d5b9356ce16b60703babd05f02d1057c2cfb824622eb358074d78402a18a"
+  },
+  {
+    "file": "protocol-preliminary-provenance.md",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-vector-protocol-20261027/preliminary-210/proof/PROVENANCE.md",
+    "sha256": "be5af1fe54ce21afc37b05b279a09a33013353fbb26b0cb172a093ddeea45279"
+  },
+  {
+    "file": "integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027/integration.json",
+    "sha256": "72a11a186fdcced6addd59e37c92ed8d64f360c271cd305016a219e8679c960e"
+  },
+  {
+    "file": "selector-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027/selector-integration.json",
+    "sha256": "bcd4d387df976278e81e90e147f2eeced55becc184cdb95db1255fc913f18c76"
+  },
+  {
+    "file": "polymatrix-protocol-integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027/polymatrix-protocol-integration.json",
+    "sha256": "1e5dbbe9514c21e716f7865295cfefee6c7142f2d2fbe94510ee85dcb9c1ec00"
+  },
+  {
+    "file": "before-protocol-fix-combined-targeted.log",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027/before-protocol-fix-combined-targeted.log",
+    "sha256": "acb7dd29f15f90d6a08a923693baaa148fbc420549ab7c616957be60f4168893"
+  },
+  {
+    "file": "combined-targeted.log",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027/combined-targeted.log",
+    "sha256": "18ece834d6519144f49c6400aeadc56d6a59aec293f2444776de09a4eafc5ade"
+  },
+  {
+    "file": "combined-command.json",
+    "source": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027/combined-command.json",
+    "sha256": "303ab5b228e25b34cf3f42fb3399e49b20fe5997ad4d0f7cbe956ed95fc4b60c"
+  }
+]

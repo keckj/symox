@@ -1818,6 +1818,13 @@ class DomainMatrix:
         sympy.polys.polytools.Poly.clear_denoms
         clear_denoms_rowwise
         """
+        from ._fraction_free import native_clear_denoms
+        prepared = native_clear_denoms(self, convert, False)
+        if prepared is not None:
+            denominator, elements, data = prepared
+            return (DomainScalar(denominator, ZZ),
+                    self.from_flat_nz(elements, data, ZZ if convert else self.domain))
+
         elems0, data = self.to_flat_nz()
 
         K0 = self.domain
@@ -1882,6 +1889,13 @@ class DomainMatrix:
         sympy.polys.polytools.Poly.clear_denoms
         clear_denoms
         """
+        from ._fraction_free import native_clear_denoms
+        prepared = native_clear_denoms(self, convert, True)
+        if prepared is not None:
+            diagonals, numerator, _ = prepared
+            return (self.diag(diagonals, ZZ),
+                    self.from_dod_like(numerator, ZZ if convert else self.domain))
+
         dod = self.to_dod()
 
         K0 = self.domain
@@ -4064,3 +4078,14 @@ def _dm_inv_expression(M):
     if tuple(pivots[:n]) != tuple(range(n)):
         raise DMNonInvertibleMatrixError("Matrix det == 0; not invertible.")
     return reduced.extract(range(n), range(n, 2*n))
+
+
+from ._fraction_free import register_clear_protocol as _register_clear_protocol
+_register_clear_protocol(DomainMatrix, DDM, SDM, globals())
+del _register_clear_protocol
+
+# AUTO preparation shares the completed stock matrix protocol boundary.
+from . import rref as _rref_auto_module
+from ._rref_native import register_auto_protocol as _register_auto_protocol
+_register_auto_protocol(DomainMatrix, DDM, SDM, _rref_auto_module.__dict__)
+del _register_auto_protocol, _rref_auto_module

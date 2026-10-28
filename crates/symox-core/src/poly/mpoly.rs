@@ -15,6 +15,79 @@ use rustc_hash::FxHashMap;
 
 use super::int::{Coeff, Field, Int, Rat};
 
+#[derive(Debug)]
+struct ExponentOverflow;
+
+/// A representation limit, never a truncated polynomial or an empty result.
+pub fn exponent_limit_error() -> super::convert::PolyError {
+    super::convert::PolyError::Unsupported(if cfg!(panic="unwind") {
+        "Polynomial exponent storage limit exceeded (32-bit monomials)"
+    } else {
+        "Checked polynomial arithmetic requires Rust panic=unwind support"
+    }.into())
+}
+
+#[cold]
+pub(crate) fn exponent_overflow() -> ! {
+    // Like checked factorization/EX arithmetic, only a private typed payload
+    // unwinds Rust internals. It never invokes the ordinary panic hook.
+    std::panic::resume_unwind(Box::new(ExponentOverflow))
+}
+
+#[inline]
+pub(crate) fn exponent_add(a: u32, b: u32) -> u32 {
+    a.checked_add(b).unwrap_or_else(|| exponent_overflow())
+}
+
+#[inline]
+pub(crate) fn exponent_scale(a: u32, b: u64) -> u32 {
+    u32::try_from(u128::from(a)*u128::from(b)).unwrap_or_else(|_| exponent_overflow())
+}
+
+/// Catch only the private representation cancellation at a fallible public
+/// boundary. Foreign panics and existing host errors retain their identity.
+pub fn guard_representation<T,E>(operation: impl FnOnce() -> Result<T,E>, overflow: impl FnOnce() -> E) -> Result<T,E> {
+    #[cfg(not(panic = "unwind"))]
+    {
+        let _ = operation;
+        Err(overflow())
+    }
+    #[cfg(panic = "unwind")]
+    {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(operation)) {
+            Ok(result) => result,
+            Err(payload) => if payload.is::<ExponentOverflow>() {
+                Err(overflow())
+            } else {
+                std::panic::resume_unwind(payload)
+            },
+        }
+    }
+}
+
+pub fn checked_operation<T>(operation: impl FnOnce() -> super::convert::PResult<T>) -> super::convert::PResult<T> {
+    guard_representation(operation, exponent_limit_error)
+}
+
+/// Combine sparse wide monomials over the actual coefficient ring before
+/// applying the storage bound. In particular, cancelled high terms and
+/// products annihilated by zero divisors do not consume exponent storage.
+pub fn checked_wide_terms<C:Coeff>(nvars:usize, terms:impl IntoIterator<Item=(Vec<u64>,C)>) -> super::convert::PResult<Vec<(Vec<u32>,C)>> {
+    checked_operation(|| {
+        let mut combined:FxHashMap<Vec<u64>,C>=FxHashMap::default();
+        for (exponent,coefficient) in terms {
+            debug_assert_eq!(exponent.len(),nvars);
+            if !coefficient.is_zero() {
+                combined.entry(exponent).or_insert_with(C::zero).add_assign(&coefficient);
+            }
+        }
+        combined.into_iter().filter(|(_,c)|!c.is_zero()).map(|(exponent,coefficient)| {
+            let exponent=exponent.into_iter().map(|e|u32::try_from(e).map_err(|_|exponent_limit_error())).collect::<super::convert::PResult<Vec<_>>>()?;
+            Ok((exponent,coefficient))
+        }).collect()
+    })
+}
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct MPoly<C> {
     pub nvars: usize,
@@ -374,19 +447,19 @@ impl<C: Coeff> MPoly<C> {
             return Self::zero(self.nvars);
         }
         let n = self.nvars;
-        let mut exps = self.exps.clone();
+        let mut exps = Vec::with_capacity(self.exps.len());
+        let mut coeffs = Vec::with_capacity(self.coeffs.len());
         for i in 0..self.len() {
+            let coefficient = self.coeffs[i].mul(c);
+            // Over e.g. Z/4Z a nonzero product can vanish. Its exponent
+            // need not fit storage because the resulting term is absent.
+            if coefficient.is_zero() { continue; }
             for v in 0..n {
-                exps[i * n + v] += e[v];
+                exps.push(exponent_add(self.exp(i)[v], e[v]));
             }
+            coeffs.push(coefficient);
         }
-        let mut p = MPoly {
-            nvars: n,
-            exps,
-            coeffs: self.coeffs.iter().map(|x| x.mul(c)).collect(),
-        };
-        p.remove_zeros();
-        p
+        MPoly { nvars: n, exps, coeffs }
     }
 
     pub fn mul(&self, o: &Self) -> Self {
@@ -408,7 +481,9 @@ impl<C: Coeff> MPoly<C> {
         }
         let da = self.degrees();
         let db = o.degrees();
-        let dsum: Vec<u32> = da.iter().zip(&db).map(|(a, b)| a + b).collect();
+        let Some(dsum) = da.iter().zip(&db).map(|(a, b)| a.checked_add(*b)).collect::<Option<Vec<u32>>>() else {
+            return self.mul_wide(o);
+        };
         if let Some(pk) = Packer::new(&dsum) {
             let ka: Vec<u64> = (0..self.len()).map(|i| pk.pack(self.exp(i))).collect();
             let kb: Vec<u64> = (0..o.len()).map(|i| pk.pack(o.exp(i))).collect();
@@ -458,6 +533,22 @@ impl<C: Coeff> MPoly<C> {
         Self::from_terms(n, map.into_iter().collect())
     }
 
+    /// Only used when a degree bound exceeds storage. Accumulate complete
+    /// coefficients at u64 monomials first, so zero divisors and cancelled
+    /// high terms are not rejected merely because a bound was too large.
+    fn mul_wide(&self, other: &Self) -> Self {
+        let terms=self.iter().flat_map(|(a,ca)|other.iter().map(move |(b,cb)| {
+            let exponent=a.iter().zip(b).map(|(a,b)|u64::from(*a)+u64::from(*b)).collect();
+            (exponent,ca.mul(cb))
+        }));
+        let terms=checked_wide_terms(self.nvars,terms).unwrap_or_else(|_|exponent_overflow());
+        Self::from_terms(self.nvars,terms)
+    }
+
+    pub fn checked_mul(&self, other: &Self) -> super::convert::PResult<Self> {
+        checked_operation(||Ok(self.mul(other)))
+    }
+
     pub(crate) fn from_packed(pk: &Packer, n: usize, terms: Vec<(u64, C)>) -> Self {
         let mut exps = vec![0u32; terms.len() * n];
         let mut coeffs = Vec::with_capacity(terms.len());
@@ -478,11 +569,16 @@ impl<C: Coeff> MPoly<C> {
             return Self::one(self.nvars);
         }
         if self.len() == 1 {
-            let e: Vec<u32> = self.exp(0).iter().map(|&x| x * k).collect();
-            let mut c = C::one();
-            for _ in 0..k {
-                c = c.mul(&self.coeffs[0]);
+            let mut c = if self.coeffs[0].is_one() { self.coeffs[0].clone() } else { C::one() };
+            if !self.coeffs[0].is_one() {
+                // Preserve coefficient multiplication order (EX may carry
+                // inexact values), and permit nilpotent coefficients.
+                for _ in 0..k {
+                    c = c.mul(&self.coeffs[0]);
+                    if c.is_zero() { return Self::zero(self.nvars); }
+                }
             }
+            let e: Vec<u32> = self.exp(0).iter().map(|&x| exponent_scale(x,u64::from(k))).collect();
             return Self::monomial(&e, c);
         }
         // repeated multiplication by the base is faster for sparse bases
@@ -491,6 +587,10 @@ impl<C: Coeff> MPoly<C> {
             r = r.mul(self);
         }
         r
+    }
+
+    pub fn checked_pow(&self, exponent: u32) -> super::convert::PResult<Self> {
+        checked_operation(||Ok(self.pow(exponent)))
     }
 
     /// Multivariate division by an ordered list of divisors in lex order.
@@ -521,7 +621,7 @@ impl<C: Coeff> MPoly<C> {
                 // The leading term was removed by pop_last(). Each other
                 // term introduced is strictly smaller, which ensures progress.
                 for (ge, gc) in g.iter().skip(1) {
-                    let key: Vec<u32> = ge.iter().zip(&shift).map(|(a, b)| a + b).collect();
+                    let key: Vec<u32> = ge.iter().zip(&shift).map(|(a, b)| exponent_add(*a,*b)).collect();
                     let value = c.mul(gc).neg();
                     match pending.entry(key) {
                         std::collections::btree_map::Entry::Vacant(entry) => {
@@ -944,8 +1044,8 @@ impl<C: Coeff> MPoly<C> {
         let mut exps = Vec::new();
         let mut coeffs = Vec::new();
         for (e, c) in self.iter() {
-            let s: u32 = vars.iter().map(|&v| e[v]).sum();
-            if s <= d {
+            let s: u64 = vars.iter().map(|&v| u64::from(e[v])).sum();
+            if s <= u64::from(d) {
                 exps.extend_from_slice(e);
                 coeffs.push(c.clone());
             }
@@ -1099,5 +1199,84 @@ mod tests {
         assert_eq!(cs.len(), 3);
         assert_eq!(MPoly::from_coeffs_in(1, 2, &cs), s);
         assert_eq!(b.shift(0, &Int::S(-1)), p(2, &[(&[1, 0], 1)]));
+    }
+}
+
+#[cfg(test)]
+mod exponent_storage_tests {
+    use super::*;
+    const N:u32=1<<31;
+
+    #[derive(Clone,Debug,PartialEq,Eq,Hash)]
+    struct Mod4(u8);
+    impl Coeff for Mod4 {
+        fn zero()->Self{Self(0)} fn one()->Self{Self(1)}
+        fn from_i64(n:i64)->Self{Self(n.rem_euclid(4) as u8)}
+        fn is_zero(&self)->bool{self.0==0} fn is_one(&self)->bool{self.0==1}
+        fn add(&self,o:&Self)->Self{Self((self.0+o.0)%4)}
+        fn sub(&self,o:&Self)->Self{self.add(&o.neg())}
+        fn mul(&self,o:&Self)->Self{Self((self.0*o.0)%4)}
+        fn neg(&self)->Self{Self((4-self.0)%4)}
+        fn is_negative(&self)->bool{false}
+        fn div_exact(&self,o:&Self)->Option<Self>{(0..4).find(|v|(v*o.0)%4==self.0).map(Self)}
+        fn to_rat(&self)->Rat{Rat::from_i64(i64::from(self.0))}
+    }
+
+    #[test]
+    fn exponent_storage_never_wraps_nonzero_products_or_powers() {
+        let p=MPoly::monomial(&[N],Int::one());
+        assert!(matches!(p.checked_mul(&p),Err(super::super::convert::PolyError::Unsupported(_))));
+        assert!(matches!(p.checked_pow(2),Err(super::super::convert::PolyError::Unsupported(_))));
+        assert_eq!(p.checked_mul(&MPoly::zero(1)).unwrap(),MPoly::zero(1));
+        assert_eq!(p.checked_pow(0).unwrap(),MPoly::one(1));
+        let a=MPoly::monomial(&[N,0],Int::one());
+        let b=MPoly::monomial(&[0,N],Int::one());
+        assert_eq!(a.checked_mul(&b).unwrap().lm(),&[N,N]);
+        let edge=MPoly::monomial(&[u32::MAX],Int::one());
+        assert_eq!(edge.checked_mul(&MPoly::one(1)).unwrap(),edge);
+    }
+
+    #[test]
+    fn exponent_storage_preserves_zero_divisors_and_wide_cancellation() {
+        let p=MPoly::monomial(&[N],Mod4(2));
+        assert!(p.checked_mul(&p).unwrap().is_zero());
+        assert!(p.checked_pow(2).unwrap().is_zero());
+        let f=p.add(&MPoly::one(1));
+        assert_eq!(f.checked_mul(&f).unwrap(),MPoly::one(1));
+        assert_eq!(f.checked_pow(2).unwrap(),MPoly::one(1));
+        assert_eq!(checked_operation(||Ok(f.mul_term(&[N],&Mod4(2)))).unwrap(),p);
+        let raw=vec![(vec![1u64<<32],Int::one()),(vec![1u64<<32],Int::S(-1)),(vec![0],Int::S(3))];
+        assert_eq!(checked_wide_terms(1,raw).unwrap(),vec![(vec![0],Int::S(3))]);
+    }
+
+    #[test]
+    fn exponent_storage_boundary_only_catches_its_own_payload() {
+        struct Foreign;
+        let result=std::panic::catch_unwind(||checked_operation::<()>(||std::panic::resume_unwind(Box::new(Foreign))));
+        assert!(result.unwrap_err().is::<Foreign>());
+        assert_eq!(guard_representation(||Err::<(),_>("host error"),||"overflow"),Err("host error"));
+    }
+
+    #[test]
+    fn exponent_storage_sparse_groebner_reports_an_unrepresentable_intermediate() {
+        use super::super::groebner::{buchberger,CoefficientField,MonomialOrder};
+        // One sparse reduction gives y**(2*N)-1; the input and quotient fit.
+        let f=MPoly::from_terms(2,vec![(vec![1,0],Rat::one()),(vec![0,N],Rat::from_i64(-1))]);
+        let g=MPoly::from_terms(2,vec![(vec![1,N],Rat::one()),(vec![0,0],Rat::from_i64(-1))]);
+        let inputs=vec![f,g];
+        assert!(checked_operation(||Ok(buchberger(&inputs,MonomialOrder::Lex,CoefficientField{modulus:None}))).is_err());
+        assert!(super::super::f5b::f5b(&inputs,MonomialOrder::Lex).is_err());
+    }
+}
+
+#[cfg(test)]
+mod wide_total_degree_tests {
+    use super::*;
+    #[test]
+    fn wide_total_degree_truncation_does_not_keep_wrapped_high_terms() {
+        let n=1u32<<31;
+        let p=MPoly::from_terms(2,vec![(vec![n,n],Int::one()),(vec![1,0],Int::one())]);
+        assert_eq!(p.total_degree(),1i64<<32);
+        assert_eq!(p.truncate_degree(&[0,1],1),MPoly::var(0,2));
     }
 }

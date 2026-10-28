@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "scope": "Native EX/CC sparse differentiation/integration and literal-zero evaluation; dense/sparse ZZ/QQ fraction-free reductions including DomainMatrix AUTO FF/CD; exact algebraic zero-times-zoo correction in radsimp",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "5947368f4f6b61f225ebab25a73f6de6a8e4a985513e18993bdaf06a5bf7f2aa",
+    "native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+    "working_code_diff_sha256": "ebe9d39b09d699bc7581f7223a9240c27a34b9997287cdce4aa4d986a2453612",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 458.986453294754,
+    "native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+    "host": "/home/keckj/Documents/symox",
+    "compiler": "rustc1.84.1"
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 661,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 168.6973147392273
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 24.134161233901978
+      },
+      "rust_inputs_unchanged": true
+    }
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 46587,
+      "skipped": 55,
+      "xfailed": 5,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 46647,
+      "collected_in_shards": 46647,
+      "finished": 46647,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 237.07928085327148,
+    "new_cases_vs_previous": 226,
+    "private_debug_timeout_cases_pass_in_integrated_release": [
+      "test_out_of_storage_source_power_does_not_become_a_small_polynomial[QQ]",
+      "test_out_of_storage_source_power_does_not_become_a_small_polynomial[EX]"
+    ]
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-calculus-20261026/python/symox/__init__.py",
+    "native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "private_component_evidence": {
+    "sparse_calculus": "/home/keckj/.cache/symox-validation/native-kernels-20261026/next-branches/expression-sparse-calculus-proof/REPORT.md",
+    "sparse_calculus_patch_sha256": "e9be54d97032894b9efb86891ab4e6e182bc6ff67110008c778f789b4b78d4e5",
+    "fraction_free": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/fraction-free-native/validation/fraction-free-validation.json",
+    "radsimp_zero": "/home/keckj/.cache/symox-validation/radsimp-zero-20261026",
+    "calculus_merge_record": "/home/keckj/.cache/symox-validation/native-calculus-20261026/calculus-integration.json",
+    "fraction_free_merge_record": "/home/keckj/.cache/symox-validation/native-calculus-20261026/fraction-free-integration.json"
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-calculus-20261026",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-calculus-20261026",
+    "source_manifest": "/home/keckj/.cache/symox-validation/native-calculus-20261026/source-manifest.json",
+    "full_python_summary": "/home/keckj/.cache/symox-validation/native-calculus-20261026/demeter-final/summary.json",
+    "full_rust_log": "/home/keckj/.cache/symox-validation/native-calculus-20261026/demeter-final/tests.log",
+    "clippy_log": "/home/keckj/.cache/symox-validation/native-calculus-20261026/demeter-final/clippy.log",
+    "immutable_package": "/home/keckj/.cache/symox-validation/native-calculus-20261026/after/python/symox"
+  },
+  "precision_corrections": [
+    "Grouped derivative spec(x,m) is evaluated once at orderm; separate specs remain sequential. Old repeated diff1 grouping could change float bits.",
+    "Multivariate inexact calculus now uses Dom at the selected precisionp instead of EX at display precisionp-prime. The private exact-input probe fixes32 of100 contexts, including four order1 calls.",
+    "Orders/factorials use checked conversions and BigInt factors; actual coefficient cancellation precedes the public coordinate bound. No32-bit execution is claimed."
+  ],
+  "remaining_gaps": [
+    "No global mathematical parity certified. Complete documentation replay on576a still has278 differing objects requiring review.",
+    "Sparse evaluation at nonzero values retains established dense/Horner paths. Other nonported dense algorithms can still be expensive at large coordinates.",
+    "Coordinates aboveu32 and public calculus orders outsidei64 remain representation/API limits. Proven zero results are preserved before capacity refusal; actual32-bit execution is unvalidated.",
+    "The public EX constructor still loses interior/trailing Float0 payloads; a separate native construction/view/pickle port is in progress.",
+    "Custom/inexact/other-domain fraction-free matrix routes, aliases/invalid storage and the one-row sparse shallow-copy branch keep their original complete paths. The Python ordering adapter performs only stock key-set protocol operations, with Rust checking memberships.",
+    "radsimp corrects the audited concrete algebraic zero-times-zoo product using exact structural/minimal-polynomial proof. It does not certify all nonfinite arithmetic or all undecidable zero expressions.",
+    "Symbolic derivative orders and native log_to_atan are separate unintegrated work, absent from this release.",
+    "The native literal-zero kernel does not yet accelerate public univariate EX eval(0): its Python adapter still reconstructs as_expr in this release. The paired control shows no gain; the public routing/payload fix is separate pending work."
+  ],
+  "global_algorithmic_parity_certified": false,
+  "performance_evidence": "audits/performance/2026-10-26-native-calculus/README.md"
+}

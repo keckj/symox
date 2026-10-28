@@ -1,0 +1,90 @@
+[
+  {
+    "delivery": "native-inexact-linear-20261027",
+    "path": "crates/symox-core/src/poly/ddm.rs",
+    "before": "8a7d2784cbf6d8ac4093ffd411da6a2d0bebaec4dfa84564a6879099f39839cd",
+    "after": "f8da60a058408cb9400d3453e4f89e858721115f1ecc229bc72b5df8b8536d7d",
+    "delivery_after": "f8da60a058408cb9400d3453e4f89e858721115f1ecc229bc72b5df8b8536d7d",
+    "merged": false
+  },
+  {
+    "delivery": "native-inexact-linear-20261027",
+    "path": "crates/symox-py/src/domains.rs",
+    "before": "712d80dd87eddc2e4aa7e9b527483a17549c7bbe6ebbdfefcd50a3b57112bc45",
+    "after": "48c4e97ca2d7e547851d2943e93e439e9b714b1c1ee03de38f204e66390aa7db",
+    "delivery_after": "48c4e97ca2d7e547851d2943e93e439e9b714b1c1ee03de38f204e66390aa7db",
+    "merged": false
+  },
+  {
+    "delivery": "native-inexact-linear-20261027",
+    "path": "crates/symox-py/src/poly_ddm.rs",
+    "before": "d9ad84696776b622dcfebe44154fa4ada43bae6ed2ee3941f1acabf0244f042f",
+    "after": "58ef0495f1414258ff66cc2b807d4c1ed2a3f8309ba195fcea6681188aff121b",
+    "delivery_after": "edcceaab06c47f9add6e9ebe74bc9d63b5aa52bf74fda1cb5e3f3f6bec766843",
+    "merged": true
+  },
+  {
+    "delivery": "native-inexact-linear-20261027",
+    "path": "python/symox/polys/_inexact_linear.py",
+    "before": null,
+    "after": "0d0c85a8939efaeb44426ec22070dbba89ae9438676ace02b9ab13197e4ad515",
+    "delivery_after": "0d0c85a8939efaeb44426ec22070dbba89ae9438676ace02b9ab13197e4ad515",
+    "merged": false
+  },
+  {
+    "delivery": "native-inexact-linear-20261027",
+    "path": "python/symox/polys/solvers.py",
+    "before": "b7362abcd7a04ee4d743526ea6fb389278f71901af934f4fe10d694bed2e0803",
+    "after": "ae9f74828b8ebfa9d9a04e4369703ad779bc33ad88c37e8ec54f5fb7884c2ba8",
+    "delivery_after": "ae9f74828b8ebfa9d9a04e4369703ad779bc33ad88c37e8ec54f5fb7884c2ba8",
+    "merged": false
+  },
+  {
+    "delivery": "native-inexact-linear-20261027",
+    "path": "tests/test_native_inexact_linear_system.py",
+    "before": null,
+    "after": "1f4d4bfa8f9e2d68688d77c746dd669eeb903075518d0571db7ec9c48f9f9aa0",
+    "delivery_after": "1f4d4bfa8f9e2d68688d77c746dd669eeb903075518d0571db7ec9c48f9f9aa0",
+    "merged": false
+  },
+  {
+    "delivery": "native-complex-rounding-20261027",
+    "path": "crates/symox-core/src/poly/domains.rs",
+    "before": "bc3c857f07460842fea3a385c01ccea97c52e131f3bcbc2c773ccc0e589ec5f9",
+    "after": "2aa87fa2f2cbb405eae27787422cc26b6c0b806caf9fe473464197f0d4c14b53",
+    "delivery_after": "2aa87fa2f2cbb405eae27787422cc26b6c0b806caf9fe473464197f0d4c14b53",
+    "merged": false
+  },
+  {
+    "delivery": "native-complex-rounding-20261027",
+    "path": "crates/symox-core/src/poly/domains/complex_rounding.rs",
+    "before": null,
+    "after": "ee8cf6ce157fd55df562943326d4915bb6927600c97e4488460a90fa27db3541",
+    "delivery_after": "ee8cf6ce157fd55df562943326d4915bb6927600c97e4488460a90fa27db3541",
+    "merged": false
+  },
+  {
+    "delivery": "native-complex-rounding-20261027",
+    "path": "tests/test_complex_domain_division_rounding.py",
+    "before": null,
+    "after": "8b0313977dd4b28b1b393006f9e2ce117aeceeceb3a6847649cc36866338cf38",
+    "delivery_after": "8b0313977dd4b28b1b393006f9e2ce117aeceeceb3a6847649cc36866338cf38",
+    "merged": false
+  },
+  {
+    "delivery": "native-composite-equality-20261027",
+    "path": "crates/symox-py/src/domains.rs",
+    "before": "48c4e97ca2d7e547851d2943e93e439e9b714b1c1ee03de38f204e66390aa7db",
+    "after": "d3c99d729f09d3bdaf0cb3887f99087997a6be7f593a9454961606dfe9b6da37",
+    "delivery_after": "d3c99d729f09d3bdaf0cb3887f99087997a6be7f593a9454961606dfe9b6da37",
+    "merged": false
+  },
+  {
+    "delivery": "native-composite-equality-20261027",
+    "path": "tests/test_inexact_composite_equality.py",
+    "before": null,
+    "after": "b18cc421282d091fa20915dee3613eec4c623d86d669be099595294dbbe95828",
+    "delivery_after": "b18cc421282d091fa20915dee3613eec4c623d86d669be099595294dbbe95828",
+    "merged": false
+  }
+]

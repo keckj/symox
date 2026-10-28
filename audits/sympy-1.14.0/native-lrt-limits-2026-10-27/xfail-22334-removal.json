@@ -1,0 +1,5 @@
+{
+  "file": "tests/test_limwrong_parity.py",
+  "removed_marker": "@pytest.mark.xfail(strict=True, reason=\"symbolic powers of the mrv variable\")\n",
+  "reason": "The unchanged assertion now passes in both the homogeneous candidate and the independently corrected winding package; full integrated validation still required."
+}

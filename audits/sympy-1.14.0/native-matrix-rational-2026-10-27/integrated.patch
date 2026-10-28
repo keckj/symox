@@ -1,0 +1,2916 @@
+diff --git a/crates/symox-core/src/poly/sdm.rs b/crates/symox-core/src/poly/sdm.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/symox-core/src/poly/sdm.rs
+@@ -0,0 +1,182 @@
++//! Sparse, division-free Berkowitz over exact native coefficient rings.
++//! No n-by-n storage is constructed. Isolated zero rows AND columns can be
++//! removed: a simultaneous basis permutation splits off a zero direct summand,
++//! multiplying the characteristic polynomial by a power of lambda. Its sparse
++//! coefficient indices, counted from the leading monic term, do not change.
++use std::collections::{BTreeMap, BTreeSet};
++use super::Coeff;
++
++pub type SparseVector<C> = BTreeMap<usize,C>;
++pub type SparseRows<C> = BTreeMap<usize,SparseVector<C>>;
++
++fn accumulate<C:Coeff>(values:&mut SparseVector<C>,index:usize,value:C) {
++    if value.is_zero(){return;}
++    let value=match values.remove(&index){Some(old)=>old.add(&value),None=>value};
++    if !value.is_zero(){values.insert(index,value);}
++}
++
++fn dot<C:Coeff,E>(row:&SparseVector<C>,vector:&SparseVector<C>,start:usize,
++    check:&mut impl FnMut()->Result<(),E>)->Result<C,E> {
++    let mut result=C::zero();
++    for (step,(&j,a)) in row.range(start..).enumerate() {
++        if step%64==0{check()?;}
++        if let Some(b)=vector.get(&j){result.add_mul(a,b);}
++    }
++    Ok(result)
++}
++
++fn matvec<C:Coeff,E>(rows:&[SparseVector<C>],vector:&SparseVector<C>,start:usize,
++    check:&mut impl FnMut()->Result<(),E>)->Result<SparseVector<C>,E> {
++    let mut result=SparseVector::new();
++    for (i,row) in rows.iter().enumerate().skip(start) {
++        check()?;
++        let value=dot(row,vector,start,check)?;
++        if !value.is_zero(){result.insert(i,value);}
++    }
++    Ok(result)
++}
++
++/// Multiply an already computed sparse coefficient vector by a lower
++/// triangular Toeplitz column. The same routine can finish a legacy prefix:
++/// q and t are supplied results, never reconstructed from the input matrix.
++pub fn toeplitz_product_checked<C:Coeff,E>(q:&SparseVector<C>,t:&SparseVector<C>,degree:usize,
++    check:&mut impl FnMut()->Result<(),E>)->Result<SparseVector<C>,E> {
++    check()?;
++    let mut next=SparseVector::new();
++    for (&i,a) in q {
++        check()?;
++        for (step,(&j,b)) in t.iter().enumerate() {
++            if step%64==0{check()?;}
++            if i<=degree && j<=degree-i{accumulate(&mut next,i+j,a.mul(b));}
++        }
++    }
++    check()?;
++    Ok(next)
++}
++
++/// Sparse leading-coefficient map of det(lambda*I-M). Missing entries are zero.
++/// None declines malformed coordinates; an interruption is a distinct Err.
++/// The historical dimension-zero case returns one without reading entries.
++/// Input rows/coefficients are immutable and are never published partially.
++pub fn berkowitz_checked<C:Coeff,E>(matrix:&SparseRows<C>,n:usize,
++    check:&mut impl FnMut()->Result<(),E>)->Result<Option<SparseVector<C>>,E> {
++    check()?;
++    if n==0{return Ok(Some(BTreeMap::from([(0,C::one())])));}
++    let mut active=BTreeSet::new();
++    for (&i,row) in matrix {
++        check()?;
++        if i>=n{return Ok(None);}
++        for (step,(&j,value)) in row.iter().enumerate() {
++            if step%64==0{check()?;}
++            if j>=n{return Ok(None);}
++            if !value.is_zero(){active.insert(i);active.insert(j);}
++        }
++    }
++    let indices:BTreeMap<_,_>=active.into_iter().enumerate().map(|(new,old)|(old,new)).collect();
++    let size=indices.len();
++    // O(active vertices), not O(the declared dimension). At most two active
++    // vertices occur per stored nonzero. Column views also stay sparse.
++    let mut rows=vec![SparseVector::new();size];
++    let mut columns=vec![SparseVector::new();size];
++    for (&i,row) in matrix {
++        check()?;
++        for (step,(&j,value)) in row.iter().enumerate() {
++            if step%64==0{check()?;}
++            if !value.is_zero(){
++                let (i,j)=(indices[&i],indices[&j]);
++                rows[i].insert(j,value.clone());columns[j].insert(i,value.clone());
++            }
++        }
++    }
++    let mut q=BTreeMap::from([(0,C::one())]);
++    // M=[[a,R],[C,A]]. The Toeplitz first column is
++    // (1,-a,-R*C,-R*A*C,...). Multiplying it by charpoly(A) gives charpoly(M).
++    // The suffix is a view of the same sparse matrix, rather than a copied A.
++    for pivot in (0..size).rev() {
++        check()?;
++        let tail=size-pivot-1;
++        let mut t=BTreeMap::from([(0,C::one())]);
++        if let Some(a)=rows[pivot].get(&pivot){t.insert(1,a.neg());}
++        let r=&rows[pivot];
++        let mut vector:SparseVector<C>=columns[pivot].range((pivot+1)..)
++            .map(|(&i,value)|(i,value.clone())).collect();
++        if r.range((pivot+1)..).next().is_some() {
++            for power in 0..tail {
++                check()?;
++                if vector.is_empty(){break;}
++                let value=dot(r,&vector,pivot+1,check)?;
++                if !value.is_zero(){t.insert(power+2,value.neg());}
++                if power+1<tail{vector=matvec(&rows,&vector,pivot+1,check)?;}
++            }
++        }
++        // Sparse Toeplitz convolution, without constructing the matrix T.
++        q=toeplitz_product_checked(&q,&t,tail+1,check)?;
++    }
++    check()?;
++    Ok(Some(q))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::poly::{Int,Rat};
++    fn sparse<C:Coeff>(a:&[Vec<C>])->SparseRows<C> {
++        a.iter().enumerate().filter_map(|(i,row)|{
++            let row=row.iter().enumerate().filter(|(_,v)|!v.is_zero()).map(|(j,v)|(j,v.clone())).collect::<BTreeMap<_,_>>();
++            (!row.is_empty()).then_some((i,row))
++        }).collect()
++    }
++    fn rational(n:i64,d:i64)->Rat{Rat::new(Int::from(n),Int::from(d))}
++    #[test]
++    fn complete_exact_coefficients_match_the_existing_dense_kernel() {
++        use crate::matrix::{domain::RatMat,int::{Int as MI,Rat as MR}};
++        for n in 0..8 {
++            for seed in 0..12 {
++                let mut a=vec![vec![Rat::zero();n];n];
++                for i in 0..n {for j in 0..n {
++                    if (i*17+j*11+seed)%4==0{a[i][j]=rational(((i*13+j*7+seed)%19) as i64-9,((i+j+seed)%7) as i64+1);}
++                }}
++                let flat=a.iter().flatten().map(|v|MR{num:MI::from_big(v.n.to_big()),den:MI::from_big(v.d.to_big())}).collect();
++                let expected=RatMat{rows:n,cols:n,data:flat}.charpoly();
++                let actual=berkowitz_checked(&sparse(&a),n,&mut ||Ok::<_,()>(())).unwrap().unwrap();
++                for (i,v) in expected.into_iter().enumerate(){
++                    assert_eq!(actual.get(&i).cloned().unwrap_or_else(Rat::zero),Rat::new(Int::from(v.num.to_big()),Int::from(v.den.to_big())));
++                }
++            }
++        }
++    }
++    #[test]
++    fn huge_declared_dimension_does_not_allocate_dense_storage() {
++        let n=usize::MAX;
++        let a=BTreeMap::from([
++            (n-9,BTreeMap::from([(n-9,Int::from(2)),(n-2,Int::from(3))])),
++            (n-2,BTreeMap::from([(n-9,Int::from(5)),(n-2,Int::from(7))])),
++        ]);
++        assert_eq!(berkowitz_checked(&a,n,&mut ||Ok::<_,()>(())).unwrap().unwrap(),
++            BTreeMap::from([(0,Int::one()),(1,Int::from(-9)),(2,Int::from(-1))]));
++        assert_eq!(berkowitz_checked::<Int,_>(&BTreeMap::new(),n,&mut ||Ok::<_,()>(())).unwrap().unwrap(),BTreeMap::from([(0,Int::one())]));
++    }
++    #[test]
++    fn zero_cancellations_nilpotence_alias_free_inputs_and_interruptions() {
++        let a=BTreeMap::from([(0,BTreeMap::from([(1,Int::from(2))])),(1,BTreeMap::from([(2,Int::from(3))]))]);
++        let original=a.clone();
++        assert_eq!(berkowitz_checked(&a,3,&mut ||Ok::<_,()>(())).unwrap().unwrap(),BTreeMap::from([(0,Int::one())]));
++        let mut calls=0;
++        let result=berkowitz_checked(&a,3,&mut ||{calls+=1;if calls==13{Err("interrupted")}else{Ok(())}});
++        assert_eq!(result,Err("interrupted"));assert_eq!(a,original);
++        let invalid=BTreeMap::from([(2,BTreeMap::from([(0,Int::one())]))]);
++        assert!(berkowitz_checked(&invalid,2,&mut ||Ok::<_,()>(())).unwrap().is_none());
++    }
++    #[test]
++    fn sparse_prefix_convolution_preserves_gaps_truncation_and_overflow_safety() {
++        let q=BTreeMap::from([(0,Int::one()),(2,Int::from(-3))]);
++        let t=BTreeMap::from([(0,Int::one()),(1,Int::from(2)),(3,Int::from(5))]);
++        assert_eq!(toeplitz_product_checked(&q,&t,4,&mut ||Ok::<_,()>(())).unwrap(),
++            BTreeMap::from([(0,Int::one()),(1,Int::from(2)),(2,Int::from(-3)),(3,Int::from(-1))]));
++        let edge=BTreeMap::from([(usize::MAX,Int::one())]);
++        assert_eq!(toeplitz_product_checked(&edge,&t,usize::MAX,&mut ||Ok::<_,()>(())).unwrap(),edge);
++        assert!(toeplitz_product_checked::<Int,_>(&BTreeMap::new(),&t,4,&mut ||Ok::<_,()>(())).unwrap().is_empty());
++        let mut calls=0;
++        assert_eq!(toeplitz_product_checked(&q,&t,4,&mut ||{calls+=1;if calls==3{Err("stop")}else{Ok(())}}),Err("stop"));
++    }
++}
+diff --git a/crates/symox-core/src/poly/mod.rs b/crates/symox-core/src/poly/mod.rs
+--- a/crates/symox-core/src/poly/mod.rs
++++ b/crates/symox-core/src/poly/mod.rs
+@@ -16,6 +16,7 @@
+ 
+ pub mod dense;
+ pub mod ddm;
++pub mod sdm;
+ pub mod fraction_free;
+ pub mod gf;
+ pub mod int;
+diff --git a/crates/symox-py/src/poly_ddm.rs b/crates/symox-py/src/poly_ddm.rs
+--- a/crates/symox-py/src/poly_ddm.rs
++++ b/crates/symox-py/src/poly_ddm.rs
+@@ -1,6 +1,6 @@
+ //! Representation/alias checks and in-place publication for exact dense rows.
+ use pyo3::prelude::*;
+-use pyo3::types::{PyInt,PyList,PyTuple};
++use pyo3::types::{PyInt,PyList,PyTuple,PyDict};
+ use symox::poly::{Int,Rat,domains::{DomainElement,ElementValue,ExactDomain}};
+ use crate::poly::domains::PyDomainElement;
+ 
+@@ -388,6 +388,128 @@
+     }
+ }
+ 
++/// Read only actual dictionary storage. Subclasses are admitted by the
++/// stock SDM adapter only after its inherited protocols have been checked.
++fn sparse_entries<C:symox::poly::Coeff>(matrix:&Bound<'_,PyDict>,n:usize,py:Python<'_>,
++    mut parse:impl FnMut(&Bound<'_,PyAny>)->PyResult<Option<C>>)
++    ->PyResult<Option<symox::poly::sdm::SparseRows<C>>> {
++    let mut rows=std::collections::BTreeMap::new();
++    // No live PyDict iterator may cross a Python signal handler: that
++    // handler could mutate the original dictionary. Copy references first.
++    let items:Vec<_>=matrix.iter().collect();
++    for (step,(i,row)) in items.into_iter().enumerate() {
++        if step%64==0{py.check_signals()?;}
++        if !i.is_exact_instance_of::<PyInt>() || !row.is_exact_instance_of::<PyDict>() {return Ok(None);}
++        let Ok(i)=i.extract::<usize>() else{return Ok(None)};
++        if i>=n{return Ok(None);}
++        let mut entries=std::collections::BTreeMap::new();
++        let entries_snapshot:Vec<_>=row.downcast::<PyDict>()?.iter().collect();
++        for (step,(j,value)) in entries_snapshot.into_iter().enumerate() {
++            if step%64==0{py.check_signals()?;}
++            if !j.is_exact_instance_of::<PyInt>(){return Ok(None);}
++            let Ok(j)=j.extract::<usize>() else{return Ok(None)};
++            if j>=n{return Ok(None);}
++            let Some(value)=parse(&value)? else{return Ok(None)};
++            if !value.is_zero(){entries.insert(j,value);}
++        }
++        if !entries.is_empty(){rows.insert(i,entries);}
++    }
++    Ok(Some(rows))
++}
++
++#[pyfunction]
++#[pyo3(signature=(matrix,n,k,stock=None))]
++fn _sdm_berk(matrix:&Bound<'_,PyAny>,n:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,
++    stock:Option<&Bound<'_,PyAny>>,py:Python<'_>)->PyResult<Option<PyObject>> {
++    py.check_signals()?;
++    let Some(domain)=super::fraction_free::domain(k) else{return Ok(None)};
++    if !n.is_exact_instance_of::<PyInt>(){return Ok(None);}
++    let Ok(n)=n.extract::<usize>() else{return Ok(None)};
++    if !matrix.is_exact_instance_of::<PyDict>() && !stock.is_some_and(|stock|matrix.get_type().is(stock)){return Ok(None);}
++    let Ok(matrix)=matrix.downcast::<PyDict>() else{return Ok(None)};
++    let out=PyDict::new(py);
++    if n==0{
++        out.set_item(0,element_object(py,Rat::from(Int::from(1)),domain)?)?;
++        return Ok(Some(out.into_any().unbind()));
++    }
++    if domain==ExactDomain::ZZ {
++        let Some(rows)=sparse_entries(matrix,n,py,|value|{
++            if scalar(value)!=Some(Scalar::ZZ){return Ok(None);}
++            let value=value.downcast::<PyDomainElement>()?.get();
++            let ElementValue::Rational(value)=&value.value.value else{unreachable!()};
++            Ok(Some(value.n.clone()))
++        })? else{return Ok(None)};
++        let Some(coefficients)=symox::poly::sdm::berkowitz_checked(&rows,n,&mut ||py.check_signals())? else{return Ok(None)};
++        for (i,value) in coefficients{py.check_signals()?;out.set_item(i,element_object(py,Rat::from(value),domain.clone())?)?;}
++    }else{
++        let Some(rows)=sparse_entries(matrix,n,py,|value|{
++            if scalar(value)!=Some(Scalar::QQ){return Ok(None);}
++            let value=value.downcast::<PyDomainElement>()?.get();
++            let ElementValue::Rational(value)=&value.value.value else{unreachable!()};
++            Ok(Some(value.clone()))
++        })? else{return Ok(None)};
++        let Some(coefficients)=symox::poly::sdm::berkowitz_checked(&rows,n,&mut ||py.check_signals())? else{return Ok(None)};
++        for (i,value) in coefficients{py.check_signals()?;out.set_item(i,element_object(py,value,domain.clone())?)?;}
++    }
++    Ok(Some(out.into_any().unbind()))
++}
++
++fn sparse_convolution<C:symox::poly::Coeff>(q:&Bound<'_,PyDict>,t:&Bound<'_,PyList>,degree:usize,
++    domain:ExactDomain,py:Python<'_>,mut parse:impl FnMut(&Bound<'_,PyAny>)->PyResult<Option<C>>)
++    ->PyResult<Option<PyObject>> {
++    // The legacy caller takes min/max(q): an empty dictionary must retain
++    // that explicit error instead of becoming a successfully empty result.
++    if q.is_empty(){return Ok(None);}
++    let mut q_native=std::collections::BTreeMap::new();
++    let items:Vec<_>=q.iter().collect();
++    for (step,(i,value)) in items.into_iter().enumerate(){
++        if step%64==0{py.check_signals()?;}
++        if !i.is_exact_instance_of::<PyInt>(){return Ok(None);}
++        let Ok(i)=i.extract::<usize>() else{return Ok(None)};
++        if i>degree{return Ok(None);}
++        let Some(value)=parse(&value)? else{return Ok(None)};
++        if !value.is_zero(){q_native.insert(i,value);}
++    }
++    let mut t_native=std::collections::BTreeMap::new();
++    for (i,value) in t.iter().enumerate(){
++        if i%64==0{py.check_signals()?;}
++        let Some(value)=parse(&value)? else{return Ok(None)};
++        if !value.is_zero(){t_native.insert(i,value);}
++    }
++    let result=symox::poly::sdm::toeplitz_product_checked(&q_native,&t_native,degree,&mut ||py.check_signals())?;
++    let out=PyDict::new(py);
++    for (i,value) in result{py.check_signals()?;out.set_item(i,element_object(py,value.to_rat(),domain.clone())?)?;}
++    Ok(Some(out.into_any().unbind()))
++}
++
++/// Finish the actual legacy prefix/recursive results, without replaying any
++/// arithmetic or conversion that may have invoked a user callback already.
++#[pyfunction]
++fn _sdm_berk_combine(q:&Bound<'_,PyAny>,t:&Bound<'_,PyAny>,degree:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,
++    py:Python<'_>)->PyResult<Option<PyObject>> {
++    py.check_signals()?;
++    let Some(domain)=super::fraction_free::domain(k) else{return Ok(None)};
++    if !degree.is_exact_instance_of::<PyInt>() || !q.is_exact_instance_of::<PyDict>()
++        || !t.is_exact_instance_of::<PyList>(){return Ok(None);}
++    let Ok(degree)=degree.extract::<usize>() else{return Ok(None)};
++    let q=q.downcast::<PyDict>()?;let t=t.downcast::<PyList>()?;
++    if domain==ExactDomain::ZZ{
++        sparse_convolution(q,t,degree,domain,py,|value|{
++            if scalar(value)!=Some(Scalar::ZZ){return Ok(None);}
++            let value=value.downcast::<PyDomainElement>()?.get();
++            let ElementValue::Rational(value)=&value.value.value else{unreachable!()};
++            Ok(Some(value.n.clone()))
++        })
++    }else{
++        sparse_convolution(q,t,degree,domain,py,|value|{
++            if scalar(value)!=Some(Scalar::QQ){return Ok(None);}
++            let value=value.downcast::<PyDomainElement>()?.get();
++            let ElementValue::Rational(value)=&value.value.value else{unreachable!()};
++            Ok(Some(value.clone()))
++        })
++    }
++}
++
+ pub fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
+     module.add_function(wrap_pyfunction!(_ddm_imatmul,module)?)?;
+     module.add_function(wrap_pyfunction!(_ddm_irref,module)?)?;
+@@ -396,5 +518,7 @@
+     module.add_function(wrap_pyfunction!(_inexact_linear_rref,module)?)?;
+     module.add_function(wrap_pyfunction!(_polymatrix_ground,module)?)?;
+     module.add_function(wrap_pyfunction!(_ddm_berk,module)?)?;
++    module.add_function(wrap_pyfunction!(_sdm_berk,module)?)?;
++    module.add_function(wrap_pyfunction!(_sdm_berk_combine,module)?)?;
+     Ok(())
+ }
+diff --git a/python/symox/polys/matrices/sdm.py b/python/symox/polys/matrices/sdm.py
+--- a/python/symox/polys/matrices/sdm.py
++++ b/python/symox/polys/matrices/sdm.py
+@@ -2157,6 +2157,14 @@
+ 
+     .. [1] https://en.wikipedia.org/wiki/Samuelson%E2%80%93Berkowitz_algorithm
+     """
++    if _sdm_stock_protocol(M, K):
++        native = _core.__dict__.get('_sdm_berk')
++        if native is not None:
++            stock = _SDM_DEFAULTDICT if _SDM_TYPE(M) is _SDM_DEFAULTDICT else _SDM_STOCK
++            result = native(M, n, K, stock)
++            if result is not None:
++                return result
++
+     zero = K.zero
+     one = K.one
+ 
+@@ -2209,6 +2217,16 @@
+         Tvals.pop()
+ 
+     q = sdm_berk(A, n-1, K)
++
++    # A real conversion in the original prefix/recursive call may have made
++    # the stock protocol decidable. Consume the actual q and Tvals; do not
++    # recompute an earlier matrix snapshot or any callback-produced result.
++    if _sdm_stock_protocol(M, K):
++        native = _core.__dict__.get('_sdm_berk_combine')
++        if native is not None:
++            result = native(q, Tvals, n, K)
++            if result is not None:
++                return result
+ 
+     # This would be the explicit multiplication T*q but we can do better:
+     #
+@@ -2235,3 +2253,154 @@
+             Tq[i] = Tqi
+ 
+     return Tq
++
++
++# Selection only: the general sparse implementation above remains the full
++# fallback for other domains, representations and customized protocols.
++from types import (FunctionType as _SDM_FUNCTION, MethodDescriptorType as _SDM_METHOD,
++                   GetSetDescriptorType as _SDM_GETSET, WrapperDescriptorType as _SDM_WRAPPER)
++from symox.polys.domains import _methods as _sdm_domain_methods
++from symox import _basic as _sdm_basic
++import builtins as _sdm_builtins
++import abc as _sdm_abc
++import _abc as _sdm_abc_native
++import sys as _sdm_sys
++from types import ModuleType as _SDM_MODULE, BuiltinFunctionType as _SDM_BUILTIN
++
++if '_SDM_BOOTSTRAP_CAPTURE' not in globals():
++    root = _sdm_sys.modules.get('symox')
++    namespace = root.__dict__ if type(root) is _SDM_MODULE else {}
++    spec = namespace.get('__spec__')
++    _SDM_BOOTSTRAP_CAPTURE = bool(getattr(spec,'_initializing',False))
++
++# A reload keeps the original evidence. A removed/reimported module after
++# package initialization never authenticates already customized functions.
++if _SDM_BOOTSTRAP_CAPTURE and '_SDM_PROTOCOL_READY' not in globals():
++    _SDM_TYPE, _SDM_DICT, _SDM_ALL, _SDM_ZIP = type, dict, all, zip
++    _SDM_ANY, _SDM_LEN, _SDM_OBJECT, _SDM_STRING = any, len, object, str
++    _SDM_IMPORT = _sdm_builtins.__import__
++    _SDM_STOCK_IMPORT = (_SDM_TYPE(_SDM_IMPORT) is _SDM_BUILTIN
++                         and _SDM_IMPORT.__name__ == '__import__' and _SDM_IMPORT.__module__ == 'builtins')
++    _SDM_ABC_CHECK = _sdm_abc.ABCMeta.__instancecheck__
++    _SDM_ABC_CHECK_CODE = _SDM_ABC_CHECK.__code__
++    _SDM_ABC_NATIVE_CHECK = _SDM_ABC_CHECK.__globals__['_abc_instancecheck']
++    _SDM_ABC_DUMP, _SDM_ABC_TOKEN = _sdm_abc_native._get_dump, _sdm_abc_native.get_cache_token
++    _SDM_STOCK = globals().get('_SDM_STOCK', SDM)
++    _SDM_STATE = _SDM_STOCK.__dict__['__dict__']
++    _SDM_RECURSION = globals().get('_SDM_RECURSION', sdm_berk)
++    _SDM_CODE = globals().get('_SDM_CODE', sdm_berk.__code__)
++    _SDM_FUNCTIONS = globals().get('_SDM_FUNCTIONS', tuple(
++        (module, name, module.__dict__[name], module.__dict__[name].__code__,
++         module.__dict__[name].__closure__, module.__dict__[name].__defaults__,
++         module.__dict__[name].__kwdefaults__)
++        for module, names in ((_sdm_domain_methods,
++            ('sum_', 'convert', '_not_a_coeff', '_inexact_value', '_float_from_sympy')),) for name in names))
++    _SDM_DOT, _SDM_DOT_CODE = sdm_dotvec, sdm_dotvec.__code__
++    _SDM_MATVEC, _SDM_MATVEC_CODE = sdm_matvecmul, sdm_matvecmul.__code__
++    _SDM_DEFAULTDICT = defaultdict
++    _SDM_NATIVE_DOMAIN, _SDM_NATIVE_ELEMENT = _core.Domain, _core.DomainElement
++    _SDM_DOMAIN_DESCRIPTORS = tuple((name, _SDM_NATIVE_DOMAIN.__dict__.get(name))
++                                  for name in ('zero', 'one', 'is_EX', 'is_EXRAW'))
++    _SDM_ELEMENT_DESCRIPTORS = tuple((name,_SDM_NATIVE_ELEMENT.__dict__.get(name))
++                                    for name in ('__bool__','__mul__','__add__','__neg__'))
++    _SDM_NATIVE_DESCRIPTORS = (_SDM_ALL(_SDM_TYPE(value) is _SDM_GETSET
++        and value.__objclass__ is _SDM_NATIVE_DOMAIN and value.__name__ == name
++        for name,value in _SDM_DOMAIN_DESCRIPTORS) and _SDM_ALL(_SDM_TYPE(value) is _SDM_WRAPPER
++        and value.__objclass__ is _SDM_NATIVE_ELEMENT and value.__name__ == name
++        for name,value in _SDM_ELEMENT_DESCRIPTORS))
++    _SDM_BASIC_META, _SDM_ABC_META = _sdm_basic._BasicMeta, _sdm_abc.ABCMeta
++    _SDM_BASIC, _SDM_MATRIX = _sdm_basic.Basic, _core.Matrix
++    _SDM_ELEMENT_NAME = _SDM_NATIVE_ELEMENT.__name__
++    _SDM_BASIC_CHECK = _sdm_basic._BasicMeta.__instancecheck__
++    _SDM_BASIC_CHECK_CODE = _SDM_BASIC_CHECK.__code__
++    _SDM_META_CELLS = tuple((f,f.__closure__,tuple(cell.cell_contents for cell in f.__closure__ or ()))
++                            for f in (_SDM_BASIC_CHECK,))
++    _SDM_LOOKUPS = globals().get('_SDM_LOOKUPS', tuple(
++        (namespace, name, namespace.get(name, _sdm_builtins.__dict__.get(name)))
++        for namespace in (globals(), _sdm_domain_methods.__dict__, _sdm_basic.__dict__)
++        for name in ('type','isinstance','getattr','hasattr','all','any','dict','set',
++                     'frozenset','bool','float','complex','str','bytes','bytearray','list','tuple',
++                     'int','len','range','min','max','enumerate')))
++    _SDM_PROTOCOL_READY = True
++
++
++def _sdm_stock_protocol(matrix, domain):
++    if not _SDM_BOOTSTRAP_CAPTURE:return False
++    if not _SDM_ALL(_SDM_TYPE(module) is _SDM_MODULE for module in (
++            _core,_sdm_basic,_sdm_domain_methods,_sdm_abc,_sdm_abc_native,_sdm_builtins,_sdm_sys)):return False
++    if not _SDM_STOCK_IMPORT or _sdm_builtins.__dict__.get('__import__') is not _SDM_IMPORT:return False
++    if not _SDM_ALL(namespace.get(name, _sdm_builtins.__dict__.get(name)) is original
++                    for namespace,name,original in _SDM_LOOKUPS):return False
++    if (sdm_berk is not _SDM_RECURSION or sdm_berk.__code__ is not _SDM_CODE
++            or sdm_dotvec is not _SDM_DOT or sdm_dotvec.__code__ is not _SDM_DOT_CODE
++            or sdm_matvecmul is not _SDM_MATVEC or sdm_matvecmul.__code__ is not _SDM_MATVEC_CODE
++            or defaultdict is not _SDM_DEFAULTDICT or SDM is not _SDM_STOCK):return False
++    if (_SDM_TYPE(_SDM_STOCK) is not _SDM_TYPE or (_SDM_LEN(_SDM_STOCK.__bases__) != 1 or _SDM_STOCK.__bases__[0] is not _SDM_DICT)
++            or '__getattribute__' in _SDM_STOCK.__dict__ or '__getattr__' in _SDM_STOCK.__dict__
++            or not _SDM_ALL(_SDM_STOCK.__dict__.get(name, _SDM_DICT.__dict__[name]) is _SDM_DICT.__dict__[name]
++                            for name in ('get','items','keys','values','__getitem__','__iter__','__len__'))):return False
++    if _SDM_STOCK.__dict__.get('__dict__') is not _SDM_STATE:return False
++    if _SDM_TYPE(matrix) is _SDM_STOCK:
++        state = _SDM_STATE.__get__(matrix,_SDM_STOCK)
++        # The stock constructor owns exactly these four metadata fields.
++        # Reject unknown state before looking up names: arbitrary dictionary
++        # keys could otherwise run equality callbacks during selection.
++        if (_SDM_TYPE(state) is not _SDM_DICT or _SDM_LEN(state) != 4
++                or not _SDM_ALL(_SDM_TYPE(name) is _SDM_STRING for name in state)
++                or not _SDM_ALL(name in state for name in ('shape','rows','cols','domain'))):return False
++    if (_SDM_TYPE(domain) is not _SDM_NATIVE_DOMAIN or not _SDM_NATIVE_DESCRIPTORS
++            or '__getattribute__' in _SDM_NATIVE_DOMAIN.__dict__
++            or '__getattr__' in _SDM_NATIVE_DOMAIN.__dict__
++            or _SDM_LEN(_SDM_NATIVE_DOMAIN.__bases__) != 1
++            or _SDM_NATIVE_DOMAIN.__bases__[0] is not _SDM_OBJECT):return False
++    if not _SDM_ALL(_SDM_NATIVE_ELEMENT.__dict__.get(name) is value
++                    for name,value in _SDM_ELEMENT_DESCRIPTORS):return False
++    native_convert = _sdm_domain_methods.__dict__.get('_native_convert')
++    if (_SDM_TYPE(native_convert) is not _SDM_METHOD
++            or native_convert.__objclass__ is not _SDM_NATIVE_DOMAIN
++            or native_convert.__name__ != 'convert'):return False
++    if (not _SDM_ALL(_SDM_NATIVE_DOMAIN.__dict__.get(name) is value for name,value in _SDM_DOMAIN_DESCRIPTORS)
++            or _SDM_NATIVE_DOMAIN.__dict__.get('sum') is not _sdm_domain_methods.__dict__.get('sum_')
++            or _SDM_NATIVE_DOMAIN.__dict__.get('convert') is not _sdm_domain_methods.__dict__.get('convert')
++            or '__getattribute__' in _SDM_NATIVE_ELEMENT.__dict__
++            or '__getattr__' in _SDM_NATIVE_ELEMENT.__dict__
++            or '__iadd__' in _SDM_NATIVE_ELEMENT.__dict__
++            or '__class__' in _SDM_NATIVE_ELEMENT.__dict__
++            or _SDM_LEN(_SDM_NATIVE_ELEMENT.__bases__) != 1
++            or _SDM_NATIVE_ELEMENT.__bases__[0] is not _SDM_OBJECT
++            or _SDM_NATIVE_ELEMENT.__name__ is not _SDM_ELEMENT_NAME):return False
++    if (_core.__dict__.get('Matrix') is not _SDM_MATRIX or _core.__dict__.get('Domain') is not _SDM_NATIVE_DOMAIN
++            or _core.__dict__.get('DomainElement') is not _SDM_NATIVE_ELEMENT
++            or _sdm_basic.__dict__.get('Basic') is not _SDM_BASIC
++            or _SDM_BASIC_META.__dict__.get('__instancecheck__') is not _SDM_BASIC_CHECK
++            or _SDM_BASIC_CHECK.__code__ is not _SDM_BASIC_CHECK_CODE):return False
++    try:
++        for function,closure,contents in _SDM_META_CELLS:
++            if (function.__closure__ is not closure
++                    or not _SDM_ALL(cell.cell_contents is value for cell,value in _SDM_ZIP(closure or (),contents))):return False
++    except ValueError:return False
++    # Stock K.convert asks isinstance(element,Basic). Only bypass that path
++    # when CPython already certifies this EXACT native element class false,
++    # with a current ABC token. A changed registry or uncached classification
++    # uses the old path, including all metaclass/import callbacks, and can
++    # make a later stock call eligible. No user class is probed by selection.
++    if (_SDM_ABC_META.__dict__.get('__instancecheck__') is not _SDM_ABC_CHECK
++            or _SDM_ABC_CHECK.__code__ is not _SDM_ABC_CHECK_CODE
++            or _SDM_ABC_CHECK.__globals__.get('_abc_instancecheck') is not _SDM_ABC_NATIVE_CHECK
++            or _sdm_abc_native.__dict__.get('_get_dump') is not _SDM_ABC_DUMP
++            or _sdm_abc_native.__dict__.get('get_cache_token') is not _SDM_ABC_TOKEN):return False
++    _registry,_positive,negative,version = _SDM_ABC_DUMP(_SDM_BASIC)
++    if (version != _SDM_ABC_TOKEN()
++            or not _SDM_ANY(ref() is _SDM_NATIVE_ELEMENT for ref in negative)):return False
++    mpmath = _sdm_sys.modules.get('mpmath')
++    if _SDM_TYPE(mpmath) is not _SDM_MODULE or 'libmp' not in mpmath.__dict__:return False
++    symox = _sdm_sys.modules.get('symox')
++    if (_SDM_TYPE(symox) is not _SDM_MODULE
++            or symox.__dict__.get('Basic') is not _SDM_BASIC
++            or not _SDM_ALL(name in symox.__dict__ for name in ('Expr','Set','Float','I','CoercionFailed','S'))):return False
++    for module,name,function,code,closure,defaults,kwdefaults in _SDM_FUNCTIONS:
++        current=module.__dict__.get(name)
++        if (current is not function or _SDM_TYPE(current) is not _SDM_FUNCTION
++                or current.__code__ is not code or current.__closure__ is not closure
++                or current.__defaults__ is not defaults or current.__kwdefaults__ is not kwdefaults):return False
++    return True
+diff --git a/tests/test_native_sdm_berkowitz.py b/tests/test_native_sdm_berkowitz.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_native_sdm_berkowitz.py
+@@ -0,0 +1,595 @@
++"""Sparse exact Berkowitz: complete coefficients, storage and protocol parity."""
++import abc
++import builtins
++import importlib
++import json
++import os
++import random
++import subprocess
++import sys
++from collections import Counter
++
++import pytest
++import sympy as sp
++import symox as sx
++from sympy.polys.matrices.sdm import sdm_berk as reference
++from symox.polys.matrices.domainmatrix import DomainMatrix
++from symox.polys.matrices.sdm import SDM
++
++sparse=importlib.import_module('symox.polys.matrices.sdm')
++methods=importlib.import_module('symox.polys.domains._methods')
++
++
++def values(raw,k):
++    return {i:{j:k(int(sp.numer(v)),int(sp.denom(v))) if k is sx.QQ else k(int(v))
++               for j,v in row.items()} for i,row in raw.items()}
++
++
++def warm(k):
++    # Keep cold semantic work on its established path. Native selection is
++    # optional until the exact coefficient class has a valid Basic=False cache.
++    assert k.sum([k.one])==k.one
++
++
++def alias_partition(result,source):
++    classes={}
++    for v in source:classes.setdefault(id(v),len(classes))
++    return [classes.setdefault(id(v),len(classes)) for v in result.values()]
++
++
++@pytest.mark.parametrize('k',[sx.ZZ,sx.QQ])
++@pytest.mark.parametrize('seed',range(36))
++def test_entire_sparse_coefficients_reference_cayley_hamilton_and_aliases(k,seed):
++    rng=random.Random(719231+seed);n=seed%9
++    raw={i:{j:sp.Rational(rng.randrange(-9,10),rng.randrange(1,11) if k is sx.QQ else 1)
++            for j in range(n) if rng.randrange(4)==0} for i in range(n)}
++    if seed%7==0:raw={}
++    a=values(raw,k)
++    if n>1 and seed%5==0:a[n-1]=a.get(0,{})
++    before={i:dict(row) for i,row in a.items()}
++    row_ids={i:id(row) for i,row in a.items()}
++    cell_ids={i:{j:id(v) for j,v in row.items()} for i,row in a.items()}
++    actual=sx._core._sdm_berk(a,n,k)
++    expected=reference(a,n,k)
++    assert actual is not None and type(actual) is dict and actual==expected
++    assert list(actual)==sorted(expected) and all(bool(v) for v in actual.values())
++    assert all(type(v) is type(k.one) and v.parent()==k for v in actual.values())
++    source=[v for row in a.values() for v in row.values()]
++    assert alias_partition(actual,source)==alias_partition(expected,source)
++    assert a==before and row_ids=={i:id(row) for i,row in a.items()}
++    assert cell_ids=={i:{j:id(v) for j,v in row.items()} for i,row in a.items()}
++    mat=sp.zeros(n)
++    for i,row in a.items():
++        for j,v in row.items():mat[i,j]=sp.Rational(str(v))
++    coefficients=[sp.Rational(str(actual.get(i,k.zero))) for i in range(n+1)]
++    assert coefficients==mat.charpoly().all_coeffs()
++    evaluated=sp.zeros(n)
++    for coefficient in coefficients:evaluated=evaluated*mat+coefficient*sp.eye(n)
++    assert evaluated==sp.zeros(n)
++
++
++@pytest.mark.parametrize('k',[sx.ZZ,sx.QQ])
++def test_large_exact_coefficients_and_coprime_denominators(k):
++    raw={0:{0:2**211+3,2:sp.Rational(2,17) if k is sx.QQ else 17},
++         1:{0:-3**81,1:sp.Rational(7**61,11**31) if k is sx.QQ else 7**61},
++         2:{1:sp.Rational(1,5**47) if k is sx.QQ else 5**47,2:3}}
++    a=values(raw,k)
++    assert sx._core._sdm_berk(a,3,k)==reference(a,3,k)
++
++
++@pytest.mark.parametrize('entry',['SDM','charpoly_berk','charpoly'])
++@pytest.mark.parametrize('k',[sx.ZZ,sx.QQ])
++def test_real_public_sparse_cycle_uses_native_without_dense_conversion(monkeypatch,entry,k):
++    n=7
++    a=SDM({i:{(i+1)%n:k(i+2)} for i in range(n)},(n,n),k)
++    dm=DomainMatrix.from_rep(a);before=a.copy();warm(k)
++    calls=[];native=sx._core._sdm_berk
++    def spy(*args):
++        result=native(*args);calls.append(result is not None);return result
++    monkeypatch.setattr(sx._core,'_sdm_berk',spy)
++    def dense(*args,**kwargs):raise AssertionError('unexpected dense conversion')
++    monkeypatch.setattr(SDM,'to_ddm',dense)
++    actual=a.charpoly() if entry=='SDM' else getattr(dm,entry)()
++    expected=[k.one]+[k.zero]*(n-1)+[-k(sp.prod(range(2,n+2)))]
++    assert actual==expected and calls and all(calls) and a==before
++
++
++@pytest.mark.parametrize('k',[sx.ZZ,sx.QQ])
++def test_isolated_zero_vertices_keep_sparse_leading_indices_for_huge_dimensions(k):
++    n=sys.maxsize
++    a={n-9:{n-9:k(2),n-2:k(3)},n-2:{n-9:k(5),n-2:k(7)}}
++    # Simultaneous permutation gives a2x2 block direct-summed with zeros:
++    # lambda**(n-2)*(lambda**2-9*lambda-1). No n-vector is needed here.
++    assert sx._core._sdm_berk(a,n,k)=={0:k.one,1:k(-9),2:k(-1)}
++    assert sx._core._sdm_berk({},n,k)=={0:k.one}
++
++
++def test_zero_dimension_preserves_the_old_ignored_storage_convention():
++    assert sx._core._sdm_berk({object():object()},0,sx.ZZ)=={0:sx.ZZ.one}
++
++
++@pytest.mark.parametrize('hook',['one','zero','sum','convert','neg','mul','add','bool',
++                               'dot','matvec','recursion','dict_constructor','range',
++                               'sdm_items','element_attributes','basic_check','convert_helper'])
++def test_custom_protocols_keep_the_complete_existing_callback_trace(monkeypatch,hook):
++    k=sx.QQ;a=SDM(values({0:{0:1,1:2,2:3},1:{0:4,1:5,2:6},2:{0:7,1:8,2:10}},k),(3,3),k)
++    original=sparse.sdm_berk;events=[];warm(k)
++    with monkeypatch.context() as patch:
++        if hook in ('one','zero'):
++            cls=type(k);descriptor=cls.__dict__[hook]
++            def get(self):events.append(hook);return descriptor.__get__(self,cls)
++            patch.setattr(cls,hook,property(get))
++        elif hook in ('sum','convert'):
++            cls=type(k);old=getattr(cls,hook)
++            def callback(self,*args,**kwargs):events.append(hook);return old(self,*args,**kwargs)
++            patch.setattr(cls,hook,callback)
++        elif hook in ('neg','mul','add','bool'):
++            cls=type(k.one);name={'neg':'__neg__','mul':'__mul__','add':'__add__','bool':'__bool__'}[hook];old=getattr(cls,name)
++            def callback(self,*args):events.append(hook);return old(self,*args)
++            patch.setattr(cls,name,callback)
++        elif hook in ('dot','matvec','recursion'):
++            name={'dot':'sdm_dotvec','matvec':'sdm_matvecmul','recursion':'sdm_berk'}[hook];old=getattr(sparse,name)
++            def callback(*args):events.append(hook);return old(*args)
++            patch.setattr(sparse,name,callback)
++        elif hook in ('dict_constructor','range'):
++            name='dict' if hook=='dict_constructor' else 'range';old=getattr(builtins,name)
++            def callback(*args,**kwargs):events.append(hook);return old(*args,**kwargs)
++            patch.setattr(sparse,name,callback,raising=False)
++        elif hook=='sdm_items':
++            old=SDM.items
++            def callback(self):events.append(hook);return old(self)
++            patch.setattr(SDM,'items',callback)
++        elif hook=='element_attributes':
++            cls=type(k.one)
++            def get(self,name):
++                if name=='__class__':events.append(hook)
++                return object.__getattribute__(self,name)
++            patch.setattr(cls,'__getattribute__',get)
++        elif hook=='basic_check':
++            cls=type(sx.Basic);old=cls.__instancecheck__
++            def callback(self,value):events.append(hook);return old(self,value)
++            patch.setattr(cls,'__instancecheck__',callback)
++        else:
++            old=methods._inexact_value
++            def callback(value):events.append(hook);return old(value)
++            patch.setattr(methods,'_inexact_value',callback)
++        actual=original(a,3,k);trace=events[:];events.clear()
++        with monkeypatch.context() as disable:
++            disable.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++            disable.setattr(sx._core,'_sdm_berk',lambda *args:None)
++            expected=original(a,3,k)
++        assert actual==expected and events==trace and trace
++
++
++@pytest.mark.parametrize('storage',['outer','row','integers','mixed','domain_mismatch','bool_key',
++                                  'negative_key','out_of_range','noninteger_dimension','bool_dimension'])
++def test_noncanonical_representations_keep_old_value_or_error(monkeypatch,storage):
++    events=[]
++    class Custom(dict):
++        def items(self):events.append('items');return super().items()
++    def make():
++        a=values({0:{0:1,1:2},1:{0:3,1:4}},sx.ZZ);n=2
++        if storage=='outer':a=Custom(a)
++        elif storage=='row':a[1]=Custom(a[1])
++        elif storage=='integers':a={0:{0:1,1:2},1:{0:3,1:4}}
++        elif storage=='mixed':a[1][0]=3
++        elif storage=='domain_mismatch':a[1][0]=sx.QQ(1,2)
++        elif storage=='bool_key':a={False:a[0],True:a[1]}
++        elif storage=='negative_key':a[-1]=a.pop(1)
++        elif storage=='out_of_range':a[0][2]=sx.ZZ.one
++        elif storage=='noninteger_dimension':n=2.0
++        elif storage=='bool_dimension':n=True
++        return a,n
++    def run():
++        a,n=make()
++        try:
++            result=sparse.sdm_berk(a,n,sx.ZZ)
++            return ('value',[(i,str(v),type(v).__name__) for i,v in result.items()])
++        except Exception as error:return (type(error),str(error))
++    actual=run();trace=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++        patch.setattr(sx._core,'_sdm_berk',lambda *args:None)
++        expected=run()
++    assert actual==expected and trace==events
++
++
++@pytest.mark.parametrize('domain',[sx.GF(7),sx.ZZ.poly_ring(sx.Symbol('t')),sx.RR,sx.CC,sx.EXRAW])
++def test_other_domains_retain_the_complete_algorithm(monkeypatch,domain):
++    a={0:{0:domain(1),1:domain(2)},1:{0:domain(3),1:domain(4)}}
++    actual=sparse.sdm_berk(a,2,domain)
++    with monkeypatch.context() as patch:
++        patch.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++        patch.setattr(sx._core,'_sdm_berk',lambda *args:None)
++        expected=sparse.sdm_berk(a,2,domain)
++    assert actual==expected and [(i,str(v)) for i,v in actual.items()]==[(i,str(v)) for i,v in expected.items()]
++
++
++def test_invalidated_abc_cache_uses_full_fallback_then_stock_native(monkeypatch):
++    a=values({0:{0:1,1:2},1:{0:3,1:4}},sx.QQ);warm(sx.QQ)
++    class Temporary(abc.ABC):pass
++    class Registered:pass
++    Temporary.register(Registered)
++    assert not sparse._sdm_stock_protocol(a,sx.QQ)
++    first=sparse.sdm_berk(a,2,sx.QQ)
++    assert sparse._sdm_stock_protocol(a,sx.QQ)
++    calls=[];native=sx._core._sdm_berk
++    def spy(*args):result=native(*args);calls.append(result is not None);return result
++    monkeypatch.setattr(sx._core,'_sdm_berk',spy)
++    assert sparse.sdm_berk(a,2,sx.QQ)==first and calls==[True]
++
++
++def test_stock_public_route_does_not_delegate_matrix_arithmetic_to_python():
++    k=sx.QQ;a=SDM(values({0:{0:1,1:2},1:{0:3,1:4}},k),(2,2),k);warm(k)
++    forbidden={sparse.sdm_dotvec.__code__,sparse.sdm_matvecmul.__code__,methods.sum_.__code__,methods.convert.__code__}
++    calls=[]
++    def profile(frame,event,arg):
++        if event=='call' and frame.f_code in forbidden:calls.append(frame.f_code.co_name)
++    old=sys.getprofile()
++    try:
++        sys.setprofile(profile)
++        result=a.charpoly()
++    finally:sys.setprofile(old)
++    assert result==[k.one,k(-5),k(-2)] and not calls
++
++
++@pytest.mark.parametrize('hook',['code','native_convert','sum_code','basic_cell'])
++def test_changed_code_and_delegates_decline_without_replacing_old_errors(monkeypatch,hook):
++    k=sx.QQ;a=values({0:{0:1,1:2},1:{0:3,1:4}},k);warm(k);events=[]
++    if hook=='basic_cell':
++        # This cell is shared by methods of the metaclass. Keep its mutation
++        # in a separate interpreter so even a failure cannot pollute pytest.
++        script='''
++import symox as s,importlib,json
++m=importlib.import_module('symox.polys.matrices.sdm');b=importlib.import_module('symox._basic')
++k=s.QQ;a={0:{0:k(1),1:k(2)},1:{0:k(3),1:k(4)}};k.sum([k.one])
++cell=b._BasicMeta.__instancecheck__.__closure__[0];original=cell.cell_contents
++try:
++    del cell.cell_contents
++    refused=not m._sdm_stock_protocol(a,k)
++    try:m.sdm_berk(a,2,k)
++    except Exception as e:actual=(type(e).__name__,str(e))
++    native=s._core._sdm_berk;s._core._sdm_berk=lambda *args:None
++    try:m.sdm_berk(a,2,k)
++    except Exception as e:expected=(type(e).__name__,str(e))
++finally:cell.cell_contents=original
++assert refused and actual==expected
++print(json.dumps(actual))
++'''
++        result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=10)
++        assert result.returncode==0,result.stdout+result.stderr
++        assert 'RuntimeError' in result.stdout
++        return
++    with monkeypatch.context() as patch:
++        if hook=='native_convert':
++            old=methods._native_convert
++            def convert(*args):events.append('native_convert');return old(*args)
++            patch.setattr(methods,'_native_convert',convert)
++        else:
++            function=methods._inexact_value if hook=='code' else methods.sum_
++            patch.setitem(function.__globals__,'_sdm_test_events',events)
++            if hook=='code':
++                def replacement(value):
++                    _sdm_test_events.append('code')
++                    return None
++            else:
++                def replacement(self,args):
++                    _sdm_test_events.append('sum_code')
++                    result=self.zero
++                    for value in args:result+=self.convert(value)
++                    return result
++            patch.setattr(function,'__code__',replacement.__code__)
++        assert not sparse._sdm_stock_protocol(a,k)
++        actual=sparse.sdm_berk(a,2,k);trace=events[:];events.clear()
++        with monkeypatch.context() as disable:
++            disable.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++            disable.setattr(sx._core,'_sdm_berk',lambda *args:None)
++            expected=sparse.sdm_berk(a,2,k)
++        assert actual==expected and events==trace and trace
++
++
++def test_module_reload_keeps_a_conservative_complete_fallback():
++    script='''
++import symox as s,importlib
++m=importlib.import_module('symox.polys.matrices.sdm');k=s.QQ
++a={0:{0:k(1),1:k(2)},1:{0:k(3),1:k(4)}};k.sum([k.one])
++old=m.sdm_berk
++m=importlib.reload(m)
++assert not m._sdm_stock_protocol(a,k)
++assert m.sdm_berk(a,2,k)==old(a,2,k)=={0:k.one,1:k(-5),2:k(-2)}
++'''
++    result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=10)
++    assert result.returncode==0,result.stdout+result.stderr
++
++
++def test_native_interruptions_preserve_input_and_never_become_refusal():
++    script='''
++import symox as s,signal
++n=256;k=s.ZZ;v=k(2**1024+1)
++a={i:{(i+1)%n:v} for i in range(n)};before={i:dict(row) for i,row in a.items()}
++class Stop(Exception):pass
++def handler(*args):raise Stop('interrupt-token')
++signal.signal(signal.SIGINT,handler)
++try:
++    print('ready',flush=True)
++    s._core._sdm_berk(a,n,k)
++except Stop as error:
++    assert str(error)=='interrupt-token' and a==before
++    print('interrupted',flush=True)
++else:raise AssertionError('native computation ignored interrupt')
++'''
++    process=subprocess.Popen([sys.executable,'-u','-c',script],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
++    try:
++        assert process.stdout.readline().strip()=='ready'
++        process.send_signal(__import__('signal').SIGINT)
++        out,err=process.communicate(timeout=15)
++        assert process.returncode==0 and 'interrupted' in out,out+err
++    finally:
++        if process.poll() is None:process.kill();process.wait()
++
++
++def test_stock_sparse_path_works_with_reference_imports_blocked():
++    script='''
++import sys
++class NoReference:
++    def find_spec(self,fullname,path=None,target=None):
++        if fullname=='sympy' or fullname.startswith('sympy.'):raise AssertionError(fullname)
++sys.meta_path.insert(0,NoReference())
++import symox as s,importlib
++m=importlib.import_module('symox.polys.matrices.sdm');k=s.QQ
++n=7;a=m.SDM({i:{(i+1)%n:k(i+2)} for i in range(n)},(n,n),k);k.sum([k.one])
++assert m._sdm_stock_protocol(a,k)
++assert a.charpoly()==[k.one]+[k.zero]*6+[k(-40320)]
++assert not any(name=='sympy' or name.startswith('sympy.') for name in sys.modules)
++'''
++    result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=10)
++    assert result.returncode==0,result.stdout+result.stderr
++
++
++def test_fresh_reimport_does_not_bless_a_custom_callable_without_code():
++    script='''
++import symox as s,sys,importlib
++m=importlib.import_module('symox.polys.matrices.sdm');k=s.QQ
++old=type(k).sum;events=[]
++class Callback:
++    def __get__(self,instance,owner):
++        def call(args):events.append('sum');return old(instance,args)
++        return call
++type(k).sum=Callback()
++del sys.modules['symox.polys.matrices.sdm']
++m=importlib.import_module('symox.polys.matrices.sdm')
++a={0:{0:k(1),1:k(2)},1:{0:k(3),1:k(4)}}
++assert not m._sdm_stock_protocol(a,k)
++assert m.sdm_berk(a,2,k)=={0:k.one,1:k(-5),2:k(-2)} and events
++'''
++    result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=10)
++    assert result.returncode==0,result.stdout+result.stderr
++
++
++@pytest.mark.parametrize('hook',['sum','convert','zero'])
++@pytest.mark.parametrize('failure',[ValueError,KeyboardInterrupt])
++def test_callback_errors_propagate_at_the_established_point(monkeypatch,hook,failure):
++    k=sx.QQ;a=values({0:{0:1,1:2},1:{0:3,1:4}},k);warm(k);events=[]
++    cls=type(k)
++    def callback(*args,**kwargs):events.append(hook);raise failure('callback-token')
++    if hook=='zero':callback=property(callback)
++    with monkeypatch.context() as patch:
++        patch.setattr(cls,hook,callback)
++        def run():
++            try:sparse.sdm_berk(a,2,k)
++            except BaseException as error:return type(error),str(error)
++            raise AssertionError('callback was bypassed')
++        actual=run();trace=events[:];events.clear()
++        with monkeypatch.context() as disable:
++            disable.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++            disable.setattr(sx._core,'_sdm_berk',lambda *args:None)
++            expected=run()
++        assert actual==expected==(failure,'callback-token') and events==trace==[hook]
++
++
++@pytest.mark.parametrize('target',['basic','abc'])
++def test_metaclass_descriptor_callbacks_are_not_probed_by_selection(monkeypatch,target):
++    basic=importlib.import_module('symox._basic')
++    cls=basic._BasicMeta if target=='basic' else abc.ABCMeta
++    old=cls.__dict__['__instancecheck__']
++    k=sx.QQ;a=values({0:{0:1,1:2},1:{0:3,1:4}},k);warm(k);events=[]
++    class Descriptor:
++        def __get__(self,instance,owner):
++            events.append(('bind',instance is None))
++            return lambda value:old(instance,value)
++    with monkeypatch.context() as patch:
++        patch.setattr(cls,'__instancecheck__',Descriptor())
++        assert not sparse._sdm_stock_protocol(a,k)
++        assert not events
++        actual=sparse.sdm_berk(a,2,k);trace=events[:];events.clear()
++        with monkeypatch.context() as disable:
++            disable.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++            disable.setattr(sx._core,'_sdm_berk',lambda *args:None)
++            expected=sparse.sdm_berk(a,2,k)
++        assert actual==expected and events==trace and trace
++        assert all(bound is False for _,bound in trace)
++
++
++@pytest.mark.parametrize('target',['Domain','DomainElement','native','sum_alias','basic_alias','abc_dump'])
++def test_missing_optional_aliases_keep_the_established_value_or_error(monkeypatch,target):
++    basic=importlib.import_module('symox._basic');abc_native=importlib.import_module('_abc')
++    k=sx.QQ;a=values({0:{0:1,1:2},1:{0:3,1:4}},k);warm(k)
++    owner,name={'Domain':(sx._core,'Domain'),'DomainElement':(sx._core,'DomainElement'),
++                'native':(sx._core,'_sdm_berk'),'sum_alias':(methods,'sum_'),
++                'basic_alias':(basic,'Basic'),'abc_dump':(abc_native,'_get_dump')}[target]
++    def run():
++        try:return ('value',sparse.sdm_berk(a,2,k))
++        except Exception as error:return (type(error),str(error))
++    with monkeypatch.context() as patch:
++        patch.delattr(owner,name)
++        actual=run()
++        with monkeypatch.context() as disable:
++            disable.setattr(sx._core,'_sdm_berk',lambda *args:None,raising=False)
++            expected=run()
++        assert actual==expected
++
++
++@pytest.mark.parametrize('method',['items','get'])
++def test_instance_method_overrides_keep_existing_callbacks(monkeypatch,method):
++    k=sx.QQ;a=SDM({0:{0:k(3)}},(1,1),k);warm(k);events=[];old=getattr(SDM,method)
++    def callback(*args):events.append(method);return old(a,*args)
++    a.__dict__[method]=callback
++    assert not sparse._sdm_stock_protocol(a,k)
++    actual=sparse.sdm_berk(a,1,k);trace=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++        patch.setattr(sx._core,'_sdm_berk',lambda *args:None)
++        patch.setattr(sx._core,'_sdm_berk_combine',lambda *args:None)
++        expected=sparse.sdm_berk(a,1,k)
++    assert actual==expected and trace==events and trace
++
++
++@pytest.mark.parametrize('shape',['dense','cycle','diagonal'])
++def test_real_first_call_can_enter_native_at_the_original_conversion_boundary(monkeypatch,shape):
++    # Invalidate only an unrelated ABC registry, without altering Basic's
++    # membership rules. This recreates the cold protocol state honestly.
++    k=sx.QQ;n=7
++    if shape=='dense':raw={i:{j:(i*3+j)%9+1 for j in range(n)} for i in range(n)}
++    elif shape=='cycle':raw={i:{(i+1)%n:i+2} for i in range(n)}
++    else:raw={i:{i:i+1} for i in range(n)}
++    a=SDM(values(raw,k),(n,n),k)
++    class Temporary(abc.ABC):pass
++    class Registered:pass
++    Temporary.register(Registered)
++    assert not sparse._sdm_stock_protocol(a,k)
++    calls=[];native=sx._core._sdm_berk;combine=sx._core._sdm_berk_combine
++    def spy(*args):result=native(*args);calls.append(('matrix',result is not None));return result
++    def finish(*args):result=combine(*args);calls.append(('combine',result is not None));return result
++    monkeypatch.setattr(sx._core,'_sdm_berk',spy);monkeypatch.setattr(sx._core,'_sdm_berk_combine',finish)
++    actual=a.charpoly()
++    assert any(ok for _,ok in calls)
++    if shape!='diagonal':assert any(kind=='matrix' and ok for kind,ok in calls)
++    else:assert any(kind=='combine' and ok for kind,ok in calls)
++    mat=sp.zeros(n)
++    for i,row in raw.items():
++        for j,v in row.items():mat[i,j]=v
++    assert [sp.Rational(str(v)) for v in actual]==mat.charpoly().all_coeffs()
++
++
++@pytest.mark.parametrize('mutate',['input','prefix_result'])
++def test_native_continuation_consumes_actual_prefix_results_without_replay(monkeypatch,mutate):
++    k=sx.QQ;raw={0:{0:1,1:2,2:3},1:{0:4,1:5,2:6},2:{0:7,1:8,2:10}}
++    cls=type(k);original_sum=cls.sum;native=sx._core._sdm_berk;combine=sx._core._sdm_berk_combine
++    def run(enable):
++        a=SDM(values(raw,k),(3,3),k);events=[];routes=[]
++        def first_sum(self,args):
++            events.append('first_sum');cls.sum=original_sum
++            result=original_sum(self,args)
++            if mutate=='input':a[2][2]=k(123)
++            else:result+=k(1)
++            return result
++        with monkeypatch.context() as patch:
++            patch.setattr(cls,'sum',first_sum)
++            def matrix(*args):result=native(*args);routes.append(result is not None);return result
++            def finish(*args):result=combine(*args);routes.append(result is not None);return result
++            patch.setattr(sx._core,'_sdm_berk',matrix if enable else lambda *args:None)
++            patch.setattr(sx._core,'_sdm_berk_combine',finish if enable else lambda *args:None)
++            result=a.charpoly()
++        return result,events,routes,a[2][2]
++    actual,trace,routes,last=run(True);expected,reference_trace,_,reference_last=run(False)
++    assert actual==expected and trace==reference_trace==['first_sum']
++    assert last==reference_last and any(routes)
++
++
++def test_empty_legacy_coefficient_map_keeps_the_original_explicit_error():
++    assert sx._core._sdm_berk_combine({},[sx.QQ.one],2,sx.QQ) is None
++    assert sx._core._sdm_berk_combine({0:sx.QQ.zero},[sx.QQ.one],2,sx.QQ)=={}
++
++
++def test_nonstandard_instance_dictionary_keys_are_not_compared_by_selection(monkeypatch):
++    k=sx.QQ;a=SDM(values({0:{0:1,1:2},1:{0:3,1:4},2:{2:5}},k),(3,3),k);warm(k);events=[]
++    class Key:
++        def __hash__(self):return hash('get')
++        def __eq__(self,other):events.append(other);return False
++    a.__dict__[Key()]=1
++    actual=sparse.sdm_berk(a,3,k);trace=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++        patch.setattr(sx._core,'_sdm_berk',lambda *args:None)
++        patch.setattr(sx._core,'_sdm_berk_combine',lambda *args:None)
++        expected=sparse.sdm_berk(a,3,k)
++    assert actual==expected and events==trace==[]
++
++
++@pytest.mark.parametrize('k',[sx.ZZ,sx.QQ])
++@pytest.mark.parametrize('route',['whole','prefix'])
++@pytest.mark.parametrize('pattern',['leading','gapped','stored_zero','nilpotent'])
++def test_zero_vertices_and_stored_zeros_on_whole_and_prefix_public_paths(monkeypatch,k,route,pattern):
++    n=8
++    raw={'leading':{3:{3:2,4:3},4:{3:5,4:7}},
++         'gapped':{1:{1:2,6:3},6:{1:5,6:7}},
++         'stored_zero':{0:{0:0,7:0},2:{2:2,5:3},5:{2:5,5:7},7:{}},
++         'nilpotent':{2:{4:2},4:{7:3},7:{7:0}}}[pattern]
++    a=SDM(values(raw,k),(n,n),k);before={i:dict(row) for i,row in a.items()};warm(k)
++    calls=[];native=sx._core._sdm_berk;combine=sx._core._sdm_berk_combine
++    def matrix(*args):
++        result=native(*args) if route=='whole' else None
++        calls.append(('matrix',result is not None));return result
++    def finish(*args):
++        result=combine(*args);calls.append(('combine',result is not None));return result
++    monkeypatch.setattr(sx._core,'_sdm_berk',matrix)
++    monkeypatch.setattr(sx._core,'_sdm_berk_combine',finish)
++    actual=a.charpoly()
++    expected_map=reference(before,n,k)
++    assert actual==[expected_map.get(i,k.zero) for i in range(n+1)]
++    assert a==before and any(kind==('matrix' if route=='whole' else 'combine') and ok for kind,ok in calls)
++    if pattern=='nilpotent':assert actual==[k.one]+[k.zero]*n
++    else:assert actual==[k.one,k(-9),k(-1)]+[k.zero]*(n-2)
++
++
++@pytest.mark.parametrize('route',['whole','prefix'])
++@pytest.mark.parametrize('location',['row_negative','column_negative','row_large','column_large'])
++@pytest.mark.parametrize('zero',[False,True])
++def test_invalid_indices_are_not_discarded_even_for_explicit_zeros(monkeypatch,route,location,zero):
++    k=sx.QQ;n=3;a=values({0:{0:2,1:3},1:{0:5,1:7}},k)
++    bad=-1 if location.endswith('negative') else n
++    if location.startswith('row'):a[bad]={1:k.zero if zero else k.one}
++    else:a.setdefault(1,{})[bad]=k.zero if zero else k.one
++    assert sx._core._sdm_berk(a,n,k) is None
++    before={i:dict(row) for i,row in a.items()};warm(k)
++    native=sx._core._sdm_berk
++    if route=='prefix':monkeypatch.setattr(sx._core,'_sdm_berk',lambda *args:None)
++    def run():
++        try:return ('value',sparse.sdm_berk(a,n,k))
++        except Exception as error:return (type(error),str(error))
++    actual=run()
++    with monkeypatch.context() as patch:
++        patch.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++        expected=run()
++    assert actual==expected and a==before
++
++
++@pytest.mark.parametrize('key',[-1,3,True,1.5])
++def test_prefix_combiner_declines_invalid_coefficient_indices(key):
++    assert sx._core._sdm_berk_combine({0:sx.ZZ.one,key:sx.ZZ.zero},[sx.ZZ.one],2,sx.ZZ) is None
++
++
++def test_first_public_calls_in_a_fresh_process_report_the_actual_routes():
++    script='''
++import symox as s,importlib,json
++from symox.polys.matrices.sdm import SDM
++from symox.polys.matrices.domainmatrix import DomainMatrix
++m=importlib.import_module('symox.polys.matrices.sdm')
++# No warm-up, ABC manipulation or preliminary coefficient conversion.
++n=7;k=s.QQ;a=SDM({i:{(i+1)%n:k(i+2)} for i in range(n)},(n,n),k)
++routes=[];native=s._core._sdm_berk;combine=s._core._sdm_berk_combine
++initial=m._sdm_stock_protocol(a,k)
++def matrix(*args):
++ r=native(*args);routes.append(['matrix',r is not None]);return r
++def finish(*args):
++ r=combine(*args);routes.append(['combine',r is not None]);return r
++s._core._sdm_berk=matrix;s._core._sdm_berk_combine=finish
++expected=[k.one]+[k.zero]*6+[-k(40320)]
++assert a.charpoly()==expected and any(ok for _,ok in routes)
++first=list(routes);routes.clear()
++assert DomainMatrix.from_rep(a).charpoly()==expected and any(ok for _,ok in routes)
++print(json.dumps({'initial':initial,'sdm':first,'domainmatrix':routes}))
++'''
++    result=subprocess.run([sys.executable,'-c',script],text=True,capture_output=True,check=True,timeout=30)
++    routes=json.loads(result.stdout)
++    assert routes['sdm'] and routes['domainmatrix']
+diff --git a/tests/test_native_sdm_conversion_type_protocols.py b/tests/test_native_sdm_conversion_type_protocols.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_native_sdm_conversion_type_protocols.py
+@@ -0,0 +1,23 @@
++"""Global isinstance operands in the stock conversion are observable protocols."""
++import importlib
++import pytest
++import symox as s
++
++sparse=importlib.import_module('symox.polys.matrices.sdm')
++methods=importlib.import_module('symox.polys.domains._methods')
++
++
++@pytest.mark.parametrize('name',['str','bytes','bytearray','list','tuple'])
++def test_conversion_global_type_callbacks_match_the_original_path(monkeypatch,name):
++    k=s.QQ;a={0:{0:k(2),1:k(3)},1:{0:k(5),1:k(7)}}
++    k.sum([k.one])
++    events=[]
++    class Meta(type):
++        def __instancecheck__(cls,value):events.append(name);return False
++    class Custom(metaclass=Meta):pass
++    monkeypatch.setattr(methods,name,Custom,raising=False)
++    actual=sparse.sdm_berk(a,2,k);trace=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(sparse,'_sdm_stock_protocol',lambda *args:False)
++        expected=sparse.sdm_berk(a,2,k)
++    assert actual==expected and trace==events and trace
+diff --git a/tests/test_native_sdm_domain_attributes.py b/tests/test_native_sdm_domain_attributes.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_native_sdm_domain_attributes.py
+@@ -0,0 +1,22 @@
++import importlib
++import pytest
++import symox as s
++m=importlib.import_module('symox.polys.matrices.sdm')
++
++@pytest.mark.parametrize('hook',['__getattribute__','__getattr__'])
++def test_domain_attribute_protocol_keeps_the_existing_value_and_trace(monkeypatch,hook):
++    k=s.QQ;cls=type(k);a={0:{0:k(2),1:k(3)},1:{0:k(5),1:k(7)}};k.sum([k.one]);events=[]
++    old=cls.__getattribute__
++    def callback(self,name):
++        events.append(name)
++        if hook=='__getattr__':raise AttributeError(name)
++        return old(self,name)
++    monkeypatch.setattr(cls,hook,callback,raising=False)
++    assert not m._sdm_stock_protocol(a,k)
++    assert events==[]
++    actual=m.sdm_berk(a,2,k);trace=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(m,'_sdm_stock_protocol',lambda *args:False)
++        expected=m.sdm_berk(a,2,k)
++    assert actual==expected and events==trace
++    if hook=='__getattribute__':assert trace
+diff --git a/crates/symox-core/src/poly/fraction_free.rs b/crates/symox-core/src/poly/fraction_free.rs
+--- a/crates/symox-core/src/poly/fraction_free.rs
++++ b/crates/symox-core/src/poly/fraction_free.rs
+@@ -267,3 +267,149 @@
+         assert_eq!(clear_denominators::<u8>(&[], false, &mut || Err(7)), Err(7));
+     }
+ }
++
++
++/// Stock ZZ/QQ AUTO decisions, preserving the Python heuristic's binary64
++/// operation order. Statistics count literal sparse rows/entries, including
++/// explicit zeros and empty rows; dense callers omit zero rows/entries.
++#[derive(Clone,Copy,Debug,PartialEq,Eq)]
++pub enum AutoMethod { GJ, FF, CD }
++impl AutoMethod {
++    pub fn name(self)->&'static str {match self {Self::GJ=>"GJ",Self::FF=>"FF",Self::CD=>"CD"}}
++}
++#[derive(Clone,Copy,Debug)]
++pub struct AutoStats { pub rows:usize,pub entries:u128,pub columns:usize }
++#[derive(Clone,Copy,Debug,PartialEq,Eq)]
++pub enum AutoPrefix { Done(AutoMethod), IntegerBits, RationalDenominators }
++
++fn integer_ratio(n:num_bigint::BigInt,d:num_bigint::BigInt)->f64 {
++    // CPython int/int rounds the exact rational once, rather than converting
++    // each integer to f64 first. Reuse the certified destination rounding.
++    crate::Number::rational(n,d).expect("positive AUTO ratio denominator").to_f64()
++}
++impl AutoStats {
++    fn density(self)->f64 {
++        if self.rows==0 {0.0}
++        else {integer_ratio(self.entries.into(),self.rows.into())}
++    }
++}
++pub fn auto_prefix(stats:AutoStats,rational:bool)->AutoPrefix {
++    let density=stats.density();
++    if rational {
++        if density<(5.0_f64).min(integer_ratio(stats.columns.into(),2.into())) {
++            AutoPrefix::Done(AutoMethod::GJ)
++        }else {AutoPrefix::RationalDenominators}
++    }else if stats.rows<10 {
++        AutoPrefix::Done(if density<integer_ratio(stats.columns.into(),2.into()) {AutoMethod::GJ}else{AutoMethod::FF})
++    }else if density<5.0 {AutoPrefix::Done(AutoMethod::GJ)}
++    else if density>5.0+integer_ratio(10000.into(),stats.rows.into()) {AutoPrefix::Done(AutoMethod::FF)}
++    else {AutoPrefix::IntegerBits}
++}
++pub fn auto_integer_bits(stats:AutoStats,bits:u64)->Option<AutoMethod> {
++    if stats.rows==0||bits==0 {return None;} // Preserve malformed-storage fallback.
++    let wideness=(1.0_f64).max(((2.0_f64/3.0)*stats.columns as f64)/stats.rows as f64);
++    let divisor=num_bigint::BigInt::from(stats.rows)*num_bigint::BigInt::from(bits).pow(2);
++    let max_density=(5.0+integer_ratio(10000.into(),divisor))*wideness;
++    Some(if stats.density()<max_density {AutoMethod::GJ}else{AutoMethod::FF})
++}
++pub fn auto_rational_denominators<E>(values:&[super::Rat],check:&mut impl FnMut()->Result<(),E>)->Result<AutoMethod,E> {
++    let mut maximum=None;
++    for value in values {check()?;maximum=Some(maximum.unwrap_or(0).max(value.n.bits()));}
++    let bits=maximum.unwrap_or(1);
++    let mut lcm=super::Int::one();
++    for value in values {
++        check()?;lcm=lcm.lcm(&value.d);
++        if u128::from(lcm.bits())>5*u128::from(bits) {return Ok(AutoMethod::GJ);}
++    }
++    check()?;
++    Ok(if lcm.bits()<50 {AutoMethod::CD}else{AutoMethod::FF})
++}
++
++#[cfg(test)]
++mod auto_tests {
++    use super::*;
++    use super::super::{Int,Rat};
++    #[test]
++    fn literal_sparse_rows_and_zero_width_choices() {
++        assert_eq!(auto_prefix(AutoStats{rows:0,entries:0,columns:0},false),AutoPrefix::Done(AutoMethod::FF));
++        assert_eq!(auto_prefix(AutoStats{rows:0,entries:0,columns:0},true),AutoPrefix::RationalDenominators);
++        assert_eq!(auto_prefix(AutoStats{rows:0,entries:0,columns:1},true),AutoPrefix::Done(AutoMethod::GJ));
++        assert_eq!(auto_prefix(AutoStats{rows:10,entries:50,columns:5},false),AutoPrefix::IntegerBits);
++        assert_eq!(auto_integer_bits(AutoStats{rows:10,entries:50,columns:5},0),None);
++    }
++    #[test]
++    fn rational_lcm_thresholds_and_cancellation() {
++        let mut check=||Ok::<(),()>(());
++        assert_eq!(auto_rational_denominators(&[],&mut check),Ok(AutoMethod::CD));
++        assert_eq!(auto_rational_denominators(&[Rat::zero()],&mut check),Ok(AutoMethod::GJ));
++        assert_eq!(auto_rational_denominators(&[Rat::new(Int::from(1),Int::from(3))],&mut check),Ok(AutoMethod::CD));
++        let big=Int::from(num_bigint::BigInt::from(1)<<50usize); // 51 bits, numerator large enough for FF.
++        assert_eq!(auto_rational_denominators(&[Rat::new(big.add(&Int::one()),big)],&mut check),Ok(AutoMethod::FF));
++        assert_eq!(auto_rational_denominators(&[Rat::one()],&mut ||Err(17)),Err(17));
++    }
++    #[test]
++    fn rational_rounding_is_not_rounded_integer_operands() {
++        let n=num_bigint::BigInt::from(9007199254740993u64);
++        let d=num_bigint::BigInt::from(9007199254740994u64);
++        assert_eq!(integer_ratio(n,d).to_bits(),1.0_f64.to_bits()-1);
++    }
++}
++
++
++#[cfg(test)]
++mod auto_rounding_fixtures {
++    use super::*;
++    #[test]
++    fn python_binary64_statistics_and_threshold_boundaries() {
++        // Independently generated with CPython int/int, then its exact
++        // binary64 add/mul/div sequence; includes integers beyond 2^53.
++        let cases=[
++            (10u64,48u128,9u64,1u64,"GJ",4617090337980232499u64),
++            (10u64,57u128,9u64,3u64,"GJ",4618103647896390861u64),
++            (10u64,53u128,20u64,17u64,"GJ",4617653287933653811u64),
++            (10u64,52u128,9u64,139u64,"FF",4617540697942969549u64),
++            (10u64,53u128,67u64,211u64,"GJ",4617653287933653811u64),
++            (13u64,66u128,18446744073709551615u64,1u64,"GJ",4617402125646742764u64),
++            (13u64,64u128,18446744073709551615u64,3u64,"GJ",4617228910276459284u64),
++            (13u64,65u128,18446744073709551615u64,17u64,"GJ",4617315517961601024u64),
++            (13u64,71u128,9u64,139u64,"FF",4617835164072451466u64),
++            (13u64,64u128,18446744073709551615u64,211u64,"GJ",4617228910276459284u64),
++            (29u64,149u128,18446744073709551615u64,1u64,"GJ",4617470814500475869u64),
++            (29u64,151u128,20u64,3u64,"GJ",4617548462769913291u64),
++            (29u64,144u128,67u64,17u64,"GJ",4617276693826882313u64),
++            (29u64,144u128,67u64,139u64,"GJ",4617276693826882313u64),
++            (29u64,143u128,67u64,211u64,"GJ",4617237869692163602u64),
++            (997u64,4987u128,67u64,1u64,"GJ",4617317776537141330u64),
++            (997u64,4987u128,18446744073709551615u64,3u64,"GJ",4617317776537141330u64),
++            (997u64,4987u128,9007199254740993u64,17u64,"GJ",4617317776537141330u64),
++            (997u64,4982u128,67u64,139u64,"GJ",4617312130098290565u64),
++            (997u64,4983u128,9u64,211u64,"GJ",4617313259386060718u64),
++            (9007199254740993u64,45035996273704963u128,9007199254740993u64,1u64,"GJ",4617315517961601024u64),
++            (9007199254740993u64,45035996273704968u128,20u64,3u64,"GJ",4617315517961601024u64),
++            (9007199254740993u64,45035996273704965u128,9007199254740993u64,17u64,"GJ",4617315517961601024u64),
++            (9007199254740993u64,45035996273704963u128,20u64,139u64,"FF",4617315517961601024u64),
++            (9007199254740993u64,45035996273704969u128,9u64,211u64,"FF",4617315517961601024u64),
++            (9007199254740994u64,45035996273704975u128,9007199254740993u64,1u64,"GJ",4617315517961601025u64),
++            (9007199254740994u64,45035996273704977u128,9007199254740993u64,3u64,"GJ",4617315517961601025u64),
++            (9007199254740994u64,45035996273704969u128,67u64,17u64,"GJ",4617315517961601024u64),
++            (9007199254740994u64,45035996273704970u128,9007199254740993u64,139u64,"FF",4617315517961601024u64),
++            (9007199254740994u64,45035996273704970u128,67u64,211u64,"FF",4617315517961601024u64),
++            (18446744073709551615u64,92233720368547758076u128,9007199254740993u64,1u64,"GJ",4617315517961601024u64),
++            (18446744073709551615u64,92233720368547758074u128,18446744073709551615u64,3u64,"FF",4617315517961601024u64),
++            (18446744073709551615u64,92233720368547758073u128,67u64,17u64,"FF",4617315517961601024u64),
++            (18446744073709551615u64,92233720368547758075u128,67u64,139u64,"FF",4617315517961601024u64),
++            (18446744073709551615u64,92233720368547758073u128,20u64,211u64,"FF",4617315517961601024u64),
++        ];
++        for (rows,entries,columns,bits,expected,density_bits) in cases {
++            let (Ok(rows),Ok(columns))=(usize::try_from(rows),usize::try_from(columns)) else{continue};
++            let stats=AutoStats{rows,entries,columns};
++            assert_eq!(stats.density().to_bits(),density_bits);
++            let result=match auto_prefix(stats,false) {
++                AutoPrefix::Done(method)=>method,
++                AutoPrefix::IntegerBits=>auto_integer_bits(stats,bits).unwrap(),
++                AutoPrefix::RationalDenominators=>unreachable!(),
++            };
++            assert_eq!(result.name(),expected,"{stats:?} bits={bits}");
++        }
++    }
++}
+diff --git a/crates/symox-py/src/poly_fraction_free.rs b/crates/symox-py/src/poly_fraction_free.rs
+--- a/crates/symox-py/src/poly_fraction_free.rs
++++ b/crates/symox-py/src/poly_fraction_free.rs
+@@ -189,8 +189,115 @@
+     }
+ }
+ 
++
++// AUTO preparation reads builtin containers and native exact scalars only.
++// Sparse short-circuits intentionally do not inspect scalar values or keys:
++// the old heuristic only measures dictionary lengths before those decisions.
++#[pyfunction]
++fn _dm_rref_auto<'py>(a:&Bound<'py,PyAny>,shape:&Bound<'py,PyAny>,k:&Bound<'py,PyAny>,
++    stock:&Bound<'py,PyAny>,py:Python<'py>)->PyResult<Option<&'static str>> {
++    use fraction_free::{AutoStats,AutoPrefix};
++    py.check_signals()?;
++    let Some(domain)=domain(k) else{return Ok(None)};
++    if !a.get_type().is(stock)||!shape.is_exact_instance_of::<PyTuple>() {return Ok(None);}
++    let shape=shape.downcast::<PyTuple>()?;
++    if shape.len()!=2{return Ok(None);}
++    let dimension=|value:&Bound<'_,PyAny>| {
++        if value.is_exact_instance_of::<PyInt>() {value.extract::<usize>().ok()}else{None}
++    };
++    let (Some(m),Some(n))=(dimension(&shape.get_item(0)?),dimension(&shape.get_item(1)?)) else{return Ok(None)};
++    let rational=domain==ExactDomain::QQ;
++    let mut rows=0;let mut entries=0u128;let mut values=Vec::new();let mut sparse=None;
++    if let Ok(a)=a.downcast::<PyDict>() {
++        let mut refs=Vec::with_capacity(a.len());
++        for (_,row) in a.iter() {
++            py.check_signals()?;
++            if !row.is_exact_instance_of::<PyDict>(){return Ok(None);}
++            let row=row.downcast_into::<PyDict>()?;
++            entries+=row.len() as u128;refs.push(row);
++        }
++        rows=a.len();sparse=Some((a,refs));
++    }else if let Ok(a)=a.downcast::<PyList>() {
++        if a.len()!=m{return Ok(None);}
++        for row in a.iter() {
++            py.check_signals()?;
++            if !row.is_exact_instance_of::<PyList>(){return Ok(None);}
++            let row=row.downcast::<PyList>()?;
++            if row.len()!=n{return Ok(None);}
++            let before=values.len();
++            for (j,value) in row.iter().enumerate() {
++                if j%64==0{py.check_signals()?;}
++                let Some(kind)=ddm::scalar(&value) else{return Ok(None)};
++                let zero=match kind {
++                    Scalar::Integer=>return Ok(None),
++                    Scalar::ZZ if !rational=>{
++                        let element=value.downcast::<super::domains::PyDomainElement>()?.get();
++                        let symox::poly::domains::ElementValue::Rational(number)=&element.value.value else{unreachable!()};number.is_zero()
++                    },
++                    Scalar::QQ if rational=>{
++                        let element=value.downcast::<super::domains::PyDomainElement>()?.get();
++                        let symox::poly::domains::ElementValue::Rational(number)=&element.value.value else{unreachable!()};number.is_zero()
++                    },
++                    _=>return Ok(None),
++                };
++                if !zero{values.push(value);}
++            }
++            let length=values.len()-before;
++            if length!=0{rows+=1;entries+=length as u128;}
++        }
++    }else{return Ok(None);}
++    let stats=AutoStats{rows,entries,columns:n};
++    let step=fraction_free::auto_prefix(stats,rational);
++    if let AutoPrefix::Done(method)=step{return Ok(Some(method.name()));}
++    if let Some((a,refs))=sparse {
++        for ((i,_),row) in a.iter().zip(refs) {
++            py.check_signals()?;
++            // to_dok hashes (row,column) pairs on the established path.
++            // Foreign keys must retain those callbacks when values are read.
++            if !i.is_exact_instance_of::<PyInt>(){return Ok(None);}
++            for (offset,(j,value)) in row.iter().enumerate() {
++                if offset%64==0{py.check_signals()?;}
++                if !j.is_exact_instance_of::<PyInt>(){return Ok(None);}
++                values.push(value);
++            }
++        }
++    }
++    if step==AutoPrefix::IntegerBits {
++        let mut bits=None;
++        for (j,value) in values.iter().enumerate() {
++            if j%64==0{py.check_signals()?;}
++            let number=match ddm::scalar(value) {
++                Some(Scalar::Integer)=>Int::from(value.extract::<num_bigint::BigInt>()?),
++                Some(Scalar::ZZ)=>{
++                    let element=value.downcast::<super::domains::PyDomainElement>()?.get();
++                    let symox::poly::domains::ElementValue::Rational(number)=&element.value.value else{unreachable!()};number.n.clone()
++                },
++                _=>return Ok(None),
++            };
++            bits=Some(bits.unwrap_or(0).max(number.bits()));
++        }
++        Ok(fraction_free::auto_integer_bits(stats,bits.unwrap_or(1)).map(|method|method.name()))
++    }else {
++        let mut fractions=Vec::with_capacity(values.len());
++        for (j,value) in values.iter().enumerate() {
++            if j%64==0{py.check_signals()?;}
++            let value=match ddm::scalar(value) {
++                Some(Scalar::Integer)=>Rat::from(Int::from(value.extract::<num_bigint::BigInt>()?)),
++                Some(Scalar::QQ)=>{
++                    let element=value.downcast::<super::domains::PyDomainElement>()?.get();
++                    let symox::poly::domains::ElementValue::Rational(number)=&element.value.value else{unreachable!()};number.clone()
++                },
++                _=>return Ok(None),
++            };
++            fractions.push(value);
++        }
++        Ok(Some(fraction_free::auto_rational_denominators(&fractions,&mut ||py.check_signals())?.name()))
++    }
++}
++
+ pub fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
+     module.add_function(wrap_pyfunction!(_sdm_rref_den,module)?)?;
+     module.add_function(wrap_pyfunction!(_dm_clear_denoms,module)?)?;
++    module.add_function(wrap_pyfunction!(_dm_rref_auto,module)?)?;
+     Ok(())
+ }
+diff --git a/python/symox/polys/matrices/rref.py b/python/symox/polys/matrices/rref.py
+--- a/python/symox/polys/matrices/rref.py
++++ b/python/symox/polys/matrices/rref.py
+@@ -28,6 +28,7 @@
+ #   https://github.com/sympy/sympy/pull/25443
+ 
+ from symox.polys.domains import ZZ
++from ._rref_native import native_choose_method as _native_choose_method
+ 
+ from symox.polys.matrices.sdm import SDM, sdm_irref, sdm_rref_den
+ from symox.polys.matrices.ddm import DDM
+@@ -243,6 +244,9 @@
+             use_fmt = 'sparse'
+ 
+     else:
++        native=_native_choose_method(M)
++        if native is not None:return native,'sparse'
++
+         # The sparse implementations are always faster
+         use_fmt = 'sparse'
+ 
+diff --git a/python/symox/polys/matrices/domainmatrix.py b/python/symox/polys/matrices/domainmatrix.py
+--- a/python/symox/polys/matrices/domainmatrix.py
++++ b/python/symox/polys/matrices/domainmatrix.py
+@@ -4083,3 +4083,9 @@
+ from ._fraction_free import register_clear_protocol as _register_clear_protocol
+ _register_clear_protocol(DomainMatrix, DDM, SDM, globals())
+ del _register_clear_protocol
++
++# AUTO preparation shares the completed stock matrix protocol boundary.
++from . import rref as _rref_auto_module
++from ._rref_native import register_auto_protocol as _register_auto_protocol
++_register_auto_protocol(DomainMatrix, DDM, SDM, _rref_auto_module.__dict__)
++del _register_auto_protocol, _rref_auto_module
+diff --git a/python/symox/polys/matrices/_rref_native.py b/python/symox/polys/matrices/_rref_native.py
+new file mode 100644
+--- /dev/null
++++ b/python/symox/polys/matrices/_rref_native.py
+@@ -0,0 +1,133 @@
++"""Protocol-only selection of stock ZZ/QQ AUTO statistics in Rust."""
++from types import FunctionType, MethodDescriptorType, GetSetDescriptorType, WrapperDescriptorType
++from marshal import dumps as _CODE
++import builtins as _builtins
++from symox import _core
++
++_TYPE=type
++_ALL=all
++_LEN=len
++_TUPLE=tuple
++_BUILTINS=_builtins.__dict__
++_DICT=type.__dict__['__dict__']
++_BASES=type.__dict__['__bases__']
++_DOMAIN=_core.Domain
++_ELEMENT=_core.DomainElement
++_PROTOCOL=globals().get('_PROTOCOL')
++_NATIVE_BASES=globals().get('_NATIVE_BASES',((_DOMAIN,_BASES.__get__(_DOMAIN)),(_ELEMENT,_BASES.__get__(_ELEMENT))))
++
++
++def _keywords(current,entries):
++    if entries is None:return current is None
++    return (_TYPE(current) is dict and _LEN(current)==_LEN(entries)
++            and _ALL(_TYPE(key) is str for key in current)
++            and _ALL(current.get(key) is value for key,value in entries))
++
++
++def _function(function):
++    if _TYPE(function) is not FunctionType:return None
++    keywords=function.__kwdefaults__
++    return (function,function.__code__,function.__defaults__,
++            None if keywords is None else _TUPLE(keywords.items()),
++            _TUPLE(c.cell_contents for c in function.__closure__ or ()),
++            _CODE(function.__code__,0))
++
++
++def _same_function(current,state,reloaded=False):
++    function,code,defaults,keywords,closure,serialized=state
++    if (_TYPE(current) is not FunctionType or current.__globals__ is not function.__globals__
++            or current.__defaults__ is not defaults
++            or not _keywords(current.__kwdefaults__,keywords)):return False
++    try:
++        return ((current.__code__ is code or (reloaded and _CODE(current.__code__,0)==serialized))
++                and _LEN(current.__closure__ or ())==_LEN(closure)
++                and _ALL(cell.cell_contents is old for cell,old in zip(current.__closure__ or (),closure)))
++    except (ValueError,TypeError):return False
++
++
++# Capture only native descriptors of methods actually used by the heuristic.
++# An optional package can add unrelated methods without invalidating selection.
++_DOMAIN_NAMES=('is_ZZ','is_QQ','one','lcm','of_type')
++_ELEMENT_NAMES=('__bool__','__int__','numerator','denominator')
++_DOMAIN_HOOKS=_TUPLE((name,_DICT.__get__(_DOMAIN).get(name)) for name in _DOMAIN_NAMES)
++_ELEMENT_HOOKS=_TUPLE((name,_DICT.__get__(_ELEMENT).get(name)) for name in _ELEMENT_NAMES)
++_NATIVE=(_ALL(_TYPE(value) in (MethodDescriptorType,GetSetDescriptorType)
++             and value.__objclass__ is _DOMAIN and value.__name__==name for name,value in _DOMAIN_HOOKS)
++         and _ALL(_TYPE(value) in (WrapperDescriptorType,GetSetDescriptorType)
++                  and value.__objclass__ is _ELEMENT and value.__name__==name for name,value in _ELEMENT_HOOKS))
++
++
++def register_auto_protocol(dm,ddm,sdm,namespace):
++    """Capture completed stock matrix protocols, before user callbacks."""
++    global _PROTOCOL
++    if _PROTOCOL is not None:return
++    modules=(namespace,__import__(ddm.__module__,fromlist=['']).__dict__,
++             __import__(sdm.__module__,fromlist=['']).__dict__)
++    element_function=modules[2]['_native_elements']
++    modules+=(element_function.__globals__,)
++    records=[]
++    for cls,base,names in (
++            (dm,object,('to_flat_nz',)),
++            (ddm,list,('to_sdm','to_flat_nz','__iter__','__len__','__getitem__')),
++            (sdm,dict,('to_sdm','from_list','to_flat_nz','to_dok','__init__','values','items'))):
++        names+=('__getattribute__','__getattr__')
++        entries=_TUPLE((name,_DICT.__get__(cls).get(name)) for name in names)
++        functions=[]
++        for _,value in entries:
++            function=value.__func__ if _TYPE(value) is classmethod else value
++            state=_function(function)
++            if state is not None:functions.append(state)
++        records.append((cls,base,entries,_TUPLE(functions),_DICT.__get__(cls)['__dict__']))
++    names=('_dm_rref_choose_method_ZZ','_dm_rref_choose_method_QQ','_dm_row_density','_dm_elements','_dm_QQ_numers_denoms')
++    functions=_TUPLE((name,_function(namespace[name])) for name in names)
++    aliases=((namespace,'ZZ',namespace['ZZ']),)
++    aliases+=_TUPLE((module,name,module.get(name)) for module in modules[1:3] for name in ('SDM','DDM','_native_elements'))
++    builtin_names=('sum','map','len','max','min','int','list','dict','tuple','range','enumerate','all','any','zip','type','isinstance','next','super','TypeError','AttributeError')
++    lookups=_TUPLE((module,name,module.get(name,_BUILTINS[name])) for module in modules for name in builtin_names)
++    lookups+=_TUPLE((_BUILTINS,name,_BUILTINS[name]) for name in builtin_names+('__import__',))
++    _PROTOCOL=(_TUPLE(records),namespace,functions,aliases+lookups,_function(element_function))
++
++
++def native_choose_method(matrix):
++    protocol=_PROTOCOL
++    if protocol is None or not _NATIVE:return None
++    records,namespace,functions,lookups,element_function=protocol
++    dm=records[0][0]
++    if _TYPE(matrix) is not dm:return None
++    # Check builtin aliases without importing or invoking a replaced builtin.
++    if not _ALL(module.get(name,_BUILTINS.get(name)) is value for module,name,value in lookups):return None
++    if not _ALL(_same_function(namespace.get(name),state,True) for name,state in functions):return None
++    if not _same_function(element_function[0],element_function):return None
++    for cls,base,entries,states,_ in records:
++        current=_DICT.__get__(cls);parents=_BASES.__get__(cls)
++        if (_LEN(parents)!=1 or parents[0] is not base
++                or any(name in current for name in ('rep','shape','domain'))
++                or not _ALL(current.get(name) is value for name,value in entries)
++                or not _ALL(_same_function(state[0],state) for state in states)):return None
++    for cls,expected in _NATIVE_BASES:
++        parents=_BASES.__get__(cls)
++        if _LEN(parents)!=_LEN(expected) or not _ALL(a is b for a,b in zip(parents,expected)):return None
++    for cls,entries in ((_DOMAIN,_DOMAIN_HOOKS),(_ELEMENT,_ELEMENT_HOOKS)):
++        current=_DICT.__get__(cls)
++        if ('__getattribute__' in current or '__getattr__' in current
++                or not _ALL(current.get(name) is value for name,value in entries)):return None
++    # Dense conversion fetches convert but native of_type succeeds for every
++    # admitted, already typed scalar. Fetching a function/native descriptor is
++    # inert; a custom descriptor must retain its observable __get__ instead.
++    convert=_DICT.__get__(_DOMAIN).get('convert')
++    if (_TYPE(convert) is not FunctionType
++            and not (_TYPE(convert) is MethodDescriptorType
++                     and convert.__objclass__ is _DOMAIN and convert.__name__=='convert')):return None
++    attrs=records[0][4].__get__(matrix,dm)
++    if (_TYPE(attrs) is not dict or not _ALL(_TYPE(key) is str for key in attrs)
++            or not _ALL(name in attrs for name in ('rep','shape','domain'))
++            or not _ALL(name not in attrs for name,_ in records[0][2])):return None
++    rep,shape,domain=attrs['rep'],attrs['shape'],attrs['domain']
++    if _TYPE(domain) is not _DOMAIN:return None
++    info=next((record for record in records[1:] if _TYPE(rep) is record[0]),None)
++    if info is None:return None
++    rep_attrs=info[4].__get__(rep,info[0])
++    if (_TYPE(rep_attrs) is not dict or not _ALL(_TYPE(key) is str for key in rep_attrs)
++            or rep_attrs.get('shape') is not shape or rep_attrs.get('domain') is not domain
++            or not _ALL(name not in rep_attrs for name,_ in info[2])):return None
++    return _core._dm_rref_auto(rep,shape,domain,info[0])
+diff --git a/tests/test_domainmatrix_native_auto.py b/tests/test_domainmatrix_native_auto.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_domainmatrix_native_auto.py
+@@ -0,0 +1,439 @@
++"""Exact AUTO heuristics, public FF/GJ/CD behavior and protocol fallbacks."""
++import importlib
++import itertools
++import os
++import random
++import subprocess
++import sys
++
++import pytest
++import symox as sx
++import sympy as sp
++from symox.polys.matrices import DomainMatrix
++from symox.polys.matrices.ddm import DDM
++from symox.polys.matrices.sdm import SDM
++from sympy.polys.matrices import DomainMatrix as RefMatrix
++
++rref=importlib.import_module('symox.polys.matrices.rref')
++guard=importlib.import_module('symox.polys.matrices._rref_native')
++ref_rref=importlib.import_module('sympy.polys.matrices.rref')
++
++
++def make(seed,kind,fmt):
++    rng=random.Random(67305+seed)
++    m,n=[(0,0),(0,9),(4,0),(1,1),(3,7),(9,10),(10,10),(12,14)][seed%8]
++    bits=[1,4,17,49,73,211,900][seed%7]
++    domain,refdomain=(sx.ZZ,sp.ZZ) if kind=='ZZ' else (sx.QQ,sp.QQ)
++    values=[];refs=[]
++    for i in range(m):
++        row=[];refrow=[]
++        for j in range(n):
++            active=(i+j+seed)%6<seed%6
++            numerator=((1<<bits)+2*rng.randrange(1,15)+1)*(-1 if rng.randrange(2) else 1) if active else 0
++            d=[1,2,3,7,1<<49,1<<50,1<<400][(i+j+seed)%7] if kind=='QQ' else 1
++            row.append(domain(numerator,d) if kind=='QQ' else domain(numerator))
++            refrow.append(refdomain(numerator,d) if kind=='QQ' else refdomain(numerator))
++        values.append(row);refs.append(refrow)
++    if fmt=='sparse':
++        values={i:{j:e for j,e in enumerate(row) if e} for i,row in enumerate(values) if any(row)}
++        refs={i:{j:e for j,e in enumerate(row) if e} for i,row in enumerate(refs) if any(row)}
++    return DomainMatrix(values,(m,n),domain),RefMatrix(refs,(m,n),refdomain)
++
++
++@pytest.mark.parametrize('seed',range(48))
++@pytest.mark.parametrize('kind',['ZZ','QQ'])
++@pytest.mark.parametrize('fmt',['dense','sparse'])
++@pytest.mark.parametrize('denominator',[False,True])
++def test_auto_decisions_match_complete_old_and_reference(monkeypatch,seed,kind,fmt,denominator):
++    a,ref=make(seed,kind,fmt);calls=[];native=sx._core._dm_rref_auto
++    def spy(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_dm_rref_auto',spy)
++    got=rref._dm_rref_choose_method(a,'auto',denominator=denominator)
++    old=(rref._dm_rref_choose_method_ZZ if kind=='ZZ' else rref._dm_rref_choose_method_QQ)(a,denominator=denominator)
++    expected=ref_rref._dm_rref_choose_method(ref,'auto',denominator=denominator)
++    assert got==(old,'sparse')==expected
++    assert calls==[old]
++
++
++def public_case(method,fmt):
++    kind='ZZ' if method in ('ZZ-GJ','ZZ-FF') else 'QQ'
++    k,rk=(sx.ZZ,sp.ZZ) if kind=='ZZ' else (sx.QQ,sp.QQ)
++    m,n=(3,9) if method=='ZZ-GJ' else (3,4)
++    rows=[];refs=[]
++    for i in range(m):
++        row=[];refrow=[]
++        for j in range(n):
++            p=(i+1)**(j+1)+i+j+3
++            if method=='ZZ-GJ' and j not in (i,i+3):p=0
++            d={'QQ-CD':6,'QQ-FF':1<<55,'QQ-GJ':1<<400}.get(method,1)
++            if method=='QQ-FF':p+=(1<<60)+1
++            row.append(k(p,d) if kind=='QQ' else k(p));refrow.append(rk(p,d) if kind=='QQ' else rk(p))
++        rows.append(row);refs.append(refrow)
++    if fmt=='sparse':
++        rows={i:{j:e for j,e in enumerate(row) if e} for i,row in enumerate(rows) if any(row)}
++        refs={i:{j:e for j,e in enumerate(row) if e} for i,row in enumerate(refs) if any(row)}
++    return DomainMatrix(rows,(m,n),k),RefMatrix(refs,(m,n),rk)
++
++
++def rational(element):
++    return sx.to_sympy(element.as_expr()) if type(element) is sx._core.DomainElement else sp.Rational(element)
++
++
++@pytest.mark.parametrize('case',['ZZ-GJ','ZZ-FF','QQ-GJ','QQ-FF','QQ-CD'])
++@pytest.mark.parametrize('fmt',['dense','sparse'])
++@pytest.mark.parametrize('operation',['rref','rref_den','rref_den_field'])
++def test_public_auto_uses_native_decision_and_preserves_every_return(monkeypatch,case,fmt,operation):
++    a,reference=public_case(case,fmt);native=sx._core._dm_rref_auto;calls=[]
++    before=a.to_list();row_ids=[id(row) for row in a.rep] if fmt=='dense' else [id(row) for row in a.rep.values()]
++    def spy(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_dm_rref_auto',spy)
++    options={} if operation=='rref' else {'keep_domain':operation=='rref_den'}
++    name='rref' if operation=='rref' else 'rref_den'
++    actual=getattr(a,name)(**options);expected=getattr(reference,name)(**options)
++    assert calls==[case.split('-')[1]]
++    reduced=actual[0];refreduced=expected[0]
++    assert type(reduced) is DomainMatrix and reduced.rep.fmt==fmt
++    assert str(reduced.domain)==str(refreduced.domain)
++    assert reduced.shape==refreduced.shape and actual[-1]==expected[-1]
++    got=[[rational(e) for e in row] for row in reduced.to_list()]
++    assert got==[[sp.Rational(e) for e in row] for row in refreduced.to_list()]
++    if name=='rref_den':
++        assert rational(actual[1])==sp.Rational(expected[1])
++        assert actual[1].parent()==reduced.domain
++    # Exact row-space certificate; avoids depending only on another RREF.
++    original=sp.Matrix([[rational(e) for e in row] for row in before])
++    final=sp.Matrix(got)
++    assert original.col_join(final).rank()==original.rank()==len(actual[-1])
++    assert a.to_list()==before
++    assert row_ids==([id(row) for row in a.rep] if fmt=='dense' else [id(row) for row in a.rep.values()])
++    monkeypatch.setattr(rref,'_native_choose_method',lambda *args:None)
++    legacy=getattr(a,name)(**options)
++    assert actual==legacy and reduced.domain==legacy[0].domain
++
++
++@pytest.mark.parametrize('kind',['ZZ','QQ'])
++@pytest.mark.parametrize('cols',[0,1,5,13])
++def test_literal_sparse_empty_rows_are_not_removed_from_statistics(kind,cols):
++    k,rk=(sx.ZZ,sp.ZZ) if kind=='ZZ' else (sx.QQ,sp.QQ)
++    data={i:{} for i in range(12)}
++    a=DomainMatrix(data,(12,cols),k);b=RefMatrix(data,(12,cols),rk)
++    assert rref._dm_row_density(a)==ref_rref._dm_row_density(b)
++    assert guard.native_choose_method(a)==ref_rref._dm_rref_choose_method(b,'auto')[0]
++
++
++@pytest.mark.parametrize('kind',['ZZ','QQ'])
++def test_literal_sparse_zero_coefficients_preserve_choice_or_exact_error(kind):
++    k,rk=(sx.ZZ,sp.ZZ) if kind=='ZZ' else (sx.QQ,sp.QQ)
++    a=DomainMatrix({i:{j:k.zero for j in range(6)} for i in range(10)},(10,10),k)
++    b=RefMatrix({i:{j:rk.zero for j in range(6)} for i in range(10)},(10,10),rk)
++    if kind=='ZZ':
++        assert guard.native_choose_method(a) is None
++        with pytest.raises(ZeroDivisionError):rref._dm_rref_choose_method(a,'auto')
++        with pytest.raises(ZeroDivisionError):ref_rref._dm_rref_choose_method(b,'auto')
++    else:
++        assert guard.native_choose_method(a)=='GJ'
++        assert rref._dm_rref_choose_method(a,'auto')==ref_rref._dm_rref_choose_method(b,'auto')
++
++
++@pytest.mark.parametrize('method',['GJ','FF','CD','GJ_dense','FF_dense','CD_dense','unknown'])
++def test_explicit_method_options_do_not_touch_native_auto(monkeypatch,method):
++    a,_=public_case('QQ-CD','dense')
++    def forbidden(*args):raise AssertionError('explicit selection invoked AUTO')
++    monkeypatch.setattr(sx._core,'_dm_rref_auto',forbidden)
++    expected=(method[:-6],'dense') if method.endswith('_dense') else (method,'sparse')
++    assert rref._dm_rref_choose_method(a,method)==expected
++
++
++@pytest.mark.parametrize('kind',['ZZ','QQ'])
++def test_sparse_shortcuts_do_not_probe_foreign_coefficients(kind):
++    k=sx.ZZ if kind=='ZZ' else sx.QQ
++    a=DomainMatrix({0:{0:k.one}},(1,20),k);calls=[]
++    class Foreign:
++        def __int__(self):calls.append('int');raise AssertionError('early integer probe')
++        @property
++        def numerator(self):calls.append('numerator');raise AssertionError('early numerator probe')
++        def __bool__(self):calls.append('bool');raise AssertionError('early boolean probe')
++    a.rep[0][0]=Foreign()
++    assert guard.native_choose_method(a)=='GJ'
++    assert rref._dm_rref_choose_method(a,'auto')==('GJ','sparse') and calls==[]
++
++
++def observe_fallback(monkeypatch,a,events):
++    assert guard.native_choose_method(a) is None and events==[]
++    actual=rref._dm_rref_choose_method(a,'auto');observed=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(rref,'_native_choose_method',lambda *args:None)
++        expected=rref._dm_rref_choose_method(a,'auto')
++    assert actual==expected and events==observed
++    return observed
++
++
++@pytest.mark.parametrize('name',['_dm_row_density','_dm_elements','_dm_QQ_numers_denoms',
++    '_dm_rref_choose_method_QQ','_dm_rref_choose_method_ZZ'])
++def test_heuristic_overrides_keep_complete_callback_order(monkeypatch,name):
++    a,_=make(14,'ZZ' if name.endswith('_ZZ') else 'QQ','dense')
++    if name=='_dm_rref_choose_method_ZZ':a,_=make(14,'ZZ','dense')
++    # Dense enough to read the coefficient statistics.
++    if name!='_dm_rref_choose_method_ZZ':a,_=public_case('QQ-CD','dense')
++    events=[];original=getattr(rref,name)
++    def callback(*args,**kwargs):events.append(name);return original(*args,**kwargs)
++    monkeypatch.setattr(rref,name,callback)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++@pytest.mark.parametrize('name',['sum','map','len','max','min','int'])
++def test_heuristic_builtin_overrides_are_not_called_speculatively(monkeypatch,name):
++    import builtins
++    a,_=public_case('QQ-CD','dense');events=[];original=getattr(builtins,name)
++    def callback(*args,**kwargs):events.append(name);return original(*args,**kwargs)
++    monkeypatch.setattr(rref,name,callback,raising=False)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++@pytest.mark.parametrize('target,name',[(DDM,'to_sdm'),(DDM,'to_flat_nz'),(SDM,'to_sdm'),
++    (SDM,'to_flat_nz'),(SDM,'to_dok'),(DomainMatrix,'to_flat_nz')])
++def test_matrix_method_overrides_preserve_complete_callback_order(monkeypatch,target,name):
++    a,_=public_case('QQ-CD','sparse' if target is SDM else 'dense');events=[];original=getattr(target,name)
++    def callback(*args,**kwargs):events.append(name);return original(*args,**kwargs)
++    monkeypatch.setattr(target,name,callback)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++@pytest.mark.parametrize('name',['__bool__','numerator','denominator'])
++def test_numeric_descriptor_hooks_preserve_order_without_preflight(monkeypatch,name):
++    a,_=public_case('QQ-CD','dense');events=[];cls=sx._core.DomainElement;original=cls.__dict__[name]
++    def callback(self):
++        events.append(name)
++        return original.__get__(self,cls)() if name=='__bool__' else original.__get__(self,cls)
++    monkeypatch.setattr(cls,name,callback if name=='__bool__' else property(callback))
++    assert observe_fallback(monkeypatch,a,events)
++
++
++def test_integer_conversion_hook_is_never_skipped(monkeypatch):
++    # Ten rows avoid the small-matrix shortcut and force the integer bit count.
++    a,_=make(46,'ZZ','dense');events=[];cls=sx._core.DomainElement;original=cls.__int__
++    def callback(self):events.append('int');return original(self)
++    monkeypatch.setattr(cls,'__int__',callback)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++@pytest.mark.parametrize('name',['is_ZZ','is_QQ','of_type'])
++def test_domain_predicate_hooks_keep_old_order(monkeypatch,name):
++    a,_=public_case('QQ-CD','dense');events=[];cls=sx._core.Domain;original=cls.__dict__[name]
++    if name=='of_type':
++        def callback(self,element):events.append(name);return original.__get__(self,cls)(element)
++        changed=callback
++    else:
++        def callback(self):events.append(name);return original.__get__(self,cls)
++        changed=property(callback)
++    monkeypatch.setattr(cls,name,changed)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++def test_dense_constructor_native_elements_hook_is_not_bypassed(monkeypatch):
++    module=importlib.import_module('symox.polys.matrices.sdm');a,_=public_case('QQ-CD','dense')
++    original=module._native_elements;events=[]
++    def callback(*args):events.append('native_elements');return original(*args)
++    monkeypatch.setattr(module,'_native_elements',callback)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++def test_dense_convert_descriptor_getter_retains_its_callbacks(monkeypatch):
++    a,_=public_case('QQ-CD','dense');cls=sx._core.Domain;original=cls.__dict__['convert'];events=[]
++    def getter(self):events.append('convert-get');return original.__get__(self,cls)
++    monkeypatch.setattr(cls,'convert',property(getter))
++    assert observe_fallback(monkeypatch,a,events)
++
++
++def test_unused_convert_function_is_not_called_for_already_typed_dense_entries(monkeypatch):
++    a,_=public_case('QQ-CD','dense');events=[]
++    def forbidden(*args):events.append('convert');raise AssertionError('conversion of typed native input')
++    monkeypatch.setattr(sx._core.Domain,'convert',forbidden)
++    assert guard.native_choose_method(a)=='CD' and events==[]
++    assert rref._dm_rref_choose_method_QQ(a)=='CD' and events==[]
++
++
++def test_dense_untyped_entries_keep_the_conversion_callback(monkeypatch):
++    a,_=public_case('QQ-CD','dense');a.rep[0][0]=3;cls=sx._core.Domain;original=cls.convert;events=[]
++    def callback(self,*args,**kwargs):events.append('convert');return original(self,*args,**kwargs)
++    monkeypatch.setattr(cls,'convert',callback)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++@pytest.mark.parametrize('mode',['row','key'])
++def test_sparse_foreign_container_and_key_protocols_remain_observable(monkeypatch,mode):
++    a,_=public_case('QQ-CD','sparse');events=[]
++    if mode=='row':
++        class Row(dict):
++            def __len__(self):events.append('row-len');return super().__len__()
++        a.rep[0]=Row(a.rep[0])
++    else:
++        class Key(int):
++            def __hash__(self):events.append('key-hash');return super().__hash__()
++        a.rep[0]={Key(j):value for j,value in a.rep[0].items()};events.clear()
++    assert observe_fallback(monkeypatch,a,events)
++
++
++def test_host_integer_callbacks_are_not_probed_before_full_statistics(monkeypatch):
++    a,_=make(46,'ZZ','sparse');events=[]
++    class Scalar:
++        def __int__(self):events.append('int');return 3
++    a.rep[0][0]=Scalar()
++    assert observe_fallback(monkeypatch,a,events)
++
++
++@pytest.mark.parametrize('target', ['heuristic','numeric'])
++def test_interruptions_are_not_transformed_into_a_method_or_missing_solution(monkeypatch,target):
++    a,_=public_case('QQ-CD','dense')
++    def interrupt(*args,**kwargs):raise KeyboardInterrupt('AUTO callback')
++    if target=='heuristic':monkeypatch.setattr(rref,'_dm_row_density',interrupt)
++    else:monkeypatch.setattr(sx._core.DomainElement,'numerator',property(interrupt))
++    assert guard.native_choose_method(a) is None
++    with pytest.raises(KeyboardInterrupt,match='AUTO callback'):rref._dm_rref_choose_method(a,'auto')
++
++
++@pytest.mark.parametrize('kind',['ZZ','QQ'])
++@pytest.mark.parametrize('cols',[2**53+1,2**63+7,2**64-1,10**400])
++def test_large_sparse_metadata_keeps_exact_decisions_or_original_overflow(kind,cols):
++    k,rk=(sx.ZZ,sp.ZZ) if kind=='ZZ' else (sx.QQ,sp.QQ)
++    a=DomainMatrix({0:{0:k.one}},(1,cols),k);b=RefMatrix({0:{0:rk.one}},(1,cols),rk)
++    if cols==10**400:
++        assert guard.native_choose_method(a) is None
++        with pytest.raises(OverflowError):rref._dm_rref_choose_method(a,'auto')
++        with pytest.raises(OverflowError):ref_rref._dm_rref_choose_method(b,'auto')
++    else:
++        assert guard.native_choose_method(a)=='GJ'
++        assert rref._dm_rref_choose_method(a,'auto')==ref_rref._dm_rref_choose_method(b,'auto')
++
++
++@pytest.mark.parametrize('order',list(itertools.permutations(('stats','vector','holonomic.recurrence'))))
++def test_optional_collectors_and_stock_rref_reloads_keep_native_selection(order):
++    code='''
++import importlib,sys
++import symox as s
++from symox.polys.matrices import DomainMatrix
++from symox.polys.matrices._rref_native import native_choose_method
++r=importlib.import_module('symox.polys.matrices.rref')
++a=DomainMatrix([[s.QQ(1,2),s.QQ(1,3)],[s.QQ(3,7),s.QQ(4,7)]],(2,2),s.QQ)
++assert native_choose_method(a)=='CD'
++for name in sys.argv[1:]:importlib.import_module('symox.'+name)
++for repeat in range(3):
++ importlib.reload(r)
++ assert native_choose_method(a)=='CD'
++ assert r._dm_rref_choose_method(a,'auto')==('CD','sparse')
++'''
++    subprocess.run([sys.executable,'-c',code,*order],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('mode',['builtin','helper'])
++def test_rref_reload_does_not_bless_user_callbacks(mode):
++    code='''
++import importlib
++import symox as s
++from symox.polys.matrices import DomainMatrix
++from symox.polys.matrices._rref_native import native_choose_method
++r=importlib.import_module('symox.polys.matrices.rref')
++a=DomainMatrix([[s.QQ(1,2),s.QQ(1,3)],[s.QQ(3,7),s.QQ(4,7)]],(2,2),s.QQ)
++def callback(*args,**kwargs):raise KeyboardInterrupt('kept user callback')
++'''
++    if mode=='builtin':code+='r.int=callback\nimportlib.reload(r)\n'
++    else:code+='importlib.reload(r)\nr._dm_row_density=callback\n'
++    code+='''
++assert native_choose_method(a) is None
++try:r._dm_rref_choose_method(a,'auto')
++except KeyboardInterrupt as error:assert str(error)=='kept user callback'
++else:raise AssertionError('AUTO skipped callback')
++'''
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('name',['lcm','one'])
++def test_lcm_and_initial_unit_hooks_remain_observable(monkeypatch,name):
++    a,_=public_case('QQ-CD','sparse');cls=sx._core.Domain;original=cls.__dict__[name];events=[]
++    if name=='one':
++        def callback(self):events.append(name);return original.__get__(self,cls)
++        changed=property(callback)
++    else:
++        def callback(self,*args):events.append(name);return original.__get__(self,cls)(*args)
++        changed=callback
++    monkeypatch.setattr(cls,name,changed)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++def test_dense_sdm_super_constructor_hook_is_not_bypassed(monkeypatch):
++    import builtins
++    module=importlib.import_module('symox.polys.matrices.sdm');a,_=public_case('QQ-CD','dense');events=[]
++    # Invoke the exact superclass with the original initializer's instance.
++    # Only its global super lookup changes; no method is replaced here.
++    def callback():
++        events.append('super')
++        return builtins.super(SDM,sys._getframe(1).f_locals['self'])
++    monkeypatch.setattr(module,'super',callback,raising=False)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++@pytest.mark.parametrize('fmt',['dense','sparse'])
++def test_unrelated_matrix_attributes_do_not_disable_native_selection(monkeypatch,fmt):
++    a,_=public_case('QQ-CD',fmt)
++    monkeypatch.setattr(DomainMatrix,'unrelated_plugin_marker',True,raising=False)
++    monkeypatch.setattr(DDM,'unrelated_plugin_marker',True,raising=False)
++    monkeypatch.setattr(SDM,'unrelated_plugin_marker',True,raising=False)
++    a.unrelated_payload=object()
++    assert guard.native_choose_method(a)=='CD'
++
++
++def test_instance_method_override_retains_its_call_order(monkeypatch):
++    a,_=public_case('QQ-CD','dense');original=a.to_flat_nz;events=[]
++    def callback():events.append('instance-flat');return original()
++    monkeypatch.setattr(a,'to_flat_nz',callback)
++    assert observe_fallback(monkeypatch,a,events)
++
++
++@pytest.mark.parametrize('mode',['row_length','outer_length','shape','domain'])
++def test_invalid_or_distinct_metadata_keeps_full_old_behavior(monkeypatch,mode):
++    a,_=public_case('QQ-CD','dense')
++    if mode=='row_length':a.rep[0].pop()
++    elif mode=='outer_length':a.rep.pop()
++    elif mode=='shape':a.shape=tuple(list(a.shape))
++    else:a.rep.domain=sx.ZZ
++    assert guard.native_choose_method(a) is None
++    def outcome():
++        try:return ('value',rref._dm_rref_choose_method(a,'auto'))
++        except Exception as error:return ('error',type(error),str(error))
++    actual=outcome()
++    monkeypatch.setattr(rref,'_native_choose_method',lambda *args:None)
++    assert outcome()==actual
++
++
++def test_reloading_domainmatrix_does_not_bless_replaced_numeric_protocols():
++    code='''
++import importlib
++import symox as s
++r=importlib.import_module('symox.polys.matrices.rref')
++dm=importlib.import_module('symox.polys.matrices.domainmatrix')
++def callback(*args):raise KeyboardInterrupt('numeric callback preserved')
++s._core.DomainElement.numerator=property(callback)
++importlib.reload(dm)
++a=dm.DomainMatrix([[s.QQ(1,2),s.QQ(1,3)],[s.QQ(3,7),s.QQ(4,7)]],(2,2),s.QQ)
++try:r._dm_rref_choose_method(a,'auto')
++except KeyboardInterrupt as error:assert str(error)=='numeric callback preserved'
++else:raise AssertionError('class reload blessed callback')
++'''
++    subprocess.run([sys.executable,'-c',code],check=True,env=os.environ.copy())
++
++
++@pytest.mark.parametrize('kind',['RR','CC','EX','GF','QQ[y]','QQ(y)'])
++@pytest.mark.parametrize('denominator',[False,True])
++def test_other_domains_keep_complete_selection_and_original_payloads(kind,denominator,monkeypatch):
++    t=sx.Symbol('t')
++    k={'RR':lambda:sx.RealField(211),'CC':lambda:sx.ComplexField(140),'EX':lambda:sx.EX,
++       'GF':lambda:sx.GF(5),'QQ[y]':lambda:sx.QQ.poly_ring(t),'QQ(y)':lambda:sx.QQ.frac_field(t)}[kind]()
++    a=DomainMatrix([[k.one,k.zero],[k.zero,k.one]],(2,2),k)
++    values=[value for row in a.rep for value in row]
++    assert guard.native_choose_method(a) is None
++    got=rref._dm_rref_choose_method(a,'auto',denominator=denominator)
++    monkeypatch.setattr(rref,'_native_choose_method',lambda *args:None)
++    assert got==rref._dm_rref_choose_method(a,'auto',denominator=denominator)
++    assert all(old is new for old,new in zip(values,(value for row in a.rep for value in row)))
+diff --git a/crates/symox-core/src/integrate.rs b/crates/symox-core/src/integrate.rs
+--- a/crates/symox-core/src/integrate.rs
++++ b/crates/symox-core/src/integrate.rs
+@@ -26,6 +26,7 @@
+ pub mod rational_reduction;
+ pub mod log_to_atan;
+ pub mod log_to_real;
++pub mod ratint_driver;
+ pub mod logarithmic_reduction;
+ mod cartesian;
+ pub use cartesian::numeric_coefficients as heurisch_cartesian_numeric_coefficients;
+diff --git a/crates/symox-core/src/poly/api.rs b/crates/symox-core/src/poly/api.rs
+--- a/crates/symox-core/src/poly/api.rs
++++ b/crates/symox-core/src/poly/api.rs
+@@ -1799,7 +1799,7 @@
+ 
+ /// `dmp_cancel(include=False)` for univariate polynomials over `QQ`:
+ /// `(cp, cq, p, q)` with positive leading coefficients.
+-fn cancel_int(p: &MPoly<Rat>, q: &MPoly<Rat>) -> (Int, Int, Vec<Int>, Vec<Int>) {
++pub(crate) fn cancel_int(p: &MPoly<Rat>, q: &MPoly<Rat>) -> (Int, Int, Vec<Int>, Vec<Int>) {
+     let (cq0, f) = p.clear_denoms();
+     let (cp0, g) = q.clear_denoms();
+     let (_, pp, qq) = super::gcd::gcd_mz(&f, &g);
+diff --git a/crates/symox-core/src/integrate/log_to_real.rs b/crates/symox-core/src/integrate/log_to_real.rs
+--- a/crates/symox-core/src/integrate/log_to_real.rs
++++ b/crates/symox-core/src/integrate/log_to_real.rs
+@@ -7,7 +7,8 @@
+ use crate::functions::{atan, log};
+ use crate::ops::{add, mul2, sqrt};
+ use crate::poly::{algebraic::{AlgebraicScope, NumberField, AN}, convert, dense,
+-    int::{Coeff, Field, Rat}, mpoly::MPoly};
++    int::{Coeff, Field, Rat}, mpoly::MPoly, fraction::Polynomial,
++    domains::ExactDomain, polyobj::Domain};
+ 
+ trait RealCoefficient: Field {
+     fn expression(&self) -> Expr;
+@@ -53,6 +54,37 @@
+     let result=add(&[mul2(&u.expression(),&log(&polynomial(&norm,x))),mul2(&v.expression(),&add(&terms))]);
+     check()?;
+     Ok(Some(result))
++}
++
++/// Read the exact stored polynomial in (x,t), shared by the public binding
++/// and the rational integration driver. General fraction/expression domains
++/// never pass through their legacy metadata view.
++pub fn rational_input<E>(h: &Polynomial,x: &Expr,t: &Expr,
++    check: &mut impl FnMut()->Result<(),E>) -> Result<Option<MPoly<Rat>>,E>
++{
++    if h.algebraic.is_some() || h.expression.is_some() || h.base.modulus.is_some()
++        || h.base.ngens!=1 || h.base.true_gens()!=[x.clone()] {return Ok(None);}
++    let polynomial=if let Some(field)=&h.field {
++        if !matches!(&field.coefficient_domain,ExactDomain::Functions{ring:true,parameters,..} if parameters==&[t.clone()])
++            || field.parameters!=[t.clone()] || field.gens!=[x.clone()] || field.rep.degree(0)>32 {return Ok(None);}
++        let mut terms=Vec::new();
++        for (e,c) in field.rep.iter() {
++            check()?;
++            let Some(d)=c.d.constant_value() else{return Ok(None)};
++            for (parameter,n) in c.n.iter() {
++                if terms.len()>=1024 || parameter[0]>32{return Ok(None);}
++                terms.push((vec![e[0],parameter[0]],Rat::new(n.clone(),d.clone())));
++            }
++        }
++        MPoly::from_terms(2,terms)
++    }else{
++        if !matches!(h.base.domain,Domain::ZZ|Domain::QQ) || h.base.gens.iter().any(|g|g!=x && g!=t)
++            || h.base.rep.len()>1024 || h.base.rep.degrees().iter().any(|&d|d>32){return Ok(None);}
++        let parameter=h.base.gens.iter().position(|g|g==t);
++        MPoly::from_terms(2,h.base.rep.iter().map(|(e,c)|
++            (vec![e[0],parameter.map_or(0,|i|e[i])],c.clone())).collect())
++    };
++    Ok(Some(polynomial))
+ }
+ 
+ /// `h` has exact rational coefficients in `(x,t)`, and `q` is ascending
+diff --git a/crates/symox-py/src/integration_methods.rs b/crates/symox-py/src/integration_methods.rs
+--- a/crates/symox-py/src/integration_methods.rs
++++ b/crates/symox-py/src/integration_methods.rs
+@@ -16,6 +16,7 @@
+ static LRT_POLY_METHODS: std::sync::OnceLock<Vec<(&'static str, PyObject)>> = std::sync::OnceLock::new();
+ 
+ static RATIONAL_POLY_METHODS: std::sync::OnceLock<Vec<(&'static str, PyObject)>> = std::sync::OnceLock::new();
++static RATINT_POLY_METHODS: std::sync::OnceLock<Vec<(&'static str, PyObject)>> = std::sync::OnceLock::new();
+ 
+ pub(crate) fn register_rational_reduction(m: &Bound<'_, PyModule>) -> PyResult<()> {
+     let class = m.py().get_type::<crate::poly::PyPoly>();
+@@ -36,12 +37,90 @@
+         .into_iter().map(|name| Ok((name, class.getattr(name)?.unbind())))
+         .collect::<PyResult<Vec<_>>>()?;
+     let _ = LOG_REAL_POLY_METHODS.set(methods);
++    let methods = ["cancel", "integrate", "is_zero"]
++        .into_iter().map(|name| Ok((name, class.getattr(name)?.unbind())))
++        .collect::<PyResult<Vec<_>>>()?;
++    let _ = RATINT_POLY_METHODS.set(methods);
++    m.add_function(wrap_pyfunction!(_ratint_driver, m)?)?;
+     m.add_function(wrap_pyfunction!(_log_to_real, m)?)?;
+     m.add_function(wrap_pyfunction!(_ratint_logpart, m)?)?;
+     m.add_function(wrap_pyfunction!(_ratint_ratpart, m)?)?;
+     m.add_function(wrap_pyfunction!(_log_to_atan, m)?)
+ }
+ 
++/// Full QQ orchestration; all other inputs are refused without consuming a
++/// user iterator, sympification hook, tuple subclass or mathematical protocol.
++#[pyfunction]
++pub(crate) fn _ratint_driver(f:&Bound<'_,PyAny>,x:&Bound<'_,PyAny>,flags:&Bound<'_,pyo3::types::PyDict>)
++    -> PyResult<Option<(crate::PyExpr,bool)>>
++{
++    use pyo3::types::{PyBool,PyInt,PyString};
++    use crate::poly::PyPoly;
++    use symox::integrate::ratint_driver::Input;
++    let py=f.py();py.check_signals()?;
++    let scalar=|value:&Bound<'_,PyAny>,integer:bool|->PyResult<Option<Expr>>{
++        if integer && value.is_exact_instance_of::<PyInt>(){return Ok(Some(to_expr(value)?));}
++        if !value.is_instance_of::<PyExprNode>(){return Ok(None);}
++        let e=to_expr(value)?;
++        Ok(crate::node_type(py,&e).filter(|c|value.get_type().is(c)).map(|_|e))
++    };
++    let Some(x)=scalar(x,false)? else{return Ok(None)};
++    let Some(variable)=x.as_sym() else{return Ok(None)};
++    if variable.is_wild() || variable.host().is_some() || variable.scalar_identity().is_some()
++        || symox::decompose::commutativity(&x)!=Some(true){return Ok(None);}
++    let input=if f.is_exact_instance_of::<PyTuple>() {
++        let pair=f.downcast::<PyTuple>()?;
++        if pair.len()!=2{return Ok(None);}
++        let (Some(p),Some(q))=(scalar(&pair.get_item(0)?,true)?,scalar(&pair.get_item(1)?,true)?) else{return Ok(None)};
++        Input::Fraction(p,q)
++    }else{
++        let Some(f)=scalar(f,false)? else{return Ok(None)};
++        Input::Expression(f)
++    };
++    // Ordinary kwargs keys cannot invoke equality/conversion callbacks.
++    if flags.len()>64 || flags.iter().any(|(key,_)|!key.is_exact_instance_of::<PyString>()){return Ok(None);}
++    if let Some(real)=flags.get_item("real")? {
++        if !real.is_none() && (!real.is_exact_instance_of::<PyBool>() || !real.is_truthy()?){return Ok(None);}
++    }
++    let symbol=match flags.get_item("symbol")? {
++        None=>"t".to_owned(),
++        Some(value) if value.is_exact_instance_of::<PyString>()=>{
++            let Ok(name)=value.extract::<String>() else{return Ok(None)};name
++        },
++        Some(value)=>{
++            let Some(e)=scalar(&value,false)? else{return Ok(None)};
++            let Some(s)=e.as_sym().filter(|s|!s.is_wild() && s.host().is_none() && s.scalar_identity().is_none()) else{return Ok(None)};
++            s.name().to_owned()
++        },
++    };
++    let class=py.get_type::<PyPoly>();let own=class.getattr("__dict__")?;
++    if own.contains("__getattribute__")? || own.contains("__getattr__")? {return Ok(None);}
++    let mut names=std::collections::HashSet::new();
++    for registry in [RATINT_POLY_METHODS.get(),RATIONAL_POLY_METHODS.get(),LRT_POLY_METHODS.get(),LOG_REAL_POLY_METHODS.get(),LOG_ATAN_POLY_METHODS.get()] {
++        let Some(methods)=registry else{return Ok(None)};
++        for (name,original) in methods {
++            if !names.insert(*name){continue;}
++            match *name {
++                "as_expr"=>{
++                    let module=py.import("symox.polys._evaluation")?;
++                    if !class.getattr(*name)?.is(&module.getattr(*name)?)
++                        || !module.getattr("_native_as_expr")?.is(original.bind(py)){return Ok(None);}
++                },
++                "LC"|"terms"|"coeffs"|"monoms"=>{
++                    let module=py.import("symox.polys._poly_methods")?;
++                    if !class.getattr(*name)?.is(&module.getattr(*name)?)
++                        || !module.getattr("_native")?.get_item(*name)?.is(original.bind(py)){return Ok(None);}
++                },
++                _=>if !class.getattr(*name)?.is(original.bind(py)){return Ok(None);},
++            }
++        }
++    }
++    let Some(flag)=LOG_ATAN_DOMAIN_FLAG.get() else{return Ok(None)};
++    if !py.get_type::<crate::poly::domains::PyDomain>().getattr("is_EX")?.is(flag.bind(py)){return Ok(None);}
++    let value=symox::integrate::ratint_driver::integrate(&input,&x,&symbol,&mut ||py.check_signals())?;
++    py.check_signals()?;Ok(value.map(|(value,logarithmic)|(wrap(value),logarithmic)))
++}
++
+ /// Select stored rational polynomials only. No sympification, generator
+ /// protocol or general coefficient-domain conversion is attempted here.
+ #[pyfunction]
+@@ -49,7 +128,7 @@
+     -> PyResult<Option<crate::PyExpr>>
+ {
+     use crate::poly::PyPoly;
+-    use symox::poly::{dense,domains::ExactDomain,int::Rat,mpoly::MPoly,polyobj::Domain};
++    use symox::poly::{dense,polyobj::Domain};
+     let py=h.py();py.check_signals()?;
+     if !h.is_exact_instance_of::<PyPoly>() || !q.is_exact_instance_of::<PyPoly>() {return Ok(None);}
+     let class=h.get_type();let own=class.getattr("__dict__")?;
+@@ -79,29 +158,8 @@
+         || q.base.modulus.is_some() || !matches!(q.base.domain,Domain::ZZ|Domain::QQ)
+         || q.base.gens!=[t.clone()] || q.base.ngens!=1
+         || !matches!(q.base.rep.degree(0),1|2) {return Ok(None);}
+-    let h=&h.p;
+-    if h.algebraic.is_some() || h.expression.is_some() || h.base.modulus.is_some()
+-        || h.base.ngens!=1 || h.base.true_gens()!=[x.clone()] {return Ok(None);}
+-    let polynomial=if let Some(field)=&h.field {
+-        if !matches!(&field.coefficient_domain,ExactDomain::Functions{ring:true,parameters,..} if parameters==&[t.clone()])
+-            || field.parameters!=[t.clone()] || field.gens!=[x.clone()] || field.rep.degree(0)>32 {return Ok(None);}
+-        let mut terms=Vec::new();
+-        for (e,c) in field.rep.iter() {
+-            py.check_signals()?;
+-            let Some(d)=c.d.constant_value() else{return Ok(None)};
+-            for (parameter,n) in c.n.iter() {
+-                if terms.len()>=1024 || parameter[0]>32{return Ok(None);}
+-                terms.push((vec![e[0],parameter[0]],Rat::new(n.clone(),d.clone())));
+-            }
+-        }
+-        MPoly::from_terms(2,terms)
+-    }else{
+-        if !matches!(h.base.domain,Domain::ZZ|Domain::QQ) || h.base.gens.iter().any(|g|g!=&x && g!=&t)
+-            || h.base.rep.len()>1024 || h.base.rep.degrees().iter().any(|&d|d>32){return Ok(None);}
+-        let parameter=h.base.gens.iter().position(|g|g==&t);
+-        MPoly::from_terms(2,h.base.rep.iter().map(|(e,c)|
+-            (vec![e[0],parameter.map_or(0,|i|e[i])],c.clone())).collect())
+-    };
++    let Some(polynomial)=symox::integrate::log_to_real::rational_input(&h.p,&x,&t,&mut ||py.check_signals())?
++        else{return Ok(None)};
+     let q=dense::from_mpoly(&q.base.rep,0);
+     let result=symox::integrate::log_to_real::convert(&polynomial,&q,&x,&t,&mut ||py.check_signals())?;
+     py.check_signals()?;Ok(result.map(wrap))
+diff --git a/python/symox/integrals/rationaltools.py b/python/symox/integrals/rationaltools.py
+--- a/python/symox/integrals/rationaltools.py
++++ b/python/symox/integrals/rationaltools.py
+@@ -338,6 +338,13 @@
+     symox.integrals.rationaltools.ratint_ratpart
+ 
+     """
++    if _stock_ratint_protocol(f):
++        native = _rational_core._ratint_driver(f,x,flags)
++        if native is not None:
++            value,logarithmic = native
++            if not logarithmic or _stock_ratint_log_protocol():
++                return value
++
+     if isinstance(f, tuple):
+         p, q = f
+     else:
+@@ -862,3 +869,99 @@
+             and _ATAN_ALL((_stock_real_subs(_atan_raw_attribute(cls,name),original)
+                            if name=='subs' else _atan_raw_attribute(cls,name) is original)
+                           for cls,name,original in _REAL_SCALAR_METHODS))
++
++
++# The driver publishes only a fully certified result. Basic construction and
++# final scalar arithmetic are guarded for every route; log-specific protocols
++# are checked only when Rust reports that the old logarithmic branch was used.
++_ratint_modular = _real_importlib.import_module('symox._modular_poly')
++_ratint_iterables = _real_importlib.import_module('symox.utilities.iterables')
++_ratint_sympify = _real_importlib.import_module('symox._sympify')
++_ratint_dispatch = _real_importlib.import_module('symox._native_dispatch')
++_RATINT_INTEGER_CONVERTERS = globals().get('_RATINT_INTEGER_CONVERTERS',_ratint_dispatch.stock_integer_converters)
++_RATINT_BASE_MODULES = globals().get('_RATINT_BASE_MODULES',tuple(
++    (namespace,name,namespace.get(name,_real_builtins.__dict__.get(name)))
++    for namespace,names in (
++        (_lrt_constructor.__dict__,('Poly','construct','_options','_native_construct')),
++        (_lrt_public.__dict__,('Poly','sympify')),
++        (_ratint_modular.__dict__,('ring_domain',)),
++        (_ratint_iterables.__dict__,('iterable',)),
++        (_rational_core.__dict__,('_apply','_ratint_ratpart','_ratint_logpart','_log_to_atan','_log_to_real')),
++        (globals(),('isinstance','tuple')),
++        (_real_builtins.__dict__,('__import__',)))
++    for name in names))
++_RATINT_BASE_METHODS = globals().get('_RATINT_BASE_METHODS',tuple(
++    (cls,name,_atan_raw_attribute(cls,name)) for cls in _ATAN_SCALARS
++    for name in ('as_numer_denom','is_Matrix','is_Equality','_iterable','_symox_matrixexpr','__iter__')))
++_RATINT_LOG_METHODS = globals().get('_RATINT_LOG_METHODS',tuple(
++    (cls,name,_atan_raw_attribute(cls,name)) for cls in _ATAN_SCALARS
++    for name in ('atoms','is_extended_real','as_dummy','name','is_Symbol','is_commutative')))
++_RATINT_BASE_STATES = globals().get('_RATINT_BASE_STATES',_atan_function_states((
++    *(value for _,_,value in _RATINT_BASE_MODULES),
++    *(value for _,_,value in _RATINT_BASE_METHODS),
++    _ATAN_AS_EXPR,_RATINT_INTEGER_CONVERTERS)))
++_RATINT_LOG_STATES = globals().get('_RATINT_LOG_STATES',
++    _atan_function_states(value for _,_,value in _RATINT_LOG_METHODS))
++# These function definitions are intentionally renewed by an ordinary reload;
++# user constructor/method captures above remain the original bootstrap values.
++_RATINT_LOCAL_HELPERS = (ratint_ratpart,ratint_logpart,log_to_real,log_to_atan)
++_RATINT_GUARD_HELPERS = tuple((name,globals()[name]) for name in (
++    '_atan_states_match','_atan_raw_attribute','_atan_stock_operators',
++    '_atan_forwarding_chain','_atan_forwarding_proof','_atan_vector_proof',
++    '_stock_lrt_resultant','_stock_lrt_as_poly','_stock_real_protocol','_stock_atan_protocol'))
++_RATINT_GUARD_FIELDS = tuple((name,value,value.__code__,value.__closure__,value.__defaults__,value.__kwdefaults__)
++    for name,value in _RATINT_GUARD_HELPERS)
++_RATINT_GUARD_STATES = _atan_function_states(value for _,value in _RATINT_GUARD_HELPERS)
++_RATINT_REGISTRY = globals().get('_RATINT_REGISTRY',S)
++_RATINT_ZERO = globals().get('_RATINT_ZERO',S.Zero)
++_RATINT_REGISTRY_METHODS = globals().get('_RATINT_REGISTRY_METHODS',tuple(
++    (name,_atan_raw_attribute(_ATAN_TYPE(S),name)) for name in ('Zero','__dict__','__getattribute__')))
++_RATINT_LOCAL_STATES = _atan_function_states(_RATINT_LOCAL_HELPERS)
++
++
++def _stock_ratint_protocol(f):
++    # Check the validators themselves before invoking any of them. This keeps
++    # a real replacement/modified-code callback in the old public path once.
++    for name,value,code,closure,defaults,kwdefaults in _RATINT_GUARD_FIELDS:
++        if (globals().get(name) is not value or value.__code__ is not code
++                or value.__closure__ is not closure or value.__defaults__ is not defaults
++                or value.__kwdefaults__ is not kwdefaults):return False
++    if (not _ATAN_BOOTSTRAP_CAPTURE or not _atan_evaluation.get()
++            or _rational_core.__dict__.get('_ratint_driver') is None
++            or Poly is not _ATAN_POLY or Poly is not _rational_core.Poly
++            or Poly.__init__ is not object.__init__
++            or not _ATAN_ALL(namespace.get(name,_real_builtins.__dict__.get(name)) is value
++                            for namespace,name,value in _RATINT_BASE_MODULES)
++            or (ratint_ratpart is not _RATINT_LOCAL_HELPERS[0]
++                or ratint_logpart is not _RATINT_LOCAL_HELPERS[1]
++                or log_to_real is not _RATINT_LOCAL_HELPERS[2]
++                or log_to_atan is not _RATINT_LOCAL_HELPERS[3])
++            or not _atan_states_match(_RATINT_BASE_STATES)
++            or not _atan_states_match(_RATINT_LOCAL_STATES)
++            or not _atan_states_match(_RATINT_GUARD_STATES)
++            or not _atan_stock_operators(None,None,_LRT_OPERATORS,_LRT_BOOTSTRAP_STATES)
++            or not _ATAN_ALL(_atan_raw_attribute(cls,name) is value
++                            for cls,name,value in _RATINT_BASE_METHODS)):
++        return False
++    # Exact tuple metadata only: never iterate a generator or tuple subclass.
++    # Native expressions return before converter lookup in public sympify.
++    if _ATAN_TYPE(f) is tuple:
++        if len(f)!=2:return False
++        if (_ATAN_TYPE(f[0]) is int or _ATAN_TYPE(f[1]) is int):
++            if not _RATINT_INTEGER_CONVERTERS(_ratint_sympify.converter):return False
++    return True
++
++
++def _stock_ratint_log_protocol():
++    if S is not _RATINT_REGISTRY:return False
++    if not _ATAN_ALL(_atan_raw_attribute(_ATAN_TYPE(S),name) is value
++                    for name,value in _RATINT_REGISTRY_METHODS):return False
++    namespace=_ATAN_OBJECT_GETATTRIBUTE(S,'__dict__')
++    if _ATAN_TYPE(namespace) is not dict or not _ATAN_ALL(_ATAN_TYPE(key) is str for key in namespace):return False
++    if namespace.get('Zero',_RATINT_ZERO) is not _RATINT_ZERO:return False
++    return (_stock_lrt_resultant() and _stock_lrt_as_poly()
++            and _stock_real_protocol(None,None,_real_radsimp_module.collect)
++            and _lrt_public.Dummy is Dummy
++            and _atan_states_match(_RATINT_LOG_STATES)
++            and _ATAN_ALL(_atan_raw_attribute(cls,name) is value
++                          for cls,name,value in _RATINT_LOG_METHODS))
+diff --git a/crates/symox-core/src/integrate/ratint_driver.rs b/crates/symox-core/src/integrate/ratint_driver.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/symox-core/src/integrate/ratint_driver.rs
+@@ -0,0 +1,221 @@
++//! Bounded QQ/ZZ driver for the public rational integration pipeline.
++//!
++//! Keep cancellation units, polynomial/rational parts, signed LRT groups and
++//! their primitive logarithm representatives. Any incomplete subcalculation
++//! refuses the whole route; the public caller then runs its full algorithm.
++use crate::expr::{Expr,Kind};
++use crate::ops::{add,mul2,div};
++use crate::poly::{api,dense,fraction::Polynomial,
++    polyobj::{Domain,Poly},Rat};
++
++pub enum Input {
++    Expression(Expr),
++    Fraction(Expr,Expr),
++}
++
++fn rational_coefficient(n:&crate::number::Number)->bool {
++    Rat::from_number(n)
++        .is_some_and(|q|q.n.bits().max(q.d.bits())<=4096)
++}
++
++// Integer-polynomial bounds for a representation N/D. Each coefficient has
++// absolute value < 2^bits. Product convolution has at most min(degA,degB)+1
++// terms; sums add one bit. These deliberately overestimate cancellation.
++#[derive(Clone,Copy)]
++struct Shape { n:u32,d:u32,nb:u64,db:u64 }
++impl Shape {
++    fn checked(n:u32,d:u32,nb:u64,db:u64)->Option<Self>{
++        (n<=32 && d<=32 && nb<=4096 && db<=4096).then_some(Self{n,d,nb,db})
++    }
++    fn number(n:&crate::number::Number)->Option<Self>{
++        let q=Rat::from_number(n)?;Self::checked(0,0,q.n.bits(),q.d.bits())
++    }
++    fn convolution(a:u32,b:u32)->u64{
++        let terms=u64::from(a.min(b))+1;
++        u64::from(64-(terms-1).leading_zeros())
++    }
++    fn mul(self,other:Self)->Option<Self>{
++        Self::checked(self.n.checked_add(other.n)?,self.d.checked_add(other.d)?,
++            self.nb+other.nb+Self::convolution(self.n,other.n),
++            self.db+other.db+Self::convolution(self.d,other.d))
++    }
++    fn add(self,other:Self)->Option<Self>{
++        let left=self.n.checked_add(other.d)?;let right=other.n.checked_add(self.d)?;
++        let bits_left=self.nb+other.db+Self::convolution(self.n,other.d);
++        let bits_right=other.nb+self.db+Self::convolution(other.n,self.d);
++        Self::checked(left.max(right),self.d.checked_add(other.d)?,bits_left.max(bits_right)+1,
++            self.db+other.db+Self::convolution(self.d,other.d))
++    }
++    fn power(self,exponent:i64)->Option<Self>{
++        let power=u32::try_from(exponent.unsigned_abs()).ok().filter(|&n|n<=32)?;
++        if power==0{return Self::checked(0,0,1,1);}
++        let mut value=Self::checked(self.n.checked_mul(power)?,self.d.checked_mul(power)?,
++            u64::from(power)*(self.nb+Self::convolution(self.n,self.n)),
++            u64::from(power)*(self.db+Self::convolution(self.d,self.d)))?;
++        if exponent<0 {std::mem::swap(&mut value.n,&mut value.d);std::mem::swap(&mut value.nb,&mut value.db);}
++        Some(value)
++    }
++}
++
++// Bound effective degrees and coefficient growth BEFORE as_numer_denom or
++// expansion. A bounded exponent at every node alone does not bound nesting.
++fn rational_shape(e:&Expr,x:&Expr,budget:&mut usize,depth:u32)->Option<Shape> {
++    if depth>64 || *budget==0{return None;}*budget-=1;
++    match e.kind() {
++        Kind::Num(n)=>Shape::number(n),
++        Kind::Sym(_) if e==x=>Shape::checked(1,0,1,1),
++        Kind::Add(c,args)=>args.iter().try_fold(Shape::number(c)?,|shape,(a,c)|{
++            shape.add(Shape::number(c)?.mul(rational_shape(a,x,budget,depth+1)?)?)
++        }),
++        Kind::Mul(c,factors)=>factors.iter().try_fold(Shape::number(c)?,|shape,(b,e)|{
++            shape.mul(rational_shape(b,x,budget,depth+1)?.power(e.as_i64()?)?)
++        }),
++        Kind::Pow(b,e)=>rational_shape(b,x,budget,depth+1)?.power(e.as_i64()?),
++        _=>None,
++    }
++}
++
++fn polynomial_degree(e:&Expr,x:&Expr,budget:&mut usize,depth:u32)->Option<u32> {
++    if depth>64 || *budget==0{return None;}*budget-=1;
++    let power=|b:&Expr,e:&Expr,budget:&mut usize|{
++        let n=u32::try_from(e.as_i64()?).ok()?;
++        let d=polynomial_degree(b,x,budget,depth+1)?.checked_mul(n)?;
++        (d<=32).then_some(d)
++    };
++    match e.kind() {
++        Kind::Num(n) if rational_coefficient(n)=>Some(0),
++        Kind::Sym(_) if e==x=>Some(1),
++        Kind::Add(c,args) if rational_coefficient(c)=>args.iter().try_fold(0u32,|d,(a,c)|{
++            if !rational_coefficient(c){return None;}Some(d.max(polynomial_degree(a,x,budget,depth+1)?))
++        }),
++        Kind::Mul(c,factors) if rational_coefficient(c)=>{
++            factors.iter().try_fold(0u32,|d,(b,e)|{
++                let d=d.checked_add(power(b,e,budget)?)?;(d<=32).then_some(d)
++            })
++        },
++        Kind::Pow(b,e)=>power(b,e,budget),
++        _=>None,
++    }
++}
++
++fn dense_poly(p:&[Rat],x:&Expr,domain:Domain)->Poly {
++    Poly::new(dense::to_mpoly(p,0,1),vec![x.clone()],1,domain)
++}
++
++fn primitive(h:Polynomial)->Option<Polynomial> {
++    if let Some(field)=h.field {
++        return Some(field.reference_primitive().1.into());
++    }
++    if h.algebraic.is_some() || h.expression.is_some(){return None;}
++    if h.base.has_domain_gens(){Some(h.base.ground_primitive().1.into())}
++    else{Some(h.base.primitive().1.into())}
++}
++
++pub fn integrate<E>(input:&Input,x:&Expr,symbol:&str,check:&mut impl FnMut()->Result<(),E>)
++    -> Result<Option<(Expr,bool)>,E>
++{
++    check()?;
++    let (p,q)=match input {
++        Input::Expression(f)=>{
++            if rational_shape(f,x,&mut 4096,0).is_none(){return Ok(None);}
++            crate::simptools::as_numer_denom(f)
++        },
++        Input::Fraction(p,q)=>{
++            if rational_shape(p,x,&mut 4096,0).is_none() || rational_shape(q,x,&mut 4096,0).is_none(){return Ok(None);}
++            (p.clone(),q.clone())
++        },
++    };
++    if rational_shape(&p,x,&mut 4096,0).is_none() || rational_shape(&q,x,&mut 4096,0).is_none()
++        || polynomial_degree(&p,x,&mut 4096,0).is_none() || polynomial_degree(&q,x,&mut 4096,0).is_none(){return Ok(None);}
++    macro_rules! step {($e:expr)=>{{check()?;let result=$e;check()?;
++        let Ok(value)=result else{return Ok(None)};value}}}
++    let mut p=step!(Poly::from_expr(&p,std::slice::from_ref(x)));
++    let mut q=step!(Poly::from_expr(&q,std::slice::from_ref(x)));
++    if p.gens!=[x.clone()] || q.gens!=[x.clone()] || p.ngens!=1 || q.ngens!=1 || q.rep.is_zero(){return Ok(None);}
++    p.domain=Domain::QQ;q.domain=Domain::QQ;
++    // Reuse the reference dmp_cancel unit convention, already used by apart.
++    check()?;
++    let (cp,cq,p,q)=api::cancel_int(&p.rep,&q.rep);
++    check()?;
++    let coefficient=Expr::num(Rat::new(cp,cq).to_number());
++    let (p,q)=(dense_poly(&dense::to_rat(&p),x,Domain::QQ),dense_poly(&dense::to_rat(&q),x,Domain::QQ));
++    let (polynomial,p)=step!(p.div(&q));
++    let mut result=polynomial.integrate(0).as_expr();
++    if p.rep.is_zero(){check()?;return Ok(Some((mul2(&coefficient,&result),false)));}
++    let Some(reduction)=super::rational_reduction::reduce(&dense::from_mpoly(&p.rep,0),&dense::from_mpoly(&q.rep,0),check)?
++        else{return Ok(None)};
++    let fraction=|a:&[Rat],b:&[Rat]|api::cancel(&div(&dense_poly(a,x,Domain::QQ).as_expr(),&dense_poly(b,x,Domain::QQ).as_expr()));
++    let rational=step!(fraction(&reduction.rational_numerator,&reduction.rational_denominator));
++    let logarithmic=step!(fraction(&reduction.logarithmic_numerator,&reduction.logarithmic_denominator));
++    if rational_shape(&logarithmic,x,&mut 4096,0).is_none(){return Ok(None);}
++    let (p,q)=crate::simptools::as_numer_denom(&logarithmic);
++    let p=step!(Poly::from_expr(&p,std::slice::from_ref(x)));
++    let q=step!(Poly::from_expr(&q,std::slice::from_ref(x)));
++    let (polynomial,remainder)=step!(p.div(&q));
++    result=add(&[result,rational,polynomial.integrate(0).as_expr()]);
++    let logarithmic=!remainder.rep.is_zero();
++    if logarithmic {
++        check()?;
++        let t=Expr::dummy(symbol,crate::symbol::Assumptions::NONE);
++        let Some(groups)=super::logarithmic_reduction::reduce(&remainder,&q,&t,check)? else{return Ok(None)};
++        let mut terms=Vec::with_capacity(groups.len());
++        for (h,q) in groups {
++            check()?;
++            // No partial RootSum/atan sum: a missing certificate restarts the
++            // complete public driver, including its general RootSum choice.
++            if q.field.is_some() || q.algebraic.is_some() || q.expression.is_some()
++                || !matches!(q.rep.degree(0),1|2){return Ok(None);}
++            let Some(h)=primitive(h) else{return Ok(None)};
++            let Some(h)=super::log_to_real::rational_input(&h,x,&t,check)? else{return Ok(None)};
++            let Some(value)=super::log_to_real::convert(&h,&dense::from_mpoly(&q.rep,0),x,&t,check)? else{return Ok(None)};
++            terms.push(value);
++        }
++        result=add(&[result,add(&terms)]);
++    }
++    check()?;
++    Ok(Some((mul2(&coefficient,&result),logarithmic)))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::parser::parse_str;
++    #[test]
++    fn signed_units_repeated_poles_and_real_residue_representatives() {
++        let x=Expr::symbol("x");
++        for (input,expected) in [("1/(x^2+1)","atan(x)"),
++            ("-3/(2*x+2)","-3*log(x+1)/2"),
++            ("1/x^2","-1/x"),
++            ("x^2+3/2","x^3/3+3*x/2")] {
++            let result=integrate(&Input::Expression(parse_str(input).unwrap()),&x,"t",&mut ||Ok::<_,()>(())).unwrap().unwrap();
++            assert_eq!(result.0,parse_str(expected).unwrap());
++        }
++    }
++    #[test]
++    fn unsupported_roots_resources_and_interruptions_never_publish_partial_answers() {
++        let x=Expr::symbol("x");let f=parse_str("1/(x^3+x+1)").unwrap();
++        assert!(integrate(&Input::Expression(f),&x,"t",&mut ||Ok::<_,()>(())).unwrap().is_none());
++        let f=parse_str("x^1000000+1").unwrap();
++        assert!(integrate(&Input::Expression(f),&x,"t",&mut ||Ok::<_,()>(())).unwrap().is_none());
++        let mut calls=0;
++        let result=integrate(&Input::Expression(parse_str("1/(x^2+1)").unwrap()),&x,"t",&mut ||{calls+=1;if calls==12{Err("stop")}else{Ok(())}});
++        assert!(matches!(result,Err("stop")));
++    }
++    #[test]
++    fn nested_degrees_and_numeric_powers_are_bounded_before_numerator_extraction() {
++        let x=Expr::symbol("x");
++        let one=Expr::int(1).as_number().unwrap().clone();
++        for mut base in [parse_str("x+1").unwrap(),Expr::int(2)] {
++            // Raw nodes keep hidden numeric powers unevaluated. Constructing
++            // the witness itself must not execute the dangerous calculation.
++            for _ in 0..8 {
++                let power=Expr::from_kind(Kind::Pow(base,Expr::int(32)));
++                base=Expr::from_kind(Kind::Add(one.clone(),vec![(power,one.clone())]));
++            }
++            assert!(rational_shape(&base,&x,&mut 4096,0).is_none());
++            for input in [Input::Expression(base.clone()),Input::Fraction(base,Expr::one())] {
++                assert!(integrate(&input,&x,"t",&mut ||Ok::<_,()>(())).unwrap().is_none());
++            }
++        }
++    }
++}
+diff --git a/tests/test_native_ratint_driver.py b/tests/test_native_ratint_driver.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_native_ratint_driver.py
+@@ -0,0 +1,272 @@
++"""QQ/ZZ public driver orchestration and certified branch representatives."""
++import importlib
++import sys
++
++import pytest
++import sympy as sp
++import symox as sx
++
++rt=importlib.import_module('symox.integrals.rationaltools')
++reference=importlib.import_module('sympy.integrals.rationaltools')
++
++CASES=['0','7/3','x**2+3/2','(x*x-1)/(x-1)','1/x','-3/(2*x+2)',
++       '1/x**2','3/(x-1)**4','1/(x*x+1)','1/(x*x+x+1)',
++       '1/(x*x+2*x+3)','2*x/(x*x-1)','x/(x*x+1)',
++       '(x**3+1)/(x*x+1)','(x+1)/(x*x+1)**2',
++       '36/(x**5-2*x**4-2*x**3+4*x*x+x-2)',
++       '(x*x+1)/(3*x*x-6*x+3)','(x+2)/(2*x*x-2)',
++       '((x+1)**4-1)/(x+1)**2','1/(x-1)+1/(x+1)']
++
++
++def normalize(e):
++    return sp.expand(e.replace(lambda a:a.func in (sp.log,sp.atan),
++        lambda a:a.func(sp.cancel(a.args[0],extension=True))))
++
++
++@pytest.mark.parametrize('source',CASES)
++@pytest.mark.parametrize('pair',[False,True])
++@pytest.mark.parametrize('options',[{}, {'real':True}, {'real':None,'symbol':'residue'}])
++def test_complete_native_value_matches_old_driver_reference_and_exact_derivative(source,pair,options,monkeypatch):
++    x=sx.Symbol('x');X=sp.Symbol('x');f=sx.sympify(source,locals={'x':x});F=sp.sympify(source,locals={'x':X})
++    value=f.as_numer_denom() if pair else f
++    expected=reference.ratint(F,X,**options)
++    native=sx._core._ratint_driver(value,x,options)
++    assert native is not None
++    result=rt.ratint(value,x,**options)
++    assert result==native[0]
++    with monkeypatch.context() as patch:
++        patch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++        old=rt.ratint(value,x,**options)
++    assert normalize(result.to_sympy())==normalize(old.to_sympy())==normalize(expected)
++    assert sp.cancel(sp.diff(result.to_sympy(),X)-F,extension=True)==0
++
++
++@pytest.mark.parametrize('symbol_kind',['string','symbol','dummy'])
++@pytest.mark.parametrize('dummy_variable',[False,True])
++def test_auxiliary_symbols_and_variable_assumptions_keep_the_same_forms(symbol_kind,dummy_variable,monkeypatch):
++    x=sx.Dummy('x',real=True) if dummy_variable else sx.Symbol('x',real=True)
++    symbol={'string':'u','symbol':sx.Symbol('u',positive=True),'dummy':sx.Dummy('u',integer=True)}[symbol_kind]
++    f=1/(x*x+x+1);flags={'symbol':symbol}
++    native=sx._core._ratint_driver(f,x,flags)
++    assert native is not None
++    result=rt.ratint(f,x,**flags)
++    monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    assert normalize(result.to_sympy())==normalize(rt.ratint(f,x,**flags).to_sympy())
++
++
++def test_driver_has_no_python_poly_or_subkernel_recurrence(monkeypatch):
++    x=sx.Symbol('x');f=36/(x**5-2*x**4-2*x**3+4*x*x+x-2)
++    calls=[];old=sx._core._ratint_driver
++    def selected(*args):
++        result=old(*args);calls.append(result is not None);return result
++    monkeypatch.setattr(sx._core,'_ratint_driver',selected)
++    frames=[];codes={fn.__code__ for fn in (rt.ratint_ratpart,rt.ratint_logpart,rt.log_to_real,rt.log_to_atan,
++        rt._lrt_constructor.construct,rt._lrt_constructor._options)}
++    def profile(frame,event,arg):
++        if event=='call' and frame.f_code in codes:frames.append(frame.f_code.co_name)
++    previous=sys.getprofile();sys.setprofile(profile)
++    try:value=rt.ratint(f,x)
++    finally:sys.setprofile(previous)
++    assert calls==[True] and frames==[]
++    assert sx.cancel(sx.diff(value,x)-f)==0
++
++
++def test_polynomial_and_rational_only_branches_do_not_require_unobservable_log_protocol(monkeypatch):
++    x=sx.Symbol('x');calls=[]
++    def observed(*args,**kwargs):calls.append(1);raise KeyboardInterrupt('log protocol')
++    monkeypatch.setattr(rt,'log',observed)
++    for f in (x*x,sx.S.Zero,1/x**2):
++        native=sx._core._ratint_driver(f,x,{})
++        assert native is not None and not native[1]
++        assert rt.ratint(f,x)==native[0]
++    assert calls==[]
++    # A genuine log path must restart the old public function and run its hook.
++    with pytest.raises(KeyboardInterrupt,match='log protocol'):rt.ratint(1/(x*x+1),x)
++    assert calls
++
++
++@pytest.mark.parametrize('real',[False,0,1,sx.S.true])
++def test_unported_real_options_keep_the_complete_public_branch(real,monkeypatch):
++    x=sx.Symbol('x');f=1/(x*x+x+1)
++    assert sx._core._ratint_driver(f,x,{'real':real}) is None
++    actual=rt.ratint(f,x,real=real)
++    monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    old=rt.ratint(f,x,real=real)
++    assert normalize(actual.to_sympy())==normalize(old.to_sympy())
++
++
++@pytest.mark.parametrize('source',['1/(x**3+x+1)','sqrt(2)/(x*x+1)','1/(x*x+a)','1.0/(x*x+1)'])
++def test_uncertified_or_other_domains_restart_the_full_driver(source,monkeypatch):
++    x,a=sx.symbols('x a');f=sx.sympify(source,locals={'x':x,'a':a})
++    assert sx._core._ratint_driver(f,x,{}) is None
++    def run():
++        try:return ('value',rt.ratint(f,x))
++        except Exception as error:return ('error',type(error),str(error))
++    actual=run();monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    old=run()
++    if actual[0]=='value':assert actual[1].to_sympy().dummy_eq(old[1].to_sympy())
++    else:assert actual==old
++
++
++@pytest.mark.parametrize('f',[1,True,'x',None,(1,0),(0,0),(1,), (1,2,3)])
++def test_input_errors_are_identical_to_the_old_driver(f,monkeypatch):
++    x=sx.Symbol('x')
++    def run():
++        try:return ('value',rt.ratint(f,x))
++        except Exception as error:return ('error',type(error),str(error))
++    actual=run();monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    assert run()==actual
++
++
++@pytest.mark.parametrize('target',['cancel','integrate','div','to_field','primitive','as_expr',
++                                 'as_numer_denom','atoms','is_extended_real','as_dummy',
++                                 'ratint_ratpart','ratint_logpart','log_to_real','log_to_atan',
++                                 'core_ratpart','core_lrt','constructor','constructor_options','iterable','resultant','as_poly'])
++def test_real_callbacks_and_interruptions_keep_their_complete_order(target,monkeypatch):
++    x=sx.Symbol('x');f=1/(x*x+x+1);flags={'symbol':sx.Symbol('u')};calls=[]
++    def observed(*args,**kwargs):calls.append(target);raise KeyboardInterrupt('driver protocol callback')
++    if target in ('cancel','integrate','div','to_field','primitive','as_expr'):
++        monkeypatch.setattr(sx.Poly,target,observed)
++    elif target in ('ratint_ratpart','ratint_logpart','log_to_real','log_to_atan'):
++        monkeypatch.setattr(rt,target,observed)
++    elif target=='resultant':monkeypatch.setattr(rt,'resultant',observed)
++    elif target in ('as_numer_denom','atoms','as_dummy','as_poly'):
++        monkeypatch.setattr(sx._core.Expr,target,observed)
++    elif target=='is_extended_real':monkeypatch.setattr(type(sx.S.One),target,property(observed))
++    elif target=='core_ratpart':monkeypatch.setattr(sx._core,'_ratint_ratpart',observed)
++    elif target=='core_lrt':monkeypatch.setattr(sx._core,'_ratint_logpart',observed)
++    elif target=='constructor':monkeypatch.setattr(rt._lrt_constructor,'construct',observed)
++    elif target=='constructor_options':monkeypatch.setattr(rt._lrt_constructor,'_options',observed)
++    else:monkeypatch.setattr(rt._ratint_iterables,'iterable',observed)
++    with pytest.raises(KeyboardInterrupt,match='driver protocol callback'):rt.ratint(f,x,**flags)
++    trace=list(calls);calls.clear();assert trace
++    monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    with pytest.raises(KeyboardInterrupt,match='driver protocol callback'):rt.ratint(f,x,**flags)
++    assert calls==trace
++
++
++def test_unrelated_converter_keeps_native_but_applicable_integer_converter_is_observed(monkeypatch):
++    x=sx.Symbol('x');calls=[];old=sx._core._ratint_driver
++    def selected(*args):
++        value=old(*args);calls.append(value is not None);return value
++    monkeypatch.setattr(sx._core,'_ratint_driver',selected)
++    class Unrelated:pass
++    monkeypatch.setitem(rt._ratint_sympify.converter,Unrelated,lambda value:None)
++    value=rt.ratint((1,x*x+1),x)
++    assert calls==[True]
++    events=[]
++    def converter(value):events.append(1);raise KeyboardInterrupt('integer conversion')
++    monkeypatch.setitem(rt._ratint_sympify.converter,int,converter)
++    calls.clear()
++    with pytest.raises(KeyboardInterrupt,match='integer conversion'):rt.ratint((1,x*x+1),x)
++    assert not calls and events
++    # Native Expr inputs bypass the registry in public sympify.
++    calls.clear();events.clear()
++    assert rt.ratint((sx.S.One,x*x+1),x)==value
++    assert calls==[True] and not events
++
++
++def test_protocol_and_tuple_subclass_eligibility_has_no_side_effects(monkeypatch):
++    x=sx.Symbol('x');calls=[]
++    class Pair(tuple):
++        def __iter__(self):calls.append('iter');raise KeyboardInterrupt('pair iteration')
++    pair=Pair((1,x*x+1))
++    assert sx._core._ratint_driver(pair,x,{}) is None and not calls
++    with pytest.raises(KeyboardInterrupt,match='pair iteration'):rt.ratint(pair,x)
++    assert calls==['iter']
++    class Term:
++        def as_numer_denom(self):calls.append('numerator');return sx.S.One,x*x+1
++    term=Term();calls.clear()
++    assert sx._core._ratint_driver(term,x,{}) is None and not calls
++    value=rt.ratint(term,x,real=True)
++    assert calls==['numerator'] and sx.cancel(sx.diff(value,x)-1/(x*x+1))==0
++
++
++def test_unknown_flags_are_ignored_without_observing_their_values():
++    x=sx.Symbol('x')
++    class Unknown:
++        def __bool__(self):raise AssertionError('unused flag was inspected')
++    result=rt.ratint(1/(x*x+1),x,unrecognized=Unknown())
++    assert result==sx.atan(x)
++
++
++def test_sparse_huge_degrees_decline_before_expansion_or_dense_allocation():
++    x=sx.Symbol('x')
++    assert sx._core._ratint_driver(x**1000000+1,x,{}) is None
++    assert sx._core._ratint_driver((x**1000000+1,x+1),x,{}) is None
++
++
++def test_evaluate_false_keeps_the_full_held_path(monkeypatch):
++    x=sx.Symbol('x');f=1/(x*x+1)
++    with sx.evaluate(False):
++        assert not rt._stock_ratint_protocol(f)
++        def run():
++            try:return ('value',sx.srepr(rt.ratint(f,x)))
++            except Exception as error:return ('error',type(error),str(error))
++        result=run();monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++        assert run()==result
++
++
++def test_noref_native_driver_with_vector_ore_and_reload():
++    import os,subprocess
++    script="""import sys,importlib
++sys.modules['sympy']=None
++import symox as S
++import symox.vector,symox.holonomic.recurrence
++r=importlib.import_module('symox.integrals.rationaltools')
++x=S.Symbol('x');f=1/(x*x+x+1)
++for i in range(3):
++ importlib.reload(r)
++ assert r._stock_ratint_protocol(f) and r._stock_ratint_log_protocol()
++ native=S._core._ratint_driver(f,x,{})
++ assert native is not None and native[1]
++ result=r.ratint(f,x)
++ assert result==native[0]
++ assert S.cancel(S.diff(result,x)-f)==0
++assert sys.modules['sympy'] is None
++"""
++    subprocess.run([sys.executable,'-c',script],env=os.environ.copy(),check=True)
++
++
++@pytest.mark.parametrize('source',['-3/(2*x+2)','2*x/(x*x-1)','1/(x*x+x+1)',
++    '36/(x**5-2*x**4-2*x**3+4*x*x+x-2)'])
++def test_poles_and_complex_specializations_keep_old_principal_branches(source,monkeypatch):
++    x=sx.Symbol('x');f=sx.sympify(source,locals={'x':x})
++    native=sx._core._ratint_driver(f,x,{})
++    assert native is not None
++    result=rt.ratint(f,x)
++    monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    old=rt.ratint(f,x)
++    for point in (-3,-1,0,1,2,3,sx.I,1+sx.I,-1-sx.I):
++        assert normalize(result.subs(x,point).to_sympy())==normalize(old.subs(x,point).to_sympy())
++
++
++@pytest.mark.parametrize('shape',['degree','numeric'])
++def test_compounded_power_refusal_preserves_the_complete_public_result(shape,monkeypatch):
++    x=sx.Symbol('x')
++    if shape=='degree':f=sx.Pow(sx.Pow(x+1,8,evaluate=False)+1,8,evaluate=False)
++    else:f=sx.Pow(sx.Integer(2)**4095,2,evaluate=False)*x
++    assert sx._core._ratint_driver(f,x,{}) is None
++    actual=rt.ratint(f,x)
++    monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    old=rt.ratint(f,x)
++    assert actual==old
++    assert sx.expand(sx.diff(actual,x)-f)==0
++
++
++def test_changed_lrt_guard_is_observed_once_in_the_complete_path(monkeypatch):
++    x=sx.Symbol('x');f=1/(x*x+1);calls=[]
++    def observed():calls.append(1);return False
++    monkeypatch.setattr(rt,'_stock_lrt_resultant',observed)
++    actual=rt.ratint(f,x)
++    first=list(calls);calls.clear()
++    monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    assert rt.ratint(f,x)==actual and calls==first and calls
++
++
++def test_changed_registry_zero_keeps_the_old_log_accumulation(monkeypatch):
++    x=sx.Symbol('x');f=1/(x*x+1)
++    monkeypatch.setattr(rt.S,'Zero',sx.Integer(7))
++    actual=rt.ratint(f,x)
++    monkeypatch.setattr(sx._core,'_ratint_driver',lambda *args:None)
++    assert rt.ratint(f,x)==actual

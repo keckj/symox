@@ -1,0 +1,967 @@
+{
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "1ad26aa2fbe980b159a50f38583dce6fc0a301045b92194803207c059ef07875",
+    "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+    "working_code_diff_sha256": "5613877289b21da216971cf1e90c445290e82a5562fd4972bd564c438cb3fa2c",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "counts": {
+    "passed": 48506,
+    "skipped": 55,
+    "xfailed": 4,
+    "failed": 1
+  },
+  "coverage": {
+    "collection_matches": true,
+    "execution_matches": true,
+    "expected": 48566,
+    "collected_in_shards": 48566,
+    "finished": 48566,
+    "missing": [],
+    "unexpected": []
+  },
+  "shards": [
+    {
+      "name": "shard-00",
+      "returncode": 0,
+      "elapsed_seconds": 17.860076904296875,
+      "files": [
+        "tests/test_elementary_rewrite.py"
+      ]
+    },
+    {
+      "name": "shard-01",
+      "returncode": 0,
+      "elapsed_seconds": 15.727681875228882,
+      "files": [
+        "tests/test_matrix_auxiliary.py"
+      ]
+    },
+    {
+      "name": "shard-02",
+      "returncode": 0,
+      "elapsed_seconds": 5.633115530014038,
+      "files": [
+        "tests/test_code_printer_parity.py"
+      ]
+    },
+    {
+      "name": "shard-03",
+      "returncode": 0,
+      "elapsed_seconds": 26.697962999343872,
+      "files": [
+        "tests/test_integrate_methods_corpus.py"
+      ]
+    },
+    {
+      "name": "shard-04",
+      "returncode": 0,
+      "elapsed_seconds": 11.285157918930054,
+      "files": [
+        "tests/test_expand_complex.py",
+        "tests/test_ode_order.py",
+        "tests/test_complex_power_branch_accuracy.py",
+        "tests/test_domain_keyword_parity.py",
+        "tests/test_missing_c1_parity.py",
+        "tests/test_constructor_instance_methods.py",
+        "tests/test_reuse_host_guards.py"
+      ]
+    },
+    {
+      "name": "shard-05",
+      "returncode": 0,
+      "elapsed_seconds": 38.74111223220825,
+      "files": [
+        "tests/test_noncommutative_parity.py",
+        "tests/test_top_level_completion.py",
+        "tests/test_composite_domain_parity.py",
+        "tests/test_pde_specialized_methods.py",
+        "tests/test_solver_options.py",
+        "tests/test_diffgeom_completion.py",
+        "tests/test_remaining_codegen.py",
+        "tests/test_native_trig_shared_graph.py",
+        "tests/test_special_numeric.py"
+      ]
+    },
+    {
+      "name": "shard-06",
+      "returncode": 0,
+      "elapsed_seconds": 13.554025411605835,
+      "files": [
+        "tests/test_expression_inspection.py",
+        "tests/test_sets_contains_parity.py",
+        "tests/test_solve_polynomial_forms.py",
+        "tests/test_subclass_fidelity.py",
+        "tests/test_native_simplex_parity.py",
+        "tests/test_expand_function_hint_parity.py",
+        "tests/test_mat_rest4_parity.py",
+        "tests/test_forms_b2_parity.py",
+        "tests/test_numpy_vector_dispatch.py",
+        "tests/test_matnum_parity.py",
+        "tests/test_simp_rest5_parity.py"
+      ]
+    },
+    {
+      "name": "shard-07",
+      "returncode": 0,
+      "elapsed_seconds": 16.70957350730896,
+      "files": [
+        "tests/test_domains_misc_parity.py",
+        "tests/test_nc_segv_parity.py",
+        "tests/test_solve_output_conventions.py",
+        "tests/test_matrix_functions.py",
+        "tests/test_homogeneous_order.py",
+        "tests/test_physics_continuum_biomechanics_secondquant.py",
+        "tests/test_cse_matrix_parity.py",
+        "tests/test_domains_rrcc_parity.py",
+        "tests/test_sparse_ring_constructors.py",
+        "tests/test_forms_rest_parity.py",
+        "tests/test_stats_forms_parity.py"
+      ]
+    },
+    {
+      "name": "shard-08",
+      "returncode": 0,
+      "elapsed_seconds": 15.862429857254028,
+      "files": [
+        "tests/test_global_poly_division.py",
+        "tests/test_liminf_parity.py",
+        "tests/test_inequality_parameter_bounds.py",
+        "tests/test_expr_head_queries.py",
+        "tests/test_precision.py",
+        "tests/test_latex_symbol_subclass_protocol.py",
+        "tests/test_numeric_extrema_precision.py",
+        "tests/test_derivative_parser_options.py",
+        "tests/test_limit_gamma_asymptotics_parity.py",
+        "tests/test_wrong_misc_wave4_parity.py",
+        "tests/test_forwarded_proxies.py",
+        "tests/test_trisplyne_integration.py"
+      ]
+    },
+    {
+      "name": "shard-09",
+      "returncode": 0,
+      "elapsed_seconds": 12.274675846099854,
+      "files": [
+        "tests/test_expr_coefficient_options.py",
+        "tests/test_transforms_remaining_parity.py",
+        "tests/test_missing_domainmatrix_wave4_parity.py",
+        "tests/test_sets_intersection_parity.py",
+        "tests/test_conditional_rational_integrals.py",
+        "tests/test_wrong_quantum_wave4_parity.py",
+        "tests/test_gamma_signed_powers.py",
+        "tests/test_simplify_options.py",
+        "tests/test_assumption_dag_cache.py",
+        "tests/test_expr_legacy_matching.py",
+        "tests/test_rrcc_parity.py",
+        "tests/test_new_surfaces_no_sympy.py"
+      ]
+    },
+    {
+      "name": "shard-10",
+      "returncode": 0,
+      "elapsed_seconds": 21.715405225753784,
+      "files": [
+        "tests/test_poly_parity.py",
+        "tests/test_pw_nc_parity.py",
+        "tests/test_array_latex_lambdify.py",
+        "tests/test_algebraic_number_compat.py",
+        "tests/test_mellin_inversion_parity.py",
+        "tests/test_symbolic_extrema.py",
+        "tests/test_auto_division_radical_coefficients.py",
+        "tests/test_numpy_indexed_symbol_printing.py",
+        "tests/test_mathieu_functions.py",
+        "tests/test_array_codegen_validation.py",
+        "tests/test_ode_forms_parity.py",
+        "tests/test_algroot_parity.py"
+      ]
+    },
+    {
+      "name": "shard-11",
+      "returncode": 0,
+      "elapsed_seconds": 88.57532620429993,
+      "files": [
+        "tests/test_complex_parts.py",
+        "tests/test_inexact_composite_equality.py",
+        "tests/test_fraction_domains.py",
+        "tests/test_piecewise_periodic_parity.py",
+        "tests/test_native_linprog_preparation.py",
+        "tests/test_gruntz_homogeneous_symbolic_powers.py",
+        "tests/test_analysis_module_completion.py",
+        "tests/test_matrix_spectral.py",
+        "tests/test_integrate_rest_parity.py",
+        "tests/test_large_precision_parity.py",
+        "tests/test_radsimp_undefined_algebraic.py",
+        "tests/test_matrix_compact_factor_solve.py",
+        "tests/test_c_doc_tensor_parity.py"
+      ]
+    },
+    {
+      "name": "shard-12",
+      "returncode": 0,
+      "elapsed_seconds": 18.34665822982788,
+      "files": [
+        "tests/test_matrix_structural.py",
+        "tests/test_array_operations.py",
+        "tests/test_expression_zero_payload_parity.py",
+        "tests/test_native_ddm_rref.py",
+        "tests/test_laplace_e1_branch.py",
+        "tests/test_solve_expression_targets.py",
+        "tests/test_coordinate_vector_completion.py",
+        "tests/test_simp_rest_parity.py",
+        "tests/test_matrix_applyfunc.py",
+        "tests/test_missing_core_wave4_parity.py",
+        "tests/test_binary_arithmetic_reuse.py",
+        "tests/test_held_derivative_free_symbols.py",
+        "tests/test_dispatch_keyword_import_order.py"
+      ]
+    },
+    {
+      "name": "shard-13",
+      "returncode": 0,
+      "elapsed_seconds": 11.351163864135742,
+      "files": [
+        "tests/test_elementary_completion.py",
+        "tests/test_ccdom_parity.py",
+        "tests/test_sequences.py",
+        "tests/test_real_analysis.py",
+        "tests/test_matrix_lu_callbacks.py",
+        "tests/test_solve_rest_wave5_parity.py",
+        "tests/test_evalf_substitution_precision.py",
+        "tests/test_solint_rest_parity.py",
+        "tests/test_matrix_native_domain_dispatch.py",
+        "tests/test_native_node_types.py",
+        "tests/test_derivative_class_queries.py",
+        "tests/test_indexed_identity_parity.py",
+        "tests/test_integer_boolean_operator_parity.py"
+      ]
+    },
+    {
+      "name": "shard-14",
+      "returncode": 0,
+      "elapsed_seconds": 10.662345886230469,
+      "files": [
+        "tests/test_complex_eval.py",
+        "tests/test_matrix_expand.py",
+        "tests/test_octave_native_protocols.py",
+        "tests/test_exact_assumptions.py",
+        "tests/test_remaining_api_algorithms.py",
+        "tests/test_legacy_domain_constructors.py",
+        "tests/test_bigexp2_parity.py",
+        "tests/test_matrixexpr.py",
+        "tests/test_print_a1_parity.py",
+        "tests/test_nroots_precision.py",
+        "tests/test_lambda_pickle.py",
+        "tests/test_intrest4_parity.py",
+        "tests/test_lcapy_wave2_parity.py"
+      ]
+    },
+    {
+      "name": "shard-15",
+      "returncode": 0,
+      "elapsed_seconds": 22.412721633911133,
+      "files": [
+        "tests/test_crypto.py",
+        "tests/test_matexpr_print_parity.py",
+        "tests/test_host_hooks.py",
+        "tests/test_native_operation_counts_parity.py",
+        "tests/test_conditional_rational_rays.py",
+        "tests/test_union_sets_parity.py",
+        "tests/test_physics_optics_control_quantum.py",
+        "tests/test_unit_abbreviations.py",
+        "tests/test_matrix_series.py",
+        "tests/test_poly_deep_expansion.py",
+        "tests/test_missing_c3_parity.py",
+        "tests/test_linprog_import_order.py",
+        "tests/test_matrix_scalar_codegen.py"
+      ]
+    },
+    {
+      "name": "shard-16",
+      "returncode": 0,
+      "elapsed_seconds": 110.33599019050598,
+      "files": [
+        "tests/test_real_root_analysis.py",
+        "tests/test_function_head_keyword_parity.py",
+        "tests/test_domainmatrix_clear_denoms_native.py",
+        "tests/test_native_ddm_determinant.py",
+        "tests/test_missing_control_wave4_parity.py",
+        "tests/test_fglm_coefficient_fields.py",
+        "tests/test_domain_modules.py",
+        "tests/test_nonempty_domains.py",
+        "tests/test_downstream_core_internals.py",
+        "tests/test_ratint_parity.py",
+        "tests/test_nonlin_hang_parity.py",
+        "tests/test_missing_c3_matrices_parity.py",
+        "tests/test_replay_parity.py"
+      ]
+    },
+    {
+      "name": "shard-17",
+      "returncode": 0,
+      "elapsed_seconds": 11.11680269241333,
+      "files": [
+        "tests/test_symbol_facts.py",
+        "tests/test_global_division_domain_defaults.py",
+        "tests/test_real_fraction_multivariate_parity.py",
+        "tests/test_function_class_subs.py",
+        "tests/test_core_misc_wave3_parity.py",
+        "tests/test_native_class_parity.py",
+        "tests/test_expression_sparse_storage_parity.py",
+        "tests/test_method_keyword_parity.py",
+        "tests/test_wrong_geomcomb_wave4_parity.py",
+        "tests/test_recursive_sequences.py",
+        "tests/test_parser_reuse_protocols.py",
+        "tests/test_monotonic_constant_parameters.py",
+        "tests/test_solve_regression_wave4_parity.py"
+      ]
+    },
+    {
+      "name": "shard-18",
+      "returncode": 0,
+      "elapsed_seconds": 23.974021196365356,
+      "files": [
+        "tests/test_complex_domain_division_rounding.py",
+        "tests/test_condition_set_nonfinite_substitution.py",
+        "tests/test_array_public_api.py",
+        "tests/test_matrix_charpoly_callbacks.py",
+        "tests/test_ode_symmetry_and_constants.py",
+        "tests/test_numbase_parity.py",
+        "tests/test_errtype_f_parity.py",
+        "tests/test_audit9_parity.py",
+        "tests/test_missing_mechanics_wave4_parity.py",
+        "tests/test_structural_constructor_keywords.py",
+        "tests/test_remaining_structural_api.py",
+        "tests/test_piecewise_constructor_class.py",
+        "tests/test_audit14_parity.py"
+      ]
+    },
+    {
+      "name": "shard-19",
+      "returncode": 0,
+      "elapsed_seconds": 35.09955024719238,
+      "files": [
+        "tests/test_ntheory_functions.py",
+        "tests/test_poly_evaluation_options.py",
+        "tests/test_construct_domain.py",
+        "tests/test_integration_reference_forms.py",
+        "tests/test_matrix_svd.py",
+        "tests/test_transform_compat.py",
+        "tests/test_prec_parity.py",
+        "tests/test_physics_vector_mechanics.py",
+        "tests/test_native_joint_normal_moments.py",
+        "tests/test_linear_systems.py",
+        "tests/test_c_rest_a_parity.py",
+        "tests/test_transforms_wave3_parity.py",
+        "tests/test_solve_decomposed_radicals.py"
+      ]
+    },
+    {
+      "name": "shard-20",
+      "returncode": 0,
+      "elapsed_seconds": 150.51385855674744,
+      "files": [
+        "tests/test_concrete_products.py",
+        "tests/test_native_fraction_free_matrices.py",
+        "tests/test_remaining_combinatorics_api.py",
+        "tests/test_solve_sets_parity.py",
+        "tests/test_polar_branches.py",
+        "tests/test_api_import_connections.py",
+        "tests/test_solve_trig_affine_parity.py",
+        "tests/test_poly_galois.py",
+        "tests/test_numpy_sign_compat.py",
+        "tests/test_matrix_calculus.py",
+        "tests/test_calculus_constructor_keywords.py",
+        "tests/test_geometry_equation_parity.py",
+        "tests/test_categories_completion.py"
+      ]
+    },
+    {
+      "name": "shard-21",
+      "returncode": 0,
+      "elapsed_seconds": 14.453466415405273,
+      "files": [
+        "tests/test_relational_boolean_protocols.py",
+        "tests/test_domainmatrix_algorithms.py",
+        "tests/test_missing_special_wave4_parity.py",
+        "tests/test_equation_solver_helpers.py",
+        "tests/test_complex_derivatives.py",
+        "tests/test_numeric_assumption_compat.py",
+        "tests/test_matrixexpr_algebra.py",
+        "tests/test_poisson_native_moments.py",
+        "tests/test_dirac_expansion.py",
+        "tests/test_precision_incomplete_wave4_parity.py",
+        "tests/test_cubic_conjugate_accuracy.py",
+        "tests/test_host_lifetime.py",
+        "tests/test_expression_domain_pivot_reduction.py"
+      ]
+    },
+    {
+      "name": "shard-22",
+      "returncode": 0,
+      "elapsed_seconds": 136.06270122528076,
+      "files": [
+        "tests/test_stats.py",
+        "tests/test_missing_codegen_wave4_parity.py",
+        "tests/test_indexed_tensor_algebra.py",
+        "tests/test_ellippi_parity.py",
+        "tests/test_nsimplify_rational_options.py",
+        "tests/test_permutation_involutions.py",
+        "tests/test_gaussian_extension_domains.py",
+        "tests/test_subs_symbol_powers.py",
+        "tests/test_solve_rest2_parity.py",
+        "tests/test_calculus_pickle.py",
+        "tests/test_heurisch_compact_conjugates_parity.py",
+        "tests/test_limwrong_parity.py",
+        "tests/test_limrest2_parity.py"
+      ]
+    },
+    {
+      "name": "shard-23",
+      "returncode": 0,
+      "elapsed_seconds": 18.037795543670654,
+      "files": [
+        "tests/test_evalf_cancel_parity.py",
+        "tests/test_gaussian_domains_parity.py",
+        "tests/test_containment_arithmetic_arguments.py",
+        "tests/test_extension_root_parity.py",
+        "tests/test_symbolic_number.py",
+        "tests/test_matrix_inv_mod.py",
+        "tests/test_polynomial_root_controls.py",
+        "tests/test_solve_relational_dispatch.py",
+        "tests/test_linear_ode_systems.py",
+        "tests/test_lambda_numeric_evaluation.py",
+        "tests/test_algebraic_number_matching_options.py",
+        "tests/test_missing_stats_wave4_parity.py",
+        "tests/test_downstream_mechanics_state.py"
+      ]
+    },
+    {
+      "name": "shard-24",
+      "returncode": 0,
+      "elapsed_seconds": 23.762136697769165,
+      "files": [
+        "tests/test_gaps_misc_parity.py",
+        "tests/test_domain_integration.py",
+        "tests/test_f5b.py",
+        "tests/test_nroots_precision_parity.py",
+        "tests/test_wrong_linalg_wave4_parity.py",
+        "tests/test_permutation_constructor_parity.py",
+        "tests/test_integrate_poles.py",
+        "tests/test_function_range.py",
+        "tests/test_public_reduction_exponent_guard.py",
+        "tests/test_python_numeric_hash.py",
+        "tests/test_wrong_final_b_parity.py",
+        "tests/test_gruntz_winding_power_guard.py",
+        "tests/test_log_zero_assumption.py",
+        "tests/test_simp_rest4_parity.py"
+      ]
+    },
+    {
+      "name": "shard-25",
+      "returncode": 0,
+      "elapsed_seconds": 29.263524293899536,
+      "files": [
+        "tests/test_expr_remaining.py",
+        "tests/test_domain_division.py",
+        "tests/test_missing_groups_wave4_parity.py",
+        "tests/test_monotonicity.py",
+        "tests/test_function_extrema.py",
+        "tests/test_hypergeometric_completion.py",
+        "tests/test_calculus_binders.py",
+        "tests/test_sortkey_compat.py",
+        "tests/test_codegen_compat.py",
+        "tests/test_ode_symbol_collisions.py",
+        "tests/test_evalf_options.py",
+        "tests/test_missing_simplification_exports.py",
+        "tests/test_polynomial_source_storage.py",
+        "tests/test_sympy_coverage_inventory.py"
+      ]
+    },
+    {
+      "name": "shard-26",
+      "returncode": 0,
+      "elapsed_seconds": 25.445722818374634,
+      "files": [
+        "tests/test_typed_factorization.py",
+        "tests/test_ndim_arrays.py",
+        "tests/test_poly_normalization_options.py",
+        "tests/test_trigonometric_solution_lattices.py",
+        "tests/test_matrix_inexact_native_inverse.py",
+        "tests/test_substitution_keyword_parity.py",
+        "tests/test_integer_power_sign_pivots.py",
+        "tests/test_sparse_matrices.py",
+        "tests/test_matparam_parity.py",
+        "tests/test_permutation_algorithm_parity.py",
+        "tests/test_power_of_power.py",
+        "tests/test_modular_combinatorial_parity.py",
+        "tests/test_wave4_substitution_parity.py",
+        "tests/test_downstream_function_types.py"
+      ]
+    },
+    {
+      "name": "shard-27",
+      "returncode": 0,
+      "elapsed_seconds": 97.5787136554718,
+      "files": [
+        "tests/test_fraction_factor_lists.py",
+        "tests/test_sets_reals_parity.py",
+        "tests/test_iterable_extensions.py",
+        "tests/test_matrix_slices.py",
+        "tests/test_solver_checks.py",
+        "tests/test_performance_regressions.py",
+        "tests/test_hyperbolic_solvesets.py",
+        "tests/test_series_module_interfaces.py",
+        "tests/test_blockmatrix.py",
+        "tests/test_expr_compat.py",
+        "tests/test_wrong_mechanics_wave4_parity.py",
+        "tests/test_holo_rest_parity.py",
+        "tests/test_logic_sets_api.py",
+        "tests/test_icorpus_parity.py"
+      ]
+    },
+    {
+      "name": "shard-28",
+      "returncode": 0,
+      "elapsed_seconds": 64.25581169128418,
+      "files": [
+        "tests/test_recursive_ordering.py",
+        "tests/test_expand_compat.py",
+        "tests/test_matrix_permutations.py",
+        "tests/test_algebraic_rational_ops.py",
+        "tests/test_matrix_solvers.py",
+        "tests/test_integ_rest_parity.py",
+        "tests/test_matrix_diagonal.py",
+        "tests/test_symbolic_multiplicity_factor_lists.py",
+        "tests/test_dummy_compat.py",
+        "tests/test_forms_b2_parity_physics.py",
+        "tests/test_audit12_parity.py",
+        "tests/test_schreier_slp_parity.py",
+        "tests/test_remaining_integral_adapters.py",
+        "tests/test_mat_rest6_parity.py"
+      ]
+    },
+    {
+      "name": "shard-29",
+      "returncode": 1,
+      "elapsed_seconds": 42.83261585235596,
+      "files": [
+        "tests/test_pseudodivision.py",
+        "tests/test_native_ratint_logpart.py",
+        "tests/test_expression_keys_add_coefficients.py",
+        "tests/test_physics_atomic.py",
+        "tests/test_noncommutative_rest_parity.py",
+        "tests/test_missing_algebras_tensor_wave4_parity.py",
+        "tests/test_solve_forms_parity.py",
+        "tests/test_sympify_signature_parity.py",
+        "tests/test_fuzz_harness.py",
+        "tests/test_gamma_coefficient_cache_parity.py",
+        "tests/test_dummy_codegen.py",
+        "tests/test_sympy_parity_audit.py",
+        "tests/test_simp_rest2_parity.py",
+        "tests/test_matrixelement_bridge.py"
+      ]
+    },
+    {
+      "name": "shard-30",
+      "returncode": 0,
+      "elapsed_seconds": 42.05006384849548,
+      "files": [
+        "tests/test_pow_negative_base_parity.py",
+        "tests/test_matrix_coefficients.py",
+        "tests/test_ode_support_parity.py",
+        "tests/test_algebraic_fields.py",
+        "tests/test_complex_multivariate_cancel_parity.py",
+        "tests/test_c_rest_b_wave4_parity.py",
+        "tests/test_solve_overdetermined_parity.py",
+        "tests/test_missing_c2_parity.py",
+        "tests/test_implicit_domain_rings.py",
+        "tests/test_integ_risch_parity.py",
+        "tests/test_missing_polys_wave4_parity.py",
+        "tests/test_api.py",
+        "tests/test_missing_c3_polys_parity.py",
+        "tests/test_piecewise_branch_protocol.py"
+      ]
+    },
+    {
+      "name": "shard-31",
+      "returncode": 0,
+      "elapsed_seconds": 67.72799849510193,
+      "files": [
+        "tests/test_ntheory_algorithms.py",
+        "tests/test_geometry_primitives.py",
+        "tests/test_misc_wave2_parity.py",
+        "tests/test_solveset_complex_wave4_parity.py",
+        "tests/test_structural_sets_exports.py",
+        "tests/test_core_gaps_wave4_parity.py",
+        "tests/test_integrate_methods.py",
+        "tests/test_accumbounds_power_parity.py",
+        "tests/test_matrix_products.py",
+        "tests/test_plotting.py",
+        "tests/test_transform_integration_backend.py",
+        "tests/test_solve_parameter_constraints.py",
+        "tests/compare_printing.py",
+        "tests/test_downstream_permutation_protocols.py"
+      ]
+    },
+    {
+      "name": "shard-32",
+      "returncode": 0,
+      "elapsed_seconds": 52.086501121520996,
+      "files": [
+        "tests/test_missing_geometry_wave4_parity.py",
+        "tests/test_matrix_inverse_callbacks.py",
+        "tests/test_dirac_affine_integration.py",
+        "tests/test_native_ddm_berkowitz.py",
+        "tests/test_evalf_chop.py",
+        "tests/test_differential_equation_interfaces.py",
+        "tests/test_numeric_singularities_followup_parity.py",
+        "tests/test_matrix_determinant_callbacks.py",
+        "tests/test_simp_mat_parity.py",
+        "tests/test_remaining_core_api.py",
+        "tests/test_special_api.py",
+        "tests/test_logic_completion.py",
+        "tests/test_ode_solve_parity.py",
+        "tests/test_stdlib_algorithm_certificates.py"
+      ]
+    },
+    {
+      "name": "shard-33",
+      "returncode": 0,
+      "elapsed_seconds": 51.60897660255432,
+      "files": [
+        "tests/test_typed_resultants.py",
+        "tests/test_inequality_interfaces.py",
+        "tests/test_checked_factor_views.py",
+        "tests/test_matrix_substitution_options.py",
+        "tests/test_utilities.py",
+        "tests/test_expr_completion.py",
+        "tests/test_numeric_expression_domains.py",
+        "tests/test_liealgebras_completion.py",
+        "tests/test_domain_protocols.py",
+        "tests/test_bessel_completion.py",
+        "tests/test_wave4_index_biomech_control_parity.py",
+        "tests/test_numeric_assumption_refinement.py",
+        "tests/test_schreier_group_parity.py",
+        "tests/test_cse_canonical_order.py"
+      ]
+    },
+    {
+      "name": "shard-34",
+      "returncode": 0,
+      "elapsed_seconds": 42.40468716621399,
+      "files": [
+        "tests/test_decomposition_compat.py",
+        "tests/test_downstream_scalar_protocols.py",
+        "tests/test_sets_rest_parity.py",
+        "tests/test_combinatorics_exports.py",
+        "tests/test_solve_factor_components.py",
+        "tests/test_poly_field_decomposition.py",
+        "tests/test_printing_completion.py",
+        "tests/test_matrix_index_sums.py",
+        "tests/test_gamma_completion.py",
+        "tests/test_dict_numeric_recognition.py",
+        "tests/test_wildcard_predicates.py",
+        "tests/test_reslimits_parity.py",
+        "tests/test_solint_rest2_parity.py",
+        "tests/test_limitseq_determinism.py"
+      ]
+    },
+    {
+      "name": "shard-35",
+      "returncode": 0,
+      "elapsed_seconds": 20.13294816017151,
+      "files": [
+        "tests/test_algebraic_number_protocols.py",
+        "tests/test_symbolic_derivative_orders.py",
+        "tests/test_dense_matrix_subclasses.py",
+        "tests/test_domains.py",
+        "tests/test_limacc_parity.py",
+        "tests/test_poly_sequence_gcd.py",
+        "tests/test_solve_completeness_parity.py",
+        "tests/test_matrix_sorting.py",
+        "tests/test_log_to_atan_stock_dispatch.py",
+        "tests/test_functionmatrix.py",
+        "tests/test_asymptotic_exponential_scales.py",
+        "tests/test_wave4_h_validation_parity.py",
+        "tests/test_add_canonical_order.py",
+        "tests/test_float_exponent_arithmetic.py"
+      ]
+    },
+    {
+      "name": "shard-36",
+      "returncode": 0,
+      "elapsed_seconds": 21.36905312538147,
+      "files": [
+        "tests/test_expand_trig_reference.py",
+        "tests/test_poly_constructor_options.py",
+        "tests/test_conditional_integral_substitution.py",
+        "tests/test_general_algebraic_fields.py",
+        "tests/test_matrix_lll.py",
+        "tests/test_groebner.py",
+        "tests/test_scalar_operation_counts.py",
+        "tests/test_simp_rest6_parity.py",
+        "tests/test_poly_total_degree_limits.py",
+        "tests/test_heurisch_native_cartesian_coefficients.py",
+        "tests/test_bound_calculus_compat.py",
+        "tests/test_downstream_audit.py",
+        "tests/test_simp_rest3_parity.py",
+        "tests/test_scalar_fast_dispatch_protocols.py"
+      ]
+    },
+    {
+      "name": "shard-37",
+      "returncode": 0,
+      "elapsed_seconds": 8.257883548736572,
+      "files": [
+        "tests/test_composite_modulus_parity.py",
+        "tests/test_factor_inspection.py",
+        "tests/test_matrix_completion.py",
+        "tests/test_algfield_parity.py",
+        "tests/test_print_a2_parity.py",
+        "tests/test_inexact_composite_parity.py",
+        "tests/test_downstream_function_conversion.py",
+        "tests/test_integer_rounding_parity.py",
+        "tests/test_print_order_parity.py",
+        "tests/test_poly_exponent_storage_limits.py",
+        "tests/test_f_final_parity.py",
+        "tests/test_nsolve_mp.py",
+        "tests/test_add_constructor_reuse.py",
+        "tests/test_forms_b2_parity_misc.py"
+      ]
+    },
+    {
+      "name": "shard-38",
+      "returncode": 0,
+      "elapsed_seconds": 76.84104490280151,
+      "files": [
+        "tests/test_active_products.py",
+        "tests/test_nested_rings_parity.py",
+        "tests/test_held_scalar_ordering.py",
+        "tests/test_integral_transforms.py",
+        "tests/test_float_mpf_input_parity.py",
+        "tests/test_matrix_compat.py",
+        "tests/test_symbolic_nested_exp_parity.py",
+        "tests/test_definite_params_parity.py",
+        "tests/test_print_a3_parity.py",
+        "tests/test_exact_substitution_regressions.py",
+        "tests/test_c_doc_implicitregion_parity.py",
+        "tests/test_intrest3_parity.py",
+        "tests/test_unicode_parser.py",
+        "tests/test_simp_tie_parity.py"
+      ]
+    },
+    {
+      "name": "shard-39",
+      "returncode": 0,
+      "elapsed_seconds": 13.075683832168579,
+      "files": [
+        "tests/test_native_inexact_linear_system.py",
+        "tests/test_ndim_array_subclasses.py",
+        "tests/test_matrix_zero_callbacks.py",
+        "tests/test_solve_rational_coverage.py",
+        "tests/test_branchcut_parity.py",
+        "tests/test_matrixexpr_calculus.py",
+        "tests/test_combinatorial_rewrites.py",
+        "tests/test_small_rest_parity.py",
+        "tests/test_functional_composition.py",
+        "tests/test_polysolve.py",
+        "tests/test_general_simplify_controls.py",
+        "tests/test_parametric_nonlinsolve.py",
+        "tests/test_c_doc_parity.py",
+        "tests/test_forms_b2_parity_vector.py"
+      ]
+    },
+    {
+      "name": "shard-40",
+      "returncode": 0,
+      "elapsed_seconds": 70.96432113647461,
+      "files": [
+        "tests/test_recurrences.py",
+        "tests/test_missing_quantum_wave4_parity.py",
+        "tests/test_expr_ordering_leading.py",
+        "tests/test_complex_rootof.py",
+        "tests/test_evalf_digits_parity.py",
+        "tests/test_numberfields_exports.py",
+        "tests/test_native_ddm_matmul.py",
+        "tests/test_solve_trig_rest_parity.py",
+        "tests/test_indexed_tensor_components.py",
+        "tests/test_purepoly_native_parity.py",
+        "tests/test_mat_rest2_parity.py",
+        "tests/test_remaining_printing_protocols.py",
+        "tests/test_c_doc_physics_parity.py",
+        "tests/test_integration_convergence.py"
+      ]
+    },
+    {
+      "name": "shard-41",
+      "returncode": 0,
+      "elapsed_seconds": 73.48704409599304,
+      "files": [
+        "tests/test_wrong_core_wave4_parity.py",
+        "tests/test_accumbounds_wave4_parity.py",
+        "tests/test_differentiation_options.py",
+        "tests/test_expr_replace_options.py",
+        "tests/test_matrix_log.py",
+        "tests/test_solve_undetermined_dispatch.py",
+        "tests/test_bigexp_parity.py",
+        "tests/test_derivative_mixed_specifiers.py",
+        "tests/test_solve_trig_multiples_parity.py",
+        "tests/test_function_subs_compat.py",
+        "tests/test_eigenvects_simplified_charpoly.py",
+        "tests/test_matrix_skew_exponential.py",
+        "tests/test_wrong_calculus_wave4_parity.py",
+        "tests/test_log_to_atan_generator_identity.py"
+      ]
+    },
+    {
+      "name": "shard-42",
+      "returncode": 0,
+      "elapsed_seconds": 31.946303606033325,
+      "files": [
+        "tests/test_heaviside_limit_parity.py",
+        "tests/test_nfloat.py",
+        "tests/test_elementary_precision.py",
+        "tests/test_special_precision.py",
+        "tests/test_decimal_conversion_parity.py",
+        "tests/test_parser_completion.py",
+        "tests/test_frobenius_parity.py",
+        "tests/test_structural_queries.py",
+        "tests/test_matrix_dag_pickle.py",
+        "tests/test_radsimp_native_numeric_preparation.py",
+        "tests/test_mat_rest_parity.py",
+        "tests/test_scalar_dag_pickle.py",
+        "tests/test_downstream_matrix_assignment.py",
+        "tests/test_mat_rest3_parity.py"
+      ]
+    },
+    {
+      "name": "shard-43",
+      "returncode": 0,
+      "elapsed_seconds": 31.469402551651,
+      "files": [
+        "tests/test_function_facts.py",
+        "tests/test_matrixexpr_protocols.py",
+        "tests/test_domains_inexact_wave3_parity.py",
+        "tests/test_native_log_to_atan.py",
+        "tests/test_defparam_parity.py",
+        "tests/test_expression_sparse_calculus_parity.py",
+        "tests/test_mat_rest8_parity.py",
+        "tests/test_c_final_parity.py",
+        "tests/test_downstream_structured_lambdify.py",
+        "tests/test_array_comprehension.py",
+        "tests/test_inverse_laplace_irrational.py",
+        "tests/test_limitseq_dominant_parity.py",
+        "tests/test_stats_rest_parity.py",
+        "tests/test_normal_raw_import_order.py"
+      ]
+    },
+    {
+      "name": "shard-44",
+      "returncode": 0,
+      "elapsed_seconds": 57.76633024215698,
+      "files": [
+        "tests/test_groebner_fglm.py",
+        "tests/test_collect_compat.py",
+        "tests/test_gaussian_fractions_parity.py",
+        "tests/test_finite_differences.py",
+        "tests/test_hyper_unit_singularities_parity.py",
+        "tests/test_nc_rest_parity.py",
+        "tests/test_mat_rest5_parity.py",
+        "tests/test_lambda_compat.py",
+        "tests/test_wrong_final_a_parity.py",
+        "tests/test_remaining_symbolic_algorithms.py",
+        "tests/test_solve_checks.py",
+        "tests/test_compare.py",
+        "tests/test_audit15_parity.py",
+        "tests/test_mat_rest7_parity.py"
+      ]
+    },
+    {
+      "name": "shard-45",
+      "returncode": 0,
+      "elapsed_seconds": 52.987810134887695,
+      "files": [
+        "tests/test_matexpr_pretty_parity.py",
+        "tests/test_collect_extended_patterns.py",
+        "tests/test_physics_units.py",
+        "tests/test_gamma_integral_conditions.py",
+        "tests/test_degree_six_eight_fields.py",
+        "tests/test_limrest_parity.py",
+        "tests/test_nonfinite_arithmetic_parity.py",
+        "tests/test_holonomic_completion.py",
+        "tests/test_expression_sparse_product_parity.py",
+        "tests/test_block_decompositions.py",
+        "tests/test_lrt_stock_forwarding.py",
+        "tests/test_missing_c4_parity.py",
+        "tests/test_wildcard_protocols.py",
+        "tests/test_extra_namespace.py",
+        "tests/test_special_families_no_sympy.py"
+      ]
+    },
+    {
+      "name": "shard-46",
+      "returncode": 0,
+      "elapsed_seconds": 25.188196420669556,
+      "files": [
+        "tests/test_poly_structure.py",
+        "tests/test_ask_refine.py",
+        "tests/test_factorial_factorization.py",
+        "tests/test_piecewise_series_parity.py",
+        "tests/test_inexact_domain_followup_parity.py",
+        "tests/test_documented_signature_regressions.py",
+        "tests/test_native_stats_moments.py",
+        "tests/test_dotproduct.py",
+        "tests/test_native_rational_reduction.py",
+        "tests/test_boolean_relational_domains.py",
+        "tests/test_matrix_blocks_slices.py",
+        "tests/test_missing_quantum_secondquant_wave4_parity.py",
+        "tests/test_codegen_rewriting_callbacks.py",
+        "tests/test_performance_validation.py"
+      ]
+    },
+    {
+      "name": "shard-47",
+      "returncode": 0,
+      "elapsed_seconds": 149.66803979873657,
+      "files": [
+        "tests/extra/test_pytorch_codegen.py",
+        "tests/extra/test_jax_codegen.py",
+        "tests/extra/test_slang_codegen.py",
+        "tests/extra/test_matrix_log_torch.py",
+        "tests/extra/test_cuda_runtime.py",
+        "tests/extra/test_sycl_codegen.py",
+        "tests/extra/test_matrix_function_codegen.py",
+        "tests/extra/test_cuda_lifecycle.py",
+        "tests/extra/test_complex_parts_codegen.py",
+        "tests/extra/test_matrix_log_jax.py",
+        "tests/extra/test_cuda_torch_interop.py"
+      ]
+    }
+  ],
+  "failures": [
+    {
+      "shard": "shard-29",
+      "class": "tests.test_native_ratint_logpart",
+      "name": "test_native_stock_route_avoids_the_host_lrt_recurrence"
+    }
+  ],
+  "skip_reasons": {
+    "set TRISPLYNE_PATH to run the real consumer integration tests": 4,
+    "reference returns nan/infinite pseudo-roots; independently checked below": 4,
+    "Set TRISPLYNE_PRINTERS to run the trisplyne integration checks": 27,
+    "Graphviz unavailable": 1,
+    "TeX converters unavailable": 1,
+    "pytest-style module, collected on its own": 1,
+    "Slang cuda device unavailable: Failed to create device!\n/project/src/sgl/device/device.cpp:280 in function Device": 15,
+    "AdaptiveCpp SDK not installed; set SYMOX_ACPP to test compilation": 1,
+    "TeX rendering tools unavailable": 1
+  },
+  "elapsed_seconds": 179.3790647983551
+}

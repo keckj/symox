@@ -407,9 +407,13 @@ impl GaussianGround {
         if self.integral {
             Ok(gi::cofactors(f, g)?.0)
         } else {
-            let (_, f) = gi::clear_denoms(f);
-            let (_, g) = gi::clear_denoms(g);
-            Ok(gi::cofactors(&f, &g)?.0)
+            let (df, f) = gi::clear_denoms(f);
+            let (dg, g) = gi::clear_denoms(g);
+            // Gaussian-rational content survives the passage to ZZ_I:
+            // gcd(df*f, dg*g)/lcm(df, dg). Without this factor a rational
+            // common content is silently multiplied by its denominator.
+            let scale = AN::rational(Rat::new(1.into(), df.lcm(&dg)), gi::field());
+            Ok(gi::cofactors(&f, &g)?.0.scale(&scale))
         }
     }
     /// `dup_rr_prs_gcd`/`dmp_rr_prs_gcd` over the ring ground.

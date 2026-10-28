@@ -1,0 +1,311 @@
+{
+  "root": "/home/keckj/.cache/symox-validation/autonomy-20261026T124300Z/after",
+  "native_sha256": "345253365beafcb9192f25c35a6500b2aec1defed2484441f0c622d9b5e8a43c",
+  "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
+  "rounds": 3,
+  "script_sha256": "95481926a9551fefff11677a839e5d3b6b7c992f4a42ceba2695345a1576a49d",
+  "warm_repeats": 7,
+  "changed_repeats": 7,
+  "results": {
+    "3:53:RR": {
+      "rounds": [
+        {
+          "cold": 0.027051155,
+          "warm": 0.00022608,
+          "changed": 0.00026468,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.016433463,
+          "warm": 0.000231587,
+          "changed": 0.000279251,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.015545834,
+          "warm": 0.000236079,
+          "changed": 0.000265279,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.016433463,
+      "warm": 0.000231587,
+      "changed": 0.000265279
+    },
+    "3:53:CC": {
+      "rounds": [
+        {
+          "cold": 0.016153076,
+          "warm": 0.000658894,
+          "changed": 0.00074361,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.016298728,
+          "warm": 0.000643545,
+          "changed": 0.000746033,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.016863256,
+          "warm": 0.000673393,
+          "changed": 0.00073821,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.016298728,
+      "warm": 0.000658894,
+      "changed": 0.00074361
+    },
+    "3:140:RR": {
+      "rounds": [
+        {
+          "cold": 0.015238661,
+          "warm": 0.000255153,
+          "changed": 0.000326873,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.014494266,
+          "warm": 0.000249301,
+          "changed": 0.000322831,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.014275217,
+          "warm": 0.000244012,
+          "changed": 0.000310036,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.014494266,
+      "warm": 0.000249301,
+      "changed": 0.000322831
+    },
+    "3:140:CC": {
+      "rounds": [
+        {
+          "cold": 0.014883736,
+          "warm": 0.000640802,
+          "changed": 0.000821699,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.015341506,
+          "warm": 0.000648673,
+          "changed": 0.000834871,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.015490441,
+          "warm": 0.000653223,
+          "changed": 0.000833158,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.015341506,
+      "warm": 0.000648673,
+      "changed": 0.000833158
+    },
+    "10:53:RR": {
+      "rounds": [
+        {
+          "cold": 0.018192269,
+          "warm": 0.003780102,
+          "changed": 0.003806595,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.02177086,
+          "warm": 0.004086939,
+          "changed": 0.004096193,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.018686,
+          "warm": 0.00382666,
+          "changed": 0.003920252,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.018686,
+      "warm": 0.00382666,
+      "changed": 0.003920252
+    },
+    "10:53:CC": {
+      "rounds": [
+        {
+          "cold": 0.027306558,
+          "warm": 0.011671,
+          "changed": 0.011087879,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.025556592,
+          "warm": 0.010628935,
+          "changed": 0.010744329,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.026945374,
+          "warm": 0.010861291,
+          "changed": 0.011042827,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.026945374,
+      "warm": 0.010861291,
+      "changed": 0.011042827
+    },
+    "10:140:RR": {
+      "rounds": [
+        {
+          "cold": 0.019981979,
+          "warm": 0.004304223,
+          "changed": 0.004281704,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.018512041,
+          "warm": 0.004141598,
+          "changed": 0.004214396,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.018763805,
+          "warm": 0.00425851,
+          "changed": 0.004298679,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.018763805,
+      "warm": 0.00425851,
+      "changed": 0.004281704
+    },
+    "10:140:CC": {
+      "rounds": [
+        {
+          "cold": 0.026968256,
+          "warm": 0.010824795,
+          "changed": 0.010959303,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.02679445,
+          "warm": 0.010753814,
+          "changed": 0.010894622,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.027287554,
+          "warm": 0.010878002,
+          "changed": 0.011024097,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.026968256,
+      "warm": 0.010824795,
+      "changed": 0.010959303
+    },
+    "20:53:RR": {
+      "rounds": [
+        {
+          "cold": 0.041170917,
+          "warm": 0.026167743,
+          "changed": 0.02685032,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.04044091,
+          "warm": 0.026086638,
+          "changed": 0.026441514,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.040610437,
+          "warm": 0.026194447,
+          "changed": 0.026609255,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.040610437,
+      "warm": 0.026167743,
+      "changed": 0.026609255
+    },
+    "20:53:CC": {
+      "rounds": [
+        {
+          "cold": 0.088268211,
+          "warm": 0.071699276,
+          "changed": 0.071389199,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.088100286,
+          "warm": 0.071577124,
+          "changed": 0.071463126,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.088158278,
+          "warm": 0.071653324,
+          "changed": 0.071478427,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.088158278,
+      "warm": 0.071653324,
+      "changed": 0.071463126
+    },
+    "20:140:RR": {
+      "rounds": [
+        {
+          "cold": 0.043284587,
+          "warm": 0.027942513,
+          "changed": 0.028243204,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.044366903,
+          "warm": 0.028536965,
+          "changed": 0.028934954,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.042786665,
+          "warm": 0.027986888,
+          "changed": 0.028371239,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.043284587,
+      "warm": 0.027986888,
+      "changed": 0.028371239
+    },
+    "20:140:CC": {
+      "rounds": [
+        {
+          "cold": 0.092704476,
+          "warm": 0.074853139,
+          "changed": 0.074915271,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.090319843,
+          "warm": 0.072511692,
+          "changed": 0.073010976,
+          "exact_binary_certificates": 8
+        },
+        {
+          "cold": 0.091232035,
+          "warm": 0.073197493,
+          "changed": 0.07360178,
+          "exact_binary_certificates": 8
+        }
+      ],
+      "cold": 0.091232035,
+      "warm": 0.073197493,
+      "changed": 0.07360178
+    }
+  }
+}

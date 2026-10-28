@@ -17,6 +17,50 @@ use crate::simptools::fu::{tr1, tr10, tr11, tr2i};
 use crate::special::rewrite::rewrite;
 use crate::traverse::has;
 
+/// Structural affine decomposition without expanding nonlinear arguments.
+/// Only a nonzero exact rational slope is returned; symbolic slopes retain
+/// the existing solver routes, including their degenerate specializations.
+pub(super) fn rational_affine_argument(argument: &Expr, variable: &Expr) -> Option<(Number, Expr)> {
+    fn affine(e: &Expr, x: &Expr, memo: &mut rustc_hash::FxHashMap<usize, (Expr, Option<(Expr, Expr)>)>) -> Option<(Expr, Expr)> {
+        if let Some((_, result)) = memo.get(&e.dag_id()) { return result.clone(); }
+        let result = (|| {
+            if e == x { return Some((Expr::one(), Expr::zero())); }
+            if !has(e, x) { return Some((Expr::zero(), e.clone())); }
+            match e.kind() {
+                Kind::Add(..) => {
+                    let mut slopes = Vec::new();
+                    let mut offsets = Vec::new();
+                    for child in crate::inspection::scalar_children(e) {
+                        let (a, b) = affine(&child, x, memo)?;
+                        slopes.push(a); offsets.push(b);
+                    }
+                    Some((crate::ops::add(&slopes), crate::ops::add(&offsets)))
+                }
+                Kind::Mul(..) => {
+                    let mut constant = Vec::new();
+                    let mut dependent = None;
+                    for child in crate::inspection::scalar_children(e) {
+                        let (a, b) = affine(&child, x, memo)?;
+                        if a.is_zero() { constant.push(b); }
+                        else if dependent.is_none() { dependent = Some((a, b)); }
+                        else { return None; }
+                    }
+                    let c = crate::ops::mul(&constant);
+                    let (a, b) = dependent?;
+                    Some((mul2(&c, &a), mul2(&c, &b)))
+                }
+                Kind::Pow(base, exponent) if exponent.is_one() => affine(base, x, memo),
+                _ => None,
+            }
+        })();
+        memo.insert(e.dag_id(), (e.clone(), result.clone()));
+        result
+    }
+    let (slope, offset) = affine(argument, variable, &mut rustc_hash::FxHashMap::default())?;
+    let slope = slope.as_number().filter(|number| number.is_rational() && !number.is_zero())?;
+    Some((slope.clone(), offset))
+}
+
 fn is_trig(func: &Func) -> bool {
     matches!(func, Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc)
 }

@@ -1,0 +1,64 @@
+Selector optimization confirmation — 2026-10-27
+
+EXPLICIT SCOPE
+The optimized package is immutable R3b source374d458f + guard-only.patch,
+release8a8a, adapter753ad09a. It is NOT a releaseR5 and does not contain the
+future log_to_real native math. Its five relevant guard functions have exactly
+the same AST as the composed two-file product patch above frozen log_to_real.
+All three actual adapter sources, the guard patch and full backend identities
+are included. No frozen package/source was changed. The product stage's353
+local/1501Demeter protocol/branch tests are separate from these timings.
+
+PROTOCOL
+Root explicitly authorized a second quiet window after both other agents
+confirmed no remote load; root ran no remote compiler/test. Eighteen fresh
+workers, R2/R3b/optimized x plain/vector x3, pinned CPU24. Backend order rotates
+(R2,R3b,opt), (opt,R2,R3b), (R3b,opt,R2), giving every backend every position.
+Same19 inputs, exact fixtures and independent certificates as the preceding
+sealed benchmark; same20iterations x5rounds, inputs built before timers.
+Native SHA AND Python adapter SHA are verified in every process. NoRef import
+metafinder blocks reference imports for the entire native worker. Initial/final
+outputs and native-selection spies are outside timers; all digests agree across
+processes, backends and plain/vector. There are1026 exact input-result checks
+and19 independent exact fixture certificates (12LRT rational traces and7Atan
+Euclidean branch representatives/Bezout/rational derivative certificates).
+All19 inputs select native in optimized and R3b, and R2plain. R2vector retains
+its entire old Python fallback. There is no hidden small-input fallback.
+
+Elapsed window: 29.831 seconds. Parent notified immediately after all workers
+exited, freeing Demeter before local analysis/archival.
+
+MEDIANS: microseconds per input pair, median of three process medians.
+variant case                                 R2_us    R3b_us     opt_us R3b/opt   R2/opt
+plain  lrt/quadratic                    367.161    377.297    356.488    1.058    1.030
+plain  lrt/quartic                      442.974    453.847    428.722    1.059    1.033
+plain  lrt/nonconstant_numerator        492.551    503.053    479.363    1.049    1.028
+plain  lrt/multiplicity_groups          791.098    809.405    790.229    1.024    1.001
+plain  lrt/distinct_arguments           756.412    766.982    745.375    1.029    1.015
+plain  atan/linear_branch                92.348     92.145     69.189    1.332    1.335
+plain  atan/quadratic                   104.416    103.106     80.217    1.285    1.302
+plain  atan/quartic                     137.478    137.747    113.709    1.211    1.209
+plain  atan/distinct_arguments          124.135    124.627     99.850    1.248    1.243
+vector lrt/quadratic                   1172.260    476.706    409.803    1.163    2.861
+vector lrt/quartic                     1307.050    558.227    492.698    1.133    2.653
+vector lrt/nonconstant_numerator       1395.988    608.171    539.662    1.127    2.587
+vector lrt/multiplicity_groups         2598.941    907.777    839.163    1.082    3.097
+vector lrt/distinct_arguments          1733.852    871.225    802.803    1.085    2.160
+vector atan/linear_branch                89.187    157.324    100.389    1.567    0.888
+vector atan/quadratic                   119.350    167.056    109.768    1.522    1.087
+vector atan/quartic                     241.504    198.268    143.996    1.377    1.677
+vector atan/distinct_arguments          224.470    181.297    132.188    1.372    1.698
+
+OBSERVED LIMITS
+Optimization improves every measured R3b case. Plain: LRT1.024–1.059x,
+Atan1.211–1.332x. Vector: LRT1.082–1.163x, Atan1.372–1.567x.
+Against R2 in this same window, vector LRT is2.160–3.097x faster; vector Atan
+quadratic/quartic/four-input cases are1.087x/1.677x/1.698x faster. One case is
+still slower than R2: vector linear Atan89.187->100.389us (+12.6%,11.2us),
+versus157.324us for R3b in this window. This residual and all original R3b
+regressions are preserved in raw data, not omitted. Authentication/binding as
+the reason for this residual is an inference from selected routes, not an
+isolated component timer. The previous first benchmark archive remains intact:
+manifest c227b624d99366c69ccabdd9b501cc9c6373f926648fb6319eae9332c1a49bbf,
+tar fdd43279e728511127f39bacf0a94310c6a72e1c8f48a8d0ba0c76b01af041d6.
+These are scoped observations for these inputs; no global speed/parity claim.

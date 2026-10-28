@@ -1,0 +1,91 @@
+{
+  "fresh_processes_per_backend": 3,
+  "cpu": 24,
+  "reference_runtime": "blocked in every worker",
+  "iterations": 50,
+  "rounds_per_process": 5,
+  "certificates": "independent SymPy1.14 exact coefficient fixtures; before/after timers; domains and signs preserved",
+  "elapsed_seconds": 23.53212111699395,
+  "cases": {
+    "quadratic": {
+      "cb5_ns": 1096431.98,
+      "r2_ns": 358392.36,
+      "observed_ratio": 3.05930623074666,
+      "cb5_process_medians": [
+        1095370.48,
+        1096431.98,
+        1098983.54
+      ],
+      "r2_process_medians": [
+        357985.42,
+        358392.36,
+        360640.06
+      ],
+      "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6"
+    },
+    "quartic": {
+      "cb5_ns": 1232174.84,
+      "r2_ns": 440883.82,
+      "observed_ratio": 2.794783532768338,
+      "cb5_process_medians": [
+        1232174.84,
+        1245087.82,
+        1229276.84
+      ],
+      "r2_process_medians": [
+        439781.88,
+        440883.82,
+        445018.72
+      ],
+      "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197"
+    },
+    "nonconstant_numerator": {
+      "cb5_ns": 1313505.92,
+      "r2_ns": 486929.04,
+      "observed_ratio": 2.697530465630064,
+      "cb5_process_medians": [
+        1313505.92,
+        1322477.74,
+        1310216.52
+      ],
+      "r2_process_medians": [
+        486011.26,
+        486929.04,
+        495340.04
+      ],
+      "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed"
+    },
+    "multiplicity_groups": {
+      "cb5_ns": 2541965.68,
+      "r2_ns": 787849.08,
+      "observed_ratio": 3.2264627128840466,
+      "cb5_process_medians": [
+        2541965.68,
+        2554249.78,
+        2514166.8
+      ],
+      "r2_process_medians": [
+        787849.08,
+        787546.1,
+        789881.16
+      ],
+      "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0"
+    },
+    "distinct_arguments": {
+      "cb5_ns": 1666531.085,
+      "r2_ns": 738908.145,
+      "observed_ratio": 2.255396826083166,
+      "cb5_process_medians": [
+        1666531.085,
+        1671588.245,
+        1655540.79
+      ],
+      "r2_process_medians": [
+        738908.145,
+        738499.8,
+        746205.3475
+      ],
+      "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03"
+    }
+  }
+}

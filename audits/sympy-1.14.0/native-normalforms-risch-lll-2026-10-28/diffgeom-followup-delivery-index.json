@@ -1,0 +1,73 @@
+{
+  "status": "GO_PRIVATE",
+  "cache": "/home/keckj/.cache/symox-validation/native-polymatrix-diffgeom-r11-followup-r1-20261028",
+  "manifest": "proof/freeze-manifest.json",
+  "manifest_sha256": "c0853061e04b4b772afdd8b1fa8adb0386fc5ef2ee9d5cb2c3e4e382654f3f42",
+  "validation": "proof/final-validation.json",
+  "validation_sha256": "d5d15ca8481326317d35ea1c17b21de04332c5d36610053fb2cc30014bdfad90",
+  "patch": "proof/candidate.patch",
+  "patch_sha256": "24d3742723f0741102f563a665f2f96f27750c8128bc27210220444d2375c7f5",
+  "sources": "proof/candidate-source",
+  "owned_files": [
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base_sha256": "0e7879b9d5e8b0cef5e81ecfad6139d6d6a09e7a57ff869135890db353119631",
+      "final_sha256": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977"
+    },
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base_sha256": "8ebccd3020ba4fc7a3d5120ac28e00209fc46c763441453cf91c7d6db3e7e8c8",
+      "final_sha256": "7ee776dd89bf6356bd0e8bc29d8a683608616148e1865ae310891d7eb83ad97c"
+    },
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "3ad1925f745823d0f79b70c8ab35f6905a4cce685929bf043febdbfb0aefec5c",
+      "final_sha256": "77394d2d3d5bc44de68b67ad6d1a482e3c55c8441905eee778d7f643bc260b2c"
+    },
+    {
+      "path": "python/symox/diffgeom/_adapters.py",
+      "base_sha256": "f15dc65c5898b6140c7299562bdfd6f494b2e541cd981d43bf2f02000a9c44c2",
+      "final_sha256": "ca0989ea872c3cba1538b04e05240ce7f4fe4990e27f263d94f72559fb715725"
+    },
+    {
+      "path": "python/symox/diffgeom/_coordinates.py",
+      "base_sha256": "7cbefc7768bfc3d59a33df0e62aee79317fcf3d8306227e12f178e092c4df10e",
+      "final_sha256": "02f23122c413088e4177a6f21c0ae5eae2309cf67cfdb3d039a3e8362dea8b7b"
+    },
+    {
+      "path": "tests/test_polymatrix_diffgeom_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "68f3d3c0e8007ec705f92dfe7b6775a048cf29e5473d4a3a87e930cd644fff69"
+    },
+    {
+      "path": "tests/test_log_to_atan_stock_dispatch.py",
+      "base_sha256": "b9dd5791540455611a9868ae1e8002b752b7e2b85f0440c177672d96adeeb969",
+      "final_sha256": "87da90d27160c43c6f3a51cf4da032938b1c967ab8c704dc101d3e00dc7c517c"
+    }
+  ],
+  "root_closure_dependency": "proof/root-closure-dependency.json",
+  "root_closure_dependency_sha256": "19346a409ab8e3cc1c2922b0e9f7d992317cdcc7c71f07d5d170c5feae0e017e",
+  "native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+  "native_input_count": 350,
+  "report": "proof/REPORT.md",
+  "report_sha256": "39b2082ea334395f9611205c2ab414b1588b48ea0b0bb62cadb18f143de3dc98",
+  "rejected_preliminary_lineage": {
+    "preliminary_archive": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/preliminary-proof.tar.gz",
+      "sha256": "ac4d88cdf9a07bdd6be5c9e9d0e5a8ad06798e668f35f8fb41f6594601336ded",
+      "portable_path": "proof/rejected-preliminary/preliminary-proof.tar.gz"
+    },
+    "preliminary_map": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/preliminary-proof-files.json",
+      "sha256": "ac0dd21ab84c623e560c9ff097c154f216e5a094b052d554744e16f208ef96c6",
+      "portable_path": "proof/rejected-preliminary/preliminary-proof-files.json"
+    },
+    "preliminary_validation": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/proof/preliminary-final-validation.json",
+      "sha256": "de01af113801fddaf0c331c6f319302f3eb5cf250ddbda3e9bf00db41704483c",
+      "portable_path": "proof/rejected-preliminary/preliminary-final-validation.json"
+    }
+  },
+  "archive": "delivery-proof.tar.gz",
+  "archive_member_map": "delivery-proof-files.json"
+}

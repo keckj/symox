@@ -1,0 +1,74 @@
+[
+  {
+    "path": "crates/symox-core/src/integrate.rs",
+    "base_sha256": "3cff33696f024d6bc65879faabd9a465e8e6787a25e45d1848a2672c42dba904",
+    "final_sha256": "092767f0c9ac6da3dd90503bf9c2f9ee616ae677c44d5114697341766fe6d89e",
+    "delivery": "log_to_real"
+  },
+  {
+    "path": "crates/symox-core/src/integrate/log_to_atan.rs",
+    "base_sha256": "ddf988dcf74fa1ab8ac78a76d2e302a9c64e2fd803befb499836a59039b5ff6b",
+    "final_sha256": "d43e663c23ff69d9858d0be9be272132ae292fa302d0ee63fe3d60226c156ac3",
+    "delivery": "log_to_real"
+  },
+  {
+    "path": "crates/symox-py/src/integration_methods.rs",
+    "base_sha256": "824f8aaa299f90f6e6f1501f104cdd31d39f8198dd3d972ec98374ac34c48f46",
+    "final_sha256": "a1c68e9650956cf6c0879a6e79ee29a932509364c9a1a2dbf0395c085da4f22c",
+    "delivery": "log_to_real"
+  },
+  {
+    "path": "python/symox/integrals/rationaltools.py",
+    "base_sha256": "525ea4127a4f216750625575296c32ad28672cd91aa51f6d3157b69eaf0e0b44",
+    "final_sha256": "831432ef312eb8701616609af188c356e744c80e29250fdeb82fe7b2c4cf933c",
+    "delivery": "log_to_real"
+  },
+  {
+    "path": "crates/symox-core/src/integrate/log_to_real.rs",
+    "base_sha256": null,
+    "final_sha256": "8077627013888d4e75b417e0a25e9a7d7dd92b5779d082f650c7a7050ce291cd",
+    "delivery": "log_to_real"
+  },
+  {
+    "path": "tests/test_native_log_to_real.py",
+    "base_sha256": null,
+    "final_sha256": "7491093a70ec9486887619435cf0b7f671cd9e77d9cb02a198f28f8952f6bad1",
+    "delivery": "log_to_real"
+  },
+  {
+    "path": "crates/symox-core/src/poly/ddm.rs",
+    "base_sha256": "f8da60a058408cb9400d3453e4f89e858721115f1ecc229bc72b5df8b8536d7d",
+    "final_sha256": "f5be2609c239a3f1b02ee7114ea0416e3b418e14e276996e9febf9ca44dc0f40",
+    "delivery": "polymatrix"
+  },
+  {
+    "path": "crates/symox-py/src/poly_ddm.rs",
+    "base_sha256": "58ef0495f1414258ff66cc2b807d4c1ed2a3f8309ba195fcea6681188aff121b",
+    "final_sha256": "b7dbe9002660fd65a1dbc86e1811efaf59d9492b74b66907bcd07656cb8f31c9",
+    "delivery": "polymatrix"
+  },
+  {
+    "path": "python/symox/__init__.py",
+    "base_sha256": "fa2031eb98f7c8b2485eabf8cce71f7c9a8cf4084a53acbdfde5e736cc996d6e",
+    "final_sha256": "440c2d5f7bc8014e7cf37d40d1c3a2566423ad2613e08fa93ce104562e9001cc",
+    "delivery": "polymatrix"
+  },
+  {
+    "path": "python/symox/polys/_polymatrix_native.py",
+    "base_sha256": null,
+    "final_sha256": "a8e9d3d2a2b9e2ce7dfe19a8546abc9325e4fdd31629cf91dc190257e22abd30",
+    "delivery": "polymatrix"
+  },
+  {
+    "path": "python/symox/polys/polymatrix.py",
+    "base_sha256": "3deaa7a05aa90c26ebad4b45bd9034dcdbda7c7aae27f236a4eabd458519108e",
+    "final_sha256": "c4cbf19e3cf536f1dfb68fc47eddedec6528768324af89e21b74227db33a51bd",
+    "delivery": "polymatrix"
+  },
+  {
+    "path": "tests/test_polymatrix_native_ground.py",
+    "base_sha256": null,
+    "final_sha256": "11191e0bf69c0353f767284df78dfbe6e02c04fec2e9c940dd3747b5c63c0029",
+    "delivery": "polymatrix"
+  }
+]

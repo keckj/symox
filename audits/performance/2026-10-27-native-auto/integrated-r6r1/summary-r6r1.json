@@ -1,0 +1,275 @@
+{
+  "processes": 9,
+  "certificates": 2016,
+  "cases": 14,
+  "source_identity": "80c98adae719e1cdfc2e7621a234d0ade781cdb3bc26c4285360263b0ca719ae",
+  "native": "cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab",
+  "rows": [
+    {
+      "case": "QQ-CD-3-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 306094.0,
+          "repeat": 296715.0
+        },
+        "R5": {
+          "first": 336541.0,
+          "repeat": 314251.0
+        },
+        "private-enabled": {
+          "first": 320736.5,
+          "repeat": 305532.0
+        }
+      },
+      "ratio_R5_to_R6": 1.028537109042588,
+      "ratio_R6_off_to_on": 0.9711421389576215
+    },
+    {
+      "case": "QQ-CD-3-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 301946.0,
+          "repeat": 297311.5
+        },
+        "R5": {
+          "first": 324212.0,
+          "repeat": 306838.0
+        },
+        "private-enabled": {
+          "first": 305865.5,
+          "repeat": 304316.0
+        }
+      },
+      "ratio_R5_to_R6": 1.0082874380578084,
+      "ratio_R6_off_to_on": 0.9769828073449967
+    },
+    {
+      "case": "QQ-CD-10-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 931607.5,
+          "repeat": 929101.0
+        },
+        "R5": {
+          "first": 974124.5,
+          "repeat": 943340.0
+        },
+        "private-enabled": {
+          "first": 719213.5,
+          "repeat": 708303.0
+        }
+      },
+      "ratio_R5_to_R6": 1.3318311513575405,
+      "ratio_R6_off_to_on": 1.3117281728299894
+    },
+    {
+      "case": "QQ-CD-10-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 928727.0,
+          "repeat": 932143.0
+        },
+        "R5": {
+          "first": 961111.5,
+          "repeat": 976058.0
+        },
+        "private-enabled": {
+          "first": 704788.5,
+          "repeat": 706504.5
+        }
+      },
+      "ratio_R5_to_R6": 1.3815311862840223,
+      "ratio_R6_off_to_on": 1.319373054240985
+    },
+    {
+      "case": "QQ-CD-20-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 3449911.0,
+          "repeat": 3435740.0
+        },
+        "R5": {
+          "first": 3435497.5,
+          "repeat": 3446484.5
+        },
+        "private-enabled": {
+          "first": 2527034.0,
+          "repeat": 2534543.0
+        }
+      },
+      "ratio_R5_to_R6": 1.3598051009590288,
+      "ratio_R6_off_to_on": 1.355565875189334
+    },
+    {
+      "case": "QQ-CD-20-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 3441865.0,
+          "repeat": 3452417.5
+        },
+        "R5": {
+          "first": 3461781.0,
+          "repeat": 3422922.5
+        },
+        "private-enabled": {
+          "first": 2511218.5,
+          "repeat": 2507092.0
+        }
+      },
+      "ratio_R5_to_R6": 1.3652959285100028,
+      "ratio_R6_off_to_on": 1.3770605546186578
+    },
+    {
+      "case": "QQ-CD-10-sparse-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 777024.0,
+          "repeat": 775519.0
+        },
+        "R5": {
+          "first": 770179.0,
+          "repeat": 785256.5
+        },
+        "private-enabled": {
+          "first": 634556.5,
+          "repeat": 636141.0
+        }
+      },
+      "ratio_R5_to_R6": 1.234406365884293,
+      "ratio_R6_off_to_on": 1.2190992248573822
+    },
+    {
+      "case": "QQ-CD-10-sparse-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 771427.5,
+          "repeat": 778379.0
+        },
+        "R5": {
+          "first": 773151.5,
+          "repeat": 768143.5
+        },
+        "private-enabled": {
+          "first": 635055.5,
+          "repeat": 632042.5
+        }
+      },
+      "ratio_R5_to_R6": 1.215335202933347,
+      "ratio_R6_off_to_on": 1.2315295253088203
+    },
+    {
+      "case": "QQ-FF-10-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 4475475.0,
+          "repeat": 4440181.0
+        },
+        "R5": {
+          "first": 4434927.5,
+          "repeat": 4438581.5
+        },
+        "private-enabled": {
+          "first": 4238645.5,
+          "repeat": 4166396.5
+        }
+      },
+      "ratio_R5_to_R6": 1.0653286359087524,
+      "ratio_R6_off_to_on": 1.0657125408011456
+    },
+    {
+      "case": "QQ-FF-10-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 4292232.0,
+          "repeat": 4286135.0
+        },
+        "R5": {
+          "first": 4336999.0,
+          "repeat": 4343063.0
+        },
+        "private-enabled": {
+          "first": 4059590.0,
+          "repeat": 4069772.5
+        }
+      },
+      "ratio_R5_to_R6": 1.0671512965405314,
+      "ratio_R6_off_to_on": 1.0531632910684812
+    },
+    {
+      "case": "ZZ-FF-10-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 960596.5,
+          "repeat": 952215.5
+        },
+        "R5": {
+          "first": 968774.5,
+          "repeat": 964913.0
+        },
+        "private-enabled": {
+          "first": 861603.0,
+          "repeat": 856554.0
+        }
+      },
+      "ratio_R5_to_R6": 1.1265057427786223,
+      "ratio_R6_off_to_on": 1.111681808735935
+    },
+    {
+      "case": "ZZ-FF-10-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 779975.0,
+          "repeat": 778318.5
+        },
+        "R5": {
+          "first": 780290.0,
+          "repeat": 777827.5
+        },
+        "private-enabled": {
+          "first": 689368.0,
+          "repeat": 681165.5
+        }
+      },
+      "ratio_R5_to_R6": 1.1419067759597337,
+      "ratio_R6_off_to_on": 1.142627599313236
+    },
+    {
+      "case": "QQ-GJ-10-dense-rref",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 2293932.5,
+          "repeat": 2302126.0
+        },
+        "R5": {
+          "first": 2297283.0,
+          "repeat": 2305072.0
+        },
+        "private-enabled": {
+          "first": 2161702.5,
+          "repeat": 2145904.5
+        }
+      },
+      "ratio_R5_to_R6": 1.0741726856903464,
+      "ratio_R6_off_to_on": 1.0727998380170227
+    },
+    {
+      "case": "QQ-GJ-10-dense-rref_den",
+      "timings_ns": {
+        "private-disabled": {
+          "first": 2304823.5,
+          "repeat": 2284919.0
+        },
+        "R5": {
+          "first": 2315776.0,
+          "repeat": 2298789.0
+        },
+        "private-enabled": {
+          "first": 2140299.5,
+          "repeat": 2138809.5
+        }
+      },
+      "ratio_R5_to_R6": 1.0747983866725859,
+      "ratio_R6_off_to_on": 1.0683134706480404
+    }
+  ]
+}

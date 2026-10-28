@@ -1,0 +1,100 @@
+[
+  {
+    "target": "_gcdex",
+    "raises": false,
+    "actual": {
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    "expected": {
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    "actual_events": [],
+    "expected_events": [
+      "gcdex"
+    ],
+    "reference_imported": false,
+    "audit_events": [],
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "expected_regression_failure": "('_gcdex', False, [], ['gcdex'])"
+  },
+  {
+    "target": "_gcdex",
+    "raises": true,
+    "actual": {
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    "expected": {
+      "error": "RuntimeError",
+      "message": "observed gcdex"
+    },
+    "actual_events": [],
+    "expected_events": [
+      "gcdex"
+    ],
+    "reference_imported": false,
+    "audit_events": [],
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "expected_regression_failure": "('_gcdex', True, {'rows': [[1]]}, {'error': 'RuntimeError', 'message': 'observed gcdex'})"
+  },
+  {
+    "target": "add_columns",
+    "raises": false,
+    "actual": {
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    "expected": {
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    "actual_events": [],
+    "expected_events": [
+      "columns"
+    ],
+    "reference_imported": false,
+    "audit_events": [],
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "expected_regression_failure": "('add_columns', False, [], ['columns'])"
+  },
+  {
+    "target": "add_columns",
+    "raises": true,
+    "actual": {
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    "expected": {
+      "error": "RuntimeError",
+      "message": "observed columns"
+    },
+    "actual_events": [],
+    "expected_events": [
+      "columns"
+    ],
+    "reference_imported": false,
+    "audit_events": [],
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "expected_regression_failure": "('add_columns', True, {'rows': [[1]]}, {'error': 'RuntimeError', 'message': 'observed columns'})"
+  }
+]

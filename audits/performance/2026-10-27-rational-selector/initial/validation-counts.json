@@ -1,0 +1,21 @@
+{
+  "exact_input_result_checks": 684,
+  "independent_lrt_trace_certificates": 12,
+  "independent_atan_recurrence_certificates": 7,
+  "native_selection_counts_by_process": {
+    "plain-0-r2.json": 19,
+    "plain-0-r3b.json": 19,
+    "plain-1-r2.json": 19,
+    "plain-1-r3b.json": 19,
+    "plain-2-r2.json": 19,
+    "plain-2-r3b.json": 19,
+    "vector-0-r2.json": 0,
+    "vector-0-r3b.json": 19,
+    "vector-1-r2.json": 0,
+    "vector-1-r3b.json": 19,
+    "vector-2-r2.json": 0,
+    "vector-2-r3b.json": 19
+  },
+  "cross_variant_digests_identical": true,
+  "no_reference_runtime": true
+}

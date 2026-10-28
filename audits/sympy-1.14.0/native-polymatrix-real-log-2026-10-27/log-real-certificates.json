@@ -1,0 +1,13 @@
+{
+  "reference_version": "1.14.0",
+  "identities": {
+    "quadratic_resultant": "0",
+    "centre_real_polynomial": "0",
+    "centre_imaginary_polynomial": "0",
+    "real_plus_root": "0",
+    "real_minus_root": "0",
+    "linear_resultant": "0",
+    "linear_root": "0"
+  },
+  "interpretation": "Exact identities over QQ(A,B,C); real-root completeness and branch representatives follow the signed discriminant proof in audit-and-proof.txt, not sample values."
+}

@@ -6,6 +6,8 @@ Module for the SDM class.
 
 from operator import add, neg, pos, sub, mul
 from collections import defaultdict
+from symox import _core
+from ._fraction_free import stock_domain as _ff_stock_domain
 
 GROUND_TYPES = 'python'
 from ._dense_poly import doctest_depends_on, _native_elements
@@ -1404,6 +1406,31 @@ class SDM(dict):
         return reduced.to_sdm(), transform.to_sdm()
 
 
+# Keep canonical metadata across reloads; callbacks must remain callbacks.
+_FF_SDM_TYPE = SDM
+_FF_SDM_DICT = SDM.__dict__['__dict__']
+_FF_TYPE = globals().get('_FF_TYPE',type)
+_FF_DICT, _FF_STR = {}.__class__, ''.__class__
+_FF_ALL = globals().get('_FF_ALL',all)
+_FF_ZIP = globals().get('_FF_ZIP',zip)
+_FF_SDM_BUILTINS = globals().get('_FF_SDM_BUILTINS',(len,min,sorted,zip,set,list,dict,enumerate))
+_FF_SDM_METHODS = tuple((name,SDM.__dict__.get(name,getattr(dict,name)))
+                         for name in ('items','values','__len__','__iter__','__getitem__','__getattribute__'))
+
+
+def _ff_stock_sdm(value):
+    if (_FF_TYPE(value) is not _FF_SDM_TYPE or _FF_SDM_TYPE.__bases__!=(_FF_DICT,)
+            or '__bool__' in _FF_SDM_TYPE.__dict__
+            or not _FF_ALL(_FF_SDM_TYPE.__dict__.get(name,getattr(_FF_DICT,name)) is original
+                           for name,original in _FF_SDM_METHODS)):
+        return None
+    attrs=_FF_SDM_DICT.__get__(value,_FF_SDM_TYPE)
+    if (_FF_TYPE(attrs) is not _FF_DICT or not _FF_ALL(_FF_TYPE(key) is _FF_STR for key in attrs)
+            or 'items' in attrs or 'values' in attrs):
+        return None
+    return _FF_SDM_TYPE
+
+
 def binop_dict(A, B, fab, fa, fb):
     Anz, Bnz = set(A), set(B)
     C = {}
@@ -1684,6 +1711,9 @@ def sdm_irref(A):
     # that column.
     #
 
+    prepared=_native_irref(A)
+    if prepared is not None:return prepared
+
     # Row dicts sorted by index of first nonzero column
     # (Maybe sorting is not needed/useful.)
     Arows = sorted((Ai.copy() for Ai in A.values()), key=min)
@@ -1878,6 +1908,13 @@ def sdm_rref_den(A, K):
     # that in the sparse case we only need to work with the relatively sparse
     # upper rows of the matrix. The simple version of FFGJ in [1] would
     # multiply and divide all the dense lower rows at each step.
+
+    if (_ff_stock_domain(K)
+            and _FF_ALL(current is original for current,original in
+                        _FF_ZIP((len,min,sorted,zip,set,list,dict,enumerate),_FF_SDM_BUILTINS))):
+        result=_core._sdm_rref_den(A,K,_ff_stock_sdm(A))
+        if result is not None:
+            return result
 
     # Handle the trivial cases.
     if not A:
@@ -2123,6 +2160,14 @@ def sdm_berk(M, n, K):
 
     .. [1] https://en.wikipedia.org/wiki/Samuelson%E2%80%93Berkowitz_algorithm
     """
+    if _sdm_stock_protocol(M, K):
+        native = _core.__dict__.get('_sdm_berk')
+        if native is not None:
+            stock = _SDM_DEFAULTDICT if _SDM_TYPE(M) is _SDM_DEFAULTDICT else _SDM_STOCK
+            result = native(M, n, K, stock)
+            if result is not None:
+                return result
+
     zero = K.zero
     one = K.one
 
@@ -2176,6 +2221,16 @@ def sdm_berk(M, n, K):
 
     q = sdm_berk(A, n-1, K)
 
+    # A real conversion in the original prefix/recursive call may have made
+    # the stock protocol decidable. Consume the actual q and Tvals; do not
+    # recompute an earlier matrix snapshot or any callback-produced result.
+    if _sdm_stock_protocol(M, K):
+        native = _core.__dict__.get('_sdm_berk_combine')
+        if native is not None:
+            result = native(q, Tvals, n, K)
+            if result is not None:
+                return result
+
     # This would be the explicit multiplication T*q but we can do better:
     #
     #  T = {}
@@ -2201,3 +2256,161 @@ def sdm_berk(M, n, K):
             Tq[i] = Tqi
 
     return Tq
+
+
+# Selection only: the general sparse implementation above remains the full
+# fallback for other domains, representations and customized protocols.
+from types import (FunctionType as _SDM_FUNCTION, MethodDescriptorType as _SDM_METHOD,
+                   GetSetDescriptorType as _SDM_GETSET, WrapperDescriptorType as _SDM_WRAPPER)
+from symox.polys.domains import _methods as _sdm_domain_methods
+from symox import _basic as _sdm_basic
+import builtins as _sdm_builtins
+import abc as _sdm_abc
+import _abc as _sdm_abc_native
+import sys as _sdm_sys
+from types import ModuleType as _SDM_MODULE, BuiltinFunctionType as _SDM_BUILTIN
+
+if '_SDM_BOOTSTRAP_CAPTURE' not in globals():
+    root = _sdm_sys.modules.get('symox')
+    namespace = root.__dict__ if type(root) is _SDM_MODULE else {}
+    spec = namespace.get('__spec__')
+    _SDM_BOOTSTRAP_CAPTURE = bool(getattr(spec,'_initializing',False))
+
+# A reload keeps the original evidence. A removed/reimported module after
+# package initialization never authenticates already customized functions.
+if _SDM_BOOTSTRAP_CAPTURE and '_SDM_PROTOCOL_READY' not in globals():
+    _SDM_TYPE, _SDM_DICT, _SDM_ALL, _SDM_ZIP = type, dict, all, zip
+    _SDM_ANY, _SDM_LEN, _SDM_OBJECT, _SDM_STRING = any, len, object, str
+    _SDM_IMPORT = _sdm_builtins.__import__
+    _SDM_STOCK_IMPORT = (_SDM_TYPE(_SDM_IMPORT) is _SDM_BUILTIN
+                         and _SDM_IMPORT.__name__ == '__import__' and _SDM_IMPORT.__module__ == 'builtins')
+    _SDM_ABC_CHECK = _sdm_abc.ABCMeta.__instancecheck__
+    _SDM_ABC_CHECK_CODE = _SDM_ABC_CHECK.__code__
+    _SDM_ABC_NATIVE_CHECK = _SDM_ABC_CHECK.__globals__['_abc_instancecheck']
+    _SDM_ABC_DUMP, _SDM_ABC_TOKEN = _sdm_abc_native._get_dump, _sdm_abc_native.get_cache_token
+    _SDM_STOCK = globals().get('_SDM_STOCK', SDM)
+    _SDM_STATE = _SDM_STOCK.__dict__['__dict__']
+    _SDM_RECURSION = globals().get('_SDM_RECURSION', sdm_berk)
+    _SDM_CODE = globals().get('_SDM_CODE', sdm_berk.__code__)
+    _SDM_FUNCTIONS = globals().get('_SDM_FUNCTIONS', tuple(
+        (module, name, module.__dict__[name], module.__dict__[name].__code__,
+         module.__dict__[name].__closure__, module.__dict__[name].__defaults__,
+         module.__dict__[name].__kwdefaults__)
+        for module, names in ((_sdm_domain_methods,
+            ('sum_', 'convert', '_not_a_coeff', '_inexact_value', '_float_from_sympy')),) for name in names))
+    _SDM_DOT, _SDM_DOT_CODE = sdm_dotvec, sdm_dotvec.__code__
+    _SDM_MATVEC, _SDM_MATVEC_CODE = sdm_matvecmul, sdm_matvecmul.__code__
+    _SDM_DEFAULTDICT = defaultdict
+    _SDM_NATIVE_DOMAIN, _SDM_NATIVE_ELEMENT = _core.Domain, _core.DomainElement
+    _SDM_DOMAIN_DESCRIPTORS = tuple((name, _SDM_NATIVE_DOMAIN.__dict__.get(name))
+                                  for name in ('zero', 'one', 'is_EX', 'is_EXRAW'))
+    _SDM_ELEMENT_DESCRIPTORS = tuple((name,_SDM_NATIVE_ELEMENT.__dict__.get(name))
+                                    for name in ('__bool__','__mul__','__add__','__neg__'))
+    _SDM_NATIVE_DESCRIPTORS = (_SDM_ALL(_SDM_TYPE(value) is _SDM_GETSET
+        and value.__objclass__ is _SDM_NATIVE_DOMAIN and value.__name__ == name
+        for name,value in _SDM_DOMAIN_DESCRIPTORS) and _SDM_ALL(_SDM_TYPE(value) is _SDM_WRAPPER
+        and value.__objclass__ is _SDM_NATIVE_ELEMENT and value.__name__ == name
+        for name,value in _SDM_ELEMENT_DESCRIPTORS))
+    _SDM_BASIC_META, _SDM_ABC_META = _sdm_basic._BasicMeta, _sdm_abc.ABCMeta
+    _SDM_BASIC, _SDM_MATRIX = _sdm_basic.Basic, _core.Matrix
+    _SDM_ELEMENT_NAME = _SDM_NATIVE_ELEMENT.__name__
+    _SDM_BASIC_CHECK = _sdm_basic._BasicMeta.__instancecheck__
+    _SDM_BASIC_CHECK_CODE = _SDM_BASIC_CHECK.__code__
+    _SDM_META_CELLS = tuple((f,f.__closure__,tuple(cell.cell_contents for cell in f.__closure__ or ()))
+                            for f in (_SDM_BASIC_CHECK,))
+    _SDM_LOOKUPS = globals().get('_SDM_LOOKUPS', tuple(
+        (namespace, name, namespace.get(name, _sdm_builtins.__dict__.get(name)))
+        for namespace in (globals(), _sdm_domain_methods.__dict__, _sdm_basic.__dict__)
+        for name in ('type','isinstance','getattr','hasattr','all','any','dict','set',
+                     'frozenset','bool','float','complex','str','bytes','bytearray','list','tuple',
+                     'int','len','range','min','max','enumerate')))
+    _SDM_PROTOCOL_READY = True
+
+
+def _sdm_stock_protocol(matrix, domain):
+    if not _SDM_BOOTSTRAP_CAPTURE:return False
+    if not _SDM_ALL(_SDM_TYPE(module) is _SDM_MODULE for module in (
+            _core,_sdm_basic,_sdm_domain_methods,_sdm_abc,_sdm_abc_native,_sdm_builtins,_sdm_sys)):return False
+    if not _SDM_STOCK_IMPORT or _sdm_builtins.__dict__.get('__import__') is not _SDM_IMPORT:return False
+    if not _SDM_ALL(namespace.get(name, _sdm_builtins.__dict__.get(name)) is original
+                    for namespace,name,original in _SDM_LOOKUPS):return False
+    if (sdm_berk is not _SDM_RECURSION or sdm_berk.__code__ is not _SDM_CODE
+            or sdm_dotvec is not _SDM_DOT or sdm_dotvec.__code__ is not _SDM_DOT_CODE
+            or sdm_matvecmul is not _SDM_MATVEC or sdm_matvecmul.__code__ is not _SDM_MATVEC_CODE
+            or defaultdict is not _SDM_DEFAULTDICT or SDM is not _SDM_STOCK):return False
+    if (_SDM_TYPE(_SDM_STOCK) is not _SDM_TYPE or (_SDM_LEN(_SDM_STOCK.__bases__) != 1 or _SDM_STOCK.__bases__[0] is not _SDM_DICT)
+            or '__getattribute__' in _SDM_STOCK.__dict__ or '__getattr__' in _SDM_STOCK.__dict__
+            or not _SDM_ALL(_SDM_STOCK.__dict__.get(name, _SDM_DICT.__dict__[name]) is _SDM_DICT.__dict__[name]
+                            for name in ('get','items','keys','values','__getitem__','__iter__','__len__'))):return False
+    if _SDM_STOCK.__dict__.get('__dict__') is not _SDM_STATE:return False
+    if _SDM_TYPE(matrix) is _SDM_STOCK:
+        state = _SDM_STATE.__get__(matrix,_SDM_STOCK)
+        # The stock constructor owns exactly these four metadata fields.
+        # Reject unknown state before looking up names: arbitrary dictionary
+        # keys could otherwise run equality callbacks during selection.
+        if (_SDM_TYPE(state) is not _SDM_DICT or _SDM_LEN(state) != 4
+                or not _SDM_ALL(_SDM_TYPE(name) is _SDM_STRING for name in state)
+                or not _SDM_ALL(name in state for name in ('shape','rows','cols','domain'))):return False
+    if (_SDM_TYPE(domain) is not _SDM_NATIVE_DOMAIN or not _SDM_NATIVE_DESCRIPTORS
+            or '__getattribute__' in _SDM_NATIVE_DOMAIN.__dict__
+            or '__getattr__' in _SDM_NATIVE_DOMAIN.__dict__
+            or _SDM_LEN(_SDM_NATIVE_DOMAIN.__bases__) != 1
+            or _SDM_NATIVE_DOMAIN.__bases__[0] is not _SDM_OBJECT):return False
+    if not _SDM_ALL(_SDM_NATIVE_ELEMENT.__dict__.get(name) is value
+                    for name,value in _SDM_ELEMENT_DESCRIPTORS):return False
+    native_convert = _sdm_domain_methods.__dict__.get('_native_convert')
+    if (_SDM_TYPE(native_convert) is not _SDM_METHOD
+            or native_convert.__objclass__ is not _SDM_NATIVE_DOMAIN
+            or native_convert.__name__ != 'convert'):return False
+    if (not _SDM_ALL(_SDM_NATIVE_DOMAIN.__dict__.get(name) is value for name,value in _SDM_DOMAIN_DESCRIPTORS)
+            or _SDM_NATIVE_DOMAIN.__dict__.get('sum') is not _sdm_domain_methods.__dict__.get('sum_')
+            or _SDM_NATIVE_DOMAIN.__dict__.get('convert') is not _sdm_domain_methods.__dict__.get('convert')
+            or '__getattribute__' in _SDM_NATIVE_ELEMENT.__dict__
+            or '__getattr__' in _SDM_NATIVE_ELEMENT.__dict__
+            or '__iadd__' in _SDM_NATIVE_ELEMENT.__dict__
+            or '__class__' in _SDM_NATIVE_ELEMENT.__dict__
+            or _SDM_LEN(_SDM_NATIVE_ELEMENT.__bases__) != 1
+            or _SDM_NATIVE_ELEMENT.__bases__[0] is not _SDM_OBJECT
+            or _SDM_NATIVE_ELEMENT.__name__ is not _SDM_ELEMENT_NAME):return False
+    if (_core.__dict__.get('Matrix') is not _SDM_MATRIX or _core.__dict__.get('Domain') is not _SDM_NATIVE_DOMAIN
+            or _core.__dict__.get('DomainElement') is not _SDM_NATIVE_ELEMENT
+            or _sdm_basic.__dict__.get('Basic') is not _SDM_BASIC
+            or _SDM_BASIC_META.__dict__.get('__instancecheck__') is not _SDM_BASIC_CHECK
+            or _SDM_BASIC_CHECK.__code__ is not _SDM_BASIC_CHECK_CODE):return False
+    try:
+        for function,closure,contents in _SDM_META_CELLS:
+            if (function.__closure__ is not closure
+                    or not _SDM_ALL(cell.cell_contents is value for cell,value in _SDM_ZIP(closure or (),contents))):return False
+    except ValueError:return False
+    # Stock K.convert asks isinstance(element,Basic). Only bypass that path
+    # when CPython already certifies this EXACT native element class false,
+    # with a current ABC token. A changed registry or uncached classification
+    # uses the old path, including all metaclass/import callbacks, and can
+    # make a later stock call eligible. No user class is probed by selection.
+    if (_SDM_ABC_META.__dict__.get('__instancecheck__') is not _SDM_ABC_CHECK
+            or _SDM_ABC_CHECK.__code__ is not _SDM_ABC_CHECK_CODE
+            or _SDM_ABC_CHECK.__globals__.get('_abc_instancecheck') is not _SDM_ABC_NATIVE_CHECK
+            or _sdm_abc_native.__dict__.get('_get_dump') is not _SDM_ABC_DUMP
+            or _sdm_abc_native.__dict__.get('get_cache_token') is not _SDM_ABC_TOKEN):return False
+    _registry,_positive,negative,version = _SDM_ABC_DUMP(_SDM_BASIC)
+    if (version != _SDM_ABC_TOKEN()
+            or not _SDM_ANY(ref() is _SDM_NATIVE_ELEMENT for ref in negative)):return False
+    mpmath = _sdm_sys.modules.get('mpmath')
+    if _SDM_TYPE(mpmath) is not _SDM_MODULE or 'libmp' not in mpmath.__dict__:return False
+    symox = _sdm_sys.modules.get('symox')
+    if (_SDM_TYPE(symox) is not _SDM_MODULE
+            or symox.__dict__.get('Basic') is not _SDM_BASIC
+            or not _SDM_ALL(name in symox.__dict__ for name in ('Expr','Set','Float','I','CoercionFailed','S'))):return False
+    for module,name,function,code,closure,defaults,kwdefaults in _SDM_FUNCTIONS:
+        current=module.__dict__.get(name)
+        if (current is not function or _SDM_TYPE(current) is not _SDM_FUNCTION
+                or current.__code__ is not code or current.__closure__ is not closure
+                or current.__defaults__ is not defaults or current.__kwdefaults__ is not kwdefaults):return False
+    return True
+
+
+# Sparse field GJ has its own arithmetic/protocol boundary; it does not use
+# the division-free Berkowitz or fraction-free reducers.
+from ._sdm_irref_native import register_irref as _register_irref
+_native_irref=_register_irref(SDM,globals())
+del _register_irref

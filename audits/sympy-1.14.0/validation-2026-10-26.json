@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "scope": "TODO follow-up: reciprocal trig solutions, inexact domains and precision, numerical singularities, global Heurisch primitives",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "34988df1e8bcde19e9b80b2b3cb8a8558eea1e8ba4edf8a3192bf035bfe54005",
+    "native_sha256": "8323eddaa68e4c1f2c55cff6933c84fa3c4af204ed56eabf4e25a4d35bec1733",
+    "working_code_diff_sha256": "2dcf269aa77ada756ad2e0e490faaf492e2271b389a5fa480e55c358f18ae514",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "native_sha256": "8323eddaa68e4c1f2c55cff6933c84fa3c4af204ed56eabf4e25a4d35bec1733"
+  },
+  "python": {
+    "host": "demeter",
+    "suite": "tests (including tests/extra and compare_printing.py)",
+    "shards": 48,
+    "counts": {
+      "passed": 44897,
+      "failed": 0,
+      "skipped": 58,
+      "xfailed": 5
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 44960,
+      "collected_in_shards": 44960,
+      "finished": 44960,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 172.7469744682312,
+    "skip_reasons": {
+      "set TRISPLYNE_PATH to run the real consumer integration tests": 4,
+      "Graphviz unavailable": 1,
+      "TeX converters unavailable": 1,
+      "rustc unavailable": 1,
+      "Rust compiler unavailable": 2,
+      "reference returns nan/infinite pseudo-roots; independently checked below": 4,
+      "pytest-style module, collected on its own": 1,
+      "TeX rendering tools unavailable": 1,
+      "Set TRISPLYNE_PRINTERS to run the trisplyne integration checks": 27,
+      "Slang cuda device unavailable: Failed to create device!\n/project/src/sgl/device/device.cpp:280 in function Device": 15,
+      "AdaptiveCpp SDK not installed; set SYMOX_ACPP to test compilation": 1
+    },
+    "environment": {
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "packages": {
+        "pytest": "9.1.1",
+        "sympy": "1.14.0",
+        "mpmath": "1.3.0",
+        "numpy": "2.2.6",
+        "torch": "2.14.1",
+        "jax": "0.6.2",
+        "slangpy": "0.43.1"
+      },
+      "symox_file": "/home/keckj/symox-ci/wt/todo-20261026T113916Z/python/symox/__init__.py",
+      "native_sha256": "8323eddaa68e4c1f2c55cff6933c84fa3c4af204ed56eabf4e25a4d35bec1733"
+    },
+    "new_regressions": {
+      "tests/test_solve_trig_multiples_parity.py": 35,
+      "tests/test_inexact_domain_followup_parity.py": 79,
+      "tests/test_numeric_singularities_followup_parity.py": 48,
+      "tests/test_heurisch_compact_conjugates_parity.py": 16
+    }
+  },
+  "rust": {
+    "host": "local",
+    "unit_tests_passed": 573,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": [
+      {
+        "name": "cargo-test",
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "clippy-correctness",
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "exit_code": 0
+      }
+    ]
+  },
+  "protocol": {
+    "collection": "python -m pytest --collect-only -q tests",
+    "execution": "48 disjoint file shards of the complete collection; no ignore filters; each collected node must finish exactly once",
+    "environment_changes": "Fortran compiler installed on demeter. SYMOX_CI_PY identifies the editable source in subprocesses. No JAX precision/platform override in final run.",
+    "first_run": "14 failures: 3 editable-import environment failures, 8 JAX dtype failures caused by a runner precision override, 2 stale printer/shim tests, 1 pre-existing global Heurisch primitive error. All corrected; complete suite rerun."
+  },
+  "evidence": {
+    "local_directory": "/home/keckj/.cache/symox-validation/todo-20261026T113916Z",
+    "demeter_directory": "/home/keckj/symox-ci/wt/todo-20261026T113916Z/.validation",
+    "manifest": "source-manifest.json",
+    "final_results": "demeter-final/summary.json",
+    "initial_results": "demeter-run1/summary.json"
+  },
+  "remaining_gaps": [
+    "General CC/composite-CC multivariate cancellation remains explicitly unsupported.",
+    "Some non-dyadic hypergeometric singularities outside the certified positive zero-balanced family remain unevaluated.",
+    "Shifted affine and noninteger reciprocal-trig arguments remain outside this solver extension.",
+    "The full documentation-example parity audit and standalone ODE/integration corpora have not been rerun for this batch; global mathematical parity is not certified."
+  ]
+}

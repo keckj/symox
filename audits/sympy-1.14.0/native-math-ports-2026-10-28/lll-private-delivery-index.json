@@ -1,0 +1,112 @@
+{
+  "status": "GO",
+  "scope": "private verified LLL first public call port; main integration belongs to finalizer",
+  "stage": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028",
+  "source_manifest": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/delivery/source-manifest-PRIVATE.json",
+  "source_manifest_sha256": "4add7c0a2460e7afe9160e05146320af26d649bbd37b74ab2996426cc5361de1",
+  "candidate_patch": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/delivery/candidate.patch",
+  "candidate_patch_sha256": "c9a6df6eb212f2dccbac0dafdce2dff67780a6eb88db98c0b063fdba379c76ad",
+  "validation": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/delivery/validation-results.json",
+  "validation_sha256": "9f2110585d0540de3fd2e39cecdd180703bccf7904db215b981856b30f135e71",
+  "archive": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/native-lll-first-call-r12-20261028.tar.gz",
+  "archive_sha256": "5ff84d8d8d172a09d897e6d29e12fcfc5a222aa1efb70426bb203b68d0286e57",
+  "files": {
+    "crates/symox-py/src/poly_lll.rs": {
+      "base_sha256": "ca68ec57acc9b584616a420ba7f81d634f01b1883054d79e60cfad2dc0b1e115",
+      "final_sha256": "73ea669b2799cfdf1972f891409283a2ee78ee2e9209c54f59bc056016fe25bf"
+    },
+    "crates/symox-py/src/poly_function_metadata.rs": {
+      "base_sha256": "d6c11bb938a4dce4cd65b3482cc19e5d756cb6da6992cd1db0bebd39573c124a",
+      "final_sha256": "1f31bbbf3cc75728135e20f01e14a52da8da429bee5788d51ec40c804599dfbc"
+    },
+    "crates/symox-py/src/poly_lll_first_call.rs": {
+      "base_sha256": null,
+      "final_sha256": "ff5124a4c5daa3cf1173e019a60762a624bcc01e0c3cea8aa4d2246884c5ebcd"
+    },
+    "crates/symox-py/src/poly_lll_proof_support.rs": {
+      "base_sha256": null,
+      "final_sha256": "376ee0d0663d8d719ed3128331df712fd50406c3ae76c5bcbf1769754c0bbcbd"
+    },
+    "crates/symox-py/src/lll_cold_getters.rs": {
+      "base_sha256": null,
+      "final_sha256": "1464b82b6316c1ec3b9f13f81733b80ead4799fd503062e9b6dc72d100ea7d7b"
+    },
+    "crates/symox-py/src/lll_cold_reference.rs": {
+      "base_sha256": null,
+      "final_sha256": "8f72888a74abc61b06eb6f1c381495cd2dcc7dbfcdc941f2a46808a19dbafe7a"
+    },
+    "crates/symox-py/src/lll_cold_code_specs.rs": {
+      "base_sha256": null,
+      "final_sha256": "414f8f47eca9830ff775c2182fa6fe7a1922326621f11ce3fc2a951746758460"
+    },
+    "crates/symox-py/src/lll_cold_contract.py": {
+      "base_sha256": null,
+      "final_sha256": "992539d60afac8979736370e5260d6436f5fdd55e5806bd20944f602a9d20e07"
+    },
+    "crates/symox-py/src/lll_cold_graph.rs": {
+      "base_sha256": null,
+      "final_sha256": "6d715719e6c51663af9500f19ff9a4ec069ccd210188cb0a8d6dd35fe65e913d"
+    },
+    "crates/symox-py/src/lll_cold_protocol.rs": {
+      "base_sha256": null,
+      "final_sha256": "0b8b007fc5e9ed8ee3ece54822072edb0d4c423194222408c7f48099e55cd92d"
+    },
+    "python/symox/polys/matrices/_lll_native.py": {
+      "base_sha256": "77f44aa9c787af80e772f5f2b72328273955b908d989a4cc73600ee51f47ec4d",
+      "final_sha256": "621f5d8ef74970331b9bae021742bb72f875e475d38805bc466630986f573fb1"
+    },
+    "tests/test_native_lll_first_call.py": {
+      "base_sha256": null,
+      "final_sha256": "43437ef62e77e07fcfcf752481f641568ad71b1d71ad20501baf9f9d0fbd80be"
+    },
+    "tests/test_native_lll_cold_cache.py": {
+      "base_sha256": "f7abf87c91809c9627c18b48037dff9501d76980b562361958ca250f5901bb60",
+      "final_sha256": "281cffc3ddd34eafdb94697f867c451402a0662f59d2e055c6fa03ead8515bc2"
+    }
+  },
+  "native_inputs_final": 360,
+  "debug_native_sha256": "82df3cab10a0598d5215a165b29772f0b504cfc1068724dde22fb8111f4146e0",
+  "hosts": {
+    "local": {
+      "graph": 20,
+      "imports": 13,
+      "prefix": 38,
+      "ready": 12,
+      "primitives_functions": 24,
+      "primitive_fields_each": 5,
+      "public": 11,
+      "cold_triples": 1104,
+      "error_triples": 4,
+      "coupled_files": 75,
+      "coupled_tests": 9597,
+      "unique_exactly_once": true,
+      "inputs_final_unchanged": 360,
+      "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]"
+    },
+    "demeter": {
+      "graph": 20,
+      "imports": 13,
+      "prefix": 38,
+      "ready": 12,
+      "primitives_functions": 24,
+      "primitive_fields_each": 5,
+      "public": 11,
+      "cold_triples": 1104,
+      "error_triples": 4,
+      "coupled_files": 75,
+      "coupled_tests": 9597,
+      "unique_exactly_once": true,
+      "inputs_final_unchanged": 360,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]"
+    }
+  },
+  "release_public11_command": [
+    "python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_native_lll_first_call.py"
+  ],
+  "release_environment": "PYTHONPATH=<package>/python; each subprocess inherits sys.executable/environment",
+  "release_and_full_validation_required": true
+}

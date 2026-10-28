@@ -1,0 +1,1838 @@
+{
+  "library": "sympy",
+  "version": "1.14.0",
+  "package": "/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/sympy",
+  "native_sha256": null,
+  "sources_before_after": {
+    "polys/matrices/ddm.py": "78c294cbc5f59104c41b597b171fcbe0b1bd26ab3d974284c25610c25725e83a",
+    "polys/matrices/domainmatrix.py": "32f8d647343894acd7dab0a5f2646da6221749eeb8d7fc7a38cad3afc8ac70f0",
+    "polys/matrices/sdm.py": "6dbd9f20ee362a3c89b84b8c064883167fea2c95630f882c460599e863a64c7c"
+  },
+  "sources_unchanged": true,
+  "no_timing_fields": true,
+  "calls": 24,
+  "returned": 16,
+  "raised": 8,
+  "certified": 8,
+  "returned_but_uncertified": 8,
+  "records": [
+    {
+      "case": "wide-delayed-pivot",
+      "group": "witness",
+      "entry": "private",
+      "domain": "ZZ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "permutation": [
+        0,
+        1
+      ],
+      "packed_LU": [
+        [
+          "0",
+          "0",
+          "1",
+          "2"
+        ],
+        [
+          "0",
+          "0",
+          "2",
+          "3"
+        ]
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3",
+            "L_Dinv_U": "7"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "private_shapes_domain": true,
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "wide-delayed-pivot",
+      "group": "witness",
+      "entry": "ddm",
+      "domain": "ZZ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "2",
+            "3"
+          ]
+        ],
+        "D": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "3"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1",
+            "2"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3",
+            "L_Dinv_U": "7"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "wide-delayed-pivot",
+      "group": "witness",
+      "entry": "dense",
+      "domain": "ZZ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "2",
+            "3"
+          ]
+        ],
+        "D": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "3"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1",
+            "2"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3",
+            "L_Dinv_U": "7"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "wide-delayed-pivot",
+      "group": "witness",
+      "entry": "sparse",
+      "domain": "ZZ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "2",
+            "3"
+          ]
+        ],
+        "D": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "3"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1",
+            "2"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "sparse",
+        "sparse",
+        "sparse",
+        "sparse"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3",
+            "L_Dinv_U": "7"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true
+    },
+    {
+      "case": "wide-delayed-pivot",
+      "group": "witness",
+      "entry": "private",
+      "domain": "QQ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "permutation": [
+        0,
+        1
+      ],
+      "packed_LU": [
+        [
+          "0",
+          "0",
+          "1",
+          "2"
+        ],
+        [
+          "0",
+          "0",
+          "2",
+          "3"
+        ]
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3",
+            "L_Dinv_U": "7"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "private_shapes_domain": true,
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "wide-delayed-pivot",
+      "group": "witness",
+      "entry": "ddm",
+      "domain": "QQ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "2",
+            "3"
+          ]
+        ],
+        "D": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "3"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1",
+            "2"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3",
+            "L_Dinv_U": "7"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "wide-delayed-pivot",
+      "group": "witness",
+      "entry": "dense",
+      "domain": "QQ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "2",
+            "3"
+          ]
+        ],
+        "D": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "3"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1",
+            "2"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3",
+            "L_Dinv_U": "7"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "wide-delayed-pivot",
+      "group": "witness",
+      "entry": "sparse",
+      "domain": "QQ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "2",
+            "3"
+          ]
+        ],
+        "D": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "3"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1",
+            "2"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "sparse",
+        "sparse",
+        "sparse",
+        "sparse"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3",
+            "L_Dinv_U": "7"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true
+    },
+    {
+      "case": "skipped-denominator",
+      "group": "witness",
+      "entry": "private",
+      "domain": "ZZ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "integer division or modulo by zero"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "skipped-denominator",
+      "group": "witness",
+      "entry": "ddm",
+      "domain": "ZZ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "integer division or modulo by zero"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "skipped-denominator",
+      "group": "witness",
+      "entry": "dense",
+      "domain": "ZZ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "integer division or modulo by zero"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "skipped-denominator",
+      "group": "witness",
+      "entry": "sparse",
+      "domain": "ZZ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "integer division or modulo by zero"
+      },
+      "input_unchanged": true
+    },
+    {
+      "case": "skipped-denominator",
+      "group": "witness",
+      "entry": "private",
+      "domain": "QQ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "Zero divisor -1/0"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "skipped-denominator",
+      "group": "witness",
+      "entry": "ddm",
+      "domain": "QQ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "Zero divisor -1/0"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "skipped-denominator",
+      "group": "witness",
+      "entry": "dense",
+      "domain": "QQ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "Zero divisor -1/0"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "skipped-denominator",
+      "group": "witness",
+      "entry": "sparse",
+      "domain": "QQ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "Zero divisor -1/0"
+      },
+      "input_unchanged": true
+    },
+    {
+      "case": "orientation-cycle",
+      "group": "witness",
+      "entry": "private",
+      "domain": "ZZ",
+      "shape": [
+        3,
+        3
+      ],
+      "status": "returned",
+      "permutation": [
+        1,
+        2,
+        0
+      ],
+      "packed_LU": [
+        [
+          "3",
+          "0",
+          "1"
+        ],
+        [
+          "4",
+          "15",
+          "14"
+        ],
+        [
+          "0",
+          "0",
+          "30"
+        ]
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          0,
+          1,
+          2
+        ],
+        "rank_A": 3,
+        "rank_U": 3,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": true,
+        "mismatches": [],
+        "complete_certificate": true
+      },
+      "private_shapes_domain": true,
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "orientation-cycle",
+      "group": "witness",
+      "entry": "ddm",
+      "domain": "ZZ",
+      "shape": [
+        3,
+        3
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "0",
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "1"
+          ],
+          [
+            "1",
+            "0",
+            "0"
+          ]
+        ],
+        "L": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "4",
+            "15",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ],
+        "D": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "0",
+            "45",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "450"
+          ]
+        ],
+        "U": [
+          [
+            "3",
+            "0",
+            "1"
+          ],
+          [
+            "0",
+            "15",
+            "14"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          0,
+          1,
+          2
+        ],
+        "rank_A": 3,
+        "rank_U": 3,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": true,
+        "mismatches": [],
+        "complete_certificate": true
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "orientation-cycle",
+      "group": "witness",
+      "entry": "dense",
+      "domain": "ZZ",
+      "shape": [
+        3,
+        3
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "0",
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "1"
+          ],
+          [
+            "1",
+            "0",
+            "0"
+          ]
+        ],
+        "L": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "4",
+            "15",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ],
+        "D": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "0",
+            "45",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "450"
+          ]
+        ],
+        "U": [
+          [
+            "3",
+            "0",
+            "1"
+          ],
+          [
+            "0",
+            "15",
+            "14"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          0,
+          1,
+          2
+        ],
+        "rank_A": 3,
+        "rank_U": 3,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": true,
+        "mismatches": [],
+        "complete_certificate": true
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "orientation-cycle",
+      "group": "witness",
+      "entry": "sparse",
+      "domain": "ZZ",
+      "shape": [
+        3,
+        3
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "0",
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "1"
+          ],
+          [
+            "1",
+            "0",
+            "0"
+          ]
+        ],
+        "L": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "4",
+            "15",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ],
+        "D": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "0",
+            "45",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "450"
+          ]
+        ],
+        "U": [
+          [
+            "3",
+            "0",
+            "1"
+          ],
+          [
+            "0",
+            "15",
+            "14"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "sparse",
+        "sparse",
+        "sparse",
+        "sparse"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          0,
+          1,
+          2
+        ],
+        "rank_A": 3,
+        "rank_U": 3,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": true,
+        "mismatches": [],
+        "complete_certificate": true
+      },
+      "input_unchanged": true
+    },
+    {
+      "case": "orientation-cycle",
+      "group": "witness",
+      "entry": "private",
+      "domain": "QQ",
+      "shape": [
+        3,
+        3
+      ],
+      "status": "returned",
+      "permutation": [
+        1,
+        2,
+        0
+      ],
+      "packed_LU": [
+        [
+          "3",
+          "0",
+          "1"
+        ],
+        [
+          "4",
+          "15",
+          "14"
+        ],
+        [
+          "0",
+          "0",
+          "30"
+        ]
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          0,
+          1,
+          2
+        ],
+        "rank_A": 3,
+        "rank_U": 3,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": true,
+        "mismatches": [],
+        "complete_certificate": true
+      },
+      "private_shapes_domain": true,
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "orientation-cycle",
+      "group": "witness",
+      "entry": "ddm",
+      "domain": "QQ",
+      "shape": [
+        3,
+        3
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "0",
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "1"
+          ],
+          [
+            "1",
+            "0",
+            "0"
+          ]
+        ],
+        "L": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "4",
+            "15",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ],
+        "D": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "0",
+            "45",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "450"
+          ]
+        ],
+        "U": [
+          [
+            "3",
+            "0",
+            "1"
+          ],
+          [
+            "0",
+            "15",
+            "14"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          0,
+          1,
+          2
+        ],
+        "rank_A": 3,
+        "rank_U": 3,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": true,
+        "mismatches": [],
+        "complete_certificate": true
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "orientation-cycle",
+      "group": "witness",
+      "entry": "dense",
+      "domain": "QQ",
+      "shape": [
+        3,
+        3
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "0",
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "1"
+          ],
+          [
+            "1",
+            "0",
+            "0"
+          ]
+        ],
+        "L": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "4",
+            "15",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ],
+        "D": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "0",
+            "45",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "450"
+          ]
+        ],
+        "U": [
+          [
+            "3",
+            "0",
+            "1"
+          ],
+          [
+            "0",
+            "15",
+            "14"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          0,
+          1,
+          2
+        ],
+        "rank_A": 3,
+        "rank_U": 3,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": true,
+        "mismatches": [],
+        "complete_certificate": true
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "orientation-cycle",
+      "group": "witness",
+      "entry": "sparse",
+      "domain": "QQ",
+      "shape": [
+        3,
+        3
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "0",
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "1"
+          ],
+          [
+            "1",
+            "0",
+            "0"
+          ]
+        ],
+        "L": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "4",
+            "15",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ],
+        "D": [
+          [
+            "3",
+            "0",
+            "0"
+          ],
+          [
+            "0",
+            "45",
+            "0"
+          ],
+          [
+            "0",
+            "0",
+            "450"
+          ]
+        ],
+        "U": [
+          [
+            "3",
+            "0",
+            "1"
+          ],
+          [
+            "0",
+            "15",
+            "14"
+          ],
+          [
+            "0",
+            "0",
+            "30"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "sparse",
+        "sparse",
+        "sparse",
+        "sparse"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          0,
+          1,
+          2
+        ],
+        "rank_A": 3,
+        "rank_U": 3,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": true,
+        "mismatches": [],
+        "complete_certificate": true
+      },
+      "input_unchanged": true
+    }
+  ]
+}

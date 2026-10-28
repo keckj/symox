@@ -1,0 +1,282 @@
+{
+  "counts": {
+    "unresolved_output_difference": 48,
+    "exact_rational_identity_on_common_domain": 3,
+    "bijective_affine_constant_reparametrization_on_common_domain": 2
+  },
+  "cases": [
+    {
+      "id": "algeb_04",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "1st_exact_11",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "rational_riccati_04",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "fact_12",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "fact_12",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "almost_lin_01",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "almost_lin_01",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "reducible_12",
+      "method": "hint",
+      "classification": "exact_rational_identity_on_common_domain",
+      "proof": "Exact QQ(I) rational-function cancellation is zero; no transcendental or branch simplification."
+    },
+    {
+      "id": "reducible_12",
+      "method": "default",
+      "classification": "exact_rational_identity_on_common_domain",
+      "proof": "Exact QQ(I) rational-function cancellation is zero; no transcendental or branch simplification."
+    },
+    {
+      "id": "liouville_08",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "fact_13",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "fact_13",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "2nd_2F1_hyper_01",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "lie_group_12",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "rational_riccati_07",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "rational_riccati_07",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "var_of_parameters_13",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "2nd_2F1_hyper_02",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "2nd_2F1_hyper_03",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "1st_homogeneous_coeff_best_08",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "1st_homogeneous_coeff_best_08",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "fact_16",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "fact_16",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "almost_lin_05",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "rational_riccati_09",
+      "method": "hint",
+      "classification": "exact_rational_identity_on_common_domain",
+      "proof": "Exact QQ(I) rational-function cancellation is zero; no transcendental or branch simplification."
+    },
+    {
+      "id": "rational_riccati_10",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "rational_riccati_10",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "1st_exact_02",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "undet_38",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "undet_38",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "undet_39",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "undet_39",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "linear_coeff_01",
+      "method": "hint",
+      "classification": "bijective_affine_constant_reparametrization_on_common_domain",
+      "native_C1": "2*C1 - 27",
+      "proof": "Nonzero constant slope, constant intercept and exact rational identity after substitution. Local/common domain only; no global completeness inferred."
+    },
+    {
+      "id": "linear_coeff_01",
+      "method": "default",
+      "classification": "bijective_affine_constant_reparametrization_on_common_domain",
+      "native_C1": "C1 - 27",
+      "proof": "Nonzero constant slope, constant intercept and exact rational identity after substitution. Local/common domain only; no global completeness inferred."
+    },
+    {
+      "id": "euler_undet_03",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "euler_undet_03",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "separable_26",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "separable_26",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "lin_const_coeff_hom_32",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "lin_const_coeff_hom_32",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "rational_riccati_01",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "euler_undet_06",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "euler_undet_06",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "separable_13",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "lie_group_08",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "separable_14",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "separable_14",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "separable_reduced_05",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "separable_reduced_05",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "lie_group_09",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "lie_group_09",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "1st_homogeneous_coeff_best_03",
+      "method": "hint",
+      "classification": "unresolved_output_difference"
+    },
+    {
+      "id": "1st_homogeneous_coeff_best_03",
+      "method": "default",
+      "classification": "unresolved_output_difference"
+    }
+  ],
+  "scope": "53 differing-output observations only. Certificates concern identities on the common expression domain; singular points and complete families require separate review."
+}

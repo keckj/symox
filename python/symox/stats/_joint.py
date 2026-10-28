@@ -24,7 +24,30 @@ def positive_matrix(value):
     return result
 
 
+# Standard matrix indexing may be replaced by a user protocol. Capture its
+# identity so eligibility never bypasses a later override or a subclass.
+_NORMAL_DENSE_TYPES = (S._core.Matrix,S.MutableDenseMatrix,S.ImmutableDenseMatrix)
+_NORMAL_DENSE_GETITEM = S._core.Matrix.__getitem__
+
+
+def _normal_simplify_is_standard():
+    from .._general_simplify import simplify as standard
+    from .._native_dispatch import stock_scalar_dispatch
+    return stock_scalar_dispatch(S.simplify,standard,'simplify')
+
+
 def _normal_raw(powers,mean,cov):
+    ordinary_mean = type(mean) is list or type(mean) is tuple or (
+        any(type(mean) is cls for cls in _NORMAL_DENSE_TYPES)
+        and type(mean).__getitem__ is _NORMAL_DENSE_GETITEM)
+    ordinary_cov = (any(type(cov) is cls for cls in _NORMAL_DENSE_TYPES)
+                    and type(cov).__getitem__ is _NORMAL_DENSE_GETITEM)
+    if ((type(powers) is list or type(powers) is tuple) and all(type(power) is int for power in powers)
+            and ordinary_mean and ordinary_cov and _normal_simplify_is_standard()):
+        result = S._core._stats_normal_raw(powers,mean,cov)
+        if result is not None:
+            value,exact = result
+            return value if exact else S.simplify(value)
     @lru_cache(maxsize=None)
     def recur(counts):
         if not any(counts):return S.Integer(1)

@@ -1,0 +1,26 @@
+{
+  "status": "Five Rust files staged for release build only; Python/test final callback fix not integrated or accepted yet.",
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "82feae2c9d065fd338e9439693f9c5b2bd1663b683ac2a9e411937b923e38754",
+    "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+    "working_code_diff_sha256": "a1a57da806073ce5481756822e9c3316ba9ea1718300ac206753b5e9ebb23bd4",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "paths": {
+    "crates/symox-core/src/poly/hnf.rs": "91a0bb6612b2f12322ccb1318a6a26366f4a05744f89e7368e28961cfa6c426d",
+    "crates/symox-core/src/poly/mod.rs": "2bb0036f447d9ad9a0a987801d61ca8cee79a238a07aacaa5934e60912f9aab1",
+    "crates/symox-py/src/poly_hnf.rs": "ac331923f8d0af1757063c988a640d5866fbf62f9afe10ebb53963925583bbba",
+    "crates/symox-py/src/poly_ddm.rs": "0e7879b9d5e8b0cef5e81ecfad6139d6d6a09e7a57ff869135890db353119631",
+    "crates/symox-py/src/poly_function_metadata.rs": "d6c11bb938a4dce4cd65b3482cc19e5d756cb6da6992cd1db0bebd39573c124a"
+  },
+  "native_inputs": 350,
+  "private_debug_native": "2f9696d4238800cc2dc5b7f7564b9b1eb3dfbe2f0c39a079b46c6e93877d728f",
+  "private_rust_validation": "4 Rust tests/check/build/clippy0,350inputs unchanged, final Rust stability acknowledged by owner.",
+  "pending": "Final Python foreign-key fix, frozen followup proof, release combined/full gates."
+}

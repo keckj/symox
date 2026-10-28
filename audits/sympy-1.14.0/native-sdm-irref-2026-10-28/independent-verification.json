@@ -1,0 +1,9 @@
+{
+  "source_entries_checked": 3169,
+  "native_build_input_paths_and_hashes_verified": 340,
+  "compile_time_tsv_fixture_included": true,
+  "collection_execution_counters_equal": true,
+  "each_node_once": true,
+  "nodes": 51665,
+  "shards": 48
+}

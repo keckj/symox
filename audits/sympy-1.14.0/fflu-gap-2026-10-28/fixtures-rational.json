@@ -1,0 +1,1 @@
+{"cases":[{"id":"rational-wide-delayed","group":"rational-witness","domains":["QQ"],"shape":[2,4],"rows":[[0,0,"1/2","2/3"],[0,0,"2/5","3/7"]]},{"id":"rational-skipped-denominator","group":"rational-witness","domains":["QQ"],"shape":[3,4],"rows":[[0,"1/2",2,3],[0,2,"3/5",4],[0,3,4,"6/7"]]}]}

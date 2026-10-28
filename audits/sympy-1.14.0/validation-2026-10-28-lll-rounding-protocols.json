@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "status": "accepted",
+  "scope": "Exact native integer lattice LLL with guarded public DDM/DomainMatrix routes; exact DomainElement floor/ceil for stock ZZ/QQ and stored finite RR; native read-only rational protocol-state verification and builtin-owner bootstrap correction.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "34632bf74a2ce56cb01c73477fdc247a7565ea9a2155d0ceaa7ba99315ff115d",
+    "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+    "working_code_diff_sha256": "c6030520b42f6cca9540edc06d071a12741d250af0e1e1a3f2ff00f1f2860128",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 3123,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 503.61641097068787,
+    "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c"
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 51366,
+      "skipped": 55,
+      "xfailed": 4,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 51425,
+      "collected_in_shards": 51425,
+      "finished": 51425,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 187.9560525417328
+  },
+  "rust": {
+    "host": "Demeter",
+    "unit_passed": 732,
+    "integration_tests_passed": 1,
+    "integration_fixture_cases": 651,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "core_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 21.59955859184265
+    },
+    "bindings_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox-py",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 17.730953216552734,
+      "native_inputs_unchanged": true
+    },
+    "validation_mode": "Fresh complete execution on the new native inputs; no Rust result reuse."
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027/python/symox/__init__.py",
+    "native_sha256": "40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_validation": {
+    "combined": {
+      "returncode": 0,
+      "elapsed_seconds": 68.92375540733337,
+      "collected": 5283,
+      "exactly_once": true
+    }
+  },
+  "intentional_corrections": [
+    "DomainElement floor/ceil no longer downcasts stock exact QQ/ZZ or admitted stored finite RR values through binary64. The single existing RR150 targeted expectation is strengthened to the exact dyadic inequality; 75 QQ/ZZ and108 RR cases remain present.",
+    "Native LLL uses exact floor(mu+1/2). On nine archived large-integer cases unmodified SymPy1.14/oldSymox raises3 assertions or yields6 different valid bases; all651 original outcomes plus independent exact T*A=B, determinant and Gram-Schmidt/Lovasz certificates are retained. Speed is not claimed against these incorrect/incomplete baselines."
+  ],
+  "remaining_gaps": [
+    "Global mathematical parity is not certified.",
+    "LLL cold calls or invalid classifier caches can retain the whole established Python algorithm; warm admitted stock integer matrices use the Rust kernel. LU/FFLU, normal forms, sparse GJ and other preparations remain separate work.",
+    "Floor/ceil preserves existing custom float/index conversions and errors. CC/EX/composite/nonliteral routes remain existing fallbacks. Integer materialization above the unchanged MAX_INTEGER_SHIFT capacity reports OverflowError; arbitrary unbounded integer allocation is not claimed.",
+    "Native rational protocol-state verification replaces read-only identity loops only, with actual cells and signal propagation. Replaced dependencies resume the established Python verifier. Builtin owner authentication covers the recorded ordinary Python/C extension foreign-owner cases; no claim covers an explicitly fabricated malicious runtime.",
+    "General rational RootSum/higher-degree/other-domain drivers, broad Risch/PRDE/ODE and previous domain/precision/solution-completeness gaps remain open."
+  ],
+  "performance": {
+    "status": "Paired integrated release measurements complete; repeated gains and first-call regression both retained.",
+    "review": "audits/performance/2026-10-28-native-lll/README.md",
+    "certificates": 1152,
+    "cases": 18,
+    "fresh_processes": 144,
+    "repeated_4_6_rows_gain": "4.20\u20135.60x",
+    "first_call_cost": "1.9\u201321.1%; roughly66\u2013287us; first calls retain full Python LLL",
+    "whole_engine_or_cold_gain_claimed": false
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-lll-rounding-protocols-r7-20261027",
+    "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-lll-rounding-protocols-r7-20261027/after",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-lll-rounding-protocols-r7-20261027",
+    "portable_review": "audits/sympy-1.14.0/native-lll-rounding-protocols-2026-10-28/README.md",
+    "independent_checks": {
+      "source_entries_checked": 3123,
+      "native_build_input_paths_and_hashes_verified": 340,
+      "compile_time_tsv_fixture_included": true,
+      "collection_execution_counters_equal": true,
+      "each_node_once": true,
+      "nodes": 51425,
+      "shards": 48
+    }
+  },
+  "global_algorithmic_parity_certified": false
+}

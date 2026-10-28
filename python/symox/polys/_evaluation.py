@@ -2,9 +2,21 @@
 import operator
 
 from .. import _core
+from .domains._methods import convert as _stock_domain_convert
+from .domains._methods import from_sympy as _stock_domain_from_sympy
 
 _native_as_expr = _core.Poly.as_expr
 _native_eval = _core.Poly.eval
+_native_zero_point = _core.Poly._is_numeric_zero
+_stock_ex = _core.EX
+_stock_domain_type = type(_stock_ex)
+_stock_domain_to_sympy = _stock_domain_type.to_sympy
+_stock_poly_domain = _core.Poly.domain
+_stock_poly_gens = _core.Poly.gens
+_stock_poly_type = _core.Poly
+_stock_poly_dict = _stock_poly_type.__dict__
+_stock_domain_dict = _stock_domain_type.__dict__
+
 
 
 def _level(polynomial, generator):
@@ -68,6 +80,17 @@ def _one(polynomial, index, value, auto):
         except DomainError as error:
             raise UnificationFailed(str(error)) from error
         point = domain.convert(value)
+    if (type(polynomial) is _stock_poly_type and domain is _stock_ex
+            and _stock_poly_dict.get('as_expr') is as_expr
+            and _stock_poly_dict.get('domain') is _stock_poly_domain and _stock_poly_dict.get('gens') is _stock_poly_gens
+            and _stock_domain_dict.get('convert') is _stock_domain_convert
+            and _stock_domain_dict.get('from_sympy') is _stock_domain_from_sympy
+            and _stock_domain_dict.get('to_sympy') is _stock_domain_to_sympy
+            and _native_zero_point(polynomial,value)):
+        # The expression view correctly omits falsy EX coefficients. Its raw
+        # DMP payload is authoritative for zero evaluation (including Float0).
+        representative=polynomial if domain==original_domain else polynomial.set_domain(domain)
+        return _native_eval(representative,index,value)
     # A value such as CRootOf(x**2 - 2, 0) names a generator without
     # depending on it; the term-wise path below keeps it a coefficient.
     clash = (len(polynomial.gens) > 1 and not value.is_Rational

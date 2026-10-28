@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "status": "failed; not accepted",
+  "scope": "First integrated exact PolyMatrix ground reduction/nullspace, low-degree rational log_to_real and selector proof optimization",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "ceeaa3a15a3dab2b1961f41bc766cadfa4e11c1b3fd862c33623d02fa4133123",
+    "native_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+    "working_code_diff_sha256": "5e3552df9bf86a2466f844b5d99a28e843a9abc6beb3e90257777612c3fdb27a",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 2867,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 440.8006126880646,
+    "native_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+    "post_build_python_followups": [
+      "Rational selector single-call proof and Ore/vector distinction",
+      "PolyMatrix official vector/Ore forwarding and canonical RT reload verification"
+    ],
+    "post_build_native_inputs_unchanged": true
+  },
+  "python": {
+    "counts": {
+      "passed": 49464,
+      "skipped": 55,
+      "xfailed": 4,
+      "failed": 4
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 49527,
+      "collected_in_shards": 49527,
+      "finished": 49527,
+      "missing": [],
+      "unexpected": []
+    },
+    "failures": [
+      {
+        "shard": "shard-42",
+        "class": "tests.test_polymatrix_vector_protocol",
+        "name": "test_stock_vector_forwarders_use_native_ground_and_old_exact_results[False]"
+      },
+      {
+        "shard": "shard-42",
+        "class": "tests.test_polymatrix_vector_protocol",
+        "name": "test_stock_vector_forwarders_use_native_ground_and_old_exact_results[True]"
+      },
+      {
+        "shard": "shard-42",
+        "class": "tests.test_polymatrix_vector_protocol",
+        "name": "test_stock_rationaltools_reload_retains_authenticated_forwarding"
+      },
+      {
+        "shard": "shard-42",
+        "class": "tests.test_polymatrix_vector_protocol",
+        "name": "test_reloaded_guard_code_mutation_keeps_complete_fallback"
+      }
+    ],
+    "elapsed_seconds": 204.45096516609192
+  },
+  "rust": {
+    "passed": 714,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 165.4398546218872
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 0.19385862350463867
+      },
+      "rust_inputs_unchanged": true
+    },
+    "bindings_clippy_returncode": 0
+  },
+  "targeted_release_passed": 3385,
+  "diagnosis": "All four failures are stock native-route preconditions in the PolyMatrix protocol tests. Stats symbolic installation adds official doit/rewrite wrappers and its flag to the native expression facade, which a whole-class snapshot conservatively rejects. No value mismatch was reported. A separate Python-only proof of those wrappers is required, retaining existing assertions and fallback behavior.",
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027",
+    "initial_demeter": "/home/keckj/.cache/symox-validation/native-polymatrix-real-log-20261027/demeter-initial",
+    "portable_execution": "audits/sympy-1.14.0/native-polymatrix-real-log-2026-10-27/initial-python-execution-evidence.tar.gz"
+  },
+  "last_accepted_native": "3243129bfe3e4ec0611ebe7761b5988f5bba3312df8a9e9911fea5c7a785eaee",
+  "global_algorithmic_parity_certified": false
+}

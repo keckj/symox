@@ -114,6 +114,12 @@ class _CoefficientRing:
         self.domain = domain
 
 
+def _cartesian_numeric_coefficients(poly, generators):
+    """Expose exact numeric conjugate coefficients using the native kernel."""
+    from symox import _core
+    return _core._heurisch_cartesian_numeric_coefficients(poly, tuple(generators))
+
+
 def _solve_excluding(eqs, x):
     """``solve(eqs, dict=True, exclude=(x,))``: the system solved for its
     free symbols other than ``x``, in the order ``solve`` takes them."""
@@ -679,6 +685,10 @@ def heurisch(f, x, rewrite=False, hints=None, mappings=None, retries=3,
 
         for poly in ordered(irreducibles):
             m = collect(poly, I, evaluate=False)
+            if not m.get(I, S.Zero) or any(part.has(I) for part in m.values()):
+                cartesian = _cartesian_numeric_coefficients(poly, V)
+                if cartesian != poly:
+                    m = collect(cartesian, I, evaluate=False)
             y = m.get(I, S.Zero)
             if y:
                 x = m.get(S.One, S.Zero)

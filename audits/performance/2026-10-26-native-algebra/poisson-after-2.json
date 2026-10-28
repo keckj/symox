@@ -1,0 +1,60 @@
+{
+  "native_sha256": "9405dccb462e37ed095dc19b597595b74662ce45d23556e96bf8d52e836636a2",
+  "legacy_control": false,
+  "method": "18 distinct preconstructed inputs per case; 3 batches of 6; constructor and validation costs excluded; no completed value reused",
+  "raw12": {
+    "samples_seconds_per_call": [
+      5.663500148026893e-05,
+      3.405483342551937e-05,
+      3.2983996788971126e-05
+    ],
+    "median_seconds_per_call": 3.405483342551937e-05,
+    "values_digest": "8c303b4030638c9ef958837f5445baf5c2a1a8edef623f644c6351391bdbcde8"
+  },
+  "raw36": {
+    "samples_seconds_per_call": [
+      9.6048170235008e-05,
+      9.84793344590192e-05,
+      8.166549863138546e-05
+    ],
+    "median_seconds_per_call": 9.6048170235008e-05,
+    "values_digest": "eca82dfd1eaf4eadd6f42dd86e3d039b069b95dc8fab90cf1068277aa142d99b"
+  },
+  "raw72": {
+    "samples_seconds_per_call": [
+      0.00021782416539887586,
+      0.00019420716853346676,
+      0.00019154683104716241
+    ],
+    "median_seconds_per_call": 0.00019420716853346676,
+    "values_digest": "2811b7c241a4f354c28c7389a37f94e9828dff1fb4168f9971a3a0c2624120db"
+  },
+  "public12": {
+    "samples_seconds_per_call": [
+      0.002480761996897248,
+      0.0024620416661491618,
+      0.002461304834772212
+    ],
+    "median_seconds_per_call": 0.0024620416661491618,
+    "values_digest": "de7eafd42d2794dd88db22d4aef5cf72b5d16c8e2ccf8f92aba1c71af0d079c1"
+  },
+  "independent_mix4": {
+    "samples_seconds_per_call": [
+      0.0007293361656290168,
+      0.0007241579975622395,
+      0.000721059831751821
+    ],
+    "median_seconds_per_call": 0.0007241579975622395,
+    "values_digest": "b3b307b990d6d11dd6f97d7111730f5e832e377ec8ef9e0e600cfe924baa38bd"
+  },
+  "normal_control12": {
+    "samples_seconds_per_call": [
+      5.400783265940845e-05,
+      4.566616553347558e-05,
+      4.508066922426224e-05
+    ],
+    "median_seconds_per_call": 4.566616553347558e-05,
+    "values_digest": "8f98dff4866fc49c100c957d443a1912b939e8d3cd565b1783d78213cff0d44d"
+  },
+  "independent_exact_checks": 108
+}

@@ -1,0 +1,28 @@
+{
+  "status": "Independently verified private GO; no MAIN mutation; combined RELEASE/full gates still required",
+  "index_sha256": "0b3294f395e0d1f9a38638a7b134e4498d2083eaa359139a26b3771628a17473",
+  "manifest_sha256": "897b4436aa0b17da4a1929f996ad6bb380c589c73b5afbdf16eeae63569edd67",
+  "archive_sha256": "7c67a95bb0f6dc0116ae0b7c3a1867920cfafc67703d37bbc865674188c3924f",
+  "safe_archive_members": 87,
+  "owned_sources": 9,
+  "base_entries_verified": 3514,
+  "native_inputs_verified": 354,
+  "validation_inputs_verified": 360,
+  "private_debug_native": "64f3609b3a4d06759bb72d934f557f0bb4b6a0c47e964faddc6a17845ee38cae",
+  "raw_gates": {
+    "local": {
+      "focused": 381,
+      "coupled": 6638,
+      "NoRef_certificates": 12
+    },
+    "demeter": {
+      "focused": 381,
+      "coupled": 6638,
+      "NoRef_certificates": 12
+    }
+  },
+  "patch_replay": true,
+  "legacy_shared_module_byte_and_AST_prefix_unchanged": true,
+  "scope": "closed QQ stock-derivation splitfactor; complete old body for all refused domains/options; not full Risch/Hermite parity",
+  "global_algorithmic_parity_certified": false
+}

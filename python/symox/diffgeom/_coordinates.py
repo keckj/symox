@@ -16,6 +16,19 @@ class _FieldAtomSet(set):
         except TypeError:return False
 
 
+# Capture the real contains implementation before import hooks can replace it.
+# Unsupported metadata readers merely leave native admission unavailable.
+from ._adapters import _proof_metadata as _field_metadata, _PROOF_TYPE, _PROOF_TUPLE
+_FIELD_ATOM_PROOF=None
+if _PROOF_TYPE(_FieldAtomSet) is _PROOF_TYPE:
+    _field_bases=_FieldAtomSet.__bases__
+    if _field_bases.__len__()==1 and _field_bases[0] is {0}.__class__:
+        _field_items=_PROOF_TUPLE(_FieldAtomSet.__dict__.items())
+        _field_state=_field_metadata(_FieldAtomSet.__dict__['__contains__'])
+        if _field_state is not None:
+            _FIELD_ATOM_PROOF=(_FieldAtomSet,_field_bases,_field_items,_field_state)
+
+
 _field_atoms = _FieldAtomSet()
 
 

@@ -81,7 +81,6 @@ def test_issue_22334_not_wrong():
     assert r == 1/(k + 1) or isinstance(r, Limit)
 
 
-@pytest.mark.xfail(strict=True, reason="symbolic powers of the mrv variable")
 def test_issue_22334_value():
     k, n = symbols('k, n', positive=True)
     assert limit((n + 1)**k/((n + 1)**(k + 1) - n**(k + 1)), n, oo) == 1/(k + 1)

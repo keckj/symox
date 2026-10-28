@@ -43,7 +43,81 @@ from .exceptions import (
     DMNonSquareMatrixError,
 )
 from typing import Sequence, TypeVar
+from types import WrapperDescriptorType, BuiltinFunctionType, GetSetDescriptorType
 from symox.polys.matrices._typing import RingElement
+from symox import _core
+from ._fraction_free import stock_domain as _ff_stock_domain
+from ._lu_native import try_ilu as _native_ilu
+from ._lu_solve_native import try_solve as _native_ilu_solve
+from symox._core import _ddm_ilu_solve_dependencies as _ilu_solve_dependencies
+
+
+_native_ddm_type = None  # Registered after the stock DDM class is defined.
+# Reloading must not turn a module-level callback into a trusted builtin.
+_DDM_BUILTINS = globals().get('_DDM_BUILTINS', (mul, sum, zip, list, map))
+_DDM_ALL = globals().get('_DDM_ALL', all)
+_DDM_ANY = globals().get('_DDM_ANY', any)
+_DDM_ZIP = globals().get('_DDM_ZIP', zip)
+_DDM_LIST, _DDM_BOOL = [].__class__, False.__class__
+_DDM_TYPE = globals().get('_DDM_TYPE', type)
+_DDM_ELEMENT = _core.DomainElement
+_DDM_ELEMENT_HOOKS = tuple((name, _DDM_ELEMENT.__dict__[name]) for name in
+                           ('__add__', '__radd__', '__mul__', '__rmul__'))
+_DDM_NATIVE_HOOKS = all(type(method) is WrapperDescriptorType
+                        and method.__objclass__ is _DDM_ELEMENT and method.__name__ == name
+                        for name, method in _DDM_ELEMENT_HOOKS)
+_RREF_BUILTINS = globals().get('_RREF_BUILTINS', (max, range, abs, len, enumerate))
+_RREF_ELEMENT_HOOKS = tuple((name, _DDM_ELEMENT.__dict__.get(name)) for name in
+                           ('__bool__', '__pow__', '__mul__', '__sub__', '__abs__', '__gt__'))
+_RREF_NATIVE_HOOKS = all(type(method) is WrapperDescriptorType
+                         and method.__objclass__ is _DDM_ELEMENT and method.__name__ == name
+                         for name, method in _RREF_ELEMENT_HOOKS)
+_RREF_NO_INPLACE = not any(name in _DDM_ELEMENT.__dict__ for name in ('__imul__', '__isub__'))
+
+_FF_DENSE_BUILTINS = globals().get('_FF_DENSE_BUILTINS',(len,range,enumerate))
+
+
+def _ddm_stock_type():
+    stock = _native_ddm_type
+    if stock is not None and (stock.__bases__ != (_DDM_LIST,) or _DDM_ANY(
+            stock.__dict__.get(name, _DDM_LIST.__dict__[name]) is not _DDM_LIST.__dict__[name]
+            for name in ('__iter__', '__len__', '__getitem__', '__setitem__'))):
+        return None
+    return stock
+
+
+_BERK_DICT, _BERK_TUPLE, _BERK_INT, _BERK_STR = {}.__class__, ().__class__, (0).__class__, ''.__class__
+
+
+def _berk_stock_type(matrix, domain):
+    stock = _ddm_stock_type()
+    if stock is None or _DDM_TYPE(matrix) is not stock:
+        return stock
+    # DDM metadata is not needed by the old low-level routine. Refuse this
+    # native adapter on poisoned storage without adding observable attribute
+    # accesses (including user getters) to that established fallback.
+    if (_DDM_TYPE(stock) is not _DDM_TYPE
+            or _DDM_ANY(name in stock.__dict__ for name in
+                        ('__getattribute__', '__getattr__', 'shape', 'rows', 'cols', 'domain'))):
+        return None
+    descriptor = stock.__dict__.get('__dict__')
+    if (_DDM_TYPE(descriptor) is not GetSetDescriptorType
+            or descriptor.__objclass__ is not stock or descriptor.__name__ != '__dict__'):
+        return None
+    attrs = descriptor.__get__(matrix, stock)
+    if (_DDM_TYPE(attrs) is not _BERK_DICT
+            or not _DDM_ALL(_DDM_TYPE(key) is _BERK_STR for key in attrs)):
+        return None
+    shape = attrs.get('shape')
+    if (_DDM_TYPE(shape) is not _BERK_TUPLE or len(shape) != 2
+            or not _DDM_ALL(_DDM_TYPE(value) is _BERK_INT for value in shape)
+            or attrs.get('domain') is not domain
+            or not _DDM_ALL(_DDM_TYPE(attrs.get(name)) is _BERK_INT for name in ('rows', 'cols'))):
+        return None
+    n = len(matrix)
+    if shape != (n,n) or attrs['rows'] != n or attrs['cols'] != n:
+        return None
+    return stock
 
 
 #: Type variable for the elements of the matrix
@@ -97,6 +171,12 @@ def ddm_imatmul(
     a: list[list[R]], b: Sequence[Sequence[R]], c: Sequence[Sequence[R]]
 ) -> None:
     """a += b @ c"""
+    if (_DDM_NATIVE_HOOKS and _DDM_ALL(current is original for current, original in
+            _DDM_ZIP((mul, sum, zip, list, map), _DDM_BUILTINS))
+            and _DDM_ALL(_DDM_ELEMENT.__dict__.get(name) is original
+                    for name, original in _DDM_ELEMENT_HOOKS)):
+        if _core._ddm_imatmul(a, b, c, _ddm_stock_type()):
+            return
     cT = list(zip(*c))
 
     for bi, ai in zip(b, a):
@@ -153,6 +233,16 @@ def ddm_irref(a, _partial_pivot=False):
 
     .. [1] https://en.wikipedia.org/wiki/Row_echelon_form#Reduced_row_echelon_form
     """
+    if (_DDM_TYPE(_partial_pivot) is _DDM_BOOL and _RREF_NATIVE_HOOKS and _RREF_NO_INPLACE
+            and _DDM_ALL(current is original for current, original in
+                         _DDM_ZIP((max, range, abs, len, enumerate), _RREF_BUILTINS))
+            and _DDM_ALL(_DDM_ELEMENT.__dict__.get(name) is original
+                         for name, original in _RREF_ELEMENT_HOOKS)
+            and not _DDM_ANY(name in _DDM_ELEMENT.__dict__ for name in ('__imul__', '__isub__'))):
+        result = _core._ddm_irref(a, _partial_pivot, _ddm_stock_type())
+        if result is not None:
+            return result
+
     # We compute aij**-1 below and then use multiplication instead of division
     # in the innermost loop. The domain here is a field so either operation is
     # defined. There are significant performance differences for some domains
@@ -322,6 +412,13 @@ def ddm_irref_den(a, K):
     # big difference to performance if e.g. the upper-left entry of the matrix
     # is a huge polynomial.
 
+    if (_ff_stock_domain(K)
+            and _DDM_ALL(current is original for current,original in
+                         _DDM_ZIP((len,range,enumerate),_FF_DENSE_BUILTINS))):
+        result = _core._ddm_irref_den(a,K,_ddm_stock_type())
+        if result is not None:
+            return result
+
     # a is (m x n)
     m = len(a)
     if not m:
@@ -465,6 +562,13 @@ def ddm_idet(a, K):
     .. [1] https://en.wikipedia.org/wiki/Bareiss_algorithm
     .. [2] https://www.math.usm.edu/perry/Research/Thesis_DRL.pdf
     """
+    if (_ff_stock_domain(K)
+            and _DDM_ALL(current is original for current, original in
+                         _DDM_ZIP((len, range, enumerate), _FF_DENSE_BUILTINS))):
+        result = _core._ddm_idet(a, K, _ddm_stock_type())
+        if result is not None:
+            return result
+
     # Bareiss algorithm
     # https://www.math.usm.edu/perry/Research/Thesis_DRL.pdf
 
@@ -643,6 +747,9 @@ def ddm_ilu(a):
     if not m:
         return []
     n = len(a[0])
+    native = _native_ilu(a, (range, min), _native_ddm_type, (m, n))
+    if native is not None:
+        return native
 
     swaps = []
 
@@ -727,6 +834,8 @@ def ddm_ilu_solve(x, L, U, swaps, b):
 
     # solve Ly = b
     y = [[None] * o for _ in range(m)]
+    if _native_ilu_solve(x,L,U,b,y,(m,n,o),_native_ddm_type,_ilu_solve_dependencies()):
+        return
     for k in range(o):
         for i in range(m):
             rhs = b[i][k]
@@ -785,6 +894,20 @@ def ddm_berk(M, K):
 
     .. [1] https://en.wikipedia.org/wiki/Samuelson%E2%80%93Berkowitz_algorithm
     """
+    if (_ff_stock_domain(K) and _DDM_NATIVE_HOOKS
+            and ddm_berk is _BERK_RECURSION and ddm_berk.__code__ is _BERK_CODE
+            and ddm_imatmul is _BERK_MATMUL and ddm_imatmul.__code__ is _BERK_MATMUL_CODE
+            and _core._ddm_imatmul is _BERK_NATIVE_MATMUL and _BERK_NATIVE
+            and _DDM_ALL(current is original for current, original in
+                         _DDM_ZIP((len, range, enumerate), _FF_DENSE_BUILTINS))
+            and _DDM_ALL(current is original for current, original in
+                         _DDM_ZIP((mul, sum, zip, list, map), _DDM_BUILTINS))
+            and _DDM_ALL(_DDM_ELEMENT.__dict__.get(name) is original
+                         for name, original in _DDM_ELEMENT_HOOKS)):
+        result = _core._ddm_berk(M,K,_berk_stock_type(M,K))
+        if result is not None:
+            return result
+
     m = len(M)
     if not m:
         return [[K.one]]
@@ -822,3 +945,14 @@ def ddm_berk(M, K):
     qout = [[K.zero] for _ in range(n+1)]
     ddm_imatmul(qout, T, q)
     return qout
+
+
+# Protect both recursive Python protocols and the native multiplication hook
+# which the old recursive implementation invokes. Reload cannot authorize a
+# callback installed in place of the original extension function.
+_BERK_RECURSION, _BERK_CODE = ddm_berk, ddm_berk.__code__
+_BERK_MATMUL, _BERK_MATMUL_CODE = ddm_imatmul, ddm_imatmul.__code__
+_BERK_NATIVE_MATMUL = globals().get('_BERK_NATIVE_MATMUL',_core._ddm_imatmul)
+_BERK_NATIVE = (type(_BERK_NATIVE_MATMUL) is BuiltinFunctionType
+                and _BERK_NATIVE_MATMUL.__name__ == '_ddm_imatmul'
+                and _BERK_NATIVE_MATMUL.__module__ == 'symox._core')

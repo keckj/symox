@@ -1,0 +1,201 @@
+{
+  "before_native_sha256": "3ef4ccbca497a7a0d93762006f4f6c7b5413a48231a62fa53b5aa59410f2ead7",
+  "after_native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+  "method": "3 fresh processes perrelease, alternating order, CPU24, BLAS/OMP1; median of processmedians; distinct preconstructed inputs; exact independent checks outside alltimers; no runtime reference imports",
+  "cases": {
+    "fraction_free_ZZ_FF_dense24": {
+      "before_seconds": 0.10882205531621973,
+      "after_seconds": 0.0017699906796527405,
+      "ratio_before_over_after": 61.48171093057385,
+      "process_medians_seconds": {
+        "before": [
+          0.10882205531621973,
+          0.10977247832731034,
+          0.10813960200175643
+        ],
+        "after": [
+          0.0018103546656978626,
+          0.0017699906796527405,
+          0.001754673682929327
+        ]
+      },
+      "values_digest": "81ef565acea2d2e45a432fb807bb443316db573a64a74833c44e34276011a7a7",
+      "selected_methods": [
+        [
+          "FF",
+          "dense"
+        ]
+      ]
+    },
+    "fraction_free_QQ_FF_dense16": {
+      "before_seconds": 0.03237131100225573,
+      "after_seconds": 0.0008583406646115085,
+      "ratio_before_over_after": 37.71382661557487,
+      "process_medians_seconds": {
+        "before": [
+          0.03280687698861584,
+          0.03220540966140106,
+          0.03237131100225573
+        ],
+        "after": [
+          0.0008656866654443244,
+          0.0008509426649349431,
+          0.0008583406646115085
+        ]
+      },
+      "values_digest": "3f4b8ef1bd01770523f32260f48630a4d5d14aa6ee4c2b64b947549780e6e1c5",
+      "selected_methods": [
+        [
+          "FF",
+          "dense"
+        ]
+      ]
+    },
+    "fraction_free_ZZ_AUTO32": {
+      "before_seconds": 0.029973011328062665,
+      "after_seconds": 0.002624409331474453,
+      "ratio_before_over_after": 11.420859912589604,
+      "process_medians_seconds": {
+        "before": [
+          0.029973011328062665,
+          0.03027369068392242,
+          0.028929590325181682
+        ],
+        "after": [
+          0.002624409331474453,
+          0.002634421340189874,
+          0.0025775486525769034
+        ]
+      },
+      "values_digest": "04ea6e57bb6f02f891a1a146bde9513f52f431afb4ba99f5a1e093c5ce38d6e0",
+      "selected_methods": [
+        [
+          "FF",
+          "sparse"
+        ]
+      ]
+    },
+    "fraction_free_QQ_AUTO24": {
+      "before_seconds": 0.018601952004246414,
+      "after_seconds": 0.006347981339786202,
+      "ratio_before_over_after": 2.9303728238232223,
+      "process_medians_seconds": {
+        "before": [
+          0.018601952004246414,
+          0.018864680333839107,
+          0.018026982007237773
+        ],
+        "after": [
+          0.006347981339786202,
+          0.006243464323536803,
+          0.006472897657658905
+        ]
+      },
+      "values_digest": "12fafb68895747e007e78e0b797b2a6c7fcebf7b757335c239b3911b343d0bb3",
+      "selected_methods": [
+        [
+          "CD",
+          "sparse"
+        ]
+      ]
+    },
+    "fraction_free_ZZ_AUTO8_GJ_control": {
+      "before_seconds": 0.0010236866655759513,
+      "after_seconds": 0.001030311337672174,
+      "ratio_before_over_after": 0.9935702230442401,
+      "process_medians_seconds": {
+        "before": [
+          0.0010233836558957894,
+          0.0010513100035799046,
+          0.0010236866655759513
+        ],
+        "after": [
+          0.0010374483147946496,
+          0.0009913663379848003,
+          0.001030311337672174
+        ]
+      },
+      "values_digest": "ce39ae132d6db7380fab3828668aae734f8acad66455b56b44a93cec91d64ca5",
+      "selected_methods": [
+        [
+          "GJ",
+          "sparse"
+        ]
+      ]
+    },
+    "sparse_calculus_diff_degree1000": {
+      "before_seconds": 0.0003793323412537575,
+      "after_seconds": 6.79199971879522e-06,
+      "ratio_before_over_after": 55.849875877357114,
+      "process_medians_seconds": {
+        "before": [
+          0.0003785669881229599,
+          0.0004089820043494304,
+          0.0003793323412537575
+        ],
+        "after": [
+          6.585323717445135e-06,
+          6.79199971879522e-06,
+          7.238336062679688e-06
+        ]
+      },
+      "values_digest": "e5222b739a7c56fd481208b02669757b9fa3317f79aeee456c207a260a6ee4b2"
+    },
+    "sparse_calculus_diff_degree4000": {
+      "before_seconds": 0.001576738664880395,
+      "after_seconds": 6.86933829759558e-06,
+      "ratio_before_over_after": 229.5328307578458,
+      "process_medians_seconds": {
+        "before": [
+          0.001572027006962647,
+          0.001576738664880395,
+          0.0016525363316759467
+        ],
+        "after": [
+          6.499331599722306e-06,
+          6.86933829759558e-06,
+          7.717676150302092e-06
+        ]
+      },
+      "values_digest": "d75dc451e72bb569f866079b173d5f2a8817527702563ebbf2f8c62febc9759e"
+    },
+    "sparse_calculus_integrate_degree4000": {
+      "before_seconds": 0.003045888675842434,
+      "after_seconds": 1.0049669072031975e-05,
+      "ratio_before_over_after": 303.0834800639437,
+      "process_medians_seconds": {
+        "before": [
+          0.00307610099359105,
+          0.0030427769913027682,
+          0.003045888675842434
+        ],
+        "after": [
+          9.46099559466044e-06,
+          1.0049669072031975e-05,
+          1.0534985146174828e-05
+        ]
+      },
+      "values_digest": "5dff4aed985d4fc7bf3a4f8056e0d09e738ea2900b228344cdaa94571c5663d2"
+    },
+    "sparse_calculus_eval_zero_degree4000": {
+      "before_seconds": 0.00018415332306176424,
+      "after_seconds": 0.0001857720005015532,
+      "ratio_before_over_after": 0.9912867523877721,
+      "process_medians_seconds": {
+        "before": [
+          0.00018415332306176424,
+          0.00018285166394586364,
+          0.00018808600725606084
+        ],
+        "after": [
+          0.0001857720005015532,
+          0.00018451098973552385,
+          0.0002049906567359964
+        ]
+      },
+      "values_digest": "9397c57d054f7eed4cb91e7e13020714d9c26d0a41f963a57c1a6a6feb085b2e"
+    }
+  },
+  "fraction_free_independent_exact_checks": 270,
+  "sparse_calculus_independent_exact_checks": 216
+}

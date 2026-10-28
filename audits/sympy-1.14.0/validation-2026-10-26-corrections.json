@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "scope": "Native affine sec/csc representatives including rational frequencies, wide polynomial degrees and homogenization metadata, checked public polynomial reduction, correlated Gaussian recurrence, and portable binary64 constants; stock diffgeom dispatch integration correction",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "40ccb95d51e75cc4adad92270fb94bde6a53cc8bb641610fb1f26a27c71ad6b3",
+    "native_sha256": "d9b14020872315d1ab4428b1ff129c56109b87777c02cd02044957bc65b9dd61",
+    "working_code_diff_sha256": "0ae6e6cc469c055d05c364fb7d07d8b2577c2ee35112bc4cf85cc6e80c6b9ffc",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 445.6343629360199,
+    "native_sha256": "d9b14020872315d1ab4428b1ff129c56109b87777c02cd02044957bc65b9dd61",
+    "native_build_reused_from": "/home/keckj/.cache/symox-validation/native-corrections-20261026",
+    "reason": "Python-only stock diffgeom simplify eligibility correction; Rust inputs and native binary unchanged."
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 45882,
+      "skipped": 55,
+      "xfailed": 6,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 45943,
+      "collected_in_shards": 45943,
+      "finished": 45943,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 187.24345326423645,
+    "new_cases_vs_9405": 133
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 627,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 133.8384771347046
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 20.513913869857788
+      },
+      "rust_inputs_unchanged": true
+    },
+    "reuse": {
+      "rust_sources_unchanged": true,
+      "native_sha256": "d9b14020872315d1ab4428b1ff129c56109b87777c02cd02044957bc65b9dd61",
+      "native_build_and_rust_tests_reused_from": "/home/keckj/.cache/symox-validation/native-corrections-20261026",
+      "rust_build_input_sha256": "953a723e9fc39c97030952e7e0868bbc84b797f44383738485a815a5b1b5b521",
+      "reason": "Only Python eligibility guard and regression test changed; all Rust sources and native binary match the completed Demeter cargo test and clippy correctness run."
+    }
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-corrections-20261026-r1/python/symox/__init__.py",
+    "native_sha256": "d9b14020872315d1ab4428b1ff129c56109b87777c02cd02044957bc65b9dd61",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "initial_integration_failure": {
+    "source_identity": {
+      "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+      "source_manifest_sha256": "9bed7e75ad7aa30f2063654ad0a99a342a91d9a53e4679e9dd8d551f618d54a7",
+      "native_sha256": "d9b14020872315d1ab4428b1ff129c56109b87777c02cd02044957bc65b9dd61",
+      "working_code_diff_sha256": "3a7f7f95aa67f513b1338667b5312ce4711e65f67f562a8cf6dd1c2bfc8841bc",
+      "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+      "build_command": [
+        ".venv/bin/maturin",
+        "develop",
+        "--release"
+      ]
+    },
+    "counts": {
+      "passed": 45878,
+      "skipped": 55,
+      "xfailed": 6,
+      "failed": 2
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 45941,
+      "collected_in_shards": 45941,
+      "finished": 45941,
+      "missing": [],
+      "unexpected": []
+    },
+    "failures": [
+      {
+        "shard": "shard-24",
+        "class": "tests.test_native_joint_normal_moments",
+        "name": "test_dense_kernel_avoids_python_recurrence_cache"
+      },
+      {
+        "shard": "shard-24",
+        "class": "tests.test_native_joint_normal_moments",
+        "name": "test_high_order_centered_moment_has_no_recursive_call_chain"
+      }
+    ],
+    "cache": "/home/keckj/.cache/symox-validation/native-corrections-20261026/demeter-initial",
+    "cause": "The stock diffgeom tensor simplify wrapper was treated as an external override, declining the native recurrence and exposing the old recursion limit.",
+    "correction": "Python protocol guard recognizes only the trusted factory code, canonical delegate and matching wrapped metadata; custom overrides remain observable. Original failing tests unchanged; full affected shard and new subprocess import-order tests pass."
+  },
+  "constant_values": {
+    "EulerGamma": {
+      "old_decimal": "0.577_215_664_901_532_9",
+      "ieee754_bits": "0x3fe2788cfc6fb619"
+    },
+    "GoldenRatio": {
+      "old_decimal": "1.618_033_988_749_895",
+      "ieee754_bits": "0x3ff9e3779b97f4a8"
+    }
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-corrections-20261026-r1",
+    "source_manifest": "/home/keckj/.cache/symox-validation/native-corrections-20261026-r1/source-manifest.json",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-corrections-20261026-r1",
+    "full_python_summary": "/home/keckj/.cache/symox-validation/native-corrections-20261026-r1/demeter-final/summary.json",
+    "rust_logs": "/home/keckj/.cache/symox-validation/native-corrections-20261026-r1/demeter-rust",
+    "immutable_package": "/home/keckj/.cache/symox-validation/native-corrections-20261026-r1/after/python/symox"
+  },
+  "remaining_gaps": [
+    "No global algorithmic parity certification. Documentation-example replay and standalone ODE/integration corpora remain open.",
+    "Rational-frequency solve outputs are a complete set of finite representatives in exp(I*x/q), not the infinite periodic families supplied by solveset. Symbolic slopes keep their existing paths.",
+    "EX/CC still have dense storage paths; a separately validated native Dense/Sparse patch is pending integration. Some raw low-level exponent boundaries remain outside the audited public paths.",
+    "The old partial-substitution strict xfail remains in this release; its guarded equation/domain correction is a separate private patch.",
+    "Only supported arithmetic scalar parameters, ordinary integer orders and stock dense protocols enter the correlated Gaussian optimization. Other functions, host/abstract matrices, raw held objects and state budgets retain the former recurrence.",
+    "Stacked stock vector/diffgeom simplify wrappers are handled in a subsequent shared protocol patch; this snapshot fixes the reproduced diffgeom case.",
+    "Full native QQ linprog preparation and broader sparse EX/CC arithmetic remain separate ports; non-QQ simplex and other Python algorithms are not declared complete."
+  ],
+  "global_algorithmic_parity_certified": false
+}

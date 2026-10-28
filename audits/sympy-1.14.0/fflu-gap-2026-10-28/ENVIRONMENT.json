@@ -1,0 +1,7 @@
+{
+  "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
+  "executable": "/usr/bin/python3",
+  "platform": "linux",
+  "machine": "x86_64",
+  "scope": "Local exact preimplementation reproductions only; no Demeter/build/performance claim"
+}

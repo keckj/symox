@@ -1,6 +1,9 @@
 """Regression tests for the second batch of solve/solveset parity fixes.
 
-Expected strings are the outputs of the reference SymPy 1.14.
+Expected strings follow SymPy 1.14 except for guarded nested logarithms:
+zero preimages are excluded before taking another logarithm, and integer
+indices permit exact Cartesian moduli sqrt(re**2 + im**2). The complete
+family and exclusion proofs are in test_symbolic_nested_exp_parity.py.
 """
 
 import pytest
@@ -31,21 +34,21 @@ CASES = [
     ('solve(csc(x) - sqrt(2))',
      '[pi/4, 3*pi/4]'),
     ('solveset(exp(exp(x)) - 1, x)',
-     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n))), ProductSet(Integers, Integers))'),
+     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n))), ConditionSet((_k1, _n), Ne(2*_n*I*pi, 0), ProductSet(Integers, Integers)))'),
     ('solveset(exp(exp(x)) - 2, x)',
-     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(2*_n*I*pi + log(2))) + log(Abs(2*_n*I*pi + log(2)))), ProductSet(Integers, Integers))'),
+     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(2*_n*I*pi + log(2))) + log(sqrt(4*_n**2*pi**2 + log(2)**2))), ProductSet(Integers, Integers))'),
     ('solveset(exp(exp(2*x)) - 1, x)',
-     'ImageSet(Lambda(x, x/2), ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n))), ProductSet(Integers, Integers)))'),
+     'ImageSet(Lambda(x, x/2), ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n))), ConditionSet((_k1, _n), Ne(2*_n*I*pi, 0), ProductSet(Integers, Integers))))'),
     ('solveset(exp(exp(x) + 1) - 1, x)',
-     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(2*_n*I*pi - 1)) + log(Abs(2*_n*I*pi - 1))), ProductSet(Integers, Integers))'),
+     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(2*_n*I*pi - 1)) + log(sqrt(4*_n**2*pi**2 + 1))), ProductSet(Integers, Integers))'),
     ('solveset(exp(exp(x)) - 1, x, S.Reals)',
      'EmptySet'),
     ('solveset(exp(exp(exp(x))) - 1, x)',
-     'ImageSet(Lambda(((_k2, _k1, _n),), I*(2*_k2*pi + arg(I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n)))) + log(Abs(I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n))))), ProductSet(Integers, Integers, Integers))'),
+     'ImageSet(Lambda(((_k2, _k1, _n),), I*(2*_k2*pi + arg(I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n)))) + log(Abs(I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n))))), ConditionSet((_k2, _k1, _n), Ne(2*_n*I*pi, 0) & Ne(I*(2*_k1*pi + arg(_n*I)) + log(2*pi*Abs(_n)), 0), ProductSet(Integers, Integers, Integers)))'),
     ('solveset(exp(2*exp(x)) - 3, x)',
-     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(_n*I*pi + log(3)/2)) + log(Abs(_n*I*pi + log(3)/2))), ProductSet(Integers, Integers))'),
+     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(_n*I*pi + log(3)/2)) + log(sqrt(_n**2*pi**2 + log(3)**2/4))), ProductSet(Integers, Integers))'),
     ('solveset(exp(exp(x)) - E, x)',
-     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(2*_n*I*pi + 1)) + log(Abs(2*_n*I*pi + 1))), ProductSet(Integers, Integers))'),
+     'ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi + arg(2*_n*I*pi + 1)) + log(sqrt(4*_n**2*pi**2 + 1))), ProductSet(Integers, Integers))'),
     ('solveset(cos(a*x) - b, x)',
      'ConditionSet(x, Ne(a, 0), Union(ImageSet(Lambda(_n, (2*_n*pi - acos(b))/a), Integers), ImageSet(Lambda(_n, (2*_n*pi + acos(b))/a), Integers)))'),
     ('solveset(sin(a*x) - b, x)',

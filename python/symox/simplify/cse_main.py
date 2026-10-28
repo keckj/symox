@@ -20,6 +20,69 @@ basic_optimizations = [(cse_opts.sub_pre, cse_opts.sub_post),
                        (factor_terms, None)]
 
 
+# Only the native large-order recipe is eligible for this storage-preserving
+# reconstruction. Capture during package bootstrap; a fresh import/reload after
+# user customization cannot authorize a different constructor.
+import builtins as _recipe_builtins
+import sys as _recipe_sys
+from symox import _compat as _recipe_compat, _core as _recipe_core
+from symox._public_core import _evaluation as _recipe_evaluation
+_RECIPE_BOOTSTRAP = globals().get('_RECIPE_BOOTSTRAP',bool(getattr(getattr(
+    _recipe_sys.modules.get('symox'),'__spec__',None),'_initializing',False)))
+_RECIPE_POW = globals().get('_RECIPE_POW',Pow)
+_RECIPE_NEW = globals().get('_RECIPE_NEW',Pow.__dict__['__new__'])
+_RECIPE_FUNC = globals().get('_RECIPE_FUNC',_recipe_core.Expr.func)
+_RECIPE_REBUILD = globals().get('_RECIPE_REBUILD',_recipe_core.Expr._rebuild_deferred_numeric_power)
+_RECIPE_MARK = globals().get('_RECIPE_MARK',_recipe_core.Expr._is_deferred_numeric_power)
+_RECIPE_CALL = globals().get('_RECIPE_CALL',type(Pow).__call__)
+_RECIPE_NODE = globals().get('_RECIPE_NODE',_recipe_core._node)
+_RECIPE_MATRIX = globals().get('_RECIPE_MATRIX',_recipe_core.Matrix)
+_RECIPE_CONTEXT = globals().get('_RECIPE_CONTEXT',_recipe_evaluation)
+_RECIPE_FUNCTIONS = globals().get('_RECIPE_FUNCTIONS',tuple(
+    (f,f.__code__,f.__closure__,f.__defaults__,f.__kwdefaults__,f.__globals__,tuple(
+        (name,f.__globals__.get(name,getattr(_recipe_builtins,name,None)))
+        for name in f.__code__.co_names if name not in ('_matrixexpr','_host')))
+    for f in (Pow.__new__,_recipe_compat._evaluation_state,_recipe_compat._matrix_operand)))
+
+
+def _stock_recipe_reconstruction(expr,new_args):
+    from types import FunctionType
+    from symox._node_types import NodeType
+    kind=type(expr)
+    if (not _RECIPE_BOOTSTRAP or type(kind) is not NodeType
+            or not isinstance(expr,_recipe_core.Expr)
+            or not _RECIPE_MARK.__get__(expr)
+            or next((cls.__dict__['func'] for cls in kind.__mro__ if 'func' in cls.__dict__),None) is not _RECIPE_FUNC
+            or _recipe_compat.__dict__.get("Pow") is not _RECIPE_POW
+            or Pow is not _RECIPE_POW
+            or next((cls.__dict__["__call__"] for cls in type(Pow).__mro__ if "__call__" in cls.__dict__),None) is not _RECIPE_CALL
+            or _recipe_core.__dict__.get("_node") is not _RECIPE_NODE
+            or _recipe_core.__dict__.get("Matrix") is not _RECIPE_MATRIX
+            or _recipe_core.Expr._rebuild_deferred_numeric_power is not _RECIPE_REBUILD):return False
+    if (Pow.__dict__.get('__new__') is not _RECIPE_NEW
+            or _recipe_compat._evaluation_state is not _RECIPE_FUNCTIONS[1][0]
+            or _recipe_compat._matrix_operand is not _RECIPE_FUNCTIONS[2][0]):return False
+    for f,code,closure,defaults,kwdefaults,namespace,bindings in _RECIPE_FUNCTIONS:
+        if (type(f) is not FunctionType or f.__code__ is not code
+                or f.__closure__ is not closure or f.__defaults__ is not defaults
+                or f.__kwdefaults__ is not kwdefaults or f.__globals__ is not namespace):return False
+        if any(namespace.get(name,getattr(_recipe_builtins,name,None)) is not value for name,value in bindings):return False
+    from symox import _public_core
+    if _public_core._evaluation is not _RECIPE_CONTEXT or not _RECIPE_CONTEXT.get():return False
+    # These attributes activate matrix/host dispatch in the stock Pow factory.
+    # Inspect dictionaries without invoking a user descriptor during selection.
+    base=new_args[0]
+    if not isinstance(base,_recipe_core.Expr):return False
+    for operand_type in (kind,type(base)):
+        namespaces=[type.__getattribute__(cls,'__dict__') for cls in operand_type.__mro__]
+        getattribute=next((namespace['__getattribute__'] for namespace in namespaces if '__getattribute__' in namespace),None)
+        if (getattribute is not object.__getattribute__
+                or any('__getattr__' in namespace for namespace in namespaces)):return False
+    for cls in type(base).__mro__:
+        if any(name in cls.__dict__ for name in ('_symox_head','_symox_matrixexpr','_symox_sparse')):return False
+    return True
+
+
 class FuncArgTracker:
 
     def __init__(self, funcs):
@@ -486,7 +549,10 @@ def tree_cse(exprs, symbols, opt_subs=None, order='canonical', ignore=()):
 
         new_args = list(map(_rebuild, args))
         if isinstance(expr, Unevaluated) or new_args != args:
-            new_expr = expr.func(*new_args)
+            if _stock_recipe_reconstruction(expr,new_args):
+                new_expr = _RECIPE_REBUILD(expr,new_args)
+            else:
+                new_expr = expr.func(*new_args)
         else:
             new_expr = expr
 

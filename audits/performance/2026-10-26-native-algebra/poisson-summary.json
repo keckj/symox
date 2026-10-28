@@ -1,0 +1,52 @@
+{
+  "cpu_affinity": [
+    24
+  ],
+  "summary": {
+    "raw12": {
+      "before": 0.00012347033286156753,
+      "after": 3.393866548625132e-05,
+      "speedup_before_over_after": 3.638043249272304,
+      "all_digests_equal": true
+    },
+    "raw36": {
+      "before": 0.00046977816479435813,
+      "after": 8.653816864049683e-05,
+      "speedup_before_over_after": 5.428566055585771,
+      "all_digests_equal": true
+    },
+    "raw72": {
+      "before": 0.0015793131654694055,
+      "after": 0.00018326016531015435,
+      "speedup_before_over_after": 8.617874827279207,
+      "all_digests_equal": true
+    },
+    "public12": {
+      "before": 0.008064236336698135,
+      "after": 0.0023671180000140644,
+      "speedup_before_over_after": 3.4067741179992805,
+      "all_digests_equal": true
+    },
+    "independent_mix4": {
+      "before": 0.0028040733304806054,
+      "after": 0.0007092178323849415,
+      "speedup_before_over_after": 3.9537546892343807,
+      "all_digests_equal": true
+    },
+    "normal_control12": {
+      "before": 4.8963833251036704e-05,
+      "after": 4.566616553347558e-05,
+      "speedup_before_over_after": 1.0722124942840618,
+      "all_digests_equal": true
+    }
+  },
+  "sha256": {
+    "before": [
+      "c461eb3df81f6a5caa25b3da2bf9c7307770301b9d86521a3fda0deb6727454a"
+    ],
+    "after": [
+      "9405dccb462e37ed095dc19b597595b74662ce45d23556e96bf8d52e836636a2"
+    ]
+  },
+  "independent_exact_checks": 648
+}

@@ -1,0 +1,73 @@
+{
+  "base_failed_r10_source": "d19e2f40aeaf010492e1fb880899a50337bec203ed39f3a3637ca1067d036aa1",
+  "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+  "native_inputs_unchanged": 347,
+  "ordered_phases": [
+    {
+      "cache": "/home/keckj/.cache/symox-validation/native-polymatrix-stats-r10-followup-20261028",
+      "status": "preliminary54; superseded: module subclass callback found",
+      "frozen_manifest_sha256": "b42e626969cbad1b4db8f62e474f94e93499818d041e972946319f75fc9c6b3e",
+      "patch_sha256": "a02eeb5246606e3b0c24340280b7a3fc47830fc5bd8e3f9a00d5517707a04ccf",
+      "files": [
+        {
+          "path": "python/symox/polys/_polymatrix_native.py",
+          "base_sha256": "35d51e2a5d2d667066dd18ffbfb62707a6b52188f9161e07e768b5c0dd481146",
+          "final_sha256": "a0e3ea981d4b489abd13b31df46e4caa085276709ce98aaf06f93008e54dd502"
+        },
+        {
+          "path": "tests/test_polymatrix_host_protocol.py",
+          "base_sha256": null,
+          "final_sha256": "5040089817da581cd2b2604fed10be1c18a01689cfd55aee1f3e732569a100ec"
+        }
+      ],
+      "gates": null
+    },
+    {
+      "cache": "/home/keckj/.cache/symox-validation/native-polymatrix-stats-r10-followup-r2-20261028",
+      "status": "intermediate55; superseded: preimport property subclass callback found",
+      "frozen_manifest_sha256": "d4de86f6b87500645e80cfd1af2557b86bf94b84004db72ba8c146e3d8c21a59",
+      "patch_sha256": "615a7854d31b6da426800002dfe4b72d9e3118f7a51b1c8f65e4684f14b64081",
+      "files": [
+        {
+          "path": "python/symox/polys/_polymatrix_native.py",
+          "base_sha256": "35d51e2a5d2d667066dd18ffbfb62707a6b52188f9161e07e768b5c0dd481146",
+          "final_sha256": "784c6ebed8ef778b65728788e81dda0fb718391d6641e34496b3fb5ba0f8a825"
+        },
+        {
+          "path": "tests/test_polymatrix_host_protocol.py",
+          "base_sha256": null,
+          "final_sha256": "d88575fcda243e40ea8ea241227ced0ad8ffe26c54dd418fb3dee46a255aa645"
+        }
+      ],
+      "gates": {
+        "focused": 55,
+        "shard": 1028,
+        "coupled": 3086
+      }
+    },
+    {
+      "cache": "/home/keckj/.cache/symox-validation/native-polymatrix-stats-r10-followup-r3-20261028",
+      "status": "final56; private gates green; root full gate independent",
+      "frozen_manifest_sha256": "68dcc133ce87495c010086efde01c5d4c3b20e80d6c6564278c4013b4bdfb464",
+      "patch_sha256": "cfa47301732e251388c8bb8697619fde0a902c4e53e4c500dc5c0f11a49f9bf0",
+      "files": [
+        {
+          "path": "python/symox/polys/_polymatrix_native.py",
+          "base_sha256": "35d51e2a5d2d667066dd18ffbfb62707a6b52188f9161e07e768b5c0dd481146",
+          "final_sha256": "8ebccd3020ba4fc7a3d5120ac28e00209fc46c763441453cf91c7d6db3e7e8c8"
+        },
+        {
+          "path": "tests/test_polymatrix_host_protocol.py",
+          "base_sha256": null,
+          "final_sha256": "40b8342cb2c5bd2306ff4dcc0a7864021ec31433b482f52927c56f5f76a94189"
+        }
+      ],
+      "gates": {
+        "focused": 56,
+        "shard": 1028,
+        "coupled": 3087
+      }
+    }
+  ],
+  "all_proof_directories_frozen_after_delivery": true
+}

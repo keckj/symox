@@ -84,7 +84,8 @@ fn opaque(e: &Expr) -> bool {
         Kind::Derivative(..) => true,
         Kind::Func(f, _) => matches!(
             f,
-            Func::MatrixElement(_)
+            Func::SymbolicDerivative
+                | Func::MatrixElement(_)
                 | Func::MatrixProxy(_)
                 | Func::MatrixTrace(_)
                 | Func::MatrixDeterminant(_)
@@ -103,6 +104,7 @@ fn opaque(e: &Expr) -> bool {
 
 /// `self.func(*args)`.
 fn rebuild(e: &Expr, old: &[Expr], new: Vec<Expr>) -> Expr {
+    if matches!(e.kind(),Kind::Func(Func::SymbolicDerivative,_)){return e.clone();}
     if let Kind::Func(f, _) = e.kind() {
         return func(f.clone(), new);
     }

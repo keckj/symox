@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "scope": "Native EX/CC sparse recursive multiplication/square/power; stock dense DDM integer/rational accumulated multiplication and raw QQ Gauss-Jordan; limited noncommutative zero/nonfinite correction",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "1d69c0418c5c9a5936ae050d60d7def2cc00e97e1a653adb3f2a7711e1971586",
+    "native_sha256": "576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8",
+    "working_code_diff_sha256": "183cd814641ee4e1863979ca790de452a80351d64630ed228b837bac78e22b35",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 477.4045732021332,
+    "native_sha256": "576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8"
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 651,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 134.19058775901794
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 20.528387784957886
+      },
+      "rust_inputs_unchanged": true
+    }
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 46327,
+      "xfailed": 5,
+      "skipped": 55,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 46387,
+      "collected_in_shards": 46387,
+      "finished": 46387,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 182.58693933486938,
+    "new_cases_vs_previous": 195
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-products-20261026/python/symox/__init__.py",
+    "native_sha256": "576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-products-20261026",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-products-20261026",
+    "source_manifest": "/home/keckj/.cache/symox-validation/native-products-20261026/source-manifest.json",
+    "full_python_summary": "/home/keckj/.cache/symox-validation/native-products-20261026/demeter-final/summary.json",
+    "full_rust_log": "/home/keckj/.cache/symox-validation/native-products-20261026/demeter-final/tests.log",
+    "clippy_log": "/home/keckj/.cache/symox-validation/native-products-20261026/demeter-final/clippy.log",
+    "immutable_package": "/home/keckj/.cache/symox-validation/native-products-20261026/after/python/symox"
+  },
+  "remaining_gaps": [
+    "No global algorithmic parity certification. Exact output matches and selected certificates do not prove completeness.",
+    "Sparse EX/CC differentiation/integration and nonzero evaluation still have complete dense fallback paths in this release; a separate calculus port is in progress.",
+    "Sparse products preserve recursive DMP rounding and callback order; coordinate exponents remain bounded by u32. Overflow is unsupported unless exact cancellation removes it, never silently truncated.",
+    "Three high-precision CC(a) product differences against SymPy reproduce on the preceding release; this release preserves the existing domain-precision results. Reference real-component precision loss is documented in the private differential evidence.",
+    "DDM raw rref selects stock QQ only. DomainMatrix AUTO ZZ/QQ still prefers sparse fraction-free Python algorithms; that route is being ported separately.",
+    "Custom matrix types/protocols, aliasing and unsupported coefficient domains retain the prior complete algorithms.",
+    "The ordinary nonfinite multiplication correction is limited to the checked additive/multiplicative spine before the noncommutative zero shortcut; it does not establish global nonfinite arithmetic parity."
+  ],
+  "global_algorithmic_parity_certified": false,
+  "performance_evidence": "audits/performance/2026-10-26-native-products/README.md",
+  "corpus_replay_preceding_release": "audits/sympy-1.14.0/corpus-2026-10-26/README.md"
+}

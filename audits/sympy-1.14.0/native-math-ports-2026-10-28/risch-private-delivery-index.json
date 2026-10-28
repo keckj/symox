@@ -1,0 +1,101 @@
+{
+  "status": "GO_PRIVATE_CURRENT_R12_BASE",
+  "cache": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r13-r12base-20261028",
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "4df626845d69241dcb3b0503b60454fc1ff8be00e78ee5ed45ee5b51f3ff0b3e",
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "working_code_diff_sha256": "da52459dee5010d8bdf96415ef04a2c678307dcdfe55a2710723324937a7de24",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "manifest": "proof/freeze-manifest.json",
+  "manifest_sha256": "897b4436aa0b17da4a1929f996ad6bb380c589c73b5afbdf16eeae63569edd67",
+  "validation": "proof/final-validation.json",
+  "validation_sha256": "d83d789ca9d62e2e3976dbea1fee8f2fa1b78c38ace7d5654bf6ca53eb75f3b4",
+  "patch": "proof/candidate.patch",
+  "patch_sha256": "3d17d584f1a1bbcf54ebb05cde4bac90e7be49a45c80b967a87054f8c7ea59ec",
+  "sources": "proof/candidate-source",
+  "owned_files": [
+    {
+      "path": "crates/symox-core/src/integrate.rs",
+      "base_sha256": "066c0473bf2099a5699a1f5893bc8a5fa5a7fdc1a65e318d86f13e37c37646bf",
+      "final_sha256": "2ce76160b32901e8bcbad7299a36147f50937d5600254f4342a5225cddb16d9d"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/risch_splitfactor.rs",
+      "base_sha256": null,
+      "final_sha256": "06ee3a31ba3afd8deab72e78de2c35fd33eabc3c8abc8a5d301393e97b40a618"
+    },
+    {
+      "path": "crates/symox-py/src/lib.rs",
+      "base_sha256": "a56f0c4c9be7ec0d881150b5ad1e5a234ce8566d4c1eba5eed5c8bb8eba4fdd7",
+      "final_sha256": "8b8f9716203a9b60dccdcdec403bedc9396d4866c7a1badfc2eb8fbd5f3b463f"
+    },
+    {
+      "path": "crates/symox-py/src/risch_splitfactor.rs",
+      "base_sha256": null,
+      "final_sha256": "797899fde3a7a1592703317ed762a63c856317c491ad48e5e27b9d593c9f2b0d"
+    },
+    {
+      "path": "python/symox/__init__.py",
+      "base_sha256": "4b80c6a467145cb5fdba0dd4e94028901e7b63626552dd411fbd0bf5ff97762d",
+      "final_sha256": "57d62c8f964eba52b0bcb035c3686d3126f960e7f6b5109135374a4e8c4b540d"
+    },
+    {
+      "path": "python/symox/integrals/risch.py",
+      "base_sha256": "0bdd26a9751309c27d58d4c6273f880cdc12674c07922b7582db0732f2c9e987",
+      "final_sha256": "c213c00752645252fa4a8943d73b9351ab910a555a5983341a8e3bb96d9b6184"
+    },
+    {
+      "path": "python/symox/integrals/_risch_native.py",
+      "base_sha256": "3164583604a8cafe125a296c10985800830ba35d61a9ee2257383a2c161cc9cc",
+      "final_sha256": "3d941f5654da59c7049c0e897a4da2fe5613dfa3b69e55e0a860424a356bbd58"
+    },
+    {
+      "path": "python/symox/integrals/_risch_splitfactor_native.py",
+      "base_sha256": null,
+      "final_sha256": "76a4113d90645830964a4814027df5526586c5efc82ae13804e48519577085a3"
+    },
+    {
+      "path": "tests/test_native_risch_splitfactor.py",
+      "base_sha256": null,
+      "final_sha256": "7b9b59531029725d1360a9cc111f62c1a37670a300bb1aeaa4ef3a2a89cfd3da"
+    }
+  ],
+  "native_sha256": "64f3609b3a4d06759bb72d934f557f0bb4b6a0c47e964faddc6a17845ee38cae",
+  "native_input_count": 354,
+  "native_build_results": "proof/build-results.json",
+  "report": "proof/REPORT.md",
+  "report_sha256": "83ee3633983e1fdc7fb9bae8a3ef4c2173572266e856eddd2c5c82364c326e19",
+  "parity_gap": "proof/parity-gap.md",
+  "lineage": {
+    "delivery-proof.tar.gz": {
+      "original_path": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r12-r11r1-r1-20261028/delivery-proof.tar.gz",
+      "portable_path": "proof/validated-r11-baseline/delivery-proof.tar.gz",
+      "sha256": "67796d70694651609e8611fc1773321b3db764aa87d46d6cb311e90dca7b779e"
+    },
+    "delivery-proof-files.json": {
+      "original_path": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r12-r11r1-r1-20261028/delivery-proof-files.json",
+      "portable_path": "proof/validated-r11-baseline/delivery-proof-files.json",
+      "sha256": "c166888dd8e1626b17844835bae630e1d45c535dd9d96e5d7a8065c97813334b"
+    },
+    "proof/final-validation.json": {
+      "original_path": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r12-r11r1-r1-20261028/proof/final-validation.json",
+      "portable_path": "proof/validated-r11-baseline/final-validation.json",
+      "sha256": "04358e727330dab7f71db4f1f6520a3fefb0566d209525f2b66556d54a32df96"
+    },
+    "proof/delivery-index.json": {
+      "original_path": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r12-r11r1-r1-20261028/proof/delivery-index.json",
+      "portable_path": "proof/validated-r11-baseline/delivery-index.json",
+      "sha256": "bdcbb30d8e207c8d0b56d179ff7689b62270fbbfce9b4d3444ea464d653faf1d"
+    }
+  },
+  "reporting_count_correction": "proof/count-metadata-correction.json",
+  "archive": "delivery-proof.tar.gz",
+  "member_map": "delivery-proof-files.json"
+}

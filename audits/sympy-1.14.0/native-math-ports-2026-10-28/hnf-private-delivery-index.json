@@ -1,0 +1,13 @@
+{
+  "manifest": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/freeze-manifest-r1.json",
+  "manifest_sha256": "5cff83f0954728687bc16ff72aee1883996bf2ec3579ee288091a877d52a1c42",
+  "patch": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/candidate-r1.patch",
+  "patch_sha256": "51ed68ba2444129a3981871a842a53238d906f0c43e5283f2d4a91c28b6c64ff",
+  "archive": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1-proof.tar.gz",
+  "archive_sha256": "1b9e40616375a42521bb63a70dbcab949a847be7e5b7ee7be13e7e07a62bfd85",
+  "archive_members": 106,
+  "source_map": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/source-map-r1.json",
+  "source_directory": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/source-r1",
+  "report": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/README.md",
+  "native_sha256": "6341dc7a3f8c5cc8fa256585e144d43c5638af690179b67cf2fd5b4b65c7f105"
+}

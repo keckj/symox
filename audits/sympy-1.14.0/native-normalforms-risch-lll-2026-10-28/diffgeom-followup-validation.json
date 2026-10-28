@@ -1,0 +1,450 @@
+{
+  "status": "GO_PRIVATE",
+  "scope": "Official diffgeom scalar forwarding and exact QQ/RF PolyMatrix admission; complete legacy fallback on refusal",
+  "native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+  "native_profile": "debug",
+  "owned_file_count": 7,
+  "separate_root_closure_dependency_file_count": 4,
+  "validation_input_count": 361,
+  "native_input_count": 350,
+  "native_modified_inputs": [
+    "crates/symox-py/src/poly_ddm.rs"
+  ],
+  "all_inputs_before_after_identical": true,
+  "gates": {
+    "local": {
+      "label": "local",
+      "host": "ares",
+      "native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+      "inputs_unchanged": true,
+      "gates": {
+        "focused": {
+          "returncode": 0,
+          "collected": 123,
+          "exactly_once": true,
+          "elapsed_seconds": 6.439204216003418,
+          "files": [
+            "tests/test_polymatrix_diffgeom_protocol.py",
+            "tests/test_polymatrix_host_protocol.py",
+            "tests/test_polymatrix_stats_protocol.py",
+            "tests/test_native_matrix_closure_tuple_protocol.py"
+          ]
+        },
+        "shard": {
+          "returncode": 0,
+          "collected": 1037,
+          "exactly_once": true,
+          "elapsed_seconds": 141.2506809234619,
+          "files": [
+            "tests/test_fraction_factor_lists.py",
+            "tests/test_ndim_array_subclasses.py",
+            "tests/test_native_ddm_lu.py",
+            "tests/test_algfield_parity.py",
+            "tests/test_solve_factor_components.py",
+            "tests/test_expr_completion.py",
+            "tests/test_downstream_function_conversion.py",
+            "tests/test_c_final_parity.py",
+            "tests/test_solve_trig_multiples_parity.py",
+            "tests/test_polymatrix_host_protocol.py",
+            "tests/test_native_joint_normal_moments.py",
+            "tests/test_algebraic_number_matching_options.py",
+            "tests/test_derivative_class_queries.py",
+            "tests/test_forms_b2_parity_misc.py",
+            "tests/test_icorpus_parity.py"
+          ]
+        },
+        "coupled": {
+          "returncode": 0,
+          "collected": 4544,
+          "exactly_once": true,
+          "elapsed_seconds": 329.61857295036316,
+          "files": [
+            "tests/test_fraction_factor_lists.py",
+            "tests/test_ndim_array_subclasses.py",
+            "tests/test_native_ddm_lu.py",
+            "tests/test_algfield_parity.py",
+            "tests/test_solve_factor_components.py",
+            "tests/test_expr_completion.py",
+            "tests/test_downstream_function_conversion.py",
+            "tests/test_c_final_parity.py",
+            "tests/test_solve_trig_multiples_parity.py",
+            "tests/test_polymatrix_host_protocol.py",
+            "tests/test_native_joint_normal_moments.py",
+            "tests/test_algebraic_number_matching_options.py",
+            "tests/test_derivative_class_queries.py",
+            "tests/test_forms_b2_parity_misc.py",
+            "tests/test_icorpus_parity.py",
+            "tests/test_recurrences.py",
+            "tests/test_function_facts.py",
+            "tests/test_domain_division.py",
+            "tests/test_real_domain_rounding.py",
+            "tests/test_polymatrix_native_ground.py",
+            "tests/test_matrix_solvers.py",
+            "tests/test_expr_head_queries.py",
+            "tests/test_wrong_quantum_wave4_parity.py",
+            "tests/test_poisson_native_moments.py",
+            "tests/test_polymatrix_stats_protocol.py",
+            "tests/test_solver_options.py",
+            "tests/test_array_codegen_validation.py",
+            "tests/test_api.py",
+            "tests/test_native_lll_classifier_callbacks.py",
+            "tests/test_pseudodivision.py",
+            "tests/test_native_ratint_logpart.py",
+            "tests/test_expression_keys_add_coefficients.py",
+            "tests/test_physics_atomic.py",
+            "tests/test_noncommutative_rest_parity.py",
+            "tests/test_missing_algebras_tensor_wave4_parity.py",
+            "tests/test_solve_forms_parity.py",
+            "tests/test_sympify_signature_parity.py",
+            "tests/test_fuzz_harness.py",
+            "tests/test_gamma_coefficient_cache_parity.py",
+            "tests/test_dummy_codegen.py",
+            "tests/test_sympy_parity_audit.py",
+            "tests/test_simp_rest2_parity.py",
+            "tests/test_matrixelement_bridge.py",
+            "tests/test_native_rational_states.py",
+            "tests/test_lrt_stock_forwarding.py",
+            "tests/test_log_to_atan_stock_dispatch.py",
+            "tests/test_native_log_to_real.py",
+            "tests/test_native_ratint_driver.py",
+            "tests/test_native_log_to_atan.py",
+            "tests/test_native_rational_reduction.py",
+            "tests/test_log_to_atan_generator_identity.py",
+            "tests/test_ratint_parity.py",
+            "tests/test_conditional_rational_integrals.py",
+            "tests/test_conditional_rational_rays.py",
+            "tests/test_conditional_integral_substitution.py",
+            "tests/test_native_risch_polynomial_reduce.py",
+            "tests/test_integ_risch_parity.py",
+            "tests/test_intrest3_parity.py",
+            "tests/test_intrest4_parity.py",
+            "tests/test_definite_params_parity.py",
+            "tests/test_polymatrix_diffgeom_protocol.py",
+            "tests/test_native_matrix_closure_tuple_protocol.py",
+            "tests/test_native_ddm_hnf.py",
+            "tests/test_native_ddm_lu_solve.py"
+          ]
+        }
+      }
+    },
+    "demeter": {
+      "label": "demeter",
+      "host": "demeter",
+      "native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+      "inputs_unchanged": true,
+      "gates": {
+        "focused": {
+          "returncode": 0,
+          "collected": 123,
+          "exactly_once": true,
+          "elapsed_seconds": 7.369814157485962,
+          "files": [
+            "tests/test_polymatrix_diffgeom_protocol.py",
+            "tests/test_polymatrix_host_protocol.py",
+            "tests/test_polymatrix_stats_protocol.py",
+            "tests/test_native_matrix_closure_tuple_protocol.py"
+          ]
+        },
+        "shard": {
+          "returncode": 0,
+          "collected": 1037,
+          "exactly_once": true,
+          "elapsed_seconds": 158.19156551361084,
+          "files": [
+            "tests/test_fraction_factor_lists.py",
+            "tests/test_ndim_array_subclasses.py",
+            "tests/test_native_ddm_lu.py",
+            "tests/test_algfield_parity.py",
+            "tests/test_solve_factor_components.py",
+            "tests/test_expr_completion.py",
+            "tests/test_downstream_function_conversion.py",
+            "tests/test_c_final_parity.py",
+            "tests/test_solve_trig_multiples_parity.py",
+            "tests/test_polymatrix_host_protocol.py",
+            "tests/test_native_joint_normal_moments.py",
+            "tests/test_algebraic_number_matching_options.py",
+            "tests/test_derivative_class_queries.py",
+            "tests/test_forms_b2_parity_misc.py",
+            "tests/test_icorpus_parity.py"
+          ]
+        },
+        "coupled": {
+          "returncode": 0,
+          "collected": 4544,
+          "exactly_once": true,
+          "elapsed_seconds": 372.4350833892822,
+          "files": [
+            "tests/test_fraction_factor_lists.py",
+            "tests/test_ndim_array_subclasses.py",
+            "tests/test_native_ddm_lu.py",
+            "tests/test_algfield_parity.py",
+            "tests/test_solve_factor_components.py",
+            "tests/test_expr_completion.py",
+            "tests/test_downstream_function_conversion.py",
+            "tests/test_c_final_parity.py",
+            "tests/test_solve_trig_multiples_parity.py",
+            "tests/test_polymatrix_host_protocol.py",
+            "tests/test_native_joint_normal_moments.py",
+            "tests/test_algebraic_number_matching_options.py",
+            "tests/test_derivative_class_queries.py",
+            "tests/test_forms_b2_parity_misc.py",
+            "tests/test_icorpus_parity.py",
+            "tests/test_recurrences.py",
+            "tests/test_function_facts.py",
+            "tests/test_domain_division.py",
+            "tests/test_real_domain_rounding.py",
+            "tests/test_polymatrix_native_ground.py",
+            "tests/test_matrix_solvers.py",
+            "tests/test_expr_head_queries.py",
+            "tests/test_wrong_quantum_wave4_parity.py",
+            "tests/test_poisson_native_moments.py",
+            "tests/test_polymatrix_stats_protocol.py",
+            "tests/test_solver_options.py",
+            "tests/test_array_codegen_validation.py",
+            "tests/test_api.py",
+            "tests/test_native_lll_classifier_callbacks.py",
+            "tests/test_pseudodivision.py",
+            "tests/test_native_ratint_logpart.py",
+            "tests/test_expression_keys_add_coefficients.py",
+            "tests/test_physics_atomic.py",
+            "tests/test_noncommutative_rest_parity.py",
+            "tests/test_missing_algebras_tensor_wave4_parity.py",
+            "tests/test_solve_forms_parity.py",
+            "tests/test_sympify_signature_parity.py",
+            "tests/test_fuzz_harness.py",
+            "tests/test_gamma_coefficient_cache_parity.py",
+            "tests/test_dummy_codegen.py",
+            "tests/test_sympy_parity_audit.py",
+            "tests/test_simp_rest2_parity.py",
+            "tests/test_matrixelement_bridge.py",
+            "tests/test_native_rational_states.py",
+            "tests/test_lrt_stock_forwarding.py",
+            "tests/test_log_to_atan_stock_dispatch.py",
+            "tests/test_native_log_to_real.py",
+            "tests/test_native_ratint_driver.py",
+            "tests/test_native_log_to_atan.py",
+            "tests/test_native_rational_reduction.py",
+            "tests/test_log_to_atan_generator_identity.py",
+            "tests/test_ratint_parity.py",
+            "tests/test_conditional_rational_integrals.py",
+            "tests/test_conditional_rational_rays.py",
+            "tests/test_conditional_integral_substitution.py",
+            "tests/test_native_risch_polynomial_reduce.py",
+            "tests/test_integ_risch_parity.py",
+            "tests/test_intrest3_parity.py",
+            "tests/test_intrest4_parity.py",
+            "tests/test_definite_params_parity.py",
+            "tests/test_polymatrix_diffgeom_protocol.py",
+            "tests/test_native_matrix_closure_tuple_protocol.py",
+            "tests/test_native_ddm_hnf.py",
+            "tests/test_native_ddm_lu_solve.py"
+          ]
+        }
+      }
+    }
+  },
+  "no_reference": {
+    "local": {
+      "native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+      "native_module": "/home/keckj/.cache/symox-validation/native-polymatrix-diffgeom-r11-followup-r1-20261028/work/python/symox/_core.abi3.so",
+      "native_input_count": 350,
+      "validation_input_count": 361,
+      "inputs_before_after_identical": true,
+      "script_sha256": "f3caa95f95e874e237ca140f8a32ed655f34e641ae35d543c3267e394dce9173",
+      "reference_imported": false,
+      "native_rref_and_nullspace_both_domains": true,
+      "canonical_field_holder_nonempty": true,
+      "certificates": [
+        {
+          "kind": "QQ",
+          "pivots": [
+            0,
+            1
+          ],
+          "nullspace_product_zero": true,
+          "returned_domains_generators": true,
+          "input_aliases_preserved": true,
+          "legacy_equal": true
+        },
+        {
+          "kind": "RF",
+          "pivots": [
+            0,
+            1
+          ],
+          "nullspace_product_zero": true,
+          "returned_domains_generators": true,
+          "input_aliases_preserved": true,
+          "legacy_equal": true
+        }
+      ]
+    },
+    "demeter": {
+      "native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+      "native_module": "/home/keckj/symox-ci/wt/native-polymatrix-diffgeom-r11-followup-r1-20261028/work/python/symox/_core.abi3.so",
+      "native_input_count": 350,
+      "validation_input_count": 361,
+      "inputs_before_after_identical": true,
+      "script_sha256": "f3caa95f95e874e237ca140f8a32ed655f34e641ae35d543c3267e394dce9173",
+      "reference_imported": false,
+      "native_rref_and_nullspace_both_domains": true,
+      "canonical_field_holder_nonempty": true,
+      "certificates": [
+        {
+          "kind": "QQ",
+          "pivots": [
+            0,
+            1
+          ],
+          "nullspace_product_zero": true,
+          "returned_domains_generators": true,
+          "input_aliases_preserved": true,
+          "legacy_equal": true
+        },
+        {
+          "kind": "RF",
+          "pivots": [
+            0,
+            1
+          ],
+          "nullspace_product_zero": true,
+          "returned_domains_generators": true,
+          "input_aliases_preserved": true,
+          "legacy_equal": true
+        }
+      ]
+    }
+  },
+  "patch_replay": {
+    "base_entries_checked": 3379,
+    "base_identity": {
+      "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+      "source_manifest_sha256": "1801af86581c822b537ed5899d0e7d03ee046db1987b39f13f422fe6fe44e1f9",
+      "native_sha256": "532c4b08d546d9d580306ad7e40317e2fbbbe80aa8d77d4749b35682d3ee9c90",
+      "working_code_diff_sha256": "f5ca3791ef7713ea5bdb879dc36fd35ad3e0a60e88e98e5f5bafc3e11a25d570",
+      "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+      "build_command": [
+        ".venv/bin/maturin",
+        "develop",
+        "--release"
+      ]
+    },
+    "owned_files": [
+      {
+        "path": "crates/symox-py/src/poly_ddm.rs",
+        "base_sha256": "0e7879b9d5e8b0cef5e81ecfad6139d6d6a09e7a57ff869135890db353119631",
+        "final_sha256": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977"
+      },
+      {
+        "path": "python/symox/polys/_polymatrix_native.py",
+        "base_sha256": "8ebccd3020ba4fc7a3d5120ac28e00209fc46c763441453cf91c7d6db3e7e8c8",
+        "final_sha256": "7ee776dd89bf6356bd0e8bc29d8a683608616148e1865ae310891d7eb83ad97c"
+      },
+      {
+        "path": "python/symox/integrals/rationaltools.py",
+        "base_sha256": "3ad1925f745823d0f79b70c8ab35f6905a4cce685929bf043febdbfb0aefec5c",
+        "final_sha256": "77394d2d3d5bc44de68b67ad6d1a482e3c55c8441905eee778d7f643bc260b2c"
+      },
+      {
+        "path": "python/symox/diffgeom/_adapters.py",
+        "base_sha256": "f15dc65c5898b6140c7299562bdfd6f494b2e541cd981d43bf2f02000a9c44c2",
+        "final_sha256": "ca0989ea872c3cba1538b04e05240ce7f4fe4990e27f263d94f72559fb715725"
+      },
+      {
+        "path": "python/symox/diffgeom/_coordinates.py",
+        "base_sha256": "7cbefc7768bfc3d59a33df0e62aee79317fcf3d8306227e12f178e092c4df10e",
+        "final_sha256": "02f23122c413088e4177a6f21c0ae5eae2309cf67cfdb3d039a3e8362dea8b7b"
+      },
+      {
+        "path": "tests/test_polymatrix_diffgeom_protocol.py",
+        "base_sha256": null,
+        "final_sha256": "68f3d3c0e8007ec705f92dfe7b6775a048cf29e5473d4a3a87e930cd644fff69"
+      },
+      {
+        "path": "tests/test_log_to_atan_stock_dispatch.py",
+        "base_sha256": "b9dd5791540455611a9868ae1e8002b752b7e2b85f0440c177672d96adeeb969",
+        "final_sha256": "87da90d27160c43c6f3a51cf4da032938b1c967ab8c704dc101d3e00dc7c517c"
+      }
+    ],
+    "dependency_files": [
+      {
+        "path": "python/symox/polys/matrices/_hnf_native.py",
+        "base_sha256": "066b6a70c121d10495a9bd4db71d6a2955388cd172d66bdcba29854d355bccfd",
+        "final_sha256": "d79356a03e267866f209abb7cbbd730d2f97ce2144b5560a3a351e3db2ef3d34"
+      },
+      {
+        "path": "python/symox/polys/matrices/_lu_native.py",
+        "base_sha256": "503b447e5faaf874b31162727a74e1fb94fafedcbd205f1ccea6fdb8f6e3e63d",
+        "final_sha256": "d2c8b5ff6d905fdfba0e4deca6814c62f99effa4a12c3ac4f914a9ce31405334"
+      },
+      {
+        "path": "python/symox/polys/matrices/_lu_solve_native.py",
+        "base_sha256": "09a0e0ac004dc60719420fde60793c4c363a9afa06c3d5a1350ea641ee201bd4",
+        "final_sha256": "5502d395b22ed27b56c1f2fad9fa8248745e19301d0d3b0758b46922f9efb695"
+      },
+      {
+        "path": "tests/test_native_matrix_closure_tuple_protocol.py",
+        "base_sha256": null,
+        "final_sha256": "cf6f8f406d30eafd1a701da78f64befd493813d5fca970ff10e9ed11e9da4277"
+      }
+    ],
+    "patch_replay": true,
+    "all_base_entries_match_expected_overlay": true,
+    "native_input_count": 350,
+    "native_modified_inputs": [
+      "crates/symox-py/src/poly_ddm.rs"
+    ]
+  },
+  "native_build_reuse": {
+    "native_sha256": "8e523800fa180c6cb33b72f333ee429d46595d6fd45f0eaae045a5524d130327",
+    "native_profile": "debug",
+    "rust_source_identical_to_primary": true,
+    "native_inputs_identical_to_primary": true,
+    "debug_build_log": {
+      "path": "proof/preliminary-debug-build.log",
+      "sha256": "5f99274b64faf94dd419d70708cb04f5770897d0af14b8e14f0b9190088bb42b",
+      "returncode": 0
+    },
+    "binding_clippy": {
+      "path": "proof/preliminary-binding-clippy.log",
+      "sha256": "e7e4f7b7e513428061a6b9c517c447f43311cf4a21e05890ab73260810f16695",
+      "returncode": 0
+    },
+    "preliminary_archive": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/preliminary-proof.tar.gz",
+      "sha256": "ac4d88cdf9a07bdd6be5c9e9d0e5a8ad06798e668f35f8fb41f6594601336ded"
+    },
+    "preliminary_map": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/preliminary-proof-files.json",
+      "sha256": "ac0dd21ab84c623e560c9ff097c154f216e5a094b052d554744e16f208ef96c6"
+    },
+    "preliminary_validation": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/proof/preliminary-final-validation.json",
+      "sha256": "de01af113801fddaf0c331c6f319302f3eb5cf250ddbda3e9bf00db41704483c"
+    }
+  },
+  "rejected_preliminary_lineage": {
+    "preliminary_archive": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/preliminary-proof.tar.gz",
+      "sha256": "ac4d88cdf9a07bdd6be5c9e9d0e5a8ad06798e668f35f8fb41f6594601336ded",
+      "portable_path": "proof/rejected-preliminary/preliminary-proof.tar.gz"
+    },
+    "preliminary_map": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/preliminary-proof-files.json",
+      "sha256": "ac0dd21ab84c623e560c9ff097c154f216e5a094b052d554744e16f208ef96c6",
+      "portable_path": "proof/rejected-preliminary/preliminary-proof-files.json"
+    },
+    "preliminary_validation": {
+      "path": "/home/keckj/.cache/symox-validation/native-polymatrix-host-r11-followup-20261028/proof/preliminary-final-validation.json",
+      "sha256": "de01af113801fddaf0c331c6f319302f3eb5cf250ddbda3e9bf00db41704483c",
+      "portable_path": "proof/rejected-preliminary/preliminary-final-validation.json"
+    }
+  },
+  "intermediate_r1_reproduction": {
+    "reload-focused-first.log": "458 passed, one failure in original nested_constants assertion; preserved and fixed by restoring complete legacy ratint body",
+    "reload-focused-final.log": "459 passed; final four positive reload admission tests subsequently included in both 123/4544 gates"
+  },
+  "main_modified_by_this_agent": false,
+  "benchmark_run": false,
+  "root_release_full_gate_required": true
+}

@@ -6,6 +6,29 @@ use crate::number::Number;
 use crate::sortkey::cmp_default;
 use crate::{assumptions, decompose, ops, traverse};
 
+/// On a connected real interval where a function is real and differentiable,
+/// a constant finite real derivative proves weak monotonicity, even when its
+/// sign is an unknown parameter (including zero). A conditional zero set of
+/// that parameter is not a turning point of the function.
+pub fn constant_real_derivative(derivative: &Expr, variable: &Expr) -> bool {
+    if derivative.has_nonfinite() || traverse::has(derivative, variable) {
+        return false;
+    }
+    // A class fact such as Heaviside.is_real does not certify an arbitrary
+    // held H0. Require each scalar descendant to be real too; otherwise the
+    // caller keeps its existing general proof path.
+    let mut pending = vec![derivative.clone()];
+    let mut seen = rustc_hash::FxHashSet::default();
+    while let Some(node) = pending.pop() {
+        if !seen.insert(node.clone()) { continue; }
+        if assumptions::exact_queries(|| assumptions::is_real(&node)) != Some(true) {
+            return false;
+        }
+        pending.extend(node.args());
+    }
+    true
+}
+
 /// `expr.xreplace(rule)` over SymPy's public arguments: a node found in
 /// the rule is replaced as a whole, other nodes are rebuilt with the
 /// evaluating constructors.

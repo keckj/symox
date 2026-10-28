@@ -300,7 +300,7 @@ pub fn fglm(
     target: MonomialOrder,
     field: CoefficientField,
     nvars: usize,
-) -> PResult<Vec<MPoly<Rat>>> {
+) -> PResult<Vec<MPoly<Rat>>> {super::mpoly::checked_operation(||{
     if source == target {
         return Ok(basis.to_vec());
     }
@@ -325,7 +325,7 @@ pub fn fglm(
         staircase.push(e.clone());
         for v in 0..nvars {
             let mut child = e.clone();
-            child[v] += 1;
+            child[v] = super::mpoly::exponent_add(child[v],1);
             if seen.insert(child.clone()) {
                 queue.push_back(child);
             }
@@ -345,7 +345,7 @@ pub fn fglm(
         let mut columns = Vec::with_capacity(dimension);
         for e in &staircase {
             let mut child = e.clone();
-            child[v] += 1;
+            child[v] = super::mpoly::exponent_add(child[v],1);
             let nf = reduce(&MPoly::monomial(&child, Rat::one()), basis, source, field).1;
             let mut column = vec![Rat::zero(); dimension];
             for (m, c) in nf.iter() {
@@ -412,7 +412,7 @@ pub fn fglm(
             accepted.push(e.clone());
             for v in 0..nvars {
                 let mut child = e.clone();
-                child[v] += 1;
+                child[v] = super::mpoly::exponent_add(child[v],1);
                 if seen.insert(child.clone()) {
                     candidates.push((child, multiply(v, &vector)));
                 }
@@ -437,7 +437,7 @@ pub fn fglm(
         )
     });
     Ok(result)
-}
+})}
 
 #[cfg(test)]
 mod tests {

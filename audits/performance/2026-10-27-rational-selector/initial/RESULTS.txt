@@ -1,0 +1,67 @@
+R2/R3b LRT/Atan selector release check — 2026-10-27
+
+Frozen R2 package: /home/keckj/symox-ci/wt/native-lrt-limits-20261027/python
+native daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007
+source 8f254811033a4e7791213e56e0316d752fd2dca0f99fc0c5f5fa30aa6cecc981
+Frozen R3b package: /home/keckj/symox-ci/wt/native-inexact-r1-20261027/python
+native 8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a
+source 374d458fdc73fb8a75cbaa2a06952b2b29d6ccc216f1b497f82a155468b4c0ac
+
+Run performed only after root's explicit quiet-window signal and confirmation
+from both other agents. Root performed a local build only, no remote load.
+Demeter CPU24, twelve fresh processes, three per backend/variant, alternating
+R2/R3b then R3b/R2 then R2/R3b. Variants import plain package or vector before
+constructing all inputs for each case. 20 iterations x5 rounds per process;
+construction, native-route spies, reference fixtures, coefficient/domain or
+expression checks and digests are outside timers. Reference imports are blocked
+by a metafinder in every native worker. No shared package/source was modified.
+
+Twelve LRT inputs retain the preceding CB5/R2 benchmark's exact fixtures and
+independent rational trace certificates. Seven Atan inputs have independent
+SymPy1.14 fixtures, the full Euclidean argument sequence and Bezout identities,
+plus zero exact rational derivative residuals; argument order/branch terms are
+retained, no atan addition identities are used. All backend/variant/process
+digests agree, including plain vs vector. The same outputs are checked before
+and after timing and again outside timers by the native-selection spy. There
+are 684 exact input-result checks over the 12 processes and 19 independent
+fixture certificates. R2 plain and both R3b variants select native for all 19
+inputs per process. R2 vector selects its complete Python fallback for all 19.
+This crossover is recorded rather than disguised as a native-vs-native claim.
+
+The window lasted 21.207 seconds. The parent was notified immediately after all
+workers exited; no other work was launched inside the measurement window.
+
+Medians across the three process medians, microseconds per pair:
+variant case                                  R2_us     R3b_us R2/R3b
+plain  lrt/quadratic                    365.218    374.211    0.976
+plain  lrt/quartic                      440.738    452.536    0.974
+plain  lrt/nonconstant_numerator        491.356    498.999    0.985
+plain  lrt/multiplicity_groups          785.670    812.298    0.967
+plain  lrt/distinct_arguments           757.329    767.661    0.987
+plain  atan/linear_branch                89.000     91.398    0.974
+plain  atan/quadratic                    99.195    103.127    0.962
+plain  atan/quartic                     133.096    137.407    0.969
+plain  atan/distinct_arguments          120.441    123.461    0.976
+vector lrt/quadratic                   1159.707    486.682    2.383
+vector lrt/quartic                     1298.430    566.108    2.294
+vector lrt/nonconstant_numerator       1382.732    602.688    2.294
+vector lrt/multiplicity_groups         2585.695    907.292    2.850
+vector lrt/distinct_arguments          1731.833    866.593    1.998
+vector atan/linear_branch                86.023    151.720    0.567
+vector atan/quadratic                   115.108    167.089    0.689
+vector atan/quartic                     241.011    199.147    1.210
+vector atan/distinct_arguments          209.974    183.775    1.143
+
+Interpretation limited to these inputs:
+Without vector, R3b is 1.4–4.0% slower than R2, an absolute ~2.4–26.6us.
+The five LRT medians stay within 3.4% of R2; this check does not remeasure CB5.
+With vector, LRT is 2.00–2.85x faster because its native route is selected again.
+Atan quartic and four distinct arguments are 1.21x and 1.14x faster. Two small
+Atan cases regress: linear 86.0->151.7us (~76%), quadratic115.1->167.1us
+(~45%). Their old fallback is short enough to be cheaper than authenticating
+and entering the native path. The cause is inferred from the selected routes; this is not an isolated timed
+breakdown of authentication versus kernel execution. The selector adds work, and native code does not
+make every input faster. No patch or hidden case exclusion was applied after
+these measurements. A future selector optimization would need its own separate
+correctness and release measurements. There is no global performance/parity
+claim.

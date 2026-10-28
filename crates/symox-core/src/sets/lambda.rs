@@ -100,7 +100,7 @@ pub fn validate_lambda_tree(e:&Expr)->Result<(),String>{
         if let Kind::Func(Func::MatrixElement(m)|Func::MatrixProxy(m)|Func::MatrixTrace(m)|Func::MatrixDeterminant(m),_)=e.kind(){
             let mut fields=Vec::new();m.scalar_fields(&mut fields);for scalar in fields{walk(&scalar,seen)?;}
         }
-        for arg in e.args(){walk(&arg,seen)?;}Ok(())
+        for arg in crate::inspection::scalar_children(e){walk(&arg,seen)?;}Ok(())
     }walk(e,&mut FxHashMap::default())
 }
 

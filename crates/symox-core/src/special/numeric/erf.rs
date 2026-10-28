@@ -5,7 +5,7 @@ use num_complex::Complex64 as C64;
 use super::dd::{consts, DD};
 use super::{cr, is_real_c, PI};
 
-const EULER: f64 = 0.577_215_664_901_532_9;
+const EULER: f64 = crate::expr::EULER_GAMMA_F64;
 
 fn two_over_sqrt_pi() -> DD {
     DD::new(2.0) / consts().sqrt_pi

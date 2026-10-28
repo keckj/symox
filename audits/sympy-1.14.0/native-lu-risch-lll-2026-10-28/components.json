@@ -1,0 +1,51 @@
+[
+  {
+    "label": "LU",
+    "manifest": "/home/keckj/.cache/symox-validation/native-ddm-lu-r7-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "3d776a3d8366d948b7522f830343de69f155655f5eae5ed4d0abafe2d739c12b",
+    "source": "/home/keckj/.cache/symox-validation/native-ddm-lu-r7-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "3d776a3d8366d948b7522f830343de69f155655f5eae5ed4d0abafe2d739c12b"
+  },
+  {
+    "label": "LLL",
+    "manifest": "/home/keckj/.cache/symox-validation/native-lll-cold-r7-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "2c93f09879c0c9d83e41f370d82302ba6db277c53253d1bffe06fec298abd239",
+    "source": "/home/keckj/.cache/symox-validation/native-lll-cold-r7-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "2c93f09879c0c9d83e41f370d82302ba6db277c53253d1bffe06fec298abd239"
+  },
+  {
+    "label": "Risch",
+    "manifest": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-r7-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "d3b39697444083506c21d6e3570f7485aa5e9d2edc900007ec4e79c78e774206",
+    "source": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-r7-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "d3b39697444083506c21d6e3570f7485aa5e9d2edc900007ec4e79c78e774206"
+  },
+  {
+    "label": "LLL-getters",
+    "manifest": "/home/keckj/.cache/symox-validation/native-lll-cold-getters-r9-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "29e93fe0541d8d73f82368af677b737cc8c765dde3d14a575bc2ec2243d13d8e",
+    "source": "/home/keckj/.cache/symox-validation/native-lll-cold-getters-r9-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "29e93fe0541d8d73f82368af677b737cc8c765dde3d14a575bc2ec2243d13d8e"
+  },
+  {
+    "label": "Risch-reload",
+    "manifest": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-followup-r7-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "cc7f18eb444cb127aae3ccb9d21d3e5fe6cd5df9fbaab99682ec92c4e8a5a5e6",
+    "source": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-followup-r7-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "cc7f18eb444cb127aae3ccb9d21d3e5fe6cd5df9fbaab99682ec92c4e8a5a5e6"
+  },
+  {
+    "label": "Risch-serializer",
+    "manifest": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-serializer-r7-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "f0b99aec51ee92472b336abc7418639c7a5f8f80e02324e8c00d2695c21e0084",
+    "source": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-serializer-r7-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "f0b99aec51ee92472b336abc7418639c7a5f8f80e02324e8c00d2695c21e0084"
+  },
+  {
+    "label": "Risch-delegate",
+    "manifest": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-serializer-delegate-r7-20261028/proof/freeze-manifest.json",
+    "manifest_sha256": "ba5cc28d2045806c18521146f1298d3a5fb63d1bbc1e327671d3a803f677b6cb",
+    "source": "/home/keckj/.cache/symox-validation/native-risch-polynomial-reduce-serializer-delegate-r7-20261028/proof/frozen-source",
+    "manifest_sha256_at_archive": "ba5cc28d2045806c18521146f1298d3a5fb63d1bbc1e327671d3a803f677b6cb"
+  }
+]

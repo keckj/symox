@@ -7,6 +7,7 @@ use super::int::{Coeff, Field, Rat};
 use super::ratfunc::{Scope, RF};
 use crate::Expr;
 use std::sync::Arc;
+mod complex_rounding;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ExactDomain {
@@ -105,7 +106,7 @@ impl ExactDomain {
         ring: bool,
         parameters: Vec<Expr>,
         order: &str,
-    ) -> PResult<Self> {
+    ) -> PResult<Self> {super::mpoly::checked_operation(||{
         if parameters.is_empty() {
             return Err(failure(
                 "a polynomial ring or fraction field needs generators",
@@ -127,10 +128,10 @@ impl ExactDomain {
             parameters,
             order: order.into(),
         })
-    }
+    })}
     /// The reference `ground.poly_ring(*parameters)` (`ring`) or
     /// `ground.frac_field(*parameters)`.
-    pub fn composite(ground: &Self, ring: bool, parameters: Vec<Expr>, order: &str) -> PResult<Self> {
+    pub fn composite(ground: &Self, ring: bool, parameters: Vec<Expr>, order: &str) -> PResult<Self> {super::mpoly::checked_operation(||{
         match ground {
             Self::ZZ | Self::QQ => return Self::functions(matches!(ground, Self::ZZ), ring, parameters, order),
             Self::Functions { .. } | Self::Composite { .. } | Self::Gaussian { .. } | Self::Algebraic(_) | Self::RR | Self::Inexact { .. } => {}
@@ -146,7 +147,7 @@ impl ExactDomain {
             return Err(PolyError::Generator("polynomial ring and it's ground domain share generators".into()));
         }
         Ok(Self::Composite { ground: Arc::new(ground.clone()), ring, parameters, order })
-    }
+    })}
     /// The variables of the flattened element representation: the
     /// generators of every composite level, outermost first.
     pub fn flat_parameters(&self) -> Vec<Expr> {
@@ -248,10 +249,10 @@ impl ExactDomain {
             _ => false,
         }
     }
-    pub fn finite(prime: u64) -> PResult<Self> {
+    pub fn finite(prime: u64) -> PResult<Self> {super::mpoly::checked_operation(||{
         Fp::from_rat(&Rat::zero(), prime)?;
         Ok(Self::GF(prime))
-    }
+    })}
     pub fn is_field(&self) -> bool {
         !matches!(self, Self::ZZ | Self::Functions { ring: true, .. } | Self::Gaussian {integral:true} | Self::Composite { ring: true, .. })
     }
@@ -286,7 +287,7 @@ impl ExactDomain {
             _ => self.clone(),
         }
     }
-    pub fn ring(&self) -> PResult<Self> {
+    pub fn ring(&self) -> PResult<Self> {super::mpoly::checked_operation(||{
         match self {
             Self::ZZ | Self::QQ => Ok(Self::ZZ),
             Self::Gaussian {..} => Ok(Self::Gaussian {integral:true}),
@@ -312,7 +313,7 @@ impl ExactDomain {
                 "this field has no implemented associated ring".into(),
             )),
         }
-    }
+    })}
     /// The Gaussian ground of a fraction field directly over `ZZ_I` or
     /// `QQ_I` (`ZZ_I(y)`, `QQ_I(N,pi)`).
     pub fn gaussian_fraction_ground(&self) -> Option<super::gaussian_ground::GaussianGround> {
@@ -327,7 +328,7 @@ impl ExactDomain {
         let symbols = parameters.iter().map(crate::printer::to_str).collect::<Vec<_>>().join(", ");
         format!("Rational function field in {symbols} over {ground} with {order} order")
     }
-    pub fn convert(&self, e: &Expr) -> PResult<DomainElement> {
+    pub fn convert(&self, e: &Expr) -> PResult<DomainElement> {super::mpoly::checked_operation(||{
         let value=match self {
             Self::Composite { .. } if self.gaussian_fraction_ground().is_some() => {
                 // FracField._rebuild_expr: an integer power of a
@@ -419,7 +420,7 @@ impl ExactDomain {
             domain: self.clone(),
             value,
         })
-    }
+    })}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ElementValue {
@@ -535,7 +536,7 @@ impl DomainElement {
     }
     /// Exact multivariate polynomial view of a ring element. Rational function
     /// denominators are constant in QQ[parameters], and one in ZZ[parameters].
-    pub fn ring_polynomial(&self) -> PResult<super::MPoly<Rat>> {
+    pub fn ring_polynomial(&self) -> PResult<super::MPoly<Rat>> {super::mpoly::checked_operation(||{
         let (
             ExactDomain::Functions {
                 integral,
@@ -558,8 +559,8 @@ impl DomainElement {
             ));
         }
         Ok(r.n.to_rat().scale(&Rat::new(super::Int::one(), r.d.lc())))
-    }
-    pub fn div_rem(&self, other: &Self) -> PResult<(Self, Self)> {
+    })}
+    pub fn div_rem(&self, other: &Self) -> PResult<(Self, Self)> {super::mpoly::checked_operation(||{
         if self.inexact_op(other, "+").is_some() {
             if other.is_zero() {
                 return Err(PolyError::Unsupported("division by zero".into()));
@@ -641,8 +642,8 @@ impl DomainElement {
         Err(PolyError::Unsupported(
             "division is not implemented for this coefficient domain".into(),
         ))
-    }
-    pub fn exquo(&self, other: &Self) -> PResult<Self> {
+    })}
+    pub fn exquo(&self, other: &Self) -> PResult<Self> {super::mpoly::checked_operation(||{
         let (q, r) = self.div_rem(other)?;
         if !r.is_zero() {
             return Err(PolyError::ExactQuotientFailed(
@@ -650,8 +651,8 @@ impl DomainElement {
             ));
         }
         Ok(q)
-    }
-    pub fn gcdex(&self, other: &Self) -> PResult<(Self, Self, Self)> {
+    })}
+    pub fn gcdex(&self, other: &Self) -> PResult<(Self, Self, Self)> {super::mpoly::checked_operation(||{
         if !self.compatible_embedding(other) {
             return Err(failure("incompatible coefficient domains"));
         }
@@ -694,8 +695,8 @@ impl DomainElement {
         } else {
             Ok((g.binary(self, '/')?, zero, g))
         }
-    }
-    pub fn binary(&self, other: &Self, op: char) -> PResult<Self> {
+    })}
+    pub fn binary(&self, other: &Self, op: char) -> PResult<Self> {super::mpoly::checked_operation(||{
         if let Some(r) = self.inexact_op(other, &op.to_string()) {
             return r;
         }
@@ -765,6 +766,11 @@ impl DomainElement {
             }
             (ElementValue::Expression(a),ElementValue::Expression(b)) |
             (ElementValue::Inexact(a),ElementValue::Inexact(b)) => {
+                if matches!(op,'*'|'/') && self.domain.is_complex() {
+                    if let Some(value)=complex_rounding::binary(a,b,op,self.domain.inexact_precision().unwrap()) {
+                        return Ok(Self{domain:self.domain.clone(),value:ElementValue::Inexact(value)});
+                    }
+                }
                 let expression=match op {
                     '+'=>crate::ops::add2(a,b), '-'=>crate::ops::sub(a,b),
                     '*'=>crate::ops::mul2(a,b), '/'=>crate::ops::div(a,b),
@@ -799,8 +805,8 @@ impl DomainElement {
             _ => {}
         }
         Ok(result)
-    }
-    pub fn pow(&self, exponent: i64) -> PResult<Self> {
+    })}
+    pub fn pow(&self, exponent: i64) -> PResult<Self> {super::mpoly::checked_operation(||{
         if let ElementValue::GaussianFraction(p, q) = &self.value {
             // FracElement.__pow__ uses raw_new: no cancellation, and a
             // negative power swaps the sides without normalizing the unit.
@@ -833,7 +839,7 @@ impl DomainElement {
         } else {
             Ok(result)
         }
-    }
+    })}
 }
 
 impl DomainElement {
@@ -842,25 +848,25 @@ impl DomainElement {
         let ElementValue::Algebraic(a)=&self.value else {return None;};
         Some((a.coefficients.first().cloned().unwrap_or_else(Rat::zero),a.coefficients.get(1).cloned().unwrap_or_else(Rat::zero)))
     }
-    pub fn gaussian_canonical_unit(&self)->PResult<Self> {
+    pub fn gaussian_canonical_unit(&self)->PResult<Self> {super::mpoly::checked_operation(||{
         let (x,y)=self.gaussian_parts().ok_or_else(||failure("expected a Gaussian element"))?;
         let quadrant=if !y.is_zero()&&!y.is_negative() {if !x.is_zero()&&!x.is_negative(){0}else{1}}
             else if y.is_negative(){if x.is_negative(){2}else{3}}
             else if x.is_negative(){2}else{0};
         self.domain.convert(&[Expr::one(),crate::ops::neg(&Expr::i()),Expr::int(-1),Expr::i()][quadrant])
-    }
-    pub fn gaussian_fraction(&self)->PResult<(Self,Self)> {
+    })}
+    pub fn gaussian_fraction(&self)->PResult<(Self,Self)> {super::mpoly::checked_operation(||{
         let (x,y)=self.gaussian_parts().ok_or_else(||failure("expected a Gaussian element"))?;
         let d=x.d.lcm(&y.d);
         let numerator=crate::ops::mul2(&self.as_expr(),&Expr::num(d.to_number()));
         let ring=ExactDomain::Gaussian{integral:true};
         Ok((ring.convert(&crate::expand::expand(&numerator))?,ring.convert(&Expr::num(d.to_number()))?))
-    }
+    })}
 }
 
 /// Recover the stored real value exactly, optionally limiting its denominator
 /// by the real-field convention. Continued fractions run on native big ints.
-pub fn rationalize_real(e:&Expr, precision:u32, limit:bool)->PResult<Rat> {
+pub fn rationalize_real(e:&Expr, precision:u32, limit:bool)->PResult<Rat> {super::mpoly::checked_operation(||{
     use num_bigint::{BigInt,Sign};
     use num_rational::BigRational;
     let value=crate::evalf_mp::eval_mp(e,precision).ok_or_else(||failure("expected a finite numerical value"))?;
@@ -899,7 +905,7 @@ pub fn rationalize_real(e:&Expr, precision:u32, limit:bool)->PResult<Rat> {
         best
     };
     Ok(Rat::from_number(&crate::number::Number::from_ratio(result)).unwrap())
-}
+})}
 
 impl DomainElement {
     /// The operands of an all-ring composite over ZZ/QQ in its flat ring.
@@ -938,7 +944,7 @@ impl DomainElement {
         }
         Ok(Self { domain: self.domain.clone(), value })
     }
-    pub fn gcd(&self, other: &Self) -> PResult<Self> {
+    pub fn gcd(&self, other: &Self) -> PResult<Self> {super::mpoly::checked_operation(||{
         if let Some(r) = self.inexact_op(other, "gcd") {
             return r;
         }
@@ -1085,12 +1091,12 @@ impl DomainElement {
             domain: self.domain.clone(),
             value,
         })
-    }
+    })}
     fn wrap_flat_field(domain: &ExactDomain) -> ExactDomain {
         let Some(CompositeBase::Rational { integral }) = domain.composite_base() else { unreachable!() };
         ExactDomain::Functions { integral, ring: false, parameters: domain.flat_parameters(), order: "lex".into() }
     }
-    pub fn lcm(&self, other: &Self) -> PResult<Self> {
+    pub fn lcm(&self, other: &Self) -> PResult<Self> {super::mpoly::checked_operation(||{
         if let Some(r) = self.inexact_op(other, "lcm") {
             return r;
         }
@@ -1216,7 +1222,7 @@ impl DomainElement {
             return self.domain.convert(&Expr::one());
         }
         self.binary(other, '*')?.binary(&self.gcd(other)?, '/')
-    }
+    })}
 }
 
 #[cfg(test)]

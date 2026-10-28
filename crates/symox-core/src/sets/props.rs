@@ -172,7 +172,14 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
             }
         }
         SetOp::ConditionSet => {
-            let c = crate::subs::subs1(&a[1], &a[0], x);
+            let c = if crate::special::tuple_items(&a[0]).is_some() {
+                let Some(values) = crate::special::tuple_items(x) else {
+                    return if x.is_symbol() { unevaluated() } else { f() };
+                };
+                let Ok(predicate) = lambda_checked(&a[0], &a[1]) else { return unevaluated(); };
+                let Ok(condition) = lambda_apply(&predicate, values) else { return f(); };
+                condition
+            } else { crate::subs::subs1(&a[1], &a[0], x) };
             and(vec![c, contains(&a[2], x)])
         }
         _ => unevaluated(),

@@ -1,0 +1,463 @@
+{
+  "status": "Integrated for fresh combined RELEASE/full gate; not yet accepted",
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "4df626845d69241dcb3b0503b60454fc1ff8be00e78ee5ed45ee5b51f3ff0b3e",
+    "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+    "working_code_diff_sha256": "da52459dee5010d8bdf96415ef04a2c678307dcdfe55a2710723324937a7de24",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "files": [
+    {
+      "path": "crates/symox-core/src/integrate.rs",
+      "base": "066c0473bf2099a5699a1f5893bc8a5fa5a7fdc1a65e318d86f13e37c37646bf",
+      "candidate": "2ce76160b32901e8bcbad7299a36147f50937d5600254f4342a5225cddb16d9d",
+      "component": "risch"
+    },
+    {
+      "path": "crates/symox-core/src/integrate/risch_splitfactor.rs",
+      "base": null,
+      "candidate": "06ee3a31ba3afd8deab72e78de2c35fd33eabc3c8abc8a5d301393e97b40a618",
+      "component": "risch"
+    },
+    {
+      "path": "crates/symox-core/src/poly/hnf_modular.rs",
+      "base": null,
+      "candidate": "e38dd80458e0e3a45022a02ff0c0a2dc427f4e12e0cb25ccf1a4a5c79f95165e",
+      "component": "hnf"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "base": "4675647687fe9f771896fd459a17c0e0e51e613da2849807b1fbdc9c67590066",
+      "candidate": "66ffe97786bef0a968930881c86acd0e6ecacc2e7f365f923f814cb356258784",
+      "component": "hnf"
+    },
+    {
+      "path": "crates/symox-py/src/lib.rs",
+      "base": "a56f0c4c9be7ec0d881150b5ad1e5a234ce8566d4c1eba5eed5c8bb8eba4fdd7",
+      "candidate": "8b8f9716203a9b60dccdcdec403bedc9396d4866c7a1badfc2eb8fbd5f3b463f",
+      "component": "risch"
+    },
+    {
+      "path": "crates/symox-py/src/lll_cold_code_specs.rs",
+      "base": null,
+      "candidate": "414f8f47eca9830ff775c2182fa6fe7a1922326621f11ce3fc2a951746758460",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/lll_cold_contract.py",
+      "base": null,
+      "candidate": "992539d60afac8979736370e5260d6436f5fdd55e5806bd20944f602a9d20e07",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/lll_cold_getters.rs",
+      "base": null,
+      "candidate": "1464b82b6316c1ec3b9f13f81733b80ead4799fd503062e9b6dc72d100ea7d7b",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/lll_cold_graph.rs",
+      "base": null,
+      "candidate": "6d715719e6c51663af9500f19ff9a4ec069ccd210188cb0a8d6dd35fe65e913d",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/lll_cold_protocol.rs",
+      "base": null,
+      "candidate": "0b8b007fc5e9ed8ee3ece54822072edb0d4c423194222408c7f48099e55cd92d",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/lll_cold_reference.rs",
+      "base": null,
+      "candidate": "8f72888a74abc61b06eb6f1c381495cd2dcc7dbfcdc941f2a46808a19dbafe7a",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base": "fbd09131d2b7d57276b75250fbab54ebec08bebfce9f3ebfc28869a43bbb395d",
+      "candidate": "8ea8e40279bacacafcaf539e4debf204ed1257faf4c74a5a5ef8f5daaee20956",
+      "component": "hnf"
+    },
+    {
+      "path": "crates/symox-py/src/poly_function_metadata.rs",
+      "base": "d6c11bb938a4dce4cd65b3482cc19e5d756cb6da6992cd1db0bebd39573c124a",
+      "candidate": "1f31bbbf3cc75728135e20f01e14a52da8da429bee5788d51ec40c804599dfbc",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/poly_hnf_modular.rs",
+      "base": null,
+      "candidate": "d2a62df0f04ef049ed90ababc83c3e294b73173e22f7492fae8da1d4093e9dfe",
+      "component": "hnf"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lll.rs",
+      "base": "ca68ec57acc9b584616a420ba7f81d634f01b1883054d79e60cfad2dc0b1e115",
+      "candidate": "73ea669b2799cfdf1972f891409283a2ee78ee2e9209c54f59bc056016fe25bf",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lll_first_call.rs",
+      "base": null,
+      "candidate": "ff5124a4c5daa3cf1173e019a60762a624bcc01e0c3cea8aa4d2246884c5ebcd",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/poly_lll_proof_support.rs",
+      "base": null,
+      "candidate": "376ee0d0663d8d719ed3128331df712fd50406c3ae76c5bcbf1769754c0bbcbd",
+      "component": "lll"
+    },
+    {
+      "path": "crates/symox-py/src/risch_splitfactor.rs",
+      "base": null,
+      "candidate": "797899fde3a7a1592703317ed762a63c856317c491ad48e5e27b9d593c9f2b0d",
+      "component": "risch"
+    },
+    {
+      "path": "python/symox/__init__.py",
+      "base": "4b80c6a467145cb5fdba0dd4e94028901e7b63626552dd411fbd0bf5ff97762d",
+      "candidate": "57d62c8f964eba52b0bcb035c3686d3126f960e7f6b5109135374a4e8c4b540d",
+      "component": "risch"
+    },
+    {
+      "path": "python/symox/integrals/_risch_native.py",
+      "base": "3164583604a8cafe125a296c10985800830ba35d61a9ee2257383a2c161cc9cc",
+      "candidate": "3d941f5654da59c7049c0e897a4da2fe5613dfa3b69e55e0a860424a356bbd58",
+      "component": "risch"
+    },
+    {
+      "path": "python/symox/integrals/_risch_splitfactor_native.py",
+      "base": null,
+      "candidate": "76a4113d90645830964a4814027df5526586c5efc82ae13804e48519577085a3",
+      "component": "risch"
+    },
+    {
+      "path": "python/symox/integrals/risch.py",
+      "base": "0bdd26a9751309c27d58d4c6273f880cdc12674c07922b7582db0732f2c9e987",
+      "candidate": "c213c00752645252fa4a8943d73b9351ab910a555a5983341a8e3bb96d9b6184",
+      "component": "risch"
+    },
+    {
+      "path": "python/symox/polys/matrices/_hnf_modular_native.py",
+      "base": null,
+      "candidate": "d2ed80a37b9c56e2b0bf4f12848cc0f35c6c0698ea1207fd72ef5286abac43ee",
+      "component": "hnf"
+    },
+    {
+      "path": "python/symox/polys/matrices/_hnf_native.py",
+      "base": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c",
+      "candidate": "57dae041970515bbbc0720b980b054936ee77ab16aff349cdff6985ff5a6ad36",
+      "component": "hnf"
+    },
+    {
+      "path": "python/symox/polys/matrices/_lll_native.py",
+      "base": "77f44aa9c787af80e772f5f2b72328273955b908d989a4cc73600ee51f47ec4d",
+      "candidate": "621f5d8ef74970331b9bae021742bb72f875e475d38805bc466630986f573fb1",
+      "component": "lll"
+    },
+    {
+      "path": "python/symox/polys/matrices/normalforms.py",
+      "base": "60dd243702916a25afc70bfe4104cbe45c3f8e08f2c2dbad300baf11b033f44c",
+      "candidate": "2c32f3982400071c8ad7038d0ea99f7d49a35e611b6516746d32a479b237619d",
+      "component": "hnf"
+    },
+    {
+      "path": "tests/data/native_hnf_modular.jsonl",
+      "base": null,
+      "candidate": "dbd36287dfc4f91f60cc4fc417dc8d55ed90be48c2d308b8171e2e77dc98aae0",
+      "component": "hnf"
+    },
+    {
+      "path": "tests/test_native_hnf_code_authority.py",
+      "base": null,
+      "candidate": "97dfbf50c2a3d17bfd4b28b1a625f96022646eee5fa4212a649c6f56f6f3d430",
+      "component": "hnf"
+    },
+    {
+      "path": "tests/test_native_hnf_function_bootstrap.py",
+      "base": null,
+      "candidate": "52276b27eef6f33334cd4d11bcd8eeddd9840a7ab5654b2a4562e54d6e0d893c",
+      "component": "hnf"
+    },
+    {
+      "path": "tests/test_native_hnf_modular.py",
+      "base": null,
+      "candidate": "8bed418cbcb246c63b03069e2edb798754dcedef19fe7c21c6a5b3350ed02e8e",
+      "component": "hnf"
+    },
+    {
+      "path": "tests/test_native_lll_cold_cache.py",
+      "base": "f7abf87c91809c9627c18b48037dff9501d76980b562361958ca250f5901bb60",
+      "candidate": "b10e2c31c6908771235538c3c2c2aaf962bdf00b60e748422290162a97cc47c6",
+      "component": "lll"
+    },
+    {
+      "path": "tests/test_native_lll_first_call.py",
+      "base": null,
+      "candidate": "43437ef62e77e07fcfcf752481f641568ad71b1d71ad20501baf9f9d0fbd80be",
+      "component": "lll"
+    },
+    {
+      "path": "tests/test_native_risch_splitfactor.py",
+      "base": null,
+      "candidate": "7b9b59531029725d1360a9cc111f62c1a37670a300bb1aeaa4ef3a2a89cfd3da",
+      "component": "risch"
+    }
+  ],
+  "components": {
+    "risch": {
+      "verification": "/home/keckj/.cache/symox-validation/native-math-ports-r13-20261028/risch-independent-verification.json",
+      "verification_sha256": "76423d5be3fa8ba6973d8a91ec45f1e36dfacb1b2c37c40ac8b34922fef4b190",
+      "index": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r13-r12base-20261028/proof/delivery-index.json",
+      "index_sha256": "0b3294f395e0d1f9a38638a7b134e4498d2083eaa359139a26b3771628a17473",
+      "sources": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r13-r12base-20261028/proof/candidate-source",
+      "files": [
+        {
+          "path": "crates/symox-core/src/integrate.rs",
+          "base_sha256": "066c0473bf2099a5699a1f5893bc8a5fa5a7fdc1a65e318d86f13e37c37646bf",
+          "final_sha256": "2ce76160b32901e8bcbad7299a36147f50937d5600254f4342a5225cddb16d9d"
+        },
+        {
+          "path": "crates/symox-core/src/integrate/risch_splitfactor.rs",
+          "base_sha256": null,
+          "final_sha256": "06ee3a31ba3afd8deab72e78de2c35fd33eabc3c8abc8a5d301393e97b40a618"
+        },
+        {
+          "path": "crates/symox-py/src/lib.rs",
+          "base_sha256": "a56f0c4c9be7ec0d881150b5ad1e5a234ce8566d4c1eba5eed5c8bb8eba4fdd7",
+          "final_sha256": "8b8f9716203a9b60dccdcdec403bedc9396d4866c7a1badfc2eb8fbd5f3b463f"
+        },
+        {
+          "path": "crates/symox-py/src/risch_splitfactor.rs",
+          "base_sha256": null,
+          "final_sha256": "797899fde3a7a1592703317ed762a63c856317c491ad48e5e27b9d593c9f2b0d"
+        },
+        {
+          "path": "python/symox/__init__.py",
+          "base_sha256": "4b80c6a467145cb5fdba0dd4e94028901e7b63626552dd411fbd0bf5ff97762d",
+          "final_sha256": "57d62c8f964eba52b0bcb035c3686d3126f960e7f6b5109135374a4e8c4b540d"
+        },
+        {
+          "path": "python/symox/integrals/risch.py",
+          "base_sha256": "0bdd26a9751309c27d58d4c6273f880cdc12674c07922b7582db0732f2c9e987",
+          "final_sha256": "c213c00752645252fa4a8943d73b9351ab910a555a5983341a8e3bb96d9b6184"
+        },
+        {
+          "path": "python/symox/integrals/_risch_native.py",
+          "base_sha256": "3164583604a8cafe125a296c10985800830ba35d61a9ee2257383a2c161cc9cc",
+          "final_sha256": "3d941f5654da59c7049c0e897a4da2fe5613dfa3b69e55e0a860424a356bbd58"
+        },
+        {
+          "path": "python/symox/integrals/_risch_splitfactor_native.py",
+          "base_sha256": null,
+          "final_sha256": "76a4113d90645830964a4814027df5526586c5efc82ae13804e48519577085a3"
+        },
+        {
+          "path": "tests/test_native_risch_splitfactor.py",
+          "base_sha256": null,
+          "final_sha256": "7b9b59531029725d1360a9cc111f62c1a37670a300bb1aeaa4ef3a2a89cfd3da"
+        }
+      ],
+      "archive": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r13-r12base-20261028/delivery-proof.tar.gz",
+      "archive_sha256": "7c67a95bb0f6dc0116ae0b7c3a1867920cfafc67703d37bbc865674188c3924f",
+      "member_map": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r13-r12base-20261028/delivery-proof-files.json",
+      "manifest": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r13-r12base-20261028/proof/freeze-manifest.json",
+      "patch": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r13-r12base-20261028/proof/candidate.patch",
+      "report": "/home/keckj/.cache/symox-validation/native-risch-splitfactor-r13-r12base-20261028/proof/REPORT.md"
+    },
+    "lll": {
+      "verification": "/home/keckj/.cache/symox-validation/native-math-ports-r13-20261028/lll-integration-independent-verification.json",
+      "verification_sha256": "a24292b1034e0345d9dbde73728a780837f174769c178d9b2305c655e699c847",
+      "index": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/delivery-index-GO.json",
+      "index_sha256": "3014c7082930e769a76980e9fb4a72db1989301efd839221c17b53a6c5c98129",
+      "sources": "/home/keckj/.cache/symox-validation/native-math-ports-r13-20261028/lll-integration-source",
+      "files": [
+        {
+          "path": "crates/symox-py/src/poly_lll.rs",
+          "base_sha256": "ca68ec57acc9b584616a420ba7f81d634f01b1883054d79e60cfad2dc0b1e115",
+          "final_sha256": "73ea669b2799cfdf1972f891409283a2ee78ee2e9209c54f59bc056016fe25bf"
+        },
+        {
+          "path": "crates/symox-py/src/poly_function_metadata.rs",
+          "base_sha256": "d6c11bb938a4dce4cd65b3482cc19e5d756cb6da6992cd1db0bebd39573c124a",
+          "final_sha256": "1f31bbbf3cc75728135e20f01e14a52da8da429bee5788d51ec40c804599dfbc"
+        },
+        {
+          "path": "crates/symox-py/src/poly_lll_first_call.rs",
+          "base_sha256": null,
+          "final_sha256": "ff5124a4c5daa3cf1173e019a60762a624bcc01e0c3cea8aa4d2246884c5ebcd"
+        },
+        {
+          "path": "crates/symox-py/src/poly_lll_proof_support.rs",
+          "base_sha256": null,
+          "final_sha256": "376ee0d0663d8d719ed3128331df712fd50406c3ae76c5bcbf1769754c0bbcbd"
+        },
+        {
+          "path": "crates/symox-py/src/lll_cold_getters.rs",
+          "base_sha256": null,
+          "final_sha256": "1464b82b6316c1ec3b9f13f81733b80ead4799fd503062e9b6dc72d100ea7d7b"
+        },
+        {
+          "path": "crates/symox-py/src/lll_cold_reference.rs",
+          "base_sha256": null,
+          "final_sha256": "8f72888a74abc61b06eb6f1c381495cd2dcc7dbfcdc941f2a46808a19dbafe7a"
+        },
+        {
+          "path": "crates/symox-py/src/lll_cold_code_specs.rs",
+          "base_sha256": null,
+          "final_sha256": "414f8f47eca9830ff775c2182fa6fe7a1922326621f11ce3fc2a951746758460"
+        },
+        {
+          "path": "crates/symox-py/src/lll_cold_contract.py",
+          "base_sha256": null,
+          "final_sha256": "992539d60afac8979736370e5260d6436f5fdd55e5806bd20944f602a9d20e07"
+        },
+        {
+          "path": "crates/symox-py/src/lll_cold_graph.rs",
+          "base_sha256": null,
+          "final_sha256": "6d715719e6c51663af9500f19ff9a4ec069ccd210188cb0a8d6dd35fe65e913d"
+        },
+        {
+          "path": "crates/symox-py/src/lll_cold_protocol.rs",
+          "base_sha256": null,
+          "final_sha256": "0b8b007fc5e9ed8ee3ece54822072edb0d4c423194222408c7f48099e55cd92d"
+        },
+        {
+          "path": "python/symox/polys/matrices/_lll_native.py",
+          "base_sha256": "77f44aa9c787af80e772f5f2b72328273955b908d989a4cc73600ee51f47ec4d",
+          "final_sha256": "621f5d8ef74970331b9bae021742bb72f875e475d38805bc466630986f573fb1"
+        },
+        {
+          "path": "tests/test_native_lll_first_call.py",
+          "base_sha256": null,
+          "final_sha256": "43437ef62e77e07fcfcf752481f641568ad71b1d71ad20501baf9f9d0fbd80be"
+        },
+        {
+          "path": "tests/test_native_lll_cold_cache.py",
+          "base_sha256": "f7abf87c91809c9627c18b48037dff9501d76980b562361958ca250f5901bb60",
+          "final_sha256": "b10e2c31c6908771235538c3c2c2aaf962bdf00b60e748422290162a97cc47c6",
+          "private_go_final_sha256": "281cffc3ddd34eafdb94697f867c451402a0662f59d2e055c6fa03ead8515bc2"
+        }
+      ],
+      "archive": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/native-lll-first-call-r12-20261028.tar.gz",
+      "archive_sha256": "5ff84d8d8d172a09d897e6d29e12fcfc5a222aa1efb70426bb203b68d0286e57",
+      "member_map": "/home/keckj/.cache/symox-validation/native-math-ports-r13-20261028/lll-archive-files.json",
+      "manifest": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/delivery/source-manifest-PRIVATE.json",
+      "patch": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/delivery/candidate.patch",
+      "node_identity_followup": {
+        "status": "GO",
+        "scope": "ordered Python-test-only overlay; restore three original node IDs; no assertion/code/Rust change",
+        "primary_index_sha256": "3014c7082930e769a76980e9fb4a72db1989301efd839221c17b53a6c5c98129",
+        "primary_source_manifest_sha256": "4add7c0a2460e7afe9160e05146320af26d649bbd37b74ab2996426cc5361de1",
+        "files": {
+          "tests/test_native_lll_cold_cache.py": {
+            "base_sha256": "281cffc3ddd34eafdb94697f867c451402a0662f59d2e055c6fa03ead8515bc2",
+            "final_sha256": "b10e2c31c6908771235538c3c2c2aaf962bdf00b60e748422290162a97cc47c6"
+          }
+        },
+        "candidate_patch": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-nodeids-followup-20261028/proof/candidate.patch",
+        "candidate_patch_sha256": "53922830e22ab61e03f3422d3c9f69b12086702ab1d32ab06b673efdeffe4d0a",
+        "targeted": {
+          "passed": 3,
+          "log": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-nodeids-followup-20261028/proof/targeted-three.log",
+          "log_sha256": "20362a81bf4105ac9b50b20bf0a2d76c76b81572886928ac3f09de5e8026048a",
+          "command": [
+            "python",
+            "-m",
+            "pytest",
+            "-q",
+            "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-nodeids-followup-20261028/tests/test_native_lll_cold_cache.py::test_fresh_public_cold_path_does_not_scan_heavy_protocol_or_warm_cache"
+          ]
+        },
+        "debug_native_sha256": "82df3cab10a0598d5215a165b29772f0b504cfc1068724dde22fb8111f4146e0",
+        "primary_owned_files_unchanged": 13,
+        "rust_or_build_changed": false,
+        "source_root": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-nodeids-followup-20261028",
+        "index": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-nodeids-followup-20261028/proof/delivery-index-GO.json"
+      },
+      "report": "/home/keckj/.cache/symox-validation/native-lll-first-call-r12-20261028/proof/delivery/REPORT.md"
+    },
+    "hnf": {
+      "verification": "/home/keckj/.cache/symox-validation/native-math-ports-r13-20261028/hnf-independent-verification.json",
+      "verification_sha256": "b3c541fa0e4aadded1b9e7302723baa0b88962a2a31ab0c180cb18c25dc1a8b4",
+      "index": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1-map.json",
+      "index_sha256": "01c2772001a6af03532db2bf82bb6a74eb276d96f1ecbc22ea2deadc1d1438c3",
+      "sources": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/source-r1",
+      "files": [
+        {
+          "path": "crates/symox-core/src/poly/hnf_modular.rs",
+          "base_sha256": null,
+          "final_sha256": "e38dd80458e0e3a45022a02ff0c0a2dc427f4e12e0cb25ccf1a4a5c79f95165e"
+        },
+        {
+          "path": "crates/symox-core/src/poly/mod.rs",
+          "base_sha256": "4675647687fe9f771896fd459a17c0e0e51e613da2849807b1fbdc9c67590066",
+          "final_sha256": "66ffe97786bef0a968930881c86acd0e6ecacc2e7f365f923f814cb356258784"
+        },
+        {
+          "path": "crates/symox-py/src/poly_hnf_modular.rs",
+          "base_sha256": null,
+          "final_sha256": "d2a62df0f04ef049ed90ababc83c3e294b73173e22f7492fae8da1d4093e9dfe"
+        },
+        {
+          "path": "crates/symox-py/src/poly_ddm.rs",
+          "base_sha256": "fbd09131d2b7d57276b75250fbab54ebec08bebfce9f3ebfc28869a43bbb395d",
+          "final_sha256": "8ea8e40279bacacafcaf539e4debf204ed1257faf4c74a5a5ef8f5daaee20956"
+        },
+        {
+          "path": "python/symox/polys/matrices/_hnf_modular_native.py",
+          "base_sha256": null,
+          "final_sha256": "d2ed80a37b9c56e2b0bf4f12848cc0f35c6c0698ea1207fd72ef5286abac43ee"
+        },
+        {
+          "path": "python/symox/polys/matrices/_hnf_native.py",
+          "base_sha256": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c",
+          "final_sha256": "57dae041970515bbbc0720b980b054936ee77ab16aff349cdff6985ff5a6ad36"
+        },
+        {
+          "path": "python/symox/polys/matrices/normalforms.py",
+          "base_sha256": "60dd243702916a25afc70bfe4104cbe45c3f8e08f2c2dbad300baf11b033f44c",
+          "final_sha256": "2c32f3982400071c8ad7038d0ea99f7d49a35e611b6516746d32a479b237619d"
+        },
+        {
+          "path": "tests/test_native_hnf_modular.py",
+          "base_sha256": null,
+          "final_sha256": "8bed418cbcb246c63b03069e2edb798754dcedef19fe7c21c6a5b3350ed02e8e"
+        },
+        {
+          "path": "tests/test_native_hnf_function_bootstrap.py",
+          "base_sha256": null,
+          "final_sha256": "52276b27eef6f33334cd4d11bcd8eeddd9840a7ab5654b2a4562e54d6e0d893c"
+        },
+        {
+          "path": "tests/data/native_hnf_modular.jsonl",
+          "base_sha256": null,
+          "final_sha256": "dbd36287dfc4f91f60cc4fc417dc8d55ed90be48c2d308b8171e2e77dc98aae0"
+        },
+        {
+          "path": "tests/test_native_hnf_code_authority.py",
+          "base_sha256": null,
+          "final_sha256": "97dfbf50c2a3d17bfd4b28b1a625f96022646eee5fa4212a649c6f56f6f3d430"
+        }
+      ],
+      "archive": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1-proof.tar.gz",
+      "archive_sha256": "1b9e40616375a42521bb63a70dbcab949a847be7e5b7ee7be13e7e07a62bfd85",
+      "member_map": "/home/keckj/.cache/symox-validation/native-math-ports-r13-20261028/hnf-archive-files.json",
+      "manifest": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/freeze-manifest-r1.json",
+      "patch": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/candidate-r1.patch",
+      "report": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/delivery-r1/README.md"
+    }
+  },
+  "expected_native_inputs": 364,
+  "expected_rust_units": 762,
+  "cumulative_patch_sha256": "5b932f4731232eb04b0c0d487589147a039b4ffaba59b20f6b22fe8fc31205d0",
+  "global_algorithmic_parity_certified": false
+}

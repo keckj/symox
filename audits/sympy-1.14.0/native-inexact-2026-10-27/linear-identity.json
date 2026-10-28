@@ -1,0 +1,39 @@
+{
+  "base_sha256": "a13553bd4efa8b6079a7e62e29b08a66c7df425483bc7b1983c6c72e53eb9deb",
+  "final_sha256": "62d8dbd2086febd4708dca0fd8d18baf1c4809045feff11561ef4616621541c5",
+  "patch_sha256": "1f434b41dadb4fefccb3849eb33adf7ed16e5fe7192aa3605e44dfcf345f5fef",
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/ddm.rs",
+      "base_sha256": "8a7d2784cbf6d8ac4093ffd411da6a2d0bebaec4dfa84564a6879099f39839cd",
+      "final_sha256": "f8da60a058408cb9400d3453e4f89e858721115f1ecc229bc72b5df8b8536d7d"
+    },
+    {
+      "path": "crates/symox-py/src/domains.rs",
+      "base_sha256": "712d80dd87eddc2e4aa7e9b527483a17549c7bbe6ebbdfefcd50a3b57112bc45",
+      "final_sha256": "48c4e97ca2d7e547851d2943e93e439e9b714b1c1ee03de38f204e66390aa7db"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base_sha256": "c603b6cf3ee39cf2c63f15880112324f0f959fae955968c73e54a403921c6bff",
+      "final_sha256": "edcceaab06c47f9add6e9ebe74bc9d63b5aa52bf74fda1cb5e3f3f6bec766843"
+    },
+    {
+      "path": "python/symox/polys/_inexact_linear.py",
+      "base_sha256": null,
+      "final_sha256": "0d0c85a8939efaeb44426ec22070dbba89ae9438676ace02b9ab13197e4ad515"
+    },
+    {
+      "path": "python/symox/polys/solvers.py",
+      "base_sha256": "b7362abcd7a04ee4d743526ea6fb389278f71901af934f4fe10d694bed2e0803",
+      "final_sha256": "ae9f74828b8ebfa9d9a04e4369703ad779bc33ad88c37e8ec54f5fb7884c2ba8"
+    },
+    {
+      "path": "tests/test_native_inexact_linear_system.py",
+      "base_sha256": null,
+      "final_sha256": "1f4d4bfa8f9e2d68688d77c746dd669eeb903075518d0571db7ec9c48f9f9aa0"
+    }
+  ],
+  "source_count": 2891,
+  "native_sha256": "acd1ed8ff7d63c38c88bb2a56bd9957adf06ee014d0dc7f04bad252d3d7e3801"
+}

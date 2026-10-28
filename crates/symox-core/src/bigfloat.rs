@@ -350,6 +350,26 @@ impl BigFloat {
         if self.exp > MAX_INTEGER_SHIFT { None } else { Some(self.to_int_trunc()) }
     }
 
+    /// Floor of the exact stored dyadic. The existing integer materialization
+    /// bound is preserved; tiny exponents never materialize a denominator.
+    pub fn checked_int_floor(&self) -> Option<BigInt> {
+        if self.is_zero() { return Some(BigInt::zero()); }
+        let mut integer = self.checked_int_trunc()?;
+        // n*2^e is integral iff e>=0 or -e<=v_2(n). This comparison
+        // remains sparse even when e is an arbitrarily large integer.
+        if self.is_negative() && self.exp < 0
+            && -&self.exp > Exponent::from(self.man.trailing_zeros().unwrap())
+        {
+            integer -= 1;
+        }
+        Some(integer)
+    }
+
+    /// Ceiling of the exact stored dyadic, with the same capacity as truncation.
+    pub fn checked_int_ceil(&self) -> Option<BigInt> {
+        self.neg().checked_int_floor().map(|integer| -integer)
+    }
+
     /// Whether `to_int_trunc` materializes at most `MAX_INTEGER_SHIFT` bits.
     pub fn integer_part_fits(&self) -> bool { self.exp <= MAX_INTEGER_SHIFT }
 
@@ -954,6 +974,44 @@ mod tests {
 
     fn s(x: &BigFloat, dps: u32) -> String {
         x.to_string_dps(dps, false)
+    }
+
+    #[test]
+    fn directed_integer_rounding_matches_exact_dyadic_inequalities() {
+        for mantissa in -130i64..=130 {
+            for exponent in -12i128..=10 {
+                let value = BigFloat::from_parts(BigInt::from(mantissa), exponent);
+                let (n, d) = if exponent >= 0 {
+                    (BigInt::from(mantissa) << exponent as usize, BigInt::one())
+                } else {
+                    (BigInt::from(mantissa), BigInt::one() << (-exponent) as usize)
+                };
+                assert_eq!(value.checked_int_floor(), Some(n.div_floor(&d)));
+                assert_eq!(value.checked_int_ceil(), Some(n.div_ceil(&d)));
+            }
+        }
+    }
+
+    #[test]
+    fn directed_integer_rounding_is_sparse_for_unbounded_negative_exponents() {
+        let huge = Exponent::from(BigInt::one() << 190usize);
+        for exponent in [-huge, Exponent::from(-(usize::MAX as i128))] {
+            let tiny = BigFloat::from_parts(BigInt::one(), exponent);
+            assert_eq!(tiny.checked_int_floor(), Some(BigInt::zero()));
+            assert_eq!(tiny.checked_int_ceil(), Some(BigInt::one()));
+            assert_eq!(tiny.neg().checked_int_floor(), Some(-BigInt::one()));
+            assert_eq!(tiny.neg().checked_int_ceil(), Some(BigInt::zero()));
+        }
+    }
+
+    #[test]
+    fn directed_integer_rounding_preserves_existing_materialization_capacity() {
+        let huge = BigFloat::from_parts(BigInt::one(), MAX_INTEGER_SHIFT + 1);
+        assert_eq!(huge.checked_int_floor(), None);
+        assert_eq!(huge.checked_int_ceil(), None);
+        let zero = BigFloat::from_parts(BigInt::zero(), huge.exp);
+        assert_eq!(zero.checked_int_floor(), Some(BigInt::zero()));
+        assert_eq!(zero.checked_int_ceil(), Some(BigInt::zero()));
     }
 
     #[test]

@@ -1,0 +1,29 @@
+{
+  "status": "frozen; final179tests passed on Demeter",
+  "base": "stable main with DEBUG57 LRT+Berkowitz+limits+E1; root release build only, no Rust edited",
+  "files": [
+    {
+      "path": "python/symox/integrals/rationaltools.py",
+      "base_sha256": "27ca0905b176a5a93892d72f1141e182d1e8de3cb56f7997032467858257e738",
+      "final_sha256": "add84089dc8297efa1d1dfbf25125629db2df6b498183a809a66fa1bd2bb4c77"
+    },
+    {
+      "path": "tests/test_lrt_stock_forwarding.py",
+      "base_sha256": "42934e5198fc35517536c4be77d0c20ef1fda56632460097806058dfcf124e48",
+      "final_sha256": "74215e37025bc98a45cd6d335635538c4bf7707632d55a8455b739991492325c"
+    }
+  ],
+  "patch_sha256": "0d2a6551be1db89d7b09c6ba4b8e49807a9149588b44b9ccefe797d41d2e68e1",
+  "binary_sha256": "57a4f9a5ebb97b34bddd5f0d52efac2a1417579c1ae819e436771944de9346e9",
+  "private_demeter": "/home/keckj/symox-ci/wt/lrt-ore-stability-fix",
+  "proof": "validation/lrt-ore-proof.md",
+  "previous_checks": "209local sequence;364associatedDemeter;22forwardinglocal on final source",
+  "final_log": "validation/frozen-demeter.log",
+  "scope": "two Python files only; actual native-selection tests preserved; callbacks decline to complete old path",
+  "no_edits": "main, Rust and all previously delivered packages untouched",
+  "final_tests": 179,
+  "final_log_sha256": "400305e795bad17c123cd1611a1a5ace59b0951ef8cfbfbbdced1168188728a5",
+  "forwarding_tests": 22,
+  "original_lrt_tests": 157,
+  "new_forwarding_tests": 13
+}

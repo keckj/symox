@@ -1,0 +1,1 @@
+git apply --check --whitespace=error and apply passed against exact R3b adapter525ea412; resulting bytes equal overlay753ad09a.

@@ -1,0 +1,136 @@
+{
+  "frozen": true,
+  "scope": "R2/R3b release selector measurements, five LRT and four Atan families, plain/vector",
+  "r2_native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+  "r2_source_sha256": "8f254811033a4e7791213e56e0316d752fd2dca0f99fc0c5f5fa30aa6cecc981",
+  "r3b_native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+  "r3b_source_sha256": "374d458fdc73fb8a75cbaa2a06952b2b29d6ccc216f1b497f82a155468b4c0ac",
+  "processes": 12,
+  "exact_input_result_checks": 684,
+  "independent_exact_fixtures": 19,
+  "cpu": 24,
+  "reference_runtime": "blocked in every worker",
+  "quiet_window": "explicitly authorized and confirmed by root and both other agents",
+  "files": [
+    {
+      "path": "PREPARED.txt",
+      "sha256": "2bd019faa3294cc7cc8babe8a5b85314fbe08231ae1304e1a8fe45c03f7899c1",
+      "bytes": 721
+    },
+    {
+      "path": "RESULTS.txt",
+      "sha256": "add3818cdf50a7faf20fc1c4e7010ffe60799ce060b49948846274fd7e8f104f",
+      "bytes": 4449
+    },
+    {
+      "path": "atan-exact-certificates.json",
+      "sha256": "0ac146f797650c8b0517518750688f2f85376e0c2279646b48955a55c8853856",
+      "bytes": 5474
+    },
+    {
+      "path": "atan-fixtures.json",
+      "sha256": "f7d15579828acb4b6ba9c367b583e6779c8d9169d289e0d3bc784e97c12188f9",
+      "bytes": 1372
+    },
+    {
+      "path": "lrt-exact-trace-certificates.json",
+      "sha256": "43e9f03c1136ff0f22145ff8832335ff46c17598ab211e405d2a28934bba69dc",
+      "bytes": 1730
+    },
+    {
+      "path": "lrt-fixtures.json",
+      "sha256": "f1eeed47c31f57c216115cd69785b7a09934368d930e124e54dfd49b0f0cdba1",
+      "bytes": 17175
+    },
+    {
+      "path": "plain-0-r2.json",
+      "sha256": "c7724542d38ac77cf83dff5d9679ecebeca87a95d3d0b53241443a5439be3212",
+      "bytes": 3890
+    },
+    {
+      "path": "plain-0-r3b.json",
+      "sha256": "627deb086f835c766839bc13d5e47c331f7ea65db83ffa52141b0a40b9fde3d7",
+      "bytes": 3886
+    },
+    {
+      "path": "plain-1-r2.json",
+      "sha256": "9ddb8e1b4db8f2b61a4cf4688f6eafa89677c0b112d82094feca5d35e0eb7e3f",
+      "bytes": 3885
+    },
+    {
+      "path": "plain-1-r3b.json",
+      "sha256": "8a8893dd51ee8e38b8445937b8d5a14209a75aa7645c24a52264797bf5b28b9b",
+      "bytes": 3891
+    },
+    {
+      "path": "plain-2-r2.json",
+      "sha256": "699c1d7318acb664b7ff43b834bd08f32b170d74c05085e861e49c4441bc6ab1",
+      "bytes": 3887
+    },
+    {
+      "path": "plain-2-r3b.json",
+      "sha256": "f30fe671ecd70e354a9c66029185b4caa12eabcf64ec32a326b75e101d933698",
+      "bytes": 3883
+    },
+    {
+      "path": "prepare-atan.py",
+      "sha256": "af239922da300689b1d55e2ea6b4afca1c50f73bc627c49da253b45b0fd162ce",
+      "bytes": 1692
+    },
+    {
+      "path": "run.log",
+      "sha256": "b7153054dab0c90d42aa34095c12d37fefa93ae1aa139bf8203a4d2c53617057",
+      "bytes": 11196
+    },
+    {
+      "path": "run.py",
+      "sha256": "0209e61c8fdca36b7ce3e2548f4e88e96b853b650a6ca8ea819b2a997f97c58f",
+      "bytes": 2155
+    },
+    {
+      "path": "summary.json",
+      "sha256": "ccaa0a060f42b690851f6b532c500251d1da630776f209bd21ef733f23e85980",
+      "bytes": 11052
+    },
+    {
+      "path": "validation-counts.json",
+      "sha256": "883b8fef71432bb1faec0ca9aa5012983e1da2e755f787b9eaf3a41965b8c376",
+      "bytes": 586
+    },
+    {
+      "path": "vector-0-r2.json",
+      "sha256": "41b69493865fa299ea717dc365bdcb48d49ce3566665bfb4b894504247a1a5a1",
+      "bytes": 3597
+    },
+    {
+      "path": "vector-0-r3b.json",
+      "sha256": "d3c6994ef1a69f8310979aaad0c6a7ce9bfee9bbcf185c18646cffe2c5f6327f",
+      "bytes": 3902
+    },
+    {
+      "path": "vector-1-r2.json",
+      "sha256": "70333339f23eb1b208450fcabe95b5705056d6dc1788bbf4b62016d00710e65f",
+      "bytes": 3600
+    },
+    {
+      "path": "vector-1-r3b.json",
+      "sha256": "c9102f2d78b9e4778bdd610abbe7e1b10233b44ddce86ea606199dfe0150fed4",
+      "bytes": 3896
+    },
+    {
+      "path": "vector-2-r2.json",
+      "sha256": "eb4fdd4a6d3f0ae490c748e4fe478ad2ba371b360fca14be4d1a43db2782ab36",
+      "bytes": 3601
+    },
+    {
+      "path": "vector-2-r3b.json",
+      "sha256": "ddcbb5bc8128aa1f426a938739ccd576f43094b06bf346db7ee06d50f7c175e9",
+      "bytes": 3894
+    },
+    {
+      "path": "worker.py",
+      "sha256": "92d3f2bd1e184907edb7e1a917fa74a7163f6c4f28e79b9e00fe07841a688223",
+      "bytes": 3047
+    }
+  ]
+}

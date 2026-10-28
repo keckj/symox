@@ -19,7 +19,6 @@ def test_textual_derivative_forms_match_reference(source):
 
 
 @pytest.mark.parametrize('source',[
-    'Derivative(sin(x),(x,4294967296))','Derivative(sin(x),x,4294967296)',
     'Derivative(sin(x),x,0,0)','Derivative(sin(x),x,2,3)',
     'Derivative(sin(x),x,-1)','Derivative(sin(x),x,2.0)',
     'Derivative(sin(x),sin(x))','diff(x*y)',

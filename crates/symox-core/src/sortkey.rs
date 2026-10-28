@@ -293,7 +293,7 @@ pub fn class_key(e: &Expr) -> Key {
         Kind::Add(..) => (3, 1, "Add".into()),
         Kind::Func(f @ (Func::MatrixElement(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..)),_)=>(5,0,f.name().into()),
         // Max and Min are not Function subclasses: Basic.class_key.
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::Max | Func::Min), _) => (5, 0, f.name().into()),
+        Kind::Func(f @ (Func::SymbolicDerivative | Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::Max | Func::Min), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, "ComplexRootOf".into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         // An Expr or Atom subclass that is not a Function keeps its class_key.
@@ -404,6 +404,7 @@ impl SortKeyCache {
             return composite_key((5,0,"Lambda"),vec![self.key(&signature),self.key(&args[1])]);
         }
         Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction),_)=>return composite_key((5,0,"IdentityFunction"),vec![]),
+        Kind::Func(Func::SymbolicDerivative,args)=>return composite_key((5,0,"Derivative"),args.iter().map(|arg|self.key(arg)).collect()),
         Kind::Derivative(expression, variables) => {
             let mut args = vec![self.key(expression)];
             for (variable, count) in variables {
@@ -455,7 +456,7 @@ impl SortKeyCache {
         },
         _ => (rest.clone(), Expr::one()),
     };
-    if matches!(base.kind(), Kind::Derivative(..) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
+    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::SymbolicDerivative,_) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
         let mut parts = match self.key(&base) {
             Key::Tup(parts) => parts,
             Key::Shared(parts) => parts.to_vec(),

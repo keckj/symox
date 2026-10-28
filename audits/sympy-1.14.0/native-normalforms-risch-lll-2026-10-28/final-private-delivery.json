@@ -1,0 +1,8 @@
+{
+  "manifest": "/home/keckj/.cache/symox-validation/native-ddm-hnf-r10r1-merge-r11-20261028/proof/freeze-manifest-r1.json",
+  "final_validation": "/home/keckj/.cache/symox-validation/native-ddm-hnf-r10r1-merge-r11-20261028/proof/final-validation.json",
+  "source": "/home/keckj/.cache/symox-validation/native-ddm-hnf-r10r1-merge-r11-20261028/proof/frozen-source",
+  "patch": "/home/keckj/.cache/symox-validation/native-ddm-hnf-r10r1-merge-r11-20261028/proof/candidate-r1.patch",
+  "archive": "/home/keckj/.cache/symox-validation/native-ddm-hnf-r10r1-merge-r11-20261028/delivery-r1-proof.tar.gz",
+  "archive_map": "/home/keckj/.cache/symox-validation/native-ddm-hnf-r10r1-merge-r11-20261028/delivery-archive-members.json"
+}

@@ -1,0 +1,26 @@
+{
+  "incident": "Four new proof artifacts written under immutable base .validation due incorrect workdir; no source or binary mutation",
+  "removed_new_files": [
+    "changed-files.json",
+    "literal-bigint-derivatives.patch",
+    "package.json",
+    "source-manifest.sha256"
+  ],
+  "original_evidence_files_unchanged": [
+    "release-build-result.json",
+    "run_suite.py",
+    "rust-build-input.json",
+    "source-manifest.json",
+    "validation_plugin.py"
+  ],
+  "base_manifest_files_checked": 2526,
+  "mismatches": [],
+  "accidental_bytes_archive": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/symbolic-derivative-bigint-r1b/.validation/accidental-base-artifacts",
+  "archive_note": "Reconstructed immediately after exact removal from deterministic original generator; source manifest hash matches81532086 captured in tool output, remaining files fully specified by original output/code.",
+  "accidental_sha256": {
+    "changed-files.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "package.json": "ade5ac84409752154ae45c5873b1689b1dc64b09fe01043433da59e3e9a8a019",
+    "source-manifest.sha256": "81532086f950f6de377bafbc7a46cf9c919af02152cadfdb398777e47a06834b",
+    "literal-bigint-derivatives.patch": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "status": "complete; frozen",
+  "date": "2026-10-27",
+  "before_native": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+  "before_source_identity": "db859db2e5949ea295c362ae9b06b1b7819f0f28da0753790edda29b45445d2f",
+  "after_native": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+  "after_source_identity": "8f254811033a4e7791213e56e0316d752fd2dca0f99fc0c5f5fa30aa6cecc981",
+  "protocol": "3fresh processes/backend alternating CB5,R2/R2,CB5/CB5,R2; CPU24;50iterations x5rounds; all inputs constructed before timers; NoRef in each worker; exact coefficients/domains/signs and digests before+after timers",
+  "exact_trace_certificates": 12,
+  "full_pair_checks": 144,
+  "native_selection_confirmed_outside_timers": 36,
+  "summary": {
+    "fresh_processes_per_backend": 3,
+    "cpu": 24,
+    "reference_runtime": "blocked in every worker",
+    "iterations": 50,
+    "rounds_per_process": 5,
+    "certificates": "independent SymPy1.14 exact coefficient fixtures; before/after timers; domains and signs preserved",
+    "elapsed_seconds": 23.53212111699395,
+    "cases": {
+      "quadratic": {
+        "cb5_ns": 1096431.98,
+        "r2_ns": 358392.36,
+        "observed_ratio": 3.05930623074666,
+        "cb5_process_medians": [
+          1095370.48,
+          1096431.98,
+          1098983.54
+        ],
+        "r2_process_medians": [
+          357985.42,
+          358392.36,
+          360640.06
+        ],
+        "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6"
+      },
+      "quartic": {
+        "cb5_ns": 1232174.84,
+        "r2_ns": 440883.82,
+        "observed_ratio": 2.794783532768338,
+        "cb5_process_medians": [
+          1232174.84,
+          1245087.82,
+          1229276.84
+        ],
+        "r2_process_medians": [
+          439781.88,
+          440883.82,
+          445018.72
+        ],
+        "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197"
+      },
+      "nonconstant_numerator": {
+        "cb5_ns": 1313505.92,
+        "r2_ns": 486929.04,
+        "observed_ratio": 2.697530465630064,
+        "cb5_process_medians": [
+          1313505.92,
+          1322477.74,
+          1310216.52
+        ],
+        "r2_process_medians": [
+          486011.26,
+          486929.04,
+          495340.04
+        ],
+        "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed"
+      },
+      "multiplicity_groups": {
+        "cb5_ns": 2541965.68,
+        "r2_ns": 787849.08,
+        "observed_ratio": 3.2264627128840466,
+        "cb5_process_medians": [
+          2541965.68,
+          2554249.78,
+          2514166.8
+        ],
+        "r2_process_medians": [
+          787849.08,
+          787546.1,
+          789881.16
+        ],
+        "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0"
+      },
+      "distinct_arguments": {
+        "cb5_ns": 1666531.085,
+        "r2_ns": 738908.145,
+        "observed_ratio": 2.255396826083166,
+        "cb5_process_medians": [
+          1666531.085,
+          1671588.245,
+          1655540.79
+        ],
+        "r2_process_medians": [
+          738908.145,
+          738499.8,
+          746205.3475
+        ],
+        "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03"
+      }
+    }
+  },
+  "interpretation": "Observed gains on these5families only; no global speedup or mathematical-completeness claim. Exact LRT pair representatives retain branch conventions. Trace certificates separately verify f/g, outside every measured worker.",
+  "files": {
+    "0-cb5.json": "e73003555bf69ae310ed360fcef889d1d7063573d543386754f7975c16585a7f",
+    "0-r2.json": "6d3a83695c06331132854cb6fde1d07873eed81bf25dfb41c45edfa11e71c44e",
+    "1-cb5.json": "169ddc22611962509edffd031a0f14defec28afa4b0d2e80bf8381d9a2fd54ad",
+    "1-r2.json": "40bee46c24070a741a02c93dc7443cdc3ca61a8fb97c51b82ca2c1731cd093fc",
+    "2-cb5.json": "1d2aff746c4c71b0ec50b2db3d2e75f7a33413b935b336f8b99637a5f9167e26",
+    "2-r2.json": "f24ba7133df8354dc6cc6caf7ecf25612af5215e75b7bb0d8f95dd1632a49046",
+    "certify-fixtures.py": "8fa279fe2e56a386ccd3ebfc3f5a5c5bdecab24b95339ec34fd93f0dd94a5784",
+    "exact-trace-certificates.json": "43e9f03c1136ff0f22145ff8832335ff46c17598ab211e405d2a28934bba69dc",
+    "fixtures.json": "f1eeed47c31f57c216115cd69785b7a09934368d930e124e54dfd49b0f0cdba1",
+    "prepare-fixtures.py": "b1d39cfe7c713fa766bbf1d1d8cbc2237bf8427cd9fcabe1de3a7b8745e4a8b8",
+    "run.log": "fcc168c0e608f828b9c069a2d8f32f9dd038e50b4cb31fe83e40af4210799e1d",
+    "run.py": "a9983a5ec2a76045e1a9043af77d3cb56d5bb8a775c6b90e05c023b0549f0897",
+    "summary.json": "1451a54e2ce41e9c419592576dbc37d45d6fa7e26d4d00e48b57a897dd49bddc",
+    "worker.py": "3772ee2faec6d2027c45b3bae75b37e43403f8d81f8c3c32ce605a452e7e2826"
+  }
+}

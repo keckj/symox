@@ -46,7 +46,7 @@ pub struct FractionPoly {
     pub coefficient_domain: super::domains::ExactDomain,
 }
 
-pub fn parse_domain(domain: &str, available: &[Expr]) -> PResult<Option<Vec<Expr>>> {
+pub fn parse_domain(domain: &str, available: &[Expr]) -> PResult<Option<Vec<Expr>>> {super::mpoly::checked_operation(||{
     if domain.starts_with("QQ<") {return Ok(None);}
     let Some(open) = domain.find(['(', '[']) else {
         return Ok(None);
@@ -105,7 +105,7 @@ pub fn parse_domain(domain: &str, available: &[Expr]) -> PResult<Option<Vec<Expr
         parameters.push(value);
     }
     Ok(Some(parameters))
-}
+})}
 
 pub fn infer_parameters(expressions: &[Expr], gens: &[Expr]) -> Vec<Expr> {
     let mut parameters = Vec::new();
@@ -138,7 +138,7 @@ pub fn coefficient_expr(c: &RF, parameters: &[Expr]) -> Expr {
     )
 }
 
-pub fn coefficient(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
+pub fn coefficient(value: &Expr, parameters: &[Expr]) -> PResult<RF> {super::mpoly::checked_operation(||{
     match coefficient_direct(value, parameters) {
         Ok(c) => Ok(c),
         Err(first) => {
@@ -152,7 +152,7 @@ pub fn coefficient(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
             }
         }
     }
-}
+})}
 
 /// `value` with the parameters and the integer powers of the power-like
 /// parameters (`Pow` or `exp`) replaced by fresh symbols, or `None` when no
@@ -239,7 +239,7 @@ fn coefficient_direct(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
 }
 
 impl FractionPoly {
-    pub fn from_expr(e: &Expr, gens: &[Expr], parameters: &[Expr], display: &str) -> PResult<Self> {
+    pub fn from_expr(e: &Expr, gens: &[Expr], parameters: &[Expr], display: &str) -> PResult<Self> {super::mpoly::checked_operation(||{
         if gens.is_empty() || gens.iter().any(|g| parameters.contains(g)) {
             return Err(PolyError::Failed(
                 "polynomial generators and coefficient parameters must be disjoint".into(),
@@ -285,7 +285,7 @@ impl FractionPoly {
             display: display.into(),
             coefficient_domain: super::domains::ExactDomain::functions(display.starts_with("ZZ"),display.ends_with(']'),parameters.to_vec(),"lex")?,
         })
-    }
+    })}
     pub fn with_rep(&self, rep: MPoly<RF>) -> Self {
         Self {
             rep,
@@ -317,9 +317,9 @@ impl FractionPoly {
         Poly::from_coefficient_terms(self.terms(),&self.gens)
             .expect("field coefficients have a polynomial metadata view")
     }
-    pub fn convert(&self, e: &Expr) -> PResult<Self> {
+    pub fn convert(&self, e: &Expr) -> PResult<Self> {super::mpoly::checked_operation(||{
         Self::from_expr(e, &self.gens, &self.parameters, &self.display).map(|mut p| {p.coefficient_domain=self.coefficient_domain.clone();p})
-    }
+    })}
     pub fn promote_field(&mut self) {
         self.coefficient_domain=self.coefficient_domain.field();
         // A nested ring `ZZ[x][y]` has the field `ZZ[x](y)`.
@@ -358,8 +358,8 @@ impl FractionPoly {
         }
         p
     }
-    pub fn div(&self,other:&Self)->PResult<(Self,Self)>{self.div_with_options(other,true)}
-    pub fn div_with_options(&self, other: &Self, auto:bool) -> PResult<(Self, Self)> {
+    pub fn div(&self,other:&Self)->PResult<(Self,Self)>{super::mpoly::checked_operation(||{self.div_with_options(other,true)})}
+    pub fn div_with_options(&self, other: &Self, auto:bool) -> PResult<(Self, Self)> {super::mpoly::checked_operation(||{
         if other.rep.is_zero() {
             return Err(PolyError::Unsupported("polynomial division by zero".into()));
         }
@@ -372,7 +372,7 @@ impl FractionPoly {
             r.promote_field();
         }
         Ok((q, r))
-    }
+    })}
     pub fn diff(&self, i: usize) -> Self {
         let _s = Scope::new(self.parameters.len());
         self.with_rep(self.rep.derivative(i))
@@ -558,7 +558,7 @@ impl FractionPoly {
     }
     /// The reference `dup_half_gcdex` over the fraction field, for one
     /// generator: `s*f = h (mod g)` with `h` monic.
-    pub fn half_gcdex(&self, g: &Self) -> PResult<(Self, Self)> {
+    pub fn half_gcdex(&self, g: &Self) -> PResult<(Self, Self)> {super::mpoly::checked_operation(||{
         if self.gens.len() != 1 {
             return Err(PolyError::Unsupported("univariate polynomial expected".into()));
         }
@@ -580,24 +580,24 @@ impl FractionPoly {
         let lc = f.rep.lc().clone();
         let a = a.with_rep(a.rep.scale(&lc.inv()));
         Ok((a, f.monic()))
-    }
+    })}
     /// The reference `dup_gcdex` over the fraction field.
-    pub fn gcdex(&self, g: &Self) -> PResult<(Self, Self, Self)> {
+    pub fn gcdex(&self, g: &Self) -> PResult<(Self, Self, Self)> {super::mpoly::checked_operation(||{
         let (s, h) = self.half_gcdex(g)?;
         let (t, r) = h.sub(&s.mul(self)).div(g)?;
         if !r.rep.is_zero() {
             return Err(PolyError::ExactQuotientFailed("extended Euclid cofactor is not exact".into()));
         }
         Ok((s, t, h))
-    }
+    })}
     /// The reference `dup_invert`: the inverse of `self` modulo `g`.
-    pub fn invert(&self, g: &Self) -> PResult<Self> {
+    pub fn invert(&self, g: &Self) -> PResult<Self> {super::mpoly::checked_operation(||{
         let (s, h) = self.half_gcdex(g)?;
         if h.rep.is_constant() && h.rep.constant_value().is_some_and(|c| c.is_one()) {
             return Ok(s.div(g)?.1);
         }
         Err(PolyError::NotInvertible("zero divisor".into()))
-    }
+    })}
     /// The reference `dmp_cancel` over a fraction field with an associated
     /// ring: clear both denominators, cancel the gcd over the ring, and
     /// return `(cp, cq, p, q)` with `self/g = (cp*p)/(cq*q)`.
@@ -818,7 +818,7 @@ impl std::ops::DerefMut for Polynomial {
     }
 }
 impl Polynomial {
-    pub fn decompose(&self)->PResult<Vec<Self>> {
+    pub fn decompose(&self)->PResult<Vec<Self>> {super::mpoly::checked_operation(||{
         if let Some(p)=&self.expression {return Ok(p.decompose()?.into_iter().map(Into::into).collect());}
         if let Some(p)=&self.algebraic {
             super::roots::decompose_preflight(p.gens.len(),p.rep.degree(0))?;
@@ -836,7 +836,7 @@ impl Polynomial {
             return Ok(parts.iter().map(|part|p.with_rep(super::dense::to_mpoly(part,0,1)).into()).collect());
         }
         Ok(self.base.decompose()?.into_iter().map(Into::into).collect())
-    }
+    })}
 
     pub fn as_expr(&self) -> Expr {
         if let Some(p)=&self.expression {return p.as_expr();}
@@ -873,6 +873,7 @@ impl Polynomial {
             .unwrap_or_else(Expr::zero)
     }
     pub fn tc(&self) -> Expr {
+        if let Some(p)=&self.expression{return p.tc();}
         self.terms()
             .into_iter()
             .find(|(e, _)| e.iter().all(|&x| x == 0))
@@ -883,18 +884,23 @@ impl Polynomial {
         self.terms().into_iter().map(|(_, c)| c).collect()
     }
     pub fn coeff_monomial(&self, e: &[u32]) -> Expr {
+        if let Some(p)=&self.expression{return p.coefficient(e);}
         self.terms()
             .into_iter()
             .find(|(m, _)| m == e)
             .map(|(_, c)| c)
             .unwrap_or_else(Expr::zero)
     }
-    pub fn all_coeffs(&self) -> PResult<Vec<Expr>> {
-        Ok(super::structure::dense_terms(self)?.into_iter().map(|(_,c)|c).collect())
-    }
+    pub fn all_coeffs(&self) -> PResult<Vec<Expr>> {super::mpoly::checked_operation(||{
+        let terms=super::structure::dense_terms(self)?;
+        if let Some(p)=self.expression.as_ref().filter(|p|!p.is_sparse()){
+            return Ok(terms.into_iter().map(|(m,_)|p.coefficient(&m)).collect());
+        }
+        Ok(terms.into_iter().map(|(_,c)|c).collect())
+    })}
     /// Checked coercion boundary for public fallible operations. Coefficients
     /// from incompatible fields never enter arithmetic or an expect here.
-    pub fn checked_algebraic_pair(&self,o:&Self)->PResult<Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)>> {
+    pub fn checked_algebraic_pair(&self,o:&Self)->PResult<Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)>> {super::mpoly::checked_operation(||{
         if self.expression.is_some()||o.expression.is_some(){return Ok(None);}
         let Some(prototype)=self.algebraic.as_ref().or(o.algebraic.as_ref()) else{return Ok(None)};
         if self.field.is_some() || o.field.is_some() || self.modulus.is_some() || o.modulus.is_some() {
@@ -926,11 +932,11 @@ impl Polynomial {
             Ok(super::algebraic::AlgebraicPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.clone(),number_field:field.clone(),gaussian})
         };
         Ok(Some((convert(self)?,convert(o)?)))
-    }
+    })}
     fn algebraic_pair(&self,o:&Self)->Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)> {
         self.checked_algebraic_pair(o).expect("compatible algebraic fields")
     }
-    pub fn checked_fraction_pair(&self, o: &Self) -> PResult<Option<(FractionPoly, FractionPoly)>> {
+    pub fn checked_fraction_pair(&self, o: &Self) -> PResult<Option<(FractionPoly, FractionPoly)>> {super::mpoly::checked_operation(||{
         if self.expression.is_some()||o.expression.is_some(){return Ok(None);}
         let Some(prototype)=self.field.as_ref().or(o.field.as_ref()) else{return Ok(None)};
         if self.modulus.is_some()||o.modulus.is_some()||self.algebraic.is_some()||o.algebraic.is_some(){return Err(PolyError::Unsupported("cannot combine rational-function, algebraic, and finite coefficient fields".into()));}
@@ -983,7 +989,7 @@ impl Polynomial {
             Ok(FractionPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.clone(),parameters:parameters.clone(),display:display.clone(),coefficient_domain:descriptor.clone()})
         };
         Ok(Some((convert(self)?,convert(o)?)))
-    }
+    })}
     /// Operands over a nested coefficient ring (`ZZ[x][y]`): a plain integer
     /// or rational operand joins it (over `QQ[x][y]` for rationals), as the
     /// reference `Domain.unify` does; other mixtures are not implemented.
@@ -1032,7 +1038,7 @@ impl Polynomial {
     }
     /// The reference unification with `EX`: every other domain converts
     /// into it coefficient by coefficient, without simplification.
-    pub fn checked_expression_pair(&self,o:&Self)->PResult<Option<(ExpressionPoly,ExpressionPoly)>>{
+    pub fn checked_expression_pair(&self,o:&Self)->PResult<Option<(ExpressionPoly,ExpressionPoly)>>{super::mpoly::checked_operation(||{
         if self.expression.is_none()&&o.expression.is_none()&&!self.complex_field_pair(o){return Ok(None);}
         if let Some(m)=self.modulus.or(o.modulus){
             let message=if self.expression.is_some(){format!("Cannot unify EX with GF({m})")}else{format!("Cannot unify GF({m}) with EX")};
@@ -1058,10 +1064,10 @@ impl Polynomial {
             Ok(e)
         };
         Ok(Some((convert(self)?,convert(o)?)))
-    }
-    pub fn to_expression(&self)->PResult<ExpressionPoly>{
+    })}
+    pub fn to_expression(&self)->PResult<ExpressionPoly>{super::mpoly::checked_operation(||{
         match &self.expression {Some(e)=>Ok(e.clone()),None=>ExpressionPoly::from_terms(self.terms(),self.true_gens())}
-    }
+    })}
     fn expression_pair(&self,o:&Self)->Option<(ExpressionPoly,ExpressionPoly)>{self.checked_expression_pair(o).expect("EX unification")}
     pub fn add(&self, o: &Self) -> Self {
         if let Some((a,b))=self.expression_pair(o){return a.add(&b).expect("EX arithmetic").into();}
@@ -1118,8 +1124,8 @@ impl Polynomial {
             .as_ref()
             .map_or_else(|| self.base.integrate(i).into(), |p| p.integrate(i).into())
     }
-    pub fn div(&self,o:&Self)->PResult<(Self,Self)>{self.div_with_options(o,true)}
-    pub fn div_with_options(&self,o:&Self,auto:bool)->PResult<(Self,Self)>{
+    pub fn div(&self,o:&Self)->PResult<(Self,Self)>{super::mpoly::checked_operation(||{self.div_with_options(o,true)})}
+    pub fn div_with_options(&self,o:&Self,auto:bool)->PResult<(Self,Self)>{super::mpoly::checked_operation(||{
         if let Some((a,b))=self.checked_expression_pair(o)?{let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
         if let Some((a,b))=self.checked_algebraic_pair(o)?{let(q,r)=if auto{a.div(&b)?}else{a.ring_div(&b)?};return Ok((q.into(),r.into()));}
         if let Some((a,b))=self.checked_fraction_pair(o)?{let(q,r)=a.div_with_options(&b,auto)?;return Ok((q.into(),r.into()));}
@@ -1167,8 +1173,8 @@ impl Polynomial {
             },
             Err(error)=>Err(error),
         }
-    }
-    pub fn pdiv(&self,o:&Self)->PResult<(Self,Self)>{
+    })}
+    pub fn pdiv(&self,o:&Self)->PResult<(Self,Self)>{super::mpoly::checked_operation(||{
         if let Some((a,b))=self.checked_expression_pair(o)?{let(q,r)=a.pdiv(&b)?;return Ok((q.into(),r.into()));}
         if let Some((a,b))=self.checked_algebraic_pair(o)?{
             let _scope=super::algebraic::AlgebraicScope::new(a.number_field.clone());
@@ -1186,12 +1192,12 @@ impl Polynomial {
             return Ok((a.with_rep(q.map_coeffs(Coeff::to_rat)).into(),a.with_rep(r.map_coeffs(Coeff::to_rat)).into()));
         }
         let(q,r)=self.base.pdiv(&o.base)?;Ok((q.into(),r.into()))
-    }
-    pub fn prem(&self,o:&Self)->PResult<Self>{Ok(self.pdiv(o)?.1)}
-    pub fn pquo(&self,o:&Self)->PResult<Self>{Ok(self.pdiv(o)?.0)}
-    pub fn pexquo(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.pexquo(&b)?.into());}let(q,r)=self.pdiv(o)?;if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("pseudo-division has a nonzero remainder".into()));}Ok(q)}
-    pub fn rem(&self,o:&Self)->PResult<Self>{self.rem_with_options(o,true)}
-    pub fn quo(&self,o:&Self)->PResult<Self>{self.quo_with_options(o,true)}
+    })}
+    pub fn prem(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{Ok(self.pdiv(o)?.1)})}
+    pub fn pquo(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{Ok(self.pdiv(o)?.0)})}
+    pub fn pexquo(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.pexquo(&b)?.into());}let(q,r)=self.pdiv(o)?;if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("pseudo-division has a nonzero remainder".into()));}Ok(q)})}
+    pub fn rem(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{self.rem_with_options(o,true)})}
+    pub fn quo(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{self.quo_with_options(o,true)})}
     /// `self` and `o`, two polynomials of the legacy view over coefficient
     /// generators such as `ZZ[log(a)]`, as polynomials over the typed ring
     /// of `parameters`.
@@ -1230,41 +1236,41 @@ impl Polynomial {
         }else if self.algebraic.is_none()&&o.algebraic.is_none()&&self.modulus.is_none()&&o.modulus.is_none()&&self.domain.max(o.domain)==super::polyobj::Domain::ZZ&&result.base.rep.is_integral(){result.base.domain=super::polyobj::Domain::ZZ;}
         result
     }
-    pub fn rem_with_options(&self,o:&Self,auto:bool)->PResult<Self>{let r=self.div_with_options(o,auto)?.1;Ok(self.retract_division_component(o,r))}
-    pub fn quo_with_options(&self,o:&Self,auto:bool)->PResult<Self>{let q=self.div_with_options(o,auto)?.0;Ok(self.retract_division_component(o,q))}
-    pub fn exquo(&self,o:&Self)->PResult<Self>{self.exquo_with_options(o,true)}
-    pub fn exquo_with_options(&self,o:&Self,auto:bool)->PResult<Self>{
+    pub fn rem_with_options(&self,o:&Self,auto:bool)->PResult<Self>{super::mpoly::checked_operation(||{let r=self.div_with_options(o,auto)?.1;Ok(self.retract_division_component(o,r))})}
+    pub fn quo_with_options(&self,o:&Self,auto:bool)->PResult<Self>{super::mpoly::checked_operation(||{let q=self.div_with_options(o,auto)?.0;Ok(self.retract_division_component(o,q))})}
+    pub fn exquo(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{self.exquo_with_options(o,true)})}
+    pub fn exquo_with_options(&self,o:&Self,auto:bool)->PResult<Self>{super::mpoly::checked_operation(||{
         if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.exquo(&b)?.into());}
         let(q,r)=self.div_with_options(o,auto)?;
         if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("polynomial division is not exact in the selected coefficient domain".into()));}Ok(q)
-    }
-    pub fn checked_gcd(&self,o:&Self)->PResult<Self>{
+    })}
+    pub fn checked_gcd(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{
         if let Some((a,b))=self.checked_expression_pair(o)?{
             if let Some(g)=gaussian_ground_of(&a,&b){return Ok(g.gcd(&a,&b)?.into());}
             return Ok(a.gcd(&b)?.into());
         }
         Ok(self.gcd(o))
-    }
-    pub fn checked_lcm(&self,o:&Self)->PResult<Self>{
+    })}
+    pub fn checked_lcm(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{
         if let Some((a,b))=self.checked_expression_pair(o)?{
             if let Some(g)=gaussian_ground_of(&a,&b){return Ok(g.lcm(&a,&b)?.into());}
             return Ok(a.lcm(&b)?.into());
         }
         Ok(self.lcm(o))
-    }
-    pub fn checked_cofactors(&self,o:&Self)->PResult<(Self,Self,Self)>{
+    })}
+    pub fn checked_cofactors(&self,o:&Self)->PResult<(Self,Self,Self)>{super::mpoly::checked_operation(||{
         if let Some((a,b))=self.checked_expression_pair(o)?{
             let(h,p,q)=match gaussian_ground_of(&a,&b){Some(g)=>g.cofactors(&a,&b)?,None=>a.cofactors(&b)?};
             return Ok((h.into(),p.into(),q.into()));
         }
         Ok(self.cofactors(o))
-    }
+    })}
     /// Arithmetic that reports `EX` normalization failures instead of
     /// panicking; the other domains are infallible here.
-    pub fn checked_add(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.add(&b)?.into());}Ok(self.add(o))}
-    pub fn checked_sub(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.sub(&b)?.into());}Ok(self.sub(o))}
-    pub fn checked_mul(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.mul(&b)?.into());}Ok(self.mul(o))}
-    pub fn checked_pow(&self,k:u32)->PResult<Self>{if let Some(p)=&self.expression{return Ok(p.pow(k)?.into());}Ok(self.pow(k))}
+    pub fn checked_add(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.add(&b)?.into());}Ok(self.add(o))})}
+    pub fn checked_sub(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.sub(&b)?.into());}Ok(self.sub(o))})}
+    pub fn checked_mul(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.mul(&b)?.into());}Ok(self.mul(o))})}
+    pub fn checked_pow(&self,k:u32)->PResult<Self>{super::mpoly::checked_operation(||{if let Some(p)=&self.expression{return Ok(p.pow(k)?.into());}Ok(self.pow(k))})}
     pub fn gcd(&self, o: &Self) -> Self {
         if let Some((a,b))=self.expression_pair(o){
             if let Some(g)=gaussian_ground_of(&a,&b){if let Ok(h)=g.gcd(&a,&b){return h.into();}}

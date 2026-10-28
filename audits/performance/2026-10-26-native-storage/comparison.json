@@ -1,0 +1,102 @@
+{
+  "linprog": [
+    {
+      "n": 10,
+      "medians_ns": {
+        "before": {
+          "first_ns": 2002284,
+          "repeated_median_ns": 1737668,
+          "changed_median_ns": 1670402
+        },
+        "after": {
+          "first_ns": 225539,
+          "repeated_median_ns": 63790,
+          "changed_median_ns": 62812
+        }
+      },
+      "warm_gain": 27.240445210848094,
+      "changed_gain": 26.593676367573075
+    },
+    {
+      "n": 30,
+      "medians_ns": {
+        "before": {
+          "first_ns": 10827425,
+          "repeated_median_ns": 10689035,
+          "changed_median_ns": 10805964
+        },
+        "after": {
+          "first_ns": 422017,
+          "repeated_median_ns": 310326,
+          "changed_median_ns": 307909
+        }
+      },
+      "warm_gain": 34.44453574627972,
+      "changed_gain": 35.094667580356536
+    },
+    {
+      "n": 60,
+      "medians_ns": {
+        "before": {
+          "first_ns": 39559774,
+          "repeated_median_ns": 39423675,
+          "changed_median_ns": 39388651
+        },
+        "after": {
+          "first_ns": 1367666,
+          "repeated_median_ns": 1046010,
+          "changed_median_ns": 1047455
+        }
+      },
+      "warm_gain": 37.689577537499645,
+      "changed_gain": 37.60414624017261
+    }
+  ],
+  "normal": [
+    {
+      "case": "raw_pair44",
+      "medians_seconds": {
+        "before": 0.00024924916215240955,
+        "after": 4.8236174431319036e-05
+      },
+      "gain": 5.167266374063358,
+      "all_digests_identical": true
+    },
+    {
+      "case": "raw_triple642",
+      "medians_seconds": {
+        "before": 0.0013289518343905609,
+        "after": 0.0002666723254757623
+      },
+      "gain": 4.983463627204723,
+      "all_digests_identical": true
+    },
+    {
+      "case": "raw_float64",
+      "medians_seconds": {
+        "before": 0.00037530149954060715,
+        "after": 6.49866706226021e-05
+      },
+      "gain": 5.775053498587429,
+      "all_digests_identical": true
+    },
+    {
+      "case": "function_fallback42",
+      "medians_seconds": {
+        "before": 0.019455906003713608,
+        "after": 0.01964888599468395
+      },
+      "gain": 0.9901785785197922,
+      "all_digests_identical": true
+    },
+    {
+      "case": "public_pair42",
+      "medians_seconds": {
+        "before": 0.0003690034985387077,
+        "after": 0.00019522200454957783
+      },
+      "gain": 1.8901736993741245,
+      "all_digests_identical": true
+    }
+  ]
+}

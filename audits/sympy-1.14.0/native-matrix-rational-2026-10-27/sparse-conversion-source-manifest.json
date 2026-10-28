@@ -1,0 +1,18 @@
+{
+  "base": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/sparse-sdm-berkowitz",
+  "files": [
+    {
+      "path": "python/symox/polys/matrices/sdm.py",
+      "base": "cad513f415caa38f8b76c73ac4768e08c036553a953c3c276429ec91bc6ed74b",
+      "final": "e0630ea9e271bfa5bb8f953a2b33151f25853ea4b59d7588e3077e31f5bd2a52"
+    },
+    {
+      "path": "tests/test_native_sdm_conversion_type_protocols.py",
+      "base": null,
+      "final": "e952e2bfa15d95dbe6a4146175a49471eef4c410b57dcd78a684c50c268eec4e"
+    }
+  ],
+  "patch_sha256": "21cf88a655bba30ab2087eda925c37a66488ecf79407775a06a3d29ebc7f76e5",
+  "native_sha256": "0c0a93466164860ba5c9fd50d1e33de70395c6d75866051484df6bee90c50c9a",
+  "status": "source frozen; 5before-fail/190after-pass local; Demeter pending"
+}

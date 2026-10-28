@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "scope": "Exact expression-count Derivative representation and guarded operations; native QQ/ZZ log_to_atan; certified conditional rational segments/rays and safe parameter specialization; EX Float-zero payloads/public zero evaluation; QQ global/rowwise denominator preparation; ZZ/QQ DDM Bareiss determinant.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "db859db2e5949ea295c362ae9b06b1b7819f0f28da0753790edda29b45445d2f",
+    "native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+    "working_code_diff_sha256": "b958e6227a0a559468148f311ff1327e84ac791d887734f6cd14d45974046632",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 2526,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 460.06539702415466,
+    "native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+    "reused_release_from": "/home/keckj/.cache/symox-validation/native-derivative-r1-20261026/release-build-result.json",
+    "reuse_reason": "Only the Python generator identity guard and its test change after this build; every native source input remains byte-identical.",
+    "host": "/home/keckj/Documents/symox",
+    "compiler": "rustc1.84.1"
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 680,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 135.38008666038513
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 21.43964457511902
+      },
+      "rust_inputs_unchanged": true
+    },
+    "bindings_clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox-py",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "log": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/demeter-final/clippy-bindings.log",
+      "note": "Correctness lint passes; ordinary warnings remain archived."
+    }
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 47450,
+      "skipped": 55,
+      "xfailed": 5,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 47510,
+      "collected_in_shards": 47510,
+      "finished": 47510,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 193.09031629562378,
+    "new_cases_vs_previous_accepted_release": 863,
+    "all_60_initial_failures_reexecuted_exactly_once_and_passed": true
+  },
+  "targeted_validation": {
+    "pre_generator_identity_followup": {
+      "release_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+      "passed": 924,
+      "source_manifest_identity": "5817a9b932a00aabe2d2a86c79a986f3edce07c245ec092b3b31ae232efe4ade",
+      "log": "/home/keckj/.cache/symox-validation/native-derivative-r1-20261026/corrected-targeted.log"
+    },
+    "final_generator_identity_and_protocols": {
+      "passed": 136,
+      "elapsed_seconds": 13.23,
+      "log": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/final-protocol-targeted.log"
+    },
+    "initial_full_failure_evidence": "audits/sympy-1.14.0/validation-2026-10-26-derivative-initial.json",
+    "repairs": [
+      "Derivative class/instance selectors cover both compact and expression-count representations; Function selectors exclude both derivative forms.",
+      "Mixed bare-variable and tuple/list differentiation specs retain their next pair rather than coercing it as a scalar order.",
+      "Official holonomic scalar operator wrappers are authenticated by identity, code, closure, delegate and globals; real overrides and host markers retain the complete prior path.",
+      "Generator type selection uses identity and does not invoke user metaclass equality."
+    ]
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-derivative-r1b-20261027/python/symox/__init__.py",
+    "native_sha256": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-derivative-r1b-20261027",
+    "source_manifest": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/source-manifest.json",
+    "full_python_summary": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/demeter-final/summary.json",
+    "full_rust_log": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/demeter-final/tests.log",
+    "clippy_log": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/demeter-final/clippy.log",
+    "bindings_clippy_log": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/demeter-final/clippy-bindings.log",
+    "immutable_package": "/home/keckj/.cache/symox-validation/native-derivative-r1b-20261027/after/python/symox",
+    "portable_component_reviews": "audits/sympy-1.14.0/native-derivative-2026-10-27/README.md"
+  },
+  "performance_evidence": "audits/performance/2026-10-27-native-derivative/README.md",
+  "performance": {
+    "independent_exact_checks": 702,
+    "before_native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+    "all_value_digests_identical": true,
+    "method": "Three fresh alternated processes per release, CPU24 on Demeter; all results independently certified after timers; no runtime reference imports during native calculation.",
+    "scope": "Atan Euclid cases improve about2x; public EX eval0 about2.7x; audited QQ AUTO/CD about1.25x. Other cases are explicit controls, not a global speedup."
+  },
+  "integration_corpus": {
+    "artifact": "audits/sympy-1.14.0/corpus-2026-10-27/README.md",
+    "expected": 1210,
+    "backend_calls": 2420,
+    "exactly_once_per_backend": true,
+    "raw_counts": {
+      "exact_output_match": 1164,
+      "different_output_review_required": 36,
+      "both_held_observation": 10
+    },
+    "reviewed_differences": {
+      "certified_conditional_with_original_integral_default": 20,
+      "retained_affine_nonzero_gap": 1,
+      "exact_Ci_equivalence": 5,
+      "real_domain_prefactor_correction": 6,
+      "inherited_complex_Laplace_branch_gap": 4
+    },
+    "native_parameter_controls": {
+      "passed": 21,
+      "reference_imported": false
+    }
+  },
+  "remaining_gaps": [
+    "No global mathematical parity certified. The documented-example replay on576a still has278 differing objects requiring scoped review.",
+    "Symbolic Derivative orders now have exact native representation and guarded operations, but symbolic-order closed forms, generic transforms, some error-message/protocol behavior and matrix-variable cases remain partial. Large literal-order recipes are a separate unintegrated lot. Issue22210 remains open.",
+    "Generic symbolic-derivative reconstruction outside supported error boundaries remains held/refused. It never silently converts an unsupported or invalid computation to zero.",
+    "EX Float-zero payload repair covers audited constructors/views/calculus/identity conversion/pickle. RR/CC-to-EX implicit Float-zero conversion, some implicit inference and low-level foreign/raw constructors remain separate gaps. Nonzero sparse evaluation keeps its old complete paths.",
+    "QQ denominator preparation is native, but AUTO selection and some conversion/output assembly still run in Python. Noncanonical stored sparse zeros/empty rows and foreign protocols retain their complete prior behavior.",
+    "DDM determinant native scope is stock ZZ/QQ with eligible square distinct rows. Other domains, custom callbacks, aliased rows and malformed storage retain old complete implementations; SDM determinant still uses its old dense conversion. Dense/sparse Berkowitz are not part of this release.",
+    "Conditional integral formulas cover only certified retained rational segments/rays; explicit conds/method options keep old paths. Assumed-nonzero affine slopes remain held to avoid losing the zero specialization. Partial/simultaneous parameter replacements may retain the complete Integral until doit.",
+    "Four inherited generic/complex Laplace cases compute -exp(s)*Ei(-s), which loses a principal-branch correction for nonreal s despite Re(s)>0. The earlier full-half-plane correction claim is withdrawn. exp(s)*expint(1,s) is the correct analytic form; a native product fix is separate pending work.",
+    "Issue22334 is still held in this release. The staged homogeneity improvement is unintegrated after independent review found a complex-winding false finite; its corrective followup is required before acceptance.",
+    "Native LRT, dense Berkowitz and large literal derivative formulas have isolated deliveries awaiting their own integrated release and full test run. No private DEBUG timing or acceptance is substituted for that gate.",
+    "A subsequent callback probe found a remaining scalar-priority descriptor gap in the accepted atan guard: for QQ polynomials with multiple atan terms, replacing Expr._op_priority by a raising property is observable in the old Python recurrence but bypassed by the native path. The next protocol followup must inspect priorities without invoking descriptors. The archived stock-input performance measurements do not exercise that override."
+  ],
+  "global_algorithmic_parity_certified": false
+}

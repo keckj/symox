@@ -1,0 +1,97 @@
+{
+  "native_sha256": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+  "symox_file": "/home/keckj/symox-ci/wt/native-lrt-limits-20261027/python/symox/__init__.py",
+  "affinity": [
+    24
+  ],
+  "iterations": 3,
+  "rounds": 5,
+  "cases": {
+    "ZZ_4": {
+      "median_ns": 17162.777777777777,
+      "rounds_ns": [
+        17991.555555555555,
+        17272.666666666668,
+        17082.222222222223,
+        17162.777777777777,
+        17102.444444444445
+      ],
+      "inputs": 3,
+      "digest": "dd5d02fab12099fa530abb7d1097e881e098304b0af08a6a530226bbf47e1568",
+      "native_selections_outside_timers": [
+        true,
+        true,
+        true
+      ]
+    },
+    "ZZ_8": {
+      "median_ns": 39998.444444444445,
+      "rounds_ns": [
+        41198.0,
+        39976.333333333336,
+        39791.666666666664,
+        40726.444444444445,
+        39998.444444444445
+      ],
+      "inputs": 3,
+      "digest": "3a883da0a68fbcc0fbd030539e531a24d67af0b279387b644b0ef899a5a75293",
+      "native_selections_outside_timers": [
+        true,
+        true,
+        true
+      ]
+    },
+    "ZZ_12": {
+      "median_ns": 125252.22222222223,
+      "rounds_ns": [
+        126099.44444444444,
+        125252.22222222223,
+        136469.8888888889,
+        125195.33333333333,
+        125187.44444444444
+      ],
+      "inputs": 3,
+      "digest": "6a0266d6676e8253c36e8db5f6def287f1c6131dbb67ca70bdbc27862df344d5",
+      "native_selections_outside_timers": [
+        true,
+        true,
+        true
+      ]
+    },
+    "QQ_4": {
+      "median_ns": 17512.555555555555,
+      "rounds_ns": [
+        18733.0,
+        17855.555555555555,
+        17512.555555555555,
+        17453.333333333332,
+        17373.888888888887
+      ],
+      "inputs": 3,
+      "digest": "e9b04114954a5ae7775f6ef813a1e54d3e639e940486f48554702242ab7bdf6d",
+      "native_selections_outside_timers": [
+        true,
+        true,
+        true
+      ]
+    },
+    "QQ_8": {
+      "median_ns": 51994.22222222222,
+      "rounds_ns": [
+        52849.77777777778,
+        52147.333333333336,
+        51440.11111111112,
+        51994.22222222222,
+        51311.333333333336
+      ],
+      "inputs": 3,
+      "digest": "7b214b23a834328e7a71a0e90ed25329210efb4ff370893e089ba563524d3e56",
+      "native_selections_outside_timers": [
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "reference_imported": false
+}

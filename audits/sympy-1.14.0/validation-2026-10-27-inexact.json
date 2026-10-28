@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-27",
+  "status": "accepted",
+  "scope": "Native first-nonzero inexact solve_lin_sys Gauss-Jordan over selected RR/CC/composite domains; certified correctly rounded finite literal plain CC products/quotients; typed same-domain inexact composite Eq/Ne; authenticated vector/Ore stock forwarding.",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "374d458fdc73fb8a75cbaa2a06952b2b29d6ccc216f1b497f82a155468b4c0ac",
+    "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+    "working_code_diff_sha256": "9c54569085a53612a208aab0b9abe2cbd424a66574178f872ba3eece844db726",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "source_files": 2724,
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 447.8640549182892,
+    "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+    "reused_release_from": "/home/keckj/.cache/symox-validation/native-inexact-20261027/release-build-result.json",
+    "reuse_reason": "Only authenticated Python vector/Ore protocol selection, installer metadata and test helpers change; every Rust build input and native binary hash is identical to the complete R3 build."
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 48515,
+      "xfailed": 4,
+      "skipped": 55,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 48574,
+      "collected_in_shards": 48574,
+      "finished": 48574,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 181.57739734649658,
+    "new_cases_vs_previous_accepted_release": 682,
+    "initial_failed_case_reexecuted_and_passed": true
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 699,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "validation_reuse": {
+      "reason": "Only four Python source/test files changed after the complete native build and Demeter Rust gates; every native build input and the extension hash is byte-identical.",
+      "source_snapshot": "/home/keckj/.cache/symox-validation/native-inexact-20261027/after",
+      "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+      "rust_inputs": 330,
+      "rust_inputs_unchanged": true,
+      "passed": 699,
+      "doctests_passed": 5,
+      "ignored": 1,
+      "rust_checks": {
+        "tests": {
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "symox"
+          ],
+          "returncode": 0,
+          "elapsed_seconds": 127.11480617523193
+        },
+        "clippy": {
+          "command": [
+            "cargo",
+            "clippy",
+            "-p",
+            "symox",
+            "--",
+            "-D",
+            "clippy::correctness"
+          ],
+          "returncode": 0,
+          "elapsed_seconds": 0.12881112098693848
+        },
+        "rust_inputs_unchanged": true
+      },
+      "bindings_clippy_returncode": 0,
+      "native_input_manifest": "/home/keckj/.cache/symox-validation/native-inexact-20261027/rust-build-input.json"
+    },
+    "source_reuse_proof": "Every native build input in the corrected frozen snapshot was verified byte-identical to the initial R3 Rust-tested snapshot; no Rust tests or clippy were rerun for a Python-only wrapper fix. Original Demeter logs and input hashes are archived.",
+    "core_and_bindings_correctness_clippy": "passed on the identical native sources"
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-inexact-r1-20261027/python/symox/__init__.py",
+    "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_validation": {
+    "first_combined_release_passed": 1826,
+    "corrected_root_combined_release_passed": 1080,
+    "corrected_private_demeter_collection_order_and_protocols_passed": 1153
+  },
+  "initial_failure": "audits/sympy-1.14.0/validation-2026-10-27-inexact-initial.json",
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-inexact-r1-20261027",
+    "immutable_snapshot": "/home/keckj/.cache/symox-validation/native-inexact-r1-20261027/after",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-inexact-r1-20261027",
+    "portable_component_and_execution_evidence": "audits/sympy-1.14.0/native-inexact-2026-10-27/README.md"
+  },
+  "correctness_certificates": {
+    "inexact_reduction": "Same selected domain, first nonzero pivot and separate reciprocal/multiply/subtract operations; complete previous algorithm retained outside stock protocols.",
+    "CC_rounding": "Each finite literal product/quotient component is accepted only after exact sparse-dyadic comparison with nearest/ties-to-even rounding-cell midpoints; exact p-bit search if needed, without dense exponent-gap allocation.",
+    "reference_bug": "An independent exact integer/Fraction oracle finds a later p140 SymPy complex product one ulp wrong. Native intentionally returns the correctly rounded neighbor rather than copying that bug.",
+    "composite_equality": "Existing immutable typed same-domain values supply Eq/Ne after scalar extraction declines; hashes, precision and coefficient payloads remain unchanged."
+  },
+  "integration_corpus": {
+    "artifact": "audits/sympy-1.14.0/corpus-r3-2026-10-27/README.md",
+    "native_sha256": "8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a",
+    "python_source_identity": "1ad26aa2fbe980b159a50f38583dce6fc0a301045b92194803207c059ef07875",
+    "expected": 1210,
+    "backend_calls": 2420,
+    "all_native_output_trees_identical_to_R2": true,
+    "parameter_controls": 21,
+    "E1_controls": 10,
+    "scope_note": "Corpus uses the initial R3 Python selector before the vector-only forwarding correction; it is not claimed as a replay of corrected Python source374d."
+  },
+  "performance": {
+    "status": "No new speed claim for this batch; CC changes correct mathematical rounding errors and cannot use the old wrong results as performance baselines. Prior R2 LRT/Berkowitz timings remain tied to their own snapshot; a selector control is prepared separately."
+  },
+  "remaining_gaps": [
+    "No global mathematical parity certified. Historical documentation display triage isolates11 of278 differing objects;267 require further scoped review.",
+    "PolyMatrix ground RREF/nullspace and large literal derivative recipes are subsequent working-tree/private batches, not part of this accepted snapshot.",
+    "Inexact linear native selection preserves complete old fallbacks for custom protocols, foreign storage and unsupported coefficient payloads; exact-domain solve orchestration is separate.",
+    "CC correction is finite literal plain field multiplication/division, not general expression evalf or all parameter-field arithmetic. Addition/subtraction retain their established separate rounding.",
+    "Two pre-existing Heurisch unknown outcomes remain unknown; these are not counted as solved integrals.",
+    "Typed composite equality repairs existing same-parent values; separate Python ring-wrapper interoperability and nonnumeric ordering still differ from the reference.",
+    "Implicit EX Float-zero conversions, nonzero sparse evaluation, symbolic-order closed forms including issue22210, sparse matrix algorithms and Python Risch/PRDE/ODE drivers remain open."
+  ],
+  "global_algorithmic_parity_certified": false,
+  "selector_performance_control": {
+    "artifact": "audits/performance/2026-10-27-rational-selector/README.md",
+    "scope": "R2/R3b plus R3b guard-only overlay; not the later integrated R5 binary",
+    "initial_checks": 684,
+    "confirmation_checks": 1026,
+    "independent_exact_certificates": 19,
+    "residual": "vector linear Atan89.187->100.389us,+12.6% againstR2; no hidden case exclusion"
+  }
+}

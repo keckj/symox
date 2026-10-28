@@ -73,7 +73,7 @@ impl Node {
         match self {
             Node::Number(_) | Node::Gaussian(..) | Node::Anp(_) => Prec::Atom,
             Node::Poly { terms, zero, .. } => {
-                if terms.len() == 1 && terms[0].1.is_one() && terms[0].0.iter().sum::<u32>() == 1 {
+                if terms.len() == 1 && terms[0].1.is_one() && terms[0].0.iter().map(|&k| u64::from(k)).sum::<u64>() == 1 {
                     Prec::Atom
                 } else if terms.is_empty() {
                     zero.precedence()
@@ -172,8 +172,8 @@ impl Node {
 
 /// Descending monomial order of the reference `PolyElement.terms()`.
 fn sort_terms(terms: &mut [(Vec<u32>, Node)], order: &str) {
-    let key = |e: &Vec<u32>| -> (u32, Vec<i64>) {
-        let total = e.iter().sum::<u32>();
+    let key = |e: &Vec<u32>| -> (u64, Vec<i64>) {
+        let total = e.iter().map(|&k| u64::from(k)).sum::<u64>();
         match order {
             "grlex" => (total, e.iter().map(|&v| v as i64).collect()),
             "grevlex" => (total, e.iter().rev().map(|&v| -(v as i64)).collect()),
@@ -350,5 +350,21 @@ mod tests {
         let root = crate::ops::sqrt(&Expr::int(2));
         let zz_i = gaussian_ring(true, vec![root.clone()]);
         assert_eq!(shown(&zz_i, &mul(&Expr::i(), &root)), "(0 + 1*I)*(sqrt(2))");
+    }
+}
+
+#[cfg(test)]
+mod wide_total_degree_tests {
+    use super::*;
+    #[test]
+    fn wide_total_degree_domain_order_and_parentheses_do_not_wrap() {
+        let n=1u32<<31;
+        for order in ["grlex","grevlex"] {
+            let mut terms=vec![(vec![u32::MAX,0],Node::Number(Rat::one())),(vec![n,n],Node::Number(Rat::one()))];
+            sort_terms(&mut terms,order);
+            assert_eq!(terms[0].0,vec![n,n]);
+        }
+        let node=Node::Poly{symbols:vec![Expr::symbol("x"),Expr::symbol("y")],terms:vec![(vec![u32::MAX,2],Node::Number(Rat::one()))],zero:Box::new(Node::Number(Rat::zero()))};
+        assert!(matches!(node.precedence(),Prec::Mul));
     }
 }

@@ -61,7 +61,7 @@ pub fn validate_held(e:&Expr)->Result<(),String>{
             if args.len()!=4 || !args[1].is_symbol(){return Err("held limits require a symbol variable".into());}
             if crate::traverse::has(&args[2],&args[1]){return Err("limits approaching a variable point are not supported".into());}
         }
-        for arg in e.args(){visit(&arg,seen)?;}
+        for arg in crate::inspection::scalar_children(e){visit(&arg,seen)?;}
         Ok(())
     }
     visit(e,&mut rustc_hash::FxHashMap::default())
@@ -72,7 +72,7 @@ pub fn check_doit(e:&Expr,deep:bool)->LRes<()> {
     if !e.has_limit(){return Ok(());}
     fn visit(e:&Expr,deep:bool,seen:&mut rustc_hash::FxHashMap<usize,Expr>)->LRes<()>{
         if seen.insert(e.dag_id(),e.clone()).is_some(){return Ok(());}
-        if deep {for arg in e.args(){visit(&arg,true,seen)?;}}
+        if deep {for arg in crate::inspection::scalar_children(e){visit(&arg,true,seen)?;}}
         if let Kind::Func(Func::Limit,args)=e.kind(){
             let dir=Dir::parse(args[3].as_sym().map(|s|s.name()).unwrap_or("+"));
             if let Some(dir)=dir {if let Err(error@LimitError::Differ(..))=limit(&args[0],&args[1],&args[2],dir){return Err(error);}}

@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "scope": "Native operation counts, RR(y) multivariate arithmetic, exact rational-root coverage certificates, simplified characteristic polynomial eigenvector multiplicities, held polynomial conversion and checked exponent storage, Poisson moments and rational simplex pivots",
+  "source_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "b5b685a38454443104d012da826db8e5ca020a3b4fc57e3867af4b1d1dc69d79",
+    "native_sha256": "9405dccb462e37ed095dc19b597595b74662ce45d23556e96bf8d52e836636a2",
+    "working_code_diff_sha256": "147f9d7c2e2f1ff4a3f690a0d95168a4a7ec7d2bab0fe138f6205b3fdaa3255b",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "build": {
+    "exit_code": 0,
+    "rust_inputs_unchanged": true,
+    "elapsed_seconds": 479.96634435653687,
+    "native_sha256": "9405dccb462e37ed095dc19b597595b74662ce45d23556e96bf8d52e836636a2"
+  },
+  "rust": {
+    "host": "Demeter",
+    "passed": 618,
+    "doctests_passed": 5,
+    "ignored": 1,
+    "checks": {
+      "tests": {
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox"
+        ],
+        "returncode": 0,
+        "elapsed_seconds": 148.68813252449036
+      },
+      "clippy": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 101,
+        "elapsed_seconds": 21.19471764564514
+      },
+      "rust_inputs_unchanged": true,
+      "clippy_initial_component_missing": {
+        "command": [
+          "cargo",
+          "clippy",
+          "-p",
+          "symox",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "returncode": 1,
+        "elapsed_seconds": 0.21237611770629883
+      },
+      "clippy_component_version": "clippy 0.1.99 (58cf8f9c35 2026-10-13)"
+    },
+    "clippy_local_1_84": {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "symox",
+        "--",
+        "-D",
+        "clippy::correctness"
+      ],
+      "returncode": 0,
+      "rustc": "1.84.1",
+      "host": "local",
+      "rust_inputs_unchanged": true,
+      "log": "/home/keckj/.cache/symox-validation/native-algebra-20261026/clippy-local-1.84.log"
+    },
+    "clippy_1_99_status": "Seven preexisting approximate-constant lints fail; portable bit-identical definitions are being corrected in the following batch. No suppression added."
+  },
+  "python": {
+    "host": "Demeter",
+    "shards": 48,
+    "counts": {
+      "passed": 45749,
+      "skipped": 55,
+      "xfailed": 6,
+      "failed": 0
+    },
+    "coverage": {
+      "collection_matches": true,
+      "execution_matches": true,
+      "expected": 45810,
+      "collected_in_shards": 45810,
+      "finished": 45810,
+      "missing": [],
+      "unexpected": []
+    },
+    "elapsed_seconds": 200.92038369178772,
+    "new_cases_vs_c461": 404
+  },
+  "environment": {
+    "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+    "platform": "Linux-7.0.0-38-generic-x86_64-inconnu-with-glibc2.43",
+    "packages": {
+      "pytest": "9.1.1",
+      "sympy": "1.14.0",
+      "mpmath": "1.3.0",
+      "numpy": "2.2.6",
+      "torch": "2.14.1",
+      "jax": "0.6.2",
+      "slangpy": "0.43.1"
+    },
+    "compilers": {
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "gfortran": "GNU Fortran (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+    },
+    "symox_file": "/home/keckj/symox-ci/wt/native-algebra-20261026/python/symox/__init__.py",
+    "native_sha256": "9405dccb462e37ed095dc19b597595b74662ce45d23556e96bf8d52e836636a2",
+    "rust_checks_host": "Demeter",
+    "full_python_tests_host": "Demeter"
+  },
+  "targeted_release": {
+    "passed": 525,
+    "log": "/home/keckj/.cache/symox-validation/native-algebra-20261026/release-focused.log"
+  },
+  "differential_source_conversion": {
+    "seed": 26102026,
+    "cases": 1200,
+    "passed": 1200,
+    "reference": "1.14.0",
+    "script_sha256": "929e64c727ccf97985b6389c81758cc584b5bff5211c819b5a01a1a10658da65",
+    "native_sha256": "cd41b2c2cfa0a869e306f3064f837de5bec97053172335450e5b50bcea6eca25",
+    "phase": "debug candidate before integration of arithmetic guards; source converter unchanged in the release"
+  },
+  "evidence": {
+    "cache": "/home/keckj/.cache/symox-validation/native-algebra-20261026",
+    "remote_snapshot": "/home/keckj/symox-ci/wt/native-algebra-20261026",
+    "source_manifest": "/home/keckj/.cache/symox-validation/native-algebra-20261026/source-manifest.json",
+    "full_python_summary": "/home/keckj/.cache/symox-validation/native-algebra-20261026/demeter-final/summary.json",
+    "full_rust_log": "/home/keckj/.cache/symox-validation/native-algebra-20261026/demeter-final/tests.log",
+    "rust_sources": "/home/keckj/.cache/symox-validation/native-algebra-20261026/rust-build-input.json",
+    "immutable_package": "/home/keckj/.cache/symox-validation/native-algebra-20261026/after/python/symox"
+  },
+  "remaining_gaps": [
+    "No global algorithmic parity certification; the full documentation-example audit and standalone ODE/integration corpora still need replay.",
+    "Operation-count host/container/matrix fallbacks remain Python; composed Idx metadata remains an older gap.",
+    "The rational-root coverage shortcut declines unsupported or incomplete proofs; existing solve dict/set ordering and imaginary-variable check=False gaps remain.",
+    "Partial substitution of y=0 followed by a=-oo in exp(exp(x)+a)=y remains an old strict xfail.",
+    "The exponent guard is scoped, not universal. Total-degree u32 metadata, public contains/reduced boundaries, and dense huge CC/EX storage remain for subsequent fixes; low-level infallible Rust callers require checked boundaries.",
+    "Public gigantic Groebner preprocessing is not certified within a bounded time; sparse kernels are checked. Composite modular polynomials still use the old dense Python representation.",
+    "QQ_I coefficient storage overflow retains an established exact EX fallback; unsupported storage must never be read as zero or no solutions.",
+    "Simplex uses native exact stock QQ pivots; other scalar domains retain the general algorithm. Public bounds transformation and symbolic extraction remain Python.",
+    "Poisson stock-model acceleration keeps callback/table/host/dependence guards; general conditional and dependent probability computations remain work to port.",
+    "Affine sec/csc and rational-frequency extensions are in a separate validated private patch and are not in this release."
+  ],
+  "global_algorithmic_parity_certified": false,
+  "performance_evidence": "audits/performance/2026-10-26-native-algebra/README.md"
+}

@@ -1,4 +1,6 @@
 //! Structural inspection without expansion or evaluation of held arithmetic.
+pub mod operation_counts;
+
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::expr::{Constant, Expr, Func, Kind};

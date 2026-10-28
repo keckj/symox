@@ -133,7 +133,7 @@ fn could_extract_minus_sign(e: &Expr, keys: &mut super::order::KeyCache) -> bool
 /// Leaves of the CSE tree. Derivatives are opaque (their inner expression
 /// must not be replaced by a symbol).
 fn is_leaf(e: &Expr) -> bool {
-    e.is_atom() || matches!(e.kind(), Kind::Derivative(..))
+    e.is_atom() || crate::diff::symbolic::is_derivative(e)
 }
 
 fn is_order(e: &Expr) -> bool {
@@ -144,6 +144,7 @@ fn rebuild_kind(e: &Expr, args: &[Expr]) -> Expr {
     match e.kind() {
         Kind::Add(..) => add(args),
         Kind::Mul(..) => mul(args),
+        Kind::Pow(..) if e.is_deferred_numeric_power() => crate::ops::deferred::rebuild(&args[0], &args[1]),
         Kind::Pow(..) => pow(&args[0], &args[1]),
         Kind::Func(f, _) => crate::functions::func(f.clone(), args.to_vec()),
         Kind::Rel(op, ..) => crate::relational::rel(*op, &args[0], &args[1]),
@@ -168,7 +169,7 @@ impl Cse {
             return a.clone();
         }
         let a: Rc<[Expr]> = match e.kind() {
-            Kind::Derivative(..) => Rc::from(Vec::new()),
+            Kind::Derivative(..) | Kind::Func(crate::expr::Func::SymbolicDerivative,_) => Rc::from(Vec::new()),
             _ => Rc::from(crate::traverse::ordered_args(e)),
         };
         self.args_cache.insert(e.clone(), a.clone());
@@ -355,7 +356,7 @@ impl Cse {
                         if let Some(n) = e.as_symbol() {
                             excluded.insert(n.to_string());
                         }
-                        if !matches!(e.kind(), Kind::Derivative(..)) {
+                        if !crate::diff::symbolic::is_derivative(e) {
                             continue;
                         }
                     }
@@ -495,14 +496,17 @@ impl Cse {
                 && matches!(e.kind(), Kind::Add(..) | Kind::Mul(..))
             {
                 // ordered() first compares expanded node counts, then keys.
-                let mut keyed: Vec<(BigUint, Rc<super::order::SortKey>, Val)> = ch
+                let mut keyed: Vec<(crate::number::Number, Rc<super::order::SortKey>, Val)> = ch
                     .into_iter()
                     .map(|v| match &v {
-                        Val::E(x) => (self.node_size(x), self.keys.key(x), v),
+                        Val::E(x) => {
+                            let rank=if crate::diff::symbolic::parts(x).is_some(){crate::diff::symbolic::node_weight(x)}else{crate::number::Number::from_bigint(self.node_size(x).into())};
+                            (rank,self.keys.key(x),v)
+                        },
                         Val::U(_) => unreachable!(),
                     })
                     .collect();
-                keyed.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+                keyed.sort_by(|a,b|a.0.cmp_value(&b.0).unwrap_or_else(||a.0.cmp_struct(&b.0)).then_with(||a.1.cmp(&b.1)));
                 ch = keyed.into_iter().map(|(_, _, v)| v).collect();
             }
         }

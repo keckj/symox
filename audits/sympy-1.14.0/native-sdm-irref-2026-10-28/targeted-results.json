@@ -1,0 +1,8 @@
+{
+  "combined": {
+    "returncode": 0,
+    "elapsed_seconds": 83.0250723361969,
+    "collected": 5523,
+    "exactly_once": true
+  }
+}

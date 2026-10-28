@@ -1,0 +1,353 @@
+{
+  "status": "GO for integration only; fresh integrated RELEASE and complete R13 gate pending",
+  "base_source_sha256": "4df626845d69241dcb3b0503b60454fc1ff8be00e78ee5ed45ee5b51f3ff0b3e",
+  "base_native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+  "native_kind": "private DEBUG; no timings",
+  "native_sha256": "6341dc7a3f8c5cc8fa256585e144d43c5638af690179b67cf2fd5b4b65c7f105",
+  "native_artifact": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/artifacts/debug-6341dc7a3f8c5cc8fa256585e144d43c5638af690179b67cf2fd5b4b65c7f105.so",
+  "source_count": 11,
+  "source_files": [
+    {
+      "path": "crates/symox-core/src/poly/hnf_modular.rs",
+      "base_sha256": null,
+      "final_sha256": "e38dd80458e0e3a45022a02ff0c0a2dc427f4e12e0cb25ccf1a4a5c79f95165e"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "base_sha256": "4675647687fe9f771896fd459a17c0e0e51e613da2849807b1fbdc9c67590066",
+      "final_sha256": "66ffe97786bef0a968930881c86acd0e6ecacc2e7f365f923f814cb356258784"
+    },
+    {
+      "path": "crates/symox-py/src/poly_hnf_modular.rs",
+      "base_sha256": null,
+      "final_sha256": "d2a62df0f04ef049ed90ababc83c3e294b73173e22f7492fae8da1d4093e9dfe"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base_sha256": "fbd09131d2b7d57276b75250fbab54ebec08bebfce9f3ebfc28869a43bbb395d",
+      "final_sha256": "8ea8e40279bacacafcaf539e4debf204ed1257faf4c74a5a5ef8f5daaee20956"
+    },
+    {
+      "path": "python/symox/polys/matrices/_hnf_modular_native.py",
+      "base_sha256": null,
+      "final_sha256": "d2ed80a37b9c56e2b0bf4f12848cc0f35c6c0698ea1207fd72ef5286abac43ee"
+    },
+    {
+      "path": "python/symox/polys/matrices/_hnf_native.py",
+      "base_sha256": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c",
+      "final_sha256": "57dae041970515bbbc0720b980b054936ee77ab16aff349cdff6985ff5a6ad36"
+    },
+    {
+      "path": "python/symox/polys/matrices/normalforms.py",
+      "base_sha256": "60dd243702916a25afc70bfe4104cbe45c3f8e08f2c2dbad300baf11b033f44c",
+      "final_sha256": "2c32f3982400071c8ad7038d0ea99f7d49a35e611b6516746d32a479b237619d"
+    },
+    {
+      "path": "tests/test_native_hnf_modular.py",
+      "base_sha256": null,
+      "final_sha256": "8bed418cbcb246c63b03069e2edb798754dcedef19fe7c21c6a5b3350ed02e8e"
+    },
+    {
+      "path": "tests/test_native_hnf_function_bootstrap.py",
+      "base_sha256": null,
+      "final_sha256": "52276b27eef6f33334cd4d11bcd8eeddd9840a7ab5654b2a4562e54d6e0d893c"
+    },
+    {
+      "path": "tests/data/native_hnf_modular.jsonl",
+      "base_sha256": null,
+      "final_sha256": "dbd36287dfc4f91f60cc4fc417dc8d55ed90be48c2d308b8171e2e77dc98aae0"
+    },
+    {
+      "path": "tests/test_native_hnf_code_authority.py",
+      "base_sha256": null,
+      "final_sha256": "97dfbf50c2a3d17bfd4b28b1a625f96022646eee5fa4212a649c6f56f6f3d430"
+    }
+  ],
+  "patch_sha256": "51ed68ba2444129a3981871a842a53238d906f0c43e5283f2d4a91c28b6c64ff",
+  "patch_replay": true,
+  "validation": {
+    "local": {
+      "focused": {
+        "nodes": 1681,
+        "files": 3,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "coupled": {
+        "nodes": 9889,
+        "files": 69,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "ordered": {
+        "nodes": 1037,
+        "files": 15,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "native": {
+        "NoRef": true,
+        "calls": 3925,
+        "positive_native": 3925,
+        "complete_unimodular_lattice_certificates": 730,
+        "legacy_only_outside_hypothesis_fixtures": 55
+      },
+      "fallback": {
+        "NoRef": true,
+        "calls": 3925,
+        "positive_native": 0,
+        "complete_unimodular_lattice_certificates": 730,
+        "legacy_only_outside_hypothesis_fixtures": 55
+      },
+      "working": {
+        "NoRef": true,
+        "original_calls": 785,
+        "positive_native_calls": 785,
+        "work_output_cell_and_row_identities_equal": true
+      },
+      "boundary": {
+        "NoRef": true,
+        "controls": 4,
+        "complete_fallback": true
+      },
+      "ordinary_after": {
+        "NoRef": true,
+        "cases": 5,
+        "actual_consumed_callbacks": true,
+        "audit_events": 0,
+        "native_admissions": 0,
+        "guard_sha256": "57dae041970515bbbc0720b980b054936ee77ab16aff349cdff6985ff5a6ad36"
+      },
+      "audit_first": {
+        "NoRef": true,
+        "positive_native": true,
+        "audit_events": 0
+      },
+      "final_state": {
+        "all_source_count": 3521,
+        "all_sources_match": true,
+        "native_count": 354,
+        "native_inputs_match": true,
+        "native_sha256": "6341dc7a3f8c5cc8fa256585e144d43c5638af690179b67cf2fd5b4b65c7f105"
+      },
+      "native_checks": {
+        "unit_command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox",
+          "poly::hnf_modular"
+        ],
+        "units_passed": 4,
+        "returncode": 0,
+        "clippy_command": [
+          "cargo",
+          "clippy",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "clippy_returncode": 0,
+        "reused_for_python_only_r1_because_all_354_cpp_inputs_identical": true,
+        "actual_cwd": "/home/keckj/.cache/symox-validation/native-hnf-modular-r13-20261028/work"
+      }
+    },
+    "demeter": {
+      "focused": {
+        "nodes": 1681,
+        "files": 3,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "coupled": {
+        "nodes": 9889,
+        "files": 69,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "ordered": {
+        "nodes": 1037,
+        "files": 15,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "native": {
+        "NoRef": true,
+        "calls": 3925,
+        "positive_native": 3925,
+        "complete_unimodular_lattice_certificates": 730,
+        "legacy_only_outside_hypothesis_fixtures": 55
+      },
+      "fallback": {
+        "NoRef": true,
+        "calls": 3925,
+        "positive_native": 0,
+        "complete_unimodular_lattice_certificates": 730,
+        "legacy_only_outside_hypothesis_fixtures": 55
+      },
+      "working": {
+        "NoRef": true,
+        "original_calls": 785,
+        "positive_native_calls": 785,
+        "work_output_cell_and_row_identities_equal": true
+      },
+      "boundary": {
+        "NoRef": true,
+        "controls": 4,
+        "complete_fallback": true
+      },
+      "ordinary_after": {
+        "NoRef": true,
+        "cases": 5,
+        "actual_consumed_callbacks": true,
+        "audit_events": 0,
+        "native_admissions": 0,
+        "guard_sha256": "57dae041970515bbbc0720b980b054936ee77ab16aff349cdff6985ff5a6ad36"
+      },
+      "audit_first": {
+        "NoRef": true,
+        "positive_native": true,
+        "audit_events": 0
+      },
+      "final_state": {
+        "all_source_count": 3521,
+        "all_sources_match": true,
+        "native_count": 354,
+        "native_inputs_match": true,
+        "native_sha256": "6341dc7a3f8c5cc8fa256585e144d43c5638af690179b67cf2fd5b4b65c7f105"
+      },
+      "native_checks": {
+        "unit_command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox",
+          "poly::hnf_modular"
+        ],
+        "units_passed": 4,
+        "returncode": 0,
+        "clippy_command": [
+          "cargo",
+          "clippy",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "clippy_returncode": 0,
+        "reused_for_python_only_r1_because_all_354_cpp_inputs_identical": true,
+        "actual_cwd": "/home/keckj/symox-ci/native-hnf-modular-r13/work"
+      }
+    }
+  },
+  "rejected_preliminary_archive_sha256": "cdf7e05ba25eddc489e9a9737c0e2ff91d42854d29346cefb22cc8179869656e",
+  "files": {
+    "README.md": "2fd083fe7d330c7c0296e1fd5c29fc8a992dc5b96d3e972ab84ea3cefcfa47ef",
+    "accepted-base-source-manifest.json": "c896342f61aafb4c080b621f347712cb037645556961266e85607a54c544c582",
+    "candidate-r1.patch": "51ed68ba2444129a3981871a842a53238d906f0c43e5283f2d4a91c28b6c64ff",
+    "history/REJECTED-SHARED-TABLE.md": "48a1432cc0759500dfd25a7d2e17f232a12e6368dc17b70b4f5e50f3fd285a24",
+    "history/binding-first-check.log": "5038d66c6d0de2f7eb80e405cc4f908c6861704295c3da5d6b0cd6211548702f",
+    "history/draft-preparation.json": "b59def5c652ebfd13819ec3c57ffac53b077579c684daf9ec1a095058e51e224",
+    "history/draft-source-manifest.json": "ba949812b01de8e2e709b8b411a0ac13cc4f8ea4021b1f1d6110a46b7f5b619f",
+    "history/focused-first.log": "a843ad03f8b28856d9a5dc7022992cde7199f6b028449b28f5a2b38843beec27",
+    "history/independent-before-alias.json": "a5d1bcb45e534edd657c16696aec41a48b819c1741d638dbb491317eb862554e",
+    "history/ordinary-before-evidence.tar.gz": "e673cdd87e4e756bec15d0729d607bae04856279a372047c62af2bd6ba7530e8",
+    "history/rejected-shared-table.tar.gz": "cdf7e05ba25eddc489e9a9737c0e2ff91d42854d29346cefb22cc8179869656e",
+    "patch-replay-r1.json": "2c1f8fdb06a61f73c2121c6d46ea6ec65a84766fc5e6af09e2f9857fe2b8e096",
+    "shared-native-validation/cpp-map.json": "158f977e595682226ad4fb88fe7c4f86816b4b23d09e1f5bbc3b64352529bf2c",
+    "shared-native-validation/debug-freeze-build.json": "e740525727434cdc95ff425f1a5723978619afa8ff6a1230798289d741398736",
+    "shared-native-validation/debug-freeze-build.log": "3a411d9e2aee454f61695766ed4e71323ec54c889e415657cd8adac0b68b06c8",
+    "shared-native-validation/demeter/clippy.log": "d8297ad7489faf89187a2ce5a1c69a13b225e32e32e7b52465f245703466cbcc",
+    "shared-native-validation/demeter/rust-hnf-modular.log": "d7ced0b929083aae0f55a7c33e14cd590e08c23d9d3a845af27b61ab10a333b7",
+    "shared-native-validation/local/clippy.log": "6b5b08f4315b94ad6818ac91017bcff06ec1c30155306bf6262029e0db195318",
+    "shared-native-validation/local/rust-hnf-modular.log": "a9179ff5bfc27d7b7d9282685708624d097beae75fe7053a2a58998ec3681021",
+    "shared-native-validation/native-inputs354.json": "1db791502f4d420768604f760ea961dd3fa62082928ccb70992d1b99fbfe7fbf",
+    "source-base/crates/symox-core/src/poly/mod.rs": "4675647687fe9f771896fd459a17c0e0e51e613da2849807b1fbdc9c67590066",
+    "source-base/crates/symox-py/src/poly_ddm.rs": "fbd09131d2b7d57276b75250fbab54ebec08bebfce9f3ebfc28869a43bbb395d",
+    "source-base/python/symox/polys/matrices/_hnf_native.py": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c",
+    "source-base/python/symox/polys/matrices/normalforms.py": "60dd243702916a25afc70bfe4104cbe45c3f8e08f2c2dbad300baf11b033f44c",
+    "source-map-r1.json": "9c322f6a6312f91fffd032bbf0ab29e1e65ea3a4478d9e61d3a5f02c22bf6ead",
+    "source-r1/crates/symox-core/src/poly/hnf_modular.rs": "e38dd80458e0e3a45022a02ff0c0a2dc427f4e12e0cb25ccf1a4a5c79f95165e",
+    "source-r1/crates/symox-core/src/poly/mod.rs": "66ffe97786bef0a968930881c86acd0e6ecacc2e7f365f923f814cb356258784",
+    "source-r1/crates/symox-py/src/poly_ddm.rs": "8ea8e40279bacacafcaf539e4debf204ed1257faf4c74a5a5ef8f5daaee20956",
+    "source-r1/crates/symox-py/src/poly_hnf_modular.rs": "d2a62df0f04ef049ed90ababc83c3e294b73173e22f7492fae8da1d4093e9dfe",
+    "source-r1/python/symox/polys/matrices/_hnf_modular_native.py": "d2ed80a37b9c56e2b0bf4f12848cc0f35c6c0698ea1207fd72ef5286abac43ee",
+    "source-r1/python/symox/polys/matrices/_hnf_native.py": "57dae041970515bbbc0720b980b054936ee77ab16aff349cdff6985ff5a6ad36",
+    "source-r1/python/symox/polys/matrices/normalforms.py": "2c32f3982400071c8ad7038d0ea99f7d49a35e611b6516746d32a479b237619d",
+    "source-r1/tests/data/native_hnf_modular.jsonl": "dbd36287dfc4f91f60cc4fc417dc8d55ed90be48c2d308b8171e2e77dc98aae0",
+    "source-r1/tests/test_native_hnf_code_authority.py": "97dfbf50c2a3d17bfd4b28b1a625f96022646eee5fa4212a649c6f56f6f3d430",
+    "source-r1/tests/test_native_hnf_function_bootstrap.py": "52276b27eef6f33334cd4d11bcd8eeddd9840a7ab5654b2a4562e54d6e0d893c",
+    "source-r1/tests/test_native_hnf_modular.py": "8bed418cbcb246c63b03069e2edb798754dcedef19fe7c21c6a5b3350ed02e8e",
+    "validation-r1-demeter/audit-first.json": "42efc705bfca5f6bc99a4f64e8f76bc0b25d7d26533ab9f7a6a2811b6c00cfcc",
+    "validation-r1-demeter/bootstrap-after.py": "83d02e6aee50a29cfc66e210fb58d5dc4f54db90fa03dda9d82b0209c4d2d1df",
+    "validation-r1-demeter/boundary-probe.json": "21b434a74cf9e2aa3ae2aabe53480dbdacc7a49efe32bd68996e9a37a19fed41",
+    "validation-r1-demeter/boundary-probe.py": "d8c87b30d9474a70815238f634ac730c593a335d88154d7a569d32ec0632f53c",
+    "validation-r1-demeter/certificate-probe.py": "b61b29b3b599d0d7c292f483394de76ebea06a0f11178495a54aab3c33234ceb",
+    "validation-r1-demeter/certificates-fallback.json": "1d3e02e9971f8c31ac5dcea7ff0d8d00f1f39934ebd8f9269252e2db2c5a4783",
+    "validation-r1-demeter/certificates-fallback.log": "5decbd78d8278177004c9eecc06feb4af6f77e83c28fd2b4ba95d15b5dc93c9c",
+    "validation-r1-demeter/certificates-native.json": "3c24849f5da22ec98d7c5518ab6dce1d48b572b023a054de76c69d60a02d1c76",
+    "validation-r1-demeter/certificates-native.log": "2e70d0a27205fe6ce81a3bec3d290eb17d5f7ff9e662cc12a7160d6eaf72ca71",
+    "validation-r1-demeter/changed-files.json": "d6a565adde28c4d8e6a6c3e22eddcbb5f5796ecd97ad6c16ee8704c6d07848c1",
+    "validation-r1-demeter/coupled-execution.json": "b3266848b2bcd117e665b2575096dad9c13a445ae29a3b1e78aa57b7c4a85f10",
+    "validation-r1-demeter/coupled-files.json": "6010346f3af13c3c821fcc205dbd3deeedc5684d0188431152397272f2e123f0",
+    "validation-r1-demeter/coupled-result.json": "d40a9dbbc80ba4711247708259b280cb56df390a3b86cfcbfc17f82e35cc3012",
+    "validation-r1-demeter/coupled-validated.log": "01e426ba7c2e83e54a28dd8a5729a6bd6c203ea9cb0a5dbfae3e18382938304f",
+    "validation-r1-demeter/expected-all-sources.json": "ba81c1d5ef4f25abc67b4f22e6e9256725246a3dd586d825e20a746d952e9c29",
+    "validation-r1-demeter/final-state.json": "ba7ea58acdf31d3abefeb30ec96614af9e29e56a93f1c4f619493ae4d8f6fddc",
+    "validation-r1-demeter/fixtures.jsonl": "dbd36287dfc4f91f60cc4fc417dc8d55ed90be48c2d308b8171e2e77dc98aae0",
+    "validation-r1-demeter/focused-execution.json": "092abe57fa6d2a19f82a5ebf7073c3b63b90849d54d43da4f20366acc0903fd5",
+    "validation-r1-demeter/focused-result.json": "c698f0a2fc80055f2bc6ede85f5811a62ddc071d251421dbbff7553efe67beb3",
+    "validation-r1-demeter/focused-validated.log": "9972dd4cbb97ed99cb61970d2d39f62bfcad46b3ccff6d015aac4fc9514ff12e",
+    "validation-r1-demeter/native-inputs354.json": "1db791502f4d420768604f760ea961dd3fa62082928ccb70992d1b99fbfe7fbf",
+    "validation-r1-demeter/ordered-execution.json": "93314f66a3940dbd90f13dc1f6a34065642af6644a9932f6ebe27f3ca0d97991",
+    "validation-r1-demeter/ordered-ground-files.json": "606544b5328879413f169e3fd5d41b26897dcfe0a19c1d76ed66adb5139e24b9",
+    "validation-r1-demeter/ordered-result.json": "35a189bec806985a8b5861d1afeff5182abd468a40920d3fe08e561623a7de14",
+    "validation-r1-demeter/ordered-validated.log": "0cc08d289c291c65e360c90552ebc71e3b506c762e48462a27c49ec31cbbb375",
+    "validation-r1-demeter/ordinary-bootstrap-after.json": "4963bc2c17c61bd897abed7a1a6d155eba559dcd4780b9226c7cbce21ee76dd5",
+    "validation-r1-demeter/protocol_probe.py": "6f737f51702223272ee8bb5ee5e55aba9c610239946550d6e67b1f912263ddca",
+    "validation-r1-demeter/run-validation.py": "18b95cd3b7a69aa31d9fc94d4c998406eba4bd1a0503e01c2bac6b0d11bd0144",
+    "validation-r1-demeter/validation_plugin.py": "117c9aa888b617d895b1fbb2183eb427b470cb35310c485467509a19cbb2fa26",
+    "validation-r1-demeter/verify-final-state.py": "4466d66930cc034b28dfdad0a44d4a23fed989a5315431c165ef50a9ad652843",
+    "validation-r1-demeter/working-probe.json": "1a24daedf501599ecc4e242d65d936cbba7f6407d9c2dfb8262231a1ccb92cf2",
+    "validation-r1-demeter/working-probe.py": "1b2352defe73fb3248b4a2c4516faa26825b1916d12d5b320905723b8ac59195",
+    "validation-r1-local/DELIVERY-REPORT.md": "2fd083fe7d330c7c0296e1fd5c29fc8a992dc5b96d3e972ab84ea3cefcfa47ef",
+    "validation-r1-local/FINAL-VALIDATION-SUMMARY.json": "52f2074415dc4c1492ca2228a10e4a5b326d8641ade162329147e4361e434f6e",
+    "validation-r1-local/audit-first.json": "42efc705bfca5f6bc99a4f64e8f76bc0b25d7d26533ab9f7a6a2811b6c00cfcc",
+    "validation-r1-local/bootstrap-after.py": "83d02e6aee50a29cfc66e210fb58d5dc4f54db90fa03dda9d82b0209c4d2d1df",
+    "validation-r1-local/boundary-probe.json": "21b434a74cf9e2aa3ae2aabe53480dbdacc7a49efe32bd68996e9a37a19fed41",
+    "validation-r1-local/boundary-probe.py": "d8c87b30d9474a70815238f634ac730c593a335d88154d7a569d32ec0632f53c",
+    "validation-r1-local/certificate-probe.py": "b61b29b3b599d0d7c292f483394de76ebea06a0f11178495a54aab3c33234ceb",
+    "validation-r1-local/certificates-fallback.json": "1d3e02e9971f8c31ac5dcea7ff0d8d00f1f39934ebd8f9269252e2db2c5a4783",
+    "validation-r1-local/certificates-fallback.log": "5decbd78d8278177004c9eecc06feb4af6f77e83c28fd2b4ba95d15b5dc93c9c",
+    "validation-r1-local/certificates-native.json": "3c24849f5da22ec98d7c5518ab6dce1d48b572b023a054de76c69d60a02d1c76",
+    "validation-r1-local/certificates-native.log": "2e70d0a27205fe6ce81a3bec3d290eb17d5f7ff9e662cc12a7160d6eaf72ca71",
+    "validation-r1-local/changed-files.json": "d6a565adde28c4d8e6a6c3e22eddcbb5f5796ecd97ad6c16ee8704c6d07848c1",
+    "validation-r1-local/coupled-execution.json": "b3266848b2bcd117e665b2575096dad9c13a445ae29a3b1e78aa57b7c4a85f10",
+    "validation-r1-local/coupled-files.json": "6010346f3af13c3c821fcc205dbd3deeedc5684d0188431152397272f2e123f0",
+    "validation-r1-local/coupled-result.json": "b748430b77cceeb453b4a3926fb1992748efce3abba9c46ab74cb21ab004133a",
+    "validation-r1-local/coupled-validated.log": "475d902a8f3635021cc64f589a1ff159f70e971af3677742536a9316e0f78f89",
+    "validation-r1-local/cpp-map.json": "158f977e595682226ad4fb88fe7c4f86816b4b23d09e1f5bbc3b64352529bf2c",
+    "validation-r1-local/environment-confirmed.json": "65cdb2fdef4debf05a716cb28010512c791c9a835965cf9063b59e0d98ab84da",
+    "validation-r1-local/expected-all-sources.json": "ba81c1d5ef4f25abc67b4f22e6e9256725246a3dd586d825e20a746d952e9c29",
+    "validation-r1-local/final-state.json": "ba7ea58acdf31d3abefeb30ec96614af9e29e56a93f1c4f619493ae4d8f6fddc",
+    "validation-r1-local/fixtures.jsonl": "dbd36287dfc4f91f60cc4fc417dc8d55ed90be48c2d308b8171e2e77dc98aae0",
+    "validation-r1-local/focused-execution.json": "092abe57fa6d2a19f82a5ebf7073c3b63b90849d54d43da4f20366acc0903fd5",
+    "validation-r1-local/focused-result.json": "a3c07778626d1bd45c3946a9f34503a5f2b70eff3dc4b6f68e25657ba6dbb6fa",
+    "validation-r1-local/focused-validated.log": "0672f9210c6115a5dbaef225fad1dafa0b4ef2e33af9eb89a8ac39cab8077535",
+    "validation-r1-local/native-inputs354.json": "1db791502f4d420768604f760ea961dd3fa62082928ccb70992d1b99fbfe7fbf",
+    "validation-r1-local/ordered-execution.json": "93314f66a3940dbd90f13dc1f6a34065642af6644a9932f6ebe27f3ca0d97991",
+    "validation-r1-local/ordered-ground-files.json": "606544b5328879413f169e3fd5d41b26897dcfe0a19c1d76ed66adb5139e24b9",
+    "validation-r1-local/ordered-result.json": "6132e91012dd9711d9edae01332e94366a9ab4166dbeaefbef5453253aa4d904",
+    "validation-r1-local/ordered-validated.log": "d009e69bb8cfd7373c543dd4cdce915284e330fe42ee153a7a5d7466e1f87f12",
+    "validation-r1-local/ordinary-bootstrap-after.json": "4963bc2c17c61bd897abed7a1a6d155eba559dcd4780b9226c7cbce21ee76dd5",
+    "validation-r1-local/protocol_probe.py": "6f737f51702223272ee8bb5ee5e55aba9c610239946550d6e67b1f912263ddca",
+    "validation-r1-local/run-validation.py": "18b95cd3b7a69aa31d9fc94d4c998406eba4bd1a0503e01c2bac6b0d11bd0144",
+    "validation-r1-local/validation_plugin.py": "117c9aa888b617d895b1fbb2183eb427b470cb35310c485467509a19cbb2fa26",
+    "validation-r1-local/verify-final-state.py": "4466d66930cc034b28dfdad0a44d4a23fed989a5315431c165ef50a9ad652843",
+    "validation-r1-local/working-probe.json": "1a24daedf501599ecc4e242d65d936cbba7f6407d9c2dfb8262231a1ccb92cf2",
+    "validation-r1-local/working-probe.py": "1b2352defe73fb3248b4a2c4516faa26825b1916d12d5b320905723b8ac59195"
+  }
+}

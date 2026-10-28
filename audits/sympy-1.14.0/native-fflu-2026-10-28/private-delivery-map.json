@@ -1,0 +1,11 @@
+{
+  "manifest": "/home/keckj/.cache/symox-validation/native-ddm-fflu-r11-20261028/delivery-final/freeze-manifest.json",
+  "manifest_sha256": "39f20b1abe53e5bdfbb953360bae81b1521ed23203f3d1f846f34bbdd28f04d3",
+  "patch": "/home/keckj/.cache/symox-validation/native-ddm-fflu-r11-20261028/delivery-final/candidate.patch",
+  "patch_sha256": "e084afddb5afe123a1fe955ad7204446701eeeefeca831e0366b51c98871df86",
+  "archive": "/home/keckj/.cache/symox-validation/native-ddm-fflu-r11-20261028/delivery-final-proof.tar.gz",
+  "archive_sha256": "043451a90650d97690bbac38cb51a38fff71127eaf39f8ee4f48545ed48e4f63",
+  "archive_members": 104,
+  "source_map": "/home/keckj/.cache/symox-validation/native-ddm-fflu-r11-20261028/delivery-final/source-map.json",
+  "report": "/home/keckj/.cache/symox-validation/native-ddm-fflu-r11-20261028/delivery-final/README.md"
+}

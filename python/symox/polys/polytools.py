@@ -337,7 +337,8 @@ def total_degree(f, *gens):
     from .. import Integer, sympify
     p = sympify(f) if not isinstance(f, Poly) else f
     if isinstance(p, Poly):
-        gens = gens or p.gens
+        if not gens or tuple(gens) == p.gens:
+            return Integer(p.total_degree())
         p = p.as_expr()
     if p.is_Number:
         return Integer(0)

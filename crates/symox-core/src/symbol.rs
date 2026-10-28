@@ -283,6 +283,8 @@ pub struct Symbol {
     dummy_index: Option<Arc<BigInt>>,
     /// Host-language subclass of this atom, part of its identity.
     host: Option<Arc<dyn crate::host::HostClass>>,
+    /// Structural identity of an adapted scalar atom, independent of display.
+    scalar_identity: Option<Arc<crate::expr::Expr>>,
 }
 
 impl Symbol {
@@ -299,14 +301,19 @@ impl Symbol {
         let facts=given_facts.closure()?;
         let known=facts.legacy();
         let hash_extra=(crate::assumption_facts::FactSet::from_legacy(known).closure()?!=facts).then_some(facts);
-        Ok(Self{name:Arc::from(name),given:given_facts.legacy(),known,given_facts,facts,hash_extra,wild:None,wild_properties:None,dummy_index:None,host:None})
+        Ok(Self{name:Arc::from(name),given:given_facts.legacy(),known,given_facts,facts,hash_extra,wild:None,wild_properties:None,dummy_index:None,host:None,scalar_identity:None})
     }
+    pub fn with_scalar_identity(mut self, identity: crate::expr::Expr) -> Self {
+        self.scalar_identity=Some(Arc::new(identity));self
+    }
+    pub fn scalar_identity(&self)->Option<&crate::expr::Expr>{self.scalar_identity.as_deref()}
     pub fn facts(&self)->crate::assumption_facts::FactSet{self.facts}
     pub fn given_facts(&self)->crate::assumption_facts::FactSet{self.given_facts}
     pub(crate) fn cmp_basic(&self,other:&Self)->std::cmp::Ordering{
         (1+self.facts.len()+usize::from(self.is_dummy())).cmp(&(1+other.facts.len()+usize::from(other.is_dummy())))
             .then_with(||self.name.cmp(&other.name))
             .then_with(||self.facts.iter().cmp(other.facts.iter()))
+            .then_with(||self.scalar_identity.cmp(&other.scalar_identity))
             .then_with(||self.dummy_index.cmp(&other.dummy_index))
             .then_with(||self.wild.cmp(&other.wild))
             .then_with(||self.properties_identity().cmp(&other.properties_identity()))
@@ -427,6 +434,7 @@ impl PartialEq for Symbol {
     fn eq(&self, o: &Symbol) -> bool {
         self.name == o.name
             && self.facts == o.facts
+            && self.scalar_identity == o.scalar_identity
             && self.dummy_index == o.dummy_index
             && self.properties_identity() == o.properties_identity()
             && crate::host::same(self.host.as_ref(), o.host.as_ref())
@@ -450,6 +458,7 @@ impl Ord for Symbol {
             .cmp(&o.name)
             .then(self.known.cmp(&o.known))
             .then(self.facts.cmp(&o.facts))
+            .then_with(||self.scalar_identity.cmp(&o.scalar_identity))
             .then(self.dummy_index.cmp(&o.dummy_index))
             .then_with(|| self.wild.cmp(&o.wild))
             .then_with(|| self.properties_identity().cmp(&o.properties_identity()))
@@ -463,6 +472,7 @@ impl Hash for Symbol {
         self.name.hash(h);
         if !self.known.is_empty(){self.known.hash(h);}
         if let Some(extra)=self.hash_extra{0xfac7u16.hash(h);extra.hash(h);}
+        if let Some(identity)=&self.scalar_identity {0x1d3eu16.hash(h);identity.hash(h);}
         if let Some(index) = &self.dummy_index {
             0xd00du16.hash(h);
             dummy_hash_offset(index).hash(h);
@@ -510,6 +520,20 @@ impl PartialEq<&str> for Symbol {
 #[cfg(test)]
 mod tests {
     use super::Assumptions as A;
+    #[test]
+    fn structural_scalar_identity_preserves_distinct_atoms() {
+        use super::Symbol;
+        use crate::expr::{Expr,Kind};
+        use std::collections::{HashSet,BTreeSet};
+        let plain=Expr::symbol("A[i]");
+        let first=Expr::from_kind(Kind::Sym(Symbol::new("A[i]").with_scalar_identity(Expr::int(3))));
+        let same=Expr::from_kind(Kind::Sym(Symbol::new("A[i]").with_scalar_identity(Expr::int(3))));
+        let second=Expr::from_kind(Kind::Sym(Symbol::new("A[i]").with_scalar_identity(Expr::int(5))));
+        assert_eq!(first,same);assert_ne!(first,plain);assert_ne!(first,second);
+        assert_eq!(first.to_string(),plain.to_string());
+        assert_eq!(HashSet::from([plain.clone(),first.clone(),same.clone(),second.clone()]).len(),3);
+        assert_eq!(BTreeSet::from([plain,first,same,second]).len(),3);
+    }
     #[test]
     fn real_nonzero_and_complex_nonzero_are_distinct() {
         let nonzero=A::from_kwargs([("nonzero",true)]).unwrap().closure().unwrap();

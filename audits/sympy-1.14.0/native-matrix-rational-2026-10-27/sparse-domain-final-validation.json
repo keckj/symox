@@ -1,0 +1,11 @@
+{
+  "source_manifest_sha256": "4dd747c1ee4a60c4cbba3df151d8840aab64be5a1fc7293c57e3064632ea03ae",
+  "source_frozen_and_verified": true,
+  "local_passed": 192,
+  "demeter_passed": 192,
+  "logs": {
+    "local.log": "c9e7f31ab6649453e2f13b9b26b192cbbaad4cc9f4286fb11b36b84ed4742227",
+    "demeter.log": "5c4498abd83e56b1271dc63620b2abee1abfbd39315420f39f6977899ee69fda"
+  },
+  "native_sha256": "0c0a93466164860ba5c9fd50d1e33de70395c6d75866051484df6bee90c50c9a"
+}

@@ -1,0 +1,475 @@
+{
+  "fresh_processes_per_variant_backend": 3,
+  "cpu": 24,
+  "reference_runtime": "blocked in every worker",
+  "after_source": "374d458fdc73fb8a75cbaa2a06952b2b29d6ccc216f1b497f82a155468b4c0ac",
+  "elapsed_seconds": 21.207409907015972,
+  "variants": {
+    "plain": {
+      "lrt/quadratic": {
+        "r2_ns": 365218.2,
+        "r3b_ns": 374211.0,
+        "ratio_r2_over_r3b": 0.9759686380143823,
+        "r2_process_medians": [
+          365218.2,
+          360665.75,
+          370554.9
+        ],
+        "r3b_process_medians": [
+          372787.45,
+          378122.4,
+          374211.0
+        ],
+        "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6",
+        "r2_native_selection": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            true
+          ]
+        ]
+      },
+      "lrt/quartic": {
+        "r2_ns": 440738.4,
+        "r3b_ns": 452536.35,
+        "ratio_r2_over_r3b": 0.9739292766205412,
+        "r2_process_medians": [
+          439377.65,
+          440738.4,
+          449670.65
+        ],
+        "r3b_process_medians": [
+          453135.7,
+          452536.35,
+          445444.6
+        ],
+        "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197",
+        "r2_native_selection": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            true
+          ]
+        ]
+      },
+      "lrt/nonconstant_numerator": {
+        "r2_ns": 491356.45,
+        "r3b_ns": 498998.8,
+        "ratio_r2_over_r3b": 0.9846846325081343,
+        "r2_process_medians": [
+          486253.4,
+          491821.7,
+          491356.45
+        ],
+        "r3b_process_medians": [
+          498998.8,
+          498668.55,
+          499565.7
+        ],
+        "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed",
+        "r2_native_selection": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            true
+          ]
+        ]
+      },
+      "lrt/multiplicity_groups": {
+        "r2_ns": 785670.3,
+        "r3b_ns": 812297.7,
+        "ratio_r2_over_r3b": 0.9672196535826706,
+        "r2_process_medians": [
+          785670.3,
+          784726.15,
+          835508.25
+        ],
+        "r3b_process_medians": [
+          812297.7,
+          803966.7,
+          864145.45
+        ],
+        "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0",
+        "r2_native_selection": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            true
+          ]
+        ]
+      },
+      "lrt/distinct_arguments": {
+        "r2_ns": 757328.8125,
+        "r3b_ns": 767660.7875,
+        "ratio_r2_over_r3b": 0.9865409629249821,
+        "r2_process_medians": [
+          746866.94375,
+          757344.18125,
+          757328.8125
+        ],
+        "r3b_process_medians": [
+          766849.39375,
+          767660.7875,
+          771007.75
+        ],
+        "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03",
+        "r2_native_selection": [
+          [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        ]
+      },
+      "atan/linear_branch": {
+        "r2_ns": 88999.7,
+        "r3b_ns": 91397.9,
+        "ratio_r2_over_r3b": 0.9737608850969224,
+        "r2_process_medians": [
+          89649.95,
+          86631.5,
+          88999.7
+        ],
+        "r3b_process_medians": [
+          90076.3,
+          91397.9,
+          95326.45
+        ],
+        "digest": "058bc83e0901e8a1486174fc6817ff45bb68c190a9ab69c8d7034123acf056ef",
+        "r2_native_selection": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            true
+          ]
+        ]
+      },
+      "atan/quadratic": {
+        "r2_ns": 99195.4,
+        "r3b_ns": 103126.75,
+        "ratio_r2_over_r3b": 0.9618784650927136,
+        "r2_process_medians": [
+          99195.4,
+          98171.0,
+          103827.45
+        ],
+        "r3b_process_medians": [
+          102202.75,
+          103126.75,
+          110012.35
+        ],
+        "digest": "c82fd8fd618fb7cae452743587e352fbe05de6f1ed4fcbb7e77ea07f78c239c7",
+        "r2_native_selection": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            true
+          ]
+        ]
+      },
+      "atan/quartic": {
+        "r2_ns": 133096.5,
+        "r3b_ns": 137406.7,
+        "ratio_r2_over_r3b": 0.9686318061637459,
+        "r2_process_medians": [
+          139702.1,
+          130945.4,
+          133096.5
+        ],
+        "r3b_process_medians": [
+          136035.4,
+          137406.7,
+          144808.75
+        ],
+        "digest": "b950b176992c3d1e0295532bf4eb0dc2e1431057c44003ee82f0839f995ae2ff",
+        "r2_native_selection": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            true
+          ]
+        ]
+      },
+      "atan/distinct_arguments": {
+        "r2_ns": 120440.85,
+        "r3b_ns": 123461.325,
+        "ratio_r2_over_r3b": 0.9755350511587334,
+        "r2_process_medians": [
+          119734.4875,
+          120440.85,
+          120563.5
+        ],
+        "r3b_process_medians": [
+          122252.6375,
+          123461.325,
+          129636.8625
+        ],
+        "digest": "1d0eb8ff88d2298f7bc7b7afc833255ee8fab1c30b18abc2e6017961ea4a1938",
+        "r2_native_selection": [
+          [
+            true,
+            true,
+            true,
+            true
+          ],
+          [
+            true,
+            true,
+            true,
+            true
+          ],
+          [
+            true,
+            true,
+            true,
+            true
+          ]
+        ]
+      }
+    },
+    "vector": {
+      "lrt/quadratic": {
+        "r2_ns": 1159706.8,
+        "r3b_ns": 486681.5,
+        "ratio_r2_over_r3b": 2.3828865490058693,
+        "r2_process_medians": [
+          1154389.8,
+          1173219.45,
+          1159706.8
+        ],
+        "r3b_process_medians": [
+          475982.3,
+          492975.85,
+          486681.5
+        ],
+        "digest": "f84d7f147fd1b9f2c88e68c1b6131fb9909706bba6f061873438abe5b020fae6",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      },
+      "lrt/quartic": {
+        "r2_ns": 1298429.6,
+        "r3b_ns": 566108.45,
+        "ratio_r2_over_r3b": 2.2936057569887893,
+        "r2_process_medians": [
+          1298429.6,
+          1293613.45,
+          1305344.5
+        ],
+        "r3b_process_medians": [
+          566108.45,
+          589073.35,
+          561268.05
+        ],
+        "digest": "736df4504460fc371ab72310ea86b7e1b4aa468f1c2af634626f06973aa7d197",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      },
+      "lrt/nonconstant_numerator": {
+        "r2_ns": 1382732.25,
+        "r3b_ns": 602687.6,
+        "ratio_r2_over_r3b": 2.294276918921179,
+        "r2_process_medians": [
+          1374848.55,
+          1382732.25,
+          1390224.5
+        ],
+        "r3b_process_medians": [
+          602373.5,
+          639346.9,
+          602687.6
+        ],
+        "digest": "e681c072ba4a33d4eb24c67ca2c7757503c2e68004f7ac4cf3d31d982bec02ed",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      },
+      "lrt/multiplicity_groups": {
+        "r2_ns": 2585695.4,
+        "r3b_ns": 907292.4,
+        "ratio_r2_over_r3b": 2.8499030742459652,
+        "r2_process_medians": [
+          2581711.05,
+          2595910.0,
+          2585695.4
+        ],
+        "r3b_process_medians": [
+          907292.4,
+          904635.0,
+          920957.85
+        ],
+        "digest": "e4f897314d969fb1ef0498c7d4b0894e7d2dbefcdfb3ec0c88c325ed9cf9a9e0",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      },
+      "lrt/distinct_arguments": {
+        "r2_ns": 1731833.41875,
+        "r3b_ns": 866593.25625,
+        "ratio_r2_over_r3b": 1.998438605723918,
+        "r2_process_medians": [
+          1731833.41875,
+          1752540.4375,
+          1726004.51875
+        ],
+        "r3b_process_medians": [
+          866593.25625,
+          866516.6625,
+          875472.9875
+        ],
+        "digest": "1add262fb77a56b91d8295f008dcb81af2c5c95fa23fbc215a281ee75556dd03",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      },
+      "atan/linear_branch": {
+        "r2_ns": 86022.7,
+        "r3b_ns": 151720.0,
+        "ratio_r2_over_r3b": 0.5669832586343264,
+        "r2_process_medians": [
+          85085.3,
+          86022.7,
+          86942.3
+        ],
+        "r3b_process_medians": [
+          158816.05,
+          146315.55,
+          151720.0
+        ],
+        "digest": "058bc83e0901e8a1486174fc6817ff45bb68c190a9ab69c8d7034123acf056ef",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      },
+      "atan/quadratic": {
+        "r2_ns": 115107.75,
+        "r3b_ns": 167089.3,
+        "ratio_r2_over_r3b": 0.6888995884236753,
+        "r2_process_medians": [
+          112692.6,
+          116657.25,
+          115107.75
+        ],
+        "r3b_process_medians": [
+          175016.15,
+          167089.3,
+          162724.1
+        ],
+        "digest": "c82fd8fd618fb7cae452743587e352fbe05de6f1ed4fcbb7e77ea07f78c239c7",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      },
+      "atan/quartic": {
+        "r2_ns": 241010.65,
+        "r3b_ns": 199147.35,
+        "ratio_r2_over_r3b": 1.210212689247434,
+        "r2_process_medians": [
+          238807.6,
+          241010.65,
+          241048.25
+        ],
+        "r3b_process_medians": [
+          199147.35,
+          195524.35,
+          199733.1
+        ],
+        "digest": "b950b176992c3d1e0295532bf4eb0dc2e1431057c44003ee82f0839f995ae2ff",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      },
+      "atan/distinct_arguments": {
+        "r2_ns": 209973.525,
+        "r3b_ns": 183774.8125,
+        "ratio_r2_over_r3b": 1.142558776927061,
+        "r2_process_medians": [
+          207386.75,
+          212292.5125,
+          209973.525
+        ],
+        "r3b_process_medians": [
+          197367.3625,
+          179677.8875,
+          183774.8125
+        ],
+        "digest": "1d0eb8ff88d2298f7bc7b7afc833255ee8fab1c30b18abc2e6017961ea4a1938",
+        "r2_native_selection": [
+          [],
+          [],
+          []
+        ]
+      }
+    }
+  }
+}

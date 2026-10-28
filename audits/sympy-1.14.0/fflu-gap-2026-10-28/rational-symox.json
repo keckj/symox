@@ -1,0 +1,486 @@
+{
+  "library": "symox",
+  "version": "0.1.1",
+  "package": "/home/keckj/.cache/symox-validation/native-normalforms-risch-lll-r11-20261028/after/python/symox",
+  "native_sha256": "532c4b08d546d9d580306ad7e40317e2fbbbe80aa8d77d4749b35682d3ee9c90",
+  "sources_before_after": {
+    "polys/matrices/ddm.py": "24676395a297d14d16838596996506bae6a0c796d7bd73c9b7bc7ad13fd03812",
+    "polys/matrices/domainmatrix.py": "037d685ba487843f568ab4a32d82562aedc63a85c5eb65c21563ef25ead0dfc6",
+    "polys/matrices/sdm.py": "2ac6dd80178970ffccab344ad1bfcddd12ae3fa1644f08d62ed4631ffeb3a137"
+  },
+  "sources_unchanged": true,
+  "no_timing_fields": true,
+  "calls": 8,
+  "returned": 4,
+  "raised": 4,
+  "certified": 0,
+  "returned_but_uncertified": 4,
+  "records": [
+    {
+      "case": "rational-wide-delayed",
+      "group": "rational-witness",
+      "entry": "private",
+      "domain": "QQ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "permutation": [
+        0,
+        1
+      ],
+      "packed_LU": [
+        [
+          "0",
+          "0",
+          "1/2",
+          "2/3"
+        ],
+        [
+          "0",
+          "0",
+          "2/5",
+          "3/7"
+        ]
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3/7",
+            "L_Dinv_U": "146/105"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "private_shapes_domain": true,
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "rational-wide-delayed",
+      "group": "rational-witness",
+      "entry": "ddm",
+      "domain": "QQ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1/2",
+            "0"
+          ],
+          [
+            "2/5",
+            "3/7"
+          ]
+        ],
+        "D": [
+          [
+            "1/2",
+            "0"
+          ],
+          [
+            "0",
+            "3/14"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1/2",
+            "2/3"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3/7"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3/7",
+            "L_Dinv_U": "146/105"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "rational-wide-delayed",
+      "group": "rational-witness",
+      "entry": "dense",
+      "domain": "QQ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1/2",
+            "0"
+          ],
+          [
+            "2/5",
+            "3/7"
+          ]
+        ],
+        "D": [
+          [
+            "1/2",
+            "0"
+          ],
+          [
+            "0",
+            "3/14"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1/2",
+            "2/3"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3/7"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "dense",
+        "dense",
+        "dense",
+        "dense"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3/7",
+            "L_Dinv_U": "146/105"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "rational-wide-delayed",
+      "group": "rational-witness",
+      "entry": "sparse",
+      "domain": "QQ",
+      "shape": [
+        2,
+        4
+      ],
+      "status": "returned",
+      "factors": {
+        "P": [
+          [
+            "1",
+            "0"
+          ],
+          [
+            "0",
+            "1"
+          ]
+        ],
+        "L": [
+          [
+            "1/2",
+            "0"
+          ],
+          [
+            "2/5",
+            "3/7"
+          ]
+        ],
+        "D": [
+          [
+            "1/2",
+            "0"
+          ],
+          [
+            "0",
+            "3/14"
+          ]
+        ],
+        "U": [
+          [
+            "0",
+            "0",
+            "1/2",
+            "2/3"
+          ],
+          [
+            "0",
+            "0",
+            "0",
+            "3/7"
+          ]
+        ]
+      },
+      "factor_shapes": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "domain_preserved": true,
+      "output_format": [
+        "sparse",
+        "sparse",
+        "sparse",
+        "sparse"
+      ],
+      "certificate": {
+        "shapes": true,
+        "permutation": true,
+        "L_lower": true,
+        "D_diagonal": true,
+        "D_invertible": true,
+        "L_invertible": true,
+        "U_upper": true,
+        "U_echelon": true,
+        "pivot_columns": [
+          2,
+          3
+        ],
+        "rank_A": 2,
+        "rank_U": 2,
+        "rank_complete": true,
+        "P_A_equals_L_Dinv_U": false,
+        "mismatches": [
+          {
+            "index": [
+              1,
+              3
+            ],
+            "P_A": "3/7",
+            "L_Dinv_U": "146/105"
+          }
+        ],
+        "complete_certificate": false
+      },
+      "input_unchanged": true
+    },
+    {
+      "case": "rational-skipped-denominator",
+      "group": "rational-witness",
+      "entry": "private",
+      "domain": "QQ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "division by zero"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "rational-skipped-denominator",
+      "group": "rational-witness",
+      "entry": "ddm",
+      "domain": "QQ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "division by zero"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "rational-skipped-denominator",
+      "group": "rational-witness",
+      "entry": "dense",
+      "domain": "QQ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "division by zero"
+      },
+      "input_unchanged": true,
+      "input_rows_cells_unchanged": true
+    },
+    {
+      "case": "rational-skipped-denominator",
+      "group": "rational-witness",
+      "entry": "sparse",
+      "domain": "QQ",
+      "shape": [
+        3,
+        4
+      ],
+      "status": "raised",
+      "error": {
+        "type": "ZeroDivisionError",
+        "message": "division by zero"
+      },
+      "input_unchanged": true
+    }
+  ]
+}

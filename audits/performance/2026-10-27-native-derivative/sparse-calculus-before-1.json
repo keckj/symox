@@ -1,0 +1,41 @@
+{
+  "native_sha256": "146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656",
+  "method": "9 distinct preconstructed three-term EX polynomials percase;3 batches of3; exact independent polynomial/value checks after all timers; no rounded/grouped-order corrections used as speedups",
+  "diff_degree1000": {
+    "samples_seconds_per_call": [
+      1.6354994537929695e-05,
+      6.7456664207081e-06,
+      5.729341258605321e-06
+    ],
+    "median_seconds_per_call": 6.7456664207081e-06,
+    "values_digest": "e5222b739a7c56fd481208b02669757b9fa3317f79aeee456c207a260a6ee4b2"
+  },
+  "diff_degree4000": {
+    "samples_seconds_per_call": [
+      1.0602001566439867e-05,
+      7.087325987716516e-06,
+      6.547663360834122e-06
+    ],
+    "median_seconds_per_call": 7.087325987716516e-06,
+    "values_digest": "d75dc451e72bb569f866079b173d5f2a8817527702563ebbf2f8c62febc9759e"
+  },
+  "integrate_degree4000": {
+    "samples_seconds_per_call": [
+      2.3353670258075e-05,
+      9.661346363524595e-06,
+      9.379000402987003e-06
+    ],
+    "median_seconds_per_call": 9.661346363524595e-06,
+    "values_digest": "5dff4aed985d4fc7bf3a4f8056e0d09e738ea2900b228344cdaa94571c5663d2"
+  },
+  "eval_zero_degree4000": {
+    "samples_seconds_per_call": [
+      0.005638134995630632,
+      0.0001861713438605269,
+      0.0001795299855681757
+    ],
+    "median_seconds_per_call": 0.0001861713438605269,
+    "values_digest": "9397c57d054f7eed4cb91e7e13020714d9c26d0a41f963a57c1a6a6feb085b2e"
+  },
+  "independent_exact_checks": 36
+}

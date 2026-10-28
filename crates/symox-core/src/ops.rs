@@ -14,6 +14,7 @@ use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::{exact_root, trial_factor, Number};
 
 mod memo;
+pub mod deferred;
 
 // ----------------------------------------------------------------------
 // helpers on the internal representation
@@ -21,6 +22,9 @@ mod memo;
 
 /// `k * t` where `t` is a term of an `Add` (no numeric coefficient).
 pub fn add_term(t: &Expr, k: &Number) -> Expr {
+    if t.is_deferred_numeric_power(){
+        return if k.is_one(){t.clone()}else{Expr::from_kind(Kind::Mul(k.clone(),vec![(t.clone(),Expr::one())]))};
+    }
     if k.is_one() {
         return t.clone();
     }
@@ -290,7 +294,8 @@ fn add2_merge(a: &Expr, b: &Expr) -> Option<Expr> {
             std::cmp::Ordering::Equal => {
                 let k = ta[i].1.add(&tb[j].1);
                 if !k.is_zero() {
-                    out.push((ta[i].0.clone(), k));
+                    let term = if tb[j].0.has_deferred_numeric_power() { &tb[j].0 } else { &ta[i].0 };
+                    out.push((term.clone(), k));
                 }
                 i += 1;
                 j += 1;
@@ -354,7 +359,7 @@ fn finish_add(coeff: Number, mut terms: Vec<(Expr, Number)>, inf: InfFlags) -> E
     let mut out: Vec<(Expr, Number)> = Vec::with_capacity(terms.len());
     for (t, k) in terms {
         match out.last_mut() {
-            Some((lt, lk)) if *lt == t => *lk = lk.add(&k),
+            Some((lt, lk)) if *lt == t => {if t.has_deferred_numeric_power(){*lt=t;}*lk = lk.add(&k);},
             _ => out.push((t, k)),
         }
     }
@@ -449,6 +454,7 @@ impl ProductParts {
         self.complex_infinity |= constant == Constant::ComplexInfinity;
     }
     fn absorb(&mut self, argument: &Expr, cache: &mut ProductMemo) {
+        if argument.is_deferred_numeric_power(){self.factor(argument,&Expr::one(),&BigInt::one());return;}
         match argument.kind() {
             Kind::Num(number) => self.coefficient = self.coefficient.mul(number),
             Kind::Mul(..) => self.merge(&product_parts(argument, cache)),
@@ -496,6 +502,20 @@ fn zero_add_infinity(e: &Expr) -> bool {
             || (term.is_mul() && direct_arithmetic_infinity(term))
     })
 }
+/// The zero/Add rule of SymPy's Mul.flatten also applies when the sum
+/// belongs to the ordered noncommutative part. Inspect only the active
+/// product spine: functions, powers and nested sums remain boundaries.
+fn product_has_infinite_addend(args: &[Expr]) -> bool {
+    let mut pending=args.to_vec();
+    let mut seen=rustc_hash::FxHashSet::default();
+    while let Some(argument)=pending.pop() {
+        if !(argument.is_add()||argument.is_mul()) || !seen.insert(argument.dag_id()) {continue;}
+        if zero_add_infinity(&argument) {return true;}
+        if argument.is_mul() {pending.extend(crate::inspection::scalar_children(&argument));}
+    }
+    false
+}
+
 fn needs_product_scan(e: &Expr) -> bool {
     e.is_mul() && (e.has_held_arithmetic() || e.has_nonfinite()
         || matches!(e.kind(), Kind::Mul(Number::Float(value), _) if !value.is_finite()))
@@ -546,6 +566,10 @@ fn mul_noncommutative(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Opt
         } else { push(argument.clone(), &mut commutative, &mut ordered); }
     }
     let scalar = mul_commutative(&commutative, depth, cache);
+    // The literal infinite addend cannot be discarded by the scalar zero.
+    // Check the original spine before adjacent ordered factors coalesce into
+    // powers; the result must not depend on factor order or grouping.
+    if scalar.is_zero() && product_has_infinite_addend(args) {return Some(Expr::nan());}
     if ordered.is_empty() || scalar.is_zero() || scalar.is_constant(Constant::NaN)
         || scalar.as_number().is_some_and(Number::is_nan) { return Some(scalar); }
     let (coefficient, mut factors) = match scalar.kind() {
@@ -588,6 +612,7 @@ fn mul_commutative(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
     } else {
         // Keep the usual canonical path allocation-light.
         for argument in args {
+            if argument.is_deferred_numeric_power(){factors.push((argument.clone(),Expr::one()));continue;}
             match argument.kind() {
                 Kind::Num(number) => coefficient = coefficient.mul(number),
                 Kind::Mul(c, fs) => { coefficient = coefficient.mul(c); factors.extend(fs.iter().cloned()); }
@@ -1505,6 +1530,10 @@ fn half_branch_power(bb: &Expr, be: &Expr, e: &Expr) -> Option<Expr> {
 
 /// Canonical power `b ** e`.
 pub fn pow(b: &Expr, e: &Expr) -> Expr {
+    if b.is_deferred_numeric_power() && !e.is_zero() && !e.is_one()
+        && !e.has_nonfinite() {
+        return Expr::from_unevaluated_kind(Kind::Pow(b.clone(),e.clone()));
+    }
     if !e.is_zero() {
         if let Kind::Func(Func::ExpPolar, args) = b.kind() {
             return crate::functions::func(Func::ExpPolar, vec![mul2(&args[0], e)]);
@@ -2218,6 +2247,7 @@ fn int_rational_pow(n: &BigInt, e: &Number) -> Expr {
 // ----------------------------------------------------------------------
 
 pub fn neg(a: &Expr) -> Expr {
+    if a.is_deferred_numeric_power(){return Expr::from_kind(Kind::Mul(Number::MINUS_ONE,vec![(a.clone(),Expr::one())]));}
     if (a.has_held_arithmetic() && (a.is_add()||a.is_mul())) || (a.is_add()&&a.has_nonfinite()){
         return neg_held(a,&mut ArithmeticMemo::default(),&mut ArithmeticMemo::default());
     }
@@ -2603,6 +2633,52 @@ mod power_of_power_tests {
         for (base, exponent) in [("t", "2"), ("t", "3/2"), ("t", "-1"), ("t", "y")] {
             let inner = raw_pow(base, exponent);
             assert!(matches!(pow(&inner, &p("1/2")).kind(), Kind::Pow(b, _) if matches!(b.kind(), Kind::Pow(..))));
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod noncommutative_zero_infinite_sum_tests {
+    use super::*;
+    #[derive(Debug)]
+    struct Ordered;
+    impl crate::host::HostClass for Ordered {
+        fn identity(&self)->u64 {0x6e6f6e66696e6974}
+        fn class_name(&self)->&str {"OrderedArithmeticTest"}
+        fn may_not_commute(&self)->bool {true}
+        fn commutative(&self,_:&Expr)->Option<Option<bool>> {Some(Some(false))}
+        fn as_any(&self)->&dyn std::any::Any {self}
+    }
+    fn ordered()->Expr {
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::new("b")
+            .with_host(std::sync::Arc::new(Ordered))))
+    }
+    fn held_sum(term:Expr)->Expr {
+        Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,
+            vec![(term,Number::ONE),(ordered(),Number::ONE)]))
+    }
+    #[test]
+    fn literal_infinite_sum_is_not_erased_by_a_commutative_zero() {
+        for infinity in [Expr::oo(),Expr::neg_oo(),Expr::zoo()] {
+            let sum=held_sum(infinity);
+            for factors in [vec![Expr::zero(),sum.clone()],vec![sum.clone(),Expr::zero()],
+                vec![Expr::int(2),sum.clone(),Expr::zero()],vec![sum.clone(),Expr::zero(),sum.clone()]] {
+                assert_eq!(mul(&factors),Expr::nan(),"{factors:?}");
+            }
+            let product=Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,
+                vec![(ordered(),Expr::one()),(sum,Expr::one())]));
+            assert_eq!(mul(&[Expr::zero(),product]),Expr::nan());
+        }
+    }
+    #[test]
+    fn zero_still_stops_at_functions_powers_and_nested_sums() {
+        let sum=held_sum(Expr::oo());
+        let square=Expr::from_unevaluated_kind(Kind::Pow(sum.clone(),Expr::int(2)));
+        let function=Expr::from_unevaluated_kind(Kind::Func(crate::Func::Exp,vec![sum.clone()]));
+        let nested=held_sum(sum);
+        for boundary in [square,function,nested,ordered()] {
+            assert_eq!(mul(&[Expr::zero(),boundary]),Expr::zero());
         }
     }
 }

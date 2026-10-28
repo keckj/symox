@@ -18,6 +18,8 @@
 //! [`PolyError::Reference`].
 use super::convert::{PResult, PolyError};
 use std::collections::BTreeMap;
+use num_bigint::BigInt;
+use num_traits::One;
 use crate::expand::{expand_with_options, ExpandBudget, ExpandOptions};
 use crate::expr::{Expr, Func, Kind};
 
@@ -99,7 +101,11 @@ impl EX {
         if self.is_structural_zero() || g.is_structural_zero() {
             return Ok(EX::zero());
         }
-        if self.0.as_number().is_some() && g.0.as_number().is_some() {
+        if let (Some(a),Some(b))=(self.0.as_number(),g.0.as_number()) {
+            // The expression Mul identity shortcut preserves an input Float0,
+            // whereas EX's numeric multiplication performs the arithmetic.
+            let finite=|n:&crate::number::Number|!matches!(n,crate::number::Number::Float(f) if !f.is_finite());
+            if (a.is_zero() || b.is_zero()) && finite(a) && finite(b){return Ok(EX::zero());}
             return Ok(EX(crate::ops::mul(&[self.0.clone(), g.0.clone()])));
         }
         simplify(crate::ops::mul(&[self.0.clone(), g.0.clone()]))
@@ -1111,27 +1117,50 @@ pub fn dmp_l1_norm(f: &Dmp, u: usize) -> PResult<EX> {
 // densetools
 // ----------------------------------------------------------------------
 
-fn falling(n: i64, m: usize) -> i64 {
-    let mut k = n;
-    let mut i = n - 1;
-    while i > n - m as i64 {
-        k *= i;
-        i -= 1;
-    }
-    k
+/// Exact rising integer factor; coefficient conversion happens only after
+/// the complete product, never via overflowing i64 or rounded intermediates.
+pub(super) fn rising_factor(start:u64,count:usize)->BigInt {
+    let mut factor=BigInt::one();
+    let mut next=BigInt::from(start);
+    for _ in 0..count {factor*=&next;next+=1u32;}
+    factor
 }
+fn integer_expr(value:BigInt)->Expr {Expr::num(crate::number::Number::from_bigint(value))}
+fn falling(n:i64,m:usize)->BigInt {rising_factor(n as u64-m as u64+1,m)}
+// Validate actual truthy support after a complete dense computation. Raw EX
+// coefficients can cancel during arithmetic, so its allocated degree alone
+// does not prove that a surviving coordinate exceeds public storage.
+fn dmp_validate_support(f:&Dmp,limit:usize)->PResult<bool>{
+    let mut nonzero=false;
+    match f{
+        Dmp::L(coefficients)=>for(i,c)in coefficients.iter().enumerate(){
+            if c.truthy(){
+                if coefficients.len()-1-i>limit{return Err(super::mpoly::exponent_limit_error());}
+                nonzero=true;
+            }
+        },
+        Dmp::N(coefficients)=>for(i,c)in coefficients.iter().enumerate(){
+            if dmp_validate_support(c,limit)?{
+                if coefficients.len()-1-i>limit{return Err(super::mpoly::exponent_limit_error());}
+                nonzero=true;
+            }
+        },
+    }
+    Ok(nonzero)
+}
+
 fn dup_diff(f: &[EX], m: usize) -> PResult<Vec<EX>> {
     if m == 0 {
         return Ok(f.to_vec());
     }
     let mut n = dup_degree(f);
-    if n < m as i64 {
+    if n < 0 || m as u128 > n as u128 {
         return Ok(Vec::new());
     }
     let mut deriv = Vec::new();
     for coeff in &f[..f.len() - m] {
-        let k = if m == 1 { n } else { falling(n, m) };
-        deriv.push(EX::int(k).mul(coeff)?);
+        let k=EX(integer_expr(falling(n,m)));
+        deriv.push(k.mul(coeff)?);
         n -= 1;
     }
     Ok(dup_strip(deriv))
@@ -1144,15 +1173,15 @@ pub fn dmp_diff(f: &Dmp, m: usize, u: usize) -> PResult<Dmp> {
         return Ok(f.clone());
     }
     let mut n = dmp_degree(f, u);
-    if n < m as i64 {
+    if n < 0 || m as u128 > n as u128 {
         return Ok(dmp_zero(u));
     }
     let v = u - 1;
     let fv = f.n();
     let mut deriv = Vec::new();
     for coeff in &fv[..fv.len() - m] {
-        let k = if m == 1 { n } else { falling(n, m) };
-        deriv.push(dmp_mul_ground(coeff, &EX::int(k), v)?);
+        let k=EX(integer_expr(falling(n,m)));
+        deriv.push(dmp_mul_ground(coeff, &k, v)?);
         n -= 1;
     }
     Ok(dmp_strip(deriv, u))
@@ -1173,11 +1202,8 @@ fn dup_integrate(f: &[EX], m: usize) -> PResult<Vec<EX>> {
     }
     let mut g: Vec<EX> = (0..m).map(|_| EX::zero()).collect();
     for (i, c) in f.iter().rev().enumerate() {
-        let mut n = i as i64 + 1;
-        for j in 1..m as i64 {
-            n *= i as i64 + j + 1;
-        }
-        g.insert(0, c.div(&EX::int(n))?);
+        let n=EX(integer_expr(rising_factor(i as u64+1,m)));
+        g.insert(0, c.div(&n)?);
     }
     Ok(g)
 }
@@ -1191,11 +1217,8 @@ pub fn dmp_integrate(f: &Dmp, m: usize, u: usize) -> PResult<Dmp> {
     let v = u - 1;
     let mut g = dmp_zeros(m, v);
     for (i, c) in f.n().iter().rev().enumerate() {
-        let mut n = i as i64 + 1;
-        for j in 1..m as i64 {
-            n *= i as i64 + j + 1;
-        }
-        g.insert(0, dmp_quo_ground(c, &EX::int(n), v)?);
+        let n=EX(integer_expr(rising_factor(i as u64+1,m)));
+        g.insert(0, dmp_quo_ground(c, &n, v)?);
     }
     Ok(Dmp::N(g))
 }
@@ -1840,10 +1863,85 @@ pub fn dup_sturm(f: &Dmp) -> PResult<Vec<Dmp>> {
 // Poly-level wrapper
 // ----------------------------------------------------------------------
 
-/// `Poly(..., domain=EX)`: a dense `EX` polynomial and its generators.
+#[path = "sparse_product.rs"]
+pub(super) mod sparse_product;
+struct EXProduct;
+impl sparse_product::Arithmetic for EXProduct {
+    type C=EX;
+    fn zero(&self)->EX{EX::zero()} fn one(&self)->EX{EX::one()} fn two(&self)->EX{EX::int(2)}
+    fn is_zero(&self,c:&EX)->bool{!c.truthy()}
+    fn implicit_zero(&self,c:&EX)->bool{*c==EX::zero()}
+    fn add(&self,a:&EX,b:&EX)->PResult<EX>{a.add(b)}
+    fn sub(&self,a:&EX,b:&EX)->PResult<EX>{a.sub(b)}
+    fn mul(&self,a:&EX,b:&EX)->PResult<EX>{a.mul(b)}
+    fn square(&self,a:&EX)->PResult<EX>{a.pow(2)}
+    fn karatsuba(&self)->bool{true}
+    fn reuse_identical_products(&self)->bool{
+        !super::factor_budget::active() && !crate::evalf_mp::host_interrupted()
+    }
+    fn coefficient_reusable(&self,c:&EX)->bool{
+        let mut pure=true;
+        // Numeric function nodes can reach a host evaluator. Never share
+        // their work or errors, even when a particular head has a kernel.
+        crate::traverse::preorder(&c.0,&mut |e|{
+            if matches!(e.kind(),Kind::Func(..)) && crate::traverse::free_symbols(e).is_empty(){pure=false;}
+        });
+        pure
+    }
+}
+
+/// Exact polynomial storage. Dense algorithms remain available explicitly.
+#[derive(Clone, Debug)]
+pub enum ExpressionRep {
+    Dense(Dmp),
+    Sparse(super::mpoly::MPoly<EX>),
+}
+impl PartialEq for ExpressionRep {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Dense(a), Self::Dense(b)) => a == b,
+            (Self::Sparse(a), Self::Sparse(b)) => a == b,
+            (Self::Dense(d), Self::Sparse(s)) | (Self::Sparse(s), Self::Dense(d)) => {
+                fn normalized(d:&Dmp,u:usize)->bool {
+                    match d {
+                        Dmp::L(v) if u==0=>v.first().is_none_or(EX::truthy),
+                        Dmp::N(v) if u>0=>v.iter().all(|c|normalized(c,u-1)) &&
+                            v.first().is_some_and(|c|!dmp_zero_p(c,u-1) || v.len()==1),
+                        _=>false,
+                    }
+                }
+                // Raw, non-stripped DMPs retain their existing structural
+                // inequality; otherwise cross-storage equality is not transitive.
+                if !normalized(d,s.nvars-1){return false;}
+                if dmp_degree_list(d, s.nvars - 1) != (0..s.nvars).map(|v|s.degree(v)).collect::<Vec<_>>() { return false; }
+                // Keep explicit non-structural zeros visible to equality.
+                fn slots(d: &Dmp, prefix: &mut Vec<u32>, out: &mut BTreeMap<Vec<u32>, EX>) {
+                    match d {
+                        Dmp::L(v) => for (i,c) in v.iter().enumerate() {
+                            if c.0 != Expr::zero() {
+                                let mut m=prefix.clone();m.push((v.len()-1-i) as u32);out.insert(m,c.clone());
+                            }
+                        },
+                        Dmp::N(v) => for (i,c) in v.iter().enumerate() {
+                            prefix.push((v.len()-1-i) as u32);slots(c,prefix,out);prefix.pop();
+                        },
+                    }
+                }
+                let mut dense=BTreeMap::new();slots(d,&mut Vec::new(),&mut dense);
+                dense == s.iter().map(|(m,c)|(m.to_vec(),c.clone())).collect()
+            }
+        }
+    }
+}
+impl Eq for ExpressionRep {}
+impl From<Dmp> for ExpressionRep {
+    fn from(value:Dmp)->Self { Self::Dense(value) }
+}
+
+/// `Poly(..., domain=EX)`: expression coefficients with a preserved ground.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExpressionPoly {
-    pub rep: Dmp,
+    pub rep: ExpressionRep,
     pub gens: Vec<Expr>,
     /// A composite Gaussian ground (`ZZ_I[y]`, `QQ_I(y)`, ...) whose
     /// coefficients this polynomial stores as expressions.
@@ -2017,6 +2115,13 @@ pub fn composite_parameters(coeffs: &[Expr]) -> PResult<Option<(Vec<Expr>, bool)
 /// `_dict_from_expr_if_gens` for one expression: coefficient sums are
 /// plain `Add`s of `Mul(*coeff)` products, never simplified.
 pub fn dict_from_expr(e: &Expr, gens: &[Expr]) -> PResult<Vec<(Vec<u32>, Expr)>> {
+    match dict_from_expr_narrow(e, gens) {
+        Err(PolyError::Unsupported(message)) if message.contains("exponent storage limit") => dict_from_expr_wide(e, gens),
+        result => result,
+    }
+}
+
+fn dict_from_expr_narrow(e: &Expr, gens: &[Expr]) -> PResult<Vec<(Vec<u32>, Expr)>> {
     super::convert::check_number(e)?;
     let ex = super::convert::expand_if_needed(e);
     let mut out: Vec<(Vec<u32>, Expr)> = Vec::new();
@@ -2027,7 +2132,7 @@ pub fn dict_from_expr(e: &Expr, gens: &[Expr]) -> PResult<Vec<(Vec<u32>, Expr)>>
             super::convert::check_number(f)?;
             let (b, k) = super::convert::decompose_factor(f);
             if let Some(i) = gens.iter().position(|g| *g == b) {
-                monom[i] = k as u32;
+                super::convert::add_exponent(&mut monom[i], k)?;
                 continue;
             }
             if gens.iter().any(|g| crate::traverse::has_structural(f, g)) {
@@ -2047,21 +2152,152 @@ pub fn dict_from_expr(e: &Expr, gens: &[Expr]) -> PResult<Vec<(Vec<u32>, Expr)>>
     }
     Ok(out)
 }
+// The exceptional path combines coefficients with unbounded monomial keys
+// before enforcing storage limits. Huge held terms may cancel exactly.
+fn dict_from_expr_wide(e: &Expr, gens: &[Expr]) -> PResult<Vec<(Vec<u32>, Expr)>> {
+    super::convert::check_number(e)?;
+    let ex = super::convert::expand_if_needed(e);
+    use num_bigint::BigInt;
+    use num_traits::{ToPrimitive, Zero};
+    let mut out: Vec<(Vec<BigInt>, Expr)> = Vec::new();
+    for t in super::convert::raw_terms(&ex) {
+        let mut monom = vec![BigInt::zero(); gens.len()];
+        let mut coeff = vec![Expr::num(t.coeff.clone())];
+        for f in &t.factors {
+            super::convert::check_number(f)?;
+            let (b, k) = super::convert::decompose_factor(f);
+            if let Some(i) = gens.iter().position(|g| *g == b) {
+                monom[i] += k;
+                continue;
+            }
+            if gens.iter().any(|g| crate::traverse::has_structural(f, g)) {
+                return Err(PolyError::Generator(format!(
+                    "{} contains an element of the set of generators.",
+                    crate::printer::to_str(super::convert::generator_clash(&t.factors, gens).unwrap_or(f))
+                )));
+            }
+            coeff.push(f.clone());
+        }
+        let c = crate::ops::mul(&coeff);
+        if let Some(slot) = out.iter_mut().find(|(m, _)| *m == monom) {
+            slot.1 = crate::ops::add(&[slot.1.clone(), c]);
+        } else {
+            out.push((monom, c));
+        }
+    }
+    out.into_iter().filter(|(_, c)| !c.is_zero()).map(|(m, c)| {
+        let m = m.into_iter().map(|e| e.to_u32().ok_or_else(||
+            PolyError::Unsupported("Polynomial exponent storage limit exceeded (32-bit monomials)".into())
+        )).collect::<PResult<Vec<_>>>()?;
+        Ok((m, c))
+    }).collect()
+}
+
+/// Construction/view shortcuts must not add zero queries or reorder calls to
+/// host coefficients or numerical function evaluators.
+pub fn native_coefficient_payload(expression:&Expr)->bool{
+    if expression.has_host() || super::factor_budget::active() || crate::evalf_mp::host_interrupted(){return false;}
+    let mut native=true;
+    crate::traverse::preorder(expression,&mut |e|{
+        if matches!(e.kind(),Kind::Func(..)) && crate::traverse::free_symbols(e).is_empty(){native=false;}
+        if matches!(e.kind(),Kind::Const(c) if c.is_infinite() || *c==crate::expr::Constant::NaN)
+            || matches!(e.as_number(),Some(crate::number::Number::Float(f)) if !f.is_finite()){native=false;}
+    });
+    native
+}
 
 impl ExpressionPoly {
     pub fn u(&self) -> usize {
         self.gens.len() - 1
     }
+    /// Materialize only when a caller explicitly requests a dense operation.
+    pub fn dense_rep(&self) -> std::borrow::Cow<'_,Dmp> {
+        match &self.rep {
+            ExpressionRep::Dense(d)=>std::borrow::Cow::Borrowed(d),
+            ExpressionRep::Sparse(p)=>std::borrow::Cow::Owned(dmp_from_dict(&p.iter().map(|(m,c)|(m.to_vec(),c.clone())).collect::<Vec<_>>(),self.u())),
+        }
+    }
+    pub fn is_sparse(&self)->bool {matches!(self.rep,ExpressionRep::Sparse(_))}
+    fn expression_dict(&self)->Vec<(Vec<u32>,EX)> {
+        match &self.rep {
+            ExpressionRep::Dense(d)=>dmp_to_dict(d,self.u()),
+            ExpressionRep::Sparse(p)=>{
+                let mut terms:Vec<_>=p.iter().map(|(m,c)|(m.to_vec(),c.clone())).collect();
+                // Match dmp_to_dict's ascending order before as_expr groups
+                // coefficients (generators may be dependent expressions).
+                terms.reverse();terms
+            },
+        }
+    }
+    pub fn with_sparse_rep(&self,rep:super::mpoly::MPoly<EX>)->Self {
+        Self{rep:ExpressionRep::Sparse(rep),gens:self.gens.clone(),ground:self.ground.clone()}
+    }
+    fn sparse_pair(&self,other:&Self)->bool {
+        fn raw_zero(d:&Dmp)->bool {match d {
+            Dmp::L(v)=>v.iter().any(|c|!c.truthy() && c.0!=Expr::zero()),
+            Dmp::N(v)=>v.iter().any(raw_zero),
+        }}
+        (self.is_sparse() || other.is_sparse()) && [self,other].iter().all(|p|match &p.rep {
+            ExpressionRep::Sparse(_)=>true,ExpressionRep::Dense(d)=>!raw_zero(d),
+        })
+    }
+    fn sparse_add(&self,other:&Self,subtract:bool)->PResult<Self> {
+        let mut terms:BTreeMap<_,_>=self.expression_dict().into_iter().collect();
+        for (m,c) in other.expression_dict() {
+            let c=match terms.remove(&m) {Some(a)=>if subtract{a.sub(&c)?}else{a.add(&c)?},None=>if subtract{c.neg()}else{c}};
+            terms.insert(m,c);
+        }
+        let mut result=Self::from_terms(terms.into_iter().map(|(m,c)|(m,c.0)).collect(),&self.gens)?;
+        result.ground=self.ground.clone();Ok(result)
+    }
     pub fn with_rep(&self, rep: Dmp) -> Self {
-        Self { rep, gens: self.gens.clone(), ground: self.ground.clone() }
+        Self { rep:rep.into(), gens: self.gens.clone(), ground: self.ground.clone() }
     }
     /// Coefficients become `EX` elements without simplification.
     pub fn from_terms(terms: Vec<(Vec<u32>, Expr)>, gens: &[Expr]) -> PResult<Self> {
         if gens.is_empty() {
             return Err(PolyError::Failed("can't initialize from 'dict' without generators".into()));
         }
-        let dict: Vec<(Vec<u32>, EX)> = terms.into_iter().map(|(m, c)| (m, EX(c))).collect();
-        Ok(Self { rep: dmp_from_dict(&dict, gens.len() - 1), gens: gens.to_vec(), ground: None })
+        // Ordinary DMP construction keeps the last occurrence; it does not
+        // perform EX.add/cancel on duplicate coefficients.
+        let mut unique=BTreeMap::new();
+        for (m,c) in terms {
+            if m.len()!=gens.len() {return Err(PolyError::Failed("coefficient term has an invalid exponent vector".into()));}
+            unique.insert(m,EX(c));
+        }
+        let mut dict:Vec<_>=unique.into_iter().collect();
+        // DMP strips leading zeros independently in every last-variable
+        // coefficient row. Retain falsy payloads only inside a nonzero row;
+        // dropping legitimate leading zeros first avoids dense allocation for
+        // a huge zero monomial that contributes no stored coefficient.
+        let any_truthy=if dict.iter().all(|(_,c)|native_coefficient_payload(&c.0)){
+            let last=gens.len()-1;
+            let mut row_degrees:BTreeMap<Vec<u32>,u32>=BTreeMap::new();
+            for(m,c)in &dict{if c.truthy(){
+                row_degrees.entry(m[..last].to_vec()).and_modify(|d|*d=(*d).max(m[last])).or_insert(m[last]);
+            }}
+            dict.retain(|(m,c)|c.truthy() || row_degrees.get(&m[..last]).is_some_and(|degree|m[last]<=*degree));
+            !row_degrees.is_empty()
+        }else{dict.iter().any(|(_,c)|c.truthy())};
+        let rep=if !any_truthy {
+            ExpressionRep::Dense(dmp_zero(gens.len()-1))
+        } else {
+            // Sparse support cannot carry an interior Float zero's metadata.
+            // Such raw DMP inputs retain their full existing dense behavior.
+            let raw_zero=dict.iter().any(|(_,c)|!c.truthy() && c.0!=Expr::zero());
+            let mut prefixes:BTreeMap<Vec<u32>,u32>=BTreeMap::new();
+            for (m,_) in &dict { for j in 0..m.len() {
+                prefixes.entry(m[..j].to_vec()).and_modify(|k|*k=(*k).max(m[j])).or_insert(m[j]);
+            }}
+            let dense_bytes=prefixes.iter().fold(0u128,|sum,(prefix,degree)|sum.saturating_add(
+                (u128::from(*degree)+1)*if prefix.len()+1==gens.len(){std::mem::size_of::<EX>() as u128}else{std::mem::size_of::<Dmp>() as u128}));
+            let sparse_bytes=std::mem::size_of::<super::mpoly::MPoly<EX>>() as u128+
+                dict.len() as u128*(gens.len() as u128*4+std::mem::size_of::<EX>() as u128);
+            if !raw_zero && dense_bytes>sparse_bytes {
+                ExpressionRep::Sparse(super::mpoly::MPoly::from_terms(gens.len(),dict))
+            } else {ExpressionRep::Dense(dmp_from_dict(&dict,gens.len()-1))}
+        };
+        Ok(Self {rep,gens:gens.to_vec(),ground:None})
     }
     /// `Poly.from_dict` after a monomial map: equal monomials are added in
     /// `EX`, which short-circuits on a structural zero.
@@ -2084,17 +2320,64 @@ impl ExpressionPoly {
         Self::from_terms(dict_from_expr(e, gens)?, gens)
     }
     pub fn zero(gens: &[Expr]) -> Self {
-        Self { rep: dmp_zero(gens.len() - 1), gens: gens.to_vec(), ground: None }
+        Self { rep: dmp_zero(gens.len() - 1).into(), gens: gens.to_vec(), ground: None }
+    }
+    pub fn has_native_coefficient_payload(&self)->bool{
+        if !self.gens.iter().all(native_coefficient_payload){return false;}
+        fn dense(d:&Dmp)->bool{match d{
+            Dmp::L(coefficients)=>coefficients.iter().all(|c|native_coefficient_payload(&c.0)),
+            Dmp::N(coefficients)=>coefficients.iter().all(dense),
+        }}
+        match &self.rep{ExpressionRep::Dense(d)=>dense(d),ExpressionRep::Sparse(p)=>p.iter().all(|(_,c)|native_coefficient_payload(&c.0))}
+    }
+    /// Stored nonstructural zero payloads as well as ordinary nonzero terms.
+    /// This is a representation/pickle view, never the mathematical support.
+    pub fn coefficient_payload(&self)->PResult<Vec<(Vec<u32>,Expr)>>{
+        fn dense(f:&Dmp,prefix:&mut Vec<usize>,out:&mut Vec<(Vec<u32>,Expr)>)->PResult<()>{
+            match f{
+                Dmp::L(coefficients)=>for(i,c)in coefficients.iter().enumerate(){
+                    if c.truthy() || c.0!=Expr::zero(){
+                        prefix.push(coefficients.len()-1-i);
+                        let monomial=prefix.iter().map(|&e|u32::try_from(e).map_err(|_|super::mpoly::exponent_limit_error())).collect::<PResult<_>>()?;
+                        out.push((monomial,c.0.clone()));prefix.pop();
+                    }
+                },
+                Dmp::N(coefficients)=>for(i,c)in coefficients.iter().enumerate(){
+                    prefix.push(coefficients.len()-1-i);dense(c,prefix,out)?;prefix.pop();
+                },
+            }
+            Ok(())
+        }
+        match &self.rep{
+            ExpressionRep::Dense(d)=>{let mut out=Vec::new();dense(d,&mut Vec::new(),&mut out)?;Ok(out)},
+            ExpressionRep::Sparse(_)=>Ok(self.terms()),
+        }
+    }
+    pub fn coefficient(&self,monomial:&[u32])->Expr{
+        if monomial.len()!=self.gens.len(){return Expr::zero();}
+        match &self.rep{
+            ExpressionRep::Sparse(p)=>p.iter().find(|(m,_)|*m==monomial).map(|(_,c)|c.0.clone()).unwrap_or_else(Expr::zero),
+            ExpressionRep::Dense(d)=>{
+                let mut row=d;
+                for &exponent in &monomial[..monomial.len()-1]{
+                    let Dmp::N(coefficients)=row else{return Expr::zero()};
+                    let Some(index)=coefficients.len().checked_sub(1).and_then(|n|n.checked_sub(exponent as usize)) else{return Expr::zero()};
+                    row=&coefficients[index];
+                }
+                let Dmp::L(coefficients)=row else{return Expr::zero()};
+                coefficients.len().checked_sub(1).and_then(|n|n.checked_sub(monomial[monomial.len()-1] as usize)).map(|i|coefficients[i].0.clone()).unwrap_or_else(Expr::zero)
+            },
+        }
     }
     /// `Poly.terms()`: lexicographically decreasing monomials.
     pub fn terms(&self) -> Vec<(Vec<u32>, Expr)> {
-        let mut t: Vec<_> = dmp_to_dict(&self.rep, self.u()).into_iter().map(|(m, c)| (m, c.0)).collect();
+        let mut t: Vec<_> = self.expression_dict().into_iter().map(|(m, c)| (m, c.0)).collect();
         t.sort_by(|a, b| b.0.cmp(&a.0));
         t
     }
     /// `Poly.as_expr()`: `Add(*[Mul(coeff, *gens**monom)])` in dict order.
     pub fn as_expr(&self) -> Expr {
-        let terms: Vec<Expr> = dmp_to_dict(&self.rep, self.u())
+        let terms: Vec<Expr> = self.expression_dict()
             .into_iter()
             .map(|(m, c)| {
                 let mut f = vec![c.0];
@@ -2109,7 +2392,7 @@ impl ExpressionPoly {
         crate::ops::add(&terms)
     }
     pub fn is_zero(&self) -> bool {
-        dmp_zero_p(&self.rep, self.u())
+        match &self.rep {ExpressionRep::Dense(d)=>dmp_zero_p(d,self.u()),ExpressionRep::Sparse(p)=>p.is_zero()}
     }
     /// Reorder onto `gens` (a superset), through truthy terms only.
     pub fn reorder(&self, gens: &[Expr]) -> PResult<Self> {
@@ -2121,7 +2404,7 @@ impl ExpressionPoly {
             .iter()
             .map(|g| gens.iter().position(|h| h == g).ok_or_else(|| PolyError::Failed("generators do not unify".into())))
             .collect::<PResult<_>>()?;
-        let dict: Vec<(Vec<u32>, EX)> = dmp_to_dict(&self.rep, self.u())
+        let dict: Vec<(Vec<u32>, EX)> = self.expression_dict()
             .into_iter()
             .map(|(m, c)| {
                 let mut n = vec![0; gens.len()];
@@ -2131,7 +2414,8 @@ impl ExpressionPoly {
                 (n, c)
             })
             .collect();
-        Ok(Self { rep: dmp_from_dict(&dict, gens.len() - 1), gens: gens.to_vec(), ground: self.ground.clone() })
+        let mut result=Self::from_terms(dict.into_iter().map(|(m,c)|(m,c.0)).collect(),gens)?;
+        result.ground=self.ground.clone();Ok(result)
     }
     /// Both operands over the inexact composite ground of either, when
     /// one of them has one.
@@ -2144,37 +2428,57 @@ impl ExpressionPoly {
         if let Some((a, b)) = self.inexact_pair(o) {
             return super::inexact_ground::add(&a, &b);
         }
-        Ok(self.with_rep(dmp_add(&self.rep, &o.rep, self.u())?))
+        if self.sparse_pair(o) {return self.sparse_add(o,false);}
+        Ok(self.with_rep(dmp_add(&self.dense_rep(), &o.dense_rep(), self.u())?))
     }
     pub fn sub(&self, o: &Self) -> PResult<Self> {
         if let Some((a, b)) = self.inexact_pair(o) {
             return super::inexact_ground::sub(&a, &b);
         }
-        Ok(self.with_rep(dmp_sub(&self.rep, &o.rep, self.u())?))
+        if self.sparse_pair(o) {return self.sparse_add(o,true);}
+        Ok(self.with_rep(dmp_sub(&self.dense_rep(), &o.dense_rep(), self.u())?))
     }
     pub fn mul(&self, o: &Self) -> PResult<Self> {
         if let Some((a, b)) = self.inexact_pair(o) {
             return super::inexact_ground::mul(&a, &b);
         }
-        Ok(self.with_rep(dmp_mul(&self.rep, &o.rep, self.u())?))
+        if self.is_zero() || o.is_zero(){let mut p=Self::zero(&self.gens);p.ground=self.ground.clone();return Ok(p);}
+        if self.is_sparse() || o.is_sparse(){
+            if o.degree_list().iter().all(|d|*d<=0){return self.mul_ground(&o.lc());}
+            if self.degree_list().iter().all(|d|*d<=0){return o.mul_ground(&self.lc());}
+        }
+        if self.sparse_pair(o){
+            let terms=sparse_product::product(&EXProduct,self.gens.len(),self.expression_dict(),Some(o.expression_dict()),None)?;
+            let mut result=Self::from_terms(terms.into_iter().map(|(m,c)|(m,c.0)).collect(),&self.gens)?;
+            result.ground=self.ground.clone();return Ok(result);
+        }
+        Ok(self.with_rep(dmp_mul(&self.dense_rep(), &o.dense_rep(), self.u())?))
     }
     pub fn neg(&self) -> Self {
         if super::inexact_ground::is_inexact(self) {
             return super::inexact_ground::neg(self).expect("inexact negation");
         }
-        self.with_rep(dmp_neg(&self.rep, self.u()))
+        if let ExpressionRep::Sparse(p)=&self.rep {return self.with_sparse_rep(p.neg());}
+        self.with_rep(dmp_neg(&self.dense_rep(), self.u()))
     }
     pub fn pow(&self, n: u32) -> PResult<Self> {
         if super::inexact_ground::is_inexact(self) {
             return super::inexact_ground::pow(self, n);
         }
-        Ok(self.with_rep(dmp_pow(&self.rep, n, self.u())?))
+        if n==1 || (n!=0 && self.is_zero()){return Ok(self.clone());}
+        if n==0 {let mut p=Self::from_terms(vec![(vec![0;self.gens.len()],Expr::one())],&self.gens)?;p.ground=self.ground.clone();return Ok(p);}
+        if self.is_sparse(){
+            let terms=sparse_product::product(&EXProduct,self.gens.len(),self.expression_dict(),None,Some(n))?;
+            let mut result=Self::from_terms(terms.into_iter().map(|(m,c)|(m,c.0)).collect(),&self.gens)?;
+            result.ground=self.ground.clone();return Ok(result);
+        }
+        Ok(self.with_rep(dmp_pow(&self.dense_rep(), n, self.u())?))
     }
     pub fn div(&self, o: &Self) -> PResult<(Self, Self)> {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::div(&a, &b, false);
         }
-        let (q, r) = dmp_div(&self.rep, &o.rep, self.u())?;
+        let (q, r) = dmp_div(&self.dense_rep(), &o.dense_rep(), self.u())?;
         Ok((self.with_rep(q), self.with_rep(r)))
     }
     /// `Poly.exquo`: a failure is re-raised with the `as_expr` forms.
@@ -2182,7 +2486,7 @@ impl ExpressionPoly {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::exquo(&a, &b, false);
         }
-        match dmp_exquo(&self.rep, &o.rep, self.u()) {
+        match dmp_exquo(&self.dense_rep(), &o.dense_rep(), self.u()) {
             Ok(q) => Ok(self.with_rep(q)),
             Err(PolyError::Reference { kind: "ExactQuotientFailed", .. }) => Err(self.exquo_failed(o)),
             Err(e) => Err(e),
@@ -2195,7 +2499,7 @@ impl ExpressionPoly {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::pdiv(&a, &b);
         }
-        let (q, r) = dmp_pdiv(&self.rep, &o.rep, self.u())?;
+        let (q, r) = dmp_pdiv(&self.dense_rep(), &o.dense_rep(), self.u())?;
         Ok((self.with_rep(q), self.with_rep(r)))
     }
     pub fn pexquo(&self, o: &Self) -> PResult<Self> {
@@ -2213,26 +2517,26 @@ impl ExpressionPoly {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::gcd(&a, &b);
         }
-        Ok(self.with_rep(dmp_gcd(&self.rep, &o.rep, self.u())?))
+        Ok(self.with_rep(dmp_gcd(&self.dense_rep(), &o.dense_rep(), self.u())?))
     }
     pub fn lcm(&self, o: &Self) -> PResult<Self> {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::lcm(&a, &b);
         }
-        Ok(self.with_rep(dmp_lcm(&self.rep, &o.rep, self.u())?))
+        Ok(self.with_rep(dmp_lcm(&self.dense_rep(), &o.dense_rep(), self.u())?))
     }
     pub fn cofactors(&self, o: &Self) -> PResult<(Self, Self, Self)> {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::cofactors(&a, &b);
         }
-        let (h, a, b) = dmp_inner_gcd(&self.rep, &o.rep, self.u())?;
+        let (h, a, b) = dmp_inner_gcd(&self.dense_rep(), &o.dense_rep(), self.u())?;
         Ok((self.with_rep(h), self.with_rep(a), self.with_rep(b)))
     }
     pub fn cancel(&self, o: &Self) -> PResult<(Expr, Expr, Self, Self)> {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::cancel(&a, &b);
         }
-        let (cp, cq, p, q) = dmp_cancel(&self.rep, &o.rep, self.u())?;
+        let (cp, cq, p, q) = dmp_cancel(&self.dense_rep(), &o.dense_rep(), self.u())?;
         Ok((cp.0, cq.0, self.with_rep(p), self.with_rep(q)))
     }
     /// `PolyElement.cancel` in a sparse ring over `EX`, which has no
@@ -2243,7 +2547,7 @@ impl ExpressionPoly {
             return Ok((self.clone(), one));
         }
         let (_, p, q) = self.cofactors(o)?;
-        if dmp_ground_lc(&q.rep, q.u()).is_negative() {
+        if dmp_ground_lc(&q.dense_rep(), q.u()).is_negative() {
             return Ok((p.neg(), q.neg()));
         }
         Ok((p, q))
@@ -2260,7 +2564,7 @@ impl ExpressionPoly {
             return super::inexact_ground::half_gcdex(&a, &b);
         }
         self.univariate()?;
-        let (s, h) = dup_half_gcdex(&self.rep, &o.rep)?;
+        let (s, h) = dup_half_gcdex(&self.dense_rep(), &o.dense_rep())?;
         Ok((self.with_rep(s), self.with_rep(h)))
     }
     pub fn gcdex(&self, o: &Self) -> PResult<(Self, Self, Self)> {
@@ -2268,7 +2572,7 @@ impl ExpressionPoly {
             return super::inexact_ground::gcdex(&a, &b);
         }
         self.univariate()?;
-        let (s, t, h) = dup_gcdex(&self.rep, &o.rep)?;
+        let (s, t, h) = dup_gcdex(&self.dense_rep(), &o.dense_rep())?;
         Ok((self.with_rep(s), self.with_rep(t), self.with_rep(h)))
     }
     pub fn invert(&self, o: &Self) -> PResult<Self> {
@@ -2276,71 +2580,135 @@ impl ExpressionPoly {
             return super::inexact_ground::invert(&a, &b);
         }
         self.univariate()?;
-        Ok(self.with_rep(dup_invert(&self.rep, &o.rep)?))
+        Ok(self.with_rep(dup_invert(&self.dense_rep(), &o.dense_rep())?))
     }
     pub fn diff(&self, m: usize, j: usize) -> PResult<Self> {
-        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
-            return super::inexact_ground::diff(self, m);
+        if j>=self.gens.len(){return Err(PolyError::Generator("derivative generator is out of range".into()));}
+        if super::inexact_ground::is_inexact(self) {return super::inexact_ground::differentiate_in(self,m,j);}
+        if m==0{return Ok(self.clone());}
+        if self.is_sparse(){
+            let mut terms=Vec::new();
+            for (mut e,c) in self.terms(){
+                if m as u128>u128::from(e[j]){continue;}
+                let factor=EX(integer_expr(rising_factor(u64::from(e[j])-m as u64+1,m)));
+                e[j]-=m as u32;
+                let value=if j+1==self.gens.len(){factor.mul(&EX(c))?}else{EX(c).mul(&factor)?};
+                terms.push((e,value.0));
+            }
+            let mut result=Self::from_terms(terms,&self.gens)?;result.ground=self.ground.clone();return Ok(result);
         }
-        Ok(self.with_rep(dmp_diff_in(&self.rep, m, j, self.u())?))
+        Ok(self.with_rep(dmp_diff_in(&self.dense_rep(), m, j, self.u())?))
     }
-    pub fn integrate(&self, m: usize, j: usize) -> PResult<Self> {
-        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
-            return super::inexact_ground::integrate(self, m, false);
+    pub fn integrate(&self,m:usize,j:usize)->PResult<Self>{self.integrate_with_options(m,j,false)}
+    pub fn integrate_with_options(&self, m: usize, j: usize, auto:bool) -> PResult<Self> {
+        if j>=self.gens.len(){return Err(PolyError::Generator("integration generator is out of range".into()));}
+        if super::inexact_ground::is_inexact(self) {return super::inexact_ground::integrate_in(self,m,j,auto);}
+        if m==0 || self.is_zero(){return Ok(self.clone());}
+        if self.is_sparse(){
+            let mut terms=self.terms();
+            // A proven nonzero coefficient cannot vanish on division by a
+            // positive integer. Otherwise EX cancellation must finish before
+            // deciding whether the resulting support exceeds its storage.
+            if terms.iter().any(|(e,c)|u128::from(e[j])+m as u128>u128::from(u32::MAX)
+                && crate::assumptions::is_zero(c)==Some(false)){
+                return Err(super::mpoly::exponent_limit_error());
+            }
+            // Dense integration ascends in the integrated coordinate within
+            // each prefix, then descends through its coefficient polynomial.
+            terms.sort_by(|(a,_),(b,_)|b[..j].cmp(&a[..j]).then_with(||a[j].cmp(&b[j])).then_with(||b[j+1..].cmp(&a[j+1..])));
+            let mut output=Vec::new();
+            for (mut e,c) in terms{
+                let factor=EX(integer_expr(rising_factor(u64::from(e[j])+1,m)));
+                let c=EX(c).div(&factor)?;
+                if c.is_structural_zero(){continue;}
+                let degree=u128::from(e[j])+m as u128;
+                if degree>u128::from(u32::MAX){
+                    if !c.truthy(){continue;}
+                    return Err(super::mpoly::exponent_limit_error());
+                }
+                e[j]=degree as u32;output.push((e,c.0));
+            }
+            let mut result=Self::from_terms(output,&self.gens)?;result.ground=self.ground.clone();return Ok(result);
         }
-        Ok(self.with_rep(dmp_integrate_in(&self.rep, m, j, self.u())?))
+        let rep=dmp_integrate_in(&self.dense_rep(),m,j,self.u())?;
+        if self.degree(j) as u128+m as u128>u128::from(u32::MAX){dmp_validate_support(&rep,u32::MAX as usize)?;}
+        Ok(self.with_rep(rep))
+    }
+    /// Exact zero evaluation: the existing DMP shortcut, without gaps.
+    pub fn eval_zero(&self,j:usize)->PResult<Result<Expr,Self>> {
+        if j>=self.gens.len(){return Err(PolyError::Generator("evaluation generator is out of range".into()));}
+        if !self.is_sparse() && !super::inexact_ground::is_inexact(self){
+            if self.gens.len()==1{return Ok(Ok(dup_eval_ground(&self.dense_rep(),&EX::zero())?.0));}
+            let rep=dmp_eval_in(&self.dense_rep(),&EX::zero(),j,self.u())?;
+            let mut gens=self.gens.clone();gens.remove(j);
+            return Ok(Err(Self{rep:rep.into(),gens,ground:self.ground.clone()}));
+        }
+        let mut terms:Vec<_>=self.terms().into_iter().filter(|(e,_)|e[j]==0).collect();
+        if self.gens.len()==1 {
+            let value=terms.pop().map(|(_,c)|c).unwrap_or_else(Expr::zero);
+            let value=if let Some(g)=self.ground.as_ref().filter(|g|g.inexact.is_some()){super::inexact_ground::element_expr(g,&value)?}else{value};
+            return Ok(Ok(value));
+        }
+        for(e,_)in &mut terms{e.remove(j);}
+        let mut gens=self.gens.clone();gens.remove(j);
+        let mut result=Self::from_terms(terms,&gens)?;result.ground=self.ground.clone();Ok(Err(result))
     }
     pub fn monic(&self) -> PResult<Self> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::monic(self);
         }
-        Ok(self.with_rep(dmp_ground_monic(&self.rep, self.u())?))
+        Ok(self.with_rep(dmp_ground_monic(&self.dense_rep(), self.u())?))
     }
     pub fn lc(&self) -> Expr {
-        dmp_ground_lc(&self.rep, self.u()).0
+        match &self.rep {ExpressionRep::Dense(d)=>dmp_ground_lc(d,self.u()).0,ExpressionRep::Sparse(p)=>p.coeffs().first().cloned().unwrap_or_else(EX::zero).0}
     }
     pub fn tc(&self) -> Expr {
-        dmp_ground_tc(&self.rep, self.u()).0
+        match &self.rep {ExpressionRep::Dense(d)=>dmp_ground_tc(d,self.u()).0,ExpressionRep::Sparse(p)=>p.constant_term().0}
     }
     pub fn content(&self) -> Expr {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::content(self).expect("inexact content");
         }
-        dmp_ground_content(&self.rep, self.u()).0
+        dmp_ground_content(&self.dense_rep(), self.u()).0
     }
     pub fn primitive(&self) -> PResult<(Expr, Self)> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::primitive(self);
         }
-        let (c, p) = dmp_ground_primitive(&self.rep, self.u())?;
+        let (c, p) = dmp_ground_primitive(&self.dense_rep(), self.u())?;
         Ok((c.0, self.with_rep(p)))
     }
     pub fn max_norm(&self) -> Expr {
-        dmp_max_norm(&self.rep, self.u()).0
+        dmp_max_norm(&self.dense_rep(), self.u()).0
     }
     pub fn l1_norm(&self) -> PResult<Expr> {
         if super::inexact_ground::is_inexact(self) {
             return Err(super::inexact_ground::abs_error());
         }
-        Ok(dmp_l1_norm(&self.rep, self.u())?.0)
+        Ok(dmp_l1_norm(&self.dense_rep(), self.u())?.0)
     }
     pub fn mul_ground(&self, c: &Expr) -> PResult<Self> {
         if super::inexact_ground::is_inexact(self) {
             return super::inexact_ground::mul_ground(self, c);
         }
-        Ok(self.with_rep(dmp_mul_ground(&self.rep, &EX(c.clone()), self.u())?))
+        if self.is_sparse() {
+            let c=EX(c.clone());
+            let terms=if c.truthy(){self.expression_dict().into_iter().map(|(m,x)|Ok((m,x.mul(&c)?.0))).collect::<PResult<Vec<_>>>()?}else{Vec::new()};
+            let mut result=Self::from_terms(terms,&self.gens)?;result.ground=self.ground.clone();return Ok(result);
+        }
+        Ok(self.with_rep(dmp_mul_ground(&self.dense_rep(), &EX(c.clone()), self.u())?))
     }
     pub fn quo_ground(&self, c: &Expr) -> PResult<Self> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::quo_ground(self, c);
         }
-        Ok(self.with_rep(dmp_quo_ground(&self.rep, &EX(c.clone()), self.u())?))
+        Ok(self.with_rep(dmp_quo_ground(&self.dense_rep(), &EX(c.clone()), self.u())?))
     }
     pub fn exquo_ground(&self, c: &Expr) -> PResult<Self> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::exquo_ground(self, c);
         }
-        Ok(self.with_rep(dmp_exquo_ground(&self.rep, &EX(c.clone()), self.u())?))
+        Ok(self.with_rep(dmp_exquo_ground(&self.dense_rep(), &EX(c.clone()), self.u())?))
     }
     /// `dmp_abs`: `Expression.__abs__` on every coefficient.
     pub fn abs(&self) -> Self {
@@ -2350,7 +2718,7 @@ impl ExpressionPoly {
                 Dmp::N(v) => Dmp::N(v.iter().map(walk).collect()),
             }
         }
-        self.with_rep(walk(&self.rep))
+        self.with_rep(walk(&self.dense_rep()))
     }
     /// `resultant(includePRS=True)`: the resultant and the subresultant
     /// polynomial remainder sequence.
@@ -2358,7 +2726,7 @@ impl ExpressionPoly {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return { let (r, prs) = super::inexact_ground::resultant_prs(&a, &b)?; Ok((Ok(r), prs)) };
         }
-        let (r, prs) = dmp_prs_resultant(&self.rep, &o.rep, self.u())?;
+        let (r, prs) = dmp_prs_resultant(&self.dense_rep(), &o.dense_rep(), self.u())?;
         Ok((self.drop_main(r)?, prs.into_iter().map(|p| self.with_rep(p)).collect()))
     }
     /// `dup_decompose`: a functional decomposition `f = f_1(f_2(...))`.
@@ -2366,67 +2734,67 @@ impl ExpressionPoly {
         if self.u() != 0 {
             return Err(reference("ValueError", "univariate polynomial expected"));
         }
-        Ok(dup_decompose(self.rep.l())?.into_iter().map(|f| self.with_rep(Dmp::L(f))).collect())
+        Ok(dup_decompose(self.dense_rep().l())?.into_iter().map(|f| self.with_rep(Dmp::L(f))).collect())
     }
     pub fn clear_denoms(&self) -> PResult<(Expr, Self)> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::clear_denoms(self);
         }
-        let (c, p) = dmp_clear_denoms(&self.rep, self.u())?;
+        let (c, p) = dmp_clear_denoms(&self.dense_rep(), self.u())?;
         Ok((c.0, self.with_rep(p)))
     }
     pub fn compose(&self, o: &Self) -> PResult<Self> {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::compose(&a, &b);
         }
-        Ok(self.with_rep(dmp_compose(&self.rep, &o.rep, self.u())?))
+        Ok(self.with_rep(dmp_compose(&self.dense_rep(), &o.dense_rep(), self.u())?))
     }
     pub fn shift(&self, a: &Expr) -> PResult<Self> {
         self.univariate()?;
-        Ok(self.with_rep(dup_shift(&self.rep, &EX(a.clone()))?))
+        Ok(self.with_rep(dup_shift(&self.dense_rep(), &EX(a.clone()))?))
     }
     pub fn sqf_p(&self) -> PResult<bool> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::sqf_p(self);
         }
-        dmp_sqf_p(&self.rep, self.u())
+        dmp_sqf_p(&self.dense_rep(), self.u())
     }
     pub fn sqf_part(&self) -> PResult<Self> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::sqf_part(self);
         }
-        Ok(self.with_rep(dmp_sqf_part(&self.rep, self.u())?))
+        Ok(self.with_rep(dmp_sqf_part(&self.dense_rep(), self.u())?))
     }
     pub fn sqf_list(&self, all: bool) -> PResult<(Expr, Vec<(Self, usize)>)> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::sqf_list(self, all);
         }
-        let (c, f) = dmp_sqf_list(&self.rep, self.u(), all)?;
+        let (c, f) = dmp_sqf_list(&self.dense_rep(), self.u(), all)?;
         Ok((c.0, f.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect()))
     }
     pub fn sqf_list_include(&self, all: bool) -> PResult<Vec<(Self, usize)>> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return super::inexact_ground::sqf_list_include(self, all);
         }
-        Ok(dmp_sqf_list_include(&self.rep, self.u(), all)?.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect())
+        Ok(dmp_sqf_list_include(&self.dense_rep(), self.u(), all)?.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect())
     }
     pub fn gff_list(&self) -> PResult<Vec<(Self, usize)>> {
         self.univariate()?;
-        Ok(dup_gff_list(&self.rep)?.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect())
+        Ok(dup_gff_list(&self.dense_rep())?.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect())
     }
     pub fn sturm(&self) -> PResult<Vec<Self>> {
         self.univariate()?;
-        Ok(dup_sturm(&self.rep)?.into_iter().map(|p| self.with_rep(p)).collect())
+        Ok(dup_sturm(&self.dense_rep())?.into_iter().map(|p| self.with_rep(p)).collect())
     }
     pub fn terms_gcd(&self) -> (Vec<u32>, Self) {
-        let (j, p) = dmp_terms_gcd(&self.rep, self.u());
+        let (j, p) = dmp_terms_gcd(&self.dense_rep(), self.u());
         (j, self.with_rep(p))
     }
     pub fn subresultants(&self, o: &Self) -> PResult<Vec<Self>> {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return super::inexact_ground::subresultants(&a, &b);
         }
-        Ok(dmp_subresultants(&self.rep, &o.rep, self.u())?.into_iter().map(|p| self.with_rep(p)).collect())
+        Ok(dmp_subresultants(&self.dense_rep(), &o.dense_rep(), self.u())?.into_iter().map(|p| self.with_rep(p)).collect())
     }
     /// The resultant: a ground expression for a univariate input, a
     /// polynomial in the remaining generators otherwise.
@@ -2434,14 +2802,14 @@ impl ExpressionPoly {
         if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
             return Ok(Ok(super::inexact_ground::resultant(&a, &b)?));
         }
-        let r = dmp_resultant(&self.rep, &o.rep, self.u())?;
+        let r = dmp_resultant(&self.dense_rep(), &o.dense_rep(), self.u())?;
         self.drop_main(r)
     }
     pub fn discriminant(&self) -> PResult<Result<Expr, Self>> {
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return Ok(Ok(super::inexact_ground::discriminant(self)?));
         }
-        let r = dmp_discriminant(&self.rep, self.u())?;
+        let r = dmp_discriminant(&self.dense_rep(), self.u())?;
         self.drop_main(r)
     }
     /// An elimination result back over all generators, with the eliminated
@@ -2465,32 +2833,33 @@ impl ExpressionPoly {
         if self.u() == 0 {
             return Ok(Ok(r.l().first().cloned().unwrap_or_else(EX::zero).0));
         }
-        Ok(Err(Self { rep: r, gens: self.gens[1..].to_vec(), ground: self.ground.clone() }))
+        Ok(Err(Self { rep: r.into(), gens: self.gens[1..].to_vec(), ground: self.ground.clone() }))
     }
     /// `Poly.eval(gens[j], a)`: a ground expression or a polynomial in the
     /// remaining generators.
     pub fn eval(&self, j: usize, a: &Expr) -> PResult<Result<Expr, Self>> {
+        if a.as_number().is_some_and(|n|n.is_zero()){return self.eval_zero(j);}
         if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
             return Ok(Ok(super::inexact_ground::eval(self, a)?));
         }
         let a = EX(a.clone());
         if self.u() == 0 {
-            return Ok(Ok(dup_eval_ground(&self.rep, &a)?.0));
+            return Ok(Ok(dup_eval_ground(&self.dense_rep(), &a)?.0));
         }
-        let rep = dmp_eval_in(&self.rep, &a, j, self.u())?;
+        let rep = dmp_eval_in(&self.dense_rep(), &a, j, self.u())?;
         let mut gens = self.gens.clone();
         gens.remove(j);
-        Ok(Err(Self { rep, gens, ground: self.ground.clone() }))
+        Ok(Err(Self { rep:rep.into(), gens, ground: self.ground.clone() }))
     }
     pub fn degree(&self, j: usize) -> i64 {
-        dmp_degree_in(&self.rep, j, self.u())
+        match &self.rep {ExpressionRep::Dense(d)=>dmp_degree_in(d,j,self.u()),ExpressionRep::Sparse(p)=>p.degree(j)}
     }
     pub fn degree_list(&self) -> Vec<i64> {
-        dmp_degree_list(&self.rep, self.u())
+        match &self.rep {ExpressionRep::Dense(d)=>dmp_degree_list(d,self.u()),ExpressionRep::Sparse(p)=>(0..p.nvars).map(|j|p.degree(j)).collect()}
     }
     /// The dense coefficient list of a univariate polynomial.
     pub fn all_coeffs(&self) -> Vec<Expr> {
-        match &self.rep {
+        match self.dense_rep().as_ref() {
             Dmp::L(v) if v.is_empty() => vec![Expr::zero()],
             Dmp::L(v) => v.iter().map(|c| c.0.clone()).collect(),
             Dmp::N(_) => Vec::new(),
@@ -2615,13 +2984,14 @@ impl super::int::Field for EX {
 impl ExpressionPoly {
     /// The sparse `PolyElement` of this polynomial.
     pub fn to_sparse(&self) -> super::mpoly::MPoly<EX> {
+        if let ExpressionRep::Sparse(p)=&self.rep {return p.clone();}
         let n = self.gens.len();
         super::mpoly::MPoly::from_terms(n, self.terms().into_iter().map(|(m, c)| (m, EX(c))).collect())
     }
-    /// The dense polynomial of a sparse `PolyElement` in these generators.
+    /// Keep the sparse `PolyElement`; dense algorithms opt in explicitly.
     pub fn from_sparse(p: &super::mpoly::MPoly<EX>, gens: &[Expr]) -> PResult<Self> {
-        let terms = (0..p.len()).map(|i| (p.exp(i).to_vec(), p.coeff(i).0.clone())).collect();
-        Self::from_terms(terms, gens)
+        if gens.is_empty() || p.nvars!=gens.len() {return Err(PolyError::Failed("sparse polynomial generators do not match".into()));}
+        Ok(Self{rep:ExpressionRep::Sparse(p.clone()),gens:gens.to_vec(),ground:None})
     }
 }
 
@@ -2685,5 +3055,224 @@ mod tests {
         let f = p("x*y+sqrt(2)*y", &["x", "y"]);
         let g = p("x**2*y+2*sqrt(2)*x*y+2*y", &["x", "y"]);
         assert_eq!(f.gcd(&g).unwrap().as_expr(), parse_str("x*y+sqrt(2)*y").unwrap());
+    }
+}
+
+#[cfg(test)]
+mod sparse_storage_tests {
+    use super::*;
+    use crate::parser::parse_str;
+    fn ex(s:&str)->Expr {parse_str(s).unwrap()}
+    fn force_sparse(p:&ExpressionPoly)->ExpressionPoly {p.with_sparse_rep(p.to_sparse())}
+    fn force_dense(p:&ExpressionPoly)->ExpressionPoly {p.with_rep(p.dense_rep().into_owned())}
+
+    #[test]
+    fn sparse_storage_constructor_last_wins_and_summed_adds() {
+        let x=Expr::symbol("x");let n=1u32<<31;
+        let raw=vec![(vec![n],Expr::one()),(vec![n],Expr::int(2))];
+        let ordinary=ExpressionPoly::from_terms(raw.clone(),std::slice::from_ref(&x)).unwrap();
+        let summed=ExpressionPoly::from_summed_terms(raw,std::slice::from_ref(&x)).unwrap();
+        assert!(ordinary.is_sparse() && summed.is_sparse());
+        assert_eq!(ordinary.terms(),vec![(vec![n],Expr::int(2))]);
+        assert_eq!(summed.terms(),vec![(vec![n],Expr::int(3))]);
+        assert!(ExpressionPoly::from_summed_terms(vec![(vec![n],Expr::one()),(vec![n],Expr::minus_one())],std::slice::from_ref(&x)).unwrap().is_zero());
+        let unique=super::super::mpoly::MPoly::monomial(&[n],EX::one());
+        assert!(ExpressionPoly::from_sparse(&unique,&[x]).unwrap().is_sparse());
+    }
+
+    #[test]
+    fn sparse_storage_keeps_huge_coordinates_and_structural_views() {
+        let gens=vec![Expr::symbol("x"),Expr::symbol("y")];let n=1u32<<31;
+        let p=ExpressionPoly::from_terms(vec![(vec![n,n],ex("sin(a)")),(vec![n,0],Expr::int(2))],&gens).unwrap();
+        assert!(p.is_sparse());assert_eq!(p.degree_list(),vec![i64::from(n),i64::from(n)]);
+        assert_eq!(p.legacy().total_degree(),Some(1u64<<32));
+        let reverse=vec![gens[1].clone(),gens[0].clone()];
+        assert!(p.reorder(&reverse).unwrap().is_sparse());
+        assert_eq!(p.reorder(&reverse).unwrap().as_expr(),p.as_expr());
+        assert!(p.add(&p.neg()).unwrap().is_zero());
+        assert_eq!(p.mul_ground(&Expr::int(2)).unwrap().terms()[0].1,ex("2*sin(a)"));
+    }
+
+    #[test]
+    fn sparse_storage_dense_equality_and_unported_operations_roundtrip() {
+        let gens=vec![Expr::symbol("x")];
+        let p=ExpressionPoly::from_expr(&ex("x^3+sin(a)*x+1"),&gens).unwrap();
+        let q=ExpressionPoly::from_expr(&ex("x+1"),&gens).unwrap();
+        let (s,d)=(force_sparse(&p),force_dense(&p));
+        let (t,e)=(force_sparse(&q),force_dense(&q));
+        assert_eq!(s,d);assert_eq!(d,s);
+        let canonical=Dmp::N(vec![Dmp::L(vec![EX::one()]),Dmp::L(vec![EX::one(),EX::one()])]);
+        let raw=Dmp::N(vec![Dmp::L(vec![EX::zero(),EX::one()]),Dmp::L(vec![EX::one(),EX::one()])]);
+        let canonical=ExpressionPoly{rep:canonical.into(),gens:vec![Expr::symbol("u"),Expr::symbol("v")],ground:None};
+        let raw=canonical.with_rep(raw);
+        let sparse=force_sparse(&canonical);
+        assert_eq!(canonical,sparse);assert_ne!(canonical,raw);assert_ne!(sparse,raw);
+
+        let alias=Expr::symbol("v");
+        let aliased=ExpressionPoly::from_terms(vec![(vec![0,2],ex("1.0")),(vec![1,1],ex("1.0e20")),(vec![2,0],ex("-1.0e20"))],&[alias.clone(),alias]).unwrap();
+        assert_eq!(force_sparse(&aliased).as_expr(),force_dense(&aliased).as_expr());
+
+        assert_eq!(s.add(&t).unwrap(),d.add(&e).unwrap());
+        assert_eq!(s.sub(&t).unwrap(),d.sub(&e).unwrap());
+        assert_eq!(s.neg(),d.neg());
+        assert_eq!(s.mul_ground(&ex("sin(a)")).unwrap(),d.mul_ground(&ex("sin(a)")).unwrap());
+        assert_eq!(s.mul(&t).unwrap(),d.mul(&e).unwrap());
+        assert_eq!(s.pow(2).unwrap(),d.pow(2).unwrap());
+        assert_eq!(s.div(&t).unwrap(),d.div(&e).unwrap());
+        assert_eq!(s.diff(1,0).unwrap(),d.diff(1,0).unwrap());
+        assert_eq!(s.integrate(1,0).unwrap(),d.integrate(1,0).unwrap());
+        assert_eq!(s.eval(0,&Expr::int(2)).unwrap(),d.eval(0,&Expr::int(2)).unwrap());
+    }
+
+    #[test]
+    fn sparse_storage_preserves_raw_falsy_float_slots_on_dense_path() {
+        let x=Expr::symbol("x");
+        let zero=crate::evalf_mp::evalf(&Expr::zero(),140);
+        // Construct an actual Float zero (evalf exact zero can stay exact).
+        let zero=if zero.as_number().is_some_and(|n|n.is_float()){zero}else{
+            Expr::num(crate::number::Number::mp_float(crate::bigfloat::BigFloat::zero(),140))
+        };
+        let p=ExpressionPoly::from_terms(vec![(vec![5],Expr::one()),(vec![2],zero.clone())],&[x]).unwrap();
+        assert!(!p.is_sparse());assert_eq!(p.all_coeffs()[3],zero);
+        assert_ne!(p,force_sparse(&p));
+    }
+}
+
+#[cfg(test)]
+mod sparse_recursive_product_tests {
+    use super::*;
+    fn expr(s:&str,p:u32)->Expr {crate::parser::parse_str_with_precision(s,p).unwrap()}
+    #[test]
+    fn sparse_recursive_product_ex_matches_dense_including_karatsuba() {
+        for precision in [53,140] {for degree in [3,98,99,100,101,127] {
+            let gens=vec![Expr::symbol("x")];
+            let f=ExpressionPoly::from_terms(vec![(vec![degree],expr("1.2345678901234567890123456789",precision)),(vec![degree/2],expr("-1.0e18",precision)),(vec![0],expr("0.333333333333333333333",precision))],&gens).unwrap();
+            let g=ExpressionPoly::from_terms(vec![(vec![degree-1],expr("0.875",precision)),(vec![degree/2],expr("1.0e18",precision)),(vec![0],expr("-0.125",precision))],&gens).unwrap();
+            let (s,t)=(f.with_sparse_rep(f.to_sparse()),g.with_sparse_rep(g.to_sparse()));
+            let (d,e)=(f.with_rep(f.dense_rep().into_owned()),g.with_rep(g.dense_rep().into_owned()));
+            assert_eq!(s.mul(&t).unwrap(),d.mul(&e).unwrap(),"EX product p{precision} deg{degree}");
+            assert_eq!(s.mul(&s).unwrap(),d.mul(&d).unwrap(),"EX square p{precision} deg{degree}");
+            for n in [0,1,2,3,4]{assert_eq!(s.pow(n).unwrap(),d.pow(n).unwrap(),"EX power{n} p{precision} deg{degree}");}
+        }}
+        let x=Expr::symbol("x");let y=Expr::symbol("y");
+        for gens in [vec![x.clone(),y],vec![x.clone(),crate::ops::pow(&x,&Expr::int(2))]] {
+            let f=ExpressionPoly::from_terms(vec![(vec![2,1],expr("sin(a)",140)),(vec![1,2],expr("0.125",140)),(vec![0,0],Expr::one())],&gens).unwrap();
+            let g=ExpressionPoly::from_terms(vec![(vec![1,1],expr("cos(a)",140)),(vec![0,0],expr("-0.5",140))],&gens).unwrap();
+            let (s,t)=(f.with_sparse_rep(f.to_sparse()),g.with_sparse_rep(g.to_sparse()));
+            let (d,e)=(f.with_rep(f.dense_rep().into_owned()),g.with_rep(g.dense_rep().into_owned()));
+            assert_eq!(s.mul(&t).unwrap(),d.mul(&e).unwrap());
+            assert_eq!(s.mul(&s).unwrap(),d.mul(&d).unwrap());
+            assert_eq!(s.pow(3).unwrap(),d.pow(3).unwrap());
+        }
+    }
+}
+
+#[cfg(test)]
+mod sparse_recursive_sharing_tests {
+    use super::*;
+    use super::sparse_product::Arithmetic;
+    #[test]
+    fn sparse_recursive_product_sharing_excludes_host_and_budget_contexts() {
+        let parse=|s:&str|crate::parser::parse_str(s).unwrap();
+        assert!(EXProduct.coefficient_reusable(&EX(parse("sin(a)"))));
+        assert!(!EXProduct.coefficient_reusable(&EX(parse("gamma(1/3)"))));
+        assert!(!EXProduct.coefficient_reusable(&EX(parse("sin(a)+gamma(1/3)"))));
+        super::super::factor_budget::run(super::super::factor_budget::Limits::default(),||{
+            assert!(!EXProduct.reuse_identical_products());Ok(())
+        }).unwrap();
+        let x=Expr::symbol("x");let n=1u32<<30;
+        let p=ExpressionPoly::from_terms(vec![(vec![n],Expr::one()),(vec![0],Expr::one())],std::slice::from_ref(&x)).unwrap();
+        let q=ExpressionPoly::from_terms(vec![(vec![n],Expr::minus_one())],&[x]).unwrap();
+        assert_eq!(p.mul(&q).unwrap().terms(),vec![(vec![2*n],Expr::minus_one()),(vec![n],Expr::minus_one())]);
+    }
+}
+
+#[cfg(test)]
+mod sparse_calculus_tests {
+    use super::*;
+    fn parse(s:&str)->Expr{crate::parser::parse_str_with_precision(s,211).unwrap()}
+    #[test]
+    fn sparse_calculus_ex_matches_complete_dense_and_big_factors() {
+        for width in [1,2,3]{
+            let gens=(0..width).map(|i|Expr::symbol(&format!("x{i}"))).collect::<Vec<_>>();
+            let mut high=vec![2;width];high[0]=25;
+            let p=ExpressionPoly::from_terms(vec![(high,parse("1.2345678901234567890123456789")),(vec![1;width],parse("sin(a)")),(vec![0;width],Expr::int(3))],&gens).unwrap();
+            let (s,d)=(p.with_sparse_rep(p.to_sparse()),p.with_rep(p.dense_rep().into_owned()));
+            for j in 0..width {for m in [0,1,2,3,21]{
+                assert_eq!(s.diff(m,j).unwrap(),d.diff(m,j).unwrap(),"diff width{width} j{j} m{m}");
+                assert_eq!(s.integrate(m,j).unwrap(),d.integrate(m,j).unwrap(),"integral width{width} j{j} m{m}");
+            }}
+            for j in 0..width {assert_eq!(s.eval_zero(j).unwrap(),d.eval_zero(j).unwrap());}
+        }
+        let x=Expr::symbol("x");let n=1u32<<31;
+        let p=ExpressionPoly::from_terms(vec![(vec![n],Expr::one())],std::slice::from_ref(&x)).unwrap();
+        let factor=BigInt::from(n)*BigInt::from(n-1)*BigInt::from(n-2);
+        assert_eq!(p.diff(3,0).unwrap().terms(),vec![(vec![n-3],integer_expr(factor))]);
+        assert!(p.diff(n as usize+1,0).unwrap().is_zero());
+        let q=ExpressionPoly::from_terms(vec![(vec![u32::MAX],Expr::one())],&[x]).unwrap();
+        assert!(matches!(q.integrate(1,0),Err(PolyError::Unsupported(_))));
+        let z=ExpressionPoly::zero(&q.gens);assert!(z.integrate(usize::MAX,0).unwrap().is_zero());
+        assert!(matches!(q.integrate(usize::MAX,0),Err(PolyError::Unsupported(_))));
+        let cancellation=parse("(a*a-1)/(a-1)-a-1");
+        let p=ExpressionPoly::from_terms(vec![(vec![u32::MAX],cancellation),(vec![0],Expr::int(3))],&q.gens).unwrap();
+        assert!(p.is_sparse());
+        assert_eq!(p.integrate(1,0).unwrap().terms(),vec![(vec![1],Expr::int(3))]);
+        let rep=Dmp::L(vec![EX::zero(),EX::zero(),EX::one()]);
+        assert_eq!(dmp_validate_support(&rep,0).unwrap(),true);
+        let rep=Dmp::N(vec![Dmp::L(vec![EX::zero()]),rep]);
+        assert_eq!(dmp_validate_support(&rep,0).unwrap(),true);
+        assert!(matches!(dmp_validate_support(&Dmp::L(vec![EX::one(),EX::zero()]),0),Err(PolyError::Unsupported(_))));
+    }
+    #[test]
+    fn sparse_calculus_raw_ex_zero_metadata_remains_dense() {
+        let x=Expr::symbol("x");
+        let zero=Expr::num(crate::number::Number::mp_float(crate::bigfloat::BigFloat::zero(),139));
+        let p=ExpressionPoly::from_terms(vec![(vec![5],Expr::one()),(vec![0],zero.clone())],&[x]).unwrap();
+        assert!(!p.is_sparse());assert_eq!(p.eval_zero(0).unwrap(),Ok(zero));
+        assert_eq!(p.diff(0,0).unwrap(),p);assert_eq!(p.integrate(0,0).unwrap(),p);
+    }
+}
+
+#[cfg(test)]
+mod zero_payload_tests{
+    use super::*;
+    fn zero(precision:u32)->Expr{Expr::num(crate::number::Number::mp_float(crate::bigfloat::BigFloat::zero(),precision))}
+    #[test]
+    fn coefficient_zero_payload_head_stripping_and_sparse_transitions(){
+        let x=Expr::symbol("x");
+        assert!(native_coefficient_payload(&crate::parser::parse_str("sin(a)").unwrap()));
+        assert!(!native_coefficient_payload(&crate::parser::parse_str("gamma(1/3)").unwrap()));
+        super::super::factor_budget::run(super::super::factor_budget::Limits::default(),||{
+            assert!(!native_coefficient_payload(&Expr::one()));Ok(())
+        }).unwrap();
+        for precision in [1,53,139,140,211]{
+            let z=zero(precision);
+            assert_eq!(EX(z.clone()).mul(&EX::one()).unwrap(),EX::zero());
+            assert_eq!(EX::one().mul(&EX(z.clone())).unwrap(),EX::zero());
+            let p=ExpressionPoly::from_terms(vec![(vec![u32::MAX],z.clone()),(vec![5],Expr::one()),(vec![0],z.clone())],std::slice::from_ref(&x)).unwrap();
+            assert!(!p.is_sparse());assert_eq!(p.degree(0),5);
+            assert_eq!(p.tc(),z);assert_eq!(p.coefficient(&[0]),z);assert_eq!(p.coefficient(&[u32::MAX]),Expr::zero());
+            assert_eq!(p.eval_zero(0).unwrap(),Ok(z.clone()));
+            assert!(p.coefficient_payload().unwrap().contains(&(vec![0],z.clone())));
+            let p=ExpressionPoly::from_terms(vec![(vec![u32::MAX],z.clone()),(vec![1000],Expr::one())],std::slice::from_ref(&x)).unwrap();
+            assert!(p.is_sparse());assert_eq!(p.degree(0),1000);
+            let p=ExpressionPoly::from_terms(vec![(vec![1000],Expr::one()),(vec![0],z.clone())],std::slice::from_ref(&x)).unwrap();
+            let q=ExpressionPoly::from_terms(vec![(vec![2000],Expr::one())],std::slice::from_ref(&x)).unwrap();
+            assert!(!p.is_sparse() && q.is_sparse());
+            let sum=p.add(&q).unwrap();assert!(!sum.is_sparse());assert_eq!(sum.coefficient(&[0]),z);
+            let normalized=p.mul_ground(&Expr::one()).unwrap();assert_eq!(normalized.coefficient(&[0]),Expr::zero());
+            assert!(normalized.add(&q).unwrap().is_sparse());
+            let p=ExpressionPoly::from_terms(vec![(vec![u32::MAX],z)],std::slice::from_ref(&x)).unwrap();assert!(p.is_zero());
+        }
+    }
+    #[test]
+    fn coefficient_zero_payload_multivariate_zero_rows_and_duplicates(){
+        let gens=[Expr::symbol("x"),Expr::symbol("y")];let z=zero(139);
+        let p=ExpressionPoly::from_terms(vec![(vec![2,3],Expr::one()),(vec![2,0],z.clone()),(vec![1,u32::MAX],z.clone()),(vec![0,0],z.clone())],&gens).unwrap();
+        assert_eq!(p.coefficient(&[2,0]),z);assert_eq!(p.coefficient(&[0,0]),Expr::zero());
+        assert_eq!(p.coefficient_payload().unwrap(),vec![(vec![2,3],Expr::one()),(vec![2,0],z.clone())]);
+        assert_eq!(p.coefficient(&[u32::MAX,0]),Expr::zero());
+        let p=ExpressionPoly::from_terms(vec![(vec![2,3],Expr::one()),(vec![2,0],Expr::int(7)),(vec![2,0],z.clone())],&gens).unwrap();
+        assert_eq!(p.coefficient(&[2,0]),z);
     }
 }

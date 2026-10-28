@@ -1,0 +1,65 @@
+{
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "2eb95e7788af6673c6bf1f8dfd2faed142d976880d62f577948ffc2a9b4702d7",
+    "native_sha256": "3243129bfe3e4ec0611ebe7761b5988f5bba3312df8a9e9911fea5c7a785eaee",
+    "working_code_diff_sha256": "8b7b5aec6c5eaab2fa504a7e4873f275164c3bd1821f1aae9c77e409987d16c0",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "files": [
+    {
+      "path": "crates/symox-core/src/poly/fraction_free.rs",
+      "base_sha256": "0d64f90de9862385f7205ccb9da36289bcd1e00621243309053e9f16a7a3857a",
+      "final_sha256": "ceea86569e4d80329e8297bacbe58a1a332c3fca775ede5eff8abcf4d6fea827"
+    },
+    {
+      "path": "crates/symox-py/src/poly_fraction_free.rs",
+      "base_sha256": "26bac6c2de9dc6f1e4d30276694e88dcbf6b1383c5ec7806c33c157a1ed8d9fb",
+      "final_sha256": "c847ec8b77ea99a481cccb8bc28b8ee58a577f8de53c5568f1368bad58bfa58b"
+    },
+    {
+      "path": "python/symox/polys/matrices/rref.py",
+      "base_sha256": "78259119fa8bb99fc11561058ba07af95b6209e8da642b32b62c012e41b2b593",
+      "final_sha256": "28c47afe94a1b23b8818938b7638eefec083e98813edd0f860af03a9ff5fa223"
+    },
+    {
+      "path": "python/symox/polys/matrices/domainmatrix.py",
+      "base_sha256": "ec9ecc3663e3239890a84d00529e6bc5dc7a5ccb639b9d6f6ecc68540344eb88",
+      "final_sha256": "037d685ba487843f568ab4a32d82562aedc63a85c5eb65c21563ef25ead0dfc6"
+    },
+    {
+      "path": "python/symox/polys/matrices/_rref_native.py",
+      "base_sha256": null,
+      "final_sha256": "ae7492dd04e027e19d787880c2dfaa6e602e018f8bcb6fad17e26b4b44a2d9dd"
+    },
+    {
+      "path": "tests/test_domainmatrix_native_auto.py",
+      "base_sha256": null,
+      "final_sha256": "c857dbd5a4e2058e1f18b1e359add9564289b9929782184fd14977fc68062ab1"
+    }
+  ],
+  "patch_sha256": "ef6aa7352ed38558a1536063cb378cbad76cd4999121514444c178dd2dc39339",
+  "debug_manifest_sha256": "6c1f5123b94f4dc58b9753a344d568b69f25313a38a1990f2f45d01875a04240",
+  "debug_native_sha256": "323aad58aadf1ce7dca6e2db390f5eac401075053d442eea3cb21d05c9036532",
+  "source_files": 2771,
+  "phase": "private DEBUG correctness; no performance measurements",
+  "validation": {
+    "python_new": 505,
+    "python_local_coupled": 1248,
+    "python_demeter_coupled": 1248,
+    "exact_once": true,
+    "source_hashes_verified_before_after": 2771,
+    "rust_new_tests": 4,
+    "python_independent_rounding_fixtures": 35,
+    "cargo_check": 0,
+    "clippy_exit": 0,
+    "new_clippy_diagnostics": 0,
+    "git_apply_check": true,
+    "performance": "pending private release and authorized quiet window"
+  }
+}

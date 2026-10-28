@@ -1,0 +1,4225 @@
+{
+  "identity": {
+    "roots": {
+      "r9": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028",
+      "r10": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028"
+    },
+    "source_identities": {
+      "r9": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "d81c42c90dd3bcc21e0a3bad4acf6a8fffcba60194f564e9764da8e1443cd54a",
+        "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+        "working_code_diff_sha256": "153bbd8cee4230dc3e4851c026b2ce20ae7bd437ddd44c6d6f0cca1123202673",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      },
+      "r10": {
+        "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+        "source_manifest_sha256": "82feae2c9d065fd338e9439693f9c5b2bd1663b683ac2a9e411937b923e38754",
+        "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+        "working_code_diff_sha256": "a1a57da806073ce5481756822e9c3316ba9ea1718300ac206753b5e9ebb23bd4",
+        "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+        "build_command": [
+          ".venv/bin/maturin",
+          "develop",
+          "--release"
+        ]
+      }
+    },
+    "worker_sha256": "77d5e627c6091fac2d6bdeebd4468493fd884344bdf47f1fc87c345b981587b8",
+    "fixtures_sha256": "29f42888cc98bc1bca181815e713e48c51f5ac82499999b5e1d5b61a595c93d7",
+    "runner_sha256": "0f11cd9483e660a1b04e68cb553dee3d93ad8c7f4efb71088cd7fec5478e3444",
+    "cpu": 24,
+    "rounds": 3,
+    "repeated_calls": 9,
+    "certificates_outside_timers": true,
+    "timing_unit": "nanoseconds per public lll_transform call, construction/import excluded",
+    "first_call": "Fresh process for each case/arm/round; no earlier LLL or result certificates",
+    "host_before": {
+      "loadavg": [
+        1.7060546875,
+        4.44482421875,
+        3.5654296875
+      ],
+      "started": 1793186216.431681
+    }
+  },
+  "comparisons": [
+    {
+      "case": "ddm-2x2-delta3_4",
+      "first_call_median_ns": {
+        "r9": 532163,
+        "r10": 479921
+      },
+      "first_call_ratio_r9_over_r10": 1.1088554157871817,
+      "repeated_process_medians_ns": {
+        "r9": 196335,
+        "r10": 196877
+      },
+      "repeated_ratio_r9_over_r10": 0.9972470120938454
+    },
+    {
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "first_call_median_ns": {
+        "r9": 540217,
+        "r10": 485175
+      },
+      "first_call_ratio_r9_over_r10": 1.1134477250476633,
+      "repeated_process_medians_ns": {
+        "r9": 205639,
+        "r10": 201593
+      },
+      "repeated_ratio_r9_over_r10": 1.0200701413243516
+    },
+    {
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "first_call_median_ns": {
+        "r9": 564269,
+        "r10": 528982
+      },
+      "first_call_ratio_r9_over_r10": 1.0667073737858754,
+      "repeated_process_medians_ns": {
+        "r9": 238734,
+        "r10": 244527
+      },
+      "repeated_ratio_r9_over_r10": 0.976309364610043
+    },
+    {
+      "case": "ddm-2x4-delta3_4",
+      "first_call_median_ns": {
+        "r9": 519231,
+        "r10": 463516
+      },
+      "first_call_ratio_r9_over_r10": 1.1202008129169219,
+      "repeated_process_medians_ns": {
+        "r9": 206402,
+        "r10": 207666
+      },
+      "repeated_ratio_r9_over_r10": 0.9939133030924658
+    },
+    {
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "first_call_median_ns": {
+        "r9": 523263,
+        "r10": 477248
+      },
+      "first_call_ratio_r9_over_r10": 1.0964173762907334,
+      "repeated_process_medians_ns": {
+        "r9": 220200,
+        "r10": 213454
+      },
+      "repeated_ratio_r9_over_r10": 1.0316039989880723
+    },
+    {
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "first_call_median_ns": {
+        "r9": 561187,
+        "r10": 514306
+      },
+      "first_call_ratio_r9_over_r10": 1.0911539044848786,
+      "repeated_process_medians_ns": {
+        "r9": 257207,
+        "r10": 240418
+      },
+      "repeated_ratio_r9_over_r10": 1.0698325416566148
+    },
+    {
+      "case": "ddm-4x4-delta3_4",
+      "first_call_median_ns": {
+        "r9": 1540705,
+        "r10": 1464505
+      },
+      "first_call_ratio_r9_over_r10": 1.052031232395929,
+      "repeated_process_medians_ns": {
+        "r9": 277505,
+        "r10": 270296
+      },
+      "repeated_ratio_r9_over_r10": 1.0266707609435581
+    },
+    {
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "first_call_median_ns": {
+        "r9": 1537760,
+        "r10": 1470057
+      },
+      "first_call_ratio_r9_over_r10": 1.046054676791444,
+      "repeated_process_medians_ns": {
+        "r9": 280374,
+        "r10": 271449
+      },
+      "repeated_ratio_r9_over_r10": 1.0328791043621455
+    },
+    {
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "first_call_median_ns": {
+        "r9": 1576061,
+        "r10": 1532504
+      },
+      "first_call_ratio_r9_over_r10": 1.0284221117856789,
+      "repeated_process_medians_ns": {
+        "r9": 325198,
+        "r10": 328352
+      },
+      "repeated_ratio_r9_over_r10": 0.9903944547315077
+    },
+    {
+      "case": "ddm-4x6-delta3_4",
+      "first_call_median_ns": {
+        "r9": 1886387,
+        "r10": 1815562
+      },
+      "first_call_ratio_r9_over_r10": 1.0390099594505724,
+      "repeated_process_medians_ns": {
+        "r9": 313542,
+        "r10": 317187
+      },
+      "repeated_ratio_r9_over_r10": 0.9885083562693301
+    },
+    {
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "first_call_median_ns": {
+        "r9": 1889648,
+        "r10": 1829870
+      },
+      "first_call_ratio_r9_over_r10": 1.0326678944405887,
+      "repeated_process_medians_ns": {
+        "r9": 318719,
+        "r10": 314413
+      },
+      "repeated_ratio_r9_over_r10": 1.0136953624691092
+    },
+    {
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "first_call_median_ns": {
+        "r9": 1979517,
+        "r10": 1906072
+      },
+      "first_call_ratio_r9_over_r10": 1.0385321226060715,
+      "repeated_process_medians_ns": {
+        "r9": 367020,
+        "r10": 365177
+      },
+      "repeated_ratio_r9_over_r10": 1.0050468676833426
+    },
+    {
+      "case": "ddm-6x6-delta3_4",
+      "first_call_median_ns": {
+        "r9": 3854886,
+        "r10": 3712534
+      },
+      "first_call_ratio_r9_over_r10": 1.03834362190353,
+      "repeated_process_medians_ns": {
+        "r9": 641761,
+        "r10": 631225
+      },
+      "repeated_ratio_r9_over_r10": 1.0166913541130342
+    },
+    {
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "first_call_median_ns": {
+        "r9": 3866172,
+        "r10": 3655367
+      },
+      "first_call_ratio_r9_over_r10": 1.0576699959265377,
+      "repeated_process_medians_ns": {
+        "r9": 626780,
+        "r10": 629144
+      },
+      "repeated_ratio_r9_over_r10": 0.9962425136375774
+    },
+    {
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "first_call_median_ns": {
+        "r9": 3871896,
+        "r10": 3963809
+      },
+      "first_call_ratio_r9_over_r10": 0.9768119503235398,
+      "repeated_process_medians_ns": {
+        "r9": 693004,
+        "r10": 693241
+      },
+      "repeated_ratio_r9_over_r10": 0.9996581275487169
+    },
+    {
+      "case": "ddm-6x8-delta3_4",
+      "first_call_median_ns": {
+        "r9": 3858388,
+        "r10": 3847202
+      },
+      "first_call_ratio_r9_over_r10": 1.0029075676296695,
+      "repeated_process_medians_ns": {
+        "r9": 771042,
+        "r10": 765193
+      },
+      "repeated_ratio_r9_over_r10": 1.0076438231923188
+    },
+    {
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "first_call_median_ns": {
+        "r9": 3822628,
+        "r10": 3745537
+      },
+      "first_call_ratio_r9_over_r10": 1.0205820954378504,
+      "repeated_process_medians_ns": {
+        "r9": 782457,
+        "r10": 811984
+      },
+      "repeated_ratio_r9_over_r10": 0.963635982975034
+    },
+    {
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "first_call_median_ns": {
+        "r9": 3962999,
+        "r10": 3885175
+      },
+      "first_call_ratio_r9_over_r10": 1.0200310153339296,
+      "repeated_process_medians_ns": {
+        "r9": 834353,
+        "r10": 836712
+      },
+      "repeated_ratio_r9_over_r10": 0.9971806308502806
+    }
+  ],
+  "timing_results": [
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 569351,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379323,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 193365,
+      "repeated_ns": [
+        282144,
+        206841,
+        198520,
+        192174,
+        193365,
+        196961,
+        191606,
+        191668,
+        187262
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 485888,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379324,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 196877,
+      "repeated_ns": [
+        251027,
+        200917,
+        191290,
+        194086,
+        196877,
+        188980,
+        635148,
+        219360,
+        193615
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 477805,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379325,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 199458,
+      "repeated_ns": [
+        247095,
+        211554,
+        196201,
+        199458,
+        645938,
+        216118,
+        198547,
+        195666,
+        191442
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 540217,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379326,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 209425,
+      "repeated_ns": [
+        263289,
+        213336,
+        202454,
+        209425,
+        201142,
+        195363,
+        196377,
+        642500,
+        235559
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 584692,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379327,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 239242,
+      "repeated_ns": [
+        282829,
+        254812,
+        229038,
+        232651,
+        225504,
+        663902,
+        268032,
+        239242,
+        225949
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 528982,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379328,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 244527,
+      "repeated_ns": [
+        277100,
+        244527,
+        663749,
+        260960,
+        227768,
+        222091,
+        217594,
+        232942,
+        244914
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 459364,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379329,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 209848,
+      "repeated_ns": [
+        258917,
+        210072,
+        199844,
+        202977,
+        203111,
+        198036,
+        629856,
+        242820,
+        209848
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 501933,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379350,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 206402,
+      "repeated_ns": [
+        263257,
+        224066,
+        208300,
+        204572,
+        209262,
+        204031,
+        206402,
+        205814,
+        201058
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 550109,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379351,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 229265,
+      "repeated_ns": [
+        293018,
+        238072,
+        216930,
+        238715,
+        229265,
+        220259,
+        218740,
+        220849,
+        755664
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 477248,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379370,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 213454,
+      "repeated_ns": [
+        259058,
+        217306,
+        213454,
+        203739,
+        621022,
+        235695,
+        207027,
+        206448,
+        206033
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 514306,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379371,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 259545,
+      "repeated_ns": [
+        288912,
+        248631,
+        673343,
+        308449,
+        266403,
+        257260,
+        252005,
+        253954,
+        259545
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 564013,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379372,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 257207,
+      "repeated_ns": [
+        324019,
+        263613,
+        250061,
+        251073,
+        252940,
+        245738,
+        739263,
+        282071,
+        257207
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1512760,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379378,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 268469,
+      "repeated_ns": [
+        326406,
+        288382,
+        267214,
+        269602,
+        268469,
+        268151,
+        266543,
+        265861,
+        268599
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1464505,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379379,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 270296,
+      "repeated_ns": [
+        315493,
+        270296,
+        266270,
+        722237,
+        290957,
+        276676,
+        267702,
+        259350,
+        261470
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1470057,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379380,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 271494,
+      "repeated_ns": [
+        318388,
+        280708,
+        700372,
+        292917,
+        271494,
+        266558,
+        265094,
+        261677,
+        270426
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1568035,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379381,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 280374,
+      "repeated_ns": [
+        342453,
+        288950,
+        274181,
+        280374,
+        278289,
+        734750,
+        319804,
+        277942,
+        270926
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1701770,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379382,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 339792,
+      "repeated_ns": [
+        403527,
+        340560,
+        334104,
+        354879,
+        339792,
+        339168,
+        342868,
+        328845,
+        326492
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1532504,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379383,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 313223,
+      "repeated_ns": [
+        357674,
+        781061,
+        326107,
+        311360,
+        313223,
+        307785,
+        309293,
+        312859,
+        314340
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1815562,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379384,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 317187,
+      "repeated_ns": [
+        374249,
+        336417,
+        317187,
+        744424,
+        326686,
+        303673,
+        307255,
+        301026,
+        297799
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1886387,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379385,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 313030,
+      "repeated_ns": [
+        368508,
+        316583,
+        311982,
+        311143,
+        306271,
+        307183,
+        313030,
+        787594,
+        332055
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1853250,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379386,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 332670,
+      "repeated_ns": [
+        372992,
+        323010,
+        320026,
+        346046,
+        332670,
+        801004,
+        335790,
+        323546,
+        311926
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1901783,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379387,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 314413,
+      "repeated_ns": [
+        384875,
+        363053,
+        782419,
+        333393,
+        304478,
+        314413,
+        304633,
+        303191,
+        306343
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 2058242,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379388,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 365177,
+      "repeated_ns": [
+        443436,
+        895630,
+        365017,
+        379978,
+        378602,
+        365177,
+        355742,
+        360160,
+        348261
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1979517,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379389,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 367020,
+      "repeated_ns": [
+        438396,
+        384607,
+        364590,
+        820286,
+        394275,
+        367020,
+        357862,
+        352587,
+        363226
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3854886,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379390,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 641761,
+      "repeated_ns": [
+        675616,
+        632673,
+        775740,
+        641761,
+        626404,
+        1090391,
+        643019,
+        619026,
+        629307
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3664574,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379409,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 652532,
+      "repeated_ns": [
+        675648,
+        624526,
+        1129911,
+        661926,
+        621665,
+        651980,
+        656512,
+        652532,
+        633974
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3655367,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379410,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 629144,
+      "repeated_ns": [
+        682889,
+        1084681,
+        650694,
+        629533,
+        627796,
+        623857,
+        628779,
+        619734,
+        629144
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3866172,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379413,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 626046,
+      "repeated_ns": [
+        686864,
+        629276,
+        624327,
+        626046,
+        1087286,
+        635841,
+        619815,
+        621788,
+        619757
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3853432,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379414,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 692658,
+      "repeated_ns": [
+        743729,
+        692658,
+        1142908,
+        708681,
+        686876,
+        719006,
+        688768,
+        683415,
+        685707
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3927667,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379415,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 698354,
+      "repeated_ns": [
+        1180681,
+        704388,
+        698354,
+        690143,
+        730000,
+        727718,
+        695210,
+        687905,
+        695468
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3910038,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379416,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 774645,
+      "repeated_ns": [
+        818524,
+        777613,
+        1214160,
+        783408,
+        765230,
+        774645,
+        768121,
+        766100,
+        764143
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3858388,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379437,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 794363,
+      "repeated_ns": [
+        812169,
+        864427,
+        763691,
+        794363,
+        807145,
+        1231116,
+        780380,
+        764514,
+        761764
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3947140,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379438,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 782457,
+      "repeated_ns": [
+        852238,
+        819920,
+        782457,
+        767891,
+        1235012,
+        783167,
+        764853,
+        766083,
+        765955
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3696765,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379439,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 769452,
+      "repeated_ns": [
+        827114,
+        1207552,
+        795619,
+        770432,
+        769452,
+        758895,
+        769311,
+        763169,
+        768270
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3967357,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379440,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 837943,
+      "repeated_ns": [
+        1320708,
+        918675,
+        840594,
+        837943,
+        832851,
+        837078,
+        835349,
+        829459,
+        838961
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3892883,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379441,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 834353,
+      "repeated_ns": [
+        891101,
+        832648,
+        1283022,
+        848280,
+        830766,
+        834353,
+        832559,
+        832670,
+        896553
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3885175,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379442,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 835360,
+      "repeated_ns": [
+        1320241,
+        846325,
+        835360,
+        838193,
+        830473,
+        834987,
+        834353,
+        830478,
+        843090
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3962999,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379443,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 831652,
+      "repeated_ns": [
+        888277,
+        839409,
+        1282817,
+        847283,
+        827455,
+        831652,
+        824884,
+        825212,
+        828542
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3813042,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379444,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 786008,
+      "repeated_ns": [
+        821136,
+        777185,
+        825772,
+        805022,
+        1230295,
+        786008,
+        762060,
+        763272,
+        759503
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3745537,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379445,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 811984,
+      "repeated_ns": [
+        820674,
+        1218149,
+        796717,
+        779833,
+        766199,
+        829045,
+        813615,
+        811984,
+        769452
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3804638,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379446,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 765193,
+      "repeated_ns": [
+        806070,
+        768653,
+        1219056,
+        779071,
+        765193,
+        759050,
+        757847,
+        758648,
+        761340
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3867276,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379447,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 764456,
+      "repeated_ns": [
+        813140,
+        764456,
+        758115,
+        765102,
+        758628,
+        1216584,
+        771925,
+        756869,
+        753536
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3901037,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379448,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 693004,
+      "repeated_ns": [
+        736180,
+        701135,
+        1147716,
+        702714,
+        692471,
+        683778,
+        681555,
+        693004,
+        680584
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3963809,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379449,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 693241,
+      "repeated_ns": [
+        1182301,
+        698875,
+        690754,
+        693241,
+        685850,
+        683239,
+        683701,
+        701910,
+        725932
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3832162,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379450,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 630435,
+      "repeated_ns": [
+        682631,
+        1091634,
+        656334,
+        631805,
+        626047,
+        628988,
+        620613,
+        630435,
+        625783
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3941269,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379452,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 641086,
+      "repeated_ns": [
+        680331,
+        683273,
+        627778,
+        657742,
+        1127979,
+        641086,
+        623810,
+        620957,
+        620878
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3795631,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379460,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 627206,
+      "repeated_ns": [
+        682069,
+        636279,
+        626314,
+        625062,
+        625891,
+        1089883,
+        638661,
+        623461,
+        627206
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 4019876,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379461,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 626871,
+      "repeated_ns": [
+        713193,
+        639030,
+        1081297,
+        637831,
+        626411,
+        622956,
+        626871,
+        620154,
+        620490
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1858414,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379462,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 354427,
+      "repeated_ns": [
+        408992,
+        807838,
+        363853,
+        365597,
+        354427,
+        353559,
+        352218,
+        352156,
+        353011
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1934480,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379463,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 366685,
+      "repeated_ns": [
+        439748,
+        366719,
+        366685,
+        805369,
+        389665,
+        361434,
+        361927,
+        352613,
+        353141
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 2004143,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379464,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 318719,
+      "repeated_ns": [
+        385307,
+        318719,
+        306784,
+        323162,
+        308626,
+        771591,
+        327077,
+        308059,
+        313071
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1828676,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379465,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 315095,
+      "repeated_ns": [
+        359089,
+        315095,
+        736142,
+        329044,
+        317349,
+        303687,
+        307041,
+        312103,
+        303332
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1932304,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379466,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 320173,
+      "repeated_ns": [
+        367832,
+        317827,
+        305176,
+        735986,
+        348241,
+        319485,
+        325792,
+        320173,
+        313917
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1878549,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379467,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 315446,
+      "repeated_ns": [
+        378960,
+        329926,
+        308616,
+        315446,
+        311826,
+        307721,
+        305551,
+        772739,
+        335570
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1536970,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379495,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 322208,
+      "repeated_ns": [
+        378770,
+        322208,
+        323656,
+        315141,
+        774865,
+        328845,
+        320593,
+        316162,
+        307926
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1521794,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379496,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 339770,
+      "repeated_ns": [
+        365705,
+        784632,
+        344372,
+        352843,
+        338374,
+        330784,
+        339770,
+        326865,
+        304631
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1521769,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379497,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 271449,
+      "repeated_ns": [
+        338482,
+        299059,
+        724537,
+        308427,
+        271449,
+        268586,
+        267554,
+        268635,
+        267090
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1528235,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379498,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 277801,
+      "repeated_ns": [
+        324602,
+        277801,
+        272765,
+        281925,
+        268588,
+        731490,
+        298209,
+        268285,
+        271765
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1571011,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379499,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 277505,
+      "repeated_ns": [
+        332105,
+        281289,
+        277505,
+        276973,
+        268004,
+        264849,
+        277173,
+        718145,
+        291755
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1442615,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379500,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 266514,
+      "repeated_ns": [
+        318261,
+        276392,
+        262121,
+        701422,
+        286344,
+        266484,
+        266514,
+        259001,
+        261596
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 514601,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379502,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 240418,
+      "repeated_ns": [
+        291444,
+        242974,
+        666893,
+        280050,
+        237537,
+        240418,
+        230732,
+        233385,
+        233090
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 525161,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379505,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 258536,
+      "repeated_ns": [
+        312915,
+        277989,
+        253409,
+        258536,
+        252814,
+        250188,
+        725178,
+        268327,
+        244143
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 523263,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379506,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 216445,
+      "repeated_ns": [
+        287186,
+        230011,
+        216151,
+        216445,
+        213325,
+        231720,
+        213164,
+        214028,
+        689472
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 461333,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379507,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 208508,
+      "repeated_ns": [
+        259220,
+        222961,
+        202988,
+        201973,
+        642701,
+        235297,
+        204655,
+        205103,
+        208508
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 467113,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379515,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 205042,
+      "repeated_ns": [
+        253210,
+        207283,
+        199553,
+        201059,
+        200858,
+        196223,
+        618106,
+        241139,
+        205042
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 519231,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379516,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 203721,
+      "repeated_ns": [
+        283882,
+        215113,
+        203721,
+        202298,
+        201130,
+        209618,
+        200469,
+        203173,
+        215901
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 555636,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379517,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 238734,
+      "repeated_ns": [
+        287610,
+        241638,
+        238734,
+        228670,
+        231962,
+        670177,
+        261855,
+        233456,
+        225206
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 526050,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379518,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 245328,
+      "repeated_ns": [
+        288824,
+        240997,
+        699532,
+        277012,
+        245328,
+        246151,
+        223251,
+        233176,
+        223196
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 485175,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379519,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 201593,
+      "repeated_ns": [
+        250721,
+        204489,
+        201593,
+        190747,
+        641110,
+        219433,
+        196152,
+        192189,
+        191885
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 533299,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379520,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 205639,
+      "repeated_ns": [
+        271841,
+        215417,
+        200170,
+        197050,
+        205639,
+        199486,
+        196355,
+        634148,
+        238558
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 532163,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379521,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 196588,
+      "repeated_ns": [
+        253560,
+        209012,
+        206569,
+        196588,
+        195902,
+        193259,
+        196543,
+        198939,
+        194037
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 479921,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379522,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 193105,
+      "repeated_ns": [
+        245106,
+        209147,
+        191869,
+        193105,
+        192725,
+        188041,
+        639853,
+        212319,
+        190251
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 512585,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379524,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 196335,
+      "repeated_ns": [
+        260099,
+        220204,
+        199564,
+        196335,
+        196101,
+        195902,
+        203665,
+        192949,
+        194033
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 467935,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379525,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 198164,
+      "repeated_ns": [
+        250269,
+        202868,
+        194526,
+        189700,
+        188981,
+        193137,
+        621365,
+        210770,
+        198164
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 511598,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379526,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 202095,
+      "repeated_ns": [
+        275552,
+        204223,
+        197622,
+        195125,
+        640845,
+        214082,
+        197717,
+        202095,
+        191381
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 543526,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379527,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 204262,
+      "repeated_ns": [
+        262202,
+        211766,
+        201163,
+        197762,
+        204262,
+        197740,
+        196639,
+        644386,
+        233801
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 564269,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379528,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 236878,
+      "repeated_ns": [
+        288597,
+        247402,
+        232055,
+        236878,
+        231417,
+        676472,
+        269575,
+        236272,
+        230035
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 10,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_call_ns": 533399,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379529,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 226959,
+      "repeated_ns": [
+        273618,
+        240412,
+        686087,
+        268938,
+        226959,
+        219284,
+        220944,
+        220326,
+        221768
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 463516,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379549,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 207666,
+      "repeated_ns": [
+        252638,
+        218338,
+        200017,
+        204102,
+        195651,
+        197185,
+        628620,
+        234781,
+        207666
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 549535,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379551,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 220259,
+      "repeated_ns": [
+        289534,
+        241742,
+        225077,
+        220259,
+        214912,
+        230685,
+        216967,
+        219404,
+        213147
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 510065,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379570,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 220200,
+      "repeated_ns": [
+        305604,
+        234638,
+        221273,
+        220200,
+        212103,
+        208939,
+        204581,
+        205522,
+        654311
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 488583,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379571,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 220589,
+      "repeated_ns": [
+        267393,
+        230516,
+        220589,
+        201103,
+        719302,
+        243042,
+        215513,
+        220088,
+        212076
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 501230,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379574,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 236252,
+      "repeated_ns": [
+        289496,
+        250475,
+        673339,
+        279935,
+        236252,
+        230826,
+        234586,
+        235883,
+        229575
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 10,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_call_ns": 561187,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379576,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 246106,
+      "repeated_ns": [
+        305608,
+        257157,
+        244905,
+        245877,
+        246106,
+        238897,
+        694875,
+        262133,
+        241835
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1540705,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379577,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 277905,
+      "repeated_ns": [
+        323994,
+        279424,
+        277905,
+        275143,
+        266505,
+        270444,
+        267877,
+        734784,
+        291083
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1505031,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379579,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 270626,
+      "repeated_ns": [
+        319125,
+        270626,
+        267760,
+        702815,
+        290879,
+        273615,
+        267786,
+        259774,
+        261403
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1467145,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379580,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 270332,
+      "repeated_ns": [
+        321970,
+        281441,
+        704243,
+        302515,
+        269899,
+        262085,
+        270332,
+        269851,
+        263222
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1537760,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379581,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 281692,
+      "repeated_ns": [
+        328048,
+        281692,
+        270133,
+        281570,
+        267505,
+        740035,
+        291912,
+        269851,
+        308623
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1576061,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379582,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 325198,
+      "repeated_ns": [
+        371852,
+        327852,
+        379278,
+        322354,
+        783928,
+        325198,
+        310208,
+        317946,
+        312723
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 10,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_call_ns": 1606062,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379583,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 328352,
+      "repeated_ns": [
+        379398,
+        803378,
+        321243,
+        353172,
+        325891,
+        323679,
+        347418,
+        328352,
+        324609
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1799267,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379591,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 307757,
+      "repeated_ns": [
+        355592,
+        309182,
+        307588,
+        784576,
+        335314,
+        303756,
+        302055,
+        307757,
+        298241
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1961042,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379592,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 313542,
+      "repeated_ns": [
+        375961,
+        320639,
+        308129,
+        313542,
+        309571,
+        308073,
+        309256,
+        773758,
+        341187
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1889648,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379593,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 314087,
+      "repeated_ns": [
+        372511,
+        329931,
+        314087,
+        309288,
+        306679,
+        767922,
+        331298,
+        307159,
+        304167
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1829870,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379594,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 312174,
+      "repeated_ns": [
+        363609,
+        316021,
+        750232,
+        330916,
+        307454,
+        312174,
+        303882,
+        310405,
+        309207
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 1906072,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379595,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 377559,
+      "repeated_ns": [
+        413193,
+        833819,
+        394501,
+        377559,
+        381543,
+        351918,
+        350942,
+        361319,
+        348328
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 10,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_call_ns": 2104402,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379596,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 408285,
+      "repeated_ns": [
+        457754,
+        408285,
+        387572,
+        875145,
+        422897,
+        406332,
+        385214,
+        424295,
+        375966
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 4103734,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379599,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 645089,
+      "repeated_ns": [
+        681282,
+        625570,
+        626822,
+        664797,
+        662489,
+        1079062,
+        645089,
+        619586,
+        615191
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3712534,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379600,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 631225,
+      "repeated_ns": [
+        677504,
+        635485,
+        1063639,
+        640482,
+        624562,
+        627330,
+        617974,
+        631225,
+        618044
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3654487,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379601,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 625348,
+      "repeated_ns": [
+        679982,
+        1087349,
+        649154,
+        629525,
+        625348,
+        622766,
+        623422,
+        623340,
+        619332
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3850532,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379602,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 626780,
+      "repeated_ns": [
+        676315,
+        639111,
+        624146,
+        626780,
+        1093336,
+        648566,
+        622717,
+        620693,
+        621877
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 3871896,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379603,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 694641,
+      "repeated_ns": [
+        742149,
+        695367,
+        1147593,
+        707680,
+        694641,
+        689004,
+        688187,
+        685241,
+        689100
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 10,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_call_ns": 4127170,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379604,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 686672,
+      "repeated_ns": [
+        1174057,
+        707048,
+        691266,
+        684355,
+        690554,
+        682880,
+        680621,
+        683317,
+        686672
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3847202,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379625,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 764818,
+      "repeated_ns": [
+        811390,
+        767727,
+        1238188,
+        788310,
+        759073,
+        764818,
+        761835,
+        763273,
+        757260
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3834915,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379626,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 771042,
+      "repeated_ns": [
+        818942,
+        771042,
+        764047,
+        764268,
+        766491,
+        1226108,
+        837550,
+        775211,
+        765055
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3822628,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379627,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 779262,
+      "repeated_ns": [
+        817599,
+        771307,
+        758859,
+        766047,
+        1235038,
+        779262,
+        761316,
+        794822,
+        787336
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3816882,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379628,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 818998,
+      "repeated_ns": [
+        818998,
+        1293772,
+        867009,
+        820463,
+        780225,
+        770174,
+        793416,
+        820909,
+        766623
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 3872975,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379629,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 836712,
+      "repeated_ns": [
+        1319801,
+        847527,
+        833590,
+        838106,
+        833815,
+        836712,
+        829106,
+        851904,
+        832936
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 10,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_call_ns": 4047562,
+      "input_unchanged": true,
+      "mode": "timing",
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379630,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "repeated_median_ns": 849881,
+      "repeated_ns": [
+        952923,
+        896173,
+        1291441,
+        849881,
+        832207,
+        838217,
+        829670,
+        822315,
+        881136
+      ]
+    }
+  ],
+  "routing_results": [
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379632,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379633,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379634,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379635,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379636,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-2x2-delta3_4",
+      "certificates": 2,
+      "digest": "b48a0f38966cf2a500da3b9b0399b464243b01e73164ceb671d5c681ba51ceb5",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379637,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379638,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379639,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379640,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379641,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379649,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-2x4-delta3_4",
+      "certificates": 2,
+      "digest": "c17078de43e5f71d9ebcc014eabf9d6cf283d248cc7506fd33f9b34305abe7df",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379650,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379651,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379652,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379653,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379654,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379655,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-4x4-delta3_4",
+      "certificates": 2,
+      "digest": "8ef16022f0b28d5a89069e4bbd7cb820890fae566aff27620f8cf2ec7e1a3ed4",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379656,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379684,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379686,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379687,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379688,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379689,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-4x6-delta3_4",
+      "certificates": 2,
+      "digest": "10645df96d2c37d6bf29f003e8267def900b896f0c149f1b996eadae311b94c1",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379690,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379695,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379696,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379697,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379705,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379707,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-6x6-delta3_4",
+      "certificates": 2,
+      "digest": "55bf13ed9ed3bdbddb17bd79e89ef8e30c9ddc813a99d63712234a2fc79a08c7",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379708,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379709,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "ddm-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379711,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379712,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_dense-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379713,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r9",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c",
+      "package": "/home/keckj/symox-ci/wt/native-lu-risch-lll-r9-20261028/python/symox/__init__.py",
+      "pid": 3379714,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    },
+    {
+      "affinity": [
+        24
+      ],
+      "arm": "r10",
+      "case": "domainmatrix_sparse-6x8-delta3_4",
+      "certificates": 2,
+      "digest": "87bec0f498bcb39671e3695af043b88e6355d44d2dd41a348449cf7bd6af0f52",
+      "first_native_calls": [],
+      "input_unchanged": true,
+      "interpretation": "Separate instrumented process; never used as a timing result",
+      "mode": "route-check",
+      "native_available": true,
+      "native_sha256": "96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04",
+      "package": "/home/keckj/symox-ci/wt/native-solve-risch-lll-r10-r1-20261028/python/symox/__init__.py",
+      "pid": 3379715,
+      "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+      "reference_imported": false,
+      "second_native_calls": [
+        true
+      ]
+    }
+  ],
+  "certificate_count": 1152,
+  "source_hashes_unchanged": true,
+  "host_after": {
+    "loadavg": [
+      1.39990234375,
+      3.85986328125,
+      3.41748046875
+    ],
+    "ended": 1793186277.9898784
+  }
+}

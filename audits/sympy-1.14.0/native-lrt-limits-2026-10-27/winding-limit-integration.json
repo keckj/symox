@@ -1,0 +1,20 @@
+{
+  "stage": "/home/keckj/.cache/symox-validation/native-algebra-20261026/branches/limit-symbolic-winding-guard",
+  "manifest": {
+    "base_delivered_patch_sha256": "12086902e8c7e18dd8fc801e43aa1a7d581692d154911b76af2c6e75745c92e6",
+    "base_delivered_native_sha256": "58b25015c4ba16905c361fe8ed536ff72d500ec63cfe9329abb08b2cb076ed11",
+    "files": [
+      {
+        "path": "crates/symox-core/src/limits/gruntz.rs",
+        "base_sha256": "83912328ca19164ea71c8c491667cbfc529e311fa5184e761acbb2c07d2e7f02",
+        "final_sha256": "9af39b7f239b901c3caf63398e15ef5798816fe888dfdd3531eb2783a5fdb35c"
+      },
+      {
+        "path": "tests/test_gruntz_winding_power_guard.py",
+        "base_sha256": null,
+        "final_sha256": "6bfc7e7edb9e417b8f4ac6c1f1107239c841e1cc9bf3d77563626706e406c84a"
+      }
+    ],
+    "source_digest_sha256": "28a8165699dc69479ffd7b914a2636faad0741a132028455ebfbe13266554fad"
+  }
+}

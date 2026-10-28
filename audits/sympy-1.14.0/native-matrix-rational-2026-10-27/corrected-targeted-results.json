@@ -1,0 +1,14 @@
+{
+  "original-shard19": {
+    "returncode": 0,
+    "elapsed_seconds": 8.508124828338623,
+    "collected": 988,
+    "exactly_once": true
+  },
+  "combined": {
+    "returncode": 0,
+    "elapsed_seconds": 61.405630588531494,
+    "collected": 4333,
+    "exactly_once": true
+  }
+}

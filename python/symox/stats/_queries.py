@@ -6,6 +6,9 @@ import numpy as np
 import symox as S
 from ._base import REGISTRY,RandomSymbol,Distribution,Domain,PSpace,HALF,scalar,check,variable,integral,sum_expr
 
+_DISTRIBUTION_MOMENT = Distribution.moment
+_DISTRIBUTION_DICT = Distribution.dict
+
 
 def random_symbols(expr):
     if expr is None:return set()
@@ -362,10 +365,41 @@ def P(condition,given_condition=None,numsamples=None,evaluate=True,**kwargs):
     return _expect(S.Piecewise((1,condition),(0,True)),variables)
 
 
+def _native_polynomial_query(expr, variables, variance=False):
+    """Adapt independent probability-space metadata to the native kernels."""
+    variables = sorted(variables,key=lambda rv:rv.name)
+    if not variables or len({id(rv.group) for rv in variables}) != len(variables):return None
+    models = []
+    for rv in variables:
+        model = rv.distribution
+        if rv.process is not None or rv.group is not rv._atom:return None
+        # Custom/lazy table access is an observable protocol. Do not consume
+        # it speculatively before a possible general-path fallback.
+        if model.kind == 'finite' and (type(model).dict is not _DISTRIBUTION_DICT
+                or model._table is not None and type(model._table) is not dict):return None
+        stock = (getattr(model,'_native_moment',None) is model._moment
+                 and type(model).moment is _DISTRIBUTION_MOMENT
+                 and getattr(model,'_native_args',None) == model.args
+                 and getattr(model,'_native_table',False) == model._table)
+        if stock and model.family == 'Poisson':
+            # Do not inspect user-owned parameter protocols speculatively.
+            if any(S._core._host_contains(arg)[0] for arg in model.args):return None
+            if random_symbols(model.args):return None
+        if stock and model.family in ('Binomial','Normal','Poisson'):
+            models.append((model.family,model.args,(),()))
+        elif model.kind == 'finite' and model._table is not None:
+            table = model.dict
+            models.append(('Finite',(),tuple(table),tuple(table.values())))
+        else:return None
+    return S._core._stats_polynomial_query(expr,[rv._atom for rv in variables],models,variance)
+
+
 def _expect(expr,variables=None):
     expr = scalar(expr)
     variables = random_symbols(expr) if variables is None else set(variables)
     if not variables:return expr
+    native = _native_polynomial_query(expr,variables)
+    if native is not None:return native
     worlds = _worlds(variables)
     if worlds is not None:return S.simplify(S.Add(*(weight*expr.subs(values,simultaneous=True) for values,weight in worlds)))
     atoms = [v._atom for v in sorted(variables,key=lambda v:v.name)]
@@ -490,6 +524,10 @@ def variance(X,condition=None,**kwargs):
         from ._symbolic import Variance
         return Variance(X,condition)
     if getattr(X,'_stats_matrix',False):return X.variance()
+    if condition is None and not kwargs:
+        expression = scalar(X)
+        native = _native_polynomial_query(expression,random_symbols(expression),True)
+        if native is not None:return native
     mean = E(X,condition,**kwargs)
     return S.simplify(E(scalar(X)**2,condition,**kwargs)-mean**2)
 

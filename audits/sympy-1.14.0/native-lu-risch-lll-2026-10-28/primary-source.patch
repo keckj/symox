@@ -1,0 +1,1730 @@
+--- /dev/null
++++ b/crates/symox-core/src/poly/lu.rs
+@@ -0,0 +1,95 @@
++//! Exact rational in-place LU, with the public routine's publication order.
++use super::Rat;
++
++pub enum Event<'a> {
++    Swap(usize, usize),
++    Set(usize, usize, &'a Rat),
++}
++
++/// Return None only for a ragged shape, before publishing any mutation.
++/// Zero columns are skipped at their original diagonal index: this is LU,
++/// not an echelon reduction or a rank-revealing pivoting substitution.
++pub fn in_place<E>(
++    a: &mut [Vec<Rat>],
++    check: &mut impl FnMut() -> Result<(), E>,
++    publish: &mut impl FnMut(Event<'_>) -> Result<(), E>,
++) -> Result<Option<Vec<(usize, usize)>>, E> {
++    check()?;
++    let m = a.len();
++    let Some(first) = a.first() else { return Ok(Some(Vec::new())) };
++    let n = first.len();
++    if a.iter().any(|row| row.len() != n) { return Ok(None); }
++    let mut swaps = Vec::new();
++    for i in 0..m.min(n) {
++        check()?;
++        if a[i][i].is_zero() {
++            let replacement = ((i + 1)..m).find(|&ip| !a[ip][i].is_zero());
++            let Some(ip) = replacement else { continue };
++            swaps.push((i, ip));
++            publish(Event::Swap(i, ip))?;
++            a.swap(i, ip);
++        }
++        for j in (i + 1)..m {
++            check()?;
++            let multiplier = a[j][i].mul(&a[i][i].inv());
++            publish(Event::Set(j, i, &multiplier))?;
++            a[j][i] = multiplier.clone();
++            for k in (i + 1)..n {
++                check()?;
++                let value = a[j][k].sub(&multiplier.mul(&a[i][k]));
++                publish(Event::Set(j, k, &value))?;
++                a[j][k] = value;
++            }
++        }
++    }
++    check()?;
++    Ok(Some(swaps))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::poly::Int;
++    fn q(n: i64, d: i64) -> Rat { Rat::new(Int::from(n), Int::from(d)) }
++
++    #[test]
++    fn rational_multipliers_and_row_swaps_follow_diagonal_pivots() {
++        let mut a = vec![vec![q(0,1),q(2,3),q(1,4)],vec![q(2,5),q(3,7),q(8,9)],vec![q(1,3),q(0,1),q(4,11)]];
++        let mut events = Vec::new();
++        let swaps = in_place(&mut a, &mut || Ok::<_,()>(()), &mut |event| {
++            events.push(match event { Event::Swap(i,j) => (i,j,None),Event::Set(i,j,v) => (i,j,Some(v.clone())) });
++            Ok(())
++        }).unwrap().unwrap();
++        assert_eq!(swaps, vec![(0,1)]);
++        assert_eq!(a[0],vec![q(2,5),q(3,7),q(8,9)]);
++        assert_eq!(a[1],vec![q(0,1),q(2,3),q(1,4)]);
++        assert_eq!(a[2],vec![q(5,6),q(-15,28),q(-8089,33264)]);
++        assert_eq!(events[0],(0,1,None));
++        assert_eq!(events[1],(1,0,Some(q(0,1))));
++        assert_eq!(events.len(),9);
++    }
++
++    #[test]
++    fn zero_diagonal_columns_and_empty_rectangles_keep_their_positions() {
++        let mut a = vec![vec![q(0,1),q(3,1),q(4,1)],vec![q(0,1),q(2,1),q(7,1)],vec![q(0,1),q(1,1),q(5,1)]];
++        assert_eq!(in_place(&mut a,&mut || Ok::<_,()>(()),&mut |_| Ok(())).unwrap(),Some(vec![]));
++        assert_eq!(a[2],vec![q(0,1),q(1,2),q(3,2)]);
++        for mut a in [vec![],vec![vec![]],vec![vec![],vec![]]] {
++            assert_eq!(in_place(&mut a,&mut || Ok::<_,()>(()),&mut |_| panic!("no empty publication")).unwrap(),Some(vec![]));
++        }
++    }
++
++    #[test]
++    fn ragged_refusal_and_interruption_preserve_completed_publication_prefix() {
++        let mut ragged = vec![vec![q(1,1),q(2,1)],vec![q(3,1)]];
++        let before = ragged.clone();
++        assert_eq!(in_place(&mut ragged,&mut || Ok::<_,()>(()),&mut |_| panic!("ragged publication")).unwrap(),None);
++        assert_eq!(ragged,before);
++        let mut a = vec![vec![q(2,1),q(2,1)],vec![q(6,1),q(4,1)]];
++        let mut count=0;
++        let result=in_place(&mut a,&mut || Ok(()),&mut |_| {count+=1;if count==2 {Err("interrupt")}else {Ok(())}});
++        assert_eq!(result,Err("interrupt"));
++        assert_eq!(a,vec![vec![q(2,1),q(2,1)],vec![q(3,1),q(4,1)]]);
++        assert_eq!(count,2);
++    }
++}
+--- a/crates/symox-core/src/poly/mod.rs
++++ b/crates/symox-core/src/poly/mod.rs
+@@ -81,3 +81,5 @@
+ pub mod dispersion;
+ 
+ pub mod lll;
++
++pub mod lu;
+--- /dev/null
++++ b/crates/symox-py/src/poly_lu.rs
+@@ -0,0 +1,49 @@
++//! QQ LU representation checks and exact in-place publication.
++use pyo3::prelude::*;
++use pyo3::types::{PyList,PyTuple,PyInt};
++use symox::poly::{domains::ExactDomain,lu};
++use super::{sequence,entries,rationals,element_object};
++
++#[pyfunction]
++#[pyo3(signature=(a,stock=None,dimensions=None))]
++fn _ddm_ilu<'py>(a:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,dimensions:Option<&Bound<'py,PyAny>>,py:Python<'py>)
++    ->PyResult<Option<Vec<(usize,usize)>>> {
++    py.check_signals()?;
++    let Some(rows)=sequence(a,stock,true) else{return Ok(None)};
++    let mut seen=rustc_hash::FxHashSet::default();
++    for row in &rows {
++        if !row.is_exact_instance_of::<PyList>()||!seen.insert(row.as_ptr() as usize){return Ok(None);}
++    }
++    let Some(cells)=entries(&rows,true) else{return Ok(None)};
++    if let Some(first)=cells.first(){if cells.iter().any(|row|row.len()!=first.len()){return Ok(None);}}
++    // The real Python length prefix may use user callbacks. Its actual
++    // dimensions must agree with these canonical rows before any mutation;
++    // refusal resumes below that prefix without replaying those callbacks.
++    if let Some(dimensions)=dimensions.filter(|value|!value.is_none()) {
++        let Ok(dimensions)=dimensions.downcast_exact::<PyTuple>() else{return Ok(None)};
++        if dimensions.len()!=2{return Ok(None);}
++        let m=dimensions.get_item(0)?;let n=dimensions.get_item(1)?;
++        if !m.is_exact_instance_of::<PyInt>()||!n.is_exact_instance_of::<PyInt>(){return Ok(None);}
++        let (Ok(m),Ok(n))=(m.extract::<usize>(),n.extract::<usize>()) else{return Ok(None)};
++        if m!=cells.len()||n!=cells.first().map_or(0,Vec::len){return Ok(None);}
++    }
++    let Some(mut values)=rationals(&cells,py)? else{return Ok(None)};
++    let outer=a.downcast::<PyList>()?;
++    let mut output=rows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
++    lu::in_place(&mut values,&mut ||py.check_signals(),&mut |event| {
++        match event {
++            lu::Event::Swap(i,j)=>{
++                outer.set_item(i,&output[j])?;
++                outer.set_item(j,&output[i])?;
++                output.swap(i,j);
++                Ok(())
++            },
++            lu::Event::Set(i,j,value)=>output[i].set_item(j,element_object(py,value.clone(),ExactDomain::QQ)?),
++        }
++    })
++}
++
++pub(super) fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
++    module.add_function(wrap_pyfunction!(_ddm_ilu,module)?)?;
++    Ok(())
++}
+--- a/crates/symox-py/src/poly_ddm.rs
++++ b/crates/symox-py/src/poly_ddm.rs
+@@ -1,6 +1,8 @@
+ //! Representation/alias checks and in-place publication for exact dense rows.
+ #[path="poly_lll.rs"]
+ mod lll;
++#[path="poly_lu.rs"]
++mod lu;
+ use pyo3::prelude::*;
+ use pyo3::types::{PyInt,PyList,PyTuple,PyDict};
+ use symox::poly::{Int,Rat,domains::{DomainElement,ElementValue,ExactDomain}};
+@@ -514,6 +516,7 @@
+ 
+ pub fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
+     lll::register(module)?;
++    lu::register(module)?;
+     module.add_function(wrap_pyfunction!(_ddm_imatmul,module)?)?;
+     module.add_function(wrap_pyfunction!(_ddm_irref,module)?)?;
+     module.add_function(wrap_pyfunction!(_ddm_irref_den,module)?)?;
+--- /dev/null
++++ b/python/symox/polys/matrices/_lu_native.py
+@@ -0,0 +1,78 @@
++"""Protocol admission for QQ LU; all elimination arithmetic lives in Rust."""
++import builtins as _builtins
++from types import ModuleType, WrapperDescriptorType, MethodDescriptorType, GetSetDescriptorType
++from symox import _core
++from ..domains import _algebraic_methods
++
++# Reloads cannot bless changes made after the package's first initialization.
++if '_CAPTURED' not in globals():
++    _CAPTURED=True
++    _TYPE=False.__class__.__class__
++    _LIST=[].__class__
++    _TUPLE=().__class__
++    _OBJECT=_LIST.__bases__[0]
++    _FUNCTION=(lambda:None).__class__
++    _CODE=(lambda:None).__code__.__class__
++    _BUILTIN=[].append.__class__
++    _DOMAIN,_ELEMENT=_core.Domain,_core.DomainElement
++    _ELEMENT_HOOKS=[(name,_ELEMENT.__dict__.get(name)) for name in
++                        ('__bool__','__mul__','__sub__','parent')]
++    _DOMAIN_HOOKS=[(name,_DOMAIN.__dict__.get(name)) for name in ('is_ZZ_I','is_QQ_I')]
++    _LEN,_RANGE,_MIN=len,range,min
++    _DIV_CODE=None
++    for _constant in _algebraic_methods._gaussian_binary.__code__.co_consts:
++        if _TYPE(_constant) is _CODE and _constant.co_name=='method':
++            _DIV_CODE=_constant
++
++
++def _builtin(value,name):
++    return (_TYPE(value) is _BUILTIN and value.__self__ is _builtins
++            and value.__name__==name)
++
++
++def _native_method(value,cls,name,types):
++    return (_TYPE(value) in types and value.__objclass__ is cls and value.__name__==name)
++
++
++def _protocol(dependencies):
++    if (_TYPE(_core) is not ModuleType or _TYPE(_algebraic_methods) is not ModuleType
++            or _TYPE(_builtins) is not ModuleType):return False
++    if not _builtin(_LEN,'len') or not _builtin(_MIN,'min'):return False
++    if (_TYPE(_RANGE) is not _TYPE or _RANGE.__name__!='range'
++            or _RANGE.__module__!='builtins' or _RANGE.__flags__ & (1<<9)):return False
++    if (_TYPE(dependencies) is not _TUPLE or dependencies.__len__()!=2
++            or dependencies[0] is not _RANGE or dependencies[1] is not _MIN):return False
++    if (_core.__dict__.get('Domain') is not _DOMAIN
++            or _core.__dict__.get('DomainElement') is not _ELEMENT):return False
++    for cls in (_DOMAIN,_ELEMENT):
++        if _TYPE(cls) is not _TYPE or cls.__bases__!=(_OBJECT,):return False
++        for name in ('__getattribute__','__getattr__','__class__'):
++            if name in cls.__dict__:return False
++    if '__isub__' in _ELEMENT.__dict__:return False
++    for name,original in _ELEMENT_HOOKS:
++        if _ELEMENT.__dict__.get(name) is not original:return False
++        kinds=(MethodDescriptorType,) if name=='parent' else (WrapperDescriptorType,)
++        if not _native_method(original,_ELEMENT,name,kinds):return False
++    for name,original in _DOMAIN_HOOKS:
++        if (_DOMAIN.__dict__.get(name) is not original
++                or not _native_method(original,_DOMAIN,name,(GetSetDescriptorType,))):return False
++    divide=_ELEMENT.__dict__.get('__truediv__')
++    if (_TYPE(divide) is not _FUNCTION or divide.__code__ is not _DIV_CODE
++            or divide.__globals__ is not _algebraic_methods.__dict__
++            or divide.__defaults__ is not None or divide.__kwdefaults__ is not None):return False
++    closure=divide.__closure__
++    if closure is None or closure.__len__()!=3:return False
++    try:
++        native,operation,reflected=(cell.cell_contents for cell in closure)
++    except ValueError:return False
++    return (_native_method(native,_ELEMENT,'__truediv__',(WrapperDescriptorType,))
++            and _TYPE(operation) is ''.__class__ and operation=='truediv' and reflected is False)
++
++
++def try_ilu(matrix,dependencies,stock,dimensions=None):
++    if not _protocol(dependencies):return None
++    if stock is not None:
++        if _TYPE(stock) is not _TYPE or stock.__bases__!=(_LIST,):return None
++        for name in ('__iter__','__len__','__getitem__','__setitem__','__new__'):
++            if stock.__dict__.get(name,_LIST.__dict__[name]) is not _LIST.__dict__[name]:return None
++    return _core._ddm_ilu(matrix,stock,dimensions)
+--- a/python/symox/polys/matrices/dense.py
++++ b/python/symox/polys/matrices/dense.py
+@@ -47,6 +47,7 @@
+ from symox.polys.matrices._typing import RingElement
+ from symox import _core
+ from ._fraction_free import stock_domain as _ff_stock_domain
++from ._lu_native import try_ilu as _native_ilu
+ 
+ 
+ _native_ddm_type = None  # Registered after the stock DDM class is defined.
+@@ -744,6 +745,9 @@
+     if not m:
+         return []
+     n = len(a[0])
++    native = _native_ilu(a, (range, min), _native_ddm_type, (m, n))
++    if native is not None:
++        return native
+ 
+     swaps = []
+ 
+--- /dev/null
++++ b/tests/test_native_ddm_lu.py
+@@ -0,0 +1,361 @@
++"""Exact LU certificates, mutation conventions and complete protocol fallbacks."""
++import ast
++import builtins
++import copy
++import ctypes
++import importlib
++import random
++import types
++from fractions import Fraction
++from pathlib import Path
++
++import pytest
++import sympy as sp
++import symox as sx
++from symox.polys.matrices.ddm import DDM
++from symox.polys.matrices.domainmatrix import DomainMatrix
++from sympy.polys.matrices.dense import ddm_ilu as reference
++
++dense=importlib.import_module('symox.polys.matrices.dense')
++helper=importlib.import_module('symox.polys.matrices._lu_native')
++algebraic=importlib.import_module('symox.polys.domains._algebraic_methods')
++
++
++def qq(rows):
++    return [[sx.QQ(Fraction(value).numerator,Fraction(value).denominator) for value in row] for row in rows]
++
++
++def rational_rows(rows):
++    return [[Fraction(str(value)) for value in row] for row in rows]
++
++
++def certificate(source,combined,swaps):
++    m=len(source);n=len(source[0]) if m else 0
++    permuted=[list(map(Fraction,row)) for row in source]
++    for i,j in swaps:permuted[i],permuted[j]=permuted[j],permuted[i]
++    lower=[[Fraction(int(i==j)) if i<=j else combined[i][j] if j<n else Fraction(0) for j in range(m)] for i in range(m)]
++    upper=[[combined[i][j] if i<=j else Fraction(0) for j in range(n)] for i in range(m)]
++    assert [[sum(lower[i][k]*upper[k][j] for k in range(m)) for j in range(n)] for i in range(m)]==permuted
++
++
++def old_function():
++    # The original body is also available after native dispatch, so execute its
++    # unchanged statements against the actual module globals for hook tests.
++    module=ast.parse(Path(dense.__file__).read_text())
++    function=next(node for node in module.body if isinstance(node,ast.FunctionDef) and node.name=='ddm_ilu')
++    start=next(i for i,node in enumerate(function.body) if isinstance(node,ast.Assign)
++               and any(isinstance(t,ast.Name) and t.id=='m' for t in node.targets))
++    function.body=[node for node in function.body[start:]
++                   if not (isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='native' for t in node.targets))
++                   and not (isinstance(node,ast.If) and isinstance(node.test,ast.Compare)
++                            and isinstance(node.test.left,ast.Name) and node.test.left.id=='native')]
++    compiled=compile(ast.fix_missing_locations(ast.Module(body=[function],type_ignores=[])),dense.__file__,'exec')
++    code=next(c for c in compiled.co_consts if type(c) is types.CodeType)
++    return types.FunctionType(code,dense.__dict__)
++
++
++@pytest.mark.parametrize('shape',[(1,1),(1,5),(2,2),(3,2),(2,5),(4,4),(4,6),(6,4)])
++@pytest.mark.parametrize('seed',range(8))
++def test_native_exact_values_swaps_publication_and_lattice_certificate(shape,seed):
++    m,n=shape;rng=random.Random(79139+seed*811+m*17+n)
++    source=[[Fraction(rng.randrange(-8,9),rng.randrange(1,13)) for _ in range(n)] for _ in range(m)]
++    if seed%3==0:source[0][0]=Fraction(0)
++    if seed%4==0 and m>1:source[-1]=source[0][:]
++    if seed%5==0:
++        for row in source:row[0]=Fraction(0)
++    a=qq(source);b=qq(source)
++    a_rows={id(row):i for i,row in enumerate(a)};b_rows={id(row):i for i,row in enumerate(b)}
++    a_cells=[[v for v in row] for row in a];b_cells=[[v for v in row] for row in b]
++    expected=reference(b);actual=sx._core._ddm_ilu(a)
++    assert actual==expected and a==b
++    assert [a_rows[id(row)] for row in a]==[b_rows[id(row)] for row in b]
++    for left,right in zip(a,b):
++        origin=a_rows[id(left)]
++        assert [(v is a_cells[origin][j]) for j,v in enumerate(left)]==[(v is b_cells[origin][j]) for j,v in enumerate(right)]
++    assert all(type(value) is sx._core.DomainElement and value.parent()==sx.QQ for row in a for value in row)
++    certificate(source,rational_rows(a),actual)
++
++
++@pytest.mark.parametrize('shape',[(2,2),(3,3),(4,2),(2,5)])
++@pytest.mark.parametrize('entry',['ddm','domainmatrix_dense','domainmatrix_sparse'])
++def test_actual_public_lu_first_call_uses_native_and_preserves_input(shape,entry,monkeypatch):
++    m,n=shape;raw=[[Fraction((i+1)*(j+2)+(i==j),i+j+1) for j in range(n)] for i in range(m)]
++    calls=[];native=sx._core._ddm_ilu
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_ilu',record)
++    a=DDM(qq(raw),shape,sx.QQ)
++    if entry!='ddm':
++        a=DomainMatrix.from_rep(a)
++        if entry.endswith('sparse'):a=a.to_sparse()
++    before=rational_rows(a if entry=='ddm' else a.to_list())
++    lower,upper,swaps=a.lu()
++    lower=sp.Matrix([[sp.Rational(str(v)) for v in row] for row in (lower if entry=='ddm' else lower.to_list())])
++    upper=sp.Matrix([[sp.Rational(str(v)) for v in row] for row in (upper if entry=='ddm' else upper.to_list())])
++    permuted=sp.Matrix(raw)
++    for i,j in swaps:permuted.row_swap(i,j)
++    assert lower*upper==permuted
++    assert rational_rows(a if entry=='ddm' else a.to_list())==before
++    assert calls and all(result is not None for result in calls)
++
++
++def test_public_lu_solve_keeps_exact_two_sided_system_certificate(monkeypatch):
++    calls=[];native=sx._core._ddm_ilu
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    monkeypatch.setattr(sx._core,'_ddm_ilu',record)
++    a=DomainMatrix.from_list([[0,2,1],[1,3,4],[4,1,2]],sx.QQ)
++    b=DomainMatrix.from_list([[2,3],[4,5],[6,7]],sx.QQ)
++    x=a.lu_solve(b)
++    assert a*x==b and calls and all(result is not None for result in calls)
++
++
++@pytest.mark.parametrize('rows',[[],[[]],[[],[]]])
++def test_empty_shapes_are_returned_without_row_replacement(rows):
++    rows=copy.deepcopy(rows);old=list(rows)
++    assert sx._core._ddm_ilu(rows)==[]
++    assert all(left is right for left,right in zip(rows,old))
++
++
++@pytest.mark.parametrize('source',[
++    [[1,2],[3,4]],[[sx.ZZ(2),sx.ZZ(4)],[sx.ZZ(1),sx.ZZ(3)]],
++    [[sx.QQ(2),0],[sx.QQ(3),sx.QQ(4)]],
++    [[sx.QQ(2),sx.QQ(3)],[sx.QQ(4)]],
++    [[],[sx.QQ(1)]],
++])
++def test_other_representations_and_ragged_shapes_keep_existing_behavior(source):
++    a=copy.deepcopy(source);b=copy.deepcopy(source);before=copy.deepcopy(source)
++    assert sx._core._ddm_ilu(a) is None and a==before
++    try:expected=reference(b)
++    except Exception as error:
++        with pytest.raises(type(error)) as actual:dense.ddm_ilu(a)
++        assert str(actual.value)==str(error)
++    else:assert dense.ddm_ilu(a)==expected
++    assert a==b
++    assert [[type(v) for v in row] for row in a]==[[type(v) for v in row] for row in b]
++
++
++def test_aliased_rows_are_declined_without_mutation_then_preserve_feedback():
++    row=qq([[2,3]])[0];a=[row,row];oldrow=row[:];b=[oldrow,oldrow]
++    assert sx._core._ddm_ilu(a) is None and a[0] is a[1] is row
++    assert dense.ddm_ilu(a)==reference(b) and a==b and a[0] is a[1] is row
++
++
++@pytest.mark.parametrize('name',['len','range','min'])
++def test_actual_builtin_overrides_are_not_skipped(name,monkeypatch):
++    calls=[];original=getattr(__import__('builtins'),name);old=old_function()
++    def hook(*args):calls.append(args);return original(*args)
++    monkeypatch.setattr(dense,name,hook,raising=False)
++    a=qq([[0,2],[3,4]]);expected=old(a);events=calls[:];calls.clear()
++    b=qq([[0,2],[3,4]]);actual=dense.ddm_ilu(b)
++    assert actual==expected and a==b and calls==events
++
++
++@pytest.mark.parametrize('name',['__bool__','__mul__','__sub__','parent','__truediv__','__isub__'])
++def test_coefficient_callbacks_and_added_inplace_hook_are_preserved(name,monkeypatch):
++    old=old_function();calls=[];original=getattr(sx._core.DomainElement,name,None)
++    if original is None:original=sx._core.DomainElement.__sub__
++    def hook(*args):calls.append(name);return original(*args)
++    monkeypatch.setattr(sx._core.DomainElement,name,hook,raising=False)
++    a=qq([[2,3],[4,7]]);expected=old(a);events=calls[:];calls.clear()
++    b=qq([[2,3],[4,7]]);actual=dense.ddm_ilu(b)
++    assert actual==expected and a==b and calls==events and calls
++
++
++@pytest.mark.parametrize('name',['is_ZZ_I','is_QQ_I'])
++def test_domain_flag_access_callbacks_are_preserved(name,monkeypatch):
++    old=old_function();calls=[];original=sx._core.Domain.__dict__[name]
++    def flag(value):calls.append(name);return original.__get__(value)
++    monkeypatch.setattr(sx._core.Domain,name,property(flag))
++    a=qq([[2,3],[4,7]]);expected=old(a);events=calls[:];calls.clear()
++    b=qq([[2,3],[4,7]]);actual=dense.ddm_ilu(b)
++    assert actual==expected and a==b and calls==events and calls
++
++
++def test_native_division_delegate_cell_change_keeps_original_semantics(monkeypatch):
++    divide=sx._core.DomainElement.__truediv__;cell=divide.__closure__[0];original=cell.cell_contents
++    old=old_function();calls=[]
++    def hook(*args):calls.append('divide');return original(*args)
++    cell.cell_contents=hook
++    try:
++        a=qq([[2,3],[4,7]]);expected=old(a);events=calls[:];calls.clear()
++        b=qq([[2,3],[4,7]]);actual=dense.ddm_ilu(b)
++        assert actual==expected and a==b and calls==events and calls
++    finally:cell.cell_contents=original
++
++
++def test_changed_stock_ddm_list_assignment_and_custom_rows_are_not_bypassed(monkeypatch):
++    a=DDM(qq([[0,2],[3,4]]),(2,2),sx.QQ)
++    def hook(*args):raise KeyboardInterrupt('row publication')
++    monkeypatch.setattr(DDM,'__setitem__',hook)
++    with pytest.raises(KeyboardInterrupt,match='row publication'):dense.ddm_ilu(a)
++    class Row(list):
++        def __len__(self):raise KeyboardInterrupt('row length')
++    row=Row(qq([[1]])[0])
++    assert sx._core._ddm_ilu([row]) is None
++    with pytest.raises(KeyboardInterrupt,match='row length'):dense.ddm_ilu([row])
++
++
++def test_reload_does_not_authenticate_replaced_len(monkeypatch):
++    def hook(*args):raise KeyboardInterrupt('len override')
++    monkeypatch.setattr(dense,'len',hook,raising=False)
++    importlib.reload(helper)
++    with pytest.raises(KeyboardInterrupt,match='len override'):dense.ddm_ilu(qq([[1]]))
++
++
++@pytest.mark.parametrize('digits',[100,500,1500])
++def test_large_exact_rational_pivots_and_nearly_singular_inputs(digits):
++    big=10**digits;tiny=Fraction(1,big)
++    source=[[Fraction(big,3),Fraction(1,7),tiny],
++            [Fraction(big,3),Fraction(1,7)+tiny,Fraction(5,9)],
++            [Fraction(0),Fraction(4,11),Fraction(big,17)]]
++    a=qq(source);b=qq(source)
++    assert dense.ddm_ilu(a)==reference(b) and a==b
++    certificate(source,rational_rows(a),reference(qq(source)))
++
++
++def test_domain_and_coefficient_attribute_callbacks_keep_their_actual_order(monkeypatch):
++    for cls in (sx._core.Domain,sx._core.DomainElement):
++        old=old_function();calls=[];native=object.__getattribute__
++        def observe(value,name):
++            calls.append(name)
++            return native(value,name)
++        with monkeypatch.context() as context:
++            context.setattr(cls,'__getattribute__',observe)
++            a=qq([[2,3],[4,7]]);calls.clear();expected=old(a);events=calls[:]
++            b=qq([[2,3],[4,7]]);calls.clear();actual=dense.ddm_ilu(b)
++            assert actual==expected and a==b and calls==events and calls
++
++
++def test_native_admission_does_not_add_module_globals_callback(monkeypatch):
++    def forbidden():raise AssertionError('new globals callback')
++    monkeypatch.setattr(dense,'globals',forbidden,raising=False)
++    a=qq([[2,3],[4,7]])
++    assert dense.ddm_ilu(a)==[]
++    assert rational_rows(a)==[[Fraction(2),Fraction(3)],[Fraction(2),Fraction(1)]]
++
++
++def test_presentation_hooks_and_real_units_import_do_not_disable_unrelated_lu(monkeypatch):
++    import symox.physics.units
++    calls=[];native=sx._core._ddm_ilu
++    def record(*args):
++        result=native(*args);calls.append(result);return result
++    def forbidden(*args):raise AssertionError('not a consumed operation')
++    monkeypatch.setattr(sx._core,'_ddm_ilu',record)
++    monkeypatch.setattr(sx._core.DomainElement,'__repr__',forbidden)
++    monkeypatch.setattr(sx._core.DomainElement,'__str__',forbidden)
++    a=qq([[2,3],[4,7]])
++    assert dense.ddm_ilu(a)==[] and calls==[[]]
++
++
++class _MethodDef(ctypes.Structure):
++    _fields_=[('name',ctypes.c_char_p),('function',ctypes.c_void_p),('flags',ctypes.c_int),('doc',ctypes.c_char_p)]
++
++
++_method_defs=[]
++
++
++def foreign_builtin(name,owner):
++    original=getattr(builtins,name)
++    get_function=ctypes.pythonapi.PyCFunction_GetFunction
++    get_function.argtypes=[ctypes.py_object];get_function.restype=ctypes.c_void_p
++    get_flags=ctypes.pythonapi.PyCFunction_GetFlags
++    get_flags.argtypes=[ctypes.py_object];get_flags.restype=ctypes.c_int
++    definition=_MethodDef(name.encode(),get_function(original),get_flags(original),None)
++    _method_defs.append(definition)
++    create=ctypes.pythonapi.PyCFunction_NewEx
++    create.argtypes=[ctypes.POINTER(_MethodDef),ctypes.c_void_p,ctypes.c_void_p];create.restype=ctypes.py_object
++    return create(ctypes.byref(definition),id(owner),id(None))
++
++
++@pytest.mark.parametrize('name',['len','min'])
++@pytest.mark.parametrize('owner_kind',['none','foreign','hostile'])
++def test_foreign_builtin_at_helper_bootstrap_is_not_authenticated(name,owner_kind,monkeypatch):
++    events=[]
++    class Hostile(types.ModuleType):
++        def __getattribute__(self,name):events.append(name);raise AssertionError('module attribute hook')
++    owner=None if owner_kind=='none' else types.ModuleType('foreign') if owner_kind=='foreign' else Hostile('foreign')
++    replaced=foreign_builtin(name,owner)
++    fresh=types.ModuleType('symox.polys.matrices._lu_native_fresh');fresh.__package__='symox.polys.matrices'
++    code=compile(Path(helper.__file__).read_text(),helper.__file__,'exec')
++    with monkeypatch.context() as context:
++        context.setattr(builtins,name,replaced)
++        exec(code,fresh.__dict__)
++    a=qq([[2,3],[4,7]]);before=copy.deepcopy(a)
++    assert fresh.try_ilu(a,(range,min),None,(2,2)) is None and a==before and events==[]
++
++
++@pytest.mark.parametrize('name',['len','min','range'])
++def test_python_builtin_replacements_at_helper_bootstrap_are_not_authenticated(name,monkeypatch):
++    original=getattr(builtins,name)
++    if name=='range':
++        def create(cls,*args):return original(*args)
++        replaced=type('range',(),{'__module__':'builtins','__new__':create})
++    else:
++        def replaced(*args):return original(*args)
++    fresh=types.ModuleType('symox.polys.matrices._lu_native_fresh');fresh.__package__='symox.polys.matrices'
++    code=compile(Path(helper.__file__).read_text(),helper.__file__,'exec')
++    with monkeypatch.context() as context:
++        context.setattr(builtins,name,replaced)
++        exec(code,fresh.__dict__)
++    assert fresh.try_ilu(qq([[2,3],[4,7]]),(range,min),None,(2,2)) is None
++
++
++@pytest.mark.parametrize('changed',['len','range','min'])
++def test_cloned_function_uses_its_actual_globals_and_preserves_callbacks(changed):
++    calls=[];real=getattr(builtins,changed)
++    def hook(*args):calls.append(changed);return real(*args)
++    namespace=dict(dense.__dict__);namespace[changed]=hook
++    current=types.FunctionType(dense.ddm_ilu.__code__,namespace)
++    old=types.FunctionType(old_function().__code__,namespace)
++    a=qq([[2,3],[4,7]]);expected=old(a);events=calls[:];calls.clear()
++    b=qq([[2,3],[4,7]]);actual=current(b)
++    assert actual==expected and a==b and calls==events and calls
++
++
++@pytest.mark.parametrize('wrong_dimension',['rows','columns','empty','negative'])
++def test_real_length_prefix_is_not_replayed_and_false_dimensions_decline(wrong_dimension,monkeypatch):
++    events=[]
++    def hook(value):
++        index=len(events);events.append(index)
++        if wrong_dimension=='empty' and index==0:return 0
++        if wrong_dimension=='negative' and index==0:return -1
++        if wrong_dimension=='rows' and index==0:return len(value)-1
++        if wrong_dimension=='columns' and index==1:return len(value)-1
++        return len(value)
++    monkeypatch.setattr(dense,'len',hook,raising=False)
++    source=[[2,3,4],[5,6,7],[8,9,12]]
++    a=qq(source);expected=old_function()(a);calls=events[:];events.clear()
++    b=qq(source);actual=dense.ddm_ilu(b)
++    assert actual==expected and a==b and events==calls
++    assert len(events)==(1 if wrong_dimension=='empty' else 2)
++
++
++def test_length_callback_can_remove_itself_without_an_extra_global_lookup():
++    events=[];namespace=dict(dense.__dict__)
++    def hook(value):
++        events.append('len')
++        if len(events)==2:namespace.pop('len')
++        return len(value)
++    namespace['len']=hook
++    current=types.FunctionType(dense.ddm_ilu.__code__,namespace)
++    a=qq([[2,3],[4,7]])
++    assert current(a)==[] and events==['len','len']
++
++
++@pytest.mark.parametrize('missing',['len','range','min'])
++def test_missing_builtin_keeps_original_name_error_and_mutation_prefix(missing):
++    namespace=dict(dense.__dict__);lookup=dict(vars(builtins));lookup.pop(missing)
++    namespace['__builtins__']=lookup;namespace.pop(missing,None)
++    current=types.FunctionType(dense.ddm_ilu.__code__,namespace)
++    old=types.FunctionType(old_function().__code__,namespace)
++    a=qq([[2,3],[4,7]]);b=qq([[2,3],[4,7]])
++    with pytest.raises(NameError) as expected:old(a)
++    with pytest.raises(NameError) as actual:current(b)
++    assert str(actual.value)==str(expected.value) and a==b
++
++
++@pytest.mark.parametrize('dimensions',[(1,2),(2,1),(-1,2),(2,-1),(True,2),(2,True)])
++def test_native_refuses_false_prefix_dimensions_before_any_publication(dimensions):
++    a=qq([[2,3],[4,7]]);before=copy.deepcopy(a)
++    assert sx._core._ddm_ilu(a,None,dimensions) is None and a==before
+--- /dev/null
++++ b/crates/symox-py/src/poly_lll_cache.rs
+@@ -0,0 +1,118 @@
++//! Read-only rejection of a known-cold ABC cache, before expensive admission.
++//! This never classifies a coefficient, mutates a cache, or admits native LLL.
++use pyo3::prelude::*;
++use pyo3::types::{PyCFunction, PyDict, PyModule, PySet, PyString, PyTuple, PyType};
++
++#[pyclass(frozen)]
++struct CacheView {
++    #[pyo3(get)]
++    _abc_impl: Py<PyAny>,
++}
++
++fn native_dump(function: &Bound<'_, PyAny>, owner: &Bound<'_, PyAny>) -> PyResult<bool> {
++    let Ok(owner) = owner.downcast_exact::<PyModule>() else { return Ok(false); };
++    if function.downcast_exact::<PyCFunction>().is_err()
++        || unsafe { pyo3::ffi::PyCFunction_GetSelf(function.as_ptr()) } != owner.as_ptr()
++    { return Ok(false); }
++    // Iteration avoids hashing/equality on arbitrary module dictionary keys.
++    let mut module_name = false;
++    for (i, (key, value)) in owner.dict().iter().enumerate() {
++        if i % 64 == 0 { function.py().check_signals()?; }
++        let Ok(key) = key.downcast_exact::<PyString>() else { return Ok(false); };
++        if key.extract::<String>()? == "__name__" {
++            let Ok(value) = value.downcast_exact::<PyString>() else { return Ok(false); };
++            module_name = value.extract::<String>()? == "_abc";
++        }
++    }
++    Ok(module_name && function.getattr("__name__")?.extract::<String>()? == "_get_dump")
++}
++
++/// Bootstrap captures are evidence only if the captured objects really are
++/// immutable builtin primitives. Their live identities are checked by Python.
++#[pyfunction]
++fn _lll_bootstrap_stock(lookups: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<bool> {
++    let Ok(lookups) = lookups.downcast_exact::<PyTuple>() else { return Ok(false); };
++    let namespace = unsafe { Bound::from_borrowed_ptr(py, pyo3::ffi::PyEval_GetBuiltins()) };
++    let Ok(namespace) = namespace.downcast_exact::<PyDict>() else { return Ok(false); };
++    let factories = ["type", "object", "dict", "set", "frozenset", "bool", "float", "complex",
++        "str", "bytes", "bytearray", "list", "tuple", "int", "range", "enumerate", "super", "zip"];
++    for (i, state) in lookups.iter().enumerate() {
++        if i % 64 == 0 { py.check_signals()?; }
++        let Ok(state) = state.downcast_exact::<PyTuple>() else { return Ok(false); };
++        if state.len() != 3 { return Ok(false); }
++        let name = state.get_item(1)?;
++        let Ok(name) = name.downcast_exact::<PyString>() else { return Ok(false); };
++        let name = name.extract::<String>()?;
++        let value = state.get_item(2)?;
++        if factories.contains(&name.as_str()) {
++            let Ok(class) = value.downcast_exact::<PyType>() else { return Ok(false); };
++            if unsafe { pyo3::ffi::PyType_GetFlags(class.as_type_ptr()) }
++                & pyo3::ffi::Py_TPFLAGS_HEAPTYPE != 0
++            { return Ok(false); }
++            if class.getattr("__name__")?.extract::<String>()? != name
++                || class.getattr("__module__")?.extract::<String>()? != "builtins"
++            { return Ok(false); }
++        } else {
++            if value.downcast_exact::<PyCFunction>().is_err() { return Ok(false); }
++            let owner = unsafe { pyo3::ffi::PyCFunction_GetSelf(value.as_ptr()) };
++            if owner.is_null() || unsafe { pyo3::ffi::PyModule_CheckExact(owner) } == 0
++                || unsafe { pyo3::ffi::PyModule_GetDict(owner) } != namespace.as_ptr()
++                || value.getattr("__name__")?.extract::<String>()? != name
++            { return Ok(false); }
++        }
++    }
++    Ok(true)
++}
++
++#[pyfunction]
++fn _lll_cache_is_cold(
++    basic: &Bound<'_, PyAny>, element: &Bound<'_, PyAny>,
++    dump: &Bound<'_, PyAny>, owner: &Bound<'_, PyAny>, py: Python<'_>,
++) -> PyResult<Option<bool>> {
++    py.check_signals()?;
++    if basic.downcast::<PyType>().is_err() || !native_dump(dump, owner)? {
++        return Ok(None);
++    }
++    // Invoke type's immutable native dictionary descriptor directly. Neither
++    // Basic's metaclass lookup hooks nor an overridden __dict__ are consulted.
++    let descriptor = py.get_type::<PyType>().getattr("__dict__")?.get_item("__dict__")?;
++    let dictionary = descriptor.call_method1("__get__", (basic,))?;
++    let mut data = None;
++    for (i, item) in dictionary.call_method0("items")?.try_iter()?.enumerate() {
++        if i % 64 == 0 { py.check_signals()?; }
++        let item = item?.downcast_into_exact::<PyTuple>()?;
++        let key = item.get_item(0)?;
++        let Ok(key) = key.downcast_exact::<PyString>() else { return Ok(None); };
++        if key.extract::<String>()? == "_abc_impl" { data = Some(item.get_item(1)?.unbind()); }
++    }
++    let Some(data) = data else { return Ok(None); };
++    // _abc._get_dump reads only _abc_impl. A native holder exposes the actual
++    // data without running user attribute hooks on Basic or its metaclass.
++    // CPython versions rejecting a holder simply retain the original guard.
++    let view = Bound::new(py, CacheView { _abc_impl: data })?;
++    let state = match dump.call1((view,)) {
++        Ok(state) => state,
++        Err(error) if error.is_instance_of::<pyo3::exceptions::PyTypeError>(py) => return Ok(None),
++        Err(error) => return Err(error),
++    };
++    let Ok(state) = state.downcast_exact::<PyTuple>() else { return Ok(None); };
++    if state.len() != 4 { return Ok(None); }
++    let negative = state.get_item(2)?;
++    let Ok(negative) = negative.downcast_exact::<PySet>() else { return Ok(None); };
++    for (i, reference) in negative.iter().enumerate() {
++        if i % 64 == 0 { py.check_signals()?; }
++        // The stable C getter cannot invoke a weakref subclass's __call__.
++        // Its borrowed result remains valid while reference and the GIL live.
++        #[allow(deprecated)] // abi3-py39 must also work before PyWeakref_GetRef.
++        let referent = unsafe { pyo3::ffi::PyWeakref_GetObject(reference.as_ptr()) };
++        if referent.is_null() { return Err(PyErr::fetch(py)); }
++        if referent == element.as_ptr() { return Ok(Some(false)); }
++    }
++    py.check_signals()?;
++    Ok(Some(true))
++}
++
++pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
++    module.add_function(wrap_pyfunction!(_lll_bootstrap_stock, module)?)?;
++    module.add_function(wrap_pyfunction!(_lll_cache_is_cold, module)?)
++}
+--- a/crates/symox-py/src/poly_lll.rs
++++ b/crates/symox-py/src/poly_lll.rs
+@@ -1,4 +1,6 @@
+ //! Exact LLL publication after the public constructor/conversion prefix.
++#[path="poly_lll_cache.rs"]
++mod cache;
+ use pyo3::prelude::*;
+ use pyo3::types::{PyInt,PyList};
+ use symox::poly::{Int,Rat,domains::ExactDomain,lll};
+@@ -79,5 +81,6 @@
+ }
+ 
+ pub(super) fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
++    cache::register(module)?;
+     module.add_function(wrap_pyfunction!(_ddm_lll_native,module)?)?;Ok(())
+ }
+--- a/python/symox/polys/matrices/_lll_native.py
++++ b/python/symox/polys/matrices/_lll_native.py
+@@ -20,7 +20,7 @@
+     global _CAPTURED,_DDM,_DDM_STATE,_LLL,_MODULES,_FUNCTIONS,_LOOKUPS,_CLASS_FUNCTIONS
+     global _DOMAIN,_ELEMENT,_DOMAIN_DESCRIPTORS,_ELEMENT_DESCRIPTORS,_IMPORT,_FLOOR,_NATIVE_CONVERT
+     global _BASIC,_BASIC_META,_BASIC_CHECK,_BASIC_CODE,_BASIC_CELLS,_ABC_CHECK,_ABC_CODE,_ABC_DELEGATE,_DUMP,_TOKEN
+-    global _RANK_ERROR,_RANK_MRO,_RANK_CLASSES,_RANK_FUNCTIONS,_MATRIX,_ABC_META,_ZZ,_QQ,_ELEMENT_NAME,_DDM_MODULE,_DENSE_MODULE,_PY_DIV,_PY_DIV_CODE,_PY_DIV_CLOSURE,_PY_DIV_CELLS,_NATIVE_CALL
++    global _RANK_ERROR,_RANK_MRO,_RANK_CLASSES,_RANK_FUNCTIONS,_MATRIX,_ABC_META,_ZZ,_QQ,_ELEMENT_NAME,_DDM_MODULE,_DENSE_MODULE,_PY_DIV,_PY_DIV_CODE,_PY_DIV_CLOSURE,_PY_DIV_CELLS,_NATIVE_CALL,_COLD,_BOOTSTRAP_STOCK
+     if _CAPTURED:
+         _register_reload(ddm,lll)
+         return
+@@ -77,12 +77,29 @@
+     _ABC_CHECK=_abc.ABCMeta.__instancecheck__;_ABC_CODE=_ABC_CHECK.__code__
+     _ABC_DELEGATE=_ABC_CHECK.__globals__['_abc_instancecheck']
+     _DUMP,_TOKEN=_abc_native._get_dump,_abc_native.get_cache_token
++    _COLD=_core.__dict__.get('_lll_cache_is_cold')
++    auth=_core.__dict__.get('_lll_bootstrap_stock')
++    # C names and module ownership cannot be forged by a Python wrapper.
++    # This is immutable bootstrap evidence, not a memoized live proof: the
++    # original lookup identity checks below still run on every admission.
++    if not (_TYPE is BuiltinFunctionType.__class__ and _TYPE(_COLD) is BuiltinFunctionType
++            and _COLD.__name__=='_lll_cache_is_cold' and _COLD.__self__ is _core):_COLD=None
++    aliases=((None,'type',_TYPE),(None,'all',_ALL),(None,'any',_ANY),(None,'len',_LEN),
++             (None,'zip',_ZIP),(None,'dict',_DICT),(None,'str',_STR),(None,'object',_OBJECT),
++             (None,'tuple',_TUPLE),(None,'list',_LIST),(None,'getattr',_GETATTR))
++    _BOOTSTRAP_STOCK=(_TYPE is BuiltinFunctionType.__class__ and _TYPE(auth) is BuiltinFunctionType
++            and auth.__name__=='_lll_bootstrap_stock' and auth.__self__ is _core and auth(_LOOKUPS+aliases))
+     _CAPTURED=True
+ 
+ 
+ def _protocol():
+     if not _CAPTURED:return False
++    if not _BOOTSTRAP_STOCK:return False
+     if not _ALL(_TYPE(m) is ModuleType for m in _MODULES):return False
++    modules=_sys.__dict__.get('modules')
++    if (_TYPE(modules) is not _DICT
++            or modules.get('symox.polys.matrices.lll') is not _LLL
++            or modules.get('symox.polys.matrices.ddm') is not _DDM_MODULE):return False
+     # A custom exception constructor may inspect the partially reduced local
+     # matrices. These two tiny heap exception classes must remain stock in
+     # every attribute; their inherited native exception bases are immutable.
+@@ -177,7 +194,12 @@
+     # A first conversion can invoke a classifier that captures scratch matrices
+     # and restores itself. Certify it BEFORE construction, not after the hook.
+     # Cold/invalid caches retain the complete old math for this public call.
+-    return (_CAPTURED and _TYPE(transform) is _builtins.bool and _TYPE(delta) is _ELEMENT and ready(x,x,None))
++    if not _CAPTURED or not _BOOTSTRAP_STOCK:return False
++    if _TYPE(_core) is not ModuleType:return False
++    if _COLD is not None:
++        if _core.__dict__.get('_lll_cache_is_cold') is not _COLD:return False
++        if _COLD(_BASIC,_ELEMENT,_DUMP,_abc_native) is True:return False
++    return (_TYPE(transform) is _builtins.bool and _TYPE(delta) is _ELEMENT and ready(x,x,None))
+ 
+ 
+ def ready(x,y,transform):
+--- /dev/null
++++ b/tests/test_native_lll_cold_cache.py
+@@ -0,0 +1,268 @@
++"""Cold rejection inspects real ABC state without classification or warming."""
++import importlib
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++import types
++
++import pytest
++import symox as s
++
++p=importlib.import_module('symox.polys.matrices._lll_native')
++
++
++def run(script):
++    r=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=40)
++    assert r.returncode==0,r.stdout+r.stderr
++    return r.stdout
++
++
++@pytest.mark.parametrize('entry',['ddm','dense','sparse'])
++def test_fresh_public_cold_path_does_not_scan_heavy_protocol_or_warm_cache(entry):
++    script='''
++import symox as s,importlib,_abc,json,os
++from symox._basic import Basic
++from symox.polys.matrices.ddm import DDM
++from symox.polys.matrices.domainmatrix import DomainMatrix
++p=importlib.import_module('symox.polys.matrices._lll_native')
++if os.environ.get('SYMOX_LLL_LEGACY_PREFIX'):
++ exec('def original(x,delta,transform):\\n return (_CAPTURED and _TYPE(transform) is _builtins.bool and _TYPE(delta) is _ELEMENT and ready(x,x,None))',p.__dict__)
++ p.prefix=p.original
++if ENTRY=='ddm':a=DDM([[s.ZZ(2),s.ZZ(0)],[s.ZZ(3),s.ZZ(2)]],(2,2),s.ZZ)
++else:
++ a=DomainMatrix.from_list([[2,0],[3,2]],s.ZZ)
++ if ENTRY=='sparse':a=a.to_sparse()
++# Construction is real and there is no earlier LLL or QQ conversion.
++assert not any(r() is s._core.DomainElement for r in _abc._get_dump(Basic)[2])
++checks=[];native=[];old=p._protocol;call=s._core._ddm_lll_native
++def protocol():checks.append(True);return old()
++def spy(*args):r=call(*args);native.append(r is not None);return r
++p._protocol=protocol;s._core._ddm_lll_native=spy
++b,t=a.lll_transform()
++assert checks==[],checks
++assert native==[],native
++assert any(r() is s._core.DomainElement for r in _abc._get_dump(Basic)[2])
++a.lll_transform()
++assert checks and native==[True],(checks,native)
++rows=b.to_list() if hasattr(b,'to_list') else b
++assert [[int(v) for v in row] for row in rows]==[[2,0],[-1,2]]
++'''.replace('ENTRY',repr(entry))
++    run(script)
++
++
++def fingerprint(state):
++    return tuple(tuple(sorted(id(v) for v in group)) for group in state[:3])+(state[3],)
++
++
++def test_inspection_does_not_populate_or_invalidate_abc_caches():
++    script='''
++import symox as s,_abc
++from symox._basic import Basic
++f=s._core._lll_cache_is_cold
++fp=lambda t:tuple(tuple(sorted(map(id,g))) for g in t[:3])+(t[3],)
++a=fp(_abc._get_dump(Basic))
++assert f(Basic,s._core.DomainElement,_abc._get_dump,_abc) is True
++assert fp(_abc._get_dump(Basic))==a
++# Only this actual classifier invocation warms the cache.
++assert not isinstance(s.ZZ(2),Basic)
++a=fp(_abc._get_dump(Basic))
++assert f(Basic,s._core.DomainElement,_abc._get_dump,_abc) is False
++assert fp(_abc._get_dump(Basic))==a
++'''
++    run(script)
++
++
++@pytest.mark.parametrize('kind',['python_dump','foreign_c_dump','foreign_owner','owner_subclass','module_bad_key','class_bad_key','bad_data','nonclass'])
++def test_untrusted_inspection_inputs_decline_without_callbacks(kind):
++    import _abc
++    from symox._basic import Basic
++    from symox._basic import _BasicMeta
++    f=s._core._lll_cache_is_cold;events=[]
++    dump,owner,basic=_abc._get_dump,_abc,Basic
++    if kind=='python_dump':
++        def dump(value):events.append('dump');raise AssertionError('custom dump called')
++    elif kind=='foreign_c_dump':dump=len
++    elif kind=='foreign_owner':owner=types.ModuleType('_abc')
++    elif kind=='owner_subclass':
++        class Module(types.ModuleType):
++            def __getattribute__(self,name):events.append(name);raise AssertionError(name)
++        owner=Module('_abc')
++    elif kind=='module_bad_key':
++        # A fake owner is rejected even before reading arbitrary dictionary keys.
++        class Key:
++            def __hash__(self):return 1
++            def __eq__(self,other):events.append('eq');raise AssertionError('key compared')
++        owner=types.ModuleType('_abc');owner.__dict__[Key()]=None
++    else:
++        class Meta(type):
++            def __getattribute__(cls,name):events.append(name);raise AssertionError(name)
++        class Cold(metaclass=Meta):pass
++        if kind=='bad_data':type.__setattr__(Cold,'_abc_impl',object())
++        if kind=='class_bad_key':
++            # setattr normalizes identifiers, but a string subclass must not
++            # be used for a user equality comparison by the inspector.
++            class Key(str):
++                def __eq__(self,other):events.append('eq');raise AssertionError('key compared')
++                __hash__=str.__hash__
++            type.__setattr__(Cold,Key('extra'),None)
++        basic=Cold if kind!='nonclass' else object()
++    assert f(basic,s._core.DomainElement,dump,owner) is None
++    assert events==[]
++
++
++def test_basic_metaclass_attribute_hooks_are_not_invoked_by_the_inspector():
++    import _abc
++    from symox._basic import Basic
++    class Meta(type):
++        def __getattribute__(cls,name):raise AssertionError('inspector used a Python metaclass hook: '+name)
++    class Class(metaclass=Meta):
++        _abc_impl=Basic.__dict__['_abc_impl']
++    before=fingerprint(_abc._get_dump(types.SimpleNamespace(_abc_impl=Basic.__dict__['_abc_impl'])))
++    result=s._core._lll_cache_is_cold(Class,s._core.DomainElement,_abc._get_dump,_abc)
++    assert result in (True,False)
++    after=fingerprint(_abc._get_dump(types.SimpleNamespace(_abc_impl=Basic.__dict__['_abc_impl'])))
++    assert before==after
++
++
++def test_replaced_inspector_is_not_called_by_public_selection(monkeypatch):
++    from symox.polys.matrices.ddm import DDM
++    a=DDM([[s.ZZ(2),s.ZZ(0)],[s.ZZ(3),s.ZZ(2)]],(2,2),s.ZZ);events=[]
++    def replaced(*args):events.append('replaced');raise AssertionError('replaced inspector')
++    monkeypatch.setattr(s._core,'_lll_cache_is_cold',replaced)
++    b,t=a.lll_transform()
++    assert [[int(c) for c in row] for row in b]==[[2,0],[-1,2]]
++    assert events==[]
++
++
++def test_no_reference_imports_in_fresh_cold_rejection():
++    run('''
++import sys
++class Block:
++ def find_spec(self,name,*args):
++  if name=='sympy' or name.startswith('sympy.'):raise AssertionError(name)
++sys.meta_path.insert(0,Block())
++import symox as s,_abc
++from symox._basic import Basic
++from symox.polys.matrices.domainmatrix import DomainMatrix
++a=DomainMatrix.from_list([[2,0],[3,2]],s.ZZ);b,t=a.lll_transform()
++assert [[int(c) for c in row] for row in b.to_list()]==[[2,0],[-1,2]]
++assert not any(n=='sympy' or n.startswith('sympy.') for n in sys.modules)
++''')
++
++
++def test_removed_lll_module_cannot_reuse_the_old_namespace_proof():
++    run('''
++import symox as s,sys,importlib
++from symox.polys.matrices.ddm import DDM
++p=importlib.import_module('symox.polys.matrices._lll_native')
++# An actual coefficient conversion makes this a warm-routing regression.
++s.QQ.convert_from(s.ZZ(1),s.ZZ)
++sys.modules.pop('symox.polys.matrices.lll')
++lll=importlib.import_module('symox.polys.matrices.lll')
++events=[];original=lll.mfloor
++def mfloor(value):events.append(str(value));return original(value)
++lll.mfloor=mfloor
++a=DDM([[s.ZZ(2),s.ZZ(0)],[s.ZZ(3),s.ZZ(2)]],(2,2),s.ZZ)
++actual=lll.ddm_lll_transform(a);trace=events[:];events.clear()
++p.prefix=lambda *args:False
++expected=lll.ddm_lll_transform(a)
++assert actual==expected
++assert trace==events and trace,(trace,events)
++''')
++
++
++def test_removed_ddm_module_keeps_its_real_constructor_callbacks():
++    run('''
++import symox as s,sys,importlib
++from symox.polys.matrices.ddm import DDM
++p=importlib.import_module('symox.polys.matrices._lll_native')
++s.QQ.convert_from(s.ZZ(1),s.ZZ)
++sys.modules.pop('symox.polys.matrices.ddm')
++ddm=importlib.import_module('symox.polys.matrices.ddm')
++events=[];original=ddm.DDM.copy
++def copy(self):events.append('copy');return original(self)
++ddm.DDM.copy=copy
++a=ddm.DDM([[s.ZZ(2),s.ZZ(0)],[s.ZZ(3),s.ZZ(2)]],(2,2),s.ZZ)
++actual=a.lll_transform();trace=events[:];events.clear()
++p.prefix=lambda *args:False
++expected=a.lll_transform()
++assert actual==expected and trace==events and trace,(trace,events)
++''')
++
++
++@pytest.mark.parametrize('name',['max','sum','abs','all'])
++def test_builtin_replaced_before_import_retains_the_actual_old_callbacks(name):
++    run('''
++import builtins
++original=builtins.__dict__[NAME];events=[]
++def wrapper(*args,**kwargs):events.append(NAME);return original(*args,**kwargs)
++builtins.__dict__[NAME]=wrapper
++try:
++ import symox as s
++ from symox.polys.matrices.ddm import DDM
++ from symox.polys.matrices import _lll_native as p
++ # This matrix actually swaps rows, so max is genuinely consumed.
++ DDM([[s.ZZ(1)]],(1,1),s.ZZ).lll_transform()
++ a=DDM([[s.ZZ(3),s.ZZ(2)],[s.ZZ(2),s.ZZ(0)]],(2,2),s.ZZ)
++ events.clear();actual=a.lll_transform();trace=events[:];events.clear()
++ p.prefix=lambda *args:False
++ expected=a.lll_transform()
++ assert actual==expected
++ assert trace==events and events,(NAME,trace,events)
++finally:builtins.__dict__[NAME]=original
++'''.replace('NAME',repr(name)))
++
++
++@pytest.mark.parametrize('name',['max','sum','abs','all','int','tuple','type','enumerate'])
++def test_bootstrap_authentication_refuses_python_wrappers_and_heap_factories(name):
++    import builtins
++    events=[]
++    if name in ('max','sum','abs','all'):
++        def value(*args,**kwargs):events.append('call');return builtins.__dict__[name](*args,**kwargs)
++    else:
++        class Meta(type):
++            def __getattribute__(cls,attribute):events.append(attribute);raise AssertionError(attribute)
++        value=Meta(name,(),{'__module__':'builtins'})
++    assert s._core._lll_bootstrap_stock((({},name,value),)) is False
++    assert events==[]
++
++
++def test_bootstrap_authentication_accepts_actual_immutable_primitives():
++    import builtins
++    names=('max','sum','abs','all','isinstance','getattr','hasattr','len','any',
++           'int','tuple','type','enumerate','super','dict','bool','range')
++    records=tuple(({},n,builtins.__dict__[n]) for n in names)
++    assert s._core._lll_bootstrap_stock(records) is True
++
++
++@pytest.mark.parametrize('alias',['_TYPE','_ALL','_ANY','_LEN','_ZIP','_DICT','_TUPLE','_GETATTR'])
++def test_helper_alias_changed_during_import_cannot_authenticate_itself(alias):
++    run('''
++import sys,builtins
++original_import=builtins.__import__;seen=[];events=[]
++name='symox.polys.matrices._lll_native'
++def importing(*args,**kwargs):
++ result=original_import(*args,**kwargs)
++ helper=sys.modules.get(name)
++ if helper is not None and ALIAS in helper.__dict__ and not seen:
++  seen.append(True);original=helper.__dict__[ALIAS]
++  def observer(*values,**options):events.append(ALIAS);return original(*values,**options)
++  helper.__dict__[ALIAS]=observer
++  builtins.__import__=original_import
++ return result
++builtins.__import__=importing
++try:
++ import symox as s
++ from symox.polys.matrices.ddm import DDM
++ from symox.polys.matrices import _lll_native as p
++ assert seen
++ DDM([[s.ZZ(1)]],(1,1),s.ZZ).lll_transform()
++ a=DDM([[s.ZZ(3),s.ZZ(2)],[s.ZZ(2),s.ZZ(0)]],(2,2),s.ZZ)
++ events.clear();actual=a.lll_transform();trace=events[:];events.clear()
++ p.prefix=lambda *args:False
++ expected=a.lll_transform()
++ assert actual==expected and trace==events==[],(ALIAS,trace,events)
++finally:builtins.__import__=original_import
++'''.replace('ALIAS',repr(alias)))
+--- a/crates/symox-core/src/integrate.rs
++++ b/crates/symox-core/src/integrate.rs
+@@ -24,6 +24,7 @@
+ mod rational_conditions;
+ pub(crate) use rational_conditions::piecewise_original as rational_piecewise_original;
+ pub mod rational_reduction;
++pub mod risch_polynomial_reduce;
+ pub mod log_to_atan;
+ pub mod log_to_real;
+ pub mod ratint_driver;
+--- /dev/null
++++ b/crates/symox-core/src/integrate/risch_polynomial_reduce.rs
+@@ -0,0 +1,101 @@
++//! Exact polynomial reduction for an admitted rational derivation D(t)=d(t).
++//! This is the polynomial_reduce loop, not the whole Risch integrator.
++use crate::poly::{dense, Int, Rat};
++
++#[derive(Clone, Debug, PartialEq)]
++pub struct Reduced {
++    pub quotient: Vec<Rat>,
++    pub remainder: Vec<Rat>,
++    /// The historical constructor starts q over ZZ and promotes on a
++    /// nonintegral monomial; p retains its domain through each subtraction.
++    pub quotient_qq: bool,
++    pub remainder_qq: bool,
++    pub steps: usize,
++}
++
++/// None declines a zero derivation; no partial result is returned. Every
++/// accepted step cancels the leading term exactly and lowers the degree.
++pub fn reduce<E>(input: &[Rat], derivation: &[Rat], input_qq: bool,
++    checkpoint: &mut impl FnMut() -> Result<(), E>) -> Result<Option<Reduced>, E>
++{
++    checkpoint()?;
++    let mut d = derivation.to_vec();
++    dense::trim(&mut d);
++    if d.is_empty() { return Ok(None); }
++    let mut p = input.to_vec();
++    dense::trim(&mut p);
++    let mut q = Vec::<Rat>::new();
++    let mut q_qq = false;
++    let mut p_qq = input_qq;
++    let mut steps = 0;
++    while !p.is_empty() && p.len() >= d.len() {
++        checkpoint()?;
++        // m = degree(p)-degree(d)+1 is always positive in this loop.
++        let m = p.len()-d.len()+1;
++        let degree = Rat::from(Int::from_u64(m as u64));
++        let coefficient = dense::lc(&p).div(&degree.mul(&dense::lc(&d)));
++        q_qq |= !coefficient.d.is_one();
++        if q.len() <= m { q.resize(m+1, Rat::zero()); }
++        q[m] = q[m].add(&coefficient);
++        // D(c*t^m) = c*m*t^(m-1)*d; c is a QQ constant.
++        let scale = coefficient.mul(&degree);
++        let mut term = vec![Rat::zero(); m-1];
++        for (i, value) in d.iter().enumerate() {
++            if i % 64 == 0 { checkpoint()?; }
++            let value = value.mul(&scale);
++            p_qq |= !value.d.is_one();
++            term.push(value);
++        }
++        let previous_length = p.len();
++        p = dense::sub(&p, &term);
++        debug_assert!(p.len() < previous_length);
++        steps += 1;
++    }
++    dense::trim(&mut q);
++    checkpoint()?;
++    Ok(Some(Reduced { quotient:q, remainder:p, quotient_qq:q_qq,
++        remainder_qq:p_qq, steps }))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    fn rational(n:i64,d:i64)->Rat { Rat::new(Int::from(n),Int::from(d)) }
++    fn certificate(p:&[Rat],d:&[Rat],input_qq:bool) -> Reduced {
++        let result=reduce(p,d,input_qq,&mut ||Ok::<_,()>(())).unwrap().unwrap();
++        let recomposed=dense::add(&dense::mul(&dense::derivative(&result.quotient),d),&result.remainder);
++        let mut expected=p.to_vec();dense::trim(&mut expected);
++        assert_eq!(recomposed,expected);
++        assert!(result.remainder.is_empty()||result.remainder.len()<d.len());
++        result
++    }
++    #[test]
++    fn exact_qq_reduction_has_complete_derivative_and_degree_certificates() {
++        for degree in 0..=35 {
++            for order in 0..=7 {
++                let p=(0..degree).map(|i|rational((i*17+degree*3)%29-14,(i%7)+1)).collect::<Vec<_>>();
++                let mut d=(0..=order).map(|i|rational((i*13+order)%17-8,(i%5)+1)).collect::<Vec<_>>();
++                d[order as usize]=rational(order+1,order+2);
++                certificate(&p,&d,true);
++            }
++        }
++    }
++    #[test]
++    fn constructor_domain_promotions_are_separate_for_quotient_and_remainder() {
++        let q=certificate(&[Rat::zero(),Rat::zero(),Rat::one()],&[Rat::one(),Rat::one()],false);
++        assert!(q.quotient_qq);assert!(!q.remainder_qq);
++        let q=certificate(&[Rat::one(),Rat::zero(),Rat::one()],&[rational(1,2),Rat::one()],false);
++        assert!(q.quotient_qq);assert!(q.remainder_qq);
++        let q=certificate(&[Rat::one()],&[Rat::one(),Rat::one()],true);
++        assert!(!q.quotient_qq);assert!(q.remainder_qq);assert_eq!(q.steps,0);
++    }
++    #[test]
++    fn zero_derivation_declines_and_interruptions_do_not_publish_partial_results() {
++        assert!(reduce(&[Rat::one()],&[],false,&mut ||Ok::<_,()>(())).unwrap().is_none());
++        let mut count=0;
++        let output=reduce(&[Rat::one(),Rat::one(),Rat::one()],&[Rat::one()],false,&mut ||{
++            count+=1;if count==3 {Err("interrupt")}else{Ok(())}
++        });
++        assert_eq!(output,Err("interrupt"));
++    }
++}
+--- a/crates/symox-py/src/lib.rs
++++ b/crates/symox-py/src/lib.rs
+@@ -23,6 +23,7 @@
+ mod host;
+ mod integration_methods;
+ mod rational_protocols;
++mod risch_polynomial_reduce;
+ 
+ use symox::expr::{Constant, Expr, Func, Kind, RelOp};
+ use symox::lambdify::Compiled;
+@@ -4347,6 +4348,7 @@
+     m.add_function(wrap_pyfunction!(integration_methods::_heurisch_cartesian_numeric_coefficients, m)?)?;
+     integration_methods::register_rational_reduction(m)?;
+     rational_protocols::register(m)?;
++    risch_polynomial_reduce::register(m)?;
+     solve::register(m)?;
+     ode::register(m)?;
+     logic::register(m)?;
+--- /dev/null
++++ b/crates/symox-py/src/risch_polynomial_reduce.rs
+@@ -0,0 +1,81 @@
++//! Exact QQ polynomial_reduce after the real public zero-Poly prefix.
++use pyo3::prelude::*;
++use pyo3::types::{PyInt,PyList};
++use symox::expr::{Expr,Kind};
++use symox::poly::{dense,polyobj::Domain};
++use crate::poly::PyPoly;
++
++fn plain(p:&symox::poly::fraction::Polynomial)->bool {
++    p.field.is_none()&&p.algebraic.is_none()&&p.expression.is_none()
++        &&p.base.modulus.is_none()&&!p.base.has_domain_gens()
++        &&matches!(p.base.domain,Domain::ZZ|Domain::QQ)&&p.base.gens.len()==1
++        &&p.base.ngens==1&&p.base.rep.degree(0)<=256
++        &&p.base.rep.iter().all(|(_,c)|c.n.bits()<=4096&&c.d.bits()<=4096)
++}
++fn symbol(value:&Bound<'_,PyAny>)->PyResult<Option<Expr>> {
++    if !value.is_instance_of::<crate::PyExprNode>(){return Ok(None);}
++    let e=crate::to_expr(value)?;
++    let Kind::Sym(variable)=e.kind()else{return Ok(None)};
++    if !crate::node_type(value.py(),&e).is_some_and(|c|value.get_type().is(&c))
++        ||variable.host().is_some()||variable.scalar_identity().is_some()
++        ||variable.is_wild()||symox::decompose::commutativity(&e)!=Some(true){return Ok(None);}
++    Ok(Some(e))
++}
++
++#[pyfunction]
++#[allow(clippy::too_many_arguments)]
++fn _risch_polynomial_reduce(p:&Bound<'_,PyAny>,d:&Bound<'_,PyAny>,t:&Bound<'_,PyAny>,
++    variables:&Bound<'_,PyAny>,derivations:&Bound<'_,PyAny>,level:&Bound<'_,PyAny>,
++    initial:&Bound<'_,PyAny>,py:Python<'_>)->PyResult<Option<(PyObject,PyObject)>> {
++    py.check_signals()?;
++    // Restoring a Python __new__ dictionary entry need not restore tp_new.
++    // Read the live slot and compare it with the immutable generated table;
++    // a prefix callback cannot hide a constructor error by restoring aliases.
++    use pyo3::impl_::pyclass::PyClassImpl;
++    let stock_new=<PyPoly as PyClassImpl>::items_iter()
++        .flat_map(|items|items.slots)
++        .find(|slot|slot.slot==pyo3::ffi::Py_tp_new).map(|slot|slot.pfunc);
++    let current_new=unsafe{pyo3::ffi::PyType_GetSlot(py.get_type::<PyPoly>().as_type_ptr(),pyo3::ffi::Py_tp_new)};
++    if !stock_new.is_some_and(|slot|!slot.is_null()&&slot==current_new){return Ok(None);}
++    if ![p,d,initial].into_iter().all(|v|v.is_exact_instance_of::<PyPoly>())
++        ||!variables.is_exact_instance_of::<PyList>()||!derivations.is_exact_instance_of::<PyList>()
++        ||!level.is_exact_instance_of::<PyInt>(){return Ok(None);}
++    let (variables,derivations)=(variables.downcast::<PyList>()?,derivations.downcast::<PyList>()?);
++    let Ok(level)=level.extract::<isize>()else{return Ok(None)};
++    if variables.len()!=derivations.len()||variables.is_empty()||level>=0
++        ||level< -(variables.len() as isize){return Ok(None);}
++    let active=(variables.len() as isize+level+1)as usize;
++    if !t.is(&variables.get_item(active-1)?)||!d.is(&derivations.get_item(active-1)?){return Ok(None);}
++    let Some(t)=symbol(t)? else{return Ok(None)};
++    let (p_value,d_value,initial_value)=(p.downcast::<PyPoly>()?.get(),d.downcast::<PyPoly>()?.get(),initial.downcast::<PyPoly>()?.get());
++    if !plain(&p_value.p)||!plain(&d_value.p)||!plain(&initial_value.p)
++        ||p_value.p.base.gens!=[t.clone()]||d_value.p.base.gens!=[t.clone()]
++        ||initial_value.p.base.gens!=[t.clone()]||initial_value.p.base.domain!=Domain::ZZ
++        ||!initial_value.p.base.rep.is_zero(){return Ok(None);}
++    let mut seen=rustc_hash::FxHashSet::default();
++    for i in 0..active {
++        py.check_signals()?;
++        let Some(variable)=symbol(&variables.get_item(i)?)? else{return Ok(None)};
++        if !seen.insert(variable.clone()){return Ok(None);}
++        let derivation=derivations.get_item(i)?;
++        if !derivation.is_exact_instance_of::<PyPoly>(){return Ok(None);}
++        let derivation=derivation.downcast::<PyPoly>()?.get();
++        if !plain(&derivation.p)||derivation.p.base.gens!=[variable]{return Ok(None);}
++    }
++    let p_coeff=dense::from_mpoly(&p_value.p.base.rep,0);
++    let d_coeff=dense::from_mpoly(&d_value.p.base.rep,0);
++    let Some(result)=symox::integrate::risch_polynomial_reduce::reduce(&p_coeff,&d_coeff,
++        p_value.p.base.domain==Domain::QQ,&mut ||py.check_signals())? else{return Ok(None)};
++    if result.steps==0{return Ok(Some((initial.clone().unbind(),p.clone().unbind())));}
++    let mut quotient=initial_value.p.base.clone();quotient.rep=dense::to_mpoly(&result.quotient,0,1);
++    quotient.domain=if result.quotient_qq{Domain::QQ}else{Domain::ZZ};
++    let mut remainder=p_value.p.base.clone();remainder.rep=dense::to_mpoly(&result.remainder,0,1);
++    remainder.domain=if result.remainder_qq{Domain::QQ}else{Domain::ZZ};
++    let q=PyPoly{p:quotient.into()}.into_pyobject(py)?.into_any().unbind();
++    let r=PyPoly{p:remainder.into()}.into_pyobject(py)?.into_any().unbind();
++    py.check_signals()?;Ok(Some((q,r)))
++}
++
++pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()> {
++    m.add_function(wrap_pyfunction!(_risch_polynomial_reduce,m)?)
++}
+--- a/python/symox/__init__.py
++++ b/python/symox/__init__.py
+@@ -4586,3 +4586,8 @@
+ from .polys._polymatrix_native import register_root as _register_polymatrix_root
+ _register_polymatrix_root(globals())
+ del _register_polymatrix_root
++
++# Authenticate the final Risch polynomial-reduction protocol before user hooks.
++from .integrals._risch_native import register_root as _register_risch_polynomial_root
++_register_risch_polynomial_root(globals())
++del _register_risch_polynomial_root
+--- a/python/symox/integrals/risch.py
++++ b/python/symox/integrals/risch.py
+@@ -23,6 +23,8 @@
+ from symox.core.sorting import ordered, default_sort_key
+ from symox.polys.polyerrors import PolynomialError
+ 
++
++from ._risch_native import reduce as _native_polynomial_reduce
+ 
+ def integrate(*args, **kwargs):
+     from symox import integrate as _integrate
+@@ -1119,6 +1121,9 @@
+     deg(r) < deg_t(Dt).
+     """
+     q = Poly(0, DE.t)
++    native = _native_polynomial_reduce(p, DE, q)
++    if native is not None:
++        return native
+     while p.degree(DE.t) >= DE.d.degree(DE.t):
+         m = p.degree(DE.t) - DE.d.degree(DE.t) + 1
+         q0 = Poly(DE.t**m, DE.t).mul(Poly(p.as_poly(DE.t).LC()/
+--- /dev/null
++++ b/python/symox/integrals/_risch_native.py
+@@ -0,0 +1,101 @@
++"""Protocol admission only for the exact native polynomial_reduce loop."""
++import builtins as _builtins
++from types import FunctionType,ModuleType,BuiltinFunctionType
++from .. import _core
++from ..polys import _polymatrix_native as _ground
++
++_TYPE=type
++_ALL=all
++_ANY=any
++_LEN=len
++_ZIP=zip
++_TUPLE=tuple
++_DICT=dict
++_ROOT=None
++
++
++def register_root(namespace):
++    """Capture final stock constructors/functions before external hooks."""
++    global _ROOT
++    if _ROOT is not None:return
++    # Unlike a name-only bootstrap capture, foreign wrappers cannot bless
++    # themselves as canonical helpers when installed before package import.
++    if _TYPE is not _core.Poly.__class__:return
++    for name in ('all','any','len','getattr','isinstance','sum','__import__'):
++        value=_builtins.__dict__[name]
++        if (_TYPE(value) is not BuiltinFunctionType or value.__self__ is not _builtins
++                or value.__name__!=name):return
++    for name in ('type','list','tuple','dict','zip'):
++        value=_builtins.__dict__[name]
++        if (_TYPE(value) is not _TYPE or value.__flags__&512
++                or value.__module__!='builtins' or value.__name__!=name):return
++    from importlib import import_module
++    risch=import_module('symox.integrals.risch')
++    from .. import _poly_constructor as constructor,_node_types as nodes
++    from ..polys import _poly_methods as methods,_evaluation as evaluation
++    from . import rationaltools
++    cls=risch.DifferentialExtension
++    slots=tuple((name,cls.__dict__[name])for name in ('t','d','T','D','level'))
++    # Slot reads below use the original native member descriptors directly.
++    classes=(_ground._class(_core.Poly),_ground._class(cls),
++             _ground._class(nodes.node_class('NegativeInfinity')))
++    functions=[];lookups=[];mutable=[];seen=set()
++    modules=(risch.__dict__,constructor.__dict__,methods.__dict__,evaluation.__dict__)
++    def visit(function):
++        if _TYPE(function) is not FunctionType or id(function) in seen:return
++        seen.add(id(function));functions.append(_ground._function(function))
++        for cell in function.__closure__ or ():
++            value=cell.cell_contents
++            if _TYPE(value) is FunctionType:visit(value)
++        for name in function.__code__.co_names:
++            ns=function.__globals__
++            if name not in ns:continue
++            value=ns[name];lookups.append((ns,name,value))
++            if _TYPE(value) is dict:
++                mutable.append((value,tuple(value.items())))
++            if _TYPE(value) is FunctionType and _ANY(value.__globals__ is m for m in modules):visit(value)
++    visit(risch.derivation)
++    for name in ('__new__','as_poly','as_expr','mul','degree','diff','LC','__add__','__sub__','__iadd__'):
++        visit(getattr(_core.Poly,name,None))
++    # Constructor paths and scalar wrappers have an existing separately
++    # authenticated bootstrap proof. Also authenticate that verifier itself.
++    verify=rationaltools._stock_ratint_protocol
++    verify_state=_ground._function(verify)
++    lookup_classes=tuple((_TYPE(m),m,m.__dict__)for m in (risch,constructor,methods,evaluation,rationaltools))
++    aliases=tuple((_builtins.__dict__,name,_builtins.__dict__[name])for name in
++                  ('type','all','any','len','getattr','isinstance','sum','zip','tuple','dict','list','__import__'))
++    aliases+=tuple((risch.__dict__,name,risch.__dict__.get(name,_builtins.__dict__.get(name)))for name in ('Poly','len','zip','derivation'))
++    _ROOT=(cls,slots,classes,tuple(functions),tuple(lookups),tuple(mutable),
++           verify,verify_state,rationaltools,lookup_classes,aliases,_ground._ROOT)
++
++
++def reduce(p,de,initial):
++    root=_ROOT
++    if root is None:return None
++    cls,slots,classes,functions,lookups,mutable,verify,verify_state,rationaltools,modules,aliases,ground=root
++    if (_TYPE(_core) is not ModuleType or _TYPE(_ground) is not ModuleType
++            or _TYPE(de) is not cls or _TYPE(p) is not _core.Poly):return None
++    if _ANY(_TYPE(m) is not kind or m.__dict__ is not ns for kind,m,ns in modules):return None
++    if _ANY(ns.get(name,_builtins.__dict__.get(name)) is not value for ns,name,value in aliases):return None
++    if _ANY(ns.get(name) is not value for ns,name,value in lookups):return None
++    for value,items in mutable:
++        if (_LEN(value)!=_LEN(items) or any(k is not old or v is not prior
++                for (k,v),(old,prior) in _ZIP(value.items(),items))):return None
++    try:
++        if (not _ALL(_ground._class_unchanged(c)for c in classes)
++                or not _ALL(_ground._unchanged(f)for f in functions)
++                or rationaltools.__dict__.get('_stock_ratint_protocol') is not verify
++                or not _ground._unchanged(verify_state)):return None
++        if _ground._ROOT is not ground or ground is None:return None
++        _,root_functions,root_lookups,records,scalar_classes,_,_,_,_,_=ground
++        if (not _ALL(_ground._lookup_unchanged(ns,n,v)for ns,n,v in root_lookups)
++                or not _ALL(_ground._unchanged(f)for f in root_functions)
++                or not _ALL(_ground._class_unchanged(c,scalar_classes)for c in records)
++                or not verify(None)):return None
++    except (AttributeError,TypeError,ValueError):return None
++    # The exact class and all stored member descriptors were proved above.
++    # No mutable attribute lookup or foreign instance hook is invoked here.
++    try:fields={name:slot.__get__(de,cls)for name,slot in slots}
++    except AttributeError:return None
++    return _core._risch_polynomial_reduce(p,fields['d'],fields['t'],fields['T'],
++                                        fields['D'],fields['level'],initial)
+--- /dev/null
++++ b/tests/test_native_risch_polynomial_reduce.py
+@@ -0,0 +1,270 @@
++"""Bounded exact Risch polynomial reduction; unchanged complete old fallback."""
++from fractions import Fraction
++import importlib
++import random
++
++import pytest
++import symox as sx
++import sympy as sp
++
++risch=importlib.import_module('symox.integrals.risch')
++protocol=importlib.import_module('symox.integrals._risch_native')
++reference=importlib.import_module('sympy.integrals.risch')
++
++
++def input_case(seed,package,risch_module):
++    rng=random.Random(884311+seed)
++    x,t,u=package.symbols('risch_x risch_t risch_u')
++    variables=[x,t,u][:1+seed%3]
++    t=variables[-1]
++    choices=[package.S.One,t,t*t+1,3*t**3+2*t-1,(t*t+1)/2]
++    dt=choices[seed%len(choices)]
++    coefficients=[package.Rational(rng.randrange(-19,20),1 if seed%2==0 else rng.randrange(1,11))
++                  for _ in range(seed%21)]
++    p=package.Poly(sum(c*t**i for i,c in enumerate(coefficients)),t,domain='ZZ' if seed%2==0 else 'QQ')
++    ds=[package.Poly(1,v)for v in variables[:-1]]+[package.Poly(dt,t)]
++    de=risch_module.DifferentialExtension(extension={'D':ds})
++    return p,de
++
++
++def signature(pair):
++    return tuple((p.gens[0].name,str(p.domain),tuple(sorted(
++        (monomial, Fraction(int(value.p),int(value.q)))for monomial,value in p.as_dict().items())))for p in pair)
++
++
++@pytest.mark.parametrize('seed',range(120))
++def test_selected_complete_loop_matches_old_and_reference_with_exact_certificate(monkeypatch,seed):
++    p,de=input_case(seed,sx,risch);rp,rde=input_case(seed,sp,reference)
++    original=(p,de.level,de.t,de.d,tuple(de.T),tuple(de.D));calls=[]
++    native=sx._core._risch_polynomial_reduce
++    def spy(*args):
++        out=native(*args);calls.append(out is not None);return out
++    monkeypatch.setattr(sx._core,'_risch_polynomial_reduce',spy)
++    actual=risch.polynomial_reduce(p,de)
++    assert calls==[True]
++    with monkeypatch.context() as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
++        old=risch.polynomial_reduce(p,de)
++    expected=reference.polynomial_reduce(rp,rde)
++    assert signature(actual)==signature(old)==signature(expected)
++    q,r=actual
++    assert p.as_dict()==(risch.derivation(q,de)+r).as_dict()
++    assert r.is_zero or r.degree(de.t)<de.d.degree(de.t)
++    assert original==(p,de.level,de.t,de.d,tuple(de.T),tuple(de.D))
++    assert all(a is b for a,b in zip(original[-1],de.D))
++    if p.is_zero or p.degree(de.t)<de.d.degree(de.t):assert r is p
++
++
++def old_and_new(monkeypatch,p,de):
++    calls=[];native=sx._core._risch_polynomial_reduce
++    def spy(*args):
++        out=native(*args);calls.append(out is not None);return out
++    monkeypatch.setattr(sx._core,'_risch_polynomial_reduce',spy)
++    actual=risch.polynomial_reduce(p,de)
++    with monkeypatch.context() as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
++        expected=risch.polynomial_reduce(p,de)
++    assert actual==expected
++    assert all(a.gens==b.gens and str(a.domain)==str(b.domain) and a.as_dict()==b.as_dict()
++               for a,b in zip(actual,expected))
++    return actual,calls
++
++
++@pytest.mark.parametrize('domain',['RR','EX','GF(7)','QQ[y]'])
++def test_unsupported_domains_keep_the_whole_original_algorithm(monkeypatch,domain):
++    t,y=sx.symbols('risch_t y')
++    if domain=='QQ[y]':
++        p=sx.Poly(t**4+y*t+1,t,domain=domain)
++    elif domain=='RR':
++        p=sx.Poly(t**4+sx.Float('1.25')*t+1,t,domain=domain)
++    else:p=sx.Poly(t**4+2*t+1,t,domain=domain)
++    de=risch.DifferentialExtension(extension={'D':[sx.Poly(t*t+1,t)]})
++    # Domain signatures above intentionally use exact p/q coefficients only.
++    with monkeypatch.context() as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None);expected=risch.polynomial_reduce(p,de)
++    calls=[];native=sx._core._risch_polynomial_reduce
++    def spy(*args):
++        out=native(*args);calls.append(out is not None);return out
++    monkeypatch.setattr(sx._core,'_risch_polynomial_reduce',spy)
++    actual=risch.polynomial_reduce(p,de)
++    assert actual==expected and not any(calls)
++
++
++@pytest.mark.parametrize('mode',['derivation_alias','derivation_code','degree','LC','mul','as_poly','as_expr','module_Poly','module_len','module_zip'])
++def test_consumed_callbacks_and_changed_function_bodies_are_preserved(monkeypatch,mode):
++    p,de=input_case(19,sx,risch);events=[]
++    if mode=='derivation_alias':
++        original=risch.derivation
++        def changed(*args,**kwargs):events.append('derivation');return original(*args,**kwargs)
++        monkeypatch.setattr(risch,'derivation',changed)
++    elif mode=='derivation_code':
++        from types import FunctionType
++        original=risch.derivation
++        delegate=FunctionType(original.__code__,original.__globals__,argdefs=original.__defaults__)
++        monkeypatch.setattr(risch,'_native_test_derivation_events',events,raising=False)
++        monkeypatch.setattr(risch,'_native_test_derivation_delegate',delegate,raising=False)
++        def changed(p,DE,coefficientD=False,basic=False):
++            _native_test_derivation_events.append('changed-code')
++            return _native_test_derivation_delegate(p,DE,coefficientD,basic)
++        monkeypatch.setattr(original,'__code__',changed.__code__)
++    elif mode=='constructor':
++        original=sx.Poly.__new__
++        def changed(cls,*args,**kwargs):events.append('constructor');return original(cls,*args,**kwargs)
++        monkeypatch.setattr(sx.Poly,'__new__',staticmethod(changed))
++    elif mode=='module_Poly':
++        original=risch.Poly
++        def changed(*args,**kwargs):events.append('Poly');return original(*args,**kwargs)
++        monkeypatch.setattr(risch,'Poly',changed)
++    elif mode in ('module_len','module_zip'):
++        name=mode[len('module_'):];original={'len':len,'zip':zip}[name]
++        def changed(*args):events.append(name);return original(*args)
++        monkeypatch.setattr(risch,name,changed,raising=False)
++    else:
++        original=getattr(sx.Poly,mode)
++        def changed(self,*args,**kwargs):events.append(mode);return original(self,*args,**kwargs)
++        monkeypatch.setattr(sx.Poly,mode,changed)
++    if mode=='constructor':
++        with pytest.raises(TypeError) as actual:risch.polynomial_reduce(p,de)
++        observed=events[:];events.clear()
++        with monkeypatch.context() as patch:
++            patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None)
++            with pytest.raises(TypeError) as expected:risch.polynomial_reduce(p,de)
++        assert str(actual.value)==str(expected.value) and observed==events and events
++        return
++    native=sx._core._risch_polynomial_reduce;calls=[]
++    def spy(*args):
++        out=native(*args);calls.append(out is not None);return out
++    monkeypatch.setattr(sx._core,'_risch_polynomial_reduce',spy)
++    actual=risch.polynomial_reduce(p,de);observed=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None);expected=risch.polynomial_reduce(p,de)
++    assert actual==expected and events==observed and not any(calls)
++    assert events
++
++
++@pytest.mark.parametrize('mode',['subclass','class_lookup','slot_property'])
++def test_extension_attribute_protocols_keep_real_observable_reads(monkeypatch,mode):
++    p,de=input_case(19,sx,risch);events=[]
++    if mode=='subclass':
++        class Custom(risch.DifferentialExtension):
++            def __getattribute__(self,name):events.append(name);return super().__getattribute__(name)
++        de=Custom(extension={'D':de.D});events.clear()
++    elif mode=='class_lookup':
++        def changed(self,name):events.append(name);return object.__getattribute__(self,name)
++        monkeypatch.setattr(risch.DifferentialExtension,'__getattribute__',changed)
++    else:
++        descriptor=risch.DifferentialExtension.t
++        def changed(self):events.append('t');return descriptor.__get__(self,type(self))
++        monkeypatch.setattr(risch.DifferentialExtension,'t',property(changed))
++    actual=risch.polynomial_reduce(p,de);observed=events[:];events.clear()
++    with monkeypatch.context() as patch:
++        patch.setattr(risch,'_native_polynomial_reduce',lambda *args:None);expected=risch.polynomial_reduce(p,de)
++    assert actual==expected and observed==events and observed
++
++
++def test_uninitialized_unused_extension_slots_do_not_create_a_new_error(monkeypatch):
++    t=sx.Symbol('risch_t');de=risch.DifferentialExtension.__new__(risch.DifferentialExtension)
++    de.t=t;de.d=sx.Poly(t*t+1,t);p=sx.Poly(t,t)
++    actual,calls=old_and_new(monkeypatch,p,de)
++    assert actual[1] is p and not any(calls)
++
++
++@pytest.mark.parametrize('mode',['degree','bits','fraction_field','future_variables','duplicate_generators'])
++def test_nonadmitted_inputs_keep_available_original_computations(monkeypatch,mode):
++    t,x=sx.symbols('risch_t risch_x')
++    p=sx.Poly(t**5+2*t+1,t);de=risch.DifferentialExtension(extension={'D':[sx.Poly(t*t+1,t)]})
++    if mode=='degree':p=sx.Poly(t**257+1,t)
++    elif mode=='bits':p=sx.Poly((2**4100)*t**3+1,t)
++    elif mode=='fraction_field':
++        de=risch.DifferentialExtension(extension={'D':[sx.Poly(1,x),sx.Poly(t*t/x+1,t)]})
++    elif mode=='future_variables':
++        de=risch.DifferentialExtension(extension={'D':[sx.Poly(t*t+1,t),sx.Poly(x,x)]});de.decrement_level()
++    else:
++        de.T=[t,t];de.D=[sx.Poly(1,t),sx.Poly(t*t+1,t)];de.level=-1
++    actual,calls=old_and_new(monkeypatch,p,de)
++    if mode!='future_variables':assert not any(calls)
++    assert p.as_dict()==(risch.derivation(actual[0],de)+actual[1]).as_dict()
++
++
++def test_late_import_hook_sees_only_the_existing_algorithm_imports():
++    import builtins
++    p,de=input_case(19,sx,risch);events=[]
++    original=builtins.__import__;native=risch._native_polynomial_reduce
++    def changed(name,globals=None,locals=None,fromlist=(),level=0):
++        events.append((name,fromlist,level))
++        return original(name,globals,locals,fromlist,level)
++    try:
++        builtins.__import__=changed
++        actual=risch.polynomial_reduce(p,de);observed=events[:];events.clear()
++        risch._native_polynomial_reduce=lambda *args:None
++        expected=risch.polynomial_reduce(p,de)
++    finally:
++        builtins.__import__=original
++        risch._native_polynomial_reduce=native
++    assert actual==expected and events==observed and events
++
++
++def test_stock_native_admission_is_restored_after_protocol_mutations(monkeypatch):
++    p,de=input_case(18,sx,risch)
++    calls=[];native=sx._core._risch_polynomial_reduce
++    def spy(*args):
++        out=native(*args);calls.append(out is not None);return out
++    monkeypatch.setattr(sx._core,'_risch_polynomial_reduce',spy)
++    q,r=risch.polynomial_reduce(p,de)
++    assert calls==[True]
++    assert p.as_dict()==(risch.derivation(q,de)+r).as_dict()
++
++
++def test_modified_constructor_error_is_preserved_in_an_isolated_type_process():
++    import os,subprocess,sys
++    source="""
++import symox as s
++from symox.integrals import risch
++x=s.Symbol('risch_t');p=s.Poly(x**4+1,x)
++de=risch.DifferentialExtension(extension={'D':[s.Poly(x*x+1,x)]})
++original=s.Poly.__new__;events=[]
++def changed(cls,*args,**kwargs):
++ events.append('constructor');return original(cls,*args,**kwargs)
++s.Poly.__new__=staticmethod(changed)
++errors=[]
++for mode in range(2):
++ if mode:risch._native_polynomial_reduce=lambda *args:None
++ events.clear()
++ try:risch.polynomial_reduce(p,de)
++ except TypeError as error:errors.append(str(error))
++ else:raise AssertionError('original constructor error omitted')
++ assert events==['constructor']
++assert errors[0]==errors[1]
++"""
++    subprocess.run([sys.executable,'-c',source],check=True,env=os.environ.copy())
++
++
++def test_restored_constructor_dictionary_does_not_hide_a_changed_native_new_slot():
++    import os,subprocess,sys
++    source="""
++import symox as s
++from symox.integrals import risch
++x=s.Symbol('risch_t');p=s.Poly(x**4+1,x);zero=s.Poly(0,x)
++de=risch.DifferentialExtension(extension={'D':[s.Poly(x*x+1,x)]})
++original=s.Poly.__new__
++def changed(cls,*args,**kwargs):return original(cls,*args,**kwargs)
++s.Poly.__new__=staticmethod(changed)
++s.Poly.__new__=original
++calls=[];native=s._core._risch_polynomial_reduce
++native_original=risch._native_polynomial_reduce
++def spy(*args):
++ out=native(*args);calls.append(out is not None);return out
++s._core._risch_polynomial_reduce=spy
++def prefix(*args,**kwargs):
++ risch.Poly=s.Poly
++ return zero
++errors=[]
++for mode in range(2):
++ risch.Poly=prefix
++ if mode:risch._native_polynomial_reduce=lambda *args:None
++ try:risch.polynomial_reduce(p,de)
++ except TypeError as error:errors.append(str(error))
++ else:raise AssertionError('restored dictionary hid unsafe constructor slot')
++assert errors[0]==errors[1] and not any(calls)
++"""
++    subprocess.run([sys.executable,'-c',source],check=True,env=os.environ.copy())

@@ -47,3 +47,41 @@ fn one_and_two_sided() {
     assert_eq!(lim("sin(x)/x", "oo", Dir::Plus), "0");
     assert!(lim("sin(x)", "oo", Dir::Plus).starts_with("ERR"));
 }
+
+fn symbolic_power_difference(n: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Expr {
+    use crate::ops::{add2,div,pow,sub};
+    let shifted=add2(n,a); let exponent=add2(k,&Expr::one());
+    div(&pow(&shifted,k),&sub(&pow(&shifted,&exponent),&pow(&add2(n,b),&exponent)))
+}
+
+#[test]
+fn homogeneous_symbolic_power_limits_and_shifted_family() {
+    use crate::ops::{add2,div,mul2,sub};
+    use crate::symbol::Assumptions as A;
+    let n=Expr::symbol_with("n",A::POSITIVE);
+    for facts in [A::POSITIVE,A::NONNEGATIVE] {
+        let k=Expr::symbol_with("k",facts);
+        for (a,b) in [(1,0),(3,1),(-2,-5)] {
+            let e=symbolic_power_difference(&n,&k,&Expr::int(a),&Expr::int(b));
+            let expected=div(&Expr::one(),&mul2(&Expr::int(a-b),&add2(&k,&Expr::one())));
+            let actual=limit(&e,&n,&Expr::oo(),Dir::Plus).unwrap();
+            assert!(crate::simplify::simplify(&sub(&actual,&expected)).is_zero(),"{e}: {actual} != {expected}");
+        }
+    }
+}
+
+#[test]
+fn homogeneous_normalization_does_not_erase_parameter_poles() {
+    use crate::ops::{add2,mul2};
+    use crate::symbol::Assumptions as A;
+    let n=Expr::symbol_with("n",A::POSITIVE);
+    for facts in [A::NONE,A::REAL,A::NEGATIVE,A::COMPLEX] {
+        let k=Expr::symbol_with("k",facts);
+        let ratio=symbolic_power_difference(&n,&k,&Expr::one(),&Expr::zero());
+        // The second expression has generic leading coefficient1, but at
+        // k=-1 both its numerator and its denominator vanish.
+        for e in [ratio.clone(),mul2(&add2(&k,&Expr::one()),&ratio)] {
+            assert!(limit(&e,&n,&Expr::oo(),Dir::Plus).is_err(),"uncertified parameter continuation: {e}");
+        }
+    }
+}

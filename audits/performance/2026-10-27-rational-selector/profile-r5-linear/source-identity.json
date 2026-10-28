@@ -1,0 +1,12 @@
+{
+  "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+  "source_manifest_sha256": "2955abf8b02c1e520ddb921d17e56614b8f4c5d391b1fb87730118881665dbe0",
+  "native_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+  "working_code_diff_sha256": "2a93cf27fd5518ac319b7eac190a0f913568431e171b4106d3db98a448b82ab8",
+  "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+  "build_command": [
+    ".venv/bin/maturin",
+    "develop",
+    "--release"
+  ]
+}

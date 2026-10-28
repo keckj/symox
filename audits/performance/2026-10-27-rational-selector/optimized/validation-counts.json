@@ -1,0 +1,28 @@
+{
+  "fresh_processes": 18,
+  "exact_input_result_checks": 1026,
+  "independent_exact_certificates": 19,
+  "all_cross_variant_digests_match": true,
+  "all_optimized_inputs_native": true,
+  "source_hashes_verified": true,
+  "worker_outputs": [
+    "plain-0-optimized.json",
+    "plain-0-r2.json",
+    "plain-0-r3b.json",
+    "plain-1-optimized.json",
+    "plain-1-r2.json",
+    "plain-1-r3b.json",
+    "plain-2-optimized.json",
+    "plain-2-r2.json",
+    "plain-2-r3b.json",
+    "vector-0-optimized.json",
+    "vector-0-r2.json",
+    "vector-0-r3b.json",
+    "vector-1-optimized.json",
+    "vector-1-r2.json",
+    "vector-1-r3b.json",
+    "vector-2-optimized.json",
+    "vector-2-r2.json",
+    "vector-2-r3b.json"
+  ]
+}

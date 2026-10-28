@@ -1,0 +1,13 @@
+{
+  "source_manifest_sha256": "ea37671ac156ac9d5b58f320583f61f740a0395363d61a8b745d28259001c02e",
+  "source_frozen_and_verified": true,
+  "before_callback_regressions": 5,
+  "local_after_passed": 190,
+  "demeter_after_passed": 190,
+  "logs": {
+    "before.log": "0db95eecb07dff93e9be9fde17e1930ce74a129a6f63b494c4003fbf30e2126f",
+    "after.log": "9712c61c79ac7fca57ec53d13555421f3f964c4ad80e84e887613f72957bb0d7",
+    "demeter-focused.log": "b8f8ca39ee845a4d3d92b157639c4fe112c4434ab21280f8be909be39f68da4d"
+  },
+  "native_unchanged": "0c0a93466164860ba5c9fd50d1e33de70395c6d75866051484df6bee90c50c9a"
+}

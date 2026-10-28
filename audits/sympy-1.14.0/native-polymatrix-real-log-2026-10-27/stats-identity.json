@@ -1,0 +1,47 @@
+{
+  "base_identity": {
+    "base_commit": "5eb39d651db5b6af55561929e94ffa8c16ef0988",
+    "source_manifest_sha256": "ceeaa3a15a3dab2b1961f41bc766cadfa4e11c1b3fd862c33623d02fa4133123",
+    "native_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+    "working_code_diff_sha256": "5e3552df9bf86a2466f844b5d99a28e843a9abc6beb3e90257777612c3fdb27a",
+    "scope": "Code, tests, audit fixtures, package configuration and native binary; documentation excluded",
+    "build_command": [
+      ".venv/bin/maturin",
+      "develop",
+      "--release"
+    ]
+  },
+  "files": [
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base_sha256": "68ec973b02d152e2cde41b995325c1b7fda587aa4b11f2c272d68e87af1b3304",
+      "final_sha256": "272f7d4522cdb3c4c614ed227538cf05c1073a3624a5c470978dfd9e6f447047"
+    },
+    {
+      "path": "python/symox/stats/_symbolic.py",
+      "base_sha256": "dc9a2cae04abf321036cf67705ecf370cf38356361c1382a28890fa6cc132395",
+      "final_sha256": "0619cc85813800018b0854ce6b820345850403c47faa607538673d5898a1f468"
+    },
+    {
+      "path": "tests/test_polymatrix_stats_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "63156a3a470aab371f2032e8ea3f56b698eb05abd28d98d24e6de90238dec7a3"
+    }
+  ],
+  "patch_sha256": "d2131e4498336794edbfe7fcbb43935a1e8c28bee93803601093cce973592739",
+  "manifest_sha256": "30391129d7bf0a746b988668d6f6318aa376a7943437b53fbfd052096c7632a3",
+  "source_files": 2868,
+  "stats_install_ast_unchanged": true,
+  "binary_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+  "rationaltools_sha256": "c966bb72e3f6b83b6ff2fbff151f4096a7ba04eb4955517b0ac0bcd990b6ec27",
+  "validation": {
+    "base_shard42": "4 failed, 963 passed",
+    "local_shard42": "967 passed",
+    "local_focused": "140 passed",
+    "demeter_shard42": 967,
+    "demeter_coupling": 1182,
+    "exact_once": true,
+    "source_hashes_before_after": 2868,
+    "git_apply_check": true
+  }
+}

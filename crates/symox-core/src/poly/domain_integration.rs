@@ -13,6 +13,11 @@ impl Polynomial {
     pub fn integration_domain(&self, auto: bool) -> Self {
         let mut p = self.clone();
         if auto {
+            if let Some(e)=p.expression.as_mut(){
+                if let Some(g)=e.ground.as_ref().filter(|g|g.inexact.is_some()){
+                    e.ground=Some(g.to_field());return p;
+                }
+            }
             if let Some(field) = &mut p.field {
                 field.promote_field();
             } else if let Some(a) = p.algebraic.as_ref().filter(|a| a.gaussian == Some(true)) {
@@ -33,7 +38,7 @@ impl Polynomial {
             ));
         }
         if let Some(e) = &self.expression {
-            return Ok(e.integrate(1, variable)?.into());
+            return Ok(e.integrate_with_options(1, variable, auto)?.into());
         }
         let p = self.integration_domain(auto);
         let degree = |powers: &[u32]| {

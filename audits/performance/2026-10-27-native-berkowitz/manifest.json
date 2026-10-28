@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-27",
+  "status": "complete",
+  "before_native": "cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e",
+  "before_source_identity": "db859db2e5949ea295c362ae9b06b1b7819f0f28da0753790edda29b45445d2f",
+  "after_native": "daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007",
+  "after_source_identity": "8f254811033a4e7791213e56e0316d752fd2dca0f99fc0c5f5fa30aa6cecc981",
+  "protocol": "Three fresh alternated processes per release on CPU24 during a quiet window; three distinct preconstructed matrices per family; five timed rounds of three batches; medians of process medians; exact coefficient checks before and after timing; input domains fixed before timing; native selection and unchanged storage checked outside timers; runtime SymPy imports blocked.",
+  "full_coefficient_checks": 180,
+  "independent_Cayley_Hamilton_certificates": 15,
+  "native_selections_outside_timers": 45,
+  "summary": {
+    "fresh_processes_per_backend": 3,
+    "cpu": 24,
+    "reference_runtime": "blocked in all six workers",
+    "iterations": 3,
+    "rounds_per_process": 5,
+    "families": 5,
+    "distinct_matrices": 15,
+    "full_coefficients_checked_before_after": 180,
+    "independent_Cayley_Hamilton_certificates": 15,
+    "elapsed_seconds": 3.208991357998457,
+    "cases": {
+      "ZZ_4": {
+        "cb5_ns": 89117.33333333333,
+        "r2_ns": 17205.555555555555,
+        "ratio": 5.179567323216015,
+        "cb5_process_medians": [
+          88181.66666666667,
+          89117.33333333333,
+          89253.55555555556
+        ],
+        "r2_process_medians": [
+          17205.555555555555,
+          18366.222222222223,
+          17162.777777777777
+        ],
+        "digest": "dd5d02fab12099fa530abb7d1097e881e098304b0af08a6a530226bbf47e1568"
+      },
+      "ZZ_8": {
+        "cb5_ns": 469062.88888888893,
+        "r2_ns": 40877.444444444445,
+        "ratio": 11.474858452229837,
+        "cb5_process_medians": [
+          469044.88888888893,
+          469062.88888888893,
+          476954.55555555556
+        ],
+        "r2_process_medians": [
+          40877.444444444445,
+          42350.555555555555,
+          39998.444444444445
+        ],
+        "digest": "3a883da0a68fbcc0fbd030539e531a24d67af0b279387b644b0ef899a5a75293"
+      },
+      "ZZ_12": {
+        "cb5_ns": 1356566.2222222222,
+        "r2_ns": 127212.0,
+        "ratio": 10.663822770039165,
+        "cb5_process_medians": [
+          1350470.8888888888,
+          1361581.4444444445,
+          1356566.2222222222
+        ],
+        "r2_process_medians": [
+          127212.0,
+          132144.8888888889,
+          125252.22222222223
+        ],
+        "digest": "6a0266d6676e8253c36e8db5f6def287f1c6131dbb67ca70bdbc27862df344d5"
+      },
+      "QQ_4": {
+        "cb5_ns": 100507.66666666667,
+        "r2_ns": 17948.0,
+        "ratio": 5.5999368546170425,
+        "cb5_process_medians": [
+          101904.77777777777,
+          100507.66666666667,
+          97490.77777777777
+        ],
+        "r2_process_medians": [
+          17948.0,
+          19481.777777777777,
+          17512.555555555555
+        ],
+        "digest": "e9b04114954a5ae7775f6ef813a1e54d3e639e940486f48554702242ab7bdf6d"
+      },
+      "QQ_8": {
+        "cb5_ns": 714956.7777777779,
+        "r2_ns": 52163.666666666664,
+        "ratio": 13.706029952734239,
+        "cb5_process_medians": [
+          717494.5555555555,
+          711792.2222222221,
+          714956.7777777779
+        ],
+        "r2_process_medians": [
+          52163.666666666664,
+          56686.0,
+          51994.22222222222
+        ],
+        "digest": "7b214b23a834328e7a71a0e90ed25329210efb4ff370893e089ba563524d3e56"
+      }
+    }
+  },
+  "files": {
+    "worker.py": "8313821d3e670600a1c2cea065e402d6354d8aa3a3b04b4abbb75e889e4c85d0",
+    "run.py": "565bedf7022325b9f8b0302b396b02ecc6c87e30869ffd83015b31fe3f2fe7d4",
+    "fixtures.json": "209bdab101858ecb06cb1b9b855cb76e67bf8fafa963c2aa6905867d9ac70017",
+    "summary.json": "1414aa82c486f4fdc9c456b45e16ac68248a1dd76beb5c69352b99a003871e8f",
+    "run.log": "5fb32bbd80e7571a82607532a34784c7ea92a83f1cc3d3d938a189f263f58ae8",
+    "0-cb5.json": "0f8394084de02d23665ff08b73462ad88e6a623a17fe5a591dda62746ebd924a",
+    "0-r2.json": "0f56fdd35a5a767cdb48cb08703748ddea4904761bf9420f2e660a9e755da443",
+    "1-cb5.json": "d2c8e771b4a4244983166f0e16da4ffff9d3ef595261ac77f0d9894d6898e3b1",
+    "1-r2.json": "0d0d3b4d5d03ea9435044da401a54d33341e7b7dd1f4654c653275c95ca7591f",
+    "2-cb5.json": "af5f5ef533a19230ada110ba4123013897d2d31ac114784b2f68a312e756a808",
+    "2-r2.json": "5c97bea1a49414e49bf61445a3b1c9c362988ef62c3db9269f2a2723c41a3dbe",
+    "prepare-fixtures.py": "910df9aad54845acde1acfe50280f624b1a43fdc10279fa5129ec425ef14f7c9"
+  }
+}

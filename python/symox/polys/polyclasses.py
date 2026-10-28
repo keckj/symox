@@ -57,6 +57,14 @@ def _dense_list(terms, lev, zero):
     return [_dense_list(row, lev - 1, zero) for row in rows]
 
 
+def _native_ex_domain(dom):
+    from ._evaluation import (_stock_ex,_stock_domain_type,_stock_domain_convert,
+                              _stock_domain_from_sympy,_stock_domain_to_sympy,_stock_domain_dict)
+    return (dom is _stock_ex and _stock_domain_dict.get('convert') is _stock_domain_convert
+            and _stock_domain_dict.get('from_sympy') is _stock_domain_from_sympy
+            and _stock_domain_dict.get('to_sympy') is _stock_domain_to_sympy)
+
+
 def _tuple(rep):
     return tuple(_tuple(item) for item in rep) if isinstance(rep, list) else rep
 
@@ -64,7 +72,7 @@ def _tuple(rep):
 class DMP:
     """Dense Multivariate Polynomials over `K`. """
 
-    __slots__ = ('_terms', 'dom', 'lev')
+    __slots__ = ('_terms', '_raw_terms', 'dom', 'lev')
 
     def __new__(cls, rep, dom, lev=None):
         if lev is None:
@@ -72,26 +80,54 @@ class DMP:
         return cls._new(_dense_terms(rep, lev, lambda c: c), dom, lev)
 
     @classmethod
-    def _new(cls, terms, dom, lev):
+    def _new(cls, terms, dom, lev, raw_terms=None):
         obj = object.__new__(DMP_Python if cls is DMP else cls)
-        obj._terms, obj.dom, obj.lev = terms, dom, lev
+        obj._terms, obj._raw_terms, obj.dom, obj.lev = terms, raw_terms or {}, dom, lev
         return obj
+
+    @classmethod
+    def _from_ex_payload(cls, terms, dom, lev):
+        # Marshal the representation; native DMP construction decides which
+        # leading zero rows disappear and which coefficient payloads survive.
+        if not terms:return cls._new({},dom,lev)
+        from .. import Dummy, _core
+        gens=tuple(Dummy('x') for _ in range(lev+1))
+        coefficients={tuple(m):dom.to_sympy(dom.convert(c)) for m,c in terms.items()}
+        return cls.from_poly(_core.Poly._from_coefficient_terms(coefficients,gens,dom))
+
+    def _payload_dict(f):
+        return f._terms | f._raw_terms
+
+    def _payload_sympy_dict(f):
+        return {m:f.dom.to_sympy(c) for m,c in f._payload_dict().items()}
 
     @classmethod
     def from_list(cls, rep, lev, dom):
         """Create an instance of ``cls`` given a list of native coefficients. """
+        if type(lev) is int and 0 <= lev < (1<<63) and _native_ex_domain(dom):
+            from .. import _core
+            raw=_core.Poly._native_dense_coefficient_payload(rep,lev)
+            if raw is not None:return cls._from_ex_payload(raw,dom,lev)
         return cls._new(_dense_terms(rep, lev, dom.convert), dom, lev)
 
     @classmethod
     def from_sympy_list(cls, rep, lev, dom):
         """Create an instance of ``cls`` given a list of SymPy coefficients. """
+        if type(lev) is int and 0 <= lev < (1<<63) and _native_ex_domain(dom):
+            from .. import _core
+            raw=_core.Poly._native_dense_coefficient_payload(rep,lev)
+            if raw is not None:return cls._from_ex_payload({m:dom.from_sympy(c) for m,c in raw.items()},dom,lev)
         return cls._new(_dense_terms(rep, lev, dom.from_sympy), dom, lev)
 
     @classmethod
     def from_dict(cls, rep, lev, dom):
         """Construct and instance of ``cls`` from a ``dict`` representation. """
+        rep=dict(rep)
+        if type(lev) is int and 0 <= lev < (1<<63) and _native_ex_domain(dom):
+            from .. import _core
+            if _core.Poly._native_dict_coefficient_payload(rep,lev):return cls._from_ex_payload(rep,dom,lev)
         terms = {}
-        for monom, coeff in dict(rep).items():
+        for monom, coeff in rep.items():
             coeff = dom.convert(coeff)
             if coeff:
                 terms[tuple(monom)] = coeff
@@ -106,12 +142,13 @@ class DMP:
         """The representation of a native ``Poly`` (``Poly.rep``). """
         dom = poly.domain
         lev = len(poly.gens) - 1
-        terms = {}
-        for monom, coeff in poly.as_dict().items():
+        terms,raw_terms = {},{}
+        from ._poly_methods import _stock_coefficient_view, _native_ex_domain
+        coefficients=poly._coefficient_payload() if _stock_coefficient_view(poly) and dom is _native_ex_domain else poly.as_dict()
+        for monom, coeff in coefficients.items():
             coeff = dom.from_sympy(coeff)
-            if coeff:
-                terms[tuple(monom)] = coeff
-        return cls._new(terms, dom, lev)
+            (terms if coeff else raw_terms)[tuple(monom)] = coeff
+        return cls._new(terms, dom, lev, raw_terms)
 
     def per(f, terms, dom=None, lev=None):
         return f._new(terms, f.dom if dom is None else dom, f.lev if lev is None else lev)
@@ -144,7 +181,7 @@ class DMP:
 
     def to_list(f):
         """Convert ``f`` to a list representation with native coefficients. """
-        return _dense_list(f._terms, f.lev, f.dom.zero)
+        return _dense_list(f._payload_dict(), f.lev, f.dom.zero)
 
     def to_tuple(f):
         """Convert ``f`` to a tuple representation with native coefficients. """
@@ -153,7 +190,7 @@ class DMP:
     def to_sympy_list(f):
         """Convert ``f`` to a list representation with SymPy coefficients. """
         to_sympy = f.dom.to_sympy
-        return _dense_list({m: to_sympy(c) for m, c in f._terms.items()}, f.lev, to_sympy(f.dom.zero))
+        return _dense_list({m: to_sympy(c) for m, c in f._payload_dict().items()}, f.lev, to_sympy(f.dom.zero))
 
     def to_dict(f, zero=False):
         """Convert ``f`` to a dict representation with native coefficients. """
@@ -232,7 +269,7 @@ class DMP:
 
     def TC(f):
         """Returns the trailing coefficient of ``f``. """
-        return f._terms.get((0,)*(f.lev + 1), f.dom.zero)
+        return f._raw_terms.get((0,)*(f.lev+1),f._terms.get((0,)*(f.lev + 1), f.dom.zero))
 
     def nth(f, *N):
         """Returns the ``n``-th coefficient of ``f``. """
@@ -240,7 +277,7 @@ class DMP:
             raise TypeError("a sequence of integers expected")
         if len(N) != f.lev + 1:
             raise ValueError("expected %d exponents, got %d" % (f.lev + 1, len(N)))
-        return f._terms.get(tuple(N), f.dom.zero)
+        return f._raw_terms.get(tuple(N),f._terms.get(tuple(N), f.dom.zero))
 
     def degree(f, j=0):
         """Returns the leading degree of ``f`` in ``x_j``. """
@@ -296,7 +333,7 @@ class DMP:
     def _poly(f):
         from .. import Dummy, Poly
         gens = tuple(Dummy('x') for _ in range(f.lev + 1))
-        return Poly(f.to_sympy_dict(), *gens, domain=f.dom)
+        return Poly(f._payload_sympy_dict(), *gens, domain=f.dom)
 
     def _from_native(f, poly):
         return f.from_poly(poly)
@@ -307,11 +344,12 @@ class DMP:
         F, G = f.unify_DMP(g)
         from .. import Poly
         p = F._poly()
-        q = Poly(G.to_sympy_dict(), *p.gens, domain=G.dom)
+        q = Poly(G._payload_sympy_dict(), *p.gens, domain=G.dom)
         return F, operation(p, q)
 
     def neg(f):
         """Negate all coefficients in ``f``. """
+        if f._raw_terms:return f._from_native(-f._poly())
         return f.per({m: -c for m, c in f._terms.items()})
 
     def add(f, g):
@@ -372,7 +410,7 @@ class DMP:
     def eq(f, g, strict=False):
         if not strict:
             return f == g
-        return isinstance(g, DMP) and f.lev == g.lev and f.dom == g.dom and f._terms == g._terms
+        return isinstance(g, DMP) and f.lev == g.lev and f.dom == g.dom and f._terms == g._terms and f._raw_terms == g._raw_terms
 
     def ne(f, g, strict=False):
         return not f.eq(g, strict=strict)
@@ -386,7 +424,7 @@ class DMP:
             F, G = f.unify_DMP(g)
         except UnificationFailed:
             return False
-        return F._terms == G._terms
+        return F._terms == G._terms and F._raw_terms == G._raw_terms
 
     def __ne__(f, g):
         result = f.__eq__(g)

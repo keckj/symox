@@ -1,0 +1,77 @@
+[
+  {
+    "file": "integration.json",
+    "source": "/home/keckj/.cache/symox-validation/native-inexact-20261027/integration.json",
+    "sha256": "1fc6c3a4468b900780294444156eaf964ae372b6981f3fce8a5e94c2be8d680e"
+  },
+  {
+    "file": "combined-targeted.log",
+    "source": "/home/keckj/.cache/symox-validation/native-inexact-20261027/combined-targeted.log",
+    "sha256": "4735bc3b120e80625788a05af7941767ae0c2c23ad3f1f6c0a6a4cdf1ef9afcf"
+  },
+  {
+    "file": "combined-release-result.json",
+    "source": "/home/keckj/.cache/symox-validation/native-inexact-20261027/combined-release-result.json",
+    "sha256": "fa2f0632523e431593a1d1dd7520ceea00158a0719a957f281abb0e73207c641"
+  },
+  {
+    "file": "linear-REPORT.md",
+    "source": "/home/keckj/.cache/symox-validation/native-inexact-linear-20261027/proof/REPORT.md",
+    "sha256": "1962095ebedbab784ed8b942bd50f41a616dda6537e6928eccb7d11ef173bc47"
+  },
+  {
+    "file": "linear-identity.json",
+    "source": "/home/keckj/.cache/symox-validation/native-inexact-linear-20261027/proof/identity.json",
+    "sha256": "86891e024aaaf896a4a7ea453a300ea07b81b8ab2d4825efafbbe0aefaefe8ba"
+  },
+  {
+    "file": "rounding-REPORT.md",
+    "source": "/home/keckj/.cache/symox-validation/native-complex-rounding-20261027/proof/REPORT.md",
+    "sha256": "51bf090f76f8da65561e4ef63a75713a0b570ecda749680fd0d796288c6b3951"
+  },
+  {
+    "file": "rounding-identity.json",
+    "source": "/home/keckj/.cache/symox-validation/native-complex-rounding-20261027/proof/identity.json",
+    "sha256": "f57d10c177df9804310e6fe05e87eae740d334465e3d79fb1cf0f12fb2a694d3"
+  },
+  {
+    "file": "equality-REPORT.md",
+    "source": "/home/keckj/.cache/symox-validation/native-composite-equality-20261027/proof/REPORT.md",
+    "sha256": "9b21b3ac95056498d54b1879efb62b22537ba8f4399d13528fa65996a29eadb2"
+  },
+  {
+    "file": "equality-identity.json",
+    "source": "/home/keckj/.cache/symox-validation/native-composite-equality-20261027/proof/identity.json",
+    "sha256": "5fb77b31e14da43a4f6856a47d0140a4b1ece2954ec287eaf84d74b22a863571"
+  },
+  {
+    "file": "DIAGNOSIS.md",
+    "source": "/home/keckj/.cache/symox-validation/native-complex-rounding-20261027/proof/DIAGNOSIS.md",
+    "sha256": "74f2870daaf39072c20c094322b92b3d83b7d946a32f7a75f8ce462affab56e5"
+  },
+  {
+    "file": "classification.json",
+    "source": "/home/keckj/.cache/symox-validation/native-complex-rounding-20261027/proof/classification.json",
+    "sha256": "e471263dca8da03829921b7d6cd0e061c7caead1e24261e62629052d1197ca45"
+  },
+  {
+    "file": "complex-rounding-audit-v2.json",
+    "source": "/home/keckj/.cache/symox-validation/native-complex-rounding-20261027/proof/complex-rounding-audit-v2.json",
+    "sha256": "1d1b6e948fb2aa0ebabb51906d81718ea02205c998bf5ab590dcbc7c9e9bd12f"
+  },
+  {
+    "file": "complex-rounding-audit-after-final.json",
+    "source": "/home/keckj/.cache/symox-validation/native-complex-rounding-20261027/proof/complex-rounding-audit-after-final.json",
+    "sha256": "0781e986bb9e348189d40e51b1a81ebda230d8b1d1d550bd3df2f574dc30f617"
+  },
+  {
+    "file": "audit.py",
+    "source": "/home/keckj/.cache/symox-validation/native-complex-rounding-20261027/proof/audit.py",
+    "sha256": "390cafb57d74d4c1c82917401183abe45a357ea7d667ed67d817fcf670bd40b8"
+  },
+  {
+    "file": "classify.py",
+    "source": "/home/keckj/.cache/symox-validation/native-complex-rounding-20261027/proof/classify.py",
+    "sha256": "5ca72fcba9d89a29130537bfed6d1a998b1a2b226776489f00b0a9f0bae6bd1c"
+  }
+]

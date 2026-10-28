@@ -1,0 +1,108 @@
+{
+  "count": [
+    {
+      "case": "scalar",
+      "medians_ns": {
+        "before": {
+          "first_ns": 3107876,
+          "repeated_median_ns": 2981,
+          "changed_median_ns": 3452255
+        },
+        "after": {
+          "first_ns": 220505,
+          "repeated_median_ns": 2904,
+          "changed_median_ns": 172769
+        }
+      },
+      "repeated_gain": 1.0265151515151516,
+      "changed_gain": 19.98191226435298
+    },
+    {
+      "case": "dag8",
+      "medians_ns": {
+        "before": {
+          "first_ns": 357336,
+          "repeated_median_ns": 3039,
+          "changed_median_ns": 337835
+        },
+        "after": {
+          "first_ns": 47869,
+          "repeated_median_ns": 3017,
+          "changed_median_ns": 15896
+        }
+      },
+      "repeated_gain": 1.0072920119323832,
+      "changed_gain": 21.25283090085556
+    },
+    {
+      "case": "dag12",
+      "medians_ns": {
+        "before": {
+          "first_ns": 496692,
+          "repeated_median_ns": 3061,
+          "changed_median_ns": 464561
+        },
+        "after": {
+          "first_ns": 49022,
+          "repeated_median_ns": 2894,
+          "changed_median_ns": 17759
+        }
+      },
+      "repeated_gain": 1.057705597788528,
+      "changed_gain": 26.15918689115378
+    }
+  ],
+  "simplex": [
+    {
+      "case": 10,
+      "medians_ns": {
+        "before": {
+          "first_ns": 28392935,
+          "repeated_median_ns": 26078989,
+          "changed_median_ns": 25974398
+        },
+        "after": {
+          "first_ns": 2159172,
+          "repeated_median_ns": 1828962,
+          "changed_median_ns": 1760444
+        }
+      },
+      "repeated_gain": 14.258901497133346,
+      "changed_gain": 14.754458534324295
+    },
+    {
+      "case": 30,
+      "medians_ns": {
+        "before": {
+          "first_ns": 250031618,
+          "repeated_median_ns": 252517038,
+          "changed_median_ns": 262883582
+        },
+        "after": {
+          "first_ns": 11584997,
+          "repeated_median_ns": 11394749,
+          "changed_median_ns": 11468270
+        }
+      },
+      "repeated_gain": 22.160824955424644,
+      "changed_gain": 22.922688600809014
+    },
+    {
+      "case": 60,
+      "medians_ns": {
+        "before": {
+          "first_ns": 1384201601,
+          "repeated_median_ns": 1384493111,
+          "changed_median_ns": 1368802111
+        },
+        "after": {
+          "first_ns": 42179296,
+          "repeated_median_ns": 40517951,
+          "changed_median_ns": 41366254
+        }
+      },
+      "repeated_gain": 34.16986981893532,
+      "changed_gain": 33.08982512653913
+    }
+  ]
+}

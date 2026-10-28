@@ -1,0 +1,29 @@
+{
+  "status": "OPEN on accepted R12; separate private correction required before resolving",
+  "accepted_source": "4df626845d69241dcb3b0503b60454fc1ff8be00e78ee5ed45ee5b51f3ff0b3e",
+  "native_sha256": "96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0",
+  "helper_base_sha256": "4bd97fa236a62b9c1cea05dbaa23736e15c8f14df4d3d76c09891bf574df2b3c",
+  "scope": "ordinary ZZ HNF mathematical helpers _gcdex and add_columns, changed __code__ before a fresh _hnf_native import and register; actual function identity/globals/builtins retained",
+  "before": {
+    "local_failed": 4,
+    "demeter_failed": 4,
+    "local_seconds": 1.38,
+    "demeter_seconds": 1.55,
+    "runtimes": [
+      "CPython 3.10.12 Linux x86_64",
+      "CPython 3.10.20 Linux x86_64"
+    ]
+  },
+  "witness": "A=[[2,3]]: native [[1]] with zero helper callbacks versus full original body [[1]] and one observed helper callback. Raising helper errors are omitted by native admission. Fresh register captures changed code rather than authenticating original semantics.",
+  "regression_cases": [
+    "_gcdex counter",
+    "add_columns counter",
+    "_gcdex RuntimeError",
+    "add_columns RuntimeError"
+  ],
+  "audit": "Each child installs rejecting object.__getattr__ hook after setup. Before mismatch is callback/result/error behavior, not a metadata audit exception.",
+  "runtime_reference_imported": false,
+  "planned_resolution": "Authenticate actual helper code against immutable semantic templates before ordinary HNF capture. New private modular HNF already uses such templates. Retain complete original math on refusal, plus existing stock native admissions.",
+  "production_fix_integrated": false,
+  "local_command": "PYTHONPATH=<accepted-R12>/python <venv>/bin/python -m pytest -q tests/test_native_hnf_function_bootstrap.py"
+}

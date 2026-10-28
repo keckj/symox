@@ -1071,6 +1071,13 @@ pub(crate) fn signs(s: SpecialFn, a: &[Expr]) -> Option<Signs> {
     use SpecialFn::*;
     let x = a.first()?;
     match s {
+        // E_nu(0) = integral_1^oo t**(-nu) dt = 1/(nu - 1) is finite
+        // and positive for real nu > 1. Prove this structurally, including
+        // Float zero, so zoo*expint(n + 1, 0) in uppergamma(-n, 0)
+        // simplifies without a numerical sign guess or an expint rewrite.
+        Expint if a.len() == 2 && is_zero(&a[1]) == Some(true)
+            && assumptions::is_real(x) == Some(true)
+            && is_positive(&sub(x, &Expr::one())) == Some(true) => Some(Signs::POS),
         Mod if a.len() == 2 => {
             if is_positive(&a[1]) == Some(true) {
                 Some(Signs::NONNEG)

@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "python/symox/polys/_polymatrix_native.py",
+      "base_sha256": "a8e9d3d2a2b9e2ce7dfe19a8546abc9325e4fdd31629cf91dc190257e22abd30",
+      "final_sha256": "68ec973b02d152e2cde41b995325c1b7fda587aa4b11f2c272d68e87af1b3304"
+    },
+    {
+      "path": "tests/test_polymatrix_vector_protocol.py",
+      "base_sha256": null,
+      "final_sha256": "ff27a7f95223347bd3f5edd951a8acfc81f4d95beb08d3e17638f428c02b6c30"
+    }
+  ],
+  "binary_sha256": "532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b",
+  "rationaltools_sha256": "c966bb72e3f6b83b6ff2fbff151f4096a7ba04eb4955517b0ac0bcd990b6ec27",
+  "patch_sha256": "a0ad1e8d83a81c014e5dcc5e59c7aff23cd1a63bffcb9c9fe9a0eebef53d30aa",
+  "source_manifest_sha256": "b26f45b6596c460ab7ef01507149354568cd5f10c5726d94b26c92ae4cd8b4f2",
+  "baseline": "57 failed, 66 passed in 2.32s",
+  "tests": {
+    "local_lrt_first": "213 passed in 6.43s",
+    "local_polymatrix_first": "213 passed in 6.37s",
+    "demeter_lrt_first": "213 passed in 9.39s",
+    "manifest_verified_files": 792,
+    "existing_tests_unchanged": true,
+    "git_apply_check": "passed"
+  }
+}

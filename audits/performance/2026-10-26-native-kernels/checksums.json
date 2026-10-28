@@ -1,0 +1,21 @@
+{
+  "README.md": "0fe89e21971fb59f1053b5506161a110dc86852b789d32db08f32f8bd253e957",
+  "comparison.json": "e423e491c30f6dfc06ea14cb1bcb5b49afd7392dae6eebaffe116be49a8dc9a4",
+  "gamma-after-0.json": "3398a37b097482bcad853179b0cc0674c0e14b416dd07df5a0c77661dc03e476",
+  "gamma-after-1.json": "efa0962d98488ea9e71e3cbd01f5294ca2f11b109e6515e6be4cfcc779993404",
+  "gamma-after-2.json": "49e3a11b4c731bb1976f7ee3cee02701c8df6c54e381529ca39a36b7bee550b2",
+  "gamma-after.json": "443520201be11cc7424f5b3309207bab4671f0c44e5e605f69a1d69012462bdc",
+  "gamma-before-0.json": "47fe4f1a8ec8c5af7f59c54569c3e0516c9acd2af10bf2c8237e091362b21394",
+  "gamma-before-1.json": "1a29a51a0e9b1253c596bdea67d70d40ee51b5e3a4cd159276c1af308daf1939",
+  "gamma-before-2.json": "f32e163e3f0337d749140473f42acc43d257af8cea04fcf559a60b30fd654b37",
+  "gamma-before.json": "3206345c4b14f698e093939778564c3ea9238293c4a5ae5fe5669d744741b7a4",
+  "gamma-spouge-benchmark.py": "5c1fc5c18d161ce8953c4364cc4760aa11181f6f021dbf2fd0c2b015822638e2",
+  "inverse-after.json": "fb2b31b70123022cc5bebc60766fd4bb0b260f8be3defb6e673f9c8e957eee6e",
+  "inverse-before.json": "5fc9e114c9e2910533bc3b73d9f9e15eb204e77d65ad39a815a0756cef5f4442",
+  "inverse-benchmark.py": "95481926a9551fefff11677a839e5d3b6b7c992f4a42ceba2695345a1576a49d",
+  "performance-screen-summary.json": "e0e2d04567d5876b0fb11ed42d2c9fe4b2954778ad8f4b0782d1ed3094090aa4",
+  "performance-screen.json.gz": "295fcee3cd1c4f543eee4a662e32d750e8f5677839030c61b575f82243d144bd",
+  "performance-screen.md": "fc9c521fc0e13d2c1966746d6170f944cf4a57370734f5c080ce13282e767497",
+  "stats-after.json.gz": "19d37f084d12815311ae6381ac2cbfd328d9cc36e9d96f17105136065a3085fb",
+  "stats-before.json.gz": "021e2615fa3318f48e82698f76535561d6d1141833f04263782c0af889c17130"
+}

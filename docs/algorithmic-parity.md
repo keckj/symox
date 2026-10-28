@@ -6,6 +6,12 @@ SymPy 1.14.0 is the current comparison reference. Mathematical capability at
 least equivalent to that reference is a project requirement. Import availability
 and benchmarks on selected examples do not establish this equivalence.
 
+The [active TODO](../TODO.md) consolidates the remaining work as of
+2026-10-28, including the working-tree follow-up to `5eb39d6`. The dated sections below
+retain historical evidence: a gap listed in an earlier section may have been
+resolved by a later wave. The [archived TODO](history/TODO-before-2026-10-26.md)
+preserves the wave-by-wave decisions and validation history.
+
 The [versioned API audit](sympy-parity-audit.md) records the traversal of all
 310 module paths, including constructor and public method signatures. Run its
 resumable driver rather than treating name coverage as behavioral evidence.
@@ -10354,7 +10360,7 @@ not wrong results. `solve.rs` and `poly/roots.rs` were documented only.
 
 ## defparam (wave 17)
 
-Parametric definite integrals and distributions (TODO.md section 3).
+Parametric definite integrals and distributions ([TODO.md section 2](../TODO.md#2-intégration-symbolique-transformées-et-distributions)).
 
 Integration corpus triage: none of the 21 MISSING and 10 DIFF entries can
 be ported, because each SymPy value is wrong for some parameter values
@@ -10434,3 +10440,782 @@ Remaining (documented, not fixed):
   leaves it unevaluated); right for real a.
 
 Tests: `tests/test_defparam_parity.py`.
+
+## Follow-up on 2026-10-26: trig preimages, inexact domains and numerical poles
+
+This batch follows the consolidated TODO at base commit `5eb39d6`. The
+changes are in the working tree; the source manifest, native binary hash and
+validation results identify the tested snapshot separately from that base.
+
+### Reciprocal trigonometric equations
+
+`solve` now keeps every exponential preimage for `sec(k*x) = r` and
+`csc(k*x) = r` with a positive machine-size integer `k > 1` and a supported
+right-hand side. The substitution `u = exp(I*k*x)` gives respectively
+`r*u**2 - 2*u + r` and `r*u**2 - 2*I*u - r`. Every nonzero root `u` supplies
+all `k` roots of `t**k = u`, then the principal-logarithm representatives
+`x = -I*log(t)` used by `solve`. This is a finite `solve` result, not a claim
+that it represents the full periodic solution set of `solveset`.
+
+The route also runs when the inverse trig function evaluates exactly. It
+keeps double-root preimages: `solve(sec(2*x) + 1, x)` returns
+`[-pi/2, pi/2]` instead of losing the negative root. `sec(4*x) - 3` no longer
+raises, and the existing nonexact forms for multiples 2 and 3 are preserved.
+A zero right-hand side is provably impossible for a reciprocal sine/cosine.
+A multiple outside the integer representation does not fall back to an
+incomplete list of principal inverse branches.
+
+Candidate filtering extends its certified algebraic comparisons to
+logarithms. `log(z) = 0` requires `z = 1`, and `log(Abs(z)) = 0` requires
+`|z|**2 = 1`. Outward-rounded algebraic enclosures prove separation from
+these values without approximating a logarithm or using a numerical zero
+threshold. The sign of a real logarithm follows its positive argument's
+position relative to 1. An inconclusive comparison retains the previous
+undecided behavior. This removes nonreal logarithmic candidates for real
+unknowns, including `sec(4*x) - 1/2` and the analogous `csc` equation.
+
+Remaining: shifted affine arguments and noninteger multiples are not covered
+by this extension. Symbolic degeneracies and full periodic families remain
+separate solver work in the active TODO.
+
+Tests: `tests/test_solve_trig_multiples_parity.py`; existing solver and
+holonomic regressions remain in the validation scope. The new tests compare
+entire lists with distinct reference roots, independently check polynomial
+preimages at high precision, and cover real/sign assumptions.
+
+### Inexact polynomial domains and cancellation
+
+Without explicit generators, `Poly(x + 0.5*I)` now infers `CC` with `x` as
+its sole generator. An explicitly supplied `I` remains a generator. Domain
+descriptors retain the actual precision of inferred complex coefficients.
+
+Explicit scalar `CC -> QQ_I` conversion follows SymPy's
+`QQ_I.from_ComplexField` convention: each component is converted through the
+default 53-bit RealField context. This conversion is distinct from arithmetic
+inside a selected higher-precision ComplexField and from conversion to
+another ComplexField, both of which keep their field precision.
+
+Expression-level `cancel(..., domain=RR/CC)` and the supported composite
+domains now use polynomial conversion and cancellation at the selected
+precision. The route covers expression and tuple inputs, polynomial return
+types, generator options, incompatible-option errors and the reference
+fallback for Piecewise/noncommutative inputs. Tuple outputs preserve the
+reference's domain conventions. Symbolic real coefficients such as `sqrt(2)`
+and `sin(1)` are converted through the requested RealField, rather than
+being evaluated at the default RR precision first.
+
+Intentional precision correction: exact-ground reconstruction for polynomial
+arithmetic over a ComplexField uses that field's precision for both
+components. The previous fixed 53-bit bound could change coefficients while
+advertising 140-bit results. Some SymPy complex cancellation paths also lose
+precision here; the tests check against independently evaluated exact input
+coefficients instead of copying those low-precision results.
+
+Remaining: cancellation over CC or CC composites with several polynomial
+generators is still explicitly unsupported in the cases documented by this
+batch. The active TODO retains this capability gap; the new route does not
+establish general cancellation parity.
+
+Tests: `tests/test_inexact_domain_followup_parity.py`, including coefficient
+precision, exact conversion, public return types, options and complex grounds
+without an order relation.
+
+### Hypergeometric singularities and uppergamma at zero
+
+The nonfinite evaluation fallback accepts nested numerical parameter tuples,
+which previously excluded `hyper(ap, bq, z)` before its host evaluator could
+return an infinity. The existing guard against rounded arguments creating a
+false pole remains in place, and a pending host interruption is checked
+before any nonfinite result is returned.
+
+For positive rational parameters, a zero-balanced `pF_(p-1)` at exactly
+`z = 1` diverges to positive infinity: its positive series terms are
+asymptotic to `C/n`. This fact is checked with exact rational arithmetic,
+including thirds that cannot be represented exactly by a binary float.
+Nearby parameters and `z = 1 - 10**-40` are not classified as that pole.
+
+The exact sign fact `E_nu(0) > 0` for real `nu > 1` simplifies
+`uppergamma(-k, 0)` and `uppergamma(-k, 0.0)` to `zoo` for positive integer
+`k`. Zero and undecided symbolic orders keep their reference forms. No
+numerical sign guess or arbitrary precision cutoff is used for this rule.
+
+Tests: `tests/test_numeric_singularities_followup_parity.py`, including
+`strict`, `maxn`, substitution, convergent boundaries, parameter perturbations,
+sides of the cut and immediate interruption propagation.
+
+### Global trig primitive regression found by the full suite
+
+The full-suite run also reproduced a pre-existing regression in the initial
+`5eb39d6` binary (SHA-256
+`edb43bd43ec222c8ab6f08a074d5958157ac67b47d333a5550262a4d8d8ebeed`).
+`integrate(1/(1 + 3*cos(x)**2), x)` returned 2,887 characters of complex logs.
+This was not merely a different form: the result jumped by `-pi` at `x = pi`
+and had equal values at 0 and `2*pi`, although the integral over that period
+is `pi`. Checking the derivative only between cuts would miss this error.
+
+Before building its real logarithm/arctangent ansatz, Heurisch now exposes
+Cartesian parts of closed numerical coefficients in its polynomial factors.
+This reveals conjugate pairs hidden inside compact principal radicals such as
+`sqrt(1/2 + sqrt(3)*I/2)`. Generators and coefficients containing free parameters
+retain their original form and assumptions. Root extraction itself continues
+to keep its compact principal radicals. The result again has real arctangent
+terms and the existing periodic floor correction. The old exact-form test is
+retained, with additional global primitive checks.
+
+Two older printer-test assumptions also needed correction, independently of
+this implementation: SymPy 1.14 preserves dictionary values through `cse` only
+with `list=False`, and the string `optimizations="none"` is invalid. Tests now
+check both reference behaviors. The CUDA host-test shim uses private `rsqrt`
+function names to avoid clashing with the newer glibc declarations on Demeter;
+the generated kernels and numerical tolerances are unchanged.
+
+### Validation of the 2026-10-26 batch
+
+The final complete run on Demeter collected **44,960 tests** and finished with
+**44,897 passed, 58 skipped, 5 xfailed and no failures**. All 48 disjoint
+shards returned zero; their combined collection and completed-node counters
+match the full collection exactly. The four new regression modules contribute
+178 tests. The native build retained the same Rust sources throughout the
+release build. Local Rust checks passed 573 unit tests and 5 doctests, with
+one ignored test, and the clippy correctness check passed.
+
+The [machine-readable evidence](../audits/sympy-1.14.0/validation-2026-10-26.json)
+records the source and binary hashes, environment, skip reasons and raw-log
+locations. Fortran compilation was enabled on Demeter. The final run uses no
+JAX precision or platform override. The standalone ODE/integration corpora
+and the complete documentation-example audit remain to be replayed; this
+test result does not certify global mathematical parity.
+
+### Native architecture follow-up, 2026-10-26
+
+The README's Rust-engine architecture is a requirement separate from API
+coverage and mathematical parity. The Python package still contains
+mathematical algorithms, including solvers, integration, domain matrices
+and statistics. Using native expression objects inside those algorithms
+does not make their control flow native. Their porting remains active work
+in the TODO; this batch does not claim to have completed it.
+
+The new denominator preparation for `radsimp` traverses and rewrites the
+expression DAG in Rust. For rational linear combinations of positive
+rational square roots, it groups radicands modulo rational squares using
+exact integer square roots of their ratios. Distinct square classes are
+linearly independent over QQ. The proof therefore recognizes rational
+cancellation or proves irrationality without numerical recognition,
+factorization, a minimal polynomial or a cutoff on the number of terms.
+Forms outside that proof, including complex cube roots, retain the existing
+recognition-and-exact-equality fallback. Recognition failure leaves the
+expression available; interrupts propagate immediately. The public
+`symbolic` and `max_terms` options retain their meaning.
+
+Matrix dispatch now proves exact rational or rational-polynomial entries
+in Rust before selecting the existing native kernels. Rational inversion
+avoids inexact-domain adapters, and rational-polynomial characteristic
+polynomials avoid Python DomainMatrix reconstruction. EXRAW coefficient
+simplification, inexact composite domains and their precision, explicit
+coefficient/zero callbacks, generator identity and custom `to_DM` overrides
+retain their established routes. A finite real constant derivative also
+has an explicit native weak-monotonicity proof: a conditional zero set of a
+parameter is not a spatial turning point of an affine function.
+
+Multivariate complex inexact polynomial GCD, cofactors, LCM and cancellation
+reuse the complete native Gaussian exact-ground algorithms and reconvert
+at the selected ComplexField precision. Polynomial generators stay separate
+from coefficient-domain parameters. Ground contents, monomial sparse
+cofactors, associated rings and denominator clearing follow their distinct
+public protocols. Reconstruction tests use exact rational residuals of the
+stored coefficients, bounded at the selected precision, rather than demand
+exact equality after floating-point arithmetic or copy SymPy's known
+53-bit loss. Intentional correction: `lcm(0,0)` returns the exact zero
+polynomial where the reference raises `ZeroDivisionError` in these domains.
+
+Nested affine exponentials are inverted in Rust with every logarithmic
+integer index and every nonzero-preimage guard. The guards exclude the
+invalid `log(0)` indices present in some older reference families. Real
+chains require positive logarithm arguments. Zero multipliers retain their
+whole-domain branches; nonfinite multipliers, shifts and parameter
+denominators retain the original equation conditionally when inversion is
+unsupported. Unknown constant equations similarly retain their parameter
+condition instead of falsely asserting that the solution set is empty.
+Tuple-bound ConditionSet membership and free-symbol collection bind each
+component of the index tuple.
+
+One older substitution gap remains explicit: in a conditional family for
+`exp(exp(x)+a)=y`, substituting `y=0` before `a=-oo` can prematurely simplify
+the held equation to False. Reversing those substitutions or solving the
+specialized equation gives the whole domain. This was reproduced on the
+previous validated binary `8323edda...` and has a strict expected-failure
+regression. The new finite-parameter inverse does not establish full
+nonfinite-parameter substitution parity.
+
+Hypergeometric unit-argument divergence is certified before the numerical
+host can return a spurious large finite number. For `pF_(p-1)` with real rational parameters
+(including exact stored binary Float parameters), nonpositive convergence
+excess and the exact gamma-ratio sign determine positive or negative
+infinity. Terminating and forbidden nonpositive-integer parameters keep
+their existing paths. A DAG feature bit and memoized native rewrite propagate
+certified poles through numerical scalar compositions, without scanning
+expressions that contain no hypergeometric function. Symbolic, complex and
+other unproved cases retain their established evaluation paths.
+
+A proposed native Gauss evaluation for convergent unit-argument 2F1 was
+removed after measurement found a roughly 40-fold regression. The existing
+numerical path and its precision remain available. Profiling identified
+repeated coefficient construction in the native Spouge gamma kernel; making
+that kernel competitive remains separate work. An unevaluated result or a
+false finite result at a pole is never counted as a speed baseline.
+
+The complete-suite replay also exposed an older Indexed metadata collision:
+two references with the same printed name but different bounds or base
+shapes shared a native Symbol and recovered the wrong printing metadata.
+Adapted scalar atoms now retain structural identity in native Symbol
+equality, hashing and ordering, with DAG serialization preserving it.
+Ordinary Symbol hashes remain unchanged. The Indexed adapter uses that
+identity and reconstructs metadata after unpickling without relying on a
+previous registry entry. This fixes direct-Idx reference collisions; it does
+not extend the older promotion of an Idx label inside a composed index such
+as `i+1` into a full native Idx representation.
+
+The final native-follow-up release has SHA-256
+`345253365beafcb9192f25c35a6500b2aec1defed2484441f0c622d9b5e8a43c`.
+The complete Demeter replay collected and finished **45,235 tests** exactly
+once: **45,174 passed, 55 skipped, 6 expected failures and zero unexpected
+failures**, including 275 additional regressions. Rust passed 587 unit tests
+and 5 doctests (one ignored unit test), with the clippy correctness check
+passing on the same frozen Rust sources. Rust was installed on Demeter, so
+the three previously skipped Rust code-generation tests now run. The extra
+expected failure records the older partial-substitution gap described above.
+See the [native follow-up validation evidence](../audits/sympy-1.14.0/validation-2026-10-26-native.json)
+and [performance evidence](../audits/performance/2026-10-26-native-dispatch/README.md).
+The full documentation-example audit and standalone ODE/integration corpora
+remain to be replayed; these checks do not certify global parity or complete
+the port of the remaining Python algorithms.
+
+### Native numerical and probability kernels, 2026-10-26
+
+The next identified release is
+`c461eb3df81f6a5caa25b3da2bf9c7307770301b9d86521a3fda0deb6727454a`.
+All 45,406 tests in the complete Demeter collection finished exactly once:
+45,345 passed, 55 skipped and the same 6 expected failures remain. There are
+171 additional regression cases. Rust passed 598 unit tests and 5 doctests,
+with one ignored unit test, plus the clippy correctness check on unchanged
+build sources. The [kernel validation record](../audits/sympy-1.14.0/validation-2026-10-26-kernels.json)
+links the source manifest, environment, commands and raw logs.
+
+Binomial raw moments (including arbitrary success/failure values) and normal
+raw moments now run entirely in Rust. Independent polynomial expectations
+and variances use native sparse polynomial conversion, native moment
+products and native simplification. Generic finite tables retain their
+actual weights, including their zeroth moments; normalization is never
+silently assumed for custom tables. Stock-model shortcuts require unchanged
+parameters, tables and moment callbacks. Lazy/overridden table access,
+dependent probability spaces, conditions, floating inputs and unproved
+expressions retain their existing general paths. Conservative expansion
+and order budgets only decline the optimization; they never return a zero
+or drop the established fallback. These ports do not establish complete
+native probability coverage.
+
+Floating-point matrix domain detection and scalar RR/CC Gauss-Jordan inversion
+are native. Partial pivoting and arithmetic stay at the selected domain
+precision; input/output follow the reference decimal-presentation round trip
+separately, including 1-bit values displaying at 7 bits, 139 at 140, and 211
+at 213. Tests distinguish presentation precision from stored mantissa bits,
+compare well-conditioned binary outputs exactly and certify reconstruction
+over rationalized stored binary coefficients at 53/140 bits and sizes 10/20.
+Nonfinite matrices keep their older explicit failure routes; this batch does
+not claim full nonfinite matrix inversion parity.
+
+Heurisch's complete Cartesian numerical-coefficient preparation is native,
+including the principal square-root recursion and exact conjugate exposure.
+It preserves unknown functions and parameters and returns the original
+Python object when the former helper would leave it untouched. Coefficients
+that are processed still return an expression, even when already Cartesian.
+Global primitive and integration-method tests retain their original checks.
+The surrounding general Heurisch algorithm remains Python work to port.
+
+The Spouge gamma kernel caches its exact coefficient arrays by the complete
+working precision and `a`, without rounding keys or caching gamma values.
+LRU storage is bounded to 16 entries and 2 MiB. Coefficients are constructed
+outside the mutex; evicted allocations are released after unlocking. Very
+high precisions exceeding the cache budget use the former streaming sum,
+preserving its memory behavior. Cache misses still pay coefficient
+construction. The measured reuse gains apply to both repeated and distinct
+arguments; first-call timings and independent high-precision validation are
+retained separately. No convergent-Gauss shortcut was reintroduced.
+The [kernel performance evidence](../audits/performance/2026-10-26-native-kernels/README.md)
+retains all before/after trials and exact inversion certificates, plus the
+full 137-case screen with the same 132 comparable cases and five exclusions.
+
+
+### Native algebra, operation counts and rational simplex, 2026-10-26
+
+Release `9405dccb462e37ed095dc19b597595b74662ce45d23556e96bf8d52e836636a2`
+collected and completed all **45,810** Demeter tests exactly once: **45,749
+passed, 55 skipped, six existing expected failures, zero unexpected failures**.
+There are 404 additional regression cases since the preceding kernel release.
+Rust on Demeter passed 618 unit tests and five doctests, with one ignored test.
+Clippy correctness passes with the build toolchain 1.84. The newly installed
+1.99 clippy rejects seven preexisting Euler/golden-ratio literals; the following
+batch corrects their definitions without changing their binary64 values or
+raising the compiler requirement. That newer check is not reported as passing.
+The [validation record](../audits/sympy-1.14.0/validation-2026-10-26-algebra.json)
+retains source identity, commands, environment and logs.
+
+Scalar operation counting now traverses native DAGs and accumulates unbounded
+integer multiplicities. Containers, external objects and matrix protocols
+retain their existing walker. A separate native QQ certificate verifies that
+already returned rational roots cover a polynomial exactly, including repeated
+and factored powers. It never supplies, removes or numerically guesses a root;
+an incomplete/unsupported certificate keeps the complete former postprocessing.
+Existing solve dict/set ordering and imaginary-variable check=False gaps remain.
+
+Real multivariate fraction-field cancellation, gcd, cofactors and lcm now reuse
+exact native parameter-polynomial kernels while retaining RR precision, units
+and reference conversion conventions. Explicit inexact-to-exact conversion
+still follows the 53-bit rational reconstruction convention; inexact arithmetic
+at 140 bits does not pass through that reconstruction. Eigenvectors simplify
+EX/EXRAW characteristic coefficients before grouping roots: algebraically
+identical eigenvalues now retain their correct algebraic multiplicity and
+complete nullspace. This closes the audited identity-entry gap, not every
+symbolic eigensystem or domain-normalization gap.
+
+Held polynomial dictionaries accumulate repeated generator exponents rather
+than overwriting them. Thus for X=Die('X',6), E(Mul(X,X,evaluate=False)) is
+91/6, not 7/2. Oversized held source terms are combined using unbounded keys
+before applying coordinate storage bounds; exact cancellation and zero
+coefficients remain representable. Sparse arithmetic combines wide monomial
+terms over the actual coefficient ring before bounding surviving coordinates,
+including annihilating products over Z/4Z. Checked public boundaries catch only
+the private representation cancellation; foreign host failures propagate.
+Matrix determinant/inverse/charpoly keep their exact expression fallback, and
+the established Gaussian-polynomial EX fallback is preserved.
+
+This representation work is scoped. Remaining total-degree u32 sums and
+public contains/free-reduced boundaries are separate follow-ups. Some raw
+infallible Rust callers remain unaudited and need checked boundaries. Public
+huge-exponent Groebner preprocessing can still be too costly before reaching
+the sparse kernel. EX/CC outer polynomials and composite modular polynomials
+still have dense-storage paths. A refusal of an actual representation limit
+is unsupported computation, never a zero polynomial or absence of solutions.
+The checked unwind infrastructure requires an unwind-capable Rust build.
+
+Poisson raw moments use a single exact Stirling row and join the guarded native
+independent-polynomial query path. Stock callbacks, argument snapshots,
+dependence, floating/host inputs and conditional queries retain their protocol
+checks and complete fallback. The new rational simplex performs both phases,
+Bland pivots and exact feasibility/optimality comparisons in Rust, preserving
+infeasible versus unbounded failures. Only ordinary QQ scalars select it;
+other domains retain the previous algorithm. Bound transformation and symbolic
+linear extraction remain Python work. The [controlled performance evidence](../audits/performance/2026-10-26-native-algebra/README.md)
+includes exact certificates and separates repeated from changed inputs.
+
+The affine/rational-frequency sec/csc improvements and broad degree metadata
+corrections are separately validated patches and are not included in 9405dccb.
+Full documentation-example and standalone ODE/integration replays remain open;
+these checks do not establish global parity or finish the remaining Python ports.
+
+
+### Affine trigonometric roots, wide degrees and correlated moments, 2026-10-26
+
+The corrected source snapshot `40ccb95d51e75cc4adad92270fb94bde6a53cc8bb641610fb1f26a27c71ad6b3`
+uses release binary `d9b14020872315d1ab4428b1ff129c56109b87777c02cd02044957bc65b9dd61`.
+All **45,943** Demeter tests finished exactly once: **45,882 passed,
+55 skipped, the same six expected failures, zero unexpected failures**.
+Rust on Demeter passed 627 unit tests and five doctests, with one ignored
+unit test; clippy correctness passes with 1.99. The
+[corrections validation record](../audits/sympy-1.14.0/validation-2026-10-26-corrections.json)
+retains both the initially failed collection and the corrected complete run.
+The two original failing tests were retained: diffgeom's stock scalar
+simplify dispatcher had been mistaken for a user override, declining the
+native Gaussian route. A Python protocol-only correction recognizes that
+specific dispatcher, with canonical closure/wrapped metadata checked.
+The native binary and every Rust input are unchanged between these runs;
+Rust proof reuse is recorded explicitly. Stacked Vector/Tensor dispatchers
+are a separate strengthening in the following source snapshot.
+
+Native sec/csc solving now accepts affine arguments p*x/q+b for exact
+nonzero rational p/q in the supported machine-sized lifting range. The
+quadratic in exp(I*x/q), including its phase, keeps all p lifts per distinct
+root and deduplicates only double roots. These are finite solve representatives
+in -pi*q < Re(x) <= pi*q, not a claim to enumerate the infinite periodic
+solution families. Rational-frequency cases extend some NotImplemented
+answers of SymPy1.14; certificates check every lifted exponential and the
+complete polynomial root count. Symbolic slopes retain their original path,
+including degenerate slope handling. Real/positive assumptions and float
+rational=True/False presentation keep the established exact filtering routes.
+
+Sparse coordinate exponents remain u32, but their total degree is now u64.
+A monomial of degrees (2**31,2**31) therefore has total degree2**32.
+Degree metadata, homogeneous/linear/quadratic predicates, truncation and
+graded display orders no longer wrap that sum. Homogenization checks the
+actual added coordinate instead of refusing every large total degree.
+Reorder/remap preserve the inexact coefficient ground, including CC140
+binary values. Additional checked boundaries for public contains/free
+reduced prevent a private storage unwind escaping as PanicException;
+unsupported storage remains distinct from an exact zero remainder or
+proven non-membership. Low-level unaudited paths and the old dense EX/CC
+storage limitations remain separate from this bounded correction.
+
+The native correlated-Gaussian recurrence memoizes exponent states and uses
+an explicit stack. Its multiplication/addition grouping and simplification
+match the former recurrence; exact order1200 needs no Python call chain.
+Ordinary integer exponent lists, stock dense protocols and supported native
+arithmetic coefficients select the kernel. Host/abstract matrices, custom
+indexing/simplify callbacks, held values, other coefficient forms and the
+state budget retain the complete original route. Float coefficients keep
+their old stored values and final simplification. The stock diffgeom case
+and genuine wrapped overrides have distinct regression tests.
+
+Finally, binary64 Euler/golden-ratio presentations are centralized with their
+original bits, retaining Rust1.84 compatibility while satisfying the new
+1.99 constant lint. No precision or numerical value is changed by that
+source correction. This batch does not certify general native Stats, all
+symbolic solution specializations or global mathematical parity.
+
+
+### Native sparse storage, QQ preparation and guarded substitutions, 2026-10-26
+
+Release `570f18323d421702a77887b9552868e211194f83e04ff89e019095484f2db21b`,
+source manifest `80f63ba1cc4e4db4deae564344bdfab36e803caf90e230e5b061333521c883a8`,
+completed all **46,192** Demeter tests exactly once: **46,132 passed,
+55 skipped, five existing expected failures, zero unexpected failures**.
+Rust passed 638 unit tests and five doctests, with one ignored timing test;
+clippy correctness passes with1.99. The [storage validation record](../audits/sympy-1.14.0/validation-2026-10-26-storage.json)
+links binary, source, environment, commands and complete logs. There are
+249 additional cases and one older strict xfail now passes normally.
+
+EX/CC ExpressionPoly stores either a dense DMP or a native sparse MPoly<EX>.
+Constructors, views, degree/coefficients, conversion, pickle and structural
+reconstruction can now retain coordinates2**31 without allocating billions
+of slots. Ordinary constructor duplicates keep the last entry; summed
+constructors retain their EX accumulation. Raw nonstructural zero annotations
+keep their previous dense representation. Cross-representation equality
+requires a canonical DMP so it remains transitive; Dense/Dense equality is
+unchanged. Ground and binary coefficient precision survive reorder/remap.
+
+Native additive/scalar operations use EX or the existing Dom arithmetic as
+appropriate. CC rounding remains at the selected domain precision. General
+mul/square/pow and other nonported operations still obtain the complete dense
+path in this release; they are not declared efficient on giant coordinates.
+A separate recursive sparse-product port is pending. The old public interior
+EX Float-zero precision issue is explicitly not claimed fixed.
+
+Stock QQ linprog now prepares bounds, variable offsets/free variables,
+constraints and the objective in Rust before native two-phase optimization.
+Exact builtin containers/numbers and safe stock protocols select the path;
+custom iterators/converters/operators and other scalar domains retain the
+original route. Malformed inputs may decline the shortcut so their original
+validation order/messages remain. Vertex and primal/dual certificates cover
+negative bounds, redundant equalities, infeasible/unbounded programs and
+empty dimensions. A historical SymPy1.14 bound error is not reproduced:
+linprog([1],[[1]],[1],bounds=(-1,1)) has certified optimum(-1,[-1]), matching
+the former native API rather than reference(0,[0]).
+
+Scalar protocol checks now follow exact stock Vector/Tensor wrapper factories,
+checking every code/closure/wrapped delegate until canonical simplify. User
+callbacks hidden under functools.wraps, incompatible delegates and cycles
+remain rejected. Both import orders and both wrapper stacks have regressions;
+this also keeps the correlated-Gaussian native order1200 route available.
+The [controlled performance evidence](../audits/performance/2026-10-26-native-storage/README.md)
+retains paired release timings, exact certificates, float digests and the
+function-coefficient fallback control. Public-query timings describe the
+whole release, not exclusive attribution to a single kernel.
+
+The older partial substitution gap is corrected in Rust under explicit
+conjunctive negative Complexes-membership guards. Relations and arithmetic
+that still depend on undecided nonfinite parameters survive; callback caches
+are separate and decisions use exact_queries. Guard provenance can retain a
+proven tautology to protect later substitutions. Undefined NaN equations
+remain held instead of becoming a proof of absence; ordinary Eq(nan,0)
+behavior outside the context is unchanged. Piecewise keeps branch order and
+only proved Boolean decisions in this context. Requested domains not proved
+inside C are split into finite inversion and an original-equation complement,
+without restricting the accepted domain. Finite requested bases are checked
+exhaustively. Tests cover multiple parameter orders, infinities, valid extended
+points, membership, host hooks and unsupported half-lines. These point
+witnesses detect an erroneous empty/whole domain; they are not sampling
+proofs of absence or claims to enumerate a half-line.
+
+Arbitrary algebraic pattern substitutions and guards outside this explicit
+context retain their previous paths and remain separate work. No global
+algorithmic parity is certified. The standalone corpus replays are in
+progress on this immutable release; their output/error counts will remain
+observations, not claims of complete mathematical solution families.
+
+
+## Sparse products and exact dense matrix kernels (26 October 2026)
+
+Release `576a9f76ab3be1cc0d3896d326e4b6615d1a1ffb1d5f0351f23c522bb37d8ad8`, source manifest `1d69c0418c5c9a5936ae050d60d7def2cc00e97e1a653adb3f2a7711e1971586`, passes the complete Demeter collection: **46,327 passed, 55 skipped, 5 xfailed, zero unexpected failures**, with all 46,387 collected tests executed exactly once. The same Rust inputs pass **651 unit tests and 5 doctests**, one ignored, and Clippy 1.99 correctness checks. [Build and validation evidence](../audits/sympy-1.14.0/validation-2026-10-26-products.json).
+
+EX/CC sparse multiplication, square and power now use a native recursive sparse coefficient tree. It preserves recursive DMP accumulation, float grouping, specialized square ordering and EX Karatsuba boundaries. The product-pair heap uses linear auxiliary storage instead of materializing a quadratic pair table. EX identical-subproduct reuse is limited to a single call and disabled where host callbacks, work budgets or interruptions could change observable behavior. Tests cover 1/53/139/140/211-bit domains, nested parameter fields, cancellation and callback/error order. Three high-precision CC(a) reference differences already exist in the preceding dense release; the new route preserves those domain-precision results rather than importing the reference's real-component precision loss.
+
+Per-coordinate exponents remain u32. Exact cancellation precedes the capacity check; an actually unrepresentable public polynomial is refused explicitly. Raw DMP algorithms remain available, but their old conversion through public u32 monomial keys is not a valid complete fallback for oversized public results: it could truncate the exponent. No new wider-exponent capability is claimed. Other dense algorithms, including differentiation/integration in this release, retain their prior complete paths.
+
+DDM accumulated multiplication is native for stock homogeneous int/ZZ/QQ scalars. Raw Gauss–Jordan is native for stock QQ. Both preserve publication order, row identities, exact pivots, interruptions and prior complete fallbacks for aliases/custom protocols/other domains. DomainMatrix AUTO can still choose sparse fraction-free Python reduction; that is a separate port. The limited ordinary noncommutative zero/nonfinite correction prevents a false zero when the checked additive/multiplicative spine contains explicit infinity. It does not certify all nonfinite arithmetic.
+
+[Paired release measurements](../audits/performance/2026-10-26-native-products/README.md) verify 756 exact products and 216 exact RREFs outside the timing windows. Selected QQ multiplication gains about 31–39× and QQ RREF 15–27×; ZZ 32×32 multiplication gains about 206×. Tiny int 4×4 multiplication gains little (1.07×). No whole-library speedup or global mathematical parity is inferred.
+
+## Independent ODE and integration replay (26 October 2026)
+
+The complete 315-equation ODE and 1,210-case integration corpora have been replayed on the preceding immutable `570f1832` release. Native calculations forbid SymPy imports and run independently of the reference. All case/operation pairs have exactly-once coverage. Resource limits stay inconclusive. [Inputs, raw outputs, policy and exact integration triage](../audits/sympy-1.14.0/corpus-2026-10-26/README.md) are archived with checksums.
+
+All 315 ODE classifications match. Explicit-hint solves have 281 exact output matches, three equal error observations, 25 output differences and six resource-limited observations. Default solves have 263 exact output matches, three equal errors, 28 output differences, two differing-error observations and 19 resource-limited observations. Forms, domains and completeness still require review. Historical wave-17 counts used a different policy and are not a paired before/after comparison.
+
+Integration has 1,164 exact output matches and ten observations with both outputs held. The initial review classified five of the 36 differences as exact equivalences to `-Ci(1)`, ten as Laplace prefactor corrections and 21 as retained parameter-integral gaps. The [27 October review](../audits/sympy-1.14.0/corpus-2026-10-27/README.md) corrects an error in that mathematical scope: the displayed `-exp(s)*Ei(-s)` value is correct for real positive s, but loses a principal-branch correction at nonreal s. Six real-domain cases remain valid prefactor corrections and four complex cases are inherited native gaps. The newer release also supplies certified conditional branches for 20 of the 21 parameter cases. The original raw archive is unchanged. No numerical sampling certifies convergence or solution completeness.
+
+
+## Native Horowitz–Ostrogradsky selection (26 October 2026)
+
+Release `3ef4ccbca497a7a0d93762006f4f6c7b5413a48231a62fa53b5aa59410f2ead7`, source manifest `56233b1d4a7b350b7775bc0451d338aa2888eb602745af2da99444411aee93d9`, passes the complete Demeter collection: **46,361 passed, 55 skipped, 5 xfailed**, all 46,421 tests collected and executed exactly once in the final run. **653 Rust unit tests and 5 doctests pass**, one ignored, with Clippy correctness checks. [Full evidence](../audits/sympy-1.14.0/validation-2026-10-26-rational.json) retains the initial environment mistake: three compiler tests skipped because cargo's bin directory was missing from the Python-suite PATH. That run was not accepted; the entire suite was rerun with the corrected PATH, and all three Rust compilation tests passed. Sources and binary were unchanged.
+
+The native selection performs the exact proper-fraction reduction over QQ/ZZ. For `u=gcd(g,g')` and `v=g/u`, it solves the coefficient identity `f=A'v-A(u'v/u)+Bu` with exact rational Gauss–Jordan. It verifies that identity before returning `A/u` and `B/v`, with cancelled rational components. The residual denominator is square-free in characteristic zero. Refusal is distinct from a zero result and keeps the prior general-domain algorithm. Degree above128, nonproper fractions, custom protocols and other domains keep that complete fallback; they have not been declared unsupported by the public API.
+
+The 34 new tests cover exact repeated poles, rational contents, zero numerators, stock-method changes, subclasses, Dummy generators, large coefficients and general-domain fallbacks. A separately labelled private-debug differential verifies 96 additional seeded cases. [Paired release measurements](../audits/performance/2026-10-26-native-rational/README.md) verify 216 exact independent reductions and unchanged output digests, with selected gains of4.49–20.6×. Logarithmic construction and other rational-integration algorithms remain Python debt. No global mathematical parity or whole-integration speedup is inferred.
+
+The [complete documentation replay](../audits/sympy-1.14.0/documentation-2026-10-26/README.md) on the preceding576a release now has exact coverage of2,916 objects per mode and22,547 example observations per backend/mode. It records2,719 matching ordinary objects,2,636 matching keyword-call objects and278 distinct differing objects to review. Two objects per mode have no successful examples and are not counted as successful mathematical matches.
+
+
+## Sparse calculus, fraction-free reductions and defined zero proofs (26 October 2026)
+
+Release `146f69177d2681de279657953fe89d3e009e5ae46db21b7534e046f24b2fc656`, source manifest `5947368f4f6b61f225ebab25a73f6de6a8e4a985513e18993bdaf06a5bf7f2aa`, passes **46,587 Python tests, 55 skips and 5 known xfails** on Demeter. All **46,647** collected tests execute exactly once in 48 disjoint shards. **661 Rust unit tests and 5 doctests pass**, one ignored, and Clippy correctness passes with unchanged Rust inputs. [Complete evidence](../audits/sympy-1.14.0/validation-2026-10-26-calculus.json) includes both source/binary identities and the two release source-storage tests whose private DEBUG timeouts also reproduced on their unchanged baseline. Neither test nor its deadline was relaxed.
+
+Sparse EX/CC diff and integration now traverse actual terms. Integer factors are BigInt; actual cancellation is checked before coordinate capacity. Grouped `(x,m)` specs are evaluated at order m while separate specs remain sequential. Multivariate Dom arithmetic uses the chosen domain precision p instead of EX at display precision p-prime. The fixed-input differential records 32 corrected results among 100 contexts, including four order 1 computations; those incorrect-old cases are excluded from performance claims. Automatic field promotion, zero/negative orders, generator validation, raw dense metadata and complete fallbacks remain covered. Nonzero evaluation and other unported dense algorithms remain open. The zero-evaluation backend is available, but the public univariate EX adapter still reconstructs as_expr in this release and shows no gain; its payload/routing fix is separate pending work.
+
+Dense and sparse fraction-free reduction are native for stock ZZ/QQ domains, including DomainMatrix AUTO FF/CD. The distinct algorithms preserve exact divisions, denominator signs, pivot/row/object sharing, publication and signal order. Sparse key ordering uses only stock CPython set protocol operations in the binding, and Rust independently verifies the mathematical membership sets. No domain arithmetic is delegated to Python by the new kernels. Domain selection, denominator-clearing preparation, custom/inexact/other-domain routes and the one-row sparse shallow-copy branch retain their established implementations. Those remaining Python mathematical paths are not declared ported.
+
+The `radsimp` radical regression is a true 0/0, not an equivalent form. Its reference source labels it issue 5934; the old TODO's 15119 label was mistaken. Rationalization could produce `zoo*num` while a concrete algebraic numerator was exactly zero. The correction is limited to that explicit numeric algebraic product and uses structural or exact minimal-polynomial proof, never numerical cancellation. It also applies while recursively rationalizing wrappers. Fourteen tests cover the original numerator/denominator, options, embeddings, an unknown symbolic factor and arbitrarily small but nonzero rational perturbations. A native test checks the same zero/nonzero distinction. This does not certify general nonfinite arithmetic or arbitrary undecidable zeros.
+
+[Controlled paired release measurements](../audits/performance/2026-10-26-native-calculus/README.md) verify 216 exact calculus results and 270 exact fraction-free results with identical output digests. Selected three-term EX degree 4,000 derivatives/primitives gain about230×/303×; selected dense ZZ/QQ reductions gain 61.5×/37.7×, with AUTO gains 11.4×/2.93×. Public EX eval(0) and unported sparse GJ controls show no gain. Both releases complete all timed computations correctly; no overflow refusal or wrong baseline counts as a speedup. Coordinates above u32, orders outside i64, EX Float0 payload construction, some arbitrary-precision field conventions and global mathematical completeness remain explicit gaps. No global parity is certified.
+
+
+## Exact derivative orders, conditional integrals and native algebra (27 October 2026)
+
+Release `cb5c0c98572e4b05eadca9f234fb6df3bbabea93a202e4a2ac292f5541b5748e`, source identity `db859db2e5949ea295c362ae9b06b1b7819f0f28da0753790edda29b45445d2f`, passes **47,450 Python tests, 55 skips and 5 known xfails** on Demeter. All **47,510** collected tests execute exactly once across 48 disjoint shards. **680 Rust unit tests and 5 doctests pass**, one ignored. Clippy correctness passes for both the core and Python binding crates, with unchanged Rust inputs. [Complete evidence](../audits/sympy-1.14.0/validation-2026-10-27-derivative.json) preserves the failed initial release as well as the corrected gate; targeted successes alone did not establish that gate.
+
+The first combined release failed 60 established cases. Public Derivative class queries had selected only the newly introduced expression-count head, missing compact machine-count derivatives in ODE/PDE, solve, mechanics and doit postprocessing. A separate lookahead attempted to coerce a following tuple/list differentiation specification as a scalar order. Both are repaired and every original failing node is reexecuted in the final full collection. A further combined check exposed conservative rejection of official holonomic scalar operator wrappers. The authenticated forwarding proof now preserves stock dispatch and rejects real overrides, mutated code/closures/delegates/globals, host markers and observable attribute protocols. Generator admission compares class identity without invoking user metaclass equality. The 924-case combined release check and the final 136-case protocol followup are separate recorded phases.
+
+Native expression-count Derivative nodes preserve exact counts beyond u32 and non-machine held counts without truncation. The old compact evaluator remains available. Explicit typed construction and guarded evaluation/substitution boundaries propagate invalid-count errors through isolated native frames; unguarded generic transforms retain the complete held computation instead of fabricating a zero or silently clearing an error. Public arguments, free symbols, serialization, printing, CSE and class queries are covered. This is a first representation/operation tranche: symbolic-order closed forms, generic transformations and some matrix/protocol/error behavior remain incomplete. Issue 22210 is not closed.
+
+QQ/ZZ log-to-atan uses the same Euclidean representatives and sum of arctangents as the reference algorithm. Equality of the complete expressions, rather than derivative equality alone, preserves branch constants. Other domains, nonstock protocols and native refusal keep their complete existing algorithms. Conditional rational segment/ray formulas have exact finite-domain, pole and principal-branch certificates and the original Integral as default. Partial symbolic specialization can return to that complete Integral to prevent a simplified-away guard from admitting a later pole. Simultaneous masking may keep a numeric result held until doit. Explicit method/conditions options and the assumed-nonzero affine slope retain their established paths.
+
+EX construction/views/identity conversion/pickle retain audited interior and trailing Float-zero payloads, while legitimate leading/all-zero leaves are stripped before capacity checks. Public univariate zero evaluation now reaches the native route without bypassing overrides; nonzero/foreign/unsupported contexts retain the complete old path. QQ denominator preparation computes exact global/per-row LCMs and scaled coefficients natively. The ZZ/QQ DDM Bareiss kernel preserves mutation, row/element sharing, division failures and publication order. AUTO selection and some assembly remain Python; sparse determinant still uses its existing dense conversion. Dense/sparse Berkowitz are not included in this release.
+
+[Paired release measurements](../audits/performance/2026-10-27-native-derivative/README.md) verify **702 independent exact results** with identical output digests. The audited atan Euclid cases gain about 2×; public EX eval0 improves from 186.171 to 68.771 microseconds (2.7×), and the QQ AUTO/CD case gains 1.25×. Other sparse-calculus and FF/GJ routes are explicit controls near their previous level. Imports/construction are outside timers; no cold-start or whole-engine gain is inferred.
+
+The [full integration replay](../audits/sympy-1.14.0/corpus-2026-10-27/README.md) executes all 1,210 inputs per backend without errors or timeouts, with 21 additional exact native parameter controls. Its 36 differing outputs are now reviewed as 20 certified conditional values, one retained affine-nonzero gap, five exact Ci equivalences, six real-domain prefactor corrections and four inherited complex Laplace branch gaps. On Re(s)>0 the correct analytic value of the transform of `1/(t+1)` is `exp(s)*expint(1,s)`; the current principal-Ei expression needs a product correction for nonreal s. That native E1 correction is pending. Old archives are retained as provenance, while their earlier full-half-plane claim is explicitly withdrawn above.
+
+The [component reviews](../audits/sympy-1.14.0/native-derivative-2026-10-27/README.md) retain their private scopes and gaps. Native LRT, dense Berkowitz, large literal derivative formulas and the Gruntz homogeneity candidate remain separate queued lots. In particular, independent review found a complex-winding false finite in the staged Gruntz normalization: a positive auxiliary factor cannot stand for a rotating complex power under arbitrary roots. It is not integrated into this release and needs its own corrective followup. No global mathematical parity is certified.
+
+
+## Complex-field rounding finding (27 October 2026, pending correction)
+
+The inexact-linear port's independent dyadic review found an inherited CC arithmetic defect. With identical stored binary inputs, the first incorrect reciprocal is one ulp low in the imaginary component at140 bits and in the real component at211 bits. An integer/Fraction oracle using ties-to-even reproduces the exact source values without string conversion or a numerical tolerance. The current gaussian reciprocal rounds the norm, its reciprocal and subsequent products separately at the field precision. Further exact checks also identify multiplication errors from an intermediate p+4 rounding followed by p. SymPy agrees with the correct first reciprocal but has its own incorrectly rounded product in one later trajectory; copying that product would preserve a mathematical error.
+
+The current accepted release and its full-suite/performance evidence remain identified above. The correction is private and not yet accepted: exact sparse dyadic comparison against rounding-cell midpoints will certify the resulting component, including large exponent gaps without dense shifts. It is confined to the proven multiplication/division primitives; unchanged addition/subtraction paths have independent non-regression checks. The inexact-linear port preserves its prior scalar algorithm until this separate precision correction is integrated and validated. No acceleration claim may use an incorrect old result as its baseline.
+
+
+A subsequent protocol review also narrowed the stock-operator claim of the accepted atan release. For `f=x**4+x+1` and `g=x**3+2`, a raising `Expr._op_priority` property is observed by the complete old recurrence after holonomic forwarding, but the accepted native selector bypasses it. This is a concrete callback/error-behavior gap, separate from the correct stock-input timings. The shared priority metadata guard is being corrected alongside the LRT wrapper/reload followup; it is not yet part of the accepted cb5 snapshot. The initial forwarding tests covered code/closure/delegate/global changes and holonomic markers, but did not establish universal override parity.
+
+
+## Accepted native LRT, Berkowitz, symbolic homogeneity and E1, 27 October 2026
+
+Release `daef424363f37e580e8c55dc0ba5ef22631c5ec1c093e282d8774fee7fa15007`, sources `8f254811033a4e7791213e56e0316d752fd2dca0f99fc0c5f5fa30aa6cecc981`, passes **47,833 Python tests, 55 skips and 4 known xfails** on Demeter. All **47,892** collected nodes execute exactly once across 48 disjoint shards. **692 Rust tests and 5 doctests pass**, one ignored; core and binding correctness clippy pass with unchanged Rust inputs. [The integrated report](../audits/sympy-1.14.0/validation-2026-10-27-lrt-limits.json) and [portable component/execution evidence](../audits/sympy-1.14.0/native-lrt-limits-2026-10-27/README.md) identify every scope and preserve initial rejected cases.
+
+Stock univariate QQ/ZZ LRT logpart now performs its exact subresultant/squarefree/Bezout reduction in Rust, preserving the selected representatives, domains and signs. Other domains, sizes outside the representation guard and custom protocols retain the complete old algorithm. Authenticated stock resultant/holonomic forwarding and reload are supported; actual scalar operators, public as_poly and priority descriptors keep their observable old paths. This repairs the concrete atan priority-descriptor gap recorded for cb5 above. The rational-integration driver and log_to_real remain partly Python.
+
+Dense stock ZZ/QQ Berkowitz uses the exact native matrix kernel, including coefficient layout, alias/metadata behavior and signal checks. Sparse Berkowitz, AUTO selection and other Python matrix algorithms remain open. This completes a bounded port, not every matrix domain or algorithm.
+
+Gruntz normalization now certifies homogeneous dependence without first imposing unjustified positivity on a complex scale. The independent two-subsequence proof for rotating principal roots rejected the initial private candidate's false finite. A neutral-scale rational certificate is required before positive normalization when the scale is not known real; the original reciprocal/nonintegral-base checks remain. Issue 22334 now returns `1/(k+1)` for positive k, and its unchanged regression assertion passes without xfail. Other finite symbolic/root limits may still be retained; retained is not proven absent.
+
+The two existing guarded affine reciprocal/logarithm Laplace rules now construct principal E1. For beta=c/a>0, the reciprocal value is `exp(beta*s)*expint(1,beta*s)/a` on `Re(s)>0`; the logarithm rule follows by integration by parts on its original positive a,c domain. Uniform convergence and analytic continuation certify the branch throughout that half-plane, including the existing shifts/moments. The [fresh complete corpus replay](../audits/sympy-1.14.0/corpus-r2-2026-10-27/README.md) confirms the correction of all four inherited complex branch gaps: exactly ten reciprocal-Laplace outputs change from cb5 and the other 1,200 native trees are identical. All 1,210 cases per backend finish exactly once without errors/timeouts; 21 additional parameter controls and ten E1 controls pass with runtime reference imports blocked. The reference reciprocal table also contains an error, so exact principal-expint and analytic proofs determine the result rather than a blind reference-output assertion.
+
+The inexact-linear, correctly rounded CC products/quotients and typed composite-equality deliveries are now integrated into the subsequent working-tree batch, whose release and complete suite are pending. Large literal derivative formulas remain a separate delivery. No global mathematical parity or new release speedup is claimed by this gate.
+
+
+The [paired LRT release measurements](../audits/performance/2026-10-27-native-lrt/README.md) compare cb5 with accepted daef on five families. Three fresh alternated processes per release, CPU24 and NoRef workers yield 2.26x–3.23x after input construction. All 144 exact pair checks and output digests agree; twelve independent rational trace certificates verify f/g. Other domains and full-engine performance remain outside that claim.
+
+
+## Accepted inexact linear reduction and certified CC arithmetic, 27 October 2026
+
+Native `8a8a8e126be486e31b83b7cae2c306e54ab21e9d569f01bbe46adeb8bb661f3a`, corrected sources `374d458fdc73fb8a75cbaa2a06952b2b29d6ccc216f1b497f82a155468b4c0ac`, passes **48,515 Python tests, 55 skips and 4 known xfails** on Demeter. All **48,574** collected nodes execute exactly once. **699 Rust tests and 5 doctests pass**, one ignored, and core/binding correctness clippy pass. Only four Python source/test files changed after those native gates; all **330 native build inputs** and the binary were verified identical in the corrected frozen snapshot, so those Rust results are explicitly reused. [The integrated report](../audits/sympy-1.14.0/validation-2026-10-27-inexact.json) and [portable proofs/execution records](../audits/sympy-1.14.0/native-inexact-2026-10-27/README.md) preserve this distinction.
+
+The first full gate failed one LRT route assertion under collection-triggered vector forwarding; mathematical-value tests passed. The corrected selector authenticates vector/Ore layers through exact code, delegates, closure/default state, class MRO and relevant builtin/namespace identity, terminates at the bootstrap operator and rejects cycles or actual overrides. The prior assertion remains unchanged; the Atan helper now finds the same Ore certificate through its legitimate enclosing layers. The failed snapshot is retained in [its initial report](../audits/sympy-1.14.0/validation-2026-10-27-inexact-initial.json).
+
+The augmented inexact solve_lin_sys reduction now runs in Rust with its selected RR/CC or composite domain intact. It preserves the first nonzero pivot, one/pivot followed by each multiplication, and each separate a-factor*b operation in the original column order. It does not rationalize Floats, change p to presentation precision, fuse operations, promote rings or force numerical residuals to zero. Conversions, output construction and unsupported/custom protocols retain complete prior paths. Two previously unknown Heurisch outcomes remain unknown; they are not new solved integrals.
+
+Finite literal plain CC products and quotients now receive exact sparse-dyadic nearest/ties-to-even rounding certificates. A candidate is accepted only after exact comparisons with both cell midpoints; otherwise exact p-bit mantissa search resolves the result. Large exponent gaps remain sparse, including the tested +/-2**190 exponents, rather than allocating dense shifts. Every primitive still rounds separately at the selected field precision. The original reciprocal's intermediate norm rounding and product's p+4 double rounding defects are corrected. Independent integer/Fraction witnesses show that a later SymPy p140 product is itself one ulp wrong; the correct native neighbor is intentionally retained. Addition/subtraction and general expression evalf conventions are unchanged and separately scoped.
+
+Typed same-domain RR/CC composite Eq/Ne now delegates to the existing immutable value comparison when scalar extraction is unavailable. This repairs a==a and a/one==a without coercing domains, changing precision, altering hashes or simplifying arbitrary expressions. Separate Python ring-wrapper interoperability and nonnumeric ordering remain gaps. The [1210-case corpus](../audits/sympy-1.14.0/corpus-r3-2026-10-27/README.md) uses this same native binary before the Python-only vector fix: all output trees match R2, with 21 parameter and ten E1 controls; it is not relabelled as a corrected-Python replay.
+
+The [historical documentation display triage](../audits/sympy-1.14.0/documentation-triage-2026-10-27/README.md) checks all archived examples in both modes and isolates 11 of the 278 differing objects (32 observations) as literal set-order display changes only. Numeric token spellings, statuses and exceptions are preserved; the other 267 objects require further review. This is neither a current release replay nor a new precision/domain/completeness certificate. Large literal derivative formulas and exact PolyMatrix ground algorithms remain subsequent batches under validation. No global parity or speed gain from the old incorrect CC results is claimed.
+
+
+## Accepted literal derivative recipes and canonical exports, 27 October 2026
+
+Native 3243129bfe3e4ec0611ebe7761b5988f5bba3312df8a9e9911fea5c7a785eaee, sources 2eb95e7788af6673c6bf1f8dfd2faed142d976880d62f577948ffc2a9b4702d7, passes **49,222 Python tests, 55 skips and 4 known xfails** on Demeter. All **49,281** collected nodes execute exactly once across 48 disjoint shards. **708 Rust tests and 5 doctests pass**, one ignored; core/binding correctness clippy pass with unchanged native inputs. [The integrated report](../audits/sympy-1.14.0/validation-2026-10-27-literal-derivatives.json) and [portable component/execution evidence](../audits/sympy-1.14.0/native-literal-derivatives-2026-10-27/README.md) preserve the initial failed snapshot and both followups.
+
+The optional native certificate accepts literal exact nonnegative Int/BigInt orders without narrowing to u32. It covers finite closed numerical affine exp/sin/cos/sinh/cosh arguments and certified affine-power/polynomial degree cases. Chain rule, exact periodic classes and structural degree bounds establish the values, including zero only above a proved bound. Unsupported coefficients, functions, variables and nonliteral counts retain their established complete paths; a budget refusal is never zero or proven absence.
+
+Large exact coefficient recipes use local immutable metadata, transparent to public kind/args/equality/hash/printing and serialized by the matrix-DAG protocol. Audited implicit substitutions, reconstructions, expand and CSE preserve this representation. Ordinary num_pow is byte-identical to the preceding release: no global or TLS numeric power cap is added. Explicit Pow/func/int/doit retain ordinary full evaluation, tested on 2**524289 without allocating astronomical validation integers. Reasonable factorial/falling-factorial coefficients around4096 are materialized; public special-function evaluator limits and generic held-Factorial.doit behavior are unchanged.
+
+CSE first bypassed actual attribute callbacks on numeric bases; a separate followup now rejects the shortcut for modified root/base getattribute/getattr protocols and compares values/traces against forced old reconstruction. The first complete release then exposed an export regression: the helper also treated ordinary canonical numeric reciprocals as recipes, producing noncanonical SymPy parents with equal text but unequal structure. The corrected helper uses only explicit recipe metadata. Ordinary subtree exports recover their preceding equality/hashes; held recipe exports remain exact and compact. The original regression assertion and nine newly exposed failing cases are retained and pass. [The failed full gate](../audits/sympy-1.14.0/validation-2026-10-27-literal-derivatives-initial.json) is not relabelled as accepted.
+
+Compact internal validation walks no longer expand machine Derivative counts into repeated-variable tuples; count_ops preserves their multiplicity arithmetically. Public args/variables behavior is unchanged. Issue22210 symbolic-order formulas, type-sensitive Float substitution, Matrix.diff count limits and arbitrary compact polynomial algorithms remain open. PolyMatrix and low-degree log_to_real are subsequent working-tree batches. No speedup is inferred from an old held/unsupported result, and no global mathematical parity is certified.
+
+## Native exact PolyMatrix ground reduction and low-degree real logarithms (27 October 2026)
+
+Native 532386bda46046d3d21c99f49c1b863fac62bdee5c357d03cf5123bde6913d4b, sources 2955abf8b02c1e520ddb921d17e56614b8f4c5d391b1fb87730118881665dbe0, passes **49,496 Python tests, 55 skips and 4 known xfails** on Demeter. All **49,555** collected nodes finish exactly once across 48 disjoint shards, including extras with the installed compilers. **714 Rust unit tests and 5 doctests pass**, one ignored, with core/binding correctness clippy passing. The Rust results are reused from the first R5 gate after a three-Python-file correction: the full set of **333 native input paths/hashes** and the release binary were independently checked identical in both immutable snapshots. [The integrated report](../audits/sympy-1.14.0/validation-2026-10-27-polymatrix-real-log.json) and [portable component/execution evidence](../audits/sympy-1.14.0/native-polymatrix-real-log-2026-10-27/README.md) preserve this distinction.
+
+Native ground PolyMatrix RREF/nullspace supports stock QQ and the audited QQ(y)/ZZ(y) fields. DDM and PolyMatrix keep their distinct elimination/publication conventions and selected domains; real PRDE constant_system and parametric polynomial Risch cases are covered. Huge omitted-column contexts, hidden Float leaves, callbacks, custom domains and unsupported nested fields retain their established paths. This does not port whole Risch/PRDE drivers or all polynomial rings.
+
+Native log_to_real handles rational squarefree auxiliary polynomials of degree1/2 and admitted exact h representatives. It computes roots, conjugate pairing, norms and Euclidean atan assembly exactly, preserving domains/signs/branches; it uses neither evalf as a proof nor atan addition identities. Degree and coefficient guards precede optional dense allocation. Higher-degree, degenerate, custom and other-domain cases preserve the complete old algorithm, not zero or an empty result.
+
+Authenticated official vector/Ore forwarding and rationaltools reloads are retained. The first full gate exposed four native-route precondition failures after stats installed its official doit/rewrite wrappers on the expression facade. A separate proof authenticates their lexical code, captured delegates and protocol state; stats.install AST and mathematics are unchanged. The original assertions remain and pass. [The failed first gate](../audits/sympy-1.14.0/validation-2026-10-27-polymatrix-real-log-initial.json) and earlier preliminary-stage protocol failures retain their own identities and evidence.
+
+The rational driver, AUTO selection and sparse Berkowitz are later private batches. General symbolic derivative orders, issue22210, Matrix.diff count limits, arbitrary compact polynomial algorithms and other documented gaps remain open. Prior paired selector measurements describe their identified releases/overlay; no new integrated R5 speedup or global mathematical equivalence is claimed.
+
+The accepted R5r1 package has since completed the [full 1,210-case integration replay](../audits/sympy-1.14.0/corpus-r5-2026-10-27/README.md), all 2,420 backend calls exactly once, no errors/timeouts, all 1,210 native output trees identical to R2, with 21 parameter and 10 E1 controls passing. Existing conditional/E1/Ci reviews and the affine-nonzero gap remain. [Integrated release measurements](../audits/performance/2026-10-27-rational-selector/integrated-r5/README.md) verify 1,026 exact checks in 18 fresh processes: vector LRT gains 2.18–3.10× versus R2, while the small vector linear Atan retains a 15.9-microsecond/18.7% regression (85.122→101.020 microseconds). The earlier overlay result remains separate. No cold-start or whole-engine inference follows.
+
+The separate [private exact LLL core](../audits/sympy-1.14.0/native-lll-core-2026-10-27/REPORT.md) passes four native unit tests and 651 recorded fixtures locally, with exact lattice/Gram–Schmidt certificates and unchanged input checks. It has no public binding yet and is not part of the accepted release above. The audit exposes the existing lossy math.floor(QQ) path: on nine selected large-integer cases, unmodified SymPy 1.14 raises three assertions or returns six different valid bases compared with exact nearest-integer reduction. Original outcomes and an explicitly corrected-floor reference variant are retained. This does not certify arbitrary lattice algorithms or repair the general production floor protocol.
+
+## Native rational driver, AUTO selection and sparse Berkowitz (27 October 2026)
+
+Native cc6d021087f8c3d8404011ecf59947d071dfa7ef9bb865c2ae7bd44431cc09ab, sources 80c98adae719e1cdfc2e7621a234d0ade781cdb3bc26c4285360263b0ca719ae, passes **50,416 Python tests, 55 skips and 4 known xfails** on Demeter. All **50,475** nodes execute exactly once across 48 disjoint shards, including extras and installed compilers. **725 Rust unit tests and 5 doctests pass**, one ignored; core/binding correctness clippy pass. Those Rust results are reused after a two-Python-file presentation correction: the full set of 335 native input paths/hashes and the release binary were independently verified identical in both immutable snapshots. [The integrated report](../audits/sympy-1.14.0/validation-2026-10-27-matrix-rational.json) and [portable evidence](../audits/sympy-1.14.0/native-matrix-rational-2026-10-27/README.md) record this qualification.
+
+The bounded QQ/ZZ rational driver now composes exact numerator extraction, signed cancellation units, polynomial division/integration, Horowitz reduction, signed LRT and the existing linear/quadratic real-log engine in Rust. It preserves selected representatives/branch constants; effective numerator/denominator degree and coefficient-growth bounds precede expansion, including nested powers. Unsupported groups, domains/options/custom protocols or resource admission failures decline the whole candidate and resume the complete old driver. General RootSum/higher-degree/real=False and broad Risch/PRDE/ODE drivers remain unported paths; no partial sum is a result.
+
+Stock ZZ/QQ AUTO density, bit-length/LCM statistics and binary64 thresholds are native with the preceding exact choices, sparse representation and complete fallbacks preserved. Sparse ZZ/QQ Berkowitz computes suffix matrix-vector/Toeplitz operations without densification and preserves isolated-zero coefficient indices. Its actual cold prefix can still perform historical recursion/arithmetic before conversion makes native continuation provable. Neither this bounded port nor AUTO closes every sparse matrix algorithm; sparse GJ and additional preparations remain explicit work.
+
+The first integrated full gate found 57 PolyMatrix native-route assertion failures after official units printing replaced CoreExpr __str__/__repr__; value/reference certificates passed, but the selection regression prevented acceptance. The final 44-case followup excludes only those two unconsumed presentation slots/functions, requires both keys to remain present, and retains every tested arithmetic/attribute override refusal and real printing error. Original 57 assertions remain. [The failed first gate](../audits/sympy-1.14.0/validation-2026-10-27-matrix-rational-initial.json), preliminary 42-case followup and final package are archived separately. The corrected root combined 4333 and exact former shard 988 pass before the complete rerun above.
+
+Later private LLL, domain floor/ceil and native protocol-state verification are outside this accepted release. Existing symbolic derivative, general domain/precision/solution-completeness and integration gaps remain open. No global mathematical equivalence or whole-engine performance claim follows.
+
+The accepted R6r1 snapshot subsequently passes the [complete 1,210-input integration replay](../audits/sympy-1.14.0/corpus-r6-2026-10-27/README.md): all 2,420 backend calls exactly once, no errors/timeouts, all 1,210 native trees unchanged from R2, 21 parameter and 10 E1 controls passing. [Public integrated AUTO measurements](../audits/performance/2026-10-27-native-auto/README.md) retain 2,016 exact certificates and same-binary off/on controls across 9 fresh processes; selected QQ/CD dense 20×20 calls gain about 1.36×, while tiny 3×3 retains +2.3%/+3.0% dispatch cost. Raw cases, both passes, source identities and ordinary host load remain visible. These observations do not close general integration gaps or certify whole-engine performance.
+
+
+## Accepted exact LLL, domain floor/ceil and native protocol-state checks (28 October 2026)
+
+Native **40cb0e7a6105fd35acce37c52bd30cc0d39056682944e1e4cb3d4281edfc183c**, sources **34632bf74a2ce56cb01c73477fdc247a7565ea9a2155d0ceaa7ba99315ff115d** pass the [full identified Demeter gate](../audits/sympy-1.14.0/validation-2026-10-28-lll-rounding-protocols.json): **51,366 Python passes, 55 skips, 4 known xfails**, no unexpected failures, all **51,425** nodes collected and executed exactly once across 48 file shards. Fresh native execution passes 732 unit tests, one integration test containing 651 LLL fixtures, and 5 doctests, one ignored. Core/binding correctness clippy pass. All 340 native inputs are checked, including the compile-time TSV; no earlier Rust results are reused.
+
+The [portable component/full-suite evidence](../audits/sympy-1.14.0/native-lll-rounding-protocols-2026-10-28/README.md) records exact integer LLL with guarded public DDM/DomainMatrix publication and exact T*A=B, determinant and Gram-Schmidt/Lovasz certificates. A genuinely cold or invalid Basic/ABC classifier cache can retain the complete historical Python LLL computation. This does not close cold-call architecture debt or all lattice/matrix algorithms. The earlier private-only LLL note is superseded for these admitted public routes.
+
+Stock QQ/ZZ floor/ceil is exact; admitted finite RR rounds its stored dyadic at actual precision, without binary64/decimal re-parsing. Custom float/index conversions, unsupported/nonliteral domains and error behavior retain their established route. The unchanged integer materialization bound remains explicit. These intentional corrections improve upon archived lossy reference behavior: nine selected large-integer LLL cases have three original assertions or six different valid bases, with original outcomes preserved; the single RR150 test is strengthened to exact dyadic inequalities. These incorrect/incomplete baselines do not establish performance gains.
+
+Rational-tools function-state identity loops now run natively for admitted snapshots, checking actual closure cells and propagating interrupts. Replaced dependencies keep the existing verifier. The separately frozen bootstrap followup checks real builtin module ownership without user attribute hooks, covering six foreign-owner all/len regressions and the concrete torch.all case. It is a bounded ordinary-protocol guarantee, not a claim about fabricated malicious runtime C objects.
+
+Sparse GJ, LU/FFLU/normal forms, remaining preparations, general RootSum/high-degree/other-domain rational drivers, Risch/PRDE/ODE and previous completeness/precision/domain gaps remain open. No integrated LLL performance or global parity claim follows from this gate.
+
+The later [paired integrated LLL campaign](../audits/performance/2026-10-28-native-lll/README.md) verifies 1,152 exact results over 144 fresh processes on both accepted releases. Selected repeated 4/6-row public calls gain 4.20–5.60×, but all first-call medians regress 1.9–21.1% (66–287µs) while still executing the complete Python algorithm. This explicit cold-path debt is retained with all raw samples, separate routing probes, source hashes and ordinary host load. No wrong/asserting baseline or cold/whole-engine acceleration is counted.
+
+
+## Accepted exact sparse QQ field Gauss-Jordan (28 October 2026)
+
+Native **7932ea23e7a1419d05e7092b342dcdd79634a80005939cd6e7989856f53375d6**, sources **40be6712a5d0e95745622fc3c6fd9d85689466e44c70e7a6960664c8d879c230**, pass the [full combined Demeter gate](../audits/sympy-1.14.0/validation-2026-10-28-sdm-irref.json): **51,606 Python passes, 55 skips, 4 known xfails**, no unexpected failures. All **51,665** nodes execute exactly once across 48 disjoint file shards. Fresh native execution passes 737 unit tests, one integration test with 651 LLL fixtures and 5 doctests, one ignored; core/binding correctness clippy pass and 340 native inputs remain unchanged, including the compiled TSV.
+
+The [portable integration proof](../audits/sympy-1.14.0/native-sdm-irref-2026-10-28/README.md) identifies the complete selected sparse field GJ algorithm: stable first-column sort/reverse processing, exact normalization/cancellation/back elimination, original key aliases and all three output conventions, including ordered nonzero-column metadata and empty sets. Native CPython sets are representation oracles, checked against independent Rust membership; they perform no scalar algebra. Large sparse coordinates are not densified. This is distinct from fraction-free reduction.
+
+Admitted stock QQ public sdm_irref/SDM/DomainMatrix GJ and AUTO paths now use Rust. Other domains, explicit stored zeros, malformed/custom containers/scalars/coordinates and modified consumed protocols retain their complete established paths; a declined proof is never zero rank or an incomplete answer. A mandatory two-Python-file integration followup preserves callbacks after deleting/reimporting the sparse module: a new namespace cannot reuse old global snapshots. Ordinary reload and the original module proof remain valid. Fourteen new cases preserve seven consumed lookups and old/native control behavior; all 226 initial tests remain unchanged.
+
+Selected sparse QQ GJ is no longer unported as in the earlier R6 note. LU/FFLU/normalforms, cold LLL/Berkowitz math and other preparations, broad Risch/PRDE/ODE and previous domain/precision/completeness gaps remain open. No integrated timing or whole-engine claim follows from this correctness gate. Global parity is not certified.
+
+The later [paired sparse GJ release comparison](../audits/performance/2026-10-28-native-sdm-irref/README.md) certifies 1,152 exact results over 144 fresh processes with unchanged source identities and output digests/aliases/order. Selected 24-row cases gain 2.26–2.70× first and 2.67–3.34× repeated, but tiny 2×3 first SDM/GJ calls retain 17.3/20.5µs extra cost (+28.3/+26.9%). GJ enters native elimination on both calls; two AUTO/CD controls do not. This does not close first-call regressions or certify the whole engine. Separate preexisting LLL bootstrap/reimport callback gaps are reproduced and under correction.
+
+
+## Accepted QQ LU, exact Risch polynomial reduction and safe cold LLL rejection (28 October 2026)
+
+Native **c3f413bd8a3bbc4b04aa9d7ebc28c69d9aba2170f0b702b09c2a6136e25f0a0c**, sources **d81c42c90dd3bcc21e0a3bad4acf6a8fffcba60194f564e9764da8e1443cd54a**, pass the [fresh complete Demeter gate](../audits/sympy-1.14.0/validation-2026-10-28-lu-risch-lll.json): **51,948 Python passes, 55 skips, 4 known xfails**, no unexpected failures; all **52,007** collected nodes execute exactly once across 48 disjoint shards. Fresh core execution passes 743 unit tests, the 651-fixture LLL integration test and 5 doctests, one ignored; core/binding correctness clippy pass. All 345 native paths/hashes, including the compiled TSV, are checked; no old combined native result is reused.
+
+The [portable source/component/full-suite proof](../audits/sympy-1.14.0/native-lu-risch-lll-2026-10-28/README.md) identifies stock QQ LU elimination, ordered in-place publication/swaps and complete fallback after the actual length prefix, including cloned range/min dependencies. Split and triangular solves are still distinct work. Bounded exact QQ/ZZ Risch polynomial_reduce now cancels leading terms in Rust, preserves independent q/r domain promotions and zero-step aliases, and certifies p=Dq+r plus the remainder degree bound. The actual zero-Poly prefix and the immutable tp_new slot anchor preserve constructor errors. Other domains/derivations/options and degree256/coefficientbit4096 admission refusal keep the complete old driver; broad Risch/PRDE is not claimed native.
+
+LLL now rejects a known-cold ABC state before its expensive proof, through a read-only native holder of actual ABC data. It neither classifies nor mutates the cache. Cold arithmetic remains Python. Native bootstrap alias proof and a separately frozen Python getter followup prevent callbacks from authenticating themselves; removed/reimported namespaces cannot reuse stale proofs. The earlier LLL mfloor/max/getter gaps are closed in the tested scope, with the four-file primary and two-file followup independently preserved.
+
+Ordered Risch Python followups handle stock verifier reload with full code/environment authentication and retain the original delegate. Serializer aliases and module ownership are authenticated before use, including the delegated ground verifier. A root before/after reproduction preserves nine extra serializer calls versus zero after repair/old behavior; private failed/intermediate cohorts remain explicitly separated from final gates. No arbitrary private runtime rewrite is claimed safe.
+
+Paired integrated timings and corpus replay are separate evidence. LU outside QQ, substitutions, LLL genuinely cold math, general Risch/PRDE/ODE and previous symbolic derivative, domains/precision/solution-completeness and resource gaps remain open. This gate does not certify global parity or whole-engine speed.
+
+The later paired [LU](../audits/performance/2026-10-28-native-lu-r9/README.md), [LLL](../audits/performance/2026-10-28-native-lll-r9/README.md) and [Risch](../audits/performance/2026-10-28-native-risch-r9/README.md) campaigns retain 3,072 exact certificates on both accepted releases. Selected 8-row LU gains 4–6× first/5–10× repeated, and selected degree 12–64 Risch gains 6–40×. No-step Risch regresses to 770–1054µs, repeated LLL costs +2.8–15.3%, and tiny first LU calls retain extra cost. These cases remain in the raw evidence and active TODO; no complete-engine, import or cold-LLL speedup is inferred.
+
+The [complete R9 integration replay](../audits/sympy-1.14.0/corpus-r9-2026-10-28/README.md) subsequently executes all 1,210 inputs per backend exactly once (2,420 calls), unchanged 60-second/8-GiB policy and native NoRef. All 1,210 native output trees remain identical to R2; 21 parameter and 10 E1 controls pass, with no errors/timeouts. Raw 1,164 matches/36 differences/10 held retain the same bounded exact/domain review; the affine-nonzero capability gap and held doubles remain open. No global parity or performance claim follows.
+
+
+## Accepted QQ triangular solve and read-only Risch/LLL dispatch repairs (28 October 2026)
+
+Native **96d342cf5fd2349f01ba38ec33a9aeec5669baada3de36e66ed75588d5447a04**, sources **82feae2c9d065fd338e9439693f9c5b2bd1663b683ac2a9e411937b923e38754**, pass the [complete fresh Demeter gate](../audits/sympy-1.14.0/validation-2026-10-28-solve-risch-lll.json): **52,218 Python passes, 55 skips and 4 known xfails**, no unexpected failures, all **52,277** nodes executed exactly once across 48 file shards. Fresh native execution passes 747 unit tests, the 651-fixture LLL integration test and 5 doctests, one ignored; core/binding correctness clippy pass and 347 native input paths/hashes remain checked. No previous combined native result is reused.
+
+The [portable source/component/full-suite evidence](../audits/sympy-1.14.0/native-solve-risch-lll-2026-10-28/README.md) identifies exact QQ forward/back substitution after actual shape/permutation/y prefixes, with ordered y/x publication and errors. The real caller namespace is read natively without sys._getframe or premature resolution of reversed/exception names. Unsafe aliases, custom destructors/exception protocols and other domains retain the complete body. Four Rust tests and 200/5713 local/Demeter targeted/coupled cases precede the combined gate.
+
+The Risch preflight only declines native admission from a read-only payload/degree and original C-member hint. It never returns a mathematical answer or an asserted zero remainder. The complete old body follows, so inconsistent or changed actual getters still compute their real work and preserve constructors/errors/aliases. The 190/2117 private cohort keeps all mathematical assertions, changing only intended no-step route expectations; genuine polynomial reduction remains native.
+
+The LLL probe validates all exact-Unicode keys before one consumed-key read and never encodes unrelated keys. Unused surrogate names no longer cause a new UnicodeEncodeError; hostile equality collisions remain uncalled, unknown/missing metadata declines. No classifier/cache mutation, warmup or old-dump reuse is introduced. Genuinely cold LLL mathematics still runs the established Python algorithm. Selected release timings are separate evidence, not inferred from the helper language.
+
+The initial R10 full gate failed five native-route assertions after legitimate installation of HostTree.free_symbols. Its failed snapshot/raw evidence remain preserved. The correction authenticates only that official property extension and retains all original assertions, with foreign module/property subclasses and altered getters explicitly refused before speculative callbacks. The final private 56/1028/3087 local/Demeter cohort precedes the new full gate; all 347 native inputs and the binary are unchanged, while complete Python/Rust checks run afresh. Archived followup proofs are explicitly published after source freeze.
+
+HNF/FFLU, cold LLL mathematics, other matrix domains, broad Risch/PRDE/ODE and previous domain/precision/solution-completeness/resource gaps remain open. Global parity and whole-engine speed are not certified.
+
+The corrected R10 [triangular solve](../audits/performance/2026-10-28-native-solve-r10/README.md), [LLL](../audits/performance/2026-10-28-native-lll-r10/README.md) and [three-arm Risch](../audits/performance/2026-10-28-native-risch-r10/README.md) replays retain 3,456 exact certificates on accepted releases. Risch no-step repeated calls recover to 55–188µs versus 772–958µs in R9; three small controls still cost 1.5–6.8µs above R8. QQ triangular solves gain up to 4.89× repeated, but two sparse first calls remain 7/74µs slower. LLL repeated R9/R10 ratios span 0.964–1.070 with regressions retained: no general recovery or native first-call mathematics is claimed. These selected exact-operation timings do not certify global parity or whole-engine speed.
+
+The accepted corrected R10 [integration replay](../audits/sympy-1.14.0/corpus-r10-2026-10-28/README.md) completes all 1,210 inputs per backend exactly once, 2,420 successful calls, under unchanged 60-second/8-GiB limits. Every native output tree matches R2; 21 parameter and 10 principal-E1 controls pass. Raw counts remain 1,164 exact strings, 36 reviewed differences and 10 held observations. The scoped domain/branch proofs are retained; one affine-nonzero gap and held computations remain open, with no completeness or global parity claim.
+
+Post-gate review of R10 identified an observable protocol gap outside the current full-suite cases: stock LU/solve admission reads Python function metadata and can trigger an audit hook absent from the original mathematical body. The same issue appears in the private HNF candidate. Six isolated post-import reproductions are retained in [before evidence](../audits/sympy-1.14.0/native-solve-risch-lll-2026-10-28/audit-followup-before.json); correcting these added observations is required, using verified public native metadata APIs with complete fallback when unavailable. Existing full-suite/timing counts do not certify this missing behavior.
+
+A pre-port FFLU review identifies two shared mathematical defects in stock ZZ/QQ on both SymPy 1.14.0 and the unchanged Symox Python implementation. For A=[[0,0,1,2],[0,0,2,3]], returned factors reconstruct entry (1,3)=7 instead of 3; a 3×4 witness with leading zero column raises ZeroDivisionError. The same failures occur through private packed output, DDM and dense/sparse DomainMatrix. An independent Fraction/minor-based prototype corrects all 404 tested domain cases and the unchanged original Phase 2 then passes 404 complete PLDU certificates in each engine. This prototype is not integrated production code; previous output/error records and the row-permutation orientation witness are being frozen separately. Wrong or exceptional baseline cases must never be counted as performance gains.
+
+The [frozen FFLU counterexamples and correction derivation](../audits/sympy-1.14.0/fflu-gap-2026-10-28/README.md) distinguish 1,616 actual calls per backend (1,408 certified, 84 invalid returned factorizations, 124 errors) from 404 independent prototype cases and 404 original-Phase2 injection certificates per engine. 203 fixture IDs cover 201 integer ZZ/QQ fixtures plus 2 QQ-only fraction fixtures; no empty shape or rank is omitted. No production correction or performance claim follows from the prototype.
+
+
+## Accepted ordinary ZZ HNF and audit-free matrix metadata (28 October 2026)
+
+Native **e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4**, source **5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35**, pass the [fresh complete Demeter gate](../audits/sympy-1.14.0/validation-2026-10-28-normalforms-risch-lll.json): **52,504 Python passes, 55 skips and 4 known xfails**, no unexpected failures; all **52,563** nodes execute exactly once across 48 disjoint shards. Rust passes **751 unit tests, one 651-fixture integration test and 5 doctests**, one ignored; core/binding correctness clippy pass with 350 native inputs verified, including the compiled TSV.
+
+The [bounded HNF kernel and portable evidence](../audits/sympy-1.14.0/native-normalforms-risch-lll-2026-10-28/README.md) preserve ordinary ZZ column reductions after the actual copy prefix, exact gcd/divisions/sign/floor operations and every working-copy publication, plus original backend/crop/result construction. Independent unimodular V and A*V=[0|H], zero discarded columns and defining HNF conditions certify the entire lattice, including empty/rank-deficient/tall/wide and large-integer witnesses. Unsupported protocols/aliases/domains keep the complete original loop; native refusal never asserts zero rank.
+
+The disclosed R10 LU/solve audit gap is corrected together with HNF admission: function code/globals/defaults/keyword defaults/closure are read anew via optionally resolved public CPython C APIs without Python getattr auditing or private layouts. Only API addresses/type identity are retained. The optimization is verified on CPython 3.10.12 and 3.10.20/Linux x86_64; absent/unverified APIs keep full original mathematics. Exact type and all-key Unicode checks precede consumed metadata lookups. Foreign modules/helpers/domain anchors, altered function fields and colliding foreign keys refuse without speculative callbacks; stock native admission remains positively tested under rejecting audit hooks. Preliminary all-refusal, conservatively unverified-runtime and 545/6270 core-key revisions are preserved as rejected, distinct from final 551/6276 local/Demeter private gates and the combined RELEASE gate above.
+
+A followup also requires exact closure tuples before reading length or elements. Authentic official diffgeom scalar forwarding is bounded by the current code, origin, globals and payload; modified wrappers, holder aliases and foreign metadata retain complete original dispatch. Native coefficient/parameter admission declines Wild objects with callable properties before conversion, preserving the callbacks of the original body. The initial failed R11 gate, closure counterexamples and final private followup archive remain separately reviewable; the corrected package receives a new RELEASE build and fresh complete gates.
+
+Modulo-D and numberfield HNF, Smith forms, FFLU, truly cold LLL mathematics, broad Risch/PRDE/ODE and previous domain/precision/solution completeness/resource gaps remain open. The private QQ splitfactor draft is explicitly withheld after an analogous added audit event was reproduced, despite mathematical differential passes; its transitive-protocol correction is separate. Global parity and whole-engine acceleration are not certified.
+
+
+The subsequent accepted R10/R11 [HNF](../audits/performance/2026-10-28-native-hnf-r11/README.md), [LU](../audits/performance/2026-10-28-native-lu-r11/README.md) and [triangular-solve](../audits/performance/2026-10-28-native-solve-r11/README.md) comparisons retain 3,456 exact certificates over 432 fresh processes. All absolute first/repeated medians and regressions are published with both accepted source/native identities, quiet-agent acknowledgements and unchanged before/after source maps. These selected operations do not certify whole-engine acceleration. HNF ratios span 0.642–15.471× first and 0.553–18.482× repeated, retaining 13 slower medians. Every measured LU first/repeated median regresses (36 observations), as do all 18 solve repeated medians and 15 solve first medians. LU adds 42.5–64.0µs first (+22.1–73.6%) and 31.5–45.5µs repeated (+20.4–188.4%); solve adds 73.8–92.2µs repeated (+33.0–165.8%), with 15 first calls adding 75.5–96.7µs (+28.8–68.6%). These observed costs remain an open optimization task with the audit/callback and complete-fallback guarantees preserved.
+
+The [complete R11 integration replay](../audits/sympy-1.14.0/corpus-r11-2026-10-28/README.md) completes all 1,210 inputs per backend exactly once (2,420 calls), with the unchanged runners and 60-second/8-GiB limits and native runtime reference imports blocked. All 1,210 native output trees remain identical to R2, and 21 parameter plus 10 E1 controls pass. Raw counts remain 1,164 exact matches, 36 reviewed differences and 10 held observations; one affine-nonzero capability gap remains. This does not certify global mathematical parity.
+
+
+## Accepted exact ZZ/QQ FFLU and full mathematical fallback (28 October 2026)
+
+Native **96f92d9e4848cbc2fec8df5d40a71d7f6df37bc789c68f6b4134164dc8a1b0a0**, source **4df626845d69241dcb3b0503b60454fc1ff8be00e78ee5ed45ee5b51f3ff0b3e**, pass the [fresh complete Demeter gate](../audits/sympy-1.14.0/validation-2026-10-28-fflu.json): **54,369 Python passes, 55 skips and 4 known xfails**, no unexpected failures; all **54,428** nodes execute exactly once across 48 disjoint file shards, with the earlier 52,563 nodes and exact skip/xfail identities preserved. Fresh Rust execution passes **755 unit tests, one 651-fixture integration test and 5 doctests**, one ignored; core/binding correctness clippy pass with 352 native source hashes checked before/after, including the compiled TSV.
+
+The [native port and portable mathematical evidence](../audits/sympy-1.14.0/native-fflu-2026-10-28/README.md) cover four actual Rust mathematical phases: Bareiss elimination, permutation publication, lower/upper extraction and diagonal products for stock ZZ/QQ DDM and dense/sparse DomainMatrix. Actual copies, allocations, ordered writes, first-diagonal aliases and public conversion remain. Unverified protocols/aliases and other domains retain the complete corrected generic arithmetic. Native refusal does not assert zero rank or lack of a factorization.
+
+Two mathematical defects shared with SymPy 1.14 are intentionally corrected: pivot search continues across all columns until all rows have pivots, and exact division uses the preceding actual pivot column. The 2x4 leading-zero-column witness formerly reconstructed 7 instead of 3; the 3x4 witness raised ZeroDivisionError. The [original failures and minor-based derivation](../audits/sympy-1.14.0/fflu-gap-2026-10-28/README.md) remain immutable, distinct from the integrated production correction. Wrong or exceptional prior outputs are not speed baselines.
+
+Independent Fraction checks establish P*A=L*D^(-1)*U, complete rank/pivots, echelon structure, permutation orientation and invertible lower/diagonal factors. The 203 frozen fixture IDs yield 404 domain cases and 1,616 actual private/DDM/dense/sparse calls per route: native and metadata-disabled complete fallback, on both hosts. Every native FFLU arithmetic entry is replaced by a failure in the fallback proof; runtime reference imports are blocked. The earlier 404 prototype certificates and 1,582 exact minor divisions are separate derivation evidence. The private 1860/8203/1037 exact-once cohort and four Rust units precede, rather than replace, the full integrated gate above.
+
+A separate HNF followup authenticates actual cached function builtins before capture and admission. A valid FunctionType clone can retain foreign range/type while its globals have canonical builtins again. The old native proof returned [[1]] with zero callbacks for A=[[2,3]], while its actual original arithmetic returned [[3]] with one callback, or raised the consumed callback error. The exact-function and exact-builtins-module checks now decline foreign cached builtins to complete original arithmetic. Four before failures plus one stock control become five passes, and 562 focused cases pass on both hosts using unchanged e7; the separately archived 19-member followup is covered again by the integrated new RELEASE/full gate above.
+
+This closes stock ZZ/QQ FFLU porting and the two identified mathematical defects in the tested contract. Native FFLU in other domains, modulo-D/numberfield HNF, Smith forms, genuinely cold LLL mathematics, general Risch/PRDE/ODE and earlier domain/precision/completeness/resource gaps remain open. No new timing campaign or global parity claim follows. Active work prioritizes mathematical Rust ports, capability gaps and complete Demeter gates.
+
+Post-gate review identifies a separate ordinary-HNF admission gap on R12:
+changing `_gcdex.__code__` or `add_columns.__code__` before a fresh guard import
+and registration can bless the changed code. For A=[[2,3]], native reduction
+returns [[1]] without the observed helper call, whereas the complete original
+body calls it once or raises its RuntimeError. Four isolated regressions fail
+on each verified runtime, with the original function identity, globals and
+actual builtins retained. The [frozen counterexamples](../audits/sympy-1.14.0/hnf-bootstrap-gap-2026-10-28/REPORT.json)
+distinguish this open gap from the resolved cached-builtins defect; the private
+immutable-template correction is not yet an accepted production result.
+
+
+## Mathematical Rust ports accepted in R13, 2026-10-28
+
+The [fresh integrated gate](../audits/sympy-1.14.0/validation-2026-10-28-math-ports.json) uses source `cc617a4aef2a114b2526073b6443c6b6dcb79b5c246a9cab9bb7351312a776a7` and freshly built RELEASE `e2b10b0c4a4037476d55de13f307eda448cff6b167c935b41c85cf9f16338cfc`. Demeter executes all **56,311** nodes exactly once across 48 disjoint file shards: **56,252 passed, 55 skipped, four known xfails**, no unexpected failure. All 54,428 R12 node identities and exact skip/xfail identities and reasons are retained. Fresh Rust validation passes **762 units, one 651-fixture integration test and five doctests**, with one ignored; core and binding correctness clippy pass. All 364 native inputs include the compile-time Python LLL contract and TSV fixture, with exact maps checked before and after.
+
+R13 ports exact closed-QQ `splitfactor` gcd/derivative/exact-quotient/recursive special-factor arithmetic, the stock-ZZ modulo-D HNF recurrence, and the consumed prefix/proof needed to select existing exact Rust LLL mathematics at the genuinely cold first admitted public call. Other domains/options/protocols retain their complete original mathematical bodies. Splitfactor's degree64/coefficient4096-bit admission is an optimization boundary, not a reduced public capability. Native HNF uses arbitrary precision scalar arithmetic and the original positive determinant-multiple/full-row-rank hypothesis; 730 valid fixtures receive complete unimodular lattice certificates, while 55 outside-hypothesis fixtures are explicitly legacy-output controls only.
+
+The fresh final RELEASE separately replays all 1,104 LLL cold triples on Demeter with the unchanged runner and no case limit: old complete arithmetic, real-prefix/native and actual public/native have counters0/1/1, equal complete outputs/four errors, identical ABC/nominal states and no audits. All final source/native hashes remain unchanged. The new cold admission is verified and enabled on CPython 3.10.12 and 3.10.20, Linux x86_64; other environments keep the complete old route. Those RELEASE receipts remain separate from private DEBUG evidence and the full pytest gate. The old metadata load/read bodies and nominal scanner remain unchanged; unsupported cold prefixes keep complete fallback. This does not emulate historical Python bytecode/frame tracing.
+
+The four original R12 ordinary-HNF bootstrap failures are resolved for `_gcdex` and `add_columns` by semantic templates local to the ordinary guard, with actual cached builtins still checked. Original frozen before reports/manifests/archives retain their bytes and OPEN-at-R12 status; a separate [R13 resolution](../audits/sympy-1.14.0/hnf-bootstrap-gap-2026-10-28/RESOLUTION-R13.json) links the new gate. A fifth forged-peer-code-table case belongs only to the rejected private candidate and its preserved archive. The final five cases retain actual changed callbacks/results/errors, without native admission or metadata-audit events. Other ordinary bootstrap captures remain the R12 implementation; this is a bounded correction, not universal bootstrap authentication.
+
+The existing Hermite representative-domain gap remains open: for a=t+1, d=(t+2)^3*(t^2+1)^2, D(t)=t^2+1 at levels1–3, some Symox g numerator/denominator Polys are ZZ where SymPy1.14 keeps QQ. Exact coefficients and a/d=Dg+h+r agree independently before and after the port; canonical representation domains agree. Full Hermite/Risch/PRDE capability is not claimed. Native Smith/numberfield HNF, other-domain FFLU/LU and earlier solution/domain/precision/resource gaps remain open.
+
+[Portable sources, certificates, rejected lineage and raw gates](../audits/sympy-1.14.0/native-math-ports-2026-10-28/README.md) distinguish all private DEBUG builds from this freshly built integrated RELEASE. No timing campaign, unrelated integral/ODE corpus replay or global speed/parity claim is inferred from the mathematical ports. Coordinated rewriting of private implementation and its anchors changes the optimizer program and is outside these protocol witnesses.
+

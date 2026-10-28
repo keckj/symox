@@ -1,0 +1,107 @@
+--- a/python/symox/integrals/rationaltools.py
++++ b/python/symox/integrals/rationaltools.py
+@@ -140,7 +140,7 @@
+     return _atan_states_match(states)
+ 
+ 
+-def _atan_vector_proof(proof,operation_code,name):
++def _atan_vector_proof(proof,operation_code,name,vector_types):
+     import builtins
+     from types import FunctionType
+     operation,delegate,states,namespace,basis,mro,isinstance_,operation_name=proof
+@@ -157,14 +157,14 @@
+                 or _ATAN_TYPE(cells['name'].cell_contents) is not str
+                 or cells['name'].cell_contents!=name):return False
+     except (ValueError,TypeError):return False
+-    # These exact scalar node classes cannot enter the vector branch. Reading
+-    # their actual MRO does not invoke __instancecheck__ or user attributes.
+-    return _ATAN_ALL(_ATAN_ALL(base is not basis for base in _ATAN_MRO_DESCRIPTOR.__get__(cls))
+-                     for cls in _ATAN_SCALARS)
+-
+-
+-def _atan_forwarding_chain(current,original,name,ore_proofs,ore_code,vector_proofs,vector_code):
+-    seen=set();forwarded=False
++    # Exclude these basis classes once for every scalar MRO below, after
++    # checking all operator layers. No state survives this selector call.
++    vector_types[id(basis)]=basis
++    return True
++
++
++def _atan_forwarding_chain(current,original,name,ore_proofs,ore_code,vector_proofs,vector_code,vector_types):
++    seen=set();forwarded=0
+     while id(current) not in seen:
+         seen.add(id(current))
+         ore=next((proof for proof in ore_proofs if current is proof[0]),None)
+@@ -172,13 +172,12 @@
+         if ore is not None:
+             if (_ATAN_GETATTR(current,'_symox_ore_proof',None) is not ore
+                     or not _atan_forwarding_proof(ore,ore_code,name)):return False,forwarded
+-            delegate=ore[1]
++            delegate=ore[1];forwarded|=1
+         elif vector is not None:
+             if (_ATAN_GETATTR(current,'_symox_vector_proof',None) is not vector
+-                    or not _atan_vector_proof(vector,vector_code,name)):return False,forwarded
+-            delegate=vector[1]
++                    or not _atan_vector_proof(vector,vector_code,name,vector_types)):return False,forwarded
++            delegate=vector[1];forwarded|=2
+         else:return current is original,forwarded
+-        forwarded=True
+         if current is original:return True,forwarded
+         current=delegate
+     return False,forwarded
+@@ -214,7 +213,7 @@
+                 or _ATAN_TYPE(vector_code) is not CodeType):return False
+     if (not _ATAN_ALL(_ATAN_TYPE(p) is tuple and len(p)==8 for p in proofs)
+             or not _ATAN_ALL(_ATAN_TYPE(p) is tuple and len(p)==8 for p in vector_proofs)):return False
+-    verified={};forwarded=False
++    verified={};forwarded=0;vector_types={}
+     for cls,name,original in operators:
+         current=_ATAN_GETATTR(cls,name)
+         key=(id(current),id(original),name)
+@@ -223,23 +222,34 @@
+             continue
+         valid,has_forwarder=_atan_forwarding_chain(current,original,name,proofs,
+                                                   operation_code if recurrence is not None else None,
+-                                                  vector_proofs,vector_code)
++                                                  vector_proofs,vector_code,vector_types)
+         verified[key]=valid
+         if not valid:return False
+         forwarded|=has_forwarder
+-    # The ordinary arithmetic delegate also reads _op_priority. An altered
+-    # property must retain its callback even when no Ore wrapper is installed.
++    # Inspect each scalar MRO and each base dictionary once. Priority and
++    # attribute hooks apply to all delegates; holonomic markers apply only
++    # when an actual Ore layer was authenticated. A vector-only chain never
++    # reads that marker in its normal scalar path.
++    has_ore=forwarded&1
++    bases=tuple(vector_types.values())
+     for cls,priority in _ATAN_PRIORITIES:
+-        if _atan_raw_attribute(cls,'_op_priority') is not priority:return False
+-        if _atan_raw_attribute(cls,'__getattribute__') is not _ATAN_OBJECT_GETATTRIBUTE:return False
+-        if _atan_raw_attribute(cls,'__getattr__') is not _ATAN_MISSING:return False
++        mro=_ATAN_MRO_DESCRIPTOR.__get__(cls)
++        value=_ATAN_MISSING;attribute=_ATAN_MISSING
++        found_value=False;found_attribute=False
++        for base in mro:
++            namespace=_ATAN_DICT_DESCRIPTOR.__get__(base)
++            if not found_value and '_op_priority' in namespace:
++                value=namespace['_op_priority'];found_value=True
++            if not found_attribute and '__getattribute__' in namespace:
++                attribute=namespace['__getattribute__'];found_attribute=True
++            if '__getattr__' in namespace:return False
++            if has_ore and '_symox_holonomic_function' in namespace:return False
++            if bases:
++                for basis in bases:
++                    if base is basis:return False
++        if value is not priority or attribute is not _ATAN_OBJECT_GETATTRIBUTE:return False
++        if has_ore and _ATAN_GETATTR(cls,'__getattribute__') is not _ATAN_OBJECT_GETATTRIBUTE:return False
+     if not forwarded:return True
+-    # On these ordinary scalar nodes the Ore wrapper must delegate. A marker
+-    # descriptor or attribute hook would make its getattr observable instead.
+-    for cls in _ATAN_SCALARS:
+-        if _ATAN_GETATTR(cls,'__getattribute__') is not _ATAN_OBJECT_GETATTRIBUTE:return False
+-        for base in cls.__mro__:
+-            if '__getattr__' in base.__dict__ or '_symox_holonomic_function' in base.__dict__:return False
+     if f is None and g is None:return True
+     if (_ATAN_TYPE(f) is not _ATAN_POLY or _ATAN_TYPE(g) is not _ATAN_POLY
+             or _ATAN_TYPE(_ATAN_GENS) is not GetSetDescriptorType or Poly.gens is not _ATAN_GENS):return False

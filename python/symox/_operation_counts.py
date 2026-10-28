@@ -28,6 +28,25 @@ def count_ops(expression, visual=False):
 
 
 def _count_ops(expression, visual=False):
+    from . import _core, Tuple
+    from .codegen.ast import Indexed, IndexedBase
+    from ._public_matrix import Idx
+    # Standard scalar frontends expose structural metadata to the Rust walk;
+    # user subclasses retain their original attribute/conversion protocols.
+    kind = None
+    if type(expression) is Indexed:
+        expression = expression._symox_()
+    elif type(expression) in (IndexedBase, Idx):
+        kind = type(expression).__name__
+        expression = Tuple(*expression.args)
+    if isinstance(expression, _core.Expr):
+        result = _core._native_count_ops(expression, visual, kind)
+        if result is not None:
+            return result
+    return _count_ops_fallback(expression, visual)
+
+
+def _count_ops_fallback(expression, visual=False):
     from . import S, Symbol, Add, fraction, MatrixExpr, DenseMatrix as Matrix, Set, sympify
     from ._core import Expr
     from ._matrixexpr_methods import _children

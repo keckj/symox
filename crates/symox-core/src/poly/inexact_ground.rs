@@ -27,6 +27,7 @@ use num_bigint::BigInt;
 use num_traits::{One, Signed, Zero};
 use rustc_hash::FxHashMap;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 
 /// The inexact ground of a composite domain: `RealField(precision)` or
 /// `ComplexField(precision)`.
@@ -314,12 +315,14 @@ impl Inexact {
             bound1
         }
     }
-    /// `QQ.convert`/`QQ_I.convert` of a scalar (the parts of a complex
-    /// number are rationalized as plain `mpf` objects, with the default
-    /// 53-bit context bound).
+    /// Exact-ground reconstruction for polynomial arithmetic. Keep the
+    /// selected field's precision for both parts: using the default 53-bit
+    /// bound for a higher-precision ComplexField changes the input
+    /// coefficients while advertising the original precision. Explicit
+    /// public CC -> QQ_I conversion follows its separate reference protocol.
     fn exact_parts(&self, a: &C) -> (Rat, Rat) {
         if self.complex {
-            (self.to_rational(&a.re, 53), self.to_rational(&a.im, 53))
+            (self.to_rational(&a.re, self.p()), self.to_rational(&a.im, self.p()))
         } else {
             (self.to_rational(&a.re, self.p()), Rat::zero())
         }
@@ -425,7 +428,7 @@ struct Ring {
 }
 
 fn mono_add(a: &[u32], b: &[u32]) -> Vec<u32> {
-    a.iter().zip(b).map(|(x, y)| x + y).collect()
+    a.iter().zip(b).map(|(x, y)| super::mpoly::exponent_add(*x,*y)).collect()
 }
 
 /// `binomial_coefficients(n)` in the reference dictionary order.
@@ -634,9 +637,15 @@ impl Ring {
         if n == 0 {
             return Ok(self.one());
         }
+        // RR and CC coefficients have no nonzero nilpotents. The degree
+        // in each parameter of a nonzero power is the original degree*n.
+        for variable in 0..self.m {
+            let degree=a.iter().map(|(m,_)|m[variable]).max().unwrap_or(0);
+            super::mpoly::exponent_scale(degree,n);
+        }
         if a.len() == 1 {
             let (monom, coeff) = a.iter().next().unwrap();
-            let e: Vec<u32> = monom.iter().map(|x| x * n as u32).collect();
+            let e: Vec<u32> = monom.iter().map(|x| super::mpoly::exponent_scale(*x,n)).collect();
             let c = if *coeff == self.k.one() { coeff.clone() } else { self.k.pow(coeff, n)? };
             return Ok(R::from_iter([(e, c)]));
         }
@@ -673,7 +682,7 @@ impl Ring {
             for (&exp, (m, c)) in multinomial.iter().zip(&terms) {
                 if exp > 0 {
                     for (x, y) in monom.iter_mut().zip(m.iter()) {
-                        *x += y * exp as u32;
+                        *x = super::mpoly::exponent_add(*x,super::mpoly::exponent_scale(*y,exp as u64));
                     }
                     let t = self.k.pow(c, exp as u64)?;
                     coeff = Some(match coeff {
@@ -995,6 +1004,7 @@ impl Dom {
     fn from_int(&self, n: i64) -> E {
         self.from_c(self.k().from_int(&BigInt::from(n)))
     }
+    fn from_bigint(&self,n:&BigInt)->E {self.from_c(self.k().from_int(n))}
     fn is_zero(&self, a: &E) -> bool {
         a.n.is_empty()
     }
@@ -1631,16 +1641,11 @@ impl Dom {
             return Ok(f.to_vec());
         }
         let mut n = degree(f);
-        if n < m as i64 {
-            return Ok(Vec::new());
-        }
+        if n<0 || m as u128>n as u128 {return Ok(Vec::new());}
         let mut deriv = Vec::new();
         for coeff in &f[..f.len() - m] {
-            let mut k = n;
-            for i in (n - m as i64 + 1..n).rev() {
-                k *= i;
-            }
-            deriv.push(self.mul(&self.from_int(k), coeff)?);
+            let factor=super::expression_domain::rising_factor(n as u64-m as u64+1,m);
+            deriv.push(self.mul(&self.from_bigint(&factor), coeff)?);
             n -= 1;
         }
         Ok(self.strip(deriv))
@@ -1651,11 +1656,8 @@ impl Dom {
         }
         let mut g: U = vec![self.zero(); m];
         for (i, c) in f.iter().rev().enumerate() {
-            let mut n = (i + 1) as i64;
-            for j in 1..m {
-                n *= (i + j + 1) as i64;
-            }
-            g.insert(0, self.exquo(c, &self.from_int(n))?);
+            let factor=super::expression_domain::rising_factor(i as u64+1,m);
+            g.insert(0, self.exquo(c, &self.from_bigint(&factor))?);
         }
         Ok(g)
     }
@@ -1952,7 +1954,7 @@ pub fn is_inexact(p: &ExpressionPoly) -> bool {
 }
 
 /// Convert every coefficient of `p` into the ground of `g`.
-pub fn convert_poly(g: &GaussianGround, p: &ExpressionPoly) -> PResult<ExpressionPoly> {
+pub fn convert_poly(g: &GaussianGround, p: &ExpressionPoly) -> PResult<ExpressionPoly> {super::mpoly::checked_operation(||{
     let d = Dom::new(g).expect("inexact ground");
     let mut terms = Vec::new();
     for (m, c) in p.terms() {
@@ -1964,25 +1966,25 @@ pub fn convert_poly(g: &GaussianGround, p: &ExpressionPoly) -> PResult<Expressio
     let mut out = ExpressionPoly::from_terms(terms, &p.gens)?;
     out.ground = Some(g.clone());
     Ok(out)
-}
+})}
 
 /// The ground element of `g` for `e`, as its normal form.
-pub fn element_expr(g: &GaussianGround, e: &Expr) -> PResult<Expr> {
+pub fn element_expr(g: &GaussianGround, e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let d = Dom::new(g).expect("inexact ground");
     Ok(d.to_expr(&d.from_expr(e)?))
-}
+})}
 
 /// The numerator and denominator of an element of `RR(y...)`, `CC(y...)`
 /// (the reference `FracElement.numer` and `.denom`) as ring expressions.
-pub fn element_parts(g: &GaussianGround, e: &Expr) -> PResult<(Expr, Expr)> {
+pub fn element_parts(g: &GaussianGround, e: &Expr) -> PResult<(Expr, Expr)> {super::mpoly::checked_operation(||{
     let d = Dom::new(g).expect("inexact ground");
     let a = d.from_expr(e)?;
     Ok((d.r.to_expr(&a.n, &d.symbols), d.r.to_expr(&a.d, &d.symbols)))
-}
+})}
 
 /// Domain element operations of `RR[y]`, `CC(y)`, ...: `op` is one of
 /// `+ - * / quo rem exquo gcd lcm`; `/` is the exact quotient in a ring.
-pub fn element_op(g: &GaussianGround, a: &Expr, b: &Expr, op: &str) -> PResult<Expr> {
+pub fn element_op(g: &GaussianGround, a: &Expr, b: &Expr, op: &str) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let d = Dom::new(g).expect("inexact ground");
     let (x, y) = (d.from_expr(a)?, d.from_expr(b)?);
     let r = match op {
@@ -1997,7 +1999,7 @@ pub fn element_op(g: &GaussianGround, a: &Expr, b: &Expr, op: &str) -> PResult<E
         _ => return Err(PolyError::Unsupported(format!("unknown coefficient operation {op}"))),
     };
     Ok(d.to_expr(&r))
-}
+})}
 
 /// Sparse arithmetic in several generators: `dmp_*` over the composite
 /// domain, through the recursive dense representation.
@@ -2194,6 +2196,43 @@ mod multi {
     fn one_of_depth(k: &Dom, f: &D) -> D {
         one_at(k, depth(f))
     }
+    pub fn differentiate(k:&Dom,f:&D,m:usize,j:usize)->PResult<D> {
+        if m==0{return Ok(f.clone());}
+        match(f,j){
+            (D::L(a),0)=>Ok(D::L(k.d_diff(a,m)?)),
+            (D::N(a),0)=>{
+                if a.is_empty() || m>=a.len(){return Ok(D::N(Vec::new()));}
+                let degree=a.len()-1;let mut out=Vec::new();
+                for(i,c)in a[..a.len()-m].iter().enumerate(){
+                    let factor=k.from_bigint(&super::super::expression_domain::rising_factor((degree-i-m+1) as u64,m));
+                    out.push(mul_ground(k,c,&factor)?);
+                }
+                Ok(D::N(strip(out)))
+            }
+            (D::N(a),_)=>Ok(D::N(strip(a.iter().map(|c|differentiate(k,c,m,j-1)).collect::<PResult<_>>()?))),
+            _=>Err(PolyError::Generator("derivative generator is out of range".into())),
+        }
+    }
+    fn quo_ground(k:&Dom,f:&D,c:&E)->PResult<D>{
+        Ok(match f{D::L(a)=>D::L(k.quo_ground(a,c)?),D::N(a)=>D::N(a.iter().map(|x|quo_ground(k,x,c)).collect::<PResult<_>>()?)})
+    }
+    pub fn integrate(k:&Dom,f:&D,m:usize,j:usize)->PResult<D>{
+        if m==0 || is_zero(f){return Ok(f.clone());}
+        match(f,j){
+            (D::L(a),0)=>Ok(D::L(k.d_integrate(a,m)?)),
+            (D::N(a),0)=>{
+                let mut out=Vec::new();
+                for(i,c)in a.iter().rev().enumerate(){
+                    let factor=k.from_bigint(&super::super::expression_domain::rising_factor(i as u64+1,m));
+                    out.push(quo_ground(k,c,&factor)?);
+                }
+                out.reverse();out.extend(std::iter::repeat_n(zero_like(&a[0]),m));
+                Ok(D::N(out))
+            }
+            (D::N(a),_)=>Ok(D::N(strip(a.iter().map(|c|integrate(k,c,m,j-1)).collect::<PResult<_>>()?))),
+            _=>Err(PolyError::Generator("integration generator is out of range".into())),
+        }
+    }
     pub fn from_poly(k: &Dom, p: &ExpressionPoly) -> PResult<D> {
         let u = p.gens.len() - 1;
         let terms: Vec<(Vec<u32>, E)> = p.terms().into_iter().map(|(m, c)| Ok((m, k.from_expr(&c)?))).collect::<PResult<_>>()?;
@@ -2263,19 +2302,68 @@ fn binary(
     multi::to_poly(&k, &many(&k, &multi::from_poly(&k, f)?, &multi::from_poly(&k, g)?)?, &f.gens)
 }
 
+impl super::expression_domain::sparse_product::Arithmetic for Dom {
+    type C=E;
+    fn zero(&self)->E{Dom::zero(self)} fn one(&self)->E{Dom::one(self)} fn two(&self)->E{self.from_int(2)}
+    fn is_zero(&self,c:&E)->bool{Dom::is_zero(self,c)}
+    fn implicit_zero(&self,c:&E)->bool{Dom::is_zero(self,c)}
+    fn add(&self,a:&E,b:&E)->PResult<E>{Dom::add(self,a,b)}
+    fn sub(&self,a:&E,b:&E)->PResult<E>{Dom::sub(self,a,b)}
+    fn mul(&self,a:&E,b:&E)->PResult<E>{Dom::mul(self,a,b)}
+    fn square(&self,a:&E)->PResult<E>{Dom::sqr(self,a)}
+}
+fn sparse_product(f:&ExpressionPoly,g:Option<&ExpressionPoly>,power:Option<u32>)->PResult<ExpressionPoly> {
+    let k=dom(f);
+    let terms=|p:&ExpressionPoly|p.terms().into_iter().map(|(m,c)|Ok((m,k.from_expr(&c)?))).collect::<PResult<Vec<_>>>();
+    let out=super::expression_domain::sparse_product::product(&k,f.gens.len(),terms(f)?,g.map(terms).transpose()?,power)?;
+    let mut result=ExpressionPoly::from_terms(out.into_iter().map(|(m,c)|(m,k.to_expr(&c))).collect(),&f.gens)?;
+    result.ground=f.ground.clone();Ok(result)
+}
+fn sparse_additive(f:&ExpressionPoly,g:&ExpressionPoly,subtract:bool)->PResult<ExpressionPoly> {
+    let k=dom(f);
+    let mut terms:BTreeMap<Vec<u32>,E>=BTreeMap::new();
+    for (m,c) in f.terms(){terms.insert(m,k.from_expr(&c)?);}
+    for (m,c) in g.terms(){
+        let c=k.from_expr(&c)?;
+        let value=match terms.remove(&m){Some(a)=>if subtract{k.sub(&a,&c)?}else{k.add(&a,&c)?},None=>if subtract{k.neg(&c)}else{c}};
+        terms.insert(m,value);
+    }
+    let terms=terms.into_iter().filter(|(_,c)|!k.is_zero(c)).map(|(m,c)|(m,k.to_expr(&c))).collect();
+    let mut result=ExpressionPoly::from_terms(terms,&f.gens)?;result.ground=f.ground.clone();Ok(result)
+}
 pub fn add(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+    if f.is_sparse() || g.is_sparse(){return sparse_additive(f,g,false);}
     binary(f, g, |k, a, b| k.d_add(a, b), |k, a, b| multi::add(k, a, b))
 }
 pub fn sub(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+    if f.is_sparse() || g.is_sparse(){return sparse_additive(f,g,true);}
     binary(f, g, |k, a, b| k.d_sub(a, b), |k, a, b| multi::sub(k, a, b))
 }
 pub fn mul(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+    if f.is_zero() || g.is_zero(){return dom(f).poly(&[],&f.gens);}
+    if f.is_sparse() || g.is_sparse(){
+        if g.degree_list().iter().all(|d|*d<=0){return mul_ground(f,&g.lc());}
+        if f.degree_list().iter().all(|d|*d<=0){return mul_ground(g,&f.lc());}
+    }
+    if f.is_sparse() || g.is_sparse(){return sparse_product(f,Some(g),None);}
     binary(f, g, |k, a, b| k.d_mul(a, b), |k, a, b| multi::mul(k, a, b))
 }
 pub fn neg(f: &ExpressionPoly) -> PResult<ExpressionPoly> {
+    if f.is_sparse(){
+        let k=dom(f);
+        let terms=f.terms().into_iter().map(|(m,c)|Ok((m,k.to_expr(&k.neg(&k.from_expr(&c)?))))).collect::<PResult<_>>()?;
+        let mut result=ExpressionPoly::from_terms(terms,&f.gens)?;result.ground=f.ground.clone();return Ok(result);
+    }
     binary(f, f, |k, a, _| Ok(k.d_neg(a)), |k, a, _| Ok(multi::neg(k, a)))
 }
 pub fn pow(f: &ExpressionPoly, n: u32) -> PResult<ExpressionPoly> {
+    if n==0 {
+        let k=dom(f);
+        let mut result=ExpressionPoly::from_terms(vec![(vec![0;f.gens.len()],k.to_expr(&k.one()))],&f.gens)?;
+        result.ground=f.ground.clone();return Ok(result);
+    }
+    if n==1 || f.is_zero(){return Ok(f.clone());}
+    if f.is_sparse(){return sparse_product(f,None,Some(n));}
     binary(f, f, |k, a, _| k.d_pow(a, n), |k, a, _| multi::pow(k, a, n))
 }
 
@@ -2355,52 +2443,95 @@ pub fn pexquo(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly>
 /// coefficients go to the exact domain (`RR[y].get_exact()` is `QQ[y]`,
 /// each `mpf` through `to_rational`), the gcd and cofactors are computed
 /// there and come back through the inexact ground.
-fn exact_multi_cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<Option<(ExpressionPoly, ExpressionPoly, ExpressionPoly)>> {
+///
+/// Complex scalar and composite grounds use the already complete Gaussian
+/// algorithms. Coefficient denominators stay in the parameter fraction
+/// field; the polynomial generators are never folded into that field.
+fn exact_complex_pair(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<Option<(GaussianGround, ExpressionPoly, ExpressionPoly)>> {
     let ground = f.ground.as_ref().expect("inexact ground");
-    if f.gens.len() < 2 || !ground.ring || ground.symbols.is_empty() || ground.inexact.is_none_or(|k| k.complex) {
+    if f.gens.len() < 2 || ground.inexact.is_none_or(|k| !k.complex) {
         return Ok(None);
     }
     let k = dom(f);
-    let exact = |p: &ExpressionPoly| -> PResult<Expr> {
+    let exact = GaussianGround {
+        integral: false,
+        ring: ground.ring && !ground.symbols.is_empty(),
+        symbols: ground.symbols.clone(),
+        inexact: None,
+    };
+    let ring_expr = |p: &R| -> Expr {
+        crate::ops::add(&p.iter().map(|(m, c)| {
+            let (re, im) = k.k().exact_parts(c);
+            let mut factors = vec![crate::ops::add2(&super::convert::rat_to_expr(&re),
+                &crate::ops::mul2(&Expr::i(), &super::convert::rat_to_expr(&im)))];
+            for (s, &n) in k.symbols.iter().zip(m) {
+                if n != 0 { factors.push(crate::ops::powi(s, n as i64)); }
+            }
+            crate::ops::mul(&factors)
+        }).collect::<Vec<_>>())
+    };
+    let convert = |p: &ExpressionPoly| -> PResult<ExpressionPoly> {
         let mut terms = Vec::new();
         for (m, c) in p.terms() {
-            let e = k.from_expr(&c)?;
-            let mut parts = Vec::new();
-            for (ey, v) in e.n.iter() {
-                let mut factors = vec![super::convert::rat_to_expr(&k.k().exact_parts(v).0)];
-                for (s, &d) in k.symbols.iter().zip(ey) {
-                    if d > 0 {
-                        factors.push(crate::ops::powi(s, d as i64));
-                    }
-                }
-                parts.push(crate::ops::mul(&factors));
-            }
-            let mut factors = vec![crate::ops::add(&parts)];
-            for (x, &d) in p.gens.iter().zip(&m) {
-                if d > 0 {
-                    factors.push(crate::ops::powi(x, d as i64));
-                }
-            }
-            terms.push(crate::ops::mul(&factors));
+            let c = k.from_expr(&c)?;
+            terms.push((m, crate::ops::div(&ring_expr(&c.n), &ring_expr(&c.d))));
         }
-        Ok(crate::ops::add(&terms))
+        exact.convert_poly(&ExpressionPoly::from_terms(terms, &p.gens)?)
+    };
+    let (a, b) = (convert(f)?, convert(g)?);
+    Ok(Some((exact, a, b)))
+}
+
+/// Real composite grounds embed into QQ[parameters] or QQ(parameters).
+/// The polynomial generators remain separate from coefficient parameters.
+fn exact_real_pair(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<Option<(super::fraction::FractionPoly, super::fraction::FractionPoly)>> {
+    let ground = f.ground.as_ref().expect("inexact ground");
+    if f.gens.len() < 2 || ground.symbols.is_empty() || ground.inexact.is_none_or(|k| k.complex) {
+        return Ok(None);
+    }
+    let k = dom(f);
+    let ring_expr = |p: &R| -> Expr {
+        crate::ops::add(&p.iter().map(|(m, c)| {
+            let mut factors = vec![super::convert::rat_to_expr(&k.k().exact_parts(c).0)];
+            for (s, &n) in k.symbols.iter().zip(m) {
+                if n != 0 { factors.push(crate::ops::powi(s, n as i64)); }
+            }
+            crate::ops::mul(&factors)
+        }).collect::<Vec<_>>())
+    };
+    let exact = |p: &ExpressionPoly| -> PResult<Expr> {
+        let terms = p.terms().into_iter().map(|(m, c)| {
+            let c = k.from_expr(&c)?;
+            Ok((m, crate::ops::div(&ring_expr(&c.n), &ring_expr(&c.d))))
+        }).collect::<PResult<Vec<_>>>()?;
+        Ok(ExpressionPoly::from_terms(terms, &p.gens)?.as_expr())
     };
     let names = k.symbols.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(",");
-    let display = format!("QQ[{names}]");
-    let fa = super::fraction::FractionPoly::from_expr(&exact(f)?, &f.gens, &k.symbols, &display)?;
-    let fb = super::fraction::FractionPoly::from_expr(&exact(g)?, &f.gens, &k.symbols, &display)?;
+    let display = if ground.ring { format!("QQ[{names}]") } else { format!("QQ({names})") };
+    let convert = |p: &ExpressionPoly| super::fraction::FractionPoly::from_expr(&exact(p)?, &p.gens, &k.symbols, &display);
+    Ok(Some((convert(f)?, convert(g)?)))
+}
+
+fn exact_multi_cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<Option<(ExpressionPoly, ExpressionPoly, ExpressionPoly)>> {
+    let ground = f.ground.as_ref().expect("inexact ground");
+    if let Some((exact, a, b)) = exact_complex_pair(f, g)? {
+        let (h, p, q) = exact.cofactors(&a, &b)?;
+        return Ok(Some((ground.convert_poly(&h)?, ground.convert_poly(&p)?, ground.convert_poly(&q)?)));
+    }
+    let Some((fa, fb)) = exact_real_pair(f, g)? else { return Ok(None); };
     let h = fa.gcd(&fb);
+    let back = |p: &super::fraction::FractionPoly| ground.convert_expr(&p.as_expr(), &f.gens);
     if h.rep.is_zero() {
-        return Ok(None);
+        return Ok(Some((back(&h)?, f.clone(), g.clone())));
     }
     let (cff, r1) = fa.div(&h)?;
     let (cfg, r2) = fb.div(&h)?;
     if !r1.rep.is_zero() || !r2.rep.is_zero() {
-        return Ok(None);
+        return Err(PolyError::ExactQuotientFailed("exact real composite gcd failed to divide its inputs".into()));
     }
-    let back = |p: &super::fraction::FractionPoly| ground.convert_expr(&p.as_expr(), &f.gens);
     Ok(Some((back(&h)?, back(&cff)?, back(&cfg)?)))
 }
+
 pub fn gcd(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
     if let Some((h, _, _)) = exact_multi_cofactors(f, g)? {
         return Ok(h);
@@ -2409,6 +2540,76 @@ pub fn gcd(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
     k.poly(&h, &f.gens)
 }
 pub fn lcm(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+    if let Some((exact, a, b)) = exact_complex_pair(f, g)? {
+        let ground = f.ground.as_ref().expect("inexact ground");
+        let result = if exact.ring {
+            if a.is_zero() || b.is_zero() {
+                ExpressionPoly::zero(&f.gens)
+            } else {
+                // dmp_rr_lcm first removes ground content. In CC[y], a
+                // single coefficient keeps its content while the gcd of
+                // two scalar coefficients is a unit. Consequently monomial
+                // inputs and multi-term inputs have different normalization.
+                let k = dom(f);
+                let primitive = |p: &ExpressionPoly| -> PResult<(E, ExpressionPoly)> {
+                    let terms = p.terms();
+                    let coefficients = terms.iter().map(|(_, c)| k.from_expr(c)).collect::<PResult<Vec<_>>>()?;
+                    let content = k.d_content(&coefficients)?;
+                    let terms = terms.into_iter().zip(coefficients).map(|((m, _), c)| {
+                        Ok((m, k.to_expr(&k.quo(&c, &content)?)))
+                    }).collect::<PResult<Vec<_>>>()?;
+                    let mut primitive = ExpressionPoly::from_terms(terms, &p.gens)?;
+                    primitive.ground = p.ground.clone();
+                    Ok((content, primitive))
+                };
+                let (fc, ff) = primitive(f)?;
+                let (gc, gg) = primitive(g)?;
+                let c = k.lcm(&fc, &gc)?;
+                let (exact, ff, gg) = exact_complex_pair(&ff, &gg)?.expect("complex multivariate primitives");
+                let (_, _, q) = exact.cofactors(&ff, &gg)?;
+                return ground.convert_poly(&ff.mul(&q)?)?.mul_ground(&k.to_expr(&c));
+            }
+        } else {
+            exact.lcm(&a, &b)?
+        };
+        return ground.convert_poly(&result);
+    }
+    if let Some((a, b)) = exact_real_pair(f, g)? {
+        let ground = f.ground.as_ref().expect("inexact ground");
+        if ground.ring {
+            if a.rep.is_zero() || b.rep.is_zero() {
+                return ground.convert_poly(&ExpressionPoly::zero(&f.gens));
+            }
+            // Remove content in the original RR[y], whose coefficient gcd
+            // normalizes scalar units differently from exact QQ[y]. The
+            // subsequent polynomial gcd still uses the complete exact
+            // backend. In particular 1.5*y*H and 3*y*H retain a factor 3
+            // in their LCM when H has several terms.
+            let k = dom(f);
+            let primitive = |p: &ExpressionPoly| -> PResult<(E, ExpressionPoly)> {
+                let terms = p.terms();
+                let coefficients = terms.iter().map(|(_, c)| k.from_expr(c)).collect::<PResult<Vec<_>>>()?;
+                let content = k.d_content(&coefficients)?;
+                let terms = terms.into_iter().zip(coefficients).map(|((m, _), c)| {
+                    Ok((m, k.to_expr(&k.quo(&c, &content)?)))
+                }).collect::<PResult<Vec<_>>>()?;
+                let mut primitive = ExpressionPoly::from_terms(terms, &p.gens)?;
+                primitive.ground = p.ground.clone();
+                Ok((content, primitive))
+            };
+            let (fc, ff) = primitive(f)?;
+            let (gc, gg) = primitive(g)?;
+            let c = k.lcm(&fc, &gc)?;
+            let (a, b) = exact_real_pair(&ff, &gg)?.expect("real multivariate primitives");
+            let h = a.gcd(&b);
+            let (q, remainder) = b.div(&h)?;
+            if !remainder.rep.is_zero() {
+                return Err(PolyError::ExactQuotientFailed("primitive real gcd failed to divide its input".into()));
+            }
+            return ground.convert_expr(&a.mul(&q).as_expr(), &f.gens)?.mul_ground(&k.to_expr(&c));
+        }
+        return ground.convert_expr(&a.lcm(&b).as_expr(), &f.gens);
+    }
     let (k, h) = pair(f, g, |k, a, b| k.d_lcm(a, b))?;
     k.poly(&h, &f.gens)
 }
@@ -2418,6 +2619,51 @@ pub fn cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(ExpressionP
     }
     let (k, (h, a, b)) = pair(f, g, |k, a, b| k.inner_gcd(a, b))?;
     Ok((k.poly(&h, &f.gens)?, k.poly(&a, &f.gens)?, k.poly(&b, &f.gens)?))
+}
+/// Sparse PolyElement cancellation cofactor convention.
+/// Its monomial fast path computes the gcd in the coefficient domain,
+/// whereas dense dmp cofactors obtain the content from the exact ground.
+pub fn sparse_cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(ExpressionPoly, ExpressionPoly, ExpressionPoly)> {
+    let ft = f.terms();
+    let gt = g.terms();
+    let k = dom(f);
+    if f.is_zero() {
+        // PolyElement.cancel handles zero before calling cofactors,
+        // including 0/0; choose cofactors giving its (0, 1) result.
+        return Ok((g.clone(), f.clone(), k.ground.convert_expr(&k.to_expr(&k.one()), &f.gens)?));
+    }
+    if g.is_zero() {
+        let negative = !k.is_nonnegative(&k.from_expr(&f.terms()[0].1)?);
+        let unit = if negative { k.neg(&k.one()) } else { k.one() };
+        let p = k.ground.convert_expr(&k.to_expr(&unit), &f.gens)?;
+        return Ok((f.mul_ground(&k.to_expr(&unit))?, p, g.clone()));
+    }
+    if ft.len() != 1 && gt.len() != 1 {
+        return cofactors(f, g);
+    }
+    if ft.len() != 1 {
+        let (h, b, a) = sparse_cofactors(g, f)?;
+        return Ok((h, a, b));
+    }
+    let (monomial, coefficient) = &ft[0];
+    let mut mgcd = monomial.clone();
+    let mut cgcd = k.from_expr(coefficient)?;
+    for (m, c) in &gt {
+        for (a, b) in mgcd.iter_mut().zip(m) { *a = (*a).min(*b); }
+        cgcd = k.gcd(&cgcd, &k.from_expr(c)?)?;
+    }
+    let marked = |terms| -> PResult<ExpressionPoly> {
+        let mut p = ExpressionPoly::from_terms(terms, &f.gens)?;
+        p.ground = f.ground.clone();
+        Ok(p)
+    };
+    let quotient = |terms: Vec<(Vec<u32>, Expr)>| -> PResult<ExpressionPoly> {
+        marked(terms.into_iter().map(|(m, c)| {
+            let m = m.iter().zip(&mgcd).map(|(a, b)| a - b).collect();
+            Ok((m, k.to_expr(&k.quo(&k.from_expr(&c)?, &cgcd)?)))
+        }).collect::<PResult<Vec<_>>>()?)
+    };
+    Ok((marked(vec![(mgcd.clone(), k.to_expr(&cgcd))])?, quotient(ft)?, quotient(gt)?))
 }
 /// `dmp_cancel(f, g, include=True)` over `RR` (53 bits) for the expression
 /// `cancel` of float input, whose coefficients are given as the exact values
@@ -2515,6 +2761,54 @@ pub fn rr_quotient(a: &Rat, b: &Rat, precision: u32) -> Rat {
 /// `Poly.cancel(g, include=False)`: `(cp, cq, p, q)` with `cp/cq` the
 /// coefficient ratio in the associated ring.
 pub fn cancel(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(Expr, Expr, ExpressionPoly, ExpressionPoly)> {
+    if let Some((exact, a, b)) = exact_complex_pair(f, g)? {
+        let ground = f.ground.as_ref().expect("inexact ground");
+        if ground.is_scalar() {
+            // CC has no associated ring: dmp_cancel returns the cofactors
+            // of a monic gcd, without clearing scalar denominators.
+            let (_, p, q) = exact.cofactors(&a, &b)?;
+            let one = element_expr(ground, &Expr::one())?;
+            return Ok((one.clone(), one, ground.convert_poly(&p)?, ground.convert_poly(&q)?));
+        }
+        let (cp, cq, p, q) = exact.cancel(&a, &b)?;
+        return Ok((element_expr(ground, &cp)?, element_expr(ground, &cq)?, ground.convert_poly(&p)?, ground.convert_poly(&q)?));
+    }
+    let ground = f.ground.as_ref().expect("inexact ground");
+    if f.gens.len() >= 2 && !ground.symbols.is_empty() && ground.inexact.is_some_and(|k| !k.complex) {
+        let k = dom(f);
+        let (mut cp, cq, mut p, mut q) = if k.field {
+            // Clear parameter denominators in RR[y], whose scalar
+            // coefficients remain floats. Clearing to integer polynomials
+            // here would move rational scalar factors into cp/cq and change
+            // the reference coefficient/cofactor split.
+            let (cq, a) = clear_denoms(f)?;
+            let (cp, b) = clear_denoms(g)?;
+            let ring = ground.to_ring();
+            let (a, b) = (ring.convert_poly(&a)?, ring.convert_poly(&b)?);
+            let (_, p, q) = cofactors(&a, &b)?;
+            let kr = dom(&a);
+            let (_, cp, cq) = kr.cofactors(&kr.from_expr(&cp)?, &kr.from_expr(&cq)?)?;
+            (k.from_expr(&kr.to_expr(&cp))?, k.from_expr(&kr.to_expr(&cq))?, p, q)
+        } else {
+            let (_, p, q) = cofactors(f, g)?;
+            (k.one(), k.one(), p, q)
+        };
+        // RR has an ordering, unlike CC. Normalize polynomial leading
+        // coefficient signs without sampling any coefficient parameters.
+        let pn = k.is_negative(&k.from_expr(&p.lc())?);
+        let qn = k.is_negative(&k.from_expr(&q.lc())?);
+        if pn && qn {
+            p = p.neg();
+            q = q.neg();
+        } else if pn {
+            cp = k.neg(&cp);
+            p = p.neg();
+        } else if qn {
+            cp = k.neg(&cp);
+            q = q.neg();
+        }
+        return Ok((k.to_expr(&cp), k.to_expr(&cq), ground.convert_poly(&p)?, ground.convert_poly(&q)?));
+    }
     univariate(f)?;
     let k = dom(f);
     let (a, b) = (k.dense(f)?, k.dense(g)?);
@@ -2579,18 +2873,47 @@ fn unary<T>(f: &ExpressionPoly, op: impl Fn(&Dom, &[E]) -> PResult<T>) -> PResul
     let r = op(&k, &k.dense(f)?)?;
     Ok((k, r))
 }
-pub fn diff(f: &ExpressionPoly, m: usize) -> PResult<ExpressionPoly> {
-    let (k, r) = unary(f, |k, a| k.d_diff(a, m))?;
-    k.poly(&r, &f.gens)
+pub fn diff(f:&ExpressionPoly,m:usize)->PResult<ExpressionPoly>{differentiate_in(f,m,0)}
+pub fn differentiate_in(f:&ExpressionPoly,m:usize,j:usize)->PResult<ExpressionPoly> {
+    if j>=f.gens.len(){return Err(PolyError::Generator("derivative generator is out of range".into()));}
+    if m==0{return Ok(f.clone());}
+    if !f.is_sparse(){
+        let k=dom(f);
+        if f.gens.len()==1{return k.poly(&k.d_diff(&k.dense(f)?,m)?,&f.gens);}
+        return multi::to_poly(&k,&multi::differentiate(&k,&multi::from_poly(&k,f)?,m,j)?,&f.gens);
+    }
+    let k=dom(f);let mut terms=Vec::new();
+    for(mut e,c)in f.terms(){
+        if m as u128>u128::from(e[j]){continue;}
+        let factor=k.from_bigint(&super::expression_domain::rising_factor(u64::from(e[j])-m as u64+1,m));
+        let c=k.from_expr(&c)?;
+        let c=if j+1==f.gens.len(){k.mul(&factor,&c)?}else{k.mul(&c,&factor)?};
+        e[j]-=m as u32;if !k.is_zero(&c){terms.push((e,k.to_expr(&c)));}
+    }
+    let mut result=ExpressionPoly::from_terms(terms,&f.gens)?;result.ground=f.ground.clone();Ok(result)
 }
 /// `Poly.integrate` with `auto`: over a ring the integral lives in the
 /// fraction field.
-pub fn integrate(f: &ExpressionPoly, m: usize, auto: bool) -> PResult<ExpressionPoly> {
-    univariate(f)?;
-    let k = dom(f);
-    let k = if auto && !k.field { k.as_field() } else { k };
-    let a = k.dense(f)?;
-    k.poly(&k.d_integrate(&a, m)?, &f.gens)
+pub fn integrate(f:&ExpressionPoly,m:usize,auto:bool)->PResult<ExpressionPoly>{integrate_in(f,m,0,auto)}
+pub fn integrate_in(f:&ExpressionPoly,m:usize,j:usize,auto:bool)->PResult<ExpressionPoly> {
+    if j>=f.gens.len(){return Err(PolyError::Generator("integration generator is out of range".into()));}
+    let k=dom(f);let k=if auto && !k.field{k.as_field()}else{k};
+    if m==0 || f.is_zero(){let mut out=f.clone();out.ground=Some(k.ground.clone());return Ok(out);}
+    if f.degree(j) as u128+m as u128>u128::from(u32::MAX){return Err(super::mpoly::exponent_limit_error());}
+    if !f.is_sparse(){
+        if f.gens.len()==1{return k.poly(&k.d_integrate(&k.dense(f)?,m)?,&f.gens);}
+        return multi::to_poly(&k,&multi::integrate(&k,&multi::from_poly(&k,f)?,m,j)?,&f.gens);
+    }
+    let mut terms=f.terms();
+    terms.sort_by(|(a,_),(b,_)|b[..j].cmp(&a[..j]).then_with(||a[j].cmp(&b[j])).then_with(||b[j+1..].cmp(&a[j+1..])));
+    let mut output=Vec::new();
+    for(mut e,c)in terms{
+        let factor=k.from_bigint(&super::expression_domain::rising_factor(u64::from(e[j])+1,m));
+        let c=k.from_expr(&c)?;
+        let c=if j+1==f.gens.len(){k.exquo(&c,&factor)?}else{k.quo(&c,&factor)?};e[j]+=m as u32;
+        if !k.is_zero(&c){output.push((e,k.to_expr(&c)));}
+    }
+    let mut result=ExpressionPoly::from_terms(output,&f.gens)?;result.ground=Some(k.ground.clone());Ok(result)
 }
 pub fn monic(f: &ExpressionPoly) -> PResult<ExpressionPoly> {
     univariate(f)?;
@@ -2609,7 +2932,7 @@ pub fn primitive(f: &ExpressionPoly) -> PResult<(Expr, ExpressionPoly)> {
 pub fn mul_ground(f: &ExpressionPoly, c: &Expr) -> PResult<ExpressionPoly> {
     let k = dom(f);
     let c = k.from_expr(c)?;
-    if f.gens.len() != 1 {
+    if f.is_sparse() || f.gens.len() != 1 {
         let terms = f.terms().into_iter().map(|(m, x)| Ok((m, k.to_expr(&k.mul(&k.from_expr(&x)?, &c)?)))).collect::<PResult<Vec<_>>>()?;
         let mut p = ExpressionPoly::from_terms(terms.into_iter().filter(|(_, x)| !x.is_zero()).collect(), &f.gens)?;
         p.ground = f.ground.clone();
@@ -2633,12 +2956,21 @@ pub fn exquo_ground(f: &ExpressionPoly, c: &Expr) -> PResult<ExpressionPoly> {
 }
 /// `Poly.clear_denoms()`: `(coeff, f)` with `f` still over the field.
 pub fn clear_denoms(f: &ExpressionPoly) -> PResult<(Expr, ExpressionPoly)> {
-    univariate(f)?;
     let k = dom(f);
-    let a = k.dense(f)?;
     if !k.field {
         return Ok((Expr::one(), f.clone()));
     }
+    if f.gens.len() != 1 {
+        let terms = f.terms();
+        let coefficients = terms.iter().map(|(_, c)| k.from_expr(c)).collect::<PResult<Vec<_>>>()?;
+        let (common, out) = k.clear_denoms_ring(&coefficients)?;
+        let kr = k.as_ring();
+        let terms = terms.into_iter().zip(out).map(|((m, _), n)| (m, kr.to_expr(&kr.raw(n)))).collect();
+        let mut p = ExpressionPoly::from_terms(terms, &f.gens)?;
+        p.ground = f.ground.clone();
+        return Ok((kr.to_expr(&kr.raw(common)), p));
+    }
+    let a = k.dense(f)?;
     let kr = k.as_ring();
     let (common, out) = k.clear_denoms_ring(&a)?;
     let out: U = out.into_iter().map(|n| k.raw(n)).collect();
@@ -2955,5 +3287,251 @@ pub fn rr_invert_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> PResult
         Ok(rr_sparse(k, &rr_div(k, &s, &b)?.1))
     } else {
         Err(PolyError::NotInvertible("zero divisor".into()))
+    }
+}
+
+#[cfg(test)]
+mod complex_multi_tests {
+    use super::*;
+
+    fn parse(s: &str) -> Expr {
+        crate::parser::parse_str_with_precision(s, 140).unwrap()
+    }
+
+    #[test]
+    fn scalar_and_composite_cofactors_reconstruct_both_inputs() {
+        let gens = vec![Expr::symbol("x"), Expr::symbol("z")];
+        for (symbols, ring, fa, fb) in [
+            (vec![], true, "1.5*(x+z)*(x+1)", "3*(x+z)*(z+1)"),
+            (vec![Expr::symbol("y")], true, "1.5*(x+y)*(x+z)", "3*(x+y)*(z+1)"),
+            (vec![Expr::symbol("y")], false, "(x+z)*(x+1)/(y+1)", "(x+z)*(z+1)/(y+2)"),
+        ] {
+            let ground = GaussianGround { integral: false, ring, symbols, inexact: Some(Inexact { precision: 140, complex: true }) };
+            let f = ground.convert_expr(&parse(fa), &gens).unwrap();
+            let g = ground.convert_expr(&parse(fb), &gens).unwrap();
+            let (h, a, b) = cofactors(&f, &g).unwrap();
+            assert_eq!(h.mul(&a).unwrap().terms(), f.terms());
+            assert_eq!(h.mul(&b).unwrap().terms(), g.terms());
+            let (cp, cq, p, q) = cancel(&f, &g).unwrap();
+            let left = p.mul_ground(&cp).unwrap().mul(&g).unwrap();
+            let right = q.mul_ground(&cq).unwrap().mul(&f).unwrap();
+            assert_eq!(left.terms(), right.terms());
+        }
+    }
+
+    #[test]
+    fn complex_parameter_ring_retains_rational_common_content() {
+        let gens = vec![Expr::symbol("x"), Expr::symbol("z")];
+        let ground = GaussianGround { integral: false, ring: true, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: true }) };
+        let f = ground.convert_expr(&parse("1.5*(x+z)"), &gens).unwrap();
+        let g = ground.convert_expr(&parse("3*(x+z)"), &gens).unwrap();
+        assert_eq!(gcd(&f, &g).unwrap().terms(), f.terms());
+        assert_eq!(lcm(&f, &g).unwrap().terms(), g.terms());
+        for (fa, fb, expected) in [
+            ("1.5", "3", "1"),
+            ("1.5*y", "3*y^2", "y^2"),
+            ("1.5*x", "3*x", "x"),
+            ("1.5*z", "3*z", "z"),
+            ("1.5*(z+1)", "3*(z+1)", "3*(z+1)"),
+        ] {
+            let a = ground.convert_expr(&parse(fa), &gens).unwrap();
+            let b = ground.convert_expr(&parse(fb), &gens).unwrap();
+            let expected = ground.convert_expr(&parse(expected), &gens).unwrap();
+            assert_eq!(lcm(&a, &b).unwrap().terms(), expected.terms(), "{fa}, {fb}");
+        }
+    }
+
+    #[test]
+    fn sparse_complex_ring_monomials_use_coefficient_domain_gcd() {
+        let gens = vec![Expr::symbol("x"), Expr::symbol("z")];
+        let ground = GaussianGround { integral: false, ring: true, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: true }) };
+        for (fa, fb, ha, pa, qa) in [
+            ("1.5*x", "3*x", "x", "1.5", "3"),
+            ("1.5*y*x", "3*y^2*x*z", "y*x", "1.5", "3*y*z"),
+            ("3*y^2*x*z", "1.5*y*x", "y*x", "3*y*z", "1.5"),
+            ("0", "2*(x+z)", "2*(x+z)", "0", "1"),
+            ("0", "0", "0", "0", "1"),
+            ("x+z", "0", "-x-z", "-1", "0"),
+        ] {
+            let f = ground.convert_expr(&parse(fa), &gens).unwrap();
+            let g = ground.convert_expr(&parse(fb), &gens).unwrap();
+            let (h, p, q) = sparse_cofactors(&f, &g).unwrap();
+            for (actual, expected) in [(h, ha), (p, pa), (q, qa)] {
+                assert_eq!(actual.terms(), ground.convert_expr(&parse(expected), &gens).unwrap().terms());
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod real_multi_tests {
+    use super::*;
+
+    fn ground(ring: bool) -> GaussianGround {
+        GaussianGround { integral: false, ring, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: false }) }
+    }
+    fn poly(ground: &GaussianGround, source: &str) -> ExpressionPoly {
+        let expression = crate::parser::parse_str_with_precision(source, 140).unwrap();
+        ground.convert_expr(&expression, &[Expr::symbol("x"), Expr::symbol("z")]).unwrap()
+    }
+    fn same(a: &ExpressionPoly, b: &ExpressionPoly) {
+        assert!(a.sub(b).unwrap().is_zero(), "{} != {}", a.as_expr(), b.as_expr());
+    }
+
+    #[test]
+    fn real_fraction_gcd_and_cancel_preserve_parameter_denominators_and_scalar_content() {
+        let ground = ground(false);
+        for (fa, ga, cp, pa, qa) in [
+            ("1.5*(x+z)/(y+1)", "3*(x+z)/(y+2)", "(y+2)/(y+1)", "1", "2"),
+            ("-1.5*(x+z)/(y+1)", "3*(x+z)/(y+2)", "-(y+2)/(y+1)", "1", "2"),
+            ("1.5*(x+z)/(y+1)", "-3*(x+z)/(y+2)", "-(y+2)/(y+1)", "1", "2"),
+            ("-1.5*(x+z)/(y+1)", "-3*(x+z)/(y+2)", "(y+2)/(y+1)", "1", "2"),
+        ] {
+            let f = poly(&ground, fa);
+            let g = poly(&ground, ga);
+            let (h, p, q) = cofactors(&f, &g).unwrap();
+            same(&h.mul(&p).unwrap(), &f);
+            same(&h.mul(&q).unwrap(), &g);
+            let (a, b, p, q) = cancel(&f, &g).unwrap();
+            let k = dom(&f);
+            let difference = k.sub(&k.div_field(&k.from_expr(&a).unwrap(), &k.from_expr(&b).unwrap()).unwrap(), &k.from_expr(&poly(&ground, cp).as_expr()).unwrap()).unwrap();
+            assert!(k.is_zero(&difference));
+            same(&p, &poly(&ground, pa));
+            same(&q, &poly(&ground, qa));
+            same(&p.mul_ground(&a).unwrap().mul(&g).unwrap(), &q.mul_ground(&b).unwrap().mul(&f).unwrap());
+        }
+    }
+
+    #[test]
+    fn real_zero_associates_have_positive_leading_coefficients() {
+        for ring in [false, true] {
+            let ground = ground(ring);
+            for (fa, ga, pa, qa) in [
+                ("0", "3*(x+z)", "0", "1"),
+                ("0", "-3*(x+z)", "0", "1"),
+                ("3*(x+z)", "0", "1", "0"),
+                ("-3*(x+z)", "0", "1", "0"),
+                ("0", "0", "0", "0"),
+            ] {
+                let f = poly(&ground, fa);
+                let g = poly(&ground, ga);
+                let (cp, cq, p, q) = cancel(&f, &g).unwrap();
+                same(&p, &poly(&ground, pa));
+                same(&q, &poly(&ground, qa));
+                same(&p.mul_ground(&cp).unwrap().mul(&g).unwrap(), &q.mul_ground(&cq).unwrap().mul(&f).unwrap());
+                assert!(lcm(&f, &g).unwrap().is_zero());
+            }
+        }
+    }
+
+    #[test]
+    fn real_ring_lcm_extracts_content_before_exact_polynomial_gcd() {
+        let ring = ground(true);
+        for (fa, ga, expected) in [
+            ("1.5*(x+z)", "3*(x+z)", "3*(x+z)"),
+            ("1.5*x", "3*x", "x"),
+            ("1.5*y*(x+z)", "3*y*(x+z)", "3*y*(x+z)"),
+            ("1.5", "3", "1"),
+        ] {
+            same(&lcm(&poly(&ring, fa), &poly(&ring, ga)).unwrap(), &poly(&ring, expected));
+        }
+        let field = ground(false);
+        same(&lcm(&poly(&field, "1.5*(x+z)/(y+1)"), &poly(&field, "3*(x+z)/(y+2)")).unwrap(), &poly(&field, "x+z"));
+    }
+}
+
+#[cfg(test)]
+mod sparse_storage_tests {
+    use super::*;
+    use super::super::expression_domain::ExpressionRep;
+    #[test]
+    fn sparse_storage_inexact_additive_operations_match_dense_rounding() {
+        for precision in [53,140] {for complex in [false,true] {for ring in [false,true] {
+            for parameters in [false,true] {
+                let ground=GaussianGround{integral:false,ring,symbols:if parameters{vec![Expr::symbol("a")]}else{Vec::new()},inexact:Some(Inexact{precision,complex})};
+                let gens=vec![Expr::symbol("x"),Expr::symbol("z")];
+                let part=if complex{"I"}else{"1"};let param=if parameters{"a/(a+1)"}else{"1"};
+                if ring && parameters {continue;}
+                let source=format!("1.2345678901234567890123456789*{part}*({param})*x^3*z^2 + 0.333333333333333333333*x");
+                let e=crate::parser::parse_str_with_precision(&source,precision).unwrap();
+                let p=ground.convert_expr(&e,&gens).unwrap();
+                let e=crate::parser::parse_str_with_precision(&format!("-0.125*{part}*({param})*x^3*z^2 + z^2"),precision).unwrap();
+                let q=ground.convert_expr(&e,&gens).unwrap();
+                let d=p.with_rep(p.dense_rep().into_owned());let e=q.with_rep(q.dense_rep().into_owned());
+                let s=p.with_sparse_rep(p.to_sparse());let t=q.with_sparse_rep(q.to_sparse());
+                assert!(matches!(s.rep,ExpressionRep::Sparse(_)));
+                assert_eq!(add(&s,&t).unwrap(),add(&d,&e).unwrap());
+                assert_eq!(sub(&s,&t).unwrap(),sub(&d,&e).unwrap());
+                assert_eq!(neg(&s).unwrap(),neg(&d).unwrap());
+                assert_eq!(mul_ground(&s,&Expr::int(3)).unwrap(),mul_ground(&d,&Expr::int(3)).unwrap());
+                let c=ground.convert_expr(&Expr::int(3),&gens).unwrap();
+                assert_eq!(mul(&s,&c).unwrap(),mul(&d,&c).unwrap());
+                assert_eq!(mul(&c,&s).unwrap(),mul(&c,&d).unwrap());
+                assert_eq!(pow(&s,0).unwrap(),ground.convert_expr(&Expr::one(),&gens).unwrap());
+                assert_eq!(s.ground,d.ground);
+            }
+        }}}
+    }
+}
+
+#[cfg(test)]
+mod sparse_recursive_product_tests {
+    use super::*;
+    #[test]
+    fn sparse_recursive_product_dom_matches_dense_binary_coefficients() {
+        for precision in [1,53,139,140,211]{for complex in [false,true]{for parameters in [false,true]{for ring in [false,true]{for width in [1,2,3]{
+            let ground=GaussianGround{integral:false,ring,symbols:if parameters{vec![Expr::symbol("a")]}else{Vec::new()},inexact:Some(Inexact{precision,complex})};
+            let gens=(0..width).map(|i|Expr::symbol(&format!("x{i}"))).collect::<Vec<_>>();
+            let coefficient=if complex{"(1.2345678901234567890123456789+0.765432109876543210987654321*I)"}else{"1.2345678901234567890123456789"};
+            let parameter=if !parameters{"1"}else if ring{"a+1"}else{"a/(a+1)"};
+            let source=format!("{coefficient}*({parameter})");
+            let c=crate::parser::parse_str_with_precision(&source,precision.max(53)).unwrap();
+            let mut powers=vec![1;width];powers[0]=3;
+            let parse=|s:&str|crate::parser::parse_str_with_precision(s,precision.max(53)).unwrap();
+            let mut fterms=vec![(powers.clone(),c),(vec![0;width],Expr::one())];
+            let mut low=vec![0;width];low[0]=1;fterms.push((low,parse("-1.0e18")));
+            let mut middle=vec![0;width];middle[0]=2;fterms.push((middle,parse("0.333333333333333333333333333")));
+            if width>1 {let mut extra=vec![0;width];extra[0]=3;fterms.push((extra,parse("0.765432109876543210987654321")));}
+            let f=ExpressionPoly::from_terms(fterms,&gens).unwrap();
+            let f=ground.convert_poly(&f).unwrap();
+            let mut q=vec![0;width];q[width-1]=2;
+            let mut q1=vec![0;width];q1[width-1]=1;
+            let g=ExpressionPoly::from_terms(vec![(q,parse("0.875")),(q1,parse("-0.3333333333333333333333333")),(vec![0;width],Expr::minus_one())],&gens).unwrap();
+            let g=ground.convert_poly(&g).unwrap();
+            let (s,t)=(f.with_sparse_rep(f.to_sparse()),g.with_sparse_rep(g.to_sparse()));
+            let (d,e)=(f.with_rep(f.dense_rep().into_owned()),g.with_rep(g.dense_rep().into_owned()));
+            assert_eq!(mul(&s,&t).unwrap(),mul(&d,&e).unwrap(),"product p{precision} complex{complex} params{parameters} ring{ring} width{width}");
+            assert_eq!(mul(&s,&s).unwrap(),mul(&d,&d).unwrap(),"square p{precision} complex{complex} params{parameters} ring{ring} width{width}");
+            for n in [0,1,2,3]{assert_eq!(pow(&s,n).unwrap(),pow(&d,n).unwrap(),"power{n} p{precision} complex{complex} params{parameters} ring{ring} width{width}");}
+        }}}}}
+    }
+}
+
+#[cfg(test)]
+mod sparse_calculus_tests {
+    use super::*;
+    #[test]
+    fn sparse_calculus_dom_matches_dense_on_all_axes_and_precisions() {
+        for precision in [1,53,139,140,211]{for complex in [false,true]{for kind in [0,1,2]{for width in [1,2,3]{
+            let ground=GaussianGround{integral:false,ring:kind==1,symbols:if kind==0{Vec::new()}else{vec![Expr::symbol("a")]},inexact:Some(Inexact{precision,complex})};
+            let gens=(0..width).map(|i|Expr::symbol(&format!("x{i}"))).collect::<Vec<_>>();
+            let part=if complex{"(1.2345678901234567890123456789+0.765432109876543210987654321*I)"}else{"1.2345678901234567890123456789"};
+            let parameter=if kind==0{"1"}else if kind==1{"a+1"}else{"a/(a+1)"};
+            let c=crate::parser::parse_str_with_precision(&format!("{part}*({parameter})"),211).unwrap();
+            let mut high=vec![2;width];high[0]=40;
+            let p=ExpressionPoly::from_terms(vec![(high,c),(vec![0;width],Expr::one())],&gens).unwrap();
+            let p=ground.convert_poly(&p).unwrap();
+            let (s,d)=(p.with_sparse_rep(p.to_sparse()),p.with_rep(p.dense_rep().into_owned()));
+            for j in 0..width{for m in [0,1,2,3,21]{
+                assert_eq!(differentiate_in(&s,m,j).unwrap(),differentiate_in(&d,m,j).unwrap(),"diff p{precision} complex{complex} kind{kind} width{width} j{j} m{m}");
+                assert_eq!(integrate_in(&s,m,j,true).unwrap(),integrate_in(&d,m,j,true).unwrap(),"int p{precision} complex{complex} kind{kind} width{width} j{j} m{m}");
+            }}
+            for j in 0..width{assert_eq!(s.eval_zero(j).unwrap(),d.eval_zero(j).unwrap());}
+            if kind==1 {
+                let z=ExpressionPoly::zero(&gens);let z=ground.convert_poly(&z).unwrap();
+                assert!(!integrate_in(&z,0,0,true).unwrap().ground.unwrap().ring);
+                assert!(integrate_in(&z,0,0,false).unwrap().ground.unwrap().ring);
+            }
+        }}}}
     }
 }

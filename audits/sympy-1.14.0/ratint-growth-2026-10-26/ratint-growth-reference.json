@@ -1,0 +1,12 @@
+{
+  "backend": "sympy",
+  "version": "1.14.0",
+  "package": "/home/keckj/symox-ci/venv/lib/python3.10/site-packages/sympy/__init__.py",
+  "call": "ratint(1/(x**3+x+1),x)",
+  "compute_seconds": 8.510392873024102,
+  "print_seconds": 0.8107765999739058,
+  "characters": 16653,
+  "text_sha256": "a220b07bdaadabc43d51b77e246ea9392fd23bf5fad779dc09aef0a2112f90ce",
+  "head": "Add",
+  "interpretation": "Expression-size observation only; no equivalence or completeness claim from string length."
+}

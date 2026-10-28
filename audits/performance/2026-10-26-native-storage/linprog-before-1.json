@@ -1,0 +1,74 @@
+{
+  "script_sha256": "6328c80984e6d3a232e38fff6f85fa094d6fbf09bb94f35676a0633dac15198a",
+  "native_sha256": "d9b14020872315d1ab4428b1ff129c56109b87777c02cd02044957bc65b9dd61",
+  "symox_file": "/home/keckj/symox-ci/wt/native-corrections-20261026-r1/python/symox/__init__.py",
+  "python": "3.10.20 (main, Mar 10 2026, 18:16:33) [Clang 21.1.4 ]",
+  "cpu_affinity": [
+    24
+  ],
+  "cases": [
+    {
+      "n": 10,
+      "first_ns": 1994691,
+      "repeated_ns": [
+        1762537,
+        1737668,
+        1699881,
+        1749839,
+        1718084,
+        1719299,
+        1763449
+      ],
+      "changed_ns": [
+        1744573,
+        1664255,
+        1670402
+      ],
+      "repeated_median_ns": 1737668,
+      "changed_median_ns": 1670402,
+      "distinct_certified_inputs": 4
+    },
+    {
+      "n": 30,
+      "first_ns": 10827425,
+      "repeated_ns": [
+        10795746,
+        10661342,
+        10819730,
+        10689035,
+        10637663,
+        10640967,
+        10793583
+      ],
+      "changed_ns": [
+        11063087,
+        10680583,
+        10705364
+      ],
+      "repeated_median_ns": 10689035,
+      "changed_median_ns": 10705364,
+      "distinct_certified_inputs": 4
+    },
+    {
+      "n": 60,
+      "first_ns": 39059542,
+      "repeated_ns": [
+        38610842,
+        38984871,
+        38806826,
+        38995342,
+        38450998,
+        38790637,
+        38728969
+      ],
+      "changed_ns": [
+        39215537,
+        38867664,
+        38711880
+      ],
+      "repeated_median_ns": 38790637,
+      "changed_median_ns": 38867664,
+      "distinct_certified_inputs": 4
+    }
+  ]
+}

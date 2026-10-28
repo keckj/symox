@@ -1,0 +1,262 @@
+{
+  "status": "GO for integration only; complete integrated R12 gate and any future timings remain pending",
+  "base_source_sha256": "5f89ef4eb3c40b63fb53afb216cbb53cecb468c352a06a12d4dca53200326c35",
+  "base_native_sha256": "e7b2975992bcffd2fd992ca11ab93f033231efe11cb679269c6ccbe906aa4bd4",
+  "native_sha256": "150a0b4659007c4fce3107a06ee8fad50dfa1cf89998b8162f717ccfcd1f5c9c",
+  "native_artifact": "/home/keckj/.cache/symox-validation/native-ddm-fflu-r11-20261028/artifacts/wild-base-release-150a0b4659007c4fce3107a06ee8fad50dfa1cf89998b8162f717ccfcd1f5c9c.so",
+  "scope": "four Rust FFLU mathematical phases for stock ZZ/QQ DDM + dense/sparse DomainMatrix; generic exact fallback math corrected intentionally",
+  "source_count": 7,
+  "source_files": [
+    {
+      "path": "crates/symox-core/src/poly/fflu.rs",
+      "base_sha256": null,
+      "final_sha256": "de0bfb1e2b9a1ad2a6df9e9cca1387fa24f2a3e282bc3c02241250c9104af572"
+    },
+    {
+      "path": "crates/symox-core/src/poly/mod.rs",
+      "base_sha256": "2bb0036f447d9ad9a0a987801d61ca8cee79a238a07aacaa5934e60912f9aab1",
+      "final_sha256": "4675647687fe9f771896fd459a17c0e0e51e613da2849807b1fbdc9c67590066"
+    },
+    {
+      "path": "crates/symox-py/src/poly_fflu.rs",
+      "base_sha256": null,
+      "final_sha256": "a95f46dad7f651ea33264b2b14c73fd4b16af16a41708610e40869d289ed0c48"
+    },
+    {
+      "path": "crates/symox-py/src/poly_ddm.rs",
+      "base_sha256": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977",
+      "final_sha256": "fbd09131d2b7d57276b75250fbab54ebec08bebfce9f3ebfc28869a43bbb395d"
+    },
+    {
+      "path": "python/symox/polys/matrices/_fflu_native.py",
+      "base_sha256": null,
+      "final_sha256": "4db26aaa7b0c2e0c4f901225614f98ba8377b062f8aacccc4aa30cf0214b0262"
+    },
+    {
+      "path": "python/symox/polys/matrices/ddm.py",
+      "base_sha256": "24676395a297d14d16838596996506bae6a0c796d7bd73c9b7bc7ad13fd03812",
+      "final_sha256": "a797d0a81663e8ff254be95947b1cb0de0308e6fa699f23e0d0819fc42ff5515"
+    },
+    {
+      "path": "tests/test_native_ddm_fflu.py",
+      "base_sha256": null,
+      "final_sha256": "e0f2c9da8528d7f81e537414ed2d5cf65b3eb3f0f5b7febd0dd0a347eeff3e3a"
+    }
+  ],
+  "patch_sha256": "e084afddb5afe123a1fe955ad7204446701eeeefeca831e0366b51c98871df86",
+  "patch_replay": true,
+  "validation": {
+    "local": {
+      "focused": {
+        "cases": 1860,
+        "file_count": 1,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "coupled": {
+        "cases": 8203,
+        "file_count": 65,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "ordered": {
+        "cases": 1037,
+        "file_count": 15,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "native": {
+        "certificate_calls": 1616,
+        "NoRef": true,
+        "complete": true
+      },
+      "fallback": {
+        "certificate_calls": 1616,
+        "NoRef": true,
+        "complete": true
+      },
+      "rust": {
+        "unit_command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox",
+          "poly::fflu"
+        ],
+        "units_passed": 4,
+        "unit_returncode": 0,
+        "clippy_command": [
+          "cargo",
+          "clippy",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "clippy_returncode": 0,
+        "cwd": "/home/keckj/.cache/symox-validation/native-ddm-fflu-r11-20261028/work",
+        "input_match": true
+      },
+      "first_native_four_under_audit": true
+    },
+    "demeter": {
+      "focused": {
+        "cases": 1860,
+        "file_count": 1,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "coupled": {
+        "cases": 8203,
+        "file_count": 65,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "ordered": {
+        "cases": 1037,
+        "file_count": 15,
+        "exact_once": true,
+        "hashes_unchanged": true
+      },
+      "native": {
+        "certificate_calls": 1616,
+        "NoRef": true,
+        "complete": true
+      },
+      "fallback": {
+        "certificate_calls": 1616,
+        "NoRef": true,
+        "complete": true
+      },
+      "rust": {
+        "unit_command": [
+          "cargo",
+          "test",
+          "-p",
+          "symox",
+          "poly::fflu"
+        ],
+        "units_passed": 4,
+        "unit_returncode": 0,
+        "clippy_command": [
+          "cargo",
+          "clippy",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "clippy::correctness"
+        ],
+        "clippy_returncode": 0,
+        "cwd": "/home/keckj/symox-ci/native-ddm-fflu-final-r12/work",
+        "input_match": true
+      },
+      "first_native_four_under_audit": true
+    }
+  },
+  "files": {
+    "README.md": "817cb9caf1ab83e44b7ab301dbd5e8a1ba644db9a657b694b4ab068a9133fa41",
+    "accepted-base-source-manifest.json": "4cf34fc20e0f3ed5ebc3c9e4f956256e02c4bb37f8d2279f2e233eb45b07238c",
+    "candidate.patch": "e084afddb5afe123a1fe955ad7204446701eeeefeca831e0366b51c98871df86",
+    "history/cpp-wild-rebase.json": "939c59cac55b474b1a3f4dd45de4ba8be0306fb0e8f5f6b3b1388309dcedd936",
+    "history/initial-base.json": "126a9447d430e36a6e69b9dc521aa9650b4e93cf00f2def7fb55ac9ba1671693",
+    "history/preliminary-1858-manifest.json": "63469a8b44a2251b00245c0dbde9b4192982fe570dce215ab49c8670459e9eaf",
+    "history/private-release-build.log": "88e5a46c8c981c0160f51f2e474f86191595f9bc049a307c363035005b50f12c",
+    "history/private-release-inputs.json": "2eeadbcc55684b3da177714b59206debd58fa3558265ea919e818cf6b92281a1",
+    "history/private-release-result.json": "8ae48e90de4de668547912b36d95e9c4ac237a818cc95fde6134a39975e9c4a3",
+    "history/public-before-checksums.sha256": "34baf893cad9a873557c36e58f3f2612c69f9edb3b1d86ca360ab714bbe83f22",
+    "history/public-before-math-proof.tar.gz": "094a0efc72a13a109dca163ac1e82486fd2f34a3b49f0f65ee5b963dbf649ba2",
+    "patch-replay.json": "47f22d4690c8ff0ce5cedf7132b3f2241656f8d600fb946754c38991dbbc1ae0",
+    "source-base/crates/symox-core/src/poly/mod.rs": "2bb0036f447d9ad9a0a987801d61ca8cee79a238a07aacaa5934e60912f9aab1",
+    "source-base/crates/symox-py/src/poly_ddm.rs": "a95e250c322510bcd6a49b4408ec1d852157d5e35bd23d88baa813df927b5977",
+    "source-base/python/symox/polys/matrices/ddm.py": "24676395a297d14d16838596996506bae6a0c796d7bd73c9b7bc7ad13fd03812",
+    "source-final/crates/symox-core/src/poly/fflu.rs": "de0bfb1e2b9a1ad2a6df9e9cca1387fa24f2a3e282bc3c02241250c9104af572",
+    "source-final/crates/symox-core/src/poly/mod.rs": "4675647687fe9f771896fd459a17c0e0e51e613da2849807b1fbdc9c67590066",
+    "source-final/crates/symox-py/src/poly_ddm.rs": "fbd09131d2b7d57276b75250fbab54ebec08bebfce9f3ebfc28869a43bbb395d",
+    "source-final/crates/symox-py/src/poly_fflu.rs": "a95f46dad7f651ea33264b2b14c73fd4b16af16a41708610e40869d289ed0c48",
+    "source-final/python/symox/polys/matrices/_fflu_native.py": "4db26aaa7b0c2e0c4f901225614f98ba8377b062f8aacccc4aa30cf0214b0262",
+    "source-final/python/symox/polys/matrices/ddm.py": "a797d0a81663e8ff254be95947b1cb0de0308e6fa699f23e0d0819fc42ff5515",
+    "source-final/tests/test_native_ddm_fflu.py": "e0f2c9da8528d7f81e537414ed2d5cf65b3eb3f0f5b7febd0dd0a347eeff3e3a",
+    "source-map.json": "ae011c3d3352c3c7aa9eacd646eb62b170175ac6b9dd16e40d5ce11fac7ed469",
+    "validation-demeter/__pycache__/validation_plugin.cpython-310-pytest-9.1.1.pyc": "b81ee8986b2378435fcd8e8be7fce65cbb65b7fa5383f66d649b2280df85aa0e",
+    "validation-demeter/certificate-driver.py": "5a3e1d314934587e8d5bb9772ea3b0d281fc0fe8eb5011aee14f1500c9fae619",
+    "validation-demeter/changed-files.json": "3051b841cc14a496655ef381db9be1da52e8deb9ff8c75c84f457a7cc9434be6",
+    "validation-demeter/clippy.log": "6f88b0f5f31e3c426b794918c6d00a48309dbb613b9fb8eb279aba5f2e8a2c34",
+    "validation-demeter/coupled-execution.json": "9450199900d7c8abf42db9c4f2051aff7da3b9fa68ce8a2c50a0ca9ce86f0cae",
+    "validation-demeter/coupled-files.json": "a70802124dda5420b637105530f458108f9e21adef96047953d5633761e75ea8",
+    "validation-demeter/coupled-result.json": "aa7e2d7aad4a5a1b949eb90ac4d5c451b0c520c5adc3b7a8b74fbb63f751a39e",
+    "validation-demeter/coupled-validated.log": "dc3b5cafcd58f11f2b41c9bca5f09048b9b437043bbf922a3706149064eed5a7",
+    "validation-demeter/expected-all-sources.json": "4c2d4b704effe165c548004bef34b81bb8aac134fad1297615bf4c70cb140bca",
+    "validation-demeter/fallback-neighbours.json": "40dcbd26e51847866d2c805951527602fc54feb18267138801df1066abcb7828",
+    "validation-demeter/fallback-neighbours.log": "7fbec24b52f6916f6d20b935b83ddd8f13b7932dc5388d589b02572449682ffb",
+    "validation-demeter/fallback-rational.json": "a1111cd0fcfde9b23f05badda21fb3d17e350ecc425fe05fa9384b87729ebf15",
+    "validation-demeter/fallback-rational.log": "3da19a45e46eb15441c805fd52df482a60fec1c5191ffe129ae79f2581e15d08",
+    "validation-demeter/final-state.json": "2863dde0de1a6df329269d85596e3acf14951b4258a29861b412d2248856ac22",
+    "validation-demeter/first-all-four-probe.py": "937942485790ff255304893df936c971ab4e4f6daa5452a41e5df064a5bf0fbc",
+    "validation-demeter/first-all-four.json": "81b1d7df2a6b733afa37a991aa6c8431013b70eba28b67a43037c94324f9c43a",
+    "validation-demeter/fixtures-neighbours.json": "51eb2cc0895a89924931d26d66dced303f60f6c5b5b9d0eb833681ed4d2c2d77",
+    "validation-demeter/fixtures-rational.json": "cd31127b05e53837ff22fe8b5ae7bc16f41e1478e3f360a2ef77c210c0937f7a",
+    "validation-demeter/focused-execution.json": "0e5338bb2d5509f491b28444192cd5ada9606e3d5c6b69ffcf26ae20b7cb3ffd",
+    "validation-demeter/focused-result.json": "d6159b482b89df554e340bc510a40811eeb5f806bf6d81108d0738b480dfe710",
+    "validation-demeter/focused-validated.log": "a26d08bd8ebab17abd21e9ce7497de2e6b1d9a50e86d8e2bdf6ee82e0b970ebb",
+    "validation-demeter/mod-registration.diff": "16b0cc0813ecef821eb1f837d00712f0df20b7a2ad4d7c5c2167248e570c9589",
+    "validation-demeter/native-inputs352.json": "2eeadbcc55684b3da177714b59206debd58fa3558265ea919e818cf6b92281a1",
+    "validation-demeter/native-neighbours.json": "fc762a3ef59cb1ec82bb83d9afcba5830411a19ca1b6bb9b4395a45109d96eeb",
+    "validation-demeter/native-neighbours.log": "7fbec24b52f6916f6d20b935b83ddd8f13b7932dc5388d589b02572449682ffb",
+    "validation-demeter/native-rational.json": "424e0bb7dc1e17d3a8d2cdb5ccec239dff0f369430251b760e85a1d55c91e2f1",
+    "validation-demeter/native-rational.log": "3da19a45e46eb15441c805fd52df482a60fec1c5191ffe129ae79f2581e15d08",
+    "validation-demeter/ordered-execution.json": "93314f66a3940dbd90f13dc1f6a34065642af6644a9932f6ebe27f3ca0d97991",
+    "validation-demeter/ordered-ground-files.json": "606544b5328879413f169e3fd5d41b26897dcfe0a19c1d76ed66adb5139e24b9",
+    "validation-demeter/ordered-result.json": "d61323cc136b1b53acf4e4f0a0ef2fdfe96e94a6a36908baa4d8d0241858c308",
+    "validation-demeter/ordered-validated.log": "d403695e83383dc3d76283407ca834f3c876eb24bc085650ee60bc8f22c3b1a3",
+    "validation-demeter/poly_ddm-registration.diff": "4e1ce45a907e08704f1cee7e2e48491e8876bf878e7e8bf614f1853ea3313c12",
+    "validation-demeter/rebase-and-release-map.json": "9e3fec9c4c3d53612eb228cffc82d576f6f7190e4b9ccd37ee592d56f663084a",
+    "validation-demeter/reproduce.py": "225fe427cbc481cf46b5b1e1a59a9bbc46c12de2d4ee7d5e438fc569d755b94f",
+    "validation-demeter/run-validation.py": "8d34df89ebada6fd67fc57cc07a255c8a66d9cb76290d17362ca94cf864b8580",
+    "validation-demeter/run-without-metadata.py": "77d26a5540bab2f4c258dd73e2e13e470ec8e83f719ce2f33346d41ea3f7ae4a",
+    "validation-demeter/rust-fflu-path-unavailable.log": "e977a1713ace7b115cb28b5fb2eb4e5a74d624e400b2b8838fc1bfaf2fbb0c90",
+    "validation-demeter/rust-fflu.log": "ca79f2e1c20160ae2752238654e7ff22a241454f4b3eceee625fa6582086979c",
+    "validation-demeter/validation_plugin.py": "117c9aa888b617d895b1fbb2183eb427b470cb35310c485467509a19cbb2fa26",
+    "validation-demeter/verify-final-state.py": "f415cf5e0c074623847645fed9ecf164981d95e30fb24db76036d53bcdfdaae9",
+    "validation-local/DELIVERY-REPORT.md": "817cb9caf1ab83e44b7ab301dbd5e8a1ba644db9a657b694b4ab068a9133fa41",
+    "validation-local/FINAL-VALIDATION-SUMMARY.json": "0ae5a28c4a0c816ba2ddd4bf3d60ab4533261c46ff2994a1a42c9202fbaab864",
+    "validation-local/__pycache__/validation_plugin.cpython-310-pytest-9.1.1.pyc": "b81ee8986b2378435fcd8e8be7fce65cbb65b7fa5383f66d649b2280df85aa0e",
+    "validation-local/certificate-commands.json": "f3c23de10c2772ceea9b37fecec86bcdd7efce2d11a2e1f48917baec60ff5717",
+    "validation-local/certificate-driver.py": "5a3e1d314934587e8d5bb9772ea3b0d281fc0fe8eb5011aee14f1500c9fae619",
+    "validation-local/changed-files.json": "3051b841cc14a496655ef381db9be1da52e8deb9ff8c75c84f457a7cc9434be6",
+    "validation-local/clippy.log": "a0401e9250cb3c54d5ec1d74571b29a3d6b56e3bf712cb1e4798d46fa33db6b1",
+    "validation-local/coupled-execution.json": "9450199900d7c8abf42db9c4f2051aff7da3b9fa68ce8a2c50a0ca9ce86f0cae",
+    "validation-local/coupled-files.json": "a70802124dda5420b637105530f458108f9e21adef96047953d5633761e75ea8",
+    "validation-local/coupled-result.json": "fad6b9b3481ded2ef52b5392c593009936d50f910db88915ca5ff45d81700e25",
+    "validation-local/coupled-validated.log": "3c56ece3ad458103158f8372acdb5dec46270ffff2e68e605e9207a27e040cee",
+    "validation-local/expected-all-sources.json": "4c2d4b704effe165c548004bef34b81bb8aac134fad1297615bf4c70cb140bca",
+    "validation-local/fallback-neighbours.json": "822ea1026b4cad083be8db7ab27e6eddb2630bad3e7746a737ccb70bcd7d01bf",
+    "validation-local/fallback-neighbours.log": "0887e2adbcdc09f807395b4b14c0f9359685bf9c8bf65ab1ed1ed6ec3ce45362",
+    "validation-local/fallback-rational.json": "390bcbc9c5c2be3a0115d5091eef73ab7a57502c352004643cf6af54f2a94b1d",
+    "validation-local/fallback-rational.log": "feb05c5e30bbe7f7e5e4e5f1348c99cbe4aa3b10268b190426c6815116a30bd2",
+    "validation-local/final-state.json": "2863dde0de1a6df329269d85596e3acf14951b4258a29861b412d2248856ac22",
+    "validation-local/first-all-four-probe.py": "937942485790ff255304893df936c971ab4e4f6daa5452a41e5df064a5bf0fbc",
+    "validation-local/first-all-four.json": "81b1d7df2a6b733afa37a991aa6c8431013b70eba28b67a43037c94324f9c43a",
+    "validation-local/focused-execution.json": "0e5338bb2d5509f491b28444192cd5ada9606e3d5c6b69ffcf26ae20b7cb3ffd",
+    "validation-local/focused-result.json": "25f787a85389d49fb78bda4507dc2f278f9823a31cf66c66bc62dcd67d911229",
+    "validation-local/focused-validated.log": "4223648180b9432a4c56f225847ab1ca3d85c212c659def9bebd4ddfb80deb00",
+    "validation-local/mod-registration.diff": "16b0cc0813ecef821eb1f837d00712f0df20b7a2ad4d7c5c2167248e570c9589",
+    "validation-local/native-inputs352.json": "2eeadbcc55684b3da177714b59206debd58fa3558265ea919e818cf6b92281a1",
+    "validation-local/native-neighbours.json": "aeca130d6de605b87f10f245c911245e7a066f2ae48a5da522cf2e50d42ba301",
+    "validation-local/native-neighbours.log": "0887e2adbcdc09f807395b4b14c0f9359685bf9c8bf65ab1ed1ed6ec3ce45362",
+    "validation-local/native-rational.json": "ad8aedbdfcefdad43f007927fb50fac3c11ddc76468e2bf3fff37ea33f7630e0",
+    "validation-local/native-rational.log": "feb05c5e30bbe7f7e5e4e5f1348c99cbe4aa3b10268b190426c6815116a30bd2",
+    "validation-local/ordered-execution.json": "93314f66a3940dbd90f13dc1f6a34065642af6644a9932f6ebe27f3ca0d97991",
+    "validation-local/ordered-ground-files.json": "606544b5328879413f169e3fd5d41b26897dcfe0a19c1d76ed66adb5139e24b9",
+    "validation-local/ordered-result.json": "44afb05a107f25f00457427ea582f6330e0330aaf56bef9406dfa0579db1f34a",
+    "validation-local/ordered-validated.log": "f4717a162726f97b6d53b5a88459a88875613e820b832def32cc4c7126d4aad2",
+    "validation-local/poly_ddm-registration.diff": "4e1ce45a907e08704f1cee7e2e48491e8876bf878e7e8bf614f1853ea3313c12",
+    "validation-local/rebase-and-release-map.json": "9e3fec9c4c3d53612eb228cffc82d576f6f7190e4b9ccd37ee592d56f663084a",
+    "validation-local/run-validation.py": "8d34df89ebada6fd67fc57cc07a255c8a66d9cb76290d17362ca94cf864b8580",
+    "validation-local/run-without-metadata.py": "77d26a5540bab2f4c258dd73e2e13e470ec8e83f719ce2f33346d41ea3f7ae4a",
+    "validation-local/rust-fflu.log": "81bd4991171b34b3b708f80ca6daf80ef9dbfc7910e6c9dab31d6e37708a8fb2",
+    "validation-local/validation_plugin.py": "117c9aa888b617d895b1fbb2183eb427b470cb35310c485467509a19cbb2fa26",
+    "validation-local/verify-final-state.py": "f415cf5e0c074623847645fed9ecf164981d95e30fb24db76036d53bcdfdaae9"
+  }
+}
