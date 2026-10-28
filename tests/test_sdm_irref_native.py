@@ -146,7 +146,9 @@ def test_other_domains_retain_the_complete_general_algorithm(monkeypatch,kind):
     k={'ZZ':lambda:sx.ZZ,'RR':lambda:sx.RealField(140),'CC':lambda:sx.ComplexField(211),
        'GF':lambda:sx.GF(5),'QQ_I':lambda:sx.QQ_I,'QQ(y)':lambda:sx.QQ.frac_field(y),'EX':lambda:sx.EX}[kind]()
     a={0:{0:k(1),1:k(2)},1:{0:k(3),1:k(4)}}
-    assert module._native_irref(a) is None
+    # GF(p) and QQ_I are exact fields with native arithmetic since wave 18.
+    native=module._native_irref(a)
+    assert (native is not None) if kind in ('GF','QQ_I') else (native is None)
     def outcome():
         try:return ('result',module.sdm_irref(a))
         except Exception as error:return ('error',type(error),str(error))

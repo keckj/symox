@@ -1,18 +1,21 @@
-//! Exact rational in-place LU, with the public routine's publication order.
+//! Exact field in-place LU (QQ, GF(p), QQ_I, QQ<a>), with the public
+//! routine's publication order.
+use super::Field;
+#[cfg(test)]
 use super::Rat;
 
-pub enum Event<'a> {
+pub enum Event<'a, C = super::Rat> {
     Swap(usize, usize),
-    Set(usize, usize, &'a Rat),
+    Set(usize, usize, &'a C),
 }
 
 /// Return None only for a ragged shape, before publishing any mutation.
 /// Zero columns are skipped at their original diagonal index: this is LU,
 /// not an echelon reduction or a rank-revealing pivoting substitution.
-pub fn in_place<E>(
-    a: &mut [Vec<Rat>],
+pub fn in_place<C: Field, E>(
+    a: &mut [Vec<C>],
     check: &mut impl FnMut() -> Result<(), E>,
-    publish: &mut impl FnMut(Event<'_>) -> Result<(), E>,
+    publish: &mut impl FnMut(Event<'_, C>) -> Result<(), E>,
 ) -> Result<Option<Vec<(usize, usize)>>, E> {
     check()?;
     let m = a.len();
@@ -29,9 +32,12 @@ pub fn in_place<E>(
             publish(Event::Swap(i, ip))?;
             a.swap(i, ip);
         }
+        // The pivot is nonzero whenever a row below is eliminated; its exact
+        // inverse is a pure function of it, so l_ji = a[j][i] / a[i][i].
+        let inverse = if i + 1 < m && !a[i][i].is_zero() { Some(a[i][i].inv()) } else { None };
         for j in (i + 1)..m {
             check()?;
-            let multiplier = a[j][i].mul(&a[i][i].inv());
+            let multiplier = match &inverse { Some(inverse) => a[j][i].mul(inverse), None => a[j][i].mul(&a[i][i].inv()) };
             publish(Event::Set(j, i, &multiplier))?;
             a[j][i] = multiplier.clone();
             for k in (i + 1)..n {
@@ -70,11 +76,23 @@ mod tests {
     }
 
     #[test]
+    fn finite_field_lu_matches_sympy_gf7_factors() {
+        use crate::poly::f5b::{Fp, PrimeScope};
+        let _scope = PrimeScope::new(7).unwrap();
+        let f = |n: i64| Fp::from_rat(&q(n, 1), 7).unwrap();
+        let mut a = vec![vec![f(0),f(2),f(3)],vec![f(4),f(5),f(6)],vec![f(1),f(1),f(1)]];
+        let swaps = in_place(&mut a, &mut || Ok::<_,()>(()), &mut |_: Event<'_, Fp>| Ok(())).unwrap().unwrap();
+        // SymPy 1.14: L=[[1,0,0],[0,1,0],[2,-1,1]], U=[[-3,-2,-1],[0,2,3],[0,0,-1]] over GF(7).
+        assert_eq!(swaps, vec![(0,1)]);
+        assert_eq!(a, vec![vec![f(4),f(5),f(6)],vec![f(0),f(2),f(3)],vec![f(2),f(6),f(6)]]);
+    }
+
+    #[test]
     fn zero_diagonal_columns_and_empty_rectangles_keep_their_positions() {
         let mut a = vec![vec![q(0,1),q(3,1),q(4,1)],vec![q(0,1),q(2,1),q(7,1)],vec![q(0,1),q(1,1),q(5,1)]];
         assert_eq!(in_place(&mut a,&mut || Ok::<_,()>(()),&mut |_| Ok(())).unwrap(),Some(vec![]));
         assert_eq!(a[2],vec![q(0,1),q(1,2),q(3,2)]);
-        for mut a in [vec![],vec![vec![]],vec![vec![],vec![]]] {
+        for mut a in [Vec::<Vec<Rat>>::new(),vec![vec![]],vec![vec![],vec![]]] {
             assert_eq!(in_place(&mut a,&mut || Ok::<_,()>(()),&mut |_| panic!("no empty publication")).unwrap(),Some(vec![]));
         }
     }

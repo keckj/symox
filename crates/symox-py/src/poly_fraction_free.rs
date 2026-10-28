@@ -363,6 +363,34 @@ fn _sdm_irref<'py>(a:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,py:Python
     // No arithmetic domain can be inferred from an empty free-function input.
     // Its cheap original branch also preserves customized container factories.
     if a.is_empty(){return Ok(None);}
+    // The domain is read from the first stored value without any callback;
+    // every other value must be a stock element of exactly that domain.
+    let first=a.iter().next().and_then(|(_,row)|row.downcast_exact::<PyDict>().ok().and_then(|row|row.iter().next().map(|(_,v)|v)));
+    let Some(first)=first else{return Ok(None)};
+    if ddm::scalar(&first)==Some(Scalar::QQ) {
+        return sdm_irref_typed::<Rat>(a,py,&|value|{
+            if ddm::scalar(value)!=Some(Scalar::QQ){return None;}
+            let element=value.downcast::<super::domains::PyDomainElement>().ok()?.get();
+            let symox::poly::domains::ElementValue::Rational(value)=&element.value.value else{return None};
+            Some(value.clone())
+        },&|py,value|ddm::element_object(py,value,ExactDomain::QQ));
+    }
+    // GF(p), QQ<a>, QQ_I: the Python body uses only the native
+    // pow/mul/sub/neg/bool operations authenticated by the caller.
+    let Some((domain,kind))=ddm::field_domain(&first,true) else{return Ok(None)};
+    let result=match kind {
+        ddm::FieldKind::Finite=>ddm::with_field_scope(&domain,||sdm_irref_typed::<symox::poly::f5b::Fp>(a,py,
+            &|value|ddm::field_value(value,&domain),&|py,value|ddm::field_object(py,value,&domain)))?,
+        ddm::FieldKind::Algebraic=>ddm::with_field_scope(&domain,||sdm_irref_typed::<symox::poly::algebraic::AN>(a,py,
+            &|value|ddm::field_value(value,&domain),&|py,value|ddm::field_object(py,value,&domain)))?,
+    };
+    Ok(result.flatten())
+}
+
+type IrrefOutput=Option<(PyObject,PyObject,PyObject)>;
+
+fn sdm_irref_typed<'py,C:symox::poly::Field>(a:&Bound<'py,PyDict>,py:Python<'py>,
+    extract:&dyn Fn(&Bound<'py,PyAny>)->Option<C>,wrap:&dyn Fn(Python<'py>,C)->PyResult<PyObject>)->PyResult<IrrefOutput> {
     let references=a.iter().map(|(_,row)|row).collect::<Vec<_>>();
     let mut representation=IrrefPythonSets::new(py);let mut rows=Vec::with_capacity(references.len());
     for row in references {
@@ -371,17 +399,15 @@ fn _sdm_irref<'py>(a:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,py:Python
         let row=row.downcast::<PyDict>()?;
         if row.is_empty(){return Ok(None);}
         let entries=row.iter().collect::<Vec<_>>();
-        let mut values:symox::poly::sdm::IrrefRow<Rat>=Default::default();
+        let mut values:symox::poly::sdm::IrrefRow<C>=Default::default();
         for (i,(key,value))in entries.iter().enumerate() {
             if i%64==0{py.check_signals()?;}
             let Some(key)=representation.key(key)? else{return Ok(None)};
-            if ddm::scalar(value)!=Some(Scalar::QQ){return Ok(None);}
-            let element=value.downcast::<super::domains::PyDomainElement>()?.get();
-            let symox::poly::domains::ElementValue::Rational(value)=&element.value.value else{unreachable!()};
+            let Some(value)=extract(value) else{return Ok(None)};
             // Explicit stored zeros have historical errors/structural metadata.
             // Do not silently delete them or change which pivot is selected.
             if value.is_zero(){return Ok(None);}
-            values.insert(key.index,(key.origin,value.clone()));
+            values.insert(key.index,(key.origin,value));
         }
         rows.push(values);
     }
@@ -395,7 +421,7 @@ fn _sdm_irref<'py>(a:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,py:Python
         py.check_signals()?;let out=PyDict::new(py);
         for (step,(_,(origin,value)))in row.iter().enumerate(){
             if step%64==0{py.check_signals()?;}
-            out.set_item(&representation.keys[*origin],ddm::element_object(py,value.clone(),ExactDomain::QQ)?)?;
+            out.set_item(&representation.keys[*origin],wrap(py,value.clone())?)?;
         }
         output.set_item(i,out)?;
     }
