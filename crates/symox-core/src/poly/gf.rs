@@ -170,7 +170,7 @@ pub fn monic(a: &[u64], p: u64) -> GfPoly {
 
 pub fn divrem(a: &[u64], b: &[u64], p: u64) -> (GfPoly, GfPoly) {
     super::factor_budget::dense(a.len());
-    super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
+    super::factor_budget::charge(super::factor_budget::division_work(a.len(), b.len()));
     assert!(!b.is_empty());
     if a.len() < b.len() {
         return (vec![], a.to_vec());

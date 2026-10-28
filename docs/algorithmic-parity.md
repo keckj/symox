@@ -11375,3 +11375,41 @@ a zero column raises TypeError in `_sort_factors` (DomainElement has no
 ordering) where SymPy 1.14 returns the polynomial; it fails the same way
 before and after this port. Timings are in
 [the audit](../audits/performance/2026-10-28-fflu-dom/README.md).
+
+
+## Wave 19 polycap1: Sturm counts and modular factorization work estimate, 2026-10-29
+
+`count_roots` over ZZ/QQ with real (rational, Float or infinite) bounds,
+`Poly.count_roots` and the imaginary-axis count of `rootof` now use an
+integer Sturm chain in Rust (`poly/rootisolation.rs`). Each element is a
+positive multiple of the reference's QQ Sturm sequence of the monic
+square-free part (square-free part by the ZZ gcd, primitive
+pseudo-remainders with the sign of `lc**(da - db + 1)` tracked), so every
+sign and every variation count, hence the result, is SymPy's, including
+bounds that are roots, reversed bounds and the `f(inf) == 0` correction.
+Pseudo-remainders scale untouched coefficients lazily by powers of the
+divisor's leading coefficient, so a sparse divisor (the linear Sturm element
+of `x**n - x - 1`) costs one product per step instead of rescaling the whole
+remainder; signs at rational bounds come from homogeneous integer Horner
+evaluation without rational normalization. `count_roots(x**5000 - x - 1)`
+drops from about 69 s to about 0.01 s (SymPy 1.14: about 9 s). Complex
+rectangle counts, other coefficient domains (the generic Python Sturm path)
+and the public `sturm()` sequence are unchanged.
+
+The checked factorization charged every dense division (`gf::divrem`,
+`dense::divrem`, the Montgomery Hensel division) `len(a)*len(b)` units,
+which overestimated each Euclidean remainder sequence of the
+distinct-degree factorization by a factor of the degree: `factor_list(x**300
++ x + 1)` was refused ("factorization resource limit: work") during prime
+selection. Divisions now charge their actual operation count
+`(len(a) - len(b) + 1)*len(b) + len(a)` (`factor_budget::division_work`).
+The 2*10**9 work limit, the attempt, degree, coefficient and storage limits
+are unchanged, so inputs whose modular stage really exceeds the allowance
+(`x**2000 + x + 1`, `x**4000 + x + 1`) are still refused after a bounded
+few seconds with the same error class and message. `factor_list(x**n + x +
+1)` for n = 200, 250, 300, 301, 350, 400, 600, 1000 and other sparse
+trinomials now return SymPy's factors in SymPy's order (at most about a
+second up to n = 400). No algorithm or result changes; no intentional correction.
+Remaining in this TODO item family: `resultant`, `cyclotomic_poly`,
+`decompogen` and the exact special-function evaluation caps (separate
+tasks). Measurements: [the audit](../audits/performance/2026-10-29-polycap1/README.md).

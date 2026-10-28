@@ -989,26 +989,24 @@ pub fn sturm_sequence(f: &[Rat]) -> Vec<QPoly> {
 
 /// Number of real roots of `f` in `[inf, sup]` by Sturm sequences (the
 /// reference's `dup_count_real_roots`).
+///
+/// The reference builds the Sturm sequence of the monic square-free part
+/// over QQ. Here every element is replaced by a positive multiple with
+/// integer coefficients (primitive pseudo-remainders, signs tracked), which
+/// leaves every sign, hence every variation count, unchanged while avoiding
+/// rational normalizations. Signs at rational points come from homogeneous
+/// integer Horner evaluation. The result is the reference's exact count.
 pub fn count_real_roots(f: &[Rat], inf: Option<&Rat>, sup: Option<&Rat>) -> usize {
-    use super::dense;
     if f.len() < 2 {
         return 0;
     }
-    let asc: Vec<Rat> = f.iter().rev().cloned().collect();
-    let g = dense::gcd_field(&asc, &dense::derivative(&asc));
-    let p = dense::divrem(&asc, &g).0;
-    let mut chain = vec![p.clone(), dense::derivative(&p)];
-    while !chain.last().unwrap().is_empty() {
-        let n = chain.len();
-        let r = dense::rem(&chain[n - 2], &chain[n - 1]);
-        chain.push(dense::neg(&r));
-    }
-    chain.pop();
-    let variations = |values: Vec<Rat>| {
+    // positive multiple of f with integer coefficients, ascending
+    let asc: Vec<Int> = clear_denoms(f).into_iter().rev().collect();
+    let chain = integer_sturm_chain(&asc);
+    let variations = |signs: Vec<i32>| {
         let mut prev = 0i32;
         let mut k = 0i64;
-        for c in values {
-            let s = if c.is_zero() { 0 } else if c.is_negative() { -1 } else { 1 };
+        for s in signs {
             if s * prev < 0 {
                 k += 1;
             }
@@ -1018,15 +1016,15 @@ pub fn count_real_roots(f: &[Rat], inf: Option<&Rat>, sup: Option<&Rat>) -> usiz
         }
         k
     };
-    let at = |x: Option<&Rat>, minus: bool| -> Vec<Rat> {
+    let at = |x: Option<&Rat>, minus: bool| -> Vec<i32> {
         chain
             .iter()
             .map(|s| match x {
-                Some(x) => dense::eval(s, x),
+                Some(x) => sign_at(s, x),
                 None => {
-                    let lc = s.last().cloned().unwrap_or_else(Rat::zero);
+                    let lc = s.last().map_or(0, Int::signum);
                     if minus && (s.len() - 1) % 2 == 1 {
-                        lc.neg()
+                        -lc
                     } else {
                         lc
                     }
@@ -1036,11 +1034,148 @@ pub fn count_real_roots(f: &[Rat], inf: Option<&Rat>, sup: Option<&Rat>) -> usiz
     };
     let mut count = (variations(at(inf, true)) - variations(at(sup, false))).unsigned_abs() as usize;
     if let Some(x) = inf {
-        if dense::eval(&asc, x).is_zero() {
+        if sign_at(&asc, x) == 0 {
             count += 1;
         }
     }
     count
+}
+
+/// Sign of the ascending integer polynomial `f` at the rational `x`, from
+/// the homogeneous form `q**n f(p/q)` (`q > 0`).
+fn sign_at(f: &[Int], x: &Rat) -> i32 {
+    let Some(top) = f.last() else { return 0 };
+    if x.n.is_zero() {
+        return f[0].signum();
+    }
+    let (p, q) = (&x.n, &x.d);
+    let mut h = top.clone();
+    if q.is_one() {
+        for c in f[..f.len() - 1].iter().rev() {
+            h = h.mul(p);
+            if !c.is_zero() {
+                h.add_assign(c);
+            }
+        }
+    } else {
+        let mut qk = Int::one();
+        for c in f[..f.len() - 1].iter().rev() {
+            h = h.mul(p);
+            qk = qk.mul(q);
+            if !c.is_zero() {
+                h.add_mul(c, &qk);
+            }
+        }
+    }
+    h.signum()
+}
+
+/// Ascending integer polynomials `T_k = c_k S_k` (`c_k > 0`) for the
+/// reference's Sturm sequence `S_k` of the monic square-free part of `f`.
+fn integer_sturm_chain(f: &[Int]) -> Vec<Vec<Int>> {
+    use super::dense;
+    let df = dense::derivative(f);
+    let (_, sqf, _) = super::gcd::gcd_zx(f, &df);
+    let mut p = positive_primitive(&sqf);
+    if p.last().is_some_and(Int::is_negative) {
+        p = dense::neg(&p);
+    }
+    let dp = positive_primitive(&dense::derivative(&p));
+    let mut chain = vec![p, dp];
+    while !chain.last().unwrap().is_empty() {
+        let n = chain.len();
+        let b = &chain[n - 1];
+        if b.len() == 1 {
+            break;
+        }
+        let a = &chain[n - 2];
+        let r = lazy_prem(a, b);
+        // prem(a, b) = lc(b)**(da - db + 1) rem(a, b); the next element is
+        // -rem(a, b) up to a positive factor.
+        let steps = a.len() + 1 - b.len();
+        let negative_scale = b.last().unwrap().is_negative() && steps % 2 == 1;
+        let r = positive_primitive(&r);
+        chain.push(if negative_scale { r } else { dense::neg(&r) });
+    }
+    if chain.last().unwrap().is_empty() {
+        chain.pop();
+    }
+    chain
+}
+
+/// `p / content(p)` with a positive divisor (signs preserved).
+fn positive_primitive(p: &[Int]) -> Vec<Int> {
+    let g = super::dense::content(p).abs();
+    if g.is_zero() || g.is_one() {
+        return p.to_vec();
+    }
+    p.iter().map(|c| c.div_exact_unchecked(&g)).collect()
+}
+
+/// The pseudo-remainder `lc(b)**(da - db + 1) a mod b` of ascending integer
+/// polynomials (as the classical algorithm), scaling coefficients lazily:
+/// a coefficient that the subtraction does not touch is multiplied by the
+/// accumulated power of `lc(b)` only when it is next read. A sparse divisor
+/// (such as a linear Sturm element) thus costs one product per step
+/// instead of rescaling the whole remainder.
+fn lazy_prem(a: &[Int], b: &[Int]) -> Vec<Int> {
+    use super::dense;
+    let m = b.len() - 1;
+    if a.len() < b.len() {
+        return a.to_vec();
+    }
+    let n = a.len() - 1;
+    let lb = &b[m];
+    let terms: Vec<(usize, &Int)> = b[..m].iter().enumerate().filter(|(_, c)| !c.is_zero()).collect();
+    let steps = n - m + 1;
+    let mut r = a.to_vec();
+    // true value of r[k] after t steps: r[k] * lb**(t - stamp[k])
+    let mut stamp = vec![0usize; n + 1];
+    let mut cache: Option<(usize, Int)> = None;
+    let mut power = |e: usize| -> Int {
+        match &cache {
+            Some((k, v)) if *k == e => return v.clone(),
+            Some((k, v)) if *k + 1 == e => {
+                let v = v.mul(lb);
+                cache = Some((e, v.clone()));
+                return v;
+            }
+            _ => {}
+        }
+        let v = lb.pow(e as u32);
+        cache = Some((e, v.clone()));
+        v
+    };
+    fn scaled(c: &Int, e: usize, lb: &Int, power: &mut dyn FnMut(usize) -> Int) -> Int {
+        match e {
+            _ if c.is_zero() => Int::zero(),
+            0 => c.clone(),
+            1 => c.mul(lb),
+            _ => c.mul(&power(e)),
+        }
+    }
+    for t in 0..steps {
+        let d = n - t;
+        let c = scaled(&r[d], t - stamp[d], lb, &mut power);
+        r[d] = Int::zero();
+        if c.is_zero() {
+            continue;
+        }
+        for &(j, bj) in &terms {
+            let k = d - m + j;
+            let mut v = scaled(&r[k], t + 1 - stamp[k], lb, &mut power);
+            v.sub_mul(&c, bj);
+            r[k] = v;
+            stamp[k] = t + 1;
+        }
+    }
+    r.truncate(m);
+    for k in 0..m {
+        let e = steps - stamp[k];
+        r[k] = scaled(&r[k], e, lb, &mut power);
+    }
+    dense::trim(&mut r);
+    r
 }
 
 // ---------------------------------------------------------------------------
@@ -1942,6 +2077,97 @@ mod tests {
     }
     fn q(n: i64, d: i64) -> Rat {
         Rat::new(Int::from(n), Int::from(d))
+    }
+
+    /// The reference's count: QQ Sturm sequence of the monic square-free
+    /// part and rational evaluation (the previous implementation).
+    fn qq_count(f: &[Rat], inf: Option<&Rat>, sup: Option<&Rat>) -> usize {
+        let chain: Vec<Vec<Rat>> = sturm_sequence(f).into_iter().map(|s| s.into_iter().rev().collect()).collect();
+        let sign = |c: &Rat| if c.is_zero() { 0 } else if c.is_negative() { -1 } else { 1 };
+        let var = |v: Vec<i32>| {
+            let (mut prev, mut k) = (0, 0i64);
+            for s in v {
+                if s * prev < 0 {
+                    k += 1;
+                }
+                if s != 0 {
+                    prev = s;
+                }
+            }
+            k
+        };
+        let at = |x: Option<&Rat>, minus: bool| -> Vec<i32> {
+            chain
+                .iter()
+                .map(|s| match x {
+                    Some(x) => sign(&super::super::dense::eval(s, x)),
+                    None => {
+                        let l = sign(s.last().unwrap());
+                        if minus && (s.len() - 1) % 2 == 1 { -l } else { l }
+                    }
+                })
+                .collect()
+        };
+        let mut n = (var(at(inf, true)) - var(at(sup, false))).unsigned_abs() as usize;
+        let asc: Vec<Rat> = f.iter().rev().cloned().collect();
+        if inf.is_some_and(|x| super::super::dense::eval(&asc, x).is_zero()) {
+            n += 1;
+        }
+        n
+    }
+
+    #[test]
+    fn integer_sturm_count_matches_rational_sturm_count() {
+        let mut seed = 0x1234_5678_9abc_def0u64;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        let points: Vec<Option<Rat>> = vec![None, Some(q(0, 1)), Some(q(1, 1)), Some(q(-1, 1)), Some(q(-3, 2)), Some(q(7, 5)), Some(q(2, 1)), Some(q(-1, 3))];
+        for case in 0..60 {
+            let deg = 1 + (next() % 9) as usize;
+            let mut f: Vec<Rat> = (0..=deg)
+                .map(|_| {
+                    let v = next();
+                    if v % 3 == 0 { q(0, 1) } else { q((v % 11) as i64 - 5, 1 + (v >> 8) as i64 % 4) }
+                })
+                .collect();
+            if f[0].is_zero() {
+                f[0] = q(1 + case % 3, 1);
+            }
+            // repeated factors: multiply by (x - 1)**2 sometimes
+            if case % 4 == 0 {
+                let asc: Vec<Rat> = f.iter().rev().cloned().collect();
+                let sq = super::super::dense::mul(&asc, &[q(1, 1), q(-2, 1), q(1, 1)]);
+                f = sq.into_iter().rev().collect();
+            }
+            for a in &points {
+                for b in &points {
+                    assert_eq!(count_real_roots(&f, a.as_ref(), b.as_ref()), qq_count(&f, a.as_ref(), b.as_ref()), "{f:?} {a:?} {b:?}");
+                }
+            }
+        }
+        let mut trinomial = vec![q(0, 1); 302];
+        trinomial[0] = q(1, 1);
+        trinomial[300] = q(-1, 1);
+        trinomial[301] = q(-1, 1);
+        for (a, b) in [(None, None), (Some(q(0, 1)), Some(q(2, 1))), (Some(q(-3, 2)), Some(q(-1, 2)))] {
+            assert_eq!(count_real_roots(&trinomial, a.as_ref(), b.as_ref()), qq_count(&trinomial, a.as_ref(), b.as_ref()));
+        }
+    }
+
+    #[test]
+    fn lazy_pseudo_remainder_matches_classical() {
+        let a = z(&[3, 0, -1, 0, 0, 7, 0, 2, -5]);
+        for b in [z(&[2, 5]), z(&[-3, 0, 0, 1]), z(&[4, -1, 0, 6, 0]), z(&[-7, 1, 1])] {
+            let mut b = b;
+            super::super::dense::trim(&mut b);
+            let a_asc: Vec<Int> = a.iter().rev().cloned().collect();
+            let b_asc: Vec<Int> = b.iter().rev().cloned().collect();
+            assert_eq!(lazy_prem(&a_asc, &b_asc), super::super::dense::prem(&a_asc, &b_asc));
+        }
     }
 
     #[test]

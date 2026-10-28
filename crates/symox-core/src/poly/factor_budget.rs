@@ -77,6 +77,16 @@ pub(crate) fn charge(work: u64) {
         cancel("work");
     }
 }
+/// Operations of a dense division of a polynomial of length `a` by one of
+/// length `b`: one row of `b` products per quotient coefficient, plus the
+/// copy of the dividend. (Charging `a * b` overestimated the Euclidean
+/// remainder sequences of the modular distinct-degree factorization by a
+/// factor of the degree and stopped inputs the reference factors.)
+#[inline]
+pub(crate) fn division_work(a: usize, b: usize) -> u64 {
+    let rows = (a + 1).saturating_sub(b) as u64;
+    rows.saturating_mul(b as u64).saturating_add(a as u64)
+}
 pub(crate) fn event(_phase: &'static str) {
     let failed = STATE.with(|slot| {
         let Some(mut state) = slot.get() else {
