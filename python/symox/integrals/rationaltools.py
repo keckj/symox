@@ -937,6 +937,27 @@ def log_to_atan(f, g):
 _ATAN_RECURSION = log_to_atan
 
 
+def _complete_real_roots(f, rs):
+    """Whether ``rs`` (``roots(f, filter='R')``) holds every real root.
+
+    Parametric coefficients keep the reference behaviour: realness of their
+    roots depends on the parameters and is not decided here.
+    """
+    if f.free_symbols - set(f.gens):
+        return True
+    allr = roots(f)
+    if sum(allr.values()) != f.degree():
+        return False
+    for r in allr:
+        if r in rs or r.is_real is False:
+            continue
+        # The reference real-part tests (`D.evalf(chop=True)`) are numeric.
+        im = r.evalf(50).as_real_imag()[1]
+        if not im.is_Number or abs(im) < 1e-40:
+            return False
+    return True
+
+
 def _get_real_roots(f, x):
     """get real roots of f if possible"""
     rs = roots(f, filter='R')
@@ -944,7 +965,11 @@ def _get_real_roots(f, x):
     try:
         num_roots = f.count_roots()
     except DomainError:
-        return rs
+        # The real-root count is not available over this domain. SymPy 1.14
+        # returns the filtered dict anyway, so a missed real root silently
+        # drops terms (ratint(1/(x**8 + 1)) is 0). The dict is only used
+        # when every root was found and each dropped one is non-real.
+        return rs if _complete_real_roots(f, rs) else None
     else:
         if len(rs) == num_roots:
             return rs
