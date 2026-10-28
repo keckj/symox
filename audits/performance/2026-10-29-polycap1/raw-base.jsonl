@@ -1,0 +1,16 @@
+{"label": "base", "data": {"case": "count_5000", "lib": "symox", "first": 68.97462780600108, "repeat_median": 69.56139724000059, "result": "2"}}
+{"label": "base", "data": {"case": "count_5000_ab", "lib": "symox", "first": 69.99717189500006, "repeat_median": 70.48955034200117, "result": "1"}}
+{"label": "base", "data": {"case": "count_5000_rat", "lib": "symox", "first": 74.02354621800077, "repeat_median": 82.5853311660012, "result": "2"}}
+{"label": "base", "data": {"case": "count_5000_float", "lib": "symox", "first": 74.58696432800025, "repeat_median": 71.4949115140007, "result": "2"}}
+{"label": "base", "data": {"case": "count_3000_sparse", "lib": "symox", "first": 9.791954902000725, "repeat_median": 9.824684331000753, "result": "2"}}
+{"label": "base", "data": {"case": "count_cheb120", "lib": "symox", "first": 0.007135593999919365, "repeat_median": 0.006809242999224807, "result": "120"}}
+{"label": "base", "data": {"case": "count_cheb120_ab", "lib": "symox", "first": 0.016442336000181967, "repeat_median": 0.016495864001626614, "result": "47"}}
+{"label": "base", "data": {"case": "count_poly_sq", "lib": "symox", "first": 0.00258787900020252, "repeat_median": 0.00195585399887932, "result": "5"}}
+{"label": "base", "data": {"case": "count_complex_60", "lib": "symox", "first": 0.32338423599867383, "repeat_median": 0.32342127099946083, "result": "60"}}
+{"label": "base", "data": {"case": "factor_300", "lib": "symox", "first": 0.08777029200064135, "repeat_median": 0.0866015960000368, "result": "ERROR ValueError: factorization resource limit: work"}}
+{"label": "base", "data": {"case": "factor_200", "lib": "symox", "first": 0.2667835420015763, "repeat_median": 0.2700336560010328, "result": "(1, [(x**2 + x + 1, 1), (x**198 - x**197 + x**195 - x**194 + x**192 - x**191 + x**189 - x**188 + x**186 - x**185 + x**183 - x**182 + x**180 - x**179 + x**177 - x**176 + x**174 - x**173 + x**171 - x**170 + x**168 - x**167 + x**165 - x**164 + x**162 - x**161 + x**159 - x**158 + x**156 - x**155 + x**153 - x**152 + x**150 - x**149 + x**147 - x**146 + x**144 - x**143 + x**141 - x**140 + x**138 - x**137"}}
+{"label": "base", "data": {"case": "factor_250", "lib": "symox", "first": 0.02541725399896677, "repeat_median": 0.02488434699989739, "result": "(1, [(x**250 + x + 1, 1)])"}}
+{"label": "base", "data": {"case": "factor_301", "lib": "symox", "first": 0.10283927399905224, "repeat_median": 0.10233809500095958, "result": "ERROR ValueError: factorization resource limit: work"}}
+{"label": "base", "data": {"case": "factor_expr_300", "lib": "symox", "first": 0.16134976000103052, "repeat_median": 0.16186006399948383, "result": "x**300 + x + 1"}}
+{"label": "base", "data": {"case": "factor_sparse_256", "lib": "symox", "first": 0.04699346999950649, "repeat_median": 0.04663669900037348, "result": "(1, [(x**256 - x**5 + 3, 1)])"}}
+{"label": "base", "data": {"case": "factor_sparse_210", "lib": "symox", "first": 0.02807472600034089, "repeat_median": 0.027625072998489486, "result": "(1, [(x**210 + 2*x**3 - 7, 1)])"}}

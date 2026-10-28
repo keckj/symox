@@ -134,7 +134,7 @@ pub fn derivative<C: Coeff>(p: &[C]) -> Vec<C> {
 /// Division with remainder over a field.
 pub fn divrem<C: Field>(a: &[C], b: &[C]) -> (Vec<C>, Vec<C>) {
     super::factor_budget::dense(a.len());
-    super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
+    super::factor_budget::charge(super::factor_budget::division_work(a.len(), b.len()));
     assert!(!b.is_empty(), "division by zero polynomial");
     if a.len() < b.len() {
         return (vec![], a.to_vec());

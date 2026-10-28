@@ -273,7 +273,7 @@ impl Mont {
     /// Division by a monic polynomial.
     fn pdivrem(&self, a: &[u128], b: &[u128]) -> (Vec<u128>, Vec<u128>) {
         super::factor_budget::dense(a.len());
-        super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
+        super::factor_budget::charge(super::factor_budget::division_work(a.len(), b.len()));
         if a.len() < b.len() {
             return (vec![], a.to_vec());
         }
