@@ -33,7 +33,13 @@ fn reference(kind: &'static str, message: impl Into<String>) -> PolyError {
 
 /// `Expression.simplify`: `ex.cancel().expand(**eflags)`.
 fn simplify(e: Expr) -> PResult<EX> {
-    let cancelled = super::api::cancel(&e)?;
+    // The reference public `cancel` first applies `signsimp` and
+    // `factor_terms(radical=True)`; without them radical coefficients grow
+    // (`ratint(1/(x**3 + x + 1))`). Piecewise/relational content keeps the
+    // child-wise cancellation of the reference PolynomialError branch.
+    let mut blocked = false;
+    crate::traverse::preorder(&e, &mut |x| if matches!(x.kind(), crate::expr::Kind::Piecewise(_) | crate::expr::Kind::Rel(..) | crate::expr::Kind::Bool(_)) { blocked = true; });
+    let cancelled = if blocked { super::api::cancel(&e)? } else { super::api::reference_cancel(&e)? };
     let options = ExpandOptions {
         deep: false,
         basic: false,

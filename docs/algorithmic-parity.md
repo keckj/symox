@@ -11252,3 +11252,60 @@ a delete plus an add leaving a class namespace with the same size is not
 detected; the protocol is captured at first use rather than authenticated
 against literal templates as the ordinary HNF guard does. No intentional
 mathematical correction is made.
+
+
+
+## ratint over Gaussian grounds, EX coefficient growth and real-root completeness, 2026-10-28
+
+Three corrections on branch `feat-ratint-dom-20261028`
+([measurements](../audits/performance/2026-10-28-ratint-dom/README.md)):
+
+- The EX coefficient `simplify` (Rust `expression_domain.rs`) now runs the
+  reference public `cancel` (`signsimp`, `factor_terms(radical=True)`, then
+  `cancel`) before the unchanged non-multinomial `expand`, as SymPy 1.14
+  `ExpressionDomain.Expression.simplify`. Without it, `(A**2 + B**2)` in
+  `log_to_real` grew radical coefficients: `ratint(1/(x**3+x+1))` printed
+  53265 characters (82704 in the TODO entry) against 16653 for SymPy; it now
+  prints 7892, is twice as fast, and differentiates back to the integrand
+  exactly at the four tested rational points, as does the SymPy value. The
+  form is not identical to SymPy for the cubic cases. Piecewise/relational
+  content keeps the previous child-wise cancellation. The extra steps cost
+  20-35 % on some EX-heavy integrals.
+- `ZZ_I`/`QQ_I` Polys against Polys over `ZZ[y...]`/`QQ(y...)` in the same
+  generators unify the grounds (`QQ_I[a,b]`, `QQ_I(a)`) instead of raising
+  `TypeError`. This was what made `ratint_ratpart` (Horowitz-Ostrogradsky
+  through undetermined coefficients in `ZZ[a...]`) fail, so every ratint
+  with a Gaussian denominator crashed, e.g. `1/(x**2+I)**2`, `I/(x**2+1)**2`,
+  `(x+I)/(x**3-I)`, `1/((x+2)*(x-I))`. These now return the SymPy 1.14 values
+  exactly (`tests/test_native_ratint_dom.py`). The integration corpus is
+  unchanged per case and the test suite only gains the new tests.
+- Intentional correction of a SymPy 1.14 defect: `_get_real_roots` returns
+  the `roots(f, filter='R')` dict as complete when `count_roots` raises
+  DomainError (EX coefficients). A missed real root then drops terms:
+  SymPy gives `ratint(1/(x**8+1)) = 0` and, for `1/(x**6-2)`, only the two
+  real-root logarithms (the derivative misses 0.3175... at x = 1/3). symox
+  now uses that dict only when `roots(f)` finds all `deg f` roots and every
+  dropped root is non-real (`is_real is False`, or a 50-digit imaginary part
+  above 1e-40, the same numeric standard as the reference
+  `D.evalf(chop=True)` test); otherwise `log_to_real` returns None and ratint
+  keeps the exact `RootSum`, equal to the SymPy `real=False` value and
+  checked against quadrature. Polynomials with free parameters keep the
+  reference behaviour.
+
+Open gaps, not closed by this work:
+
+- `log_to_real` for auxiliary polynomials of degree >= 3 and every EX/QQ<a>
+  or parametric ratint still run the Python reference algorithm on Rust
+  primitives; there is no native kernel. A native kernel needs `roots(...,
+  filter='R')` against `count_roots` on EX resultants, numeric
+  `D.evalf(chop=True)` checks and EX `log_to_atan`, all with the reference
+  fallback semantics.
+- No native Gaussian `ratint_ratpart`/driver: these cases take the Python
+  path (about 8 ms).
+- `real=False` returns a Python `RootSum`, so the native driver declines it.
+- Core `Mul` folds `I*sqrt(I)` into `I**(3/2)` where SymPy keeps
+  `sqrt(I)*I`, so `ratint(1/(x**2+I))` prints differently from SymPy
+  although the value is equal.
+- Parametric polynomials (`count_roots` raising DomainError with free
+  parameters) keep the reference trust in `roots(..., filter='R')`; whether
+  a dropped root is real depends on the parameters and is not decided.

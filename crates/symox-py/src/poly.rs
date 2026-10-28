@@ -1120,6 +1120,34 @@ impl PyPoly {
         let b = q.downcast::<PyPoly>().ok()?.get().p.clone();
         Some((a, b))
     }
+    /// A Gaussian `ZZ_I`/`QQ_I` polynomial against a polynomial over an
+    /// exact composite ground (`ZZ[y...]`, `QQ(y...)`) in the same
+    /// generators: the reference unifies the grounds (`QQ_I[y...]`) and
+    /// converts both sides; any pair the conversion cannot match declines.
+    fn gaussian_composite_both(&self, o: &Bound<'_, PyAny>) -> Option<(PolyValue, PolyValue)> {
+        let q = o.downcast::<PyPoly>().ok()?;
+        let qp = &q.get().p;
+        let gaussian = |p: &PolyValue| p.algebraic.as_ref().is_some_and(|a| a.gaussian.is_some())
+            && p.field.is_none() && p.expression.is_none() && p.base.modulus.is_none();
+        // `ZZ[y]` is stored as a fraction-free `field` representation.
+        let ring = |p: &PolyValue| p.algebraic.is_none() && p.expression.is_none() && p.base.modulus.is_none()
+            && match &p.field {
+                Some(_) => true,
+                None => p.base.has_domain_gens() && matches!(p.base.domain, Domain::ZZ | Domain::QQ),
+            };
+        if !((gaussian(&self.p) && ring(qp)) || (ring(&self.p) && gaussian(qp)))
+            || self.p.true_gens() != qp.true_gens() {
+            return None;
+        }
+        let py = o.py();
+        let me = Bound::new(py, self.clone()).ok()?;
+        let k = me.getattr("domain").ok()?.call_method1("unify", (o.getattr("domain").ok()?,)).ok()?;
+        let a = me.call_method1("set_domain", (k.clone(),)).ok()?;
+        let b = o.call_method1("set_domain", (k,)).ok()?;
+        let a = a.downcast::<PyPoly>().ok()?.get().clone();
+        let b = a.other_base(&b)?;
+        Some((a.p, b))
+    }
     fn other_base(&self, o: &Bound<'_, PyAny>) -> Option<PolyValue> {
         if let Ok(q)=o.downcast::<PyPoly>() {
             let q=&q.get().p;
@@ -1229,7 +1257,7 @@ impl PyPoly {
         match self.other(o) {
             Some(q) => Ok(PyPoly { p: f(&self.p, &q).map_err(err)? }.into_pyobject(py)?.into_any().unbind()),
             None => {
-                if let Some((a, b)) = self.inexact_composite_both(o) {
+                if let Some((a, b)) = self.inexact_composite_both(o).or_else(|| self.gaussian_composite_both(o)) {
                     return Ok(PyPoly { p: f(&a, &b).map_err(err)? }.into_pyobject(py)?.into_any().unbind());
                 }
                 if let Ok(q)=o.downcast::<PyPoly>() {
