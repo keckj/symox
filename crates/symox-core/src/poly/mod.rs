@@ -91,3 +91,5 @@ pub mod hnf;
 pub mod fflu;
 
 pub mod hnf_modular;
+
+pub mod smith;

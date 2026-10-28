@@ -11219,3 +11219,36 @@ The existing Hermite representative-domain gap remains open: for a=t+1, d=(t+2)^
 
 [Portable sources, certificates, rejected lineage and raw gates](../audits/sympy-1.14.0/native-math-ports-2026-10-28/README.md) distinguish all private DEBUG builds from this freshly built integrated RELEASE. No timing campaign, unrelated integral/ODE corpus replay or global speed/parity claim is inferred from the mathematical ports. Coordinated rewriting of private implementation and its anchors changes the optimizer program and is outside these protocol witnesses.
 
+
+## Native Smith normal form and number-field HNF, 2026-10-28
+
+Now native (Rust, `crates/symox-core/src/poly/smith.rs`): `_smith_normal_decomp`
+over the stock `ZZ` domain object with stock ZZ elements, used by
+`smith_normal_form`, `invariant_factors` and `smith_normal_decomp` (DomainMatrix
+and Matrix entry points). The port replays the SymPy 1.14 recursion step by
+step (the `ind[0] != zero` pivot choice, `div`/`gcdex`/`exquo` clearing,
+`canonical_unit` normalisation, the divisibility repair sequence and the row/
+column rotation when the pivot is zero), so invariants and both transformation
+matrices are identical, including signs. Tests check `s*A*t == S`, `|det s| =
+|det t| = 1` and the divisibility chain on 48 SymPy-1.14 cases and 40 large
+random cases against the Python reference. The number-field helpers
+`polys.numberfields._normalforms.hermite_normal_form` (ordinary and modulo-D /
+`check_rank` paths, used by `round_two`, `prime_decomp` and modules) reuse the
+existing `hnf.rs`/`hnf_modular.rs` kernels unchanged.
+
+Admission: the reference body and every Python function and class attribute it
+reaches (Domain, DomainElement, DomainMatrix, DDM, SDM) are recorded once, at
+first use, and each call checks by identity that none changed. Any change,
+an unverified platform (outside CPython 3.10.12/3.10.20 on Linux x86_64),
+another domain, Python-int entries or a native refusal runs the unchanged
+Python code, so errors (non-PID `ValueError`, shape/domain errors) are the
+reference ones.
+
+Still in Python: Smith forms over QQ, GF(p)[x], QQ[x] and every other PID;
+SymPy's `RecursionError` near the interpreter stack limit (native declines when
+`4*min(shape)` exceeds the recursion limit, otherwise succeeds where Python may
+raise). Snapshot limits: callbacks from non-str dict keys are not replayed, and
+a delete plus an add leaving a class namespace with the same size is not
+detected; the protocol is captured at first use rather than authenticated
+against literal templates as the ordinary HNF guard does. No intentional
+mathematical correction is made.

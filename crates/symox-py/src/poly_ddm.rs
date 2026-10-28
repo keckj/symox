@@ -9,6 +9,8 @@ mod hnf_modular;
 mod hnf;
 #[path="poly_lll.rs"]
 mod lll;
+#[path="poly_smith.rs"]
+mod smith;
 #[path="poly_lu.rs"]
 mod lu;
 #[path="poly_lu_solve.rs"]
@@ -530,6 +532,7 @@ pub fn register(module:&Bound<'_,PyModule>)->PyResult<()> {
     hnf::register(module)?;
     hnf_modular::register(module)?;
     lll::register(module)?;
+    smith::register(module)?;
     lu::register(module)?;
     lu_solve::register(module)?;
     module.add_function(wrap_pyfunction!(_ddm_imatmul,module)?)?;

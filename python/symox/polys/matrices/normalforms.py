@@ -10,6 +10,7 @@ from ._hnf_native import try_hnf as _native_hnf,register as _register_hnf,_congr
 from symox._core import _ddm_hnf_dependencies as _hnf_dependencies
 from ._hnf_modular_native import try_hnf_modular as _native_hnf_modular,register as _register_hnf_modular,_congruent as _hnf_modular_congruent
 from symox._core import _ddm_hnf_modular_dependencies as _hnf_modular_dependencies
+from ._smith_native import try_smith as _native_smith,register as _register_smith
 
 
 # TODO (future work):
@@ -94,6 +95,9 @@ def invariant_factors(m):
     domain = m.domain
     shape = m.shape
     m = m.to_list()
+    native = _native_smith(m, domain, shape, False)
+    if native is not None:
+        return native
     return _smith_normal_decomp(m, domain, shape=shape, full=False)
 
 
@@ -117,7 +121,11 @@ def smith_normal_decomp(m):
     rows, cols = shape = m.shape
     m = m.to_list()
 
-    invs, s, t = _smith_normal_decomp(m, domain, shape=shape, full=True)
+    native = _native_smith(m, domain, shape, True)
+    if native is not None:
+        invs, s, t = native
+    else:
+        invs, s, t = _smith_normal_decomp(m, domain, shape=shape, full=True)
     smf = DomainMatrix.diag(invs, domain, shape).to_dense()
 
     s = DomainMatrix(s, domain=domain, shape=(rows, rows))
@@ -552,3 +560,5 @@ def hermite_normal_form(A, *, D=None, check_rank=False):
 _register_hnf(_hermite_normal_form.__globals__)
 
 _register_hnf_modular(_hermite_normal_form_modulo_D.__globals__)
+
+_register_smith(globals())
