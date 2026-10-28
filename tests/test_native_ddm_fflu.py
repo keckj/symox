@@ -188,14 +188,17 @@ def test_copy_and_zeros_barriers_run_once_with_completed_publication():
     assert events==['copy','zeros','zeros','zeros'] and saved==[p,l,d]
 
 
-def test_generic_GF_and_polynomial_domains_keep_complete_fallback(monkeypatch):
+def test_generic_GF_and_polynomial_domains_are_native_with_exact_certificate(monkeypatch):
+    calls=[]
     for name in NATIVE_NAMES:
         native=getattr(sx._core,name)
-        def record(*args,_native=native,**kwargs):
-            result=_native(*args,**kwargs);assert result is False;return result
+        def record(*args,_name=name,_native=native,**kwargs):
+            result=_native(*args,**kwargs);calls.append((_name,result));return result
         monkeypatch.setattr(sx._core,name,record)
     for k in [sx.GF(7),sx.ZZ.poly_ring('x')]:
+        calls.clear()
         a=DDM([[k(1),k(2)],[k(3),k(4)]],(2,2),k);before=a.copy();p,l,d,u=a.fflu()
+        assert calls==[(name,True) for name in NATIVE_NAMES]
         assert a==before and all(v.domain is k for v in (p,l,d,u))
         # This exact ring certificate clears D without constructing an inverse.
         denominator=d[0][0]*d[1][1]

@@ -46,6 +46,12 @@ def _stock_exquo(method):
             and _native_domain_method(_algebraic_methods._native_exquo,'exquo'))
 
 
+# Attributes that element arithmetic probes on its other operand; set on the
+# element class they would change the Python dispatch, never the native one.
+_OPERAND_PROBES=('_symox_domainmatrix','_symox_quotient_element','is_Matrix',
+                 '_symox_sparse','_symox_ring_element')
+
+
 def stock_domain(domain):
     # The installed exactness property and exquo formatter delegate unchanged
     # on QQ/ZZ. Their real code/delegates must remain stock; names or copied
@@ -57,7 +63,8 @@ def stock_domain(domain):
             and _ALL(_ELEMENT.__dict__.get(name) is method for name,method in _ELEMENT_HOOKS)
             and '__getattribute__' not in _DOMAIN.__dict__
             and '__getattr__' not in _DOMAIN.__dict__
-            and '__imul__' not in _ELEMENT.__dict__)
+            and '__imul__' not in _ELEMENT.__dict__
+            and _ALL(name not in _ELEMENT.__dict__ for name in _OPERAND_PROBES))
 
 # QQ denominator preparation has a separate, conservative protocol boundary.
 # Register only after DomainMatrix is complete; domain wrappers are installed

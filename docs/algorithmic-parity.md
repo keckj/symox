@@ -11219,3 +11219,31 @@ The existing Hermite representative-domain gap remains open: for a=t+1, d=(t+2)^
 
 [Portable sources, certificates, rejected lineage and raw gates](../audits/sympy-1.14.0/native-math-ports-2026-10-28/README.md) distinguish all private DEBUG builds from this freshly built integrated RELEASE. No timing campaign, unrelated integral/ODE corpus replay or global speed/parity claim is inferred from the mathematical ports. Coordinated rewriting of private implementation and its anchors changes the optimizer program and is outside these protocol witnesses.
 
+
+
+## Fraction-free kernels over other exact domains, wave 18, 2026-10-28
+
+The FFLU phases (`_ddm_fflu`, `_ddm_fflu_p`, `_ddm_fflu_l`, `_ddm_fflu_d`),
+dense and sparse fraction-free `rref_den` (`_ddm_irref_den`,
+`_sdm_rref_den`), the Bareiss determinant (`_ddm_idet`) and Berkowitz
+(`_ddm_berk`, `_sdm_berk`, `_sdm_berk_combine`) are now native beyond stock
+ZZ/QQ for GF(p) with p prime, ZZ_I/QQ_I, QQ<a>, ZZ[x]/QQ[x] (multivariate
+included), QQ(x) and the composite rings over Gaussian or algebraic grounds
+(ZZ_I[x], QQ<a>[x]). The kernels perform the same element operations
+(`DomainElement` add/sub/mul, `Domain.exquo`) in the same order as the
+Python bodies, so pivots, denominators, mutated rows and output conventions
+are those of SymPy 1.14 by construction; 240 SymPy 1.14 values and an FFLU
+certificate are checked in `tests/test_native_fflu_dom.py`. Any element error
+or non-exact quotient declines before the first write, and the complete
+Python body then runs and raises its own error.
+
+Still on the Python bodies: RR/CC/EX and other inexact or expression domains,
+GF(n) with composite n (zero divisors: the Python body raises NotInvertible
+after partial writes, as SymPy does), foreign or mixed-domain cells and
+patched element types. ZZ/QQ keep their typed kernels. `Matrix.det(method=
+'bareiss')` does not route through these kernels and is unchanged. GF(p)[x]
+is not a Symox domain. A pre-existing gap remains: `charpoly` over QQ(x) with
+a zero column raises TypeError in `_sort_factors` (DomainElement has no
+ordering) where SymPy 1.14 returns the polynomial; it fails the same way
+before and after this port. Timings are in
+[the audit](../audits/performance/2026-10-28-fflu-dom/README.md).

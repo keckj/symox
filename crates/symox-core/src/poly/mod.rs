@@ -89,5 +89,6 @@ pub mod lu_solve;
 pub mod hnf;
 
 pub mod fflu;
+pub mod domain_coeff;
 
 pub mod hnf_modular;
