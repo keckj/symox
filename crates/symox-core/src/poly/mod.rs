@@ -63,6 +63,7 @@ pub mod domain_integration;
 
 pub(crate) mod pseudo;
 pub(crate) mod prs;
+pub mod modular_resultant;
 mod typed_prs;
 pub mod real_roots;
 pub mod rootisolation;

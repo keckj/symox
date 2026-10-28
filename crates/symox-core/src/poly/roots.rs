@@ -614,10 +614,15 @@ pub fn decompose(f: &[Rat]) -> Vec<Vec<Rat>> {
     decompose_field(f,&|_|true).expect("rational coefficients have characteristic zero")
 }
 
+/// Dense coefficient vectors of `decompose` (as `rootisolation::MAX_DENSE_DEGREE`).
+pub const DECOMPOSE_MAX_DEGREE: i64 = 1 << 20;
+
 /// Bound dense allocation before converting a sparse polynomial.
 pub fn decompose_preflight(variables:usize,degree:i64)->PResult<()> {
     if variables!=1 {return Err(PolyError::Unsupported("univariate polynomial expected".into()));}
-    if degree>4096 {return Err(PolyError::Unsupported("functional decomposition is limited to degree 4096".into()));}
+    // Only the dense coefficient storage is bounded (the reference has no
+    // limit); the right-factor search itself visits nonzero terms only.
+    if degree>DECOMPOSE_MAX_DEGREE {return Err(PolyError::Unsupported(format!("functional decomposition is limited to degree {DECOMPOSE_MAX_DEGREE}")));}
     Ok(())
 }
 
@@ -631,9 +636,12 @@ pub fn decompose_field<C:Field>(f:&[C],allow:&impl Fn(&C)->bool)->PResult<Vec<Ve
         let r = n / s;
         let mut g = vec![C::zero(); s + 1];
         g[s] = C::one();
+        // Indices j < i with g[s-j] != 0, ascending: the sum over j only
+        // visits them (the terms with g[s-j] = 0 vanish exactly).
+        let mut support: Vec<usize> = vec![0];
         for i in 1..s {
             let mut coeff = C::zero();
-            for j in 0..i {
+            for &j in &support {
                 let fc = &f[n + j - i];
                 let gc = &g[s - j];
                 if fc.is_zero() || gc.is_zero() {
@@ -646,6 +654,7 @@ pub fn decompose_field<C:Field>(f:&[C],allow:&impl Fn(&C)->bool)->PResult<Vec<Ve
             if denominator.is_zero() {return Err(PolyError::NotInvertible("zero divisor in functional decomposition".into()));}
             let value=coeff.div(&denominator);
             if !allow(&value) {return Ok(None);}
+            if !value.is_zero() {support.push(i);}
             g[s-i]=value;
         }
         Ok(Some(g))

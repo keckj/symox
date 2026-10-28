@@ -751,9 +751,9 @@ impl Inputs {
             }
             Operation::Discriminant => render_eliminated(py,self.a.discriminant_poly().map_err(err)?,self.polys),
             Operation::Resultant(include_prs) => {
+                if !include_prs {return render_eliminated(py,self.a.resultant_value(&self.b).map_err(err)?,self.polys);}
                 let(result,sequence)=self.a.resultant_prs(&self.b).map_err(err)?;
                 let result=render_eliminated(py,result,self.polys)?;
-                if !include_prs {return Ok(result);}
                 let sequence=PyList::new(py,sequence.into_iter().map(|p|self.render(py,p)).collect::<PyResult<Vec<_>>>()?)?.into_any().unbind();
                 Ok(PyTuple::new(py,[result,sequence])?.into_any().unbind())
             }

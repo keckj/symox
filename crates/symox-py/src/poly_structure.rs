@@ -289,10 +289,12 @@ pub(super) fn dense<'py>(
 }
 
 /// Dense integer coefficients (constant term first) of the `n`-th cyclotomic
-/// polynomial, computed natively by exact division of `x**n - 1`.
+/// polynomial, computed natively by the product formula
+/// `Phi_{pm}(x) = Phi_m(x^p)/Phi_m(x)` on sparse divisors.
 #[pyfunction]
 pub(super) fn _cyclotomic_coefficients(py: Python<'_>, n: u64) -> PyResult<Vec<PyObject>> {
-    if n == 0 || n > 20_000 {
+    // Memory bound only: the dense image of x^n stays below 2^22 slots.
+    if n == 0 || n > 1 << 22 {
         return Err(pyo3::exceptions::PyValueError::new_err(if n == 0 {
             "Cannot generate cyclotomic polynomial of order 0".to_string()
         } else {

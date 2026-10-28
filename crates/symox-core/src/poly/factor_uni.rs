@@ -418,17 +418,75 @@ pub fn cyclotomic(n: u64, memo: &mut FxHashMap<u64, Vec<Int>>) -> Vec<Int> {
     if let Some(p) = memo.get(&n) {
         return p.clone();
     }
-    let mut f = vec![Int::zero(); n as usize + 1];
-    f[0] = Int::S(-1);
-    f[n as usize] = Int::one();
-    for d in divisors(n) {
-        if d < n {
-            let c = cyclotomic(d, memo);
-            f = dense::div_exact_int(&f, &c).expect("cyclotomic division");
-        }
-    }
+    let f = cyclotomic_product(n);
     memo.insert(n, f.clone());
     f
+}
+
+/// `Phi_n` (dense, ascending) by the product formula of the reference
+/// `dup_zz_cyclotomic_poly`: `Phi_{pm}(x) = Phi_m(x^p) / Phi_m(x)` for a
+/// prime `p` not dividing `m`, then `Phi_n(x) = Phi_r(x^(n/r))` for the
+/// radical `r` of `n`. Each exact division by the monic `Phi_m` only visits
+/// its nonzero terms, so the work is `deg(Phi_n)` times the support of the
+/// last divisor instead of a division by every `Phi_d` with `d | n`.
+pub fn cyclotomic_product(n: u64) -> Vec<Int> {
+    assert!(n > 0, "cyclotomic order must be positive");
+    let mut primes = Vec::new();
+    let mut rest = n;
+    let mut p = 2u64;
+    while p.saturating_mul(p) <= rest {
+        if rest % p == 0 {
+            primes.push(p);
+            while rest % p == 0 {
+                rest /= p;
+            }
+        }
+        p += 1;
+    }
+    if rest > 1 {
+        primes.push(rest);
+    }
+    let inflate = |h: &[Int], k: usize| -> Vec<Int> {
+        let mut g = vec![Int::zero(); (h.len() - 1) * k + 1];
+        for (i, c) in h.iter().enumerate() {
+            if !c.is_zero() {
+                g[i * k] = c.clone();
+            }
+        }
+        g
+    };
+    let mut h = vec![Int::S(-1), Int::one()];
+    let mut radical = 1u64;
+    for &p in &primes {
+        radical *= p;
+        let mut g = inflate(&h, p as usize);
+        let d = h.len() - 1;
+        let support: Vec<(usize, Int)> = h[..d]
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| !c.is_zero())
+            .map(|(j, c)| (j, c.clone()))
+            .collect();
+        // The divisor is monic: synthetic division, top quotient term first.
+        let quotient_degree = g.len() - 1 - d;
+        let mut q = vec![Int::zero(); quotient_degree + 1];
+        for i in (0..=quotient_degree).rev() {
+            let c = std::mem::replace(&mut g[i + d], Int::zero());
+            if c.is_zero() {
+                continue;
+            }
+            for (j, hj) in &support {
+                g[i + j].sub_mul(&c, hj);
+            }
+            q[i] = c;
+        }
+        debug_assert!(g.iter().all(Int::is_zero), "cyclotomic division is exact");
+        h = q;
+    }
+    if n / radical > 1 {
+        h = inflate(&h, (n / radical) as usize);
+    }
+    h
 }
 
 /// Factors of `x^n - 1` or `x^n + 1` (`None` for other polynomials).
