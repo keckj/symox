@@ -9,6 +9,8 @@ from collections import defaultdict
 from ..domains import ZZ, QQ
 from ..matrices.domainmatrix import DomainMatrix
 from ..matrices.exceptions import DMDomainError, DMShapeError
+from ..matrices._smith_native import Snapshot as _Snapshot
+from symox import _core
 
 
 def _igcdex(a, b):
@@ -59,6 +61,10 @@ def _hermite_normal_form(A):
         raise DMDomainError('Matrix must be over domain ZZ.')
     m, n = A.shape
     A = _int_rows(A)
+    native = _nf_native('_nf_hnf', A, (m, n))
+    if native is not None:
+        rows, width = native
+        return DomainMatrix([[ZZ(v) for v in row] for row in rows], (m, width), ZZ).to_dense()
     k = n
     for i in range(m - 1, -1, -1):
         if k == 0:
@@ -101,6 +107,9 @@ def _hermite_normal_form_modulo_D(A, D):
     if n < m:
         raise DMShapeError('Matrix must have at least as many columns as rows.')
     A = _int_rows(A)
+    native = _nf_native('_nf_hnf_modular', A, (m, n), D)
+    if native is not None:
+        return DomainMatrix([[ZZ(v) for v in row] for row in native], (m, m), ZZ).to_dense()
     k = n
     R = D
     for i in range(m - 1, -1, -1):
@@ -132,3 +141,29 @@ def hermite_normal_form(A, *, D=None, check_rank=False):
     if D is not None and (not check_rank or A.convert_to(QQ).rank() == A.shape[0]):
         return _hermite_normal_form_modulo_D(A, D)
     return _hermite_normal_form(A)
+
+
+
+# Rust runs the integer loops above only while every binding they read (the
+# module helpers, builtins and the reached functions' code/globals/defaults/
+# closures) is the one captured below; otherwise the Python loops run.
+_NF = {}
+
+
+def _nf_native(name, *args):
+    state = _NF.get('state')
+    kernel = _NF.get(name)
+    if state is None or kernel is None or _core.__dict__.get(name) is not kernel or not state.unchanged():
+        return None
+    return kernel(*args)
+
+
+def _nf_register():
+    snapshot = _Snapshot([_hermite_normal_form, _hermite_normal_form_modulo_D])
+    kernels = {name: _core.__dict__.get(name) for name in ('_nf_hnf', '_nf_hnf_modular')}
+    if snapshot.ok and all(kernel is not None for kernel in kernels.values()):
+        _NF.update(kernels)
+        _NF['state'] = snapshot
+
+
+_nf_register()
