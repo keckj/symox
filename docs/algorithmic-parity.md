@@ -11375,3 +11375,50 @@ a zero column raises TypeError in `_sort_factors` (DomainElement has no
 ordering) where SymPy 1.14 returns the polynomial; it fails the same way
 before and after this port. Timings are in
 [the audit](../audits/performance/2026-10-28-fflu-dom/README.md).
+
+
+
+## Smith normal form over QQ, GF(p) and QQ[x], wave 19, 2026-10-29
+
+`smith_normal_form`, `invariant_factors` and `smith_normal_decomp` (and the
+`Matrix` wrappers that reach `_smith_normal_decomp`) are now native, beyond
+stock ZZ, for QQ, GF(p) with p prime, QQ_I, the rational function fields
+QQ(x)/ZZ(x) and the univariate rings QQ[x]. The Rust kernel
+(`crates/symox-core/src/poly/smith.rs`) is generic over the reference ring
+operations and runs the SymPy 1.14 body step by step: the same pivot search,
+`Domain.div`/`gcdex`/`exquo` calls, `canonical_unit` (sign of the leading
+coefficient over QQ[x]) or `1/m[0][0]` over a field, recursive block product
+and divisibility repair (`gcdex` when full, `gcd` otherwise). The element
+operations are the native ones behind the `symox._core.Domain` methods
+(`DomainCoeff`), so invariants, signs and both transformation matrices are
+identical, not merely equivalent. Two reference quirks are reproduced: the
+pivot search compares the row/column index with the domain zero, so over
+GF(p) an index that is a multiple of p takes the column branch; and the
+normalisation test `m[0][0] != 0` holds for the QQ_I and QQ(x) zeros of
+Symox, where the Python body then raises ZeroDivisionError at `1 / 0`. In
+that case, and on any element error, the kernel declines and the Python body
+runs and raises its own error. Admission reuses the wave-18 first-use
+protocol snapshot unchanged in scope (717 entries, 129 functions); its
+capture now scans each name once per class namespace, about 30% cheaper.
+
+Evidence: 38 SymPy 1.14 values (invariants, S, s, t and `smith_normal_form`)
+in `tests/test_native_smith_fx.py`, each certified by `s*m*t == S` with unit
+determinants, plus random live comparisons with the complete Python body over
+QQ, GF(2), GF(7), GF(65537), QQ[x], QQ_I and QQ(x), and a Rust unit test of
+the GF(2) index quirk. Timings are in
+[the audit](../audits/performance/2026-10-29-smith-fx/README.md).
+
+Still on the Python bodies: ZZ_I (its quadrant `canonical_unit` is not
+ported; the Python body matches SymPy 1.14), QQ<a> (SymPy 1.14 raises TypeError at `1 / ANP`;
+Symox raises ZeroDivisionError or computes a result, a pre-existing
+divergence of the Python body, unchanged), GF(n) with n composite,
+multivariate or non-field polynomial rings (ValueError as in SymPy), foreign
+or mixed-domain cells and patched protocols. GF(p)[x] is not a Symox domain.
+Pre-existing gap that remains: over QQ(x) a zero pivot in a recursive block
+(a rank-deficient input) raises ZeroDivisionError in Symox, while SymPy 1.14
+skips the normalisation (its QQ(x) zero compares equal to 0) and returns the
+decomposition; the native kernel declines and keeps the Symox error. Over
+QQ_I SymPy 1.14 raises the same ZeroDivisionError, so that case is parity. A
+monkeypatch of `Poly.LC` reached through an in-function import is not seen by
+the snapshot. No intentional output correction is made relative to SymPy
+1.14.

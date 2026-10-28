@@ -1,7 +1,10 @@
-"""Admission for the exact stock-ZZ Smith decomposition in Rust; no arithmetic here.
+"""Admission for the exact Smith decomposition in Rust; no arithmetic here.
 
-The admitted computation is the one of ``_smith_normal_decomp`` for the stock
-``ZZ`` domain object, whose entries are stock ZZ elements (checked in Rust).
+The admitted computation is the one of ``_smith_normal_decomp`` for an exact
+``symox._core.Domain`` that the kernel admits (ZZ with stock ZZ elements;
+QQ, GF(p) with p prime, QQ<a>, QQ_I, rational function fields and the
+univariate rings QQ[x] with native elements of exactly that domain, checked in
+Rust).
 At registration the transitive protocol actually read by the reference body
 is recorded: every global/builtin name and every class attribute (of Domain,
 DomainElement, DomainMatrix, DDM, SDM) named by the reference code and by the
@@ -48,6 +51,7 @@ class Snapshot:
         visited = {}
         pending = list(roots)
         recorded = set()
+        scanned = set()
         proxies = []
         if _TYPE(_CHECK) is not [].append.__class__:
             return
@@ -100,11 +104,17 @@ class Snapshot:
                         continue
                     if _TYPE(value) is _FUNCTION:
                         pending.append(value)
+            # Each name is looked up once in every class namespace: the
+            # namespaces do not change during the capture, so a name already
+            # scanned in an earlier pass yields nothing new.
+            fresh = names - scanned
+            scanned.update(fresh)
             for proxy in proxies:
-                for name in tuple(names):
+                key = id(proxy)
+                for name in fresh:
                     # Absent class names are covered by the namespace size
                     # check below: a binding added to a class changes it.
-                    if (id(proxy), name) not in recorded and name in proxy:
+                    if name in proxy and (key, name) not in recorded:
                         self._record(proxy, name, proxy[name], recorded, pending)
             if not pending:
                 break
@@ -197,7 +207,7 @@ def try_smith(rows, domain, shape, full):
     if not state:
         return None
     snapshot, namespace, reference, zz, kernel, limit = state
-    if domain is not zz or _TYPE(domain) is not _core.Domain:
+    if _TYPE(domain) is not _core.Domain:
         return None
     if (namespace.get('_smith_normal_decomp') is not reference
             or _core.__dict__.get('_ddm_smith') is not kernel or not snapshot.unchanged()):
@@ -208,4 +218,6 @@ def try_smith(rows, domain, shape, full):
     # (or success) to the reference when it could approach the limit.
     if min(shape) * 4 > limit():
         return None
-    return kernel(rows, shape, full)
+    if domain is zz:
+        return kernel(rows, shape, full)
+    return kernel(rows, shape, full, domain)

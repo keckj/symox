@@ -1,16 +1,53 @@
-//! Exact Smith normal decomposition over ZZ, in the reference operation order
-//! of `sympy/polys/matrices/normalforms.py::_smith_normal_decomp` (1.14).
+//! Exact Smith normal decomposition over a principal ideal domain, in the
+//! reference operation order of
+//! `sympy/polys/matrices/normalforms.py::_smith_normal_decomp` (1.14).
 //!
 //! Every row/column operation, pivot choice, unit normalisation, recursive
 //! block product and divisibility repair is the reference one, so the
 //! invariants and the transformation matrices `s`, `t` (with `s*m*t` the
-//! Smith form) are identical, not merely equivalent.
+//! Smith form) are identical, not merely equivalent. The ring operations are
+//! those of [`Pid`]: typed integers for ZZ, and the native element arithmetic
+//! (`DomainCoeff`) for the other admitted domains.
 use super::Int;
 
-pub type Matrix = Vec<Vec<Int>>;
+/// The domain operations read by the reference body: element `+`, `*`,
+/// unary `-`, `Domain.div`, `Domain.gcdex`, `Domain.gcd`, `Domain.exquo` and
+/// the pivot normalisation (`canonical_unit`, or `1/m[0][0]` over a field).
+pub trait Pid: Clone {
+    fn zero() -> Self;
+    fn one() -> Self;
+    fn is_zero(&self) -> bool;
+    fn add(&self, o: &Self) -> Self;
+    fn mul(&self, o: &Self) -> Self;
+    fn neg(&self) -> Self;
+    /// `self += a*b` (the matrix product accumulation).
+    fn add_mul(&mut self, a: &Self, b: &Self) { *self = self.add(&a.mul(b)); }
+    /// `Domain.div(self, o)`: quotient and remainder.
+    fn div(&self, o: &Self) -> (Self, Self);
+    /// `Domain.gcdex(self, o)` as `(x, y, g)`.
+    fn gcdex(&self, o: &Self) -> (Self, Self, Self);
+    /// `Domain.gcd(self, o)`.
+    fn gcd(&self, o: &Self) -> Self;
+    /// `Domain.exquo(self, o)`.
+    fn exquo(&self, o: &Self) -> Self;
+    /// The factor `c` the reference multiplies a non-zero pivot by, or None
+    /// when `c == domain.one` (no multiplication).
+    fn unit_factor(&self) -> Option<Self>;
+    /// The reference pivot search tests the row/column *index* against the
+    /// domain zero (`ind[0] != zero`): over GF(p) an index that is a multiple
+    /// of p compares equal to zero, the row swap is skipped and the column
+    /// search runs instead.
+    fn index_is_zero(i: usize) -> bool { i == 0 }
+    /// True when the reference test `m[0][0] != 0` (a Python int) holds for
+    /// a zero pivot and the field normalisation `1 / m[0][0]` then raises:
+    /// the kernel declines so the Python body raises the reference error.
+    fn zero_pivot_raises() -> bool { false }
+}
+
+pub type Matrix<C = Int> = Vec<Vec<C>>;
 
 /// `(invariants, Some((s, t)))` when `full`, `(invariants, None)` otherwise.
-pub type Decomposition = (Vec<Int>, Option<(Matrix, Matrix)>);
+pub type Decomposition<C = Int> = (Vec<C>, Option<(Matrix<C>, Matrix<C>)>);
 
 /// The reference `ZZ.gcdex` (python ground types, `sympy.external.ntheory.gcdext`
 /// reordered as `(x, y, g)`), computed on absolute values with sign correction.
@@ -38,12 +75,28 @@ pub fn gcdex(a: &Int, b: &Int) -> (Int, Int, Int) {
     (if x_sign { x.neg() } else { x }, if y_sign { y.neg() } else { y }, a)
 }
 
-fn eye(n: usize) -> Matrix {
-    (0..n).map(|i| (0..n).map(|j| if i == j { Int::one() } else { Int::zero() }).collect()).collect()
+impl Pid for Int {
+    fn zero() -> Self { Int::zero() }
+    fn one() -> Self { Int::one() }
+    fn is_zero(&self) -> bool { Int::is_zero(self) }
+    fn add(&self, o: &Self) -> Self { Int::add(self, o) }
+    fn mul(&self, o: &Self) -> Self { Int::mul(self, o) }
+    fn neg(&self) -> Self { Int::neg(self) }
+    fn add_mul(&mut self, a: &Self, b: &Self) { Int::add_mul(self, a, b) }
+    fn div(&self, o: &Self) -> (Self, Self) { self.div_mod_floor(o) }
+    fn gcdex(&self, o: &Self) -> (Self, Self, Self) { gcdex(self, o) }
+    fn gcd(&self, o: &Self) -> Self { gcdex(self, o).2 }
+    fn exquo(&self, o: &Self) -> Self { self.div_exact_unchecked(o) }
+    // ZZ.canonical_unit: -1 for a negative pivot.
+    fn unit_factor(&self) -> Option<Self> { self.is_negative().then(|| Int::from(-1i64)) }
+}
+
+fn eye<C: Pid>(n: usize) -> Matrix<C> {
+    (0..n).map(|i| (0..n).map(|j| if i == j { C::one() } else { C::zero() }).collect()).collect()
 }
 
 // replace m[i, :] by a*m[i, :] + b*m[j, :] and m[j, :] by c*m[i, :] + d*m[j, :]
-fn add_rows(m: &mut Matrix, i: usize, j: usize, a: &Int, b: &Int, c: &Int, d: &Int) {
+fn add_rows<C: Pid>(m: &mut Matrix<C>, i: usize, j: usize, a: &C, b: &C, c: &C, d: &C) {
     for k in 0..m[0].len() {
         let e = m[i][k].clone();
         m[i][k] = a.mul(&e).add(&b.mul(&m[j][k]));
@@ -52,7 +105,7 @@ fn add_rows(m: &mut Matrix, i: usize, j: usize, a: &Int, b: &Int, c: &Int, d: &I
 }
 
 // replace m[:, i] by a*m[:, i] + b*m[:, j] and m[:, j] by c*m[:, i] + d*m[:, j]
-fn add_columns(m: &mut Matrix, i: usize, j: usize, a: &Int, b: &Int, c: &Int, d: &Int) {
+fn add_columns<C: Pid>(m: &mut Matrix<C>, i: usize, j: usize, a: &C, b: &C, c: &C, d: &C) {
     for row in m.iter_mut() {
         let e = row[i].clone();
         row[i] = a.mul(&e).add(&b.mul(&row[j]));
@@ -60,23 +113,23 @@ fn add_columns(m: &mut Matrix, i: usize, j: usize, a: &Int, b: &Int, c: &Int, d:
     }
 }
 
-fn product(a: &Matrix, b: &Matrix) -> Matrix {
+fn product<C: Pid>(a: &Matrix<C>, b: &Matrix<C>) -> Matrix<C> {
     let inner = b.len();
     let cols = if inner == 0 { 0 } else { b[0].len() };
     a.iter().map(|row| (0..cols).map(|j| {
-        let mut sum = Int::zero();
+        let mut sum = C::zero();
         for (l, value) in row.iter().enumerate().take(inner) { sum.add_mul(value, &b[l][j]); }
         sum
     }).collect()).collect()
 }
 
 /// Block diagonal `diag(1, small)` of order `n`.
-fn bordered(small: Matrix, n: usize) -> Matrix {
+fn bordered<C: Pid>(small: Matrix<C>, n: usize) -> Matrix<C> {
     let mut out = Vec::with_capacity(n);
-    out.push((0..n).map(|j| if j == 0 { Int::one() } else { Int::zero() }).collect());
+    out.push((0..n).map(|j| if j == 0 { C::one() } else { C::zero() }).collect());
     for row in small {
         let mut line = Vec::with_capacity(n);
-        line.push(Int::zero());
+        line.push(C::zero());
         line.extend(row);
         out.push(line);
     }
@@ -86,8 +139,8 @@ fn bordered(small: Matrix, n: usize) -> Matrix {
 /// Smith decomposition of the `rows x cols` matrix `m` (consumed: the
 /// reference works on a private copy). `None` declines a malformed shape or
 /// an unreachable zero divisor, before any result is produced.
-pub fn decompose<E>(m: Matrix, rows: usize, cols: usize, full: bool,
-    check: &mut impl FnMut() -> Result<(), E>) -> Result<Option<Decomposition>, E> {
+pub fn decompose<C: Pid, E>(m: Matrix<C>, rows: usize, cols: usize, full: bool,
+    check: &mut impl FnMut() -> Result<(), E>) -> Result<Option<Decomposition<C>>, E> {
     check()?;
     if m.len() != rows || m.iter().any(|row| row.len() != cols) {
         return Ok(None);
@@ -95,25 +148,25 @@ pub fn decompose<E>(m: Matrix, rows: usize, cols: usize, full: bool,
     recurse(m, rows, cols, full, check)
 }
 
-fn recurse<E>(mut m: Matrix, rows: usize, cols: usize, full: bool,
-    check: &mut impl FnMut() -> Result<(), E>) -> Result<Option<Decomposition>, E> {
+fn recurse<C: Pid, E>(mut m: Matrix<C>, rows: usize, cols: usize, full: bool,
+    check: &mut impl FnMut() -> Result<(), E>) -> Result<Option<Decomposition<C>>, E> {
     check()?;
     if rows == 0 || cols == 0 {
         return Ok(Some((Vec::new(), full.then(|| (eye(rows), eye(cols))))));
     }
     let (mut s, mut t) = if full { (eye(rows), eye(cols)) } else { (Vec::new(), Vec::new()) };
-    let zero = Int::zero();
-    let one = Int::one();
+    let zero = C::zero();
+    let one = C::one();
 
     // Permute the rows and columns until m[0,0] is non-zero if possible.
     match (0..rows).find(|&i| !m[i][0].is_zero()) {
-        Some(i) if i != 0 => {
+        Some(i) if !C::index_is_zero(i) => {
             m.swap(0, i);
             if full { s.swap(0, i); }
         }
         _ => {
             if let Some(j) = (0..cols).find(|&j| !m[0][j].is_zero()) {
-                if j != 0 {
+                if !C::index_is_zero(j) {
                     for row in m.iter_mut() { row.swap(0, j); }
                     if full { for row in t.iter_mut() { row.swap(0, j); } }
                 }
@@ -128,15 +181,15 @@ fn recurse<E>(mut m: Matrix, rows: usize, cols: usize, full: bool,
         for j in 1..rows {
             if m[j][0].is_zero() { continue; }
             if pivot.is_zero() { return Ok(None); }
-            let (d, r) = m[j][0].div_mod_floor(&pivot);
+            let (d, r) = m[j][0].div(&pivot);
             if r.is_zero() {
                 let d = d.neg();
                 add_rows(&mut m, 0, j, &one, &zero, &d, &one);
                 if full { add_rows(&mut s, 0, j, &one, &zero, &d, &one); }
             } else {
-                let (a, b, g) = gcdex(&pivot, &m[j][0]);
-                let d_0 = m[j][0].div_exact_unchecked(&g);
-                let d_j = pivot.div_exact_unchecked(&g).neg();
+                let (a, b, g) = pivot.gcdex(&m[j][0]);
+                let d_0 = m[j][0].exquo(&g);
+                let d_j = pivot.exquo(&g).neg();
                 add_rows(&mut m, 0, j, &a, &b, &d_0, &d_j);
                 if full { add_rows(&mut s, 0, j, &a, &b, &d_0, &d_j); }
                 pivot = g;
@@ -146,15 +199,15 @@ fn recurse<E>(mut m: Matrix, rows: usize, cols: usize, full: bool,
         for j in 1..cols {
             if m[0][j].is_zero() { continue; }
             if pivot.is_zero() { return Ok(None); }
-            let (d, r) = m[0][j].div_mod_floor(&pivot);
+            let (d, r) = m[0][j].div(&pivot);
             if r.is_zero() {
                 let d = d.neg();
                 add_columns(&mut m, 0, j, &one, &zero, &d, &one);
                 if full { add_columns(&mut t, 0, j, &one, &zero, &d, &one); }
             } else {
-                let (a, b, g) = gcdex(&pivot, &m[0][j]);
-                let d_0 = m[0][j].div_exact_unchecked(&g);
-                let d_j = pivot.div_exact_unchecked(&g).neg();
+                let (a, b, g) = pivot.gcdex(&m[0][j]);
+                let d_0 = m[0][j].exquo(&g);
+                let d_j = pivot.exquo(&g).neg();
                 add_columns(&mut m, 0, j, &a, &b, &d_0, &d_j);
                 if full { add_columns(&mut t, 0, j, &a, &b, &d_0, &d_j); }
                 pivot = g;
@@ -162,15 +215,18 @@ fn recurse<E>(mut m: Matrix, rows: usize, cols: usize, full: bool,
         }
     }
 
-    // ZZ.canonical_unit: -1 for a negative pivot.
-    if m[0][0].is_negative() {
-        m[0][0] = m[0][0].neg();
-        if full { s[0] = s[0].iter().map(Int::neg).collect(); }
+    // c = canonical_unit(m[0][0]) (1/m[0][0] over a field); applied unless c == 1.
+    if m[0][0].is_zero() && C::zero_pivot_raises() { return Ok(None); }
+    if !m[0][0].is_zero() {
+        if let Some(c) = m[0][0].unit_factor() {
+            m[0][0] = m[0][0].mul(&c);
+            if full { s[0] = s[0].iter().map(|e| e.mul(&c)).collect(); }
+        }
     }
 
     let mut invs = Vec::new();
     if rows != 1 && cols != 1 {
-        let lower: Matrix = m[1..].iter().map(|row| row[1..].to_vec()).collect();
+        let lower: Matrix<C> = m[1..].iter().map(|row| row[1..].to_vec()).collect();
         let Some((small, transforms)) = recurse(lower, rows - 1, cols - 1, full, check)? else {
             return Ok(None);
         };
@@ -191,11 +247,11 @@ fn recurse<E>(mut m: Matrix, rows: usize, cols: usize, full: bool,
             check()?;
             let (a, b) = (result[i].clone(), result[i + 1].clone());
             if a.is_zero() { return Ok(None); }
-            if b.is_zero() || b.div_mod_floor(&a).1.is_zero() { break; }
-            let (x, y, d) = gcdex(&a, &b);
-            let alpha = a.div_mod_floor(&d).0;
+            if b.is_zero() || b.div(&a).1.is_zero() { break; }
+            let (x, y, d) = if full { a.gcdex(&b) } else { (C::zero(), C::zero(), a.gcd(&b)) };
+            let alpha = a.div(&d).0;
             if full {
-                let beta = b.div_mod_floor(&d).0;
+                let beta = b.div(&d).0;
                 add_rows(&mut s, i, i + 1, &one, &zero, &x, &one);
                 add_columns(&mut t, i, i + 1, &one, &y, &zero, &one);
                 add_rows(&mut s, i, i + 1, &one, &alpha.neg(), &zero, &one);
@@ -266,7 +322,7 @@ mod tests {
             let d = decompose(a.clone(), r, c, true, &mut || Ok::<_, ()>(())).unwrap().unwrap();
             certificate(&a, &d);
         }
-        let d = decompose(Vec::new(), 0, 3, true, &mut || Ok::<_, ()>(())).unwrap().unwrap();
+        let d = decompose(Vec::<Vec<Int>>::new(), 0, 3, true, &mut || Ok::<_, ()>(())).unwrap().unwrap();
         assert!(d.0.is_empty());
         assert!(d.1.unwrap().1 == ints(&[&[1, 0, 0], &[0, 1, 0], &[0, 0, 1]]));
         assert!(decompose(ints(&[&[1], &[2, 3]]), 2, 2, false, &mut || Ok::<_, ()>(())).unwrap().is_none());
