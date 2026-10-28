@@ -2545,9 +2545,10 @@ impl PyPoly {
     #[pyo3(signature=(g,includePRS=false))]
     fn resultant(&self, g: &Bound<'_, PyAny>,includePRS:bool) -> PyResult<PyObject> {
         let q = self.other(g).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        let py=g.py();
+        if !includePRS{return division::render_eliminated(py,self.p.resultant_value(&q).map_err(err)?,true);}
         let(result,sequence)=self.p.resultant_prs(&q).map_err(err)?;
-        let py=g.py();let result=division::render_eliminated(py,result,true)?;
-        if !includePRS{return Ok(result);}
+        let result=division::render_eliminated(py,result,true)?;
         let sequence=PyList::new(py,sequence.into_iter().map(|p|PyPoly{p}).collect::<Vec<_>>())?.into_any().unbind();
         Ok(PyTuple::new(py,[result,sequence])?.into_any().unbind())
     }

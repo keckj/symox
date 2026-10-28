@@ -11375,3 +11375,50 @@ a zero column raises TypeError in `_sort_factors` (DomainElement has no
 ordering) where SymPy 1.14 returns the polynomial; it fails the same way
 before and after this port. Timings are in
 [the audit](../audits/performance/2026-10-28-fflu-dom/README.md).
+
+
+## Large resultants, cyclotomic orders and decomposition degrees, wave 19, 2026-10-29
+
+Native now (Rust, `crates/symox-core/src/poly/modular_resultant.rs`):
+`resultant(f, g)` without `includePRS`, `Poly.resultant` without
+`includePRS`, `discriminant` and `Poly.discriminant` for univariate ZZ/QQ
+operands of positive degree (degree of the derivative for discriminants)
+use Collins' modular resultant. Each image is the Sylvester determinant
+modulo a 31-bit prime that divides neither leading coefficient (so the
+reduced Sylvester matrix keeps its shape and every image is exact); the
+images are combined by CRT until the modulus exceeds twice the Hadamard
+bound `||f||_2^deg(g) ||g||_2^deg(f)`. Nothing is sampled or stabilised
+early. QQ inputs are cleared to ZZ and rescaled by
+`da^deg(g) db^deg(f)`. `resultant(expand((x + 1)**200), expand((x - 2)**150
++ 1), x)`, which reached "pseudo-division resource limit: PRS storage",
+now returns `(3**150 + 1)**200` (bit length 47549, equal to SymPy 1.14).
+The remaining limits are memory based: dense degree at most 2^20 and a
+Hadamard bound of at most 2^28 bits; beyond them the subresultant PRS path
+runs unchanged with its own limits.
+
+Still on the subresultant PRS (unchanged): `includePRS=True` (the PRS itself
+is returned, so the PRS storage limit still applies to the witness above
+with `includePRS=True`: remaining gap), multivariate operands, parameters in
+the coefficient domain, GF(p), algebraic, rational-function, RR and EX
+domains, and constant or zero operands. The pre-existing correction of the
+sign of SymPy 1.14 when the first operand has the smaller degree and both
+degrees are odd (`resultant(x - 1, x**3 + 2, x)` is the Sylvester
+determinant 3, SymPy 1.14 returns -3) is kept by the modular path.
+
+`cyclotomic_poly(n)` uses the product formula of SymPy's
+`dup_zz_cyclotomic_poly` (`Phi_{pm}(x) = Phi_m(x^p)/Phi_m(x)` for primes
+`p` not dividing `m`, then `Phi_n(x) = Phi_r(x^(n/r))` for the radical `r`),
+with a synthetic division that visits only the nonzero terms of the monic
+divisor. The order bound 20000 is replaced by the memory bound `n <= 2^22`
+(same error message). `cyclotomic_poly(20001, x)` now returns the degree
+12992 polynomial of SymPy 1.14. The cyclotomic factors of `x**n - 1` and
+`x**n + 1` in `factor_list` use the same kernel.
+
+`decompogen` / `Poly.decompose`: the degree bound 4096 is replaced by the
+dense storage bound 2^20 (same message style), and the right-factor solve
+of Kozen-Landau visits only the nonzero coefficients of the partial right
+factor. `decompogen(x**4100 + x**2, x) == [x**2050 + x, x**2]` as in SymPy
+1.14. The left decomposition is still the quadratic repeated division of
+the reference algorithm. No intentional output correction relative to
+SymPy 1.14 is introduced. Tests: `tests/test_native_polycap2.py`; timings in
+[the audit](../audits/performance/2026-10-29-polycap2/README.md).

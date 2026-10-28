@@ -126,7 +126,54 @@ impl Polynomial {
         }
         Ok((result, sequence))
     }
+    /// The two operands as plain univariate `ZZ`/`QQ` polynomials in one
+    /// common generator (`None` for every other representation).
+    fn plain_univariate_pair(&self, other: &Self) -> Option<(super::polyobj::Poly, super::polyobj::Poly)> {
+        use super::polyobj::Domain;
+        if [self, other].iter().any(|p| {
+            p.expression.is_some() || p.field.is_some() || p.algebraic.is_some() || p.base.modulus.is_some()
+        }) {
+            return None;
+        }
+        let (a, b) = self.base.unify(&other.base);
+        if a.ngens != 1 || b.ngens != 1 || a.has_domain_gens() || b.has_domain_gens()
+            || a.rep.nvars != 1 || b.rep.nvars != 1 || !matches!(a.domain, Domain::ZZ | Domain::QQ)
+        {
+            return None;
+        }
+        Some((a, b))
+    }
+    /// The resultant without its PRS. Univariate `ZZ`/`QQ` operands of
+    /// positive degree use the exact modular (CRT) resultant, whose
+    /// intermediates stay word sized; every other case is the PRS result.
+    pub fn resultant_value(&self, other: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.plain_univariate_pair(other) {
+            if let Some(r) = super::modular_resultant::resultant_univariate(&a.rep, &b.rep)? {
+                return Ok(a.with_rep(r).into());
+            }
+        }
+        Ok(self.resultant_prs(other)?.0)
+    }
     pub fn discriminant_poly(&self) -> PResult<Self> {
+        if let Some((a, _)) = self.plain_univariate_pair(self) {
+            let degree = a.rep.degree(0);
+            if degree >= 2 {
+                let derivative = a.rep.derivative(0);
+                if let Some(r) = super::modular_resultant::resultant_univariate(&a.rep, &derivative)? {
+                    let value = r.coeffs().first().cloned().unwrap_or_else(Rat::zero);
+                    let lead = super::dense::from_mpoly(&a.rep, 0).pop().expect("positive degree");
+                    let value = value.div(&lead);
+                    // n(n-1)/2 is odd exactly for n = 2 or 3 modulo four.
+                    let value = if degree % 4 == 2 || degree % 4 == 3 { value.neg() } else { value };
+                    let rep = if value.is_zero() {
+                        MPoly::zero(1)
+                    } else {
+                        MPoly::from_terms(1, vec![(vec![0], value)])
+                    };
+                    return Ok(a.with_rep(rep).into());
+                }
+            }
+        }
         Ok(self.subresultant_data(self, true)?.0)
     }
     /// Drop precisely the eliminated main generator and preserve typed
