@@ -68,21 +68,37 @@ fn bernoulli_zeta(n: usize) -> Option<BigRational> {
         }
     }
     let nf = n as f64;
-    let log2_fact = (1..=n).map(|k| (k as f64).log2()).sum::<f64>();
+    let log2_fact = crate::special::integers::log2_factorial(nf);
     let bits = log2_fact + 1.0 - nf*(2.0*std::f64::consts::PI).log2() + den.bits() as f64;
-    let prec = bits.max(0.0) as u32 + 64 + 2*(64 - (n as u64).leading_zeros());
-    // zeta(n) = sum k^-n, truncated once k^-n is below the working precision
-    let terms = (2f64.powf((prec as f64 + 8.0)/nf)).ceil() as u64 + 1;
-    let mut zeta = BigFloat::one();
-    for k in 2..=terms {
-        let power = num_traits::pow(BigInt::from(k), n);
-        zeta = zeta.add(&BigFloat::from_ratio(&BigInt::one(), &power, prec), prec);
+    let bitlen = |v: u64| 64 - v.leading_zeros();
+    let fact = crate::ntheory::factorial(n as u64);
+    let mut guard = 64 + 2*bitlen(n as u64);
+    for _ in 0..4 {
+        let prec = bits.max(0.0) as u32 + guard;
+        // zeta(n) = sum k^-n, truncated once k^-n is below the working precision
+        let terms = (2f64.powf((prec as f64 + 8.0)/nf)).ceil() as u64 + 1;
+        // k^-n ~ 2^-(n log2 k) only needs the bits that reach 2^-wp; each
+        // correctly rounded term then errs by at most 2^-(wp + guard bits)
+        let wp = prec + bitlen(terms) + 8;
+        let mut zeta = BigFloat::one();
+        for k in 2..=terms {
+            let drop = (nf*(k as f64).log2()).floor();
+            let pk = (wp as f64 + 8.0 - drop).max(32.0) as u32;
+            let term = BigFloat::from_i64(k as i64).powi(-(n as i64), pk)?;
+            zeta = zeta.add(&term, wp);
+        }
+        let two_pi_n = pi(wp).mul_i64(2, wp).powi(n as i64, wp)?;
+        let value = BigFloat::from_int(&(&fact*&den*2u32)).mul(&zeta, wp).div(&two_pi_n, wp)?;
+        let num = value.to_int_round();
+        // certificate: the error analysis keeps the value within 2^-guard of
+        // the integer numerator; retry with more bits if it is not within 1/8
+        let gap = value.sub(&BigFloat::from_int(&num), wp).abs();
+        if gap.cmp(&BigFloat::from_parts(BigInt::one(), -3i64)) == std::cmp::Ordering::Less {
+            return Some(BigRational::new(if n % 4 == 0 { -num } else { num }, den));
+        }
+        guard *= 2;
     }
-    let fact: BigInt = (2..=n as u64).map(BigInt::from).product();
-    let two_pi_n = pi(prec).mul_i64(2, prec).powi(n as i64, prec)?;
-    let value = BigFloat::from_int(&(fact*&den*2u32)).mul(&zeta, prec).div(&two_pi_n, prec)?;
-    let num = value.to_int_round();
-    Some(BigRational::new(if n % 4 == 0 { -num } else { num }, den))
+    None
 }
 
 /// Bernoulli numbers `B_0 .. B_n` (with `B_1 = -1/2`).

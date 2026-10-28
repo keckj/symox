@@ -7,6 +7,41 @@ use num_integer::Integer;
 use num_rational::BigRational;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
+/// Largest exact integer, in bits (32 MiB), that the automatic evaluation
+/// of the combinatorial sequences materialises. Above it a call stays
+/// unevaluated: the reference (pure Python integers) already needs minutes
+/// at a quarter of this size (`factorial(4*10**6)`, 8.2e7 bits, 40 s) and
+/// does not finish `factorial(10**7)` (2.2e8 bits) in 150 s.
+pub const MAX_EXACT_BITS: f64 = 268_435_456.0;
+
+/// `true` when an exact result of about `bits` bits is materialised.
+pub fn fits_exact(bits: f64) -> bool {
+    bits.is_finite() && bits <= MAX_EXACT_BITS
+}
+
+/// Upper bound of `log2(n!)` (Stirling series truncated after `1/(12n)`).
+pub fn log2_factorial(n: f64) -> f64 {
+    if n < 2.0 {
+        return 0.0;
+    }
+    (n * n.ln() - n + 0.5 * (2.0 * std::f64::consts::PI * n).ln() + 1.0 / (12.0 * n)) / std::f64::consts::LN_2
+}
+
+/// Upper bound of `log2(binomial(n, k))` for `0 <= k <= n`.
+pub fn log2_binomial(n: f64, k: f64) -> f64 {
+    let m = k.min(n - k);
+    if m <= 0.0 {
+        return 0.0;
+    }
+    if n < 1e12 {
+        // Stirling difference; the slack covers the truncation errors
+        log2_factorial(n) - log2_factorial(m) - log2_factorial(n - m) + 2.0
+    } else {
+        // binomial(n, m) <= (e n / m)^m
+        m * ((n / m).log2() + std::f64::consts::LOG2_E)
+    }
+}
+
 /// `n!`
 pub fn factorial(n: u64) -> BigInt {
     crate::ntheory::factorial(n)
@@ -40,16 +75,33 @@ pub fn factorial2(n: u64) -> BigInt {
 
 /// Subfactorial (number of derangements) `!n`.
 pub fn subfactorial(n: u64) -> BigInt {
-    let (mut a, mut b) = (BigInt::one(), BigInt::zero()); // !0, !1
+    // !k = k*!(k-1) + (-1)^k: compose the affine maps x -> k*x + (-1)^k
+    // over [a, b] by binary splitting, as (prod k, offset).
+    fn affine(a: u64, b: u64) -> (BigInt, BigInt) {
+        if b - a < 16 {
+            let (mut m, mut c) = (BigInt::one(), BigInt::zero());
+            for k in a..=b {
+                m *= k;
+                c *= k;
+                if k % 2 == 0 {
+                    c += 1u32;
+                } else {
+                    c -= 1u32;
+                }
+            }
+            return (m, c);
+        }
+        let mid = a + (b - a) / 2;
+        let (ml, cl) = affine(a, mid);
+        let (mr, cr) = affine(mid + 1, b);
+        let c = &mr * cl + cr;
+        (mr * ml, c)
+    }
     if n == 0 {
-        return a;
+        return BigInt::one();
     }
-    for k in 2..=n {
-        let c = (&a + &b) * BigInt::from(k - 1);
-        a = b;
-        b = c;
-    }
-    b
+    let (m, c) = affine(1, n);
+    m + c
 }
 
 /// Binomial coefficient for integers (SymPy semantics for negative `n`).
@@ -88,10 +140,58 @@ pub fn bernoulli_number(n: usize) -> BigRational {
     c[n].clone()
 }
 
+/// `E_n` for a large even `n = 2m` from the Dirichlet beta function, the
+/// analogue of the zeta method of the Bernoulli numbers:
+/// `E_2m = (-1)^m 4^(m+1) (2m)! beta(2m+1) / pi^(2m+1)` is an integer, the
+/// rounding of a value computed with enough bits; `None` if the value is
+/// not certified within 1/8 of an integer after the retries.
+fn euler_beta(n: usize) -> Option<BigInt> {
+    use crate::bigfloat::{pi, BigFloat};
+    let m = n / 2;
+    let nf = n as f64;
+    let s = n as i64 + 1;
+    let bits = 2.0 * (m as f64 + 1.0) + log2_factorial(nf) - (nf + 1.0) * std::f64::consts::PI.log2();
+    let bitlen = |v: u64| 64 - v.leading_zeros();
+    let fact = factorial(n as u64);
+    let mut guard = 64 + 2 * bitlen(n as u64);
+    for _ in 0..4 {
+        let prec = bits.max(0.0) as u32 + guard;
+        // beta(s) = sum_k (-1)^k (2k+1)^-s, truncated below 2^-(prec+8)
+        let last = (2f64.powf((prec as f64 + 8.0) / (s as f64))).ceil() as u64 + 2;
+        let wp = prec + bitlen(last) + 8;
+        let mut beta = BigFloat::one();
+        let mut j = 3u64;
+        let mut negative = true;
+        while j <= last {
+            let drop = (s as f64 * (j as f64).log2()).floor();
+            let pj = (wp as f64 + 8.0 - drop).max(32.0) as u32;
+            let term = BigFloat::from_i64(j as i64).powi(-s, pj)?;
+            beta = if negative { beta.sub(&term, wp) } else { beta.add(&term, wp) };
+            negative = !negative;
+            j += 2;
+        }
+        let pi_s = pi(wp).powi(s, wp)?;
+        let scale = BigFloat::from_int(&(&fact << (2 * (m + 1))));
+        let value = scale.mul(&beta, wp).div(&pi_s, wp)?;
+        let num = value.to_int_round();
+        let gap = value.sub(&BigFloat::from_int(&num), wp).abs();
+        if gap.cmp(&BigFloat::from_parts(BigInt::one(), -3i64)) == std::cmp::Ordering::Less {
+            return Some(if m % 2 == 1 { -num } else { num });
+        }
+        guard *= 2;
+    }
+    None
+}
+
 /// Euler (secant) number `E_n` (`E_0 = 1, E_2 = -1, E_4 = 5`, odd ones 0).
 pub fn euler_number(n: usize) -> BigInt {
     if n % 2 == 1 {
         return BigInt::zero();
+    }
+    if n >= 120 {
+        if let Some(e) = euler_beta(n) {
+            return e;
+        }
     }
     // Seidel's boustrophedon gives the zigzag numbers A_m; E_{2k} = (-1)^k A_{2k}
     let mut row = vec![BigInt::one()];
@@ -115,7 +215,7 @@ pub fn euler_number(n: usize) -> BigInt {
 
 /// Catalan number.
 pub fn catalan_number(n: u64) -> BigInt {
-    let b = binomial(&BigInt::from(2 * n), &BigInt::from(n));
+    let b = crate::ntheory::binomial_u64(2 * n, n);
     b / BigInt::from(n + 1)
 }
 
@@ -156,6 +256,34 @@ pub fn lucas_number(n: i64) -> BigInt {
     } else {
         l
     }
+}
+
+/// Tribonacci number `T_n` (`T_0 = 0, T_1 = T_2 = 1`): `x^n` is reduced
+/// modulo `x^3 - x^2 - x - 1` by binary powering, so `T_n = a + b` for
+/// `x^n = a x^2 + b x + c`.
+pub fn tribonacci_number(n: u64) -> BigInt {
+    let (mut a, mut b, mut c) = (BigInt::zero(), BigInt::zero(), BigInt::one());
+    for bit in (0..64 - n.leading_zeros()).rev() {
+        // square, with x^3 = x^2 + x + 1 and x^4 = 2x^2 + 2x + 1
+        let aa = &a * &a;
+        let ab2 = (&a * &b) << 1usize;
+        let ac2 = (&a * &c) << 1usize;
+        let bb = &b * &b;
+        let bc2 = (&b * &c) << 1usize;
+        let cc = &c * &c;
+        let aa2 = &aa << 1usize;
+        let na = &aa2 + &ab2 + &bb + &ac2;
+        let nb = &aa2 + &ab2 + &bc2;
+        let nc = aa + ab2 + cc;
+        (a, b, c) = (na, nb, nc);
+        if (n >> bit) & 1 == 1 {
+            // multiply by x
+            let na = &a + &b;
+            let nb = &a + &c;
+            (a, b, c) = (na, nb, a);
+        }
+    }
+    a + b
 }
 
 /// Bell number `B_n`.
@@ -410,12 +538,46 @@ mod tests {
         assert_eq!(subfactorial(5), BigInt::from(44));
         assert_eq!(euler_number(10), BigInt::from(-50521));
         assert_eq!(euler_number(4), BigInt::from(5));
+        let seidel = |n: usize| {
+            let mut row = vec![BigInt::one()];
+            for m in 1..=n {
+                let mut next = vec![BigInt::zero()];
+                for j in 0..m {
+                    let v = &next[j] + &row[m - 1 - j];
+                    next.push(v);
+                }
+                row = next;
+            }
+            let a = row.last().unwrap().clone();
+            if (n / 2) % 2 == 1 { -a } else { a }
+        };
+        for n in [120usize, 122, 124, 250, 400, 402] {
+            assert_eq!(euler_beta(n), Some(seidel(n)), "E_{n}");
+        }
         assert_eq!(catalan_number(30), BigInt::from(3814986502092304i64));
         assert_eq!(fibonacci_number(100).to_string(), "354224848179261915075");
         assert_eq!(fibonacci_number(-5), BigInt::from(5));
         assert_eq!(fibonacci_number(-4), BigInt::from(-3));
         assert_eq!(lucas_number(10), BigInt::from(123));
         assert_eq!(lucas_number(-3), BigInt::from(-4));
+        let mut t = (BigInt::zero(), BigInt::one(), BigInt::one());
+        for k in 0..200u64 {
+            assert_eq!(tribonacci_number(k), t.0);
+            t = (t.1.clone(), t.2.clone(), &t.0 + &t.1 + &t.2);
+        }
+        let (mut a, mut b) = (BigInt::one(), BigInt::zero());
+        assert_eq!(subfactorial(0), BigInt::one());
+        for k in 2..300u64 {
+            let c = (&a + &b) * BigInt::from(k - 1);
+            a = b;
+            b = c;
+            assert_eq!(subfactorial(k), b);
+        }
+        let mut c = BigInt::one();
+        for n in 0..300u64 {
+            assert_eq!(catalan_number(n), c);
+            c = c * BigInt::from(2 * (2 * n + 1)) / BigInt::from(n + 2);
+        }
         assert_eq!(bell_number(20), BigInt::from(51724158235372i64));
         assert_eq!(partition_number(100), BigInt::from(190569292));
         assert_eq!(stirling(5, 2, None, 2, false), BigInt::from(15));

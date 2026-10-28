@@ -731,6 +731,80 @@ pub fn factorial(n: u64) -> BigInt {
     }
 }
 
+/// Balanced product of machine words (small factors packed first).
+pub fn product_u64(v: &[u64]) -> BigInt {
+    fn tree(v: &[u64]) -> BigInt {
+        if v.len() <= 8 {
+            let mut r = BigInt::one();
+            for &x in v {
+                r *= x;
+            }
+            return r;
+        }
+        let m = v.len() / 2;
+        tree(&v[..m]) * tree(&v[m..])
+    }
+    let mut packed = Vec::with_capacity(v.len());
+    let mut acc = 1u64;
+    for &x in v {
+        match acc.checked_mul(x) {
+            Some(y) => acc = y,
+            None => {
+                packed.push(acc);
+                acc = x;
+            }
+        }
+    }
+    packed.push(acc);
+    tree(&packed)
+}
+
+/// `C(n, k)` for machine-word arguments without the quadratic sequential
+/// product: Legendre's prime factorisation for moderate `n`, otherwise the
+/// balanced product of the `k` top factors divided exactly by `k!`.
+pub fn binomial_u64(n: u64, k: u64) -> BigInt {
+    if k > n {
+        return BigInt::zero();
+    }
+    let k = k.min(n - k);
+    if k < 64 {
+        let mut r = BigInt::one();
+        for i in 0..k {
+            r = r * (n - i) / (i + 1);
+        }
+        return r;
+    }
+    if n <= 1 << 30 && n / k <= 256 {
+        let mut factors = Vec::new();
+        for p in primerange(2, n + 1) {
+            if p > n - k {
+                // the primes of (n - k, n] divide C(n, k) exactly once
+                factors.push(p);
+                continue;
+            }
+            if p > n / 2 {
+                // n - k >= p > n/2: no carry adding k and n - k in base p
+                continue;
+            }
+            let mut e = 0u32;
+            let mut q = p;
+            loop {
+                e += (n / q - k / q - (n - k) / q) as u32;
+                match q.checked_mul(p) {
+                    Some(r) if r <= n => q = r,
+                    _ => break,
+                }
+            }
+            for _ in 0..e {
+                factors.push(p);
+            }
+        }
+        return product_u64(&factors);
+    }
+    let top: Vec<u64> = (n - k + 1..=n).collect();
+    product_u64(&top) / factorial(k)
+}
+
 /// Binomial coefficient C(n, k) for integers (n may be negative).
 pub fn binomial(n: &BigInt, k: &BigInt) -> BigInt {
     if k.is_negative() {
@@ -743,6 +817,9 @@ pub fn binomial(n: &BigInt, k: &BigInt) -> BigInt {
     }
     if k > n {
         return BigInt::zero();
+    }
+    if let (Some(nn), Some(kk)) = (n.to_u64(), k.to_u64()) {
+        return binomial_u64(nn, kk);
     }
     let k = if (n - k) < *k { n - k } else { k.clone() };
     let mut r = BigInt::one();
@@ -835,6 +912,17 @@ mod tests {
         assert_eq!(mod_inverse(&b("3"), &b("11")), Some(b("4")));
         assert_eq!(factorial(20), b("2432902008176640000"));
         assert_eq!(binomial(&b("10"), &b("3")), b("120"));
+        let sequential = |n: u64, k: u64| {
+            let mut r = BigInt::one();
+            for i in 0..k {
+                r = r * (n - i) / (i + 1);
+            }
+            r
+        };
+        for (n, k) in [(128, 64), (129, 64), (200, 70), (1000, 333), (1000, 500), (4099, 2048), (40000, 100), (40000, 39900), (u64::from(u32::MAX), 70)] {
+            assert_eq!(binomial_u64(n, k), sequential(n, k.min(n - k)), "C({n}, {k})");
+        }
+        assert_eq!(product_u64(&[u64::MAX, u64::MAX, 3]), BigInt::from(u64::MAX) * u64::MAX * 3u32);
         assert_eq!(primitive_root(&b("23")), Some(b("5")));
         assert_eq!(n_order(&b("2"), &b("7")), Some(b("3")));
         assert_eq!(crt(&[b("2"), b("3"), b("2")], &[b("3"), b("5"), b("7")]), Some((b("23"), b("105"))));

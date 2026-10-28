@@ -9,7 +9,17 @@ use super::*;
 use crate::functions::gamma;
 use crate::ops::{add, div, mul, mul2, neg, pow, sub};
 
+/// Index bound of the evaluations whose cost is not governed by the size
+/// of one exact integer (polynomials, harmonic sums, Bell numbers, ...).
 const MAX_EXACT: u64 = 100_000;
+
+/// `log2(F_n)` and `log2(L_n)` are below `n log2(golden ratio) + 1`.
+/// Index bound of the Bernoulli and Euler numbers (zeta and Dirichlet beta
+/// methods, `summation::bernoulli_zeta`, `integers::euler_beta`); the reference needs 19 s for
+/// `bernoulli(50000)` and its cost grows faster than `n^2`.
+const MAX_BERNOULLI_NUMBER: i64 = 200_000;
+
+const LOG2_GOLDEN: f64 = 0.694_241_913_630_617_3;
 
 fn num(n: BigInt) -> Expr {
     Expr::num(Number::from_bigint(n))
@@ -50,7 +60,7 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
                 return Some(Expr::oo());
             }
             let n = as_small(&a[0])?;
-            if n < 0 {
+            if n < 0 || !ints::fits_exact(ints::log2_factorial(n as f64)) {
                 return None;
             }
             Some(num(ints::subfactorial(n as u64)))
@@ -68,6 +78,9 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
                 return Some(Expr::oo());
             }
             let n = as_small(&a[0])?;
+            if !ints::fits_exact(n.unsigned_abs() as f64 * LOG2_GOLDEN + 2.0) {
+                return None;
+            }
             Some(num(ints::lucas_number(n)))
         }
         Bell => eval_bell(a),
@@ -103,7 +116,7 @@ fn eval_factorial(n: &Expr) -> Option<Expr> {
             return Some(Expr::zoo());
         }
         let k = k.to_u64()?;
-        if k > MAX_EXACT {
+        if !ints::fits_exact(ints::log2_factorial(k as f64)) {
             return None;
         }
         return Some(num(ints::factorial(k)));
@@ -120,7 +133,8 @@ fn eval_factorial(n: &Expr) -> Option<Expr> {
 fn eval_factorial2(n: &Expr) -> Option<Expr> {
     let k = as_small(n)?;
     if k >= 0 {
-        if k as u64 > MAX_EXACT {
+        // n!! <= sqrt(n! (n + 1)) for every n >= 0
+        if !ints::fits_exact(ints::log2_factorial(k as f64) / 2.0 + 0.5 * (k as f64 + 1.0).log2() + 2.0) {
             return None;
         }
         return Some(num(ints::factorial2(k as u64)));
@@ -162,7 +176,11 @@ fn eval_binomial(n: &Expr, k: &Expr) -> Option<Expr> {
                     // With min(k,n-k)>u64::MAX the exact output already needs
                     // more than u64::MAX bits. Preserve the symbolic binomial;
                     // modular evaluation can still compute a small exact result.
-                    std::cmp::min(kk.clone(), &positive_n - &kk).to_u64()?;
+                    let m = std::cmp::min(kk.clone(), &positive_n - &kk).to_u64()?;
+                    let total = positive_n.to_f64()?;
+                    if !ints::fits_exact(ints::log2_binomial(total, m as f64)) {
+                        return None;
+                    }
                 }
                 return Some(num(ints::binomial(&nn, &kk)));
             }
@@ -206,6 +224,9 @@ fn eval_rf(x: &Expr, k: &Expr, up: bool) -> Option<Expr> {
         if kk == 0 {
             return Some(Expr::one());
         }
+        if let Some(v) = integer_rf(x, kk, up) {
+            return Some(v);
+        }
         if kk.unsigned_abs() > MAX_EXACT {
             return None;
         }
@@ -239,6 +260,37 @@ fn eval_rf(x: &Expr, k: &Expr, up: bool) -> Option<Expr> {
         return Some(Expr::zero());
     }
     None
+}
+
+/// `rf(x, k)` / `ff(x, k)` for an exact machine integer `x` as one balanced
+/// product of the integer factors (the generic path multiplies them one by
+/// one). `None` when `x` is not such an integer or the result is too large.
+fn integer_rf(x: &Expr, k: i64, up: bool) -> Option<Expr> {
+    let x = as_small(x)? as i128;
+    let m = k.unsigned_abs() as i128;
+    // rf(x, k) = x (x+1) ... (x+k-1), rf(x, -k) = 1/((x-1) ... (x-k)),
+    // ff(x, k) = x (x-1) ... (x-k+1), ff(x, -k) = 1/((x+1) ... (x+k))
+    let (lo, hi) = match (up, k > 0) {
+        (true, true) => (x, x + m - 1),
+        (true, false) => (x - m, x - 1),
+        (false, true) => (x - m + 1, x),
+        (false, false) => (x + 1, x + m),
+    };
+    let product = if lo <= 0 && hi >= 0 {
+        BigInt::zero()
+    } else {
+        let (a, b) = if hi < 0 { (-hi, -lo) } else { (lo, hi) };
+        let a = u64::try_from(a).ok()?;
+        let b = u64::try_from(b).ok()?;
+        if !ints::fits_exact(m as f64 * (b as f64 + 1.0).log2()) {
+            return None;
+        }
+        let factors: Vec<u64> = (a..=b).collect();
+        let p = crate::ntheory::product_u64(&factors);
+        if hi < 0 && m % 2 == 1 { -p } else { p }
+    };
+    let p = num(product);
+    Some(if k > 0 { p } else { pow(&p, &Expr::minus_one()) })
 }
 
 fn eval_harmonic(a: &[Expr]) -> Option<Expr> {
@@ -324,11 +376,14 @@ fn eval_bernoulli(a: &[Expr]) -> Option<Expr> {
     if nn < 0 {
         return None;
     }
+    if a.len() == 1 {
+        if nn > MAX_BERNOULLI_NUMBER {
+            return None;
+        }
+        return Some(numq(ints::bernoulli_number(nn as usize)));
+    }
     if nn > 5000 {
         return None;
-    }
-    if a.len() == 1 {
-        return Some(numq(ints::bernoulli_number(nn as usize)));
     }
     let x = &a[1];
     Some(poly_q(&ints::bernoulli_poly_coeffs(nn as usize), x))
@@ -353,11 +408,20 @@ fn eval_euler(a: &[Expr]) -> Option<Expr> {
         return Some(Expr::zero());
     }
     let nn = as_small(n)?;
-    if nn < 0 || nn > 5000 {
+    if nn < 0 {
         return None;
     }
     if a.len() == 1 {
+        if nn % 2 == 1 {
+            return Some(Expr::zero());
+        }
+        if nn > MAX_BERNOULLI_NUMBER {
+            return None;
+        }
         return Some(num(ints::euler_number(nn as usize)));
+    }
+    if nn > 5000 {
+        return None;
     }
     Some(poly_q(&ints::euler_poly_coeffs(nn as usize), &a[1]))
 }
@@ -365,7 +429,7 @@ fn eval_euler(a: &[Expr]) -> Option<Expr> {
 fn eval_catalan(n: &Expr) -> Option<Expr> {
     if let Some(k) = as_small(n) {
         if k >= 0 {
-            if k as u64 > MAX_EXACT {
+            if !ints::fits_exact(2.0 * k as f64) {
                 return None;
             }
             return Some(num(ints::catalan_number(k as u64)));
@@ -393,7 +457,7 @@ fn eval_fibonacci(a: &[Expr]) -> Option<Expr> {
     }
     let nn = as_small(&a[0])?;
     if a.len() == 1 {
-        if nn.unsigned_abs() > 10 * MAX_EXACT {
+        if !ints::fits_exact(nn.unsigned_abs() as f64 * LOG2_GOLDEN + 2.0) {
             return None;
         }
         return Some(num(ints::fibonacci_number(nn)));
@@ -451,4 +515,24 @@ fn incomplete_bell(n: i64, k: i64, xs: &[Expr]) -> Expr {
         }
     }
     t[n][k].clone()
+}
+
+#[cfg(test)]
+mod bigexact_tests {
+    use super::*;
+
+    #[test]
+    fn integer_rising_factorial_beyond_old_cap() {
+        let three = Expr::int(3);
+        let k = Expr::int(100_001);
+        let direct = integer_rf(&three, 100_001, true);
+        assert!(direct.is_some());
+        assert!(eval_rf(&three, &k, true).is_some());
+        let zero = integer_rf(&Expr::int(-3), 100_001, true).unwrap();
+        assert!(zero.is_zero());
+        let via_apply = crate::special::apply(SpecialFn::RisingFactorial, vec![Expr::int(-3), Expr::int(100_001)]);
+        assert!(via_apply.is_zero(), "apply: {via_apply}");
+        let parsed = crate::parser::parse_str("rf(-3, 100001)").unwrap();
+        assert!(parsed.is_zero(), "parsed: {parsed}");
+    }
 }

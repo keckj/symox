@@ -1,0 +1,51 @@
+symox	factorial(100001)	0.0001	0.0000	UNEVAL
+symox	factorial(100001)	0.0001	0.0000	UNEVAL
+symox	factorial(100001)	0.0001	0.0000	UNEVAL
+symox	fibonacci(1000001)	0.0001	0.0000	UNEVAL
+symox	fibonacci(1000001)	0.0001	0.0000	UNEVAL
+symox	fibonacci(1000001)	0.0001	0.0000	UNEVAL
+symox	catalan(100001)	0.0001	0.0000	UNEVAL
+symox	catalan(100001)	0.0001	0.0000	UNEVAL
+symox	catalan(100001)	0.0001	0.0000	UNEVAL
+symox	bernoulli(5002)	0.0001	0.0000	UNEVAL
+symox	bernoulli(5002)	0.0001	0.0000	UNEVAL
+symox	bernoulli(5002)	0.0001	0.0000	UNEVAL
+symox	legendre(2001, Rational(1, 3))	0.0001	0.0000	UNEVAL
+symox	legendre(2001, Rational(1, 3))	0.0001	0.0000	UNEVAL
+symox	legendre(2001, Rational(1, 3))	0.0001	0.0000	UNEVAL
+symox	lucas(1000001)	0.0131	0.0128	len=208988 sha=8c5415c2f2500fbc
+symox	lucas(1000001)	0.0131	0.0127	len=208988 sha=8c5415c2f2500fbc
+symox	lucas(1000001)	0.0132	0.0127	len=208988 sha=8c5415c2f2500fbc
+symox	tribonacci(100001)	0.0735	0.0734	len=26465 sha=3b83e22a2708f24d
+symox	tribonacci(100001)	0.0739	0.0733	len=26465 sha=3b83e22a2708f24d
+symox	tribonacci(100001)	0.0744	0.0736	len=26465 sha=3b83e22a2708f24d
+symox	subfactorial(100001)	1.4990	1.5030	len=456579 sha=c2deb8d0dd946502
+symox	subfactorial(100001)	1.5384	1.5220	len=456579 sha=c2deb8d0dd946502
+symox	subfactorial(100001)	1.5479	1.5410	len=456579 sha=c2deb8d0dd946502
+symox	rf(3, 100001)	0.0001	0.0000	UNEVAL
+symox	rf(3, 100001)	0.0001	0.0000	UNEVAL
+symox	rf(3, 100001)	0.0001	0.0000	UNEVAL
+symox	factorial2(200001)	0.0001	0.0000	UNEVAL
+symox	factorial2(200001)	0.0001	0.0000	UNEVAL
+symox	factorial2(200001)	0.0001	0.0000	UNEVAL
+symox	euler(5002)	0.0001	0.0000	UNEVAL
+symox	euler(5002)	0.0001	0.0000	UNEVAL
+symox	euler(5002)	0.0001	0.0000	UNEVAL
+symox	binomial(300000, 150000)	9.3368	9.3223	len=90307 sha=6d1c8197a7311695
+symox	binomial(300000, 150000)	9.5055	9.5175	len=90307 sha=6d1c8197a7311695
+symox	binomial(300000, 150000)	9.3483	9.3282	len=90307 sha=6d1c8197a7311695
+symox	gamma(Rational(200001, 2))	15.7885	15.7929	UNEVAL
+symox	gamma(Rational(200001, 2))	15.8089	15.8256	UNEVAL
+symox	gamma(Rational(200001, 2))	15.7991	15.7904	UNEVAL
+symox	factorial(3000)	0.0002	0.0001	len=9131 sha=e759be1f6f76e634
+symox	factorial(3000)	0.0002	0.0001	len=9131 sha=e759be1f6f76e634
+symox	factorial(3000)	0.0002	0.0001	len=9131 sha=e759be1f6f76e634
+symox	bernoulli(1000)	0.0014	0.0013	len=1790 sha=ab523c98c5cacf8a
+symox	bernoulli(1000)	0.0015	0.0014	len=1790 sha=ab523c98c5cacf8a
+symox	bernoulli(1000)	0.0015	0.0013	len=1790 sha=ab523c98c5cacf8a
+symox	binomial(3000, 1000)	0.0007	0.0006	len=828 sha=d67ea4c2861dac91
+symox	binomial(3000, 1000)	0.0006	0.0006	len=828 sha=d67ea4c2861dac91
+symox	binomial(3000, 1000)	0.0006	0.0006	len=828 sha=d67ea4c2861dac91
+symox	legendre(300, Rational(1, 3))	0.6263	0.6272	len=285 sha=e01e3bfc9d3df956
+symox	legendre(300, Rational(1, 3))	0.6259	0.6273	len=285 sha=e01e3bfc9d3df956
+symox	legendre(300, Rational(1, 3))	0.6414	0.6403	len=285 sha=e01e3bfc9d3df956
