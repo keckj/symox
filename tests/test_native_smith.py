@@ -149,7 +149,8 @@ def test_matrix_level_api():
 
 def test_qq_and_non_pid_keep_reference_paths():
     m = DomainMatrix([[QQ(1, 2), QQ(3)], [QQ(4), QQ(0)]], (2, 2), QQ)
-    assert _smith_native.try_smith(m.to_list(), QQ, m.shape, False) is None
+    # QQ is native since the 2026-10-29 port (tests/test_native_smith_fx.py).
+    assert _smith_native.try_smith(m.to_list(), QQ, m.shape, False) == (QQ(1), QQ(1))
     assert invariant_factors(m) == (QQ(1), QQ(1))
     R = ZZ[x]
     p = DomainMatrix([[R(x), R(1)], [R(0), R(x)]], (2, 2), R)

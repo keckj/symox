@@ -178,6 +178,108 @@ impl Coeff for DomainCoeff {
     }
 }
 
+/// Principal ideal domains of the native Smith kernel beyond the typed ZZ:
+/// QQ, GF(p) with p prime, QQ_I, the rational function fields and the
+/// univariate polynomial rings `QQ[x]` (the only polynomial rings the
+/// reference `is_PID` admits here). Algebraic fields QQ<a> are left to the
+/// Python body: the reference `1 / m[0][0]` raises TypeError on an ANP.
+pub fn smith_admitted(domain: &ExactDomain) -> bool {
+    match domain {
+        ExactDomain::QQ => true,
+        ExactDomain::GF(p) => super::gf::is_prime(*p),
+        ExactDomain::Gaussian { integral } => !integral,
+        ExactDomain::Functions { ring: false, .. } => true,
+        ExactDomain::Functions { integral: false, ring: true, parameters, .. } => parameters.len() == 1,
+        _ => false,
+    }
+}
+
+/// Element representation expected in a Smith-admitted domain.
+pub fn smith_member(domain: &ExactDomain, element: &DomainElement) -> bool {
+    match domain {
+        ExactDomain::QQ => element.domain == *domain && matches!(element.value, ElementValue::Rational(_)),
+        _ => native_member(domain, element),
+    }
+}
+
+fn unsupported(message: &str) -> PolyError {
+    PolyError::Unsupported(message.into())
+}
+
+/// The reference Smith operations, each one the native call behind the
+/// corresponding `symox._core.Domain` method (`div` -> `div_rem`, `gcd`,
+/// `exquo`; `gcdex` -> the univariate field `gcdex` of `QQ[x]` or the
+/// element `gcdex`), with failures recorded in the active scope.
+impl super::smith::Pid for DomainCoeff {
+    fn zero() -> Self { <Self as Coeff>::zero() }
+    fn one() -> Self { <Self as Coeff>::one() }
+    fn is_zero(&self) -> bool { self.0.is_zero() }
+    fn add(&self, o: &Self) -> Self { Coeff::add(self, o) }
+    fn mul(&self, o: &Self) -> Self { Coeff::mul(self, o) }
+    fn neg(&self) -> Self { Coeff::neg(self) }
+    fn div(&self, o: &Self) -> (Self, Self) {
+        match self.0.div_rem(&o.0) {
+            Ok((q, r)) => (DomainCoeff(q), DomainCoeff(r)),
+            Err(error) => {
+                record(error);
+                (<Self as Coeff>::zero(), <Self as Coeff>::zero())
+            }
+        }
+    }
+    fn gcdex(&self, o: &Self) -> (Self, Self, Self) {
+        let zero = || <Self as Coeff>::zero();
+        let result = if let ExactDomain::Functions { integral: false, ring: true, parameters, .. } = &self.0.domain {
+            super::api::gcdex(&self.0.as_expr(), &o.0.as_expr(), parameters).and_then(|(s, t, g)| {
+                let domain = &self.0.domain;
+                Ok((domain.convert(&s)?, domain.convert(&t)?, domain.convert(&g)?))
+            })
+        } else {
+            self.0.gcdex(&o.0)
+        };
+        match result {
+            Ok((s, t, g)) => (DomainCoeff(s), DomainCoeff(t), DomainCoeff(g)),
+            Err(error) => {
+                record(error);
+                (zero(), zero(), zero())
+            }
+        }
+    }
+    fn gcd(&self, o: &Self) -> Self { checked(self.0.gcd(&o.0)) }
+    fn exquo(&self, o: &Self) -> Self { checked(self.0.exquo(&o.0)) }
+    /// Over a field `c = 1/m[0][0]`; over `QQ[x]` the reference
+    /// `canonical_unit` is `-1` exactly when the leading coefficient is
+    /// negative (`is_negative` reads the sign of `Poly(...).LC()`).
+    fn unit_factor(&self) -> Option<Self> {
+        if self.0.domain.is_field() {
+            let one = constant(true);
+            let c = checked(one.binary(&self.0, '/'));
+            return (c.0 != one).then_some(c);
+        }
+        if !matches!(self.0.domain, ExactDomain::Functions { integral: false, ring: true, .. }) {
+            record(unsupported("canonical unit outside the admitted Smith domains"));
+            return None;
+        }
+        match self.0.ring_polynomial() {
+            Ok(p) => p.lc().is_negative().then(|| Coeff::neg(&<Self as Coeff>::one())),
+            Err(error) => {
+                record(error);
+                None
+            }
+        }
+    }
+    fn index_is_zero(i: usize) -> bool {
+        match constant(false).domain {
+            ExactDomain::GF(p) => (i as u64) % p == 0,
+            _ => i == 0,
+        }
+    }
+    /// The `symox._core` zero of QQ_I and of the rational function fields
+    /// compares unequal to the int 0, so the reference reaches `1 / 0`.
+    fn zero_pivot_raises() -> bool {
+        matches!(constant(false).domain, ExactDomain::Gaussian { integral: false } | ExactDomain::Functions { ring: false, .. })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,6 +288,34 @@ mod tests {
     fn gf7(rows: &[&[i64]]) -> Vec<Vec<DomainCoeff>> {
         let k = ExactDomain::GF(7);
         rows.iter().map(|r| r.iter().map(|&v| DomainCoeff(k.convert(&Expr::int(v)).unwrap())).collect()).collect()
+    }
+
+    fn gf(p: u64, rows: &[&[i64]]) -> Vec<Vec<DomainCoeff>> {
+        let k = ExactDomain::GF(p);
+        rows.iter().map(|r| r.iter().map(|&v| DomainCoeff(k.convert(&Expr::int(v)).unwrap())).collect()).collect()
+    }
+
+    // Values of sympy 1.14 `_smith_normal_decomp` (full=True).
+    #[test]
+    fn gf_smith_matches_reference() {
+        let k = ExactDomain::GF(7);
+        let scope = DomainScope::new(&k).unwrap();
+        let (invs, st) = crate::poly::smith::decompose(gf7(&[&[2, 4], &[6, 1]]), 2, 2, true, &mut || Ok::<_, ()>(())).unwrap().unwrap();
+        let (s, t) = st.unwrap();
+        assert_eq!(invs, gf(7, &[&[1, 1]])[0]);
+        assert_eq!(s, gf(7, &[&[4, 0], &[6, 5]]));
+        assert_eq!(t, gf(7, &[&[1, 5], &[0, 1]]));
+        assert!(!scope.failed());
+        drop(scope);
+        // Row index 2 compares equal to GF(2).zero: the column search runs.
+        let k = ExactDomain::GF(2);
+        let scope = DomainScope::new(&k).unwrap();
+        let (invs, st) = crate::poly::smith::decompose(gf(2, &[&[0, 1], &[0, 0], &[1, 0]]), 3, 2, true, &mut || Ok::<_, ()>(())).unwrap().unwrap();
+        let (s, t) = st.unwrap();
+        assert_eq!(invs, gf(2, &[&[1, 1]])[0]);
+        assert_eq!(s, gf(2, &[&[1, 0, 0], &[0, 0, 1], &[0, 1, 0]]));
+        assert_eq!(t, gf(2, &[&[0, 1], &[1, 0]]));
+        assert!(!scope.failed());
     }
 
     #[test]

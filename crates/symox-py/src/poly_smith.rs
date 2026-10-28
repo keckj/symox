@@ -1,8 +1,11 @@
-//! Smith normal decomposition over stock ZZ, and the integer Hermite kernels
-//! of the number-field module helpers. Admission lives in Python.
+//! Smith normal decomposition over ZZ and the other admitted PIDs (QQ, GF(p),
+//! QQ_I, QQ(x), QQ[x]), and the integer Hermite kernels of the number-field
+//! module helpers. Admission lives in Python.
 use pyo3::prelude::*;
 use pyo3::types::{PyDict,PyInt,PyList,PyModule,PyString,PyTuple};
-use symox::poly::{smith,hnf,hnf_modular,domains::ExactDomain,Int,Rat};
+use symox::poly::{smith,hnf,hnf_modular,domains::ExactDomain,domain_coeff::{self,DomainCoeff},Int,Rat};
+use crate::poly::domains::{PyDomain,PyDomainElement};
+use super::super::ff_domains;
 use super::{entries,integers,sequence,element_object,integer_object,Scalar};
 
 fn shape(value:&Bound<'_,PyAny>)->PyResult<Option<(usize,usize)>> {
@@ -27,7 +30,7 @@ fn matrix(a:&Bound<'_,PyAny>,m:usize,n:usize,kind:Scalar)->PyResult<Option<Vec<V
 
 fn zz(py:Python<'_>,value:Int)->PyResult<PyObject> {element_object(py,Rat::from(value),ExactDomain::ZZ)}
 
-fn rows_object(py:Python<'_>,rows:Vec<Vec<Int>>,element:fn(Python<'_>,Int)->PyResult<PyObject>)->PyResult<PyObject> {
+fn rows_object<C>(py:Python<'_>,rows:Vec<Vec<C>>,element:fn(Python<'_>,C)->PyResult<PyObject>)->PyResult<PyObject> {
     let out=PyList::empty(py);
     for row in rows {
         py.check_signals()?;
@@ -38,19 +41,76 @@ fn rows_object(py:Python<'_>,rows:Vec<Vec<Int>>,element:fn(Python<'_>,Int)->PyRe
     Ok(out.into_any().unbind())
 }
 
-/// `invariants` (full false) or `(invariants, s, t)`; None declines.
-#[pyfunction]
-fn _ddm_smith(a:&Bound<'_,PyAny>,dimensions:&Bound<'_,PyAny>,full:bool,py:Python<'_>)->PyResult<Option<PyObject>> {
-    py.check_signals()?;
-    let Some((m,n))=shape(dimensions)? else{return Ok(None)};
-    let Some(values)=matrix(a,m,n,Scalar::ZZ)? else{return Ok(None)};
-    let Some((invs,transforms))=smith::decompose(values,m,n,full,&mut ||py.check_signals())? else{return Ok(None)};
-    let invs=invs.into_iter().map(|v|zz(py,v)).collect::<PyResult<Vec<_>>>()?;
+fn publish<C>(py:Python<'_>,invs:Vec<C>,transforms:Option<(Vec<Vec<C>>,Vec<Vec<C>>)>,
+    element:fn(Python<'_>,C)->PyResult<PyObject>)->PyResult<PyObject> {
+    let invs=invs.into_iter().map(|v|element(py,v)).collect::<PyResult<Vec<_>>>()?;
     let invs=PyTuple::new(py,invs)?.into_any().unbind();
     match transforms {
-        Some((s,t))=>Ok(Some(PyTuple::new(py,[invs,rows_object(py,s,zz)?,rows_object(py,t,zz)?])?.into_any().unbind())),
-        None=>Ok(Some(invs)),
+        Some((s,t))=>Ok(PyTuple::new(py,[invs,rows_object(py,s,element)?,rows_object(py,t,element)?])?.into_any().unbind()),
+        None=>Ok(invs),
     }
+}
+
+fn domain_element(py:Python<'_>,value:DomainCoeff)->PyResult<PyObject> {ff_domains::object(py,&value)}
+
+/// Native elements of exactly the Smith-admitted domain `k`, or None.
+fn domain_matrix(a:&Bound<'_,PyAny>,m:usize,n:usize,k:&ExactDomain)->PyResult<Option<Vec<Vec<DomainCoeff>>>> {
+    let py=a.py();
+    let Some(rows)=sequence(a,None,true) else{return Ok(None)};
+    let mut seen=rustc_hash::FxHashSet::default();
+    if rows.iter().any(|r|!r.is_exact_instance_of::<PyList>()||!seen.insert(r.as_ptr() as usize)){return Ok(None);}
+    let Some(cells)=entries(&rows,true) else{return Ok(None)};
+    if cells.len()!=m||cells.iter().any(|r|r.len()!=n){return Ok(None);}
+    let mut out=Vec::with_capacity(m);
+    for row in &cells {
+        py.check_signals()?;
+        let mut values=Vec::with_capacity(n);
+        for value in row {
+            if !value.is_exact_instance_of::<PyDomainElement>(){return Ok(None);}
+            let element=&value.downcast::<PyDomainElement>()?.get().value;
+            if !domain_coeff::smith_member(k,element){return Ok(None);}
+            values.push(DomainCoeff(element.clone()));
+        }
+        out.push(values);
+    }
+    Ok(Some(out))
+}
+
+/// `invariants` (full false) or `(invariants, s, t)`; None declines.
+///
+/// Without `domain` (or with the stock ZZ) the typed integer kernel runs;
+/// otherwise `domain` must be an exact `Domain` that `smith_admitted` names,
+/// with native elements of exactly that domain. Any element failure
+/// (recorded in the scope) declines before a result is built.
+#[pyfunction]
+#[pyo3(signature=(a,dimensions,full,domain=None))]
+fn _ddm_smith(a:&Bound<'_,PyAny>,dimensions:&Bound<'_,PyAny>,full:bool,domain:Option<&Bound<'_,PyAny>>,py:Python<'_>)->PyResult<Option<PyObject>> {
+    py.check_signals()?;
+    let Some((m,n))=shape(dimensions)? else{return Ok(None)};
+    let k=match domain {
+        None=>ExactDomain::ZZ,
+        Some(k)=>{
+            if !k.is_exact_instance_of::<PyDomain>(){return Ok(None);}
+            k.downcast::<PyDomain>()?.get().inner.clone()
+        }
+    };
+    if matches!(k,ExactDomain::ZZ) {
+        let Some(values)=matrix(a,m,n,Scalar::ZZ)? else{return Ok(None)};
+        let Some((invs,transforms))=smith::decompose(values,m,n,full,&mut ||py.check_signals())? else{return Ok(None)};
+        return publish(py,invs,transforms,zz).map(Some);
+    }
+    if !domain_coeff::smith_admitted(&k){return Ok(None);}
+    let Some(values)=domain_matrix(a,m,n,&k)? else{return Ok(None)};
+    let Some(scope)=ff_domains::scope(&k) else{return Ok(None)};
+    let result=smith::decompose(values,m,n,full,&mut ff_domains::checker(py,&scope));
+    let decomposition=match result {
+        Err(ff_domains::Stop::Py(error))=>return Err(error),
+        Err(ff_domains::Stop::Decline)|Ok(None)=>return Ok(None),
+        Ok(Some(value))=>value,
+    };
+    if scope.failed(){return Ok(None);}
+    let (invs,transforms)=decomposition;
+    publish(py,invs,transforms,domain_element).map(Some)
 }
 
 fn int(py:Python<'_>,value:Int)->PyResult<PyObject> {integer_object(py,&value)}
