@@ -11460,3 +11460,44 @@ factor. `decompogen(x**4100 + x**2, x) == [x**2050 + x, x**2]` as in SymPy
 the reference algorithm. No intentional output correction relative to
 SymPy 1.14 is introduced. Tests: `tests/test_native_polycap2.py`; timings in
 [the audit](../audits/performance/2026-10-29-polycap2/README.md).
+
+
+
+## Large exact combinatorial values, wave 19, 2026-10-29
+
+The index caps (100000 for most integer sequences, 5000 for Bernoulli and
+Euler numbers, degree 2000 for `legendre`) are replaced, for the integer
+values, by a bound on the size of the exact result: an evaluation is made
+when the result is known in advance to fit in `MAX_EXACT_BITS = 2^28` bits
+(32 MiB; SymPy 1.14 already needs 40 s for `factorial(4*10**6)`, 82M bits,
+and does not finish `factorial(10**7)` in 150 s). Native now, with SymPy's
+exact values (sha256 of `str` compared in `tests/test_native_bigexact.py`):
+
+- `factorial`, integer `gamma`, `factorial2`, `subfactorial` (binary splitting
+  of `x -> k x + (-1)^k`), `catalan`, integer `binomial` (Legendre prime
+  factorization when `n <= 2^30` and `n/k <= 256`, else a product tree over
+  `k!`), `rf`/`ff` with an integer first argument (balanced product), and
+  half-integer `gamma`, bounded by Stirling estimates of the result size.
+- `fibonacci`, `lucas` (previously uncapped and could exhaust memory) and
+  `tribonacci` (now `x^n mod x^3-x^2-x-1` in `O(log n)` big products) numbers
+  bounded by `n log2(growth rate)`; `primorial` uses a product tree.
+- `bernoulli(n)` numbers through zeta with a von Staudt-Clausen denominator,
+  each term at the precision it contributes, the rounding certified (gap
+  below 1/8, else retried with more guard bits, else the tangent-number
+  recurrence); `euler(n)` numbers for `n >= 120` through the Dirichlet beta,
+  certified the same way (Seidel triangle otherwise); both up to index
+  200000 (SymPy: 19 s for `bernoulli(50000)`, more than 120 s for
+  `euler(10000)`). Odd indices are 0 before any bound, as in SymPy.
+  `genocchi` and `andre` follow through these.
+- `legendre(n, p/q)` for an exact rational argument through the integer
+  three-term recurrence of `2^k q^k P_k(p/q)`, up to a 2^28-bit result and
+  `4e12` bit operations (SymPy: 98 s for `legendre(3000, 1/3)`).
+
+Still capped as before (left unevaluated, as a held call, never a wrong
+value): Bernoulli/Euler polynomials beyond degree 5000; `harmonic`, `bell`,
+`partition` and symbolic `rf`/`ff` beyond index 100000; the polynomial forms
+of `fibonacci`, `lucas` and `tribonacci` keep their previous bounds; `legendre` with a non-rational argument beyond degree
+2000; `polygamma` and `zeta` special values beyond 100000; every value above
+the bounds above. No intentional output correction is made relative to SymPy
+1.14. Timings are in
+[the audit](../audits/performance/2026-10-29-bigexact/README.md).

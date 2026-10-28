@@ -28,21 +28,15 @@ pub fn nextprime_ith(n: &BigInt, ith: u64) -> BigInt {
 /// `primorial(n, nth)`: product of the first `n` primes, or of the
 /// primes `<= n`.
 pub fn primorial(n: u64, nth: bool) -> BigInt {
-    let mut p = BigInt::one();
     if nth {
         if n == 0 {
-            return p;
+            return BigInt::one();
         }
         let last = prime(n);
-        for q in primerange(2, last + 1) {
-            p *= q;
-        }
+        super::product_u64(&primerange(2, last + 1))
     } else {
-        for q in primerange(2, n.saturating_add(1)) {
-            p *= q;
-        }
+        super::product_u64(&primerange(2, n.saturating_add(1)))
     }
-    p
 }
 
 /// Number of composites `<= n`.

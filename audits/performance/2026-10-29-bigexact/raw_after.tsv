@@ -1,0 +1,51 @@
+symox	factorial(100001)	0.0306	0.0301	len=456579 sha=e5ac91c2bf24cae9
+symox	factorial(100001)	0.0298	0.0300	len=456579 sha=e5ac91c2bf24cae9
+symox	factorial(100001)	0.0306	0.0302	len=456579 sha=e5ac91c2bf24cae9
+symox	fibonacci(1000001)	0.0134	0.0130	len=208988 sha=587ad4a35a5b4069
+symox	fibonacci(1000001)	0.0142	0.0135	len=208988 sha=587ad4a35a5b4069
+symox	fibonacci(1000001)	0.0136	0.0132	len=208988 sha=587ad4a35a5b4069
+symox	catalan(100001)	0.0023	0.0021	len=60199 sha=878ea0c8848d7e3a
+symox	catalan(100001)	0.0023	0.0021	len=60199 sha=878ea0c8848d7e3a
+symox	catalan(100001)	0.0023	0.0020	len=60199 sha=878ea0c8848d7e3a
+symox	bernoulli(5002)	0.0337	0.0339	len=12356 sha=73638452cad54074
+symox	bernoulli(5002)	0.0345	0.0351	len=12356 sha=73638452cad54074
+symox	bernoulli(5002)	0.0342	0.0343	len=12356 sha=73638452cad54074
+symox	legendre(2001, Rational(1, 3))	0.0019	0.0018	len=1907 sha=38fd57a29de72222
+symox	legendre(2001, Rational(1, 3))	0.0019	0.0018	len=1907 sha=38fd57a29de72222
+symox	legendre(2001, Rational(1, 3))	0.0019	0.0018	len=1907 sha=38fd57a29de72222
+symox	lucas(1000001)	0.0134	0.0130	len=208988 sha=8c5415c2f2500fbc
+symox	lucas(1000001)	0.0135	0.0132	len=208988 sha=8c5415c2f2500fbc
+symox	lucas(1000001)	0.0133	0.0130	len=208988 sha=8c5415c2f2500fbc
+symox	tribonacci(100001)	0.0013	0.0012	len=26465 sha=3b83e22a2708f24d
+symox	tribonacci(100001)	0.0013	0.0012	len=26465 sha=3b83e22a2708f24d
+symox	tribonacci(100001)	0.0013	0.0011	len=26465 sha=3b83e22a2708f24d
+symox	subfactorial(100001)	0.0615	0.0621	len=456579 sha=c2deb8d0dd946502
+symox	subfactorial(100001)	0.0632	0.0635	len=456579 sha=c2deb8d0dd946502
+symox	subfactorial(100001)	0.0621	0.0613	len=456579 sha=c2deb8d0dd946502
+symox	rf(3, 100001)	0.0313	0.0309	len=456589 sha=e09e51f019c4a699
+symox	rf(3, 100001)	0.0310	0.0302	len=456589 sha=e09e51f019c4a699
+symox	rf(3, 100001)	0.0298	0.0300	len=456589 sha=e09e51f019c4a699
+symox	factorial2(200001)	0.0355	0.0357	len=486680 sha=b73bf179b26aad40
+symox	factorial2(200001)	0.0356	0.0359	len=486680 sha=b73bf179b26aad40
+symox	factorial2(200001)	0.0354	0.0351	len=486680 sha=b73bf179b26aad40
+symox	euler(5002)	0.0709	0.0694	len=15354 sha=721b78e5d18fea59
+symox	euler(5002)	0.0706	0.0701	len=15354 sha=721b78e5d18fea59
+symox	euler(5002)	0.0712	0.0725	len=15354 sha=721b78e5d18fea59
+symox	binomial(300000, 150000)	0.0039	0.0036	len=90307 sha=6d1c8197a7311695
+symox	binomial(300000, 150000)	0.0040	0.0036	len=90307 sha=6d1c8197a7311695
+symox	binomial(300000, 150000)	0.0040	0.0037	len=90307 sha=6d1c8197a7311695
+symox	gamma(Rational(200001, 2))	10.9189	10.9151	UNEVAL
+symox	gamma(Rational(200001, 2))	11.2965	11.1314	UNEVAL
+symox	gamma(Rational(200001, 2))	11.1430	11.1091	UNEVAL
+symox	factorial(3000)	0.0002	0.0001	len=9131 sha=e759be1f6f76e634
+symox	factorial(3000)	0.0002	0.0001	len=9131 sha=e759be1f6f76e634
+symox	factorial(3000)	0.0002	0.0001	len=9131 sha=e759be1f6f76e634
+symox	bernoulli(1000)	0.0011	0.0009	len=1790 sha=ab523c98c5cacf8a
+symox	bernoulli(1000)	0.0011	0.0010	len=1790 sha=ab523c98c5cacf8a
+symox	bernoulli(1000)	0.0011	0.0009	len=1790 sha=ab523c98c5cacf8a
+symox	binomial(3000, 1000)	0.0001	0.0000	len=828 sha=d67ea4c2861dac91
+symox	binomial(3000, 1000)	0.0001	0.0000	len=828 sha=d67ea4c2861dac91
+symox	binomial(3000, 1000)	0.0001	0.0000	len=828 sha=d67ea4c2861dac91
+symox	legendre(300, Rational(1, 3))	0.0002	0.0001	len=285 sha=e01e3bfc9d3df956
+symox	legendre(300, Rational(1, 3))	0.0002	0.0001	len=285 sha=e01e3bfc9d3df956
+symox	legendre(300, Rational(1, 3))	0.0002	0.0001	len=285 sha=e01e3bfc9d3df956

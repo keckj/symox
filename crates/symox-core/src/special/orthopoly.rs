@@ -178,7 +178,62 @@ fn poch(a: &Expr, k: i64) -> Expr {
     mul(&v)
 }
 
+/// Work bound (bit operations) of [`legendre_at_rational`].
+const MAX_LEGENDRE_WORK: f64 = 4.0e12;
+
+/// `P_n(p/q)` exactly, as SymPy's `legendre_poly(n, x).subs(x, p/q)`.
+/// `B_k = 2^k q^k P_k(p/q)` is an integer (`2^k P_k` has integer
+/// coefficients) and satisfies
+/// `(k+1) B_{k+1} = 2(2k+1) p B_k - 4 k q^2 B_{k-1}`, an exact division by
+/// the small `k + 1`; only `gcd(B_n, 2^n q^n)` is removed at the end.
+/// `None` when the result exceeds the exact-size or work bounds.
+pub(crate) fn legendre_at_rational(n: u64, x: &Number) -> Option<BigRational> {
+    let (p, q) = x.numer_denom()?;
+    let size = (p.bits().max(q.bits()) + 2) as f64;
+    let bits = n as f64 * size;
+    if !ints::fits_exact(bits) || n as f64 * bits > MAX_LEGENDRE_WORK {
+        return None;
+    }
+    if n == 0 {
+        return Some(BigRational::one());
+    }
+    let two_p = &p << 1usize;
+    let four_q2 = (&q * &q) << 2usize;
+    let (mut b0, mut b1) = (BigInt::one(), two_p.clone());
+    for k in 1..n {
+        let next = (&b1 * &two_p * (2 * k + 1) - &b0 * &four_q2 * k) / (k + 1);
+        b0 = b1;
+        b1 = next;
+    }
+    let mut num = b1;
+    if num.is_zero() {
+        return Some(BigRational::zero());
+    }
+    // denominator 2^n q^n: strip the common powers of two, then the gcd
+    // with the odd part of q^n (much smaller than the numerator)
+    let tz = q.trailing_zeros().unwrap_or(0);
+    let q_odd = &q >> tz as usize;
+    let twos = (n * (tz + 1)).min(num.trailing_zeros().unwrap_or(0));
+    num >>= twos as usize;
+    let mut den_odd = num_traits::pow(q_odd, n as usize);
+    if !den_odd.is_one() {
+        let g = num_integer::Integer::gcd(&(&num % &den_odd), &den_odd);
+        if !g.is_one() {
+            num /= &g;
+            den_odd /= &g;
+        }
+    }
+    let den = den_odd << (n * (tz + 1) - twos) as usize;
+    Some(BigRational::new_raw(num, den))
+}
+
 fn eval_legendre(n: &Expr, x: &Expr) -> Option<Expr> {
+    if let (Some(k), Kind::Num(v)) = (as_small(n), x.kind()) {
+        if v.is_rational() {
+            let k = if k < 0 { -(k + 1) } else { k };
+            return legendre_at_rational(k as u64, v).map(numq);
+        }
+    }
     if let Some(k) = degree(n) {
         if k < 0 {
             return Some(super::legendre(&Expr::int(-k - 1), x));

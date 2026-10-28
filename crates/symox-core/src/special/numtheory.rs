@@ -400,14 +400,11 @@ fn eval_tribonacci(a: &[Expr]) -> Option<Expr> {
     }
     let n = as_int(&a[0])?.to_usize()?;
     if a.len() == 1 {
-        let (mut x, mut y, mut z) = (BigInt::zero(), BigInt::one(), BigInt::one());
-        for _ in 0..n {
-            let w = &x + &y + &z;
-            x = y;
-            y = z;
-            z = w;
+        // log2(T_n) < n log2(1.8393), the tribonacci constant
+        if !super::integers::fits_exact(n as f64 * 0.879_146_788_819_652 + 2.0) {
+            return None;
         }
-        return Some(num(x));
+        return Some(num(super::integers::tribonacci_number(n as u64)));
     }
     Some(poly_z(&tribonacci_poly(n), &a[1]))
 }

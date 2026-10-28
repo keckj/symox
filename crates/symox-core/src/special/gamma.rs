@@ -70,7 +70,7 @@ pub(super) fn eval_gamma(a: &Expr) -> Option<Expr> {
                 return Some(Expr::zoo());
             }
             let k = n.to_i64()?;
-            if k > 100_000 {
+            if !ints::fits_exact(ints::log2_factorial(k as f64 - 1.0)) {
                 return None;
             }
             Some(num(ints::factorial(k as u64 - 1)))
@@ -78,7 +78,9 @@ pub(super) fn eval_gamma(a: &Expr) -> Option<Expr> {
         Kind::Num(n) if n.is_rational() && !n.is_float() && n.denom() == Number::int(2) => {
             // gamma(k + 1/2)
             let k = n.floor().to_i64()?;
-            if k.abs() > 100_000 {
+            // (2m-1)!! = (2m)! / (2^m m!) with m = |k| (or |k| - 1)
+            let m = k.unsigned_abs() as f64;
+            if !ints::fits_exact(ints::log2_factorial(2.0 * m) - m - ints::log2_factorial(m) + 4.0) {
                 return None;
             }
             let sp = sqrt(&Expr::pi());
@@ -95,7 +97,10 @@ pub(super) fn eval_gamma(a: &Expr) -> Option<Expr> {
                 }
                 (p, ints::factorial2(2 * m - 1))
             };
-            Some(mul2(&Expr::num(Number::rational(num_, den).unwrap()), &sp))
+            // One side is a power of two and the other an odd double
+            // factorial: the fraction is already reduced (no big gcd).
+            let ratio = num_rational::BigRational::new_raw(num_, den);
+            Some(mul2(&Expr::num(Number::from_ratio(ratio)), &sp))
         }
         Kind::Const(Constant::Infinity) => Some(Expr::oo()),
         _ => {
