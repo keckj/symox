@@ -1,8 +1,10 @@
-//! Canonical QQ triangular solve, retaining actual scratch/output publication.
+//! Canonical exact field (QQ, GF(p), QQ<a>) triangular solve, retaining
+//! actual scratch/output publication.
 use pyo3::prelude::*;
 use pyo3::types::{PyInt,PyList,PyTuple,PyDict,PyString};
 use symox::poly::{lu_solve,domains::ExactDomain};
-use super::{sequence,entries,rationals,scalar,Scalar,element_object};
+use super::{sequence,entries,rationals,scalar,Scalar,element_object,field_domain,field_values,field_object,with_field_scope,FieldKind,FieldPayload};
+use crate::poly::domains::PyDomainElement;
 
 /// Read actual caller lookups without evaluating late globals too early.
 /// In particular missing/replaced reversed/error names must not precede the
@@ -62,13 +64,23 @@ fn _ddm_ilu_solve(x:&Bound<'_,PyAny>,l:&Bound<'_,PyAny>,u:&Bound<'_,PyAny>,
         ||lcells.iter().any(|row|row.len()!=m)||ucells.iter().any(|row|row.len()!=n){return Ok(false);}
     // User destructors in overwritten arbitrary placeholders can mutate source
     // rows/protocols. None and canonical immutable QQ cells cannot do that.
-    if xcells.iter().flatten().any(|v|!v.is_none()&&scalar(v)!=Some(Scalar::QQ))
+    // Frozen native DomainElement payloads have no user destructor either.
+    if xcells.iter().flatten().any(|v|!v.is_none()&&!v.is_exact_instance_of::<PyDomainElement>())
         ||ycells.iter().flatten().any(|v|!v.is_none()){return Ok(false);}
+    let xr=xrows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
+    let yr=yrows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
+    if let Some(first)=ucells.first().and_then(|row|row.first()).filter(|v|scalar(v)!=Some(Scalar::QQ)) {
+        // QQ_I division uses the Python Gaussian wrapper: not admitted here.
+        let Some((domain,kind))=field_domain(first,false) else{return Ok(false)};
+        return match kind {
+            FieldKind::Finite=>field_solve::<symox::poly::f5b::Fp>(&lcells,&ucells,&bcells,o,&xr,&yr,&domain,exception,py),
+            FieldKind::Algebraic=>field_solve::<symox::poly::algebraic::AN>(&lcells,&ucells,&bcells,o,&xr,&yr,&domain,exception,py),
+        };
+    }
+    if xcells.iter().flatten().any(|v|!v.is_none()&&scalar(v)!=Some(Scalar::QQ)){return Ok(false);}
     let Some(l)=rationals(&lcells,py)? else{return Ok(false)};
     let Some(u)=rationals(&ucells,py)? else{return Ok(false)};
     let Some(b)=rationals(&bcells,py)? else{return Ok(false)};
-    let xr=xrows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
-    let yr=yrows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
     match lu_solve::solve(&l,&u,&b,o,&mut ||py.check_signals(),&mut |event| {
         match event {
             lu_solve::Event::Y(i,k,value,from_b)=>{
@@ -81,6 +93,30 @@ fn _ddm_ilu_solve(x:&Bound<'_,PyAny>,l:&Bound<'_,PyAny>,u:&Bound<'_,PyAny>,
         Ok(done)=>Ok(done),
         Err(lu_solve::Failure::Interrupted(error))=>Err(error),
         Err(lu_solve::Failure::NonInvertible)=>Err(PyErr::from_value(exception.call0()?)),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn field_solve<C:FieldPayload>(lcells:&[Vec<Bound<'_,PyAny>>],ucells:&[Vec<Bound<'_,PyAny>>],bcells:&[Vec<Bound<'_,PyAny>>],
+    o:usize,xr:&[Bound<'_,PyList>],yr:&[Bound<'_,PyList>],domain:&symox::poly::domains::ExactDomain,
+    exception:&Bound<'_,PyAny>,py:Python<'_>)->PyResult<bool> {
+    let Some(l)=field_values::<C>(lcells,domain,py)? else{return Ok(false)};
+    let Some(u)=field_values::<C>(ucells,domain,py)? else{return Ok(false)};
+    let Some(b)=field_values::<C>(bcells,domain,py)? else{return Ok(false)};
+    let outcome=with_field_scope(domain,||Ok(lu_solve::solve(&l,&u,&b,o,&mut ||py.check_signals(),&mut |event| {
+        match event {
+            lu_solve::Event::Y(i,k,value,from_b)=>{
+                if from_b {yr[i].set_item(k,&bcells[i][k])}
+                else {yr[i].set_item(k,field_object(py,value.clone(),domain)?)}
+            },
+            lu_solve::Event::X(i,k,value)=>xr[i].set_item(k,field_object(py,value.clone(),domain)?),
+        }
+    })))?;
+    match outcome {
+        None=>Ok(false),
+        Some(Ok(done))=>Ok(done),
+        Some(Err(lu_solve::Failure::Interrupted(error)))=>Err(error),
+        Some(Err(lu_solve::Failure::NonInvertible))=>Err(PyErr::from_value(exception.call0()?)),
     }
 }
 

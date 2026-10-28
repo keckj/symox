@@ -515,6 +515,8 @@ pub struct Fp {
 }
 impl Fp {
     pub(crate) fn modulus(&self)->u64{self.prime}
+    /// The characteristic this residue was reduced by.
+    pub fn characteristic(&self)->u64{self.prime}
     pub fn from_rat(c: &Rat, prime: u64) -> PResult<Self> {
         if prime < 2 || prime >= 1u64 << 32 || !super::gf::is_prime(prime) {
             return Err(PolyError::Failed(

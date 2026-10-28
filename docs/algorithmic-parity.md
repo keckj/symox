@@ -11219,3 +11219,39 @@ The existing Hermite representative-domain gap remains open: for a=t+1, d=(t+2)^
 
 [Portable sources, certificates, rejected lineage and raw gates](../audits/sympy-1.14.0/native-math-ports-2026-10-28/README.md) distinguish all private DEBUG builds from this freshly built integrated RELEASE. No timing campaign, unrelated integral/ODE corpus replay or global speed/parity claim is inferred from the mathematical ports. Coordinated rewriting of private implementation and its anchors changes the optimizer program and is outside these protocol witnesses.
 
+
+## Wave 18 lu-dom: exact-field LU, triangular solves and Gauss-Jordan beyond QQ, 2026-10-28
+
+The existing in-place Rust kernels for `ddm_ilu`, `ddm_ilu_solve`, dense
+`ddm_irref` and sparse `sdm_irref` are now generic over the exact `Field`
+trait. They keep SymPy 1.14's pivot choice, elimination order, published
+swap/set sequence, permutation lists and `DMNonInvertibleMatrixError`.
+
+- Native now:
+  - `ddm_ilu` and `ddm_ilu_solve` over GF(p) with p < 2^32, and over algebraic
+    fields QQ<a>.
+  - Non-partial dense `ddm_irref` and sparse `sdm_irref` over GF(p) with
+    p < 2^32, QQ<a> and QQ_I.
+  - Every cell must be an exact native element of the same domain, otherwise
+    the call declines.
+- Public reach: `DomainMatrix.lu()`, `lu_solve()`, `rref(method='GJ')` and
+  `rref(method='GJ_dense')`. ZZ and ZZ_I reach these kernels only through
+  SymPy's own conversion to QQ/QQ_I. As in SymPy, `lu` and `lu_solve` raise
+  `DMNotAField` on rings.
+- Still the complete original Python route:
+  - QQ_I LU and solves. Gaussian division goes through Python wrapper
+    callbacks that are not authenticated natively.
+  - RR/CC, and partial-pivot dense irref outside QQ.
+  - GF(p) with p >= 2^32.
+  - Mixed-domain cells and sparse explicit zeros.
+  - Matrix.LUsolve, which uses the expression-level `_LUdecomposition` as in
+    SymPy and never reaches these kernels.
+- Evidence:
+  - `tests/test_native_lu_dom.py` (320 cases) uses values hard-coded from SymPy
+    1.14 and randomized live-reference comparisons, with P*A = L*U and
+    A*x = B certificates.
+  - The admission scope test in `tests/test_sdm_irref_native.py` now expects
+    GF and QQ_I to run natively, with the result identical to the complete
+    Python algorithm.
+  - Timings are in `audits/performance/2026-10-28-lu-dom/`.
+- No intentional output correction is made relative to SymPy 1.14.

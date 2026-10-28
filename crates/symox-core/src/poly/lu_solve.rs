@@ -1,44 +1,49 @@
-//! Exact QQ forward/back substitution in the established column-major order.
+//! Exact field forward/back substitution (QQ, GF(p), QQ<a>) in the
+//! established column-major order.
+use super::Field;
+#[cfg(test)]
 use super::Rat;
 
 #[derive(Debug,PartialEq,Eq)]
 pub enum Failure<E> { Interrupted(E), NonInvertible }
 
-pub enum Event<'a> {
-    Y(usize,usize,&'a Rat,bool), // true copies the original RHS object
-    X(usize,usize,&'a Rat),
+pub enum Event<'a,C=super::Rat> {
+    Y(usize,usize,&'a C,bool), // true copies the original RHS object
+    X(usize,usize,&'a C),
 }
 
 /// Shape refusal happens before any publication. The caller has performed the
 /// real public prefix, including row permutations and scratch allocation.
-pub fn solve<E>(l:&[Vec<Rat>],u:&[Vec<Rat>],b:&[Vec<Rat>],columns:usize,
+pub fn solve<C:Field,E>(l:&[Vec<C>],u:&[Vec<C>],b:&[Vec<C>],columns:usize,
     check:&mut impl FnMut()->Result<(),E>,
-    publish:&mut impl FnMut(Event<'_>)->Result<(),E>)->Result<bool,Failure<E>> {
+    publish:&mut impl FnMut(Event<'_,C>)->Result<(),E>)->Result<bool,Failure<E>> {
     check().map_err(Failure::Interrupted)?;
     let m=u.len();
     let Some(first)=u.first() else{return Ok(true)};
     let n=first.len();
     if m<n||l.len()!=m||b.len()!=m||u.iter().any(|row|row.len()!=n)
         ||l.iter().any(|row|row.len()!=m)||b.iter().any(|row|row.len()!=columns){return Ok(false);}
-    let mut y=vec![vec![Rat::zero();columns];m];
-    let mut x=vec![vec![Rat::zero();columns];n];
+    // Every read cell was published earlier in the same column: no domain
+    // zero is needed (GF(p)/QQ<a> zeros depend on the element's field).
+    let mut y:Vec<Vec<Option<C>>>=vec![vec![None;columns];m];
+    let mut x:Vec<Vec<Option<C>>>=vec![vec![None;columns];n];
     for k in 0..columns {
         for i in 0..m {
             check().map_err(Failure::Interrupted)?;
             let mut rhs=b[i][k].clone();
             for j in 0..i {
                 check().map_err(Failure::Interrupted)?;
-                rhs=rhs.sub(&l[i][j].mul(&y[j][k]));
+                rhs=rhs.sub(&l[i][j].mul(y[j][k].as_ref().unwrap()));
             }
             publish(Event::Y(i,k,&rhs,i==0)).map_err(Failure::Interrupted)?;
-            y[i][k]=rhs;
+            y[i][k]=Some(rhs);
         }
     }
     if m>n {
         for row in y.iter().skip(n) {
             for value in row {
                 check().map_err(Failure::Interrupted)?;
-                if !value.is_zero(){return Err(Failure::NonInvertible);}
+                if !value.as_ref().unwrap().is_zero(){return Err(Failure::NonInvertible);}
             }
         }
     }
@@ -46,14 +51,14 @@ pub fn solve<E>(l:&[Vec<Rat>],u:&[Vec<Rat>],b:&[Vec<Rat>],columns:usize,
         for i in (0..n).rev() {
             check().map_err(Failure::Interrupted)?;
             if u[i][i].is_zero(){return Err(Failure::NonInvertible);}
-            let mut rhs=y[i][k].clone();
+            let mut rhs=y[i][k].clone().unwrap();
             for j in (i+1)..n {
                 check().map_err(Failure::Interrupted)?;
-                rhs=rhs.sub(&u[i][j].mul(&x[j][k]));
+                rhs=rhs.sub(&u[i][j].mul(x[j][k].as_ref().unwrap()));
             }
             let value=rhs.mul(&u[i][i].inv());
             publish(Event::X(i,k,&value)).map_err(Failure::Interrupted)?;
-            x[i][k]=value;
+            x[i][k]=Some(value);
         }
     }
     check().map_err(Failure::Interrupted)?;

@@ -1,8 +1,8 @@
-//! QQ LU representation checks and exact in-place publication.
+//! Exact field LU (QQ, GF(p), QQ<a>) representation checks and in-place publication.
 use pyo3::prelude::*;
 use pyo3::types::{PyList,PyTuple,PyInt};
 use symox::poly::{domains::ExactDomain,lu};
-use super::{sequence,entries,rationals,element_object};
+use super::{sequence,entries,rationals,element_object,scalar,Scalar,field_domain,field_values,field_object,with_field_scope,FieldKind,FieldPayload};
 
 #[pyfunction]
 #[pyo3(signature=(a,stock=None,dimensions=None))]
@@ -27,6 +27,17 @@ fn _ddm_ilu<'py>(a:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,dimensions:
         let (Ok(m),Ok(n))=(m.extract::<usize>(),n.extract::<usize>()) else{return Ok(None)};
         if m!=cells.len()||n!=cells.first().map_or(0,Vec::len){return Ok(None);}
     }
+    if let Some(first)=cells.first().and_then(|row|row.first()).filter(|v|scalar(v)!=Some(Scalar::QQ)) {
+        // QQ_I division routes through the Python Gaussian wrapper, whose
+        // conversion callbacks are not authenticated here: Python keeps it.
+        let Some((domain,kind))=field_domain(first,false) else{return Ok(None)};
+        let outer=a.downcast::<PyList>()?;
+        let output=rows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
+        return match kind {
+            FieldKind::Finite=>field_lu::<symox::poly::f5b::Fp>(&cells,outer,output,&domain,py),
+            FieldKind::Algebraic=>field_lu::<symox::poly::algebraic::AN>(&cells,outer,output,&domain,py),
+        };
+    }
     let Some(mut values)=rationals(&cells,py)? else{return Ok(None)};
     let outer=a.downcast::<PyList>()?;
     let mut output=rows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
@@ -41,6 +52,19 @@ fn _ddm_ilu<'py>(a:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,dimensions:
             lu::Event::Set(i,j,value)=>output[i].set_item(j,element_object(py,value.clone(),ExactDomain::QQ)?),
         }
     })
+}
+
+fn field_lu<C:FieldPayload>(cells:&[Vec<Bound<'_,PyAny>>],outer:&Bound<'_,PyList>,mut output:Vec<Bound<'_,PyList>>,
+    domain:&symox::poly::domains::ExactDomain,py:Python<'_>)->PyResult<Option<Vec<(usize,usize)>>> {
+    let Some(mut values)=field_values::<C>(cells,domain,py)? else{return Ok(None)};
+    with_field_scope(domain,||lu::in_place(&mut values,&mut ||py.check_signals(),&mut |event| {
+        match event {
+            lu::Event::Swap(i,j)=>{
+                outer.set_item(i,&output[j])?;outer.set_item(j,&output[i])?;output.swap(i,j);Ok(())
+            },
+            lu::Event::Set(i,j,value)=>output[i].set_item(j,field_object(py,value.clone(),domain)?),
+        }
+    })).map(Option::flatten)
 }
 
 pub(super) fn register(module:&Bound<'_,PyModule>)->PyResult<()> {

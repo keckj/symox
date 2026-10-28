@@ -89,6 +89,91 @@ pub(super) fn element_object(py:Python<'_>,value:Rat,domain:ExactDomain)->PyResu
     Ok(PyDomainElement{value:DomainElement{domain,value:ElementValue::Rational(value)}}.into_pyobject(py)?.into_any().unbind())
 }
 
+/// Exact field element payloads beyond QQ whose native Python arithmetic is
+/// `DomainElement::binary` on exactly these `Field` operations: GF(p) and the
+/// algebraic fields QQ<a> and QQ_I. The domain is shared by every cell.
+pub(super) trait FieldPayload: symox::poly::Field {
+    fn payload(value:&ElementValue)->Option<&Self>;
+    fn value(self)->ElementValue;
+}
+impl FieldPayload for symox::poly::f5b::Fp {
+    fn payload(value:&ElementValue)->Option<&Self>{if let ElementValue::Finite(v)=value{Some(v)}else{None}}
+    fn value(self)->ElementValue{ElementValue::Finite(self)}
+}
+impl FieldPayload for symox::poly::algebraic::AN {
+    fn payload(value:&ElementValue)->Option<&Self>{if let ElementValue::Algebraic(v)=value{Some(v)}else{None}}
+    fn value(self)->ElementValue{ElementValue::Algebraic(self)}
+}
+
+#[derive(Clone,Copy,PartialEq,Eq)]
+pub(super) enum FieldKind { Finite, Algebraic }
+
+/// The admitted non-QQ field of a stock element: GF(p) with p < 2**32 (the
+/// native prime scope), an algebraic field QQ<a>, or QQ_I (only when the
+/// caller's Python operations do not route through the Gaussian wrappers).
+pub(super) fn field_domain(value:&Bound<'_,PyAny>,gaussian:bool)->Option<(ExactDomain,FieldKind)> {
+    if !value.is_exact_instance_of::<PyDomainElement>() {return None;}
+    let element=&value.downcast::<PyDomainElement>().ok()?.get().value;
+    match (&element.domain,&element.value) {
+        (ExactDomain::GF(p),ElementValue::Finite(v)) if v.characteristic()==*p&&symox::poly::f5b::PrimeScope::new(*p).is_ok()=>
+            Some((element.domain.clone(),FieldKind::Finite)),
+        (ExactDomain::Algebraic(field),ElementValue::Algebraic(v)) if v.field==*field=>
+            Some((element.domain.clone(),FieldKind::Algebraic)),
+        (ExactDomain::Gaussian{integral:false},ElementValue::Algebraic(v)) if gaussian&&symox::poly::gaussian::is_gaussian_field(&v.field)=>
+            Some((element.domain.clone(),FieldKind::Algebraic)),
+        _=>None,
+    }
+}
+
+/// Every cell must be a stock element of exactly `domain` (no unification,
+/// no conversion): a mixed matrix keeps the complete Python algorithm.
+pub(super) fn field_values<C:FieldPayload>(values:&[Vec<Bound<'_,PyAny>>],domain:&ExactDomain,py:Python<'_>)->PyResult<Option<Vec<Vec<C>>>> {
+    let mut result=Vec::with_capacity(values.len());
+    for row in values {
+        py.check_signals()?;
+        let mut output=Vec::with_capacity(row.len());
+        for (j,value) in row.iter().enumerate() {
+            if j%64==0 {py.check_signals()?;}
+            let Some(value)=field_value::<C>(value,domain) else{return Ok(None)};
+            output.push(value);
+        }
+        result.push(output);
+    }
+    Ok(Some(result))
+}
+
+pub(super) fn field_value<C:FieldPayload>(value:&Bound<'_,PyAny>,domain:&ExactDomain)->Option<C> {
+    if !value.is_exact_instance_of::<PyDomainElement>() {return None;}
+    let element=&value.downcast::<PyDomainElement>().ok()?.get().value;
+    if element.domain!=*domain {return None;}
+    let payload=C::payload(&element.value)?;
+    match (domain,&element.value) {
+        (ExactDomain::GF(p),ElementValue::Finite(v)) if v.characteristic()!=*p=>return None,
+        (ExactDomain::Algebraic(field),ElementValue::Algebraic(v)) if v.field!=*field=>return None,
+        (ExactDomain::Gaussian{..},ElementValue::Algebraic(v)) if !symox::poly::gaussian::is_gaussian_field(&v.field)=>return None,
+        _=>{}
+    }
+    Some(payload.clone())
+}
+
+pub(super) fn field_object<C:FieldPayload>(py:Python<'_>,value:C,domain:&ExactDomain)->PyResult<PyObject> {
+    Ok(PyDomainElement{value:DomainElement{domain:domain.clone(),value:value.value()}}.into_pyobject(py)?.into_any().unbind())
+}
+
+/// Run `body` with the native coefficient scope of `domain` installed, as
+/// `DomainElement::binary` does around the same field operations.
+pub(super) fn with_field_scope<T>(domain:&ExactDomain,body:impl FnOnce()->PyResult<T>)->PyResult<Option<T>> {
+    match domain {
+        ExactDomain::GF(p)=>{
+            let Ok(_scope)=symox::poly::f5b::PrimeScope::new(*p) else{return Ok(None)};
+            body().map(Some)
+        },
+        ExactDomain::Algebraic(field)=>{let _scope=symox::poly::algebraic::AlgebraicScope::new(field.clone());body().map(Some)},
+        ExactDomain::Gaussian{integral:false}=>{let _scope=symox::poly::algebraic::AlgebraicScope::new(symox::poly::gaussian::field());body().map(Some)},
+        _=>Ok(None),
+    }
+}
+
 #[pyfunction]
 #[pyo3(signature=(a,b,c,stock=None))]
 fn _ddm_imatmul<'py>(a:&Bound<'py,PyAny>,b:&Bound<'py,PyAny>,c:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,py:Python<'py>)->PyResult<bool> {
@@ -146,6 +231,19 @@ fn _ddm_irref<'py>(a:&Bound<'py,PyAny>,partial:&Bound<'py,PyAny>,stock:Option<&B
     let n=first.len();
     if entries.iter().any(|row|row.len()!=n) {return Ok(None);}
     if n==0 {return Ok(Some(Vec::new()));}
+    if scalar(&entries[0][0])!=Some(Scalar::QQ) {
+        // GF(p), QQ<a> and QQ_I: the Python body consumes only the native
+        // pow/mul/sub/bool operations checked by the caller. Partial pivoting
+        // is the inexact RR/CC path and stays in Python for these domains.
+        if partial {return Ok(None);}
+        let Some((domain,kind))=field_domain(&entries[0][0],true) else{return Ok(None)};
+        let outer=a.downcast::<PyList>()?;
+        let rows=arows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
+        return match kind {
+            FieldKind::Finite=>field_irref_dense::<symox::poly::f5b::Fp>(&entries,outer,rows,&domain,py),
+            FieldKind::Algebraic=>field_irref_dense::<symox::poly::algebraic::AN>(&entries,outer,rows,&domain,py),
+        };
+    }
     let Some(mut values)=rationals(&entries,py)? else{return Ok(None)};
     let outer=a.downcast::<PyList>()?;
     let mut output_rows=arows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect::<Vec<_>>();
@@ -160,6 +258,19 @@ fn _ddm_irref<'py>(a:&Bound<'py,PyAny>,partial:&Bound<'py,PyAny>,stock:Option<&B
             symox::poly::ddm::RrefEvent::Set(i,j,value)=>output_rows[i].set_item(j,element_object(py,value.clone(),ExactDomain::QQ)?),
         }
     })
+}
+
+fn field_irref_dense<C:FieldPayload>(entries:&[Vec<Bound<'_,PyAny>>],outer:&Bound<'_,PyList>,
+    mut rows:Vec<Bound<'_,PyList>>,domain:&ExactDomain,py:Python<'_>)->PyResult<Option<Vec<usize>>> {
+    let Some(mut values)=field_values::<C>(entries,domain,py)? else{return Ok(None)};
+    with_field_scope(domain,||symox::poly::ddm::field_irref(&mut values,false,&mut ||py.check_signals(),&mut |event| {
+        match event {
+            symox::poly::ddm::FieldRrefEvent::Swap(i,j)=>{
+                outer.set_item(i,&rows[j])?;outer.set_item(j,&rows[i])?;rows.swap(i,j);Ok(())
+            },
+            symox::poly::ddm::FieldRrefEvent::Set(i,j,value)=>rows[i].set_item(j,field_object(py,value.clone(),domain)?),
+        }
+    })).map(Option::flatten)
 }
 
 fn reduce_fraction_free<C:symox::poly::Coeff>(mut values:Vec<Vec<C>>,outer:&Bound<'_,PyList>,
