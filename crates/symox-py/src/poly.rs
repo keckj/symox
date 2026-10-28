@@ -23,6 +23,8 @@ mod structural;
 mod ddm;
 #[path="poly_fraction_free.rs"]
 pub(crate) mod fraction_free;
+#[path="poly_ff_domains.rs"]
+pub(crate) mod ff_domains;
 
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;

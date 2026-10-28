@@ -301,7 +301,9 @@ fn reduce_fraction_free<C:symox::poly::Coeff>(mut values:Vec<Vec<C>>,outer:&Boun
 #[pyo3(signature=(a,k,stock=None))]
 fn _ddm_irref_den<'py>(a:&Bound<'py,PyAny>,k:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,py:Python<'py>)->PyResult<Option<(PyObject,Vec<usize>)>> {
     py.check_signals()?;
-    let Some(domain)=super::fraction_free::domain(k) else{return Ok(None)};
+    let typed=super::fraction_free::domain(k);
+    let generic=if typed.is_none(){super::ff_domains::domain(k)}else{None};
+    if typed.is_none()&&generic.is_none(){return Ok(None);}
     let Some(arows)=sequence(a,stock,true) else{return Ok(None)};
     let mut seen=rustc_hash::FxHashSet::default();
     for row in &arows{if !row.is_exact_instance_of::<PyList>()||!seen.insert(row.as_ptr() as usize){return Ok(None);}}
@@ -310,6 +312,8 @@ fn _ddm_irref_den<'py>(a:&Bound<'py,PyAny>,k:&Bound<'py,PyAny>,stock:Option<&Bou
     if values.iter().any(|row|row.len()!=n){return Ok(None);}
     let outer=a.downcast::<PyList>()?;
     let rows=arows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect();
+    if let Some(domain)=generic {return super::ff_domains::irref_den(outer,rows,&values,domain,py);}
+    let domain=typed.unwrap();
     if domain==ExactDomain::ZZ {
         let Some(values)=integers(&values,Scalar::ZZ,py)? else{return Ok(None)};
         reduce_fraction_free(values,outer,rows,domain,py)
@@ -338,7 +342,9 @@ fn determinant<C: symox::poly::Coeff>(mut values: Vec<Vec<C>>, outer: &Bound<'_,
 fn _ddm_idet<'py>(a: &Bound<'py,PyAny>, k: &Bound<'py,PyAny>,
     stock: Option<&Bound<'py,PyAny>>, py: Python<'py>) -> PyResult<Option<PyObject>> {
     py.check_signals()?;
-    let Some(domain) = super::fraction_free::domain(k) else { return Ok(None); };
+    let typed = super::fraction_free::domain(k);
+    let generic = if typed.is_none() { super::ff_domains::domain(k) } else { None };
+    if typed.is_none() && generic.is_none() { return Ok(None); }
     let Some(arows) = sequence(a,stock,true) else { return Ok(None); };
     let mut seen = rustc_hash::FxHashSet::default();
     for row in &arows {
@@ -348,6 +354,8 @@ fn _ddm_idet<'py>(a: &Bound<'py,PyAny>, k: &Bound<'py,PyAny>,
     if values.iter().any(|row|row.len()!=values.len()) { return Ok(None); }
     let outer = a.downcast::<PyList>()?;
     let rows = arows.into_iter().map(|row|row.downcast_into::<PyList>().unwrap()).collect();
+    if let Some(domain) = generic { return super::ff_domains::det(outer,rows,&values,domain,py); }
+    let domain = typed.unwrap();
     if domain == ExactDomain::ZZ {
         let Some(values) = integers(&values,Scalar::ZZ,py)? else { return Ok(None); };
         determinant(values,outer,rows,domain,py)
@@ -366,12 +374,16 @@ fn _ddm_berk<'py>(a: &Bound<'py,PyAny>, k: &Bound<'py,PyAny>,
         value.as_i64().map(MatrixInt::from_i64).unwrap_or_else(|| MatrixInt::from_big(value.to_big()))
     }
     py.check_signals()?;
-    let Some(domain) = super::fraction_free::domain(k) else { return Ok(None); };
+    let typed = super::fraction_free::domain(k);
+    let generic = if typed.is_none() { super::ff_domains::domain(k) } else { None };
+    if typed.is_none() && generic.is_none() { return Ok(None); }
     let Some(arows) = sequence(a,stock,true) else { return Ok(None); };
     if arows.iter().any(|row| !row.is_exact_instance_of::<PyList>()) { return Ok(None); }
     let Some(entries) = entries(&arows,true) else { return Ok(None); };
     let n = entries.len();
     if entries.iter().any(|row|row.len()!=n) { return Ok(None); }
+    if let Some(domain) = generic { return super::ff_domains::berk(&entries,domain,py); }
+    let domain = typed.unwrap();
     let values = if domain == ExactDomain::ZZ {
         let Some(values) = integers(&entries,Scalar::ZZ,py)? else { return Ok(None); };
         values.into_iter().map(|row|row.into_iter().map(Rat::from).collect()).collect()
@@ -549,11 +561,24 @@ fn sparse_entries<C:symox::poly::Coeff>(matrix:&Bound<'_,PyDict>,n:usize,py:Pyth
 fn _sdm_berk(matrix:&Bound<'_,PyAny>,n:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,
     stock:Option<&Bound<'_,PyAny>>,py:Python<'_>)->PyResult<Option<PyObject>> {
     py.check_signals()?;
-    let Some(domain)=super::fraction_free::domain(k) else{return Ok(None)};
+    let typed=super::fraction_free::domain(k);
+    let generic=if typed.is_none(){super::ff_domains::domain(k)}else{None};
+    if typed.is_none()&&generic.is_none(){return Ok(None);}
     if !n.is_exact_instance_of::<PyInt>(){return Ok(None);}
     let Ok(n)=n.extract::<usize>() else{return Ok(None)};
     if !matrix.is_exact_instance_of::<PyDict>() && !stock.is_some_and(|stock|matrix.get_type().is(stock)){return Ok(None);}
     let Ok(matrix)=matrix.downcast::<PyDict>() else{return Ok(None)};
+    if let Some(domain)=generic {
+        let Some(scope)=super::ff_domains::scope(&domain) else{return Ok(None)};
+        if n==0 {
+            let out=PyDict::new(py);
+            out.set_item(0,super::ff_domains::object(py,&<symox::poly::domain_coeff::DomainCoeff as symox::poly::Coeff>::one())?)?;
+            return Ok(Some(out.into_any().unbind()));
+        }
+        let Some(rows)=sparse_entries(matrix,n,py,|value|Ok(super::ff_domains::element(value,&domain)))? else{return Ok(None)};
+        return super::ff_domains::sparse_berk(&rows,n,&scope,py);
+    }
+    let domain=typed.unwrap();
     let out=PyDict::new(py);
     if n==0{
         out.set_item(0,element_object(py,Rat::from(Int::from(1)),domain)?)?;
@@ -582,7 +607,8 @@ fn _sdm_berk(matrix:&Bound<'_,PyAny>,n:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,
 }
 
 fn sparse_convolution<C:symox::poly::Coeff>(q:&Bound<'_,PyDict>,t:&Bound<'_,PyList>,degree:usize,
-    domain:ExactDomain,py:Python<'_>,mut parse:impl FnMut(&Bound<'_,PyAny>)->PyResult<Option<C>>)
+    py:Python<'_>,mut parse:impl FnMut(&Bound<'_,PyAny>)->PyResult<Option<C>>,
+    publish:impl Fn(&C)->PyResult<PyObject>,failed:impl Fn()->bool)
     ->PyResult<Option<PyObject>> {
     // The legacy caller takes min/max(q): an empty dictionary must retain
     // that explicit error instead of becoming a successfully empty result.
@@ -604,8 +630,9 @@ fn sparse_convolution<C:symox::poly::Coeff>(q:&Bound<'_,PyDict>,t:&Bound<'_,PyLi
         if !value.is_zero(){t_native.insert(i,value);}
     }
     let result=symox::poly::sdm::toeplitz_product_checked(&q_native,&t_native,degree,&mut ||py.check_signals())?;
+    if failed(){return Ok(None);}
     let out=PyDict::new(py);
-    for (i,value) in result{py.check_signals()?;out.set_item(i,element_object(py,value.to_rat(),domain.clone())?)?;}
+    for (i,value) in result{py.check_signals()?;out.set_item(i,publish(&value)?)?;}
     Ok(Some(out.into_any().unbind()))
 }
 
@@ -615,25 +642,34 @@ fn sparse_convolution<C:symox::poly::Coeff>(q:&Bound<'_,PyDict>,t:&Bound<'_,PyLi
 fn _sdm_berk_combine(q:&Bound<'_,PyAny>,t:&Bound<'_,PyAny>,degree:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,
     py:Python<'_>)->PyResult<Option<PyObject>> {
     py.check_signals()?;
-    let Some(domain)=super::fraction_free::domain(k) else{return Ok(None)};
+    let typed=super::fraction_free::domain(k);
+    let generic=if typed.is_none(){super::ff_domains::domain(k)}else{None};
+    if typed.is_none()&&generic.is_none(){return Ok(None);}
     if !degree.is_exact_instance_of::<PyInt>() || !q.is_exact_instance_of::<PyDict>()
         || !t.is_exact_instance_of::<PyList>(){return Ok(None);}
     let Ok(degree)=degree.extract::<usize>() else{return Ok(None)};
     let q=q.downcast::<PyDict>()?;let t=t.downcast::<PyList>()?;
+    if let Some(domain)=generic {
+        let Some(scope)=super::ff_domains::scope(&domain) else{return Ok(None)};
+        return sparse_convolution(q,t,degree,py,|value|Ok(super::ff_domains::element(value,&domain)),
+            |value|super::ff_domains::object(py,value),||scope.failed());
+    }
+    let domain=typed.unwrap();
+    let publish=|value:&Rat|element_object(py,value.clone(),domain.clone());
     if domain==ExactDomain::ZZ{
-        sparse_convolution(q,t,degree,domain,py,|value|{
+        sparse_convolution(q,t,degree,py,|value|{
             if scalar(value)!=Some(Scalar::ZZ){return Ok(None);}
             let value=value.downcast::<PyDomainElement>()?.get();
             let ElementValue::Rational(value)=&value.value.value else{unreachable!()};
             Ok(Some(value.n.clone()))
-        })
+        },|value:&Int|publish(&Rat::from(value.clone())),||false)
     }else{
-        sparse_convolution(q,t,degree,domain,py,|value|{
+        sparse_convolution(q,t,degree,py,|value|{
             if scalar(value)!=Some(Scalar::QQ){return Ok(None);}
             let value=value.downcast::<PyDomainElement>()?.get();
             let ElementValue::Rational(value)=&value.value.value else{unreachable!()};
             Ok(Some(value.clone()))
-        })
+        },publish,||false)
     }
 }
 

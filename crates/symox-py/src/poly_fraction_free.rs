@@ -37,7 +37,11 @@ fn build<C:Coeff>(keys:&[Vec<usize>],values:Vec<Vec<C>>)->Vec<OrderedMap<C>> {
     keys.iter().zip(values).map(|(keys,values)|{let mut row=OrderedMap::default();for (&j,value) in keys.iter().zip(values){row.insert(j,value);}row}).collect()
 }
 fn output<C:Coeff>(py:Python<'_>,rows:Vec<OrderedMap<C>>,denominator:C,pivots:Vec<usize>,domain:ExactDomain)->PyResult<(PyObject,PyObject,Vec<usize>)> {
-    let den=ddm::element_object(py,denominator.to_rat(),domain.clone())?;
+    output_with(py,rows,denominator,pivots,|value|ddm::element_object(py,value.to_rat(),domain.clone()))
+}
+fn output_with<C:Coeff>(py:Python<'_>,rows:Vec<OrderedMap<C>>,denominator:C,pivots:Vec<usize>,
+    object:impl Fn(&C)->PyResult<PyObject>)->PyResult<(PyObject,PyObject,Vec<usize>)> {
+    let den=object(&denominator)?;
     let out=PyDict::new(py);
     for (i,(row,&pivot)) in rows.into_iter().zip(&pivots).enumerate() {
         py.check_signals()?;
@@ -45,7 +49,7 @@ fn output<C:Coeff>(py:Python<'_>,rows:Vec<OrderedMap<C>>,denominator:C,pivots:Ve
         for (offset,(j,value)) in row.iter().enumerate() {
             if offset%64==0{py.check_signals()?;}
             if j==pivot{values.set_item(j,den.bind(py))?;}
-            else{values.set_item(j,ddm::element_object(py,value.to_rat(),domain.clone())?)?;}
+            else{values.set_item(j,object(value)?)?;}
         }
         out.set_item(i,values)?;
     }
@@ -57,7 +61,7 @@ fn output<C:Coeff>(py:Python<'_>,rows:Vec<OrderedMap<C>>,denominator:C,pivots:Ve
 #[pyo3(signature=(a,k,stock=None))]
 fn _sdm_rref_den<'py>(a:&Bound<'py,PyAny>,k:&Bound<'py,PyAny>,stock:Option<&Bound<'py,PyAny>>,py:Python<'py>)->PyResult<Option<(PyObject,PyObject,Vec<usize>)>> {
     py.check_signals()?;
-    let Some(domain)=domain(k) else{return Ok(None)};
+    let Some(domain)=domain(k).or_else(||super::ff_domains::domain(k)) else{return Ok(None)};
     if !a.is_exact_instance_of::<PyDict>()&&!stock.is_some_and(|stock|a.get_type().is(stock)){return Ok(None);}
     let Ok(a)=a.downcast::<PyDict>() else{return Ok(None)};
     // The original one-row branch returns a shallow copy and its existing
@@ -81,6 +85,24 @@ fn _sdm_rref_den<'py>(a:&Bound<'py,PyAny>,k:&Bound<'py,PyAny>,stock:Option<&Boun
     rows.sort_by_key(|(i,_,_)|*i);
     let (keys,values):(Vec<_>,Vec<_>)=rows.into_iter().map(|(_,keys,values)|(keys,values)).unzip();
     let mut ordering=|operation,left:&[usize],right:&[usize]|order(py,operation,left,right);
+    if !matches!(domain,ExactDomain::ZZ|ExactDomain::QQ) {
+        use super::ff_domains as generic;
+        let Some(scope)=generic::scope(&domain) else{return Ok(None)};
+        let Some(values)=generic::values(&values,&domain,py)? else{return Ok(None)};
+        if values.iter().flatten().any(Coeff::is_zero){return Ok(None);}
+        // A failed element operation stops the kernel at its next check.
+        let declined=std::cell::Cell::new(false);
+        let result=fraction_free::sparse(build(&keys,values),&mut ||{
+            py.check_signals()?;
+            if scope.failed(){declined.set(true);Err(pyo3::exceptions::PyRuntimeError::new_err("declined"))}else{Ok(())}
+        },&mut ordering);
+        let (rows,den,pivots)=match result {
+            Ok(Some(value)) if !scope.failed()=>value,
+            Err(fraction_free::Failure::Interrupted(error)) if !declined.get()=>return Err(error),
+            _=>return Ok(None),
+        };
+        return Ok(Some(output_with(py,rows,den,pivots,|value|generic::object(py,value))?));
+    }
     if domain==ExactDomain::ZZ {
         let Some(values)=ddm::integers(&values,Scalar::ZZ,py)? else{return Ok(None)};
         if values.iter().flatten().any(Coeff::is_zero){return Ok(None);}

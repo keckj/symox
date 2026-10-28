@@ -1,10 +1,16 @@
-//! Exact stock ZZ/QQ FFLU adapters; Python retains its real allocation barriers.
+//! Exact stock FFLU adapters (typed ZZ/QQ, and the other exact native
+//! domains through `ff_domains`); Python retains its real allocation barriers.
 use pyo3::prelude::*;
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::{PyDict,PyInt,PyList,PyModule,PyString,PyTuple};
 use symox::poly::{Coeff,fflu,domains::ExactDomain};
 use super::{Scalar,sequence,entries,integers,rationals,element_object};
-use super::super::fraction_free::{domain,failure};
+use super::super::fraction_free::failure;
+use super::super::ff_domains;
+
+/// The typed ZZ/QQ domain, or another admitted exact domain.
+fn domain(k:&Bound<'_,PyAny>)->Option<ExactDomain>{super::super::fraction_free::domain(k).or_else(||ff_domains::domain(k))}
+fn typed(k:&ExactDomain)->bool{matches!(k,ExactDomain::ZZ|ExactDomain::QQ)}
 
 struct Matrix<'py>{outer:Bound<'py,PyList>,rows:Vec<Bound<'py,PyList>>,cells:Vec<Vec<Bound<'py,PyAny>>>}
 fn matrix<'py>(value:&Bound<'py,PyAny>,stock:&Bound<'py,PyAny>,m:usize,n:usize)->Option<Matrix<'py>>{
@@ -60,7 +66,7 @@ fn _ddm_fflu(a:&Bound<'_,PyAny>,perm:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,shape:&
     match k{
         ExactDomain::ZZ=>match integers(&a.cells,Scalar::ZZ,py)?{Some(values)=>eliminate(a,&perm,values,n,k),None=>Ok(false)},
         ExactDomain::QQ=>match rationals(&a.cells,py)?{Some(values)=>eliminate(a,&perm,values,n,k),None=>Ok(false)},
-        _=>Ok(false),
+        _=>ff_domains::fflu_eliminate(&a.outer,a.rows,&a.cells,&perm,n,k,py),
     }
 }
 #[pyfunction]
@@ -70,18 +76,29 @@ fn _ddm_fflu_p(p:&Bound<'_,PyAny>,perm:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,shape
     let Some(p)=matrix(p,stock,m,m) else{return Ok(false)};let Some(perm)=indices(perm,m) else{return Ok(false)};
     // Canonical zero matrices are admitted; values are parsed without calling
     // user scalar protocols even though only K.one is published by this phase.
+    let indices=perm.iter().map(|v|v.extract::<usize>()).collect::<PyResult<Vec<_>>>()?;
+    if !typed(&k){
+        let Some(_scope)=ff_domains::scope(&k) else{return Ok(false)};
+        if ff_domains::values(&p.cells,&k,py)?.is_none(){return Ok(false);}
+        let one=<symox::poly::domain_coeff::DomainCoeff as Coeff>::one();
+        return fflu::permutation(&indices,m,&mut ||py.check_signals(),&mut |i,j|p.rows[i].set_item(j,ff_domains::object(py,&one)?));
+    }
     let scalar=if matches!(k,ExactDomain::ZZ){Scalar::ZZ}else{Scalar::QQ};
     if p.cells.iter().flatten().any(|v|super::scalar(v)!=Some(scalar)){return Ok(false);}
-    let indices=perm.iter().map(|v|v.extract::<usize>()).collect::<PyResult<Vec<_>>>()?;
     fflu::permutation(&indices,m,&mut ||py.check_signals(),&mut |i,j|p.rows[i].set_item(j,element_object(py,symox::poly::Rat::one(),k.clone())?))
 }
-fn lower<C:Coeff>(u:Matrix<'_>,l:Matrix<'_>,mut uv:Vec<Vec<C>>,mut lv:Vec<Vec<C>>,n:usize,k:ExactDomain)->PyResult<bool>{
+fn lower<C:Coeff>(u:Matrix<'_>,l:Matrix<'_>,uv:Vec<Vec<C>>,lv:Vec<Vec<C>>,n:usize,k:ExactDomain)->PyResult<bool>{
+    let py=u.outer.py();
+    lower_with(u,l,uv,lv,n,||element_object(py,symox::poly::Rat::zero(),k.clone()),||element_object(py,symox::poly::Rat::one(),k.clone()))
+}
+fn lower_with<C:Coeff>(u:Matrix<'_>,l:Matrix<'_>,mut uv:Vec<Vec<C>>,mut lv:Vec<Vec<C>>,n:usize,
+    zero:impl Fn()->PyResult<PyObject>,one:impl Fn()->PyResult<PyObject>)->PyResult<bool>{
     let py=u.outer.py();
     fflu::lower(&mut uv,&mut lv,n,&mut ||py.check_signals(),&mut |event|{
         match event{
             fflu::Lower::Copy(i,j,r,c,_)=>{let value=u.rows[r].get_item(c)?;l.rows[i].set_item(j,value)},
-            fflu::Lower::ZeroUpper(i,j)=>u.rows[i].set_item(j,element_object(py,symox::poly::Rat::zero(),k.clone())?),
-            fflu::Lower::OneLower(i,j)=>l.rows[i].set_item(j,element_object(py,symox::poly::Rat::one(),k.clone())?),
+            fflu::Lower::ZeroUpper(i,j)=>u.rows[i].set_item(j,zero()?),
+            fflu::Lower::OneLower(i,j)=>l.rows[i].set_item(j,one()?),
         }
     })
 }
@@ -94,7 +111,12 @@ fn _ddm_fflu_l(u:&Bound<'_,PyAny>,l:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,shape:&B
     match k{
         ExactDomain::ZZ=>match (integers(&u.cells,Scalar::ZZ,py)?,integers(&l.cells,Scalar::ZZ,py)?){(Some(uv),Some(lv))=>lower(u,l,uv,lv,n,k),_=>Ok(false)},
         ExactDomain::QQ=>match (rationals(&u.cells,py)?,rationals(&l.cells,py)?){(Some(uv),Some(lv))=>lower(u,l,uv,lv,n,k),_=>Ok(false)},
-        _=>Ok(false),
+        _=>{
+            let Some(_scope)=ff_domains::scope(&k) else{return Ok(false)};
+            let (Some(uv),Some(lv))=(ff_domains::values(&u.cells,&k,py)?,ff_domains::values(&l.cells,&k,py)?) else{return Ok(false)};
+            let (zero,one)=(<symox::poly::domain_coeff::DomainCoeff as Coeff>::zero(),<symox::poly::domain_coeff::DomainCoeff as Coeff>::one());
+            lower_with(u,l,uv,lv,n,||ff_domains::object(py,&zero),||ff_domains::object(py,&one))
+        },
     }
 }
 fn diagonal<C:Coeff>(d:Matrix<'_>,lv:Vec<Vec<C>>,mut dv:Vec<Vec<C>>,k:ExactDomain)->PyResult<bool>{
@@ -109,7 +131,7 @@ fn _ddm_fflu_d(l:&Bound<'_,PyAny>,d:&Bound<'_,PyAny>,k:&Bound<'_,PyAny>,shape:&B
     match k{
         ExactDomain::ZZ=>match (integers(&l.cells,Scalar::ZZ,py)?,integers(&d.cells,Scalar::ZZ,py)?){(Some(lv),Some(dv))=>diagonal(d,lv,dv,k),_=>Ok(false)},
         ExactDomain::QQ=>match (rationals(&l.cells,py)?,rationals(&d.cells,py)?){(Some(lv),Some(dv))=>diagonal(d,lv,dv,k),_=>Ok(false)},
-        _=>Ok(false),
+        _=>ff_domains::fflu_diagonal(&d.rows,&l.cells,&d.cells,k,py),
     }
 }
 fn dictionary<'py>(value:&Bound<'py,PyAny>)->Option<Bound<'py,PyDict>>{

@@ -339,18 +339,24 @@ for K in (ZZ,QQ):
 
 
 @pytest.mark.parametrize('name',['RR','GF5','GF6'])
-def test_other_domains_keep_the_original_dense_and_sparse_routes(name):
+def test_other_domains_match_the_original_dense_and_sparse_routes(name):
+    # RR keeps its quo-based Python body and GF(6) (zero divisors) its complete
+    # Python body; prime GF(5) is native with the same exact element arithmetic.
     from symox.polys.domains import RR,GF
     K={'RR':RR,'GF5':GF(5),'GF6':GF(6)}[name]
     def outcome(fn,a):
         try:return ('result',fn(a,K),a)
         except Exception as error:return ('error',type(error),str(error),a)
     a=[[K(2),K(1)],[K(3),K(4)]];old=[row[:] for row in a]
-    assert sx._core._ddm_irref_den(a,K) is None
-    assert outcome(dense.ddm_irref_den,a)==outcome(dense_reference,old)
+    native=sx._core._ddm_irref_den(a,K)
+    assert (native is None)==(name!='GF5')
+    if native is None:assert outcome(dense.ddm_irref_den,a)==outcome(dense_reference,old)
+    else:assert ('result',native,a)==outcome(dense_reference,old)
     a=dict_rows([[K(2),K(1)],[K(3),K(4)]]);old={i:row.copy() for i,row in a.items()}
-    assert sx._core._sdm_rref_den(a,K) is None
-    assert outcome(sparse.sdm_rref_den,a)==outcome(sparse_reference,old)
+    native=sx._core._sdm_rref_den(a,K)
+    assert (native is None)==(name!='GF5')
+    if native is None:assert outcome(sparse.sdm_rref_den,a)==outcome(sparse_reference,old)
+    else:assert ('result',native,a)==outcome(sparse_reference,old)
 
 
 def test_added_inplace_multiplication_hook_is_not_bypassed(monkeypatch):
