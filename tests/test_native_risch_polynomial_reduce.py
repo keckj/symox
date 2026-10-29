@@ -27,6 +27,19 @@ def input_case(seed,package,risch_module):
     return p,de
 
 
+def clear_copy_slot_caches(monkeypatch):
+    """Undo copyreg's ``__slotnames__`` cache left by an earlier copy/pickle.
+
+    ``copy.copy`` of a DifferentialExtension anywhere earlier in the process
+    stores ``__slotnames__`` in the class dictionary; the exact class proof of
+    the admission then (correctly) declines. Remove only that cache, restored
+    at teardown, so the stock assertions below do not depend on test order.
+    """
+    from symox import _node_types as nodes
+    for cls in (risch.DifferentialExtension,sx._core.Poly,nodes.node_class('NegativeInfinity')):
+        if '__slotnames__' in vars(cls):monkeypatch.delattr(cls,'__slotnames__')
+
+
 def signature(pair):
     return tuple((p.gens[0].name,str(p.domain),tuple(sorted(
         (monomial, Fraction(int(value.p),int(value.q)))for monomial,value in p.as_dict().items())))for p in pair)
@@ -34,6 +47,7 @@ def signature(pair):
 
 @pytest.mark.parametrize('seed',range(120))
 def test_selected_complete_loop_matches_old_and_reference_with_exact_certificate(monkeypatch,seed):
+    clear_copy_slot_caches(monkeypatch)
     p,de=input_case(seed,sx,risch);rp,rde=input_case(seed,sp,reference)
     original=(p,de.level,de.t,de.d,tuple(de.T),tuple(de.D));calls=[]
     native=sx._core._risch_polynomial_reduce
@@ -206,6 +220,7 @@ def test_late_import_hook_sees_only_the_existing_algorithm_imports():
 
 
 def test_stock_native_admission_is_restored_after_protocol_mutations(monkeypatch):
+    clear_copy_slot_caches(monkeypatch)
     p,de=input_case(18,sx,risch)
     calls=[];native=sx._core._risch_polynomial_reduce
     def spy(*args):
@@ -214,6 +229,26 @@ def test_stock_native_admission_is_restored_after_protocol_mutations(monkeypatch
     q,r=risch.polynomial_reduce(p,de)
     assert calls==[True]
     assert p.as_dict()==(risch.derivation(q,de)+r).as_dict()
+
+
+def test_stock_assertions_are_independent_of_an_earlier_extension_copy(monkeypatch):
+    import copy
+    p,de=input_case(18,sx,risch)
+    had='__slotnames__' in vars(risch.DifferentialExtension)
+    copy.copy(de)
+    assert '__slotnames__' in vars(risch.DifferentialExtension)
+    calls=[];native=sx._core._risch_polynomial_reduce
+    def spy(*args):
+        out=native(*args);calls.append(out is not None);return out
+    monkeypatch.setattr(sx._core,'_risch_polynomial_reduce',spy)
+    with monkeypatch.context() as patch:
+        clear_copy_slot_caches(patch)
+        q,r=risch.polynomial_reduce(p,de)
+        assert calls==[True]
+    assert p.as_dict()==(risch.derivation(q,de)+r).as_dict()
+    if not had:
+        # Leave the process as an untouched import would have it.
+        del risch.DifferentialExtension.__slotnames__
 
 
 def test_modified_constructor_error_is_preserved_in_an_isolated_type_process():
@@ -276,6 +311,7 @@ def test_rationaltools_reload_authenticates_code_namespace_defaults_and_closure(
     from types import FunctionType,CodeType
     rt=importlib.import_module('symox.integrals.rationaltools')
     importlib.reload(rt)
+    clear_copy_slot_caches(monkeypatch)
     p,de=input_case(19,sx,risch);events=[]
     current=rt._stock_ratint_protocol
     if scenario=='foreign_globals':

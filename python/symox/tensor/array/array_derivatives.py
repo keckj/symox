@@ -27,7 +27,7 @@ class ArrayDerivative:
         for v in variables:
             if isinstance(v, tuple) or (hasattr(v, 'is_Tuple') and getattr(v, 'is_Tuple', False)):
                 var, count = v
-                count = S.Integer(count)
+                count = S.sympify(count)
             else:
                 var, count = v, S.Integer(1)
             if counts and counts[-1][0] == var:
@@ -59,9 +59,11 @@ class ArrayDerivative:
 
     @property
     def shape(self):
+        # Scalar variables add no axes (symbolic orders only occur there).
         shape = ()
         for v, c in self._variable_count:
-            shape += tuple(v.shape) * int(c)
+            if hasattr(v, 'shape'):
+                shape += tuple(v.shape) * int(c)
         return shape + tuple(self._expr.shape)
 
     @property
@@ -78,10 +80,43 @@ class ArrayDerivative:
 
     def doit(self, **hints):
         expr = self._expr.doit(**hints) if hints.get('deep', True) else self._expr
+        if _symbolic_orders(self._variable_count):
+            # Derivative.doit re-evaluates; a symbolic order stays held.
+            return _evaluate(expr, self._variable_count, type(self))
         result = expr
         for v, c in self._variable_count:
             result = result.diff((v, c))
         return result
+
+    def diff(self, *variables, **options):
+        # Derivative.__new__ of a held derivative: the zero exit uses this
+        # object's free symbols (S.Zero), else the orders are merged.
+        pairs = _parse(variables)
+        if pairs is None:
+            raise NotImplementedError('derivatives of a held array derivative')
+        free = self.free_symbols
+        if any(c.is_positive and v not in free for v, c in pairs):
+            return _symox().S.Zero
+        return _evaluate(self._expr, list(self._variable_count) + pairs, ArrayDerivative)
+
+    def _substitute(self, method, *args, **kwargs):
+        bound = set(v for v, _ in self._variable_count)
+        expr = self._expr
+        if hasattr(expr, method):
+            changed = getattr(expr, method)(*args, **kwargs)
+        else:
+            changed = expr
+        counts = [(v, getattr(c, method)(*args, **kwargs)) for v, c in self._variable_count]
+        if bound & set(getattr(changed, 'free_symbols', ())) != bound & set(getattr(expr, 'free_symbols', ())):
+            return self
+        # SymPy rebuilds Derivative(*newargs) unevaluated: an ArrayDerivative.
+        return ArrayDerivative(changed, *counts)
+
+    def subs(self, *args, **kwargs):
+        return self._substitute('subs', *args, **kwargs)
+
+    def xreplace(self, rule):
+        return self._substitute('xreplace', rule)
 
     def __eq__(self, other):
         return type(other) is type(self) and self.args == other.args
@@ -108,12 +143,12 @@ class ArrayDerivative:
         total = 0
         tex = ''
         for v, c in reversed(self._variable_count):
-            total += int(c)
+            total += c
             if c == 1:
                 tex += r'%s %s' % (diff_symbol, printer._print(v))
             else:
                 tex += r'%s %s^{%s}' % (diff_symbol, printer._print(v), printer._print(c))
-        top = diff_symbol if total == 1 else r'%s^{%s}' % (diff_symbol, total)
+        top = diff_symbol if total == 1 else r'%s^{%s}' % (diff_symbol, printer._print(total))
         body = printer._print(self._expr)
         if getattr(self._expr, '_kind_tag', None) == 'MatAdd':
             body = r'\left(%s\right)' % body
@@ -137,6 +172,12 @@ class Derivative(ArrayDerivative):
 
     @property
     def shape(self):
+        from ... import _core
+        if not isinstance(self._expr, _core._MatrixExpr):
+            # SymPy's Derivative of an explicit matrix or array has no shape.
+            raise AttributeError("'Derivative' object has no attribute 'shape'")
+        if _symbolic_orders(self._variable_count):
+            raise AttributeError("'Derivative' object has no attribute 'shape'")
         # Scalar variables add no axes.
         shape = ()
         for v, c in self._variable_count:
@@ -145,6 +186,10 @@ class Derivative(ArrayDerivative):
 
     def doit(self, **hints):
         S = _symox()
+        from ... import _core
+        if _symbolic_orders(self._variable_count) or not isinstance(self._expr, _core._MatrixExpr):
+            expr = self._expr.doit(**hints) if hints.get('deep', True) and hasattr(self._expr, 'doit') else self._expr
+            return _evaluate(expr, self._variable_count, Derivative)
         if not any(self._expr.has(v) for v, _ in self._variable_count):
             return S.ZeroMatrix(*self._expr.shape)
         expr = self._expr.doit(**hints) if hints.get('deep', True) else self._expr
@@ -188,6 +233,144 @@ def held_matrix_derivative(expr, variables, cls=ArrayDerivative, contained=False
     if not contained and any(expr.has(v) for v, _ in pairs):
         return None
     return cls(expr, *pairs)
+
+
+def _symbolic_orders(pairs):
+    return any(not getattr(c, 'is_Integer', False) for _, c in pairs)
+
+
+def _is_explicit(expr):
+    from ... import _core
+    from ._array import NDimArray
+    return (isinstance(expr, (NDimArray, _core.Matrix))
+            or bool(getattr(expr, '_symox_sparse', False)))
+
+
+def _is_mutable_matrix(expr):
+    from ... import _core
+    return ((isinstance(expr, _core.Matrix) or getattr(expr, '_symox_sparse', False))
+            and not getattr(expr, '_immutable', False))
+
+
+def _parse(variables):
+    """Merged ``(Symbol, count)`` pairs of scalar Symbol variables, or None."""
+    S = _symox()
+    from ... import _core
+    pairs = []
+    for v in variables:
+        count = S.Integer(1)
+        if isinstance(v, int) or getattr(v, 'is_Integer', False):
+            # Derivative(expr, x, 2): an order following its variable.
+            if not pairs or pairs[-1][1] != 1 or int(v) < 0:
+                return None
+            pairs[-1] = (pairs[-1][0], S.Integer(int(v)))
+            if int(v) == 0:
+                pairs.pop()
+            continue
+        if isinstance(v, tuple) or getattr(v, 'is_Tuple', False):
+            if len(v) != 2:
+                return None
+            v, count = v
+            try:
+                count = S.sympify(count)
+            except Exception:
+                return None
+        if (isinstance(v, _core._MatrixExpr) or not getattr(v, 'is_Symbol', False)
+                or getattr(count, 'is_Number', False) and not getattr(count, 'is_Integer', False)
+                or not hasattr(count, 'free_symbols')):
+            return None
+        if count.is_negative:
+            raise ValueError('order of differentiation must be nonnegative')
+        if pairs and pairs[-1][0] == v:
+            count = pairs[-1][1] + count
+            if count == 0:
+                pairs.pop()
+            else:
+                pairs[-1] = (v, count)
+        elif count != 0:
+            pairs.append((v, count))
+    return pairs
+
+
+def _zero_like(expr, cls):
+    S = _symox()
+    from ... import _core
+    if cls is not ArrayDerivative:
+        return S.S.Zero
+    if isinstance(expr, _core._MatrixExpr):
+        return S.ZeroMatrix(*expr.shape)
+    return type(expr).zeros(*expr.shape)
+
+
+def _evaluate(expr, pairs, cls):
+    """Derivative.__new__(cls, expr, *pairs, evaluate=True) with scalar
+    Symbol variables: the zero exit, the canonical order, the integer
+    orders evaluated, then the held rest from the first symbolic order."""
+    S = _symox()
+    pairs = [(S.sympify(v), S.sympify(c)) for v, c in pairs]
+    if not pairs:
+        return expr
+    free = expr.free_symbols
+    if any(c.is_positive and v not in free for v, c in pairs):
+        return _zero_like(expr, cls)
+    # Derivative._sort_variable_count: commuting symbols in canonical order,
+    # equal neighbours merged.
+    ordered = []
+    for v, c in sorted(pairs, key=lambda pair: S.default_sort_key(pair[0])):
+        if ordered and ordered[-1][0] == v:
+            ordered[-1] = (v, ordered[-1][1] + c)
+        else:
+            ordered.append((v, c))
+    for i, (v, c) in enumerate(ordered):
+        if not getattr(c, 'is_Integer', False):
+            return cls(expr, *ordered[i:])
+        expr = expr.diff((v, c))
+    return expr
+
+
+def _order_hint(v):
+    """Cheap filter: a ``(v, count)`` pair whose count is not a nonnegative
+    integer (symbolic, negative or non-integer) needs ``_parse``."""
+    if not (isinstance(v, tuple) or getattr(v, 'is_Tuple', False)) or len(v) != 2:
+        return False
+    count = v[1]
+    if type(count) is int:
+        return count < 0
+    return not (getattr(count, 'is_Integer', False) and not count.is_negative)
+
+
+def symbolic_order_derivative(expr, variables, cls=ArrayDerivative, evaluate=True):
+    """SymPy's result of ``expr.diff(*variables)`` (``cls=ArrayDerivative``)
+    or ``Derivative(expr, *variables, evaluate=...)`` (``cls=Derivative``)
+    for a matrix expression, matrix or array derived by scalar Symbols when
+    an order is symbolic (or, for ``Derivative``, ``expr`` is explicit).
+    None when another path applies."""
+    from ... import _core
+    hint = any(map(_order_hint, variables))
+    if not hint and cls is ArrayDerivative:
+        return None
+    explicit = _is_explicit(expr)
+    if not (explicit or (hint and isinstance(expr, _core._MatrixExpr))):
+        return None
+    pairs = _parse(variables)
+    if pairs is None or (not _symbolic_orders(pairs) and not (explicit and cls is Derivative)):
+        return None
+    mutable = _is_mutable_matrix(expr)
+    if explicit:
+        expr = expr.as_immutable()
+    if not pairs:
+        result = expr
+    elif cls is Derivative and not evaluate:
+        return Derivative(expr, *pairs)
+    else:
+        result = _evaluate(expr, pairs, cls)
+    if mutable and cls is ArrayDerivative:
+        # MatrixBase.diff: ArrayDerivative(...).as_mutable() for a mutable matrix.
+        if isinstance(result, ArrayDerivative):
+            raise AttributeError("'ArrayDerivative' object has no attribute 'as_mutable'")
+        if hasattr(result, 'as_mutable'):
+            result = result.as_mutable()
+    return result
 
 
 __all__ = ['ArrayDerivative']

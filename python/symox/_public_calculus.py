@@ -27,6 +27,16 @@ def _bound_piecewise_variables(expr):
     return False
 
 
+def _has_piecewise(expr):
+    """``expr.has(Piecewise)``; atoms(Function) is much cheaper than the
+    structural has() query when there is no Piecewise."""
+    from . import Piecewise, Function
+    try:
+        return any(isinstance(a, Piecewise) for a in expr.atoms(Function))
+    except NotImplementedError:
+        return expr.has(Piecewise)
+
+
 def piecewise_fold(expr, evaluate=True):
     """SymPy's ``piecewise_fold``: move Piecewise outward through the
     surrounding function, collecting branches with identical conditions."""
@@ -35,7 +45,7 @@ def piecewise_fold(expr, evaluate=True):
     from .core.sorting import ordered
     from .utilities.iterables import sift, common_prefix
     expr = sympify(expr)
-    if not isinstance(expr, Expr) or not expr.has(Piecewise):
+    if not isinstance(expr, Expr) or not _has_piecewise(expr):
         return expr
     # an unevaluated Piecewise keeps duplicate conditions
     held = evaluate if evaluate is not None else False

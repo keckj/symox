@@ -1,0 +1,12 @@
+{"label": "after", "case": "matsym_order_n", "expr": "X.diff((x, n))", "first_s": 0.0005055270012235269, "repeat_s": 5.867929983651265e-05, "result": "Derivative(X, (x, n))"}
+{"label": "after", "case": "immutable_matrix_order_n", "expr": "ImmutableMatrix([x]).diff((x, n))", "first_s": 0.00043945999641437083, "repeat_s": 6.51057600043714e-05, "result": "Derivative(Matrix([[x]]), (x, n))"}
+{"label": "after", "case": "array_order_n", "expr": "Array([x, x**2]).diff((x, n))", "first_s": 0.0005339669878594577, "repeat_s": 9.148253971943631e-05, "result": "Derivative([x, x**2], (x, n))"}
+{"label": "after", "case": "derivative_matrix_doit", "expr": "Derivative(Matrix([x]), x).doit()", "first_s": 0.0006194669986143708, "repeat_s": 0.00014400790008949115, "result": "Matrix([[1]])"}
+{"label": "after", "case": "derivative_array_order_n", "expr": "Derivative(Array([x, x**2]), (x, n))", "first_s": 0.0004858680040342733, "repeat_s": 6.222907977644354e-05, "result": "Derivative([x, x**2], (x, n))"}
+{"label": "after", "case": "sum_piecewise_fold", "expr": "Sum(x*Piecewise((n, x > 0), (1, True)), (n, 0, k))", "first_s": 0.0012952020042575896, "repeat_s": 0.0007818226597737521, "result": "Sum(Piecewise((n*x, x > 0), (x, True)), (n, 0, k))"}
+{"label": "after", "case": "integral_piecewise_fold", "expr": "Integral(y*Piecewise((x, x > 0), (1, True)), x)", "first_s": 0.0014451409952016547, "repeat_s": 0.0008162191798328422, "result": "Integral(Piecewise((x*y, x > 0), (y, True)), x)"}
+{"label": "after", "case": "sum_plain", "expr": "Sum(n**2, (n, 0, k))", "first_s": 8.88900103745982e-05, "repeat_s": 7.444020011462271e-06, "result": "Sum(n**2, (n, 0, k))"}
+{"label": "after", "case": "integral_plain", "expr": "Integral(x**2, (x, 0, 1))", "first_s": 0.00032277101126965135, "repeat_s": 3.654830012237653e-05, "result": "Integral(x**2, (x, 0, 1))"}
+{"label": "after", "case": "matsym_diff_x", "expr": "(x*X).diff(x)", "first_s": 0.0003697419888339937, "repeat_s": 8.878539956640452e-06, "result": "X"}
+{"label": "after", "case": "matrix_diff_x", "expr": "Matrix([[x**2, x]]).diff(x)", "first_s": 0.0003810820053331554, "repeat_s": 1.5569819952361284e-05, "result": "Matrix([[2*x, 1]])"}
+{"label": "after", "case": "nested_trace", "expr": "Trace(A*Trace(B*X)*X).diff(X)", "first_s": 0.0027396490040700883, "repeat_s": 0.0011189882000326179, "result": "Trace(A*X)*B.T + Trace(B*X)*A.T"}

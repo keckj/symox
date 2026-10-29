@@ -27,6 +27,14 @@ def _diff_dispatch(original):
             expression,variables,options=first.split(args,options)
             return expression.diff(*variables,**options)
         variables=args[1:]
+        if variables and options.get('evaluate', True) is True and (
+                isinstance(expression, (_core._MatrixExpr, _core.Matrix))
+                or getattr(expression, '_symox_sparse', False)):
+            # Symbolic orders by scalar Symbols: SymPy's held ArrayDerivative.
+            from .array_derivatives import symbolic_order_derivative
+            held = symbolic_order_derivative(expression, variables)
+            if held is not None:
+                return held
         if variables and isinstance(expression, _core._MatrixExpr) and any(
                 isinstance(v, _core._MatrixExpr) or (isinstance(v, tuple) and v and isinstance(v[0], _core._MatrixExpr))
                 for v in variables):

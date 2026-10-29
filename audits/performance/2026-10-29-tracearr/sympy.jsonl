@@ -1,0 +1,12 @@
+{"label": "sympy", "case": "matsym_order_n", "expr": "X.diff((x, n))", "first_s": 0.022485723995487206, "repeat_s": 5.902197997784242e-05, "result": "Derivative(X, (x, n))"}
+{"label": "sympy", "case": "immutable_matrix_order_n", "expr": "ImmutableMatrix([x]).diff((x, n))", "first_s": 0.02280711999628693, "repeat_s": 0.00012910010002087802, "result": "Derivative(Matrix([[x]]), (x, n))"}
+{"label": "sympy", "case": "array_order_n", "expr": "Array([x, x**2]).diff((x, n))", "first_s": 0.023424292987328954, "repeat_s": 9.760327986441553e-05, "result": "Derivative([x, x**2], (x, n))"}
+{"label": "sympy", "case": "derivative_matrix_doit", "expr": "Derivative(Matrix([x]), x).doit()", "first_s": 0.0009155720035778359, "repeat_s": 0.00028968623984837905, "result": "Matrix([[1]])"}
+{"label": "sympy", "case": "derivative_array_order_n", "expr": "Derivative(Array([x, x**2]), (x, n))", "first_s": 0.0003782270068768412, "repeat_s": 2.97107599908486e-05, "result": "Derivative([x, x**2], (x, n))"}
+{"label": "sympy", "case": "sum_piecewise_fold", "expr": "Sum(x*Piecewise((n, x > 0), (1, True)), (n, 0, k))", "first_s": 0.0012025259929941967, "repeat_s": 0.0003699721599696204, "result": "Sum(Piecewise((n*x, x > 0), (x, True)), (n, 0, k))"}
+{"label": "sympy", "case": "integral_piecewise_fold", "expr": "Integral(y*Piecewise((x, x > 0), (1, True)), x)", "first_s": 0.001162058993941173, "repeat_s": 0.0003580178000265732, "result": "Integral(Piecewise((x*y, x > 0), (y, True)), x)"}
+{"label": "sympy", "case": "sum_plain", "expr": "Sum(n**2, (n, 0, k))", "first_s": 0.00025918900792021304, "repeat_s": 3.260821977164596e-05, "result": "Sum(n**2, (n, 0, k))"}
+{"label": "sympy", "case": "integral_plain", "expr": "Integral(x**2, (x, 0, 1))", "first_s": 0.00020087900338694453, "repeat_s": 2.7318919892422853e-05, "result": "Integral(x**2, (x, 0, 1))"}
+{"label": "sympy", "case": "matsym_diff_x", "expr": "(x*X).diff(x)", "first_s": 0.022187686001416296, "repeat_s": 0.00010715657990658655, "result": "X"}
+{"label": "sympy", "case": "matrix_diff_x", "expr": "Matrix([[x**2, x]]).diff(x)", "first_s": 0.02863430100842379, "repeat_s": 0.000490458580025006, "result": "Matrix([[2*x, 1]])"}
+{"label": "sympy", "case": "nested_trace", "expr": "Trace(A*Trace(B*X)*X).diff(X)", "first_s": 0.0861674710031366, "repeat_s": 0.018527929839910938, "result": "Trace(A*X)*B.T + Trace(B*X)*A.T"}
