@@ -63,6 +63,11 @@ class MatrixSymbol(MatrixExpr):
     _kinds = ('MatrixSymbol',)
 
     def __new__(cls, name, n, m):
+        if isinstance(n, str) or isinstance(m, str):
+            # SymPy sympifies the dimensions strictly: a string raises
+            # SympifyError.
+            from .core.sympify import _sympify
+            n, m = _sympify(n), _sympify(m)
         return _core._matrixexpr_node('MatrixSymbol', (str(name), n, m))
 
 

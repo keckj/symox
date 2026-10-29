@@ -12799,3 +12799,58 @@ API, (e) harness artefact):
   test_matexpr_subs and test_deprecated_conv_modules.
 
 Measured: [audit](../audits/performance/2026-10-29-arraysuite/README.md).
+
+## arrayrust (wave 26): ArrayElement derivatives, matrix-expression checks, native matrix lines
+
+Now native (crates/symox-core, binding in crates/symox-py):
+
+- Wrong result fixed: `diff` of an expression containing `ArrayElement`
+  returned 0 through the `has` pre-check of diff.rs. Host nodes flagged
+  `ArrayElement` (host flag `ELEMENT`) are now derived in diff.rs
+  (`array_element_derivative`): `A[i, j].diff(A[k, l])` is the product of
+  `KroneckerDelta(i, k)*KroneckerDelta(j, l)`, a different symbol gives 0,
+  products and powers go through the usual chain rule (SymPy 1.14 values).
+- Error behaviour as SymPy: `MatrixSymbol` dimensions that are Floats,
+  negative, or non-integer raise `ValueError("The dimension specification
+  ... should be a nonnegative integer.")`; a non-sympifiable dimension
+  (`MatrixSymbol(1, 2, 'A')`) raises `SympifyError`; a Matrix +/- NDimArray
+  returns NotImplemented from the native binding so the array raises
+  `TypeError`; `HadamardProduct` with a scalar argument raises
+  `TypeError("Mix of Matrix and Scalar symbols")`; the transpose of a
+  HadamardProduct keeps the argument order (no canonical reordering).
+- Matrix derivatives: SymPy's matrix-lines algorithm (`_LeftRightArgs`,
+  `_matrix_derivative`) is ported in `matrixexpr/lines.rs` for results of
+  rank <= 2: MatrixSymbol, MatAdd, MatMul (with scalar coefficients),
+  Transpose, Inverse, MatPow with an integer exponent, Trace, and scalar
+  sums/products/powers of such terms. `matrix_derivative` calls it first;
+  it declines (and the existing Python/vendored array algorithm runs
+  unchanged) for rank-4 results, elementwise operations
+  (HadamardProduct/HadamardPower/ElementwiseApplyFunction), Determinant,
+  functions of traces, symbolic or 1x1 matrix powers, nested traces, and
+  any non-MatrixSymbol variable. 81 differential cases give the same
+  output as the Python algorithm (tests/test_native_arrayrust.py checks 53
+  of them against hard-coded SymPy 1.14 strings and against the Python
+  path).
+
+Still in Python (gaps, RUST-ONLY rule):
+
+- The array-expression core (ArrayTensorProduct/ArrayContraction/
+  ArrayDiagonal/PermuteDims/ArrayAdd canonicalization), convert_matrix_to_array,
+  convert_array_to_matrix and its passes, array_derive, and the public
+  modules (array_expressions, arrayexpr_derivatives, utils, conv_*) are not
+  ported; rank-4 and elementwise derivatives still use them.
+- The wave-23 symbolic-order and nested-trace derivative code
+  (tensor/array/array_derivatives.py, _public_calculus.py, _public_core.py)
+  is not ported.
+- `MatrixSymbol` string dimensions are sympified strictly in the Python
+  constructor (argument plumbing, not computation).
+- Print order: `A[i, j]**2` by `A[k, l]` and products of ArrayElements print
+  their factors in a different order than SymPy (equal values); the native
+  ArrayElement node drops the array shape.
+
+Intentional corrections (SymPy 1.14 wrong or failing, symox keeps the
+correct value through the Python algorithm, unchanged by this port):
+`Trace(X**-2).diff(X)` (SymPy RecursionError), `(Trace(X) +
+Trace(A*X)).diff(X)` and `(Trace(X)**-1).diff(X)` (SymPy returns 0).
+
+Measured: [audit](../audits/performance/2026-10-29-arrayrust/README.md).

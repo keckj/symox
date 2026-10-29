@@ -87,6 +87,9 @@ class ArrayElement(_IndexedArithmetic):
     @property
     def free_symbols(self):return {self.name}|set().union(*(i.free_symbols for i in self.indices))
     def _symox_(self):return _array_element_node()(S.Symbol(self.name.name),*self.indices)
+    def diff(self,*symbols,**assumptions):
+        # The native node differentiates (SymPy ArrayElement._eval_derivative).
+        return S.diff(self._symox_(),*(s._symox_() if isinstance(s,ArrayElement) else s for s in symbols),**assumptions)
     def __repr__(self):return str(self.name.name)+'['+', '.join(map(str,self.indices))+']'
     def __eq__(self,other):return isinstance(other,ArrayElement) and self.args==other.args
     def __hash__(self):return hash((type(self),self.args))
@@ -100,6 +103,8 @@ def _array_element_node():
     if not _ARRAY_ELEMENT_NODE:
         class ArrayElement(S.Function):
             _symox_user_hooks=True
+            # Differentiated natively as SymPy's ArrayElement (_diff_wrt).
+            _symox_array_element=True
             def _sympystr(self,printer):return printer._print(self.args[0])+'['+', '.join(printer._print(i) for i in self.args[1:])+']'
             def _latex(self,printer):return '{{%s}_{%s}}'%(printer._print(self.args[0]),', '.join(printer._print(i) for i in self.args[1:]))
         _ARRAY_ELEMENT_NODE.append(ArrayElement)
