@@ -1,0 +1,50 @@
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.006376286000886466, "import_s": 0.21687531499992474, "result": "[2**(1/y)]"}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.003738888000953011, "import_s": 0.21687320199998794, "result": "[0, exp(a/2)]"}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.006754250000085449, "import_s": 0.20831634299975121, "result": "[3**(1/(2*y))]"}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.011242148000746965, "import_s": 0.20590045300014026, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]"}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.053021943000203464, "import_s": 0.20764093300022068, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.04138255299949378, "import_s": 0.20355677699990338, "result": "[exp(-2*LambertW(1))]"}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.05438531400068314, "import_s": 0.20174200200017367, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.0073814249990391545, "import_s": 0.20331127800091053, "result": "[a*LambertW(1/a)]"}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.012694641000052798, "import_s": 0.21405444699848886, "result": "[-a*LambertW(-1/a)]"}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.0412167930007854, "import_s": 0.21451098900070065, "result": "[exp(-2*LambertW(1/2))]"}
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.006136207000963623, "import_s": 0.2550576680005179, "result": "[2**(1/y)]"}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.005192230999455205, "import_s": 0.21165932999974757, "result": "[0, exp(a/2)]"}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.006557785000040894, "import_s": 0.2135089399998833, "result": "[3**(1/(2*y))]"}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.011152158000186319, "import_s": 0.21466682400023274, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]"}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.05349479600045015, "import_s": 0.21383079199949862, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.04227813299985428, "import_s": 0.21045437500106345, "result": "[exp(-2*LambertW(1))]"}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.05295537699930719, "import_s": 0.20298159699996177, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.007272148999618366, "import_s": 0.21368328300013673, "result": "[a*LambertW(1/a)]"}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.013110218000292662, "import_s": 0.2062263299994811, "result": "[-a*LambertW(-1/a)]"}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.041526156001054915, "import_s": 0.20681452600001649, "result": "[exp(-2*LambertW(1/2))]"}
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.0061970349997864105, "import_s": 0.20915594899997814, "result": "[2**(1/y)]"}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.0040073670006677276, "import_s": 0.20369746300093539, "result": "[0, exp(a/2)]"}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.0062789959993097, "import_s": 0.2174871429997438, "result": "[3**(1/(2*y))]"}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.011425723998399917, "import_s": 0.20886315899952024, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]"}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.054170538000107626, "import_s": 0.2098246219993598, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.04265074899922183, "import_s": 0.2177873170003295, "result": "[exp(-2*LambertW(1))]"}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.052748557998711476, "import_s": 0.21506415900148568, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.007500834999518702, "import_s": 0.2143368979996012, "result": "[a*LambertW(1/a)]"}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.013509266000255593, "import_s": 0.2111802430008538, "result": "[-a*LambertW(-1/a)]"}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.04134335199887573, "import_s": 0.21676770999874861, "result": "[exp(-2*LambertW(1/2))]"}
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.005972846998702153, "import_s": 0.21279321700058063, "result": "[2**(1/y)]"}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.003658460000224295, "import_s": 0.21762784899874532, "result": "[0, exp(a/2)]"}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.006725088000166579, "import_s": 0.20987352700103656, "result": "[3**(1/(2*y))]"}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.011341278001054889, "import_s": 0.2039165630012576, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]"}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.0525539629998093, "import_s": 0.21871596499840962, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.04237321599975985, "import_s": 0.21741027200005192, "result": "[exp(-2*LambertW(1))]"}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.053663382001104765, "import_s": 0.21246779699868057, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.007098598998709349, "import_s": 0.21304122599940456, "result": "[a*LambertW(1/a)]"}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.012495928998760064, "import_s": 0.20560028900035832, "result": "[-a*LambertW(-1/a)]"}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.042097166000530706, "import_s": 0.20892497400018328, "result": "[exp(-2*LambertW(1/2))]"}
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.005945021999650635, "import_s": 0.22864136099997268, "result": "[2**(1/y)]"}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.004306982000343851, "import_s": 0.2089808210002957, "result": "[0, exp(a/2)]"}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.006812097000874928, "import_s": 0.21072273800018593, "result": "[3**(1/(2*y))]"}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.011389819001124124, "import_s": 0.21331755599931057, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]"}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.053925565000099596, "import_s": 0.21179033199950936, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.042523652999079786, "import_s": 0.22312812200107146, "result": "[exp(-2*LambertW(1))]"}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.05741318199943635, "import_s": 0.21820914400086622, "result": "[exp(-LambertW(2)/2)]"}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.0072667640015424695, "import_s": 0.21834487600062857, "result": "[a*LambertW(1/a)]"}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.013213259000622202, "import_s": 0.2016726469992136, "result": "[-a*LambertW(-1/a)]"}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.04129366300003312, "import_s": 0.20234871200045745, "result": "[exp(-2*LambertW(1/2))]"}

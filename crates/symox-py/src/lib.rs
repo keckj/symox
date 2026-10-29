@@ -45,6 +45,7 @@ mod simplex;
 mod stats;
 mod ode;
 mod solve;
+mod tsolve;
 mod logic;
 mod special;
 mod calculus;
@@ -1236,7 +1237,7 @@ fn python_args(e: &Expr) -> Vec<Expr> {
     traverse::ordered_args(e)
 }
 
-fn operation_count(e: &Expr) -> BigInt {
+pub(crate) fn operation_count(e: &Expr) -> BigInt {
     fn matrix_count(matrix:&symox::matrixexpr::MatrixExpr,scalars:&mut FxHashMap<usize,(Expr,BigInt)>,matrices:&mut FxHashMap<usize,(symox::matrixexpr::MatrixExpr,BigInt)>)->BigInt{
         use symox::matrixexpr::{MatrixKind as M,MatrixOperand};
         if let Some((_,n))=matrices.get(&matrix.dag_id()){return n.clone();}
@@ -4676,6 +4677,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     risch_polynomial_reduce::register(m)?;
     risch_splitfactor::register(m)?;
     solve::register(m)?;
+    tsolve::register(m)?;
     ode::register(m)?;
     logic::register(m)?;
     special::register(m)?;

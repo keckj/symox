@@ -13070,3 +13070,67 @@ Remaining failures by class:
   and after) and test_solve_polynomial.
 
 Measured: [audit](../audits/performance/2026-10-29-solvesuite/README.md).
+
+## tsolverust (wave 27): native `_tsolve` steps and `sympy.solvers.bivariate`, 2026-10-29
+
+Native (`crates/symox-core/src/solve/tsolve.rs`, binding
+`crates/symox-py/src/tsolve.rs`): the `_tsolve` steps that `solve` takes
+after the native solver raised NotImplementedError, for one equation in
+one Symbol: `_invert` (`integer_power=False`, with the reference inverse
+table and `atan2`), the factor step, the `logcombine` step, the
+`f(x)**e = rhs` step, the bivariate block (`x**spow` change of variable,
+`_solve_lambert` with `_lambert`, `_linab`, `_mostfunc`, `_filtered_gens`,
+the `nsimplify` replacement of Lambert roots, `bivariate_type`) and the
+closing `posify` retry (inner solves with `force=False`). The public
+`sympy.solvers.bivariate` names (`_mexpand`, `_filtered_gens`,
+`_mostfunc`, `_linab`, `_lambert`, `_solve_lambert`, `bivariate_type`)
+and `_tsolve_steps._invert` are thin wrappers over the native functions.
+
+Admitted: a single Expr equation (Eq is moved to one side) with a symbol,
+one Symbol, no `dict`/`set` flag; the flags `force`, `bivariate`, `check`
+and `numerical` are read (defaults True). Python keeps the admission, the
+recursion guard (the reference `tsolve_saw`), and the callbacks: the
+recursive `solve` calls (so the full public entry, with its own
+fallbacks, is used as by the reference), `nsimplify`, `equals(0)` when
+`checksol` is undecided, and `inverse()` of host function classes.
+
+Corrections: SymPy's `_solve` check of the `_tsolve` candidates
+(`checksol(f_num, r) is not False`, after removal of duplicates) is now
+applied, in Rust (a port of `checksol` for one symbol, `minimal=False`):
+`solve(-a*x + 2*x*log(x), x)` is `[exp(a/2)]` (test_issue_4463; `x = 0`
+was kept). The native solver's own check now also rejects a substituted
+value that holds `nan`, `zoo`, `oo` or `-oo` (`checksol` attempt 0): the
+`x = 0` of test_uselogcombine's `force=True` equation is gone. A
+polynomial error inside the steps makes them decline (the reference
+`_solve` catches PolynomialError around `_tsolve`) instead of
+propagating.
+
+Remaining gaps:
+- `checksol` is conservative where it would need `is_constant` with the
+  symbol still present after substitution, or when a numerical value
+  does not evaluate: it returns None (candidate kept), where SymPy may
+  return False.
+- SymPy simplifies the `_tsolve` results before the check
+  (`simplify=True`); they are returned as computed here.
+- `checkdens` (rejection of zeros of the denominators) is not applied to
+  the `_tsolve` candidates.
+- `solve(x**(2*y) - 3, x)` gives `[3**(1/(2*y))]`; SymPy also gives
+  `(-sqrt(3))**(1/y)` (unchanged by this port).
+- The order of the `bivariate_type` results follows the native
+  iteration (the reference uses a Python set).
+- The native `_invert` returns `(eq, 0)` when `eq` is free of the symbol,
+  as the reference does. Before this, its loop never ended on `0`, which
+  hung test_issue_24368.
+- The `checksol` filtering slows the Lambert cases to about 140 ms per
+  repeated call; they remain faster than SymPy. Measurements are in
+  [audits/performance/2026-10-29-tsolverust](../audits/performance/2026-10-29-tsolverust/README.md).
+- Copied `test_solvers.py`: 55 failed / 78 passed before, 54 failed / 79
+  passed after.
+  - test_issue_4463 now passes.
+  - test_uselogcombine now passes its `force=True` assertion; the spurious
+    `0` is gone.
+  - Its next assertion still fails, and the cause is the form of the result,
+    not checksol: `solve(log(x + 3) + log(1 + 3/x) - 3)` gives
+    `sqrt(-12*exp(3) + exp(6))`, where SymPy writes
+    `sqrt(-12 + exp(3))*exp(3/2)`. This comes from SymPy's simplification of
+    the results and is a gap.
