@@ -1,0 +1,72 @@
+{
+ "solve(Eq(x**2 - 1/(x**2 - 4), 4 - 1/(x**2 - 4)), x)": {
+  "result": "[-2, 2]",
+  "first_median_s": 0.001266422999833594,
+  "repeat_median_s": 0.0008265160004157224
+ },
+ "solve(Eq(x + 1/x, 1/x), x)": {
+  "result": "[0]",
+  "first_median_s": 0.0008808049997242051,
+  "repeat_median_s": 0.0005300169996189652
+ },
+ "solve(Eq(x**2, 4), x)": {
+  "result": "[-2, 2]",
+  "first_median_s": 0.0010257189996991656,
+  "repeat_median_s": 0.0005864929999006563
+ },
+ "solve(Eq(1/x + x, 2), x)": {
+  "result": "[1]",
+  "first_median_s": 0.0014876380000714562,
+  "repeat_median_s": 0.0009656450001784833
+ },
+ "solve(x**2 - 4, x)": {
+  "result": "[-2, 2]",
+  "first_median_s": 0.0010027580001406022,
+  "repeat_median_s": 0.0005519799997273367
+ },
+ "solve(-a*x + 2*x*log(x), x)": {
+  "result": "[0, exp(a/2)]",
+  "first_median_s": 0.003553499000190641,
+  "repeat_median_s": 0.002414127999145421
+ },
+ "solve(1 - oo*x, x)": {
+  "result": "[nan]",
+  "first_median_s": 0.0009374569999636151,
+  "repeat_median_s": 0.0005527400007849792
+ },
+ "solve(x - 3, x)": {
+  "result": "[3]",
+  "first_median_s": 0.0008280590000140364,
+  "repeat_median_s": 0.0004407380001794081
+ },
+ "solve([x*y - x - y, x*y - x - y], [x, y])": {
+  "result": "[]",
+  "first_median_s": 0.001077681999959168,
+  "repeat_median_s": 0.0007364100001723273
+ },
+ "solve([x**2 + y**2 - 1, x - y], [x, y])": {
+  "result": "[(-sqrt(2)/2, -sqrt(2)/2), (sqrt(2)/2, sqrt(2)/2)]",
+  "first_median_s": 0.001029269999889948,
+  "repeat_median_s": 0.0006303670006673201
+ },
+ "solve((7**x)**x - 2, x)": {
+  "result": "[]",
+  "first_median_s": 0.017861605999314634,
+  "repeat_median_s": 0.016227222999987134
+ },
+ "solve(x**x - 4, x)": {
+  "result": "[2]",
+  "first_median_s": 0.005311173999871244,
+  "repeat_median_s": 0.004381342999295157
+ },
+ "solve(exp(x) - 2, x)": {
+  "result": "[log(2)]",
+  "first_median_s": 0.004024648999802594,
+  "repeat_median_s": 0.0033286570005657268
+ },
+ "solve(sqrt(A**2 + B**2) - 3, A)": {
+  "result": "[-sqrt(9 - b**2), sqrt(9 - b**2)]",
+  "first_median_s": 0.013027680000050168,
+  "repeat_median_s": 0.012057209999511542
+ }
+}

@@ -1,0 +1,72 @@
+{
+ "solve(Eq(x**2 - 1/(x**2 - 4), 4 - 1/(x**2 - 4)), x)": {
+  "result": "[]",
+  "first_median_s": 0.0015887840008872445,
+  "repeat_median_s": 0.001073280000127852
+ },
+ "solve(Eq(x + 1/x, 1/x), x)": {
+  "result": "[]",
+  "first_median_s": 0.0011592620003284537,
+  "repeat_median_s": 0.0007324319994950201
+ },
+ "solve(Eq(x**2, 4), x)": {
+  "result": "[-2, 2]",
+  "first_median_s": 0.0010191290002694586,
+  "repeat_median_s": 0.0005887480001547374
+ },
+ "solve(Eq(1/x + x, 2), x)": {
+  "result": "[1]",
+  "first_median_s": 0.0014878729998599738,
+  "repeat_median_s": 0.0009965069993995712
+ },
+ "solve(x**2 - 4, x)": {
+  "result": "[-2, 2]",
+  "first_median_s": 0.0010029579998445115,
+  "repeat_median_s": 0.0005488300002980395
+ },
+ "solve(-a*x + 2*x*log(x), x)": {
+  "result": "[0, exp(a/2)]",
+  "first_median_s": 0.0033296120000159135,
+  "repeat_median_s": 0.002413771999272285
+ },
+ "solve(1 - oo*x, x)": {
+  "result": "[]",
+  "first_median_s": 0.0009510740001132945,
+  "repeat_median_s": 0.000543827000001329
+ },
+ "solve(x - 3, x)": {
+  "result": "[3]",
+  "first_median_s": 0.0008085079998636502,
+  "repeat_median_s": 0.00043597900003078394
+ },
+ "solve([x*y - x - y, x*y - x - y], [x, y])": {
+  "result": "[]",
+  "first_median_s": 0.0010860860002139816,
+  "repeat_median_s": 0.0007014689999778057
+ },
+ "solve([x**2 + y**2 - 1, x - y], [x, y])": {
+  "result": "[(-sqrt(2)/2, -sqrt(2)/2), (sqrt(2)/2, sqrt(2)/2)]",
+  "first_median_s": 0.0010323019996576477,
+  "repeat_median_s": 0.0006224089993338566
+ },
+ "solve((7**x)**x - 2, x)": {
+  "result": "[-sqrt(log(2))/sqrt(log(7)), sqrt(log(2))/sqrt(log(7))]",
+  "first_median_s": 0.030177765999724215,
+  "repeat_median_s": 0.027860424999744282
+ },
+ "solve(x**x - 4, x)": {
+  "result": "[2]",
+  "first_median_s": 0.005291503000080411,
+  "repeat_median_s": 0.0043931190002695075
+ },
+ "solve(exp(x) - 2, x)": {
+  "result": "[log(2)]",
+  "first_median_s": 0.003996583000116516,
+  "repeat_median_s": 0.0033057009995900444
+ },
+ "solve(sqrt(A**2 + B**2) - 3, A)": {
+  "result": "[]",
+  "first_median_s": 0.008129852999445575,
+  "repeat_median_s": 0.007351699000537337
+ }
+}
