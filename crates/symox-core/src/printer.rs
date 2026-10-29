@@ -485,6 +485,11 @@ fn write_srepr(e: &Expr, out: &mut String) {
         }
         out.push(')');
     };
+    // A host class defining ``_sympyrepr`` (``Str('a')``) prints itself.
+    if let Some(text) = crate::host::print(e, crate::host::HostFormat::Repr) {
+        out.push_str(&text);
+        return;
+    }
     match e.kind() {
         Kind::Num(n) => match n {
             Number::Int(_) | Number::BigInt(_) => out.push_str(&format!("Integer({n})")),

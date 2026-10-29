@@ -93,8 +93,6 @@ class _Markov:
             self._states = ();self.state_space = S.Range(0,size);return
         if state_space is None:
             state_space = list(range(self._transition.rows)) if self._transition is not None else []
-        if any(type(x).__name__ == 'Str' for x in (state_space.args if isinstance(state_space,S.FiniteSet) else state_space)):
-            raise NotImplementedError('Str states of a Markov chain are not supported; use symbols or integers')
         self._states = tuple(scalar(x) for x in (state_space.args if isinstance(state_space,S.FiniteSet) else state_space))
         if len(set(self._states)) != len(self._states):raise ValueError('states must be distinct')
         self.state_space = S.FiniteSet(*self._states)
@@ -243,7 +241,11 @@ class _Markov:
             indicator = S.Integer(1) if gate is None else _indicator(coded_gate.subs(coded,simultaneous=True))
             denominator += weight*indicator
             if operation == 'P':numerator += weight*indicator*_indicator(event.subs(coded,simultaneous=True))
-            else:numerator += weight*indicator*scalar(expr).subs(mapping,simultaneous=True)
+            else:
+                if any(type(value).__name__ == 'Str' for value in mapping.values()):
+                    # SymPy: a Str state is not an expression of a weighted sum.
+                    raise TypeError("unsupported operand type(s) for *: 'Rational' and 'Str'")
+                numerator += weight*indicator*scalar(expr).subs(mapping,simultaneous=True)
         if getattr(self,'_stochastic_symbol',False) and gate is not None:
             # Rows of a transition MatrixSymbol sum to one, so conditioning on
             # the initial state alone has probability one (as in SymPy).

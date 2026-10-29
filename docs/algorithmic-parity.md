@@ -11918,3 +11918,71 @@ differs because `polylog(3, -1/2).is_extended_negative` is None (SymPy
 evaluates it numerically to True), so `Abs(...)` of the reference side stays
 unevaluated; `test_derivative_numerically` still uses finite differences
 instead of SymPy's `doit_numerically`.
+
+
+## Wave 21 spec7: scalar functions of matrix expressions, Str Markov states (2026-10-29)
+
+Now built as in SymPy 1.14 (TODO section 7):
+
+- `sin(A)`, `cos(A)`, `exp(A)` and the other heads that SymPy applies directly
+  to a matrix expression (`exp log sin cos tan cot sec csc asin acos atan acot
+  sinh cosh tanh coth asinh acosh atanh gamma erf erfc sign arg`) build the
+  native function application with the matrix held as a matrix proxy argument,
+  the same object as `sin(x).subs(x, A)` (type, args, hash, printing, `doit`,
+  `subs`, `diff`, `evalf`, `rewrite`, codegen). The head's own eval rules for a
+  matrix argument are applied: odd heads take the sign out of `-A` / `-2*A`
+  (MatMul with a negative numeric first factor, the MatAdd rule), `cos`,
+  `sec`, `cosh` drop it, `erfc(-A)` is `2 - erfc(A)`, `sign` and `arg` replace
+  a numeric factor by its sign (`arg(-2*A)` is `arg(-A)`), `exp(log(A))` is
+  `A`, `sqrt(A)` and `cbrt(A)` are the `MatPow`. Reference errors:
+  `floor`/`ceiling` raise TypeError "Mix of Matrix and Scalar symbols",
+  `loggamma` NotImplementedError, `sec`/`csc` of a ZeroMatrix
+  NonInvertibleMatrixError.
+- Native core: a matrix proxy argument makes the node noncommutative (feature
+  bit and `host_commutativity`), as `sin(A).is_commutative` is False in SymPy,
+  so `sin(A)*sin(B) != sin(B)*sin(A)`. `MatMul` with a noncommutative scalar
+  factor (`sin(A)*A`, `f(A)*A`, a noncommutative Symbol) raises
+  NotImplementedError "noncommutative scalars in MatMul are not supported.",
+  and `ZeroMatrix**e` for a numeric `e` is the ZeroMatrix (a negative `e`
+  raises NonInvertibleMatrixError), as in SymPy. A matrix substituted into
+  the scalar coefficient of a MatMul joins the matrix factors in order
+  (`(x*y).subs({x: A, y: B})` is `B*A`); an incompatible joined product keeps
+  the coefficient so that the substitution reports SymPy's ShapeError.
+- `Str` is an `Atom` (a host atom class with `_hashable_content`, `_sympystr`
+  and a new native `_sympyrepr` hook for srepr inside containers), so it can be
+  stored in `Eq`, `FiniteSet`, `Tuple`. `DiscreteMarkovChain` with `Str`
+  states is admitted: state space, transition data, `P` with conditions,
+  `stationary_distribution`, `fixed_row_vector`, `communication_classes`,
+  `canonical_form`, `decompose`, `index_of`, the default `_T` transition.
+  `E` of a Str-valued chain raises TypeError as in SymPy. Defining the class at
+  import does not enable the host paths; the first `Str` instance does.
+
+Intentional correction: the joint query `P(Eq(Y[1], b) & Eq(Y[2], a),
+Eq(Y[0], a))` returns 1/6 (SymPy raises TypeError subtracting a Str from a
+Dummy).
+
+Remaining gaps (not changed by this wave):
+
+- Matrix heads: `sin(A) + A` raises TypeError with another message; `kind`
+  is a symox class printing UndefinedKind; `atoms()` and mathml of `f(A)`
+  are refused; `sin(Matrix(...))` of an explicit matrix is refused (SymPy keeps
+  `sin(Matrix)`); `conjugate(A)` is MatrixConjugate instead of
+  `Adjoint(A.T)`; `Abs`, `re`, `im` (rewritten through Adjoint/Transpose in
+  SymPy) and `Heaviside`, `DiracDelta` (ValueError in SymPy) still raise
+  NotImplementedError; `re(log(A))`, `im(log(A))` stay unevaluated; a MatAdd
+  argument prints in native order inside a function (`sin(-A.T + A)` for
+  SymPy's `sin(A - A.T)`); srepr of MatrixSymbol names.
+- Markov chains (also with integer states): `index_set` is
+  `Range(0, oo, 1)` instead of Naturals0, `is_absorbing_chain` and
+  `is_ergodic` are missing, srepr of the chain and of RandomIndexedSymbol
+  differ.
+- `MultivariateNormal` with `MatrixSymbol` parameters of symbolic dimension
+  is still refused at construction: SymPy's density is a `MatrixElement` of a
+  scalar-valued matrix product (`(exp(...)/sqrt((2*pi)**n*Determinant(Sigma)))[0, 0]`),
+  which needs a native MatrixElement of a 1x1 matrix expression parent.
+- `Idx` inside compound indices (`y[i + 1]`): Idx and Indexed are not native
+  nodes (Indexed is a flattened symbol), so `ranges`, `subs`, `atoms(Idx)`,
+  the srepr and the `Idx` latex with bounds, `diff` to KroneckerDelta are not
+  as in SymPy. This needs native Idx/Indexed nodes.
+
+Measured: [audit](../audits/performance/2026-10-29-spec7/README.md).

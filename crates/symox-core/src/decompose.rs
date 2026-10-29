@@ -164,6 +164,7 @@ pub fn commutativity(e:&Expr)->Option<bool>{
             Kind::Add(..)|Kind::Mul(..)=>Some(args(e).iter().all(|a|visit(a,cache)==Some(true))),
             Kind::Pow(base,exponent)=>all(&mut [base,exponent].into_iter().map(|part|visit(part,cache))),
             Kind::Func(crate::expr::Func::Limit|crate::expr::Func::MatrixDotProduct(..),_)=>None,
+            Kind::Func(crate::expr::Func::MatrixProxy(_),_)=>Some(false),
             Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")||head.is_internal("Tuple")=>None,
             Kind::Func(head,_) if commutative_head(head)=>Some(true),
             Kind::Func(_,arguments)=>all(&mut arguments.iter().map(|argument|visit(argument,cache))),

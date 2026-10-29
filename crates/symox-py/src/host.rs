@@ -43,6 +43,7 @@ const UNCOMMUTED: u32 = 16384;
 const COMMUTATIVE_HOOK: u32 = 32768;
 const PRETTY: u32 = 65536;
 const NUMBER: u32 = 131072;
+const REPR: u32 = 262144;
 
 fn may_not_commute(flags: u32) -> bool { flags & (NONCOMMUTATIVE | UNCOMMUTED | COMMUTATIVE_HOOK) != 0 }
 
@@ -363,7 +364,7 @@ fn wants(flags: u32, format: HostFormat) -> bool {
     match format {
         HostFormat::Str => flags & STR != 0,
         HostFormat::Latex => flags & LATEX != 0,
-        HostFormat::Repr => false,
+        HostFormat::Repr => flags & REPR != 0,
         HostFormat::Pretty | HostFormat::PrettyAscii => flags & PRETTY != 0,
     }
 }

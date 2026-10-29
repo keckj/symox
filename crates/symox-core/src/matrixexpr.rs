@@ -516,6 +516,31 @@ impl MatrixExpr {
             return Self::mul(coefficient,&kept,evaluate);
         }
         let first=factors.first().ok_or_else(||MatrixError::Type("Matrix multiplication requires a matrix".into()))?;
+        // A matrix substituted into the scalar coefficient (``MatMul(y, A)
+        // .subs(y, B)`` is ``B*A`` in SymPy) joins the matrix factors in order.
+        let mut joined_failed=false;
+        if coefficient.has_matrix(){
+            let parts=if coefficient.is_mul(){crate::traverse::ordered_args(&coefficient)}else{vec![coefficient.clone()]};
+            if parts.iter().any(|part|matches!(part.kind(),Kind::Func(Func::MatrixProxy(_),_))){
+                let mut scalars=Vec::new();let mut matrices=Vec::new();
+                for part in parts{
+                    match part.kind(){
+                        Kind::Func(Func::MatrixProxy(matrix),_)=>matrices.push((**matrix).clone()),
+                        _=>scalars.push(part),
+                    }
+                }
+                matrices.extend(factors.iter().cloned());
+                // An incompatible joined product keeps the coefficient so that
+                // the caller's settling step reports the reference ShapeError.
+                if let Ok(joined)=Self::mul(crate::ops::mul(&scalars),&matrices,evaluate){return Ok(joined);}
+                joined_failed=true;
+            }
+        }
+        // MatMul.as_coeff_matrices rejects a scalar factor that does not
+        // commute (``sin(A)*A``, ``x*A`` with a noncommutative ``x``).
+        if !joined_failed&&crate::decompose::commutativity(&coefficient)==Some(false){
+            return Err(MatrixError::NotImplemented("noncommutative scalars in MatMul are not supported.".into()));
+        }
         let rows=first.rows().clone(); let cols=factors.last().unwrap().cols().clone();
         for pair in factors.windows(2){compatible(pair[0].cols(),pair[1].rows())?;}
         if !evaluate{return Ok(Self::new(MatrixKind::Mul(coefficient,factors.to_vec()),rows,cols));}
@@ -591,6 +616,12 @@ impl MatrixExpr {
                 if matches!(self.kind(),MatrixKind::Zero){if n<0{return Err(MatrixError::NonInvertible("Zero matrix is not invertible".into()));}return Ok(self.clone());}
                 if let MatrixKind::Pow(b,e)=self.kind(){if e.is_integer_number(){return b.pow(mul2(e,&exponent),true);}}
                 if let MatrixKind::Inverse(b)=self.kind(){return b.pow(neg(&exponent),true);}
+            }
+            // ZeroMatrix._eval_power: any other exponent keeps the zero
+            // matrix, unless it is known to be negative.
+            if matches!(self.kind(),MatrixKind::Zero) && exponent.as_number().is_some(){
+                if crate::assumptions::is_negative(&exponent)==Some(true){return Err(MatrixError::NonInvertible("Matrix det == 0; not invertible".into()));}
+                return Ok(self.clone());
             }
         }
         Ok(Self::new(MatrixKind::Pow(self.clone(),exponent),self.rows().clone(),self.cols().clone()))

@@ -427,7 +427,15 @@ def _make(name):
         if len(args) == 1 and getattr(args[0], "_symox_matrixexpr", False):
             if name == "conjugate":
                 return args[0].conjugate()
+            from ._matrix_function_heads import apply as _matrix_head
+            value = _matrix_head(name, args[0], evaluate)
+            if value is not None:
+                return value
             raise NotImplementedError(f"{name} of abstract matrices is not implemented")
+        if (name == 'exp' and evaluate and len(args) == 1 and isinstance(args[0], _core.Expr)
+                and args[0].func is globals().get('log') and getattr(args[0].args[0], "_symox_matrixexpr", False)):
+            # exp(log(A)) is A (exp.eval), the matrix expression itself.
+            return args[0].args[0]
         if (name == 'exp' and len(args) == 1 and evaluate
                 and (isinstance(args[0], _core.Matrix) or getattr(args[0], '_symox_sparse', False))):
             return args[0].exp().as_immutable()
@@ -4380,6 +4388,10 @@ for _context_name in ('sqrt','cbrt','log'):
                     value = _accum_evaluate(name, args[0])
                     if value is not None:
                         return value
+            if (state and name in ('sqrt','cbrt') and len(args) == 1
+                    and getattr(args[0], "_symox_matrixexpr", False)):
+                # Pow(A, 1/2) of a matrix expression is the MatPow, as in SymPy.
+                return args[0]**Rational(1,2 if name=='sqrt' else 3)
             if state:return original(*args)
             if name in ('sqrt','cbrt'):
                 return _core._node('Pow',(args[0],Rational(1,2 if name=='sqrt' else 3)),False)
