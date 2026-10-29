@@ -1,6 +1,7 @@
 """Protocol checks for exact QQ triangular substitution; no arithmetic here."""
 from types import ModuleType,WrapperDescriptorType,MethodDescriptorType,GetSetDescriptorType
 from symox import _core
+from symox._native_dispatch import strip_slot_cache as _strip_slot_cache
 from ..domains import _algebraic_methods
 from .exceptions import DMNonInvertibleMatrixError
 
@@ -70,7 +71,12 @@ def _error_stock():
     for cls,items in _ERROR_CLASSES:
         if _TYPE(cls) is not _TYPE:return False
         current=cls.__dict__
-        if current.__len__()!=items.__len__():return False
+        if current.__len__()!=items.__len__():
+            # Only copyreg's __slotnames__ cache may differ (pickling reads it).
+            stripped=_strip_slot_cache(cls,current,items)
+            if stripped is None:return False
+            current,items=stripped
+            if current.__len__()!=items.__len__():return False
         for name in current:
             if _TYPE(name) is not _STR:return False
         for name,value in items:

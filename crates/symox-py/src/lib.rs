@@ -208,6 +208,32 @@ fn _register_node_types(py: Python<'_>, resolver: PyObject) -> PyResult<()> {
         .map_err(|_| PyValueError::new_err("native node types are already registered"))
 }
 
+// The module defining the ExprCondPair view and the stock ``__new__`` entry
+// of its class dictionary, registered when that module is (re)executed.
+static PAIR_VIEW: std::sync::Mutex<Option<(PyObject, PyObject)>> = std::sync::Mutex::new(None);
+
+#[pyfunction]
+fn _register_expr_cond_pair(module: PyObject, constructor: PyObject) {
+    if let Ok(mut slot) = PAIR_VIEW.lock() { *slot = Some((module, constructor)); }
+}
+
+/// The current ExprCondPair view class, plus ``tuple.__new__`` when the class
+/// still has its stock constructor and no ``__init__`` override: then a pair of
+/// a settled native condition can be built exactly as ``__new__`` would.
+fn pair_view<'py>(py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, Option<Bound<'py, PyAny>>)> {
+    let registered = PAIR_VIEW.lock().ok().and_then(|slot| slot.as_ref().map(|(m, c)| (m.clone_ref(py), c.clone_ref(py))));
+    let Some((module, constructor)) = registered else {
+        return Ok((py.import("symox._matrixexpr_methods")?.getattr("_ExprCondPairView")?, None));
+    };
+    let cls = module.bind(py).getattr("_ExprCondPairView")?;
+    let tuple = py.get_type::<PyTuple>();
+    let stock = cls.is_instance_of::<pyo3::types::PyType>()
+        && cls.getattr("__dict__")?.get_item("__new__").ok().is_some_and(|value| value.is(constructor.bind(py)))
+        && cls.getattr("__init__")?.is(&tuple.getattr("__init__")?);
+    let new = if stock { Some(tuple.getattr("__new__")?) } else { None };
+    Ok((cls, new))
+}
+
 fn node_type<'py>(py: Python<'py>, e: &Expr) -> Option<Bound<'py, pyo3::types::PyType>> {
     let resolver = NODE_TYPE_RESOLVER.get(py)?;
     let name = e.class_name();
@@ -1932,9 +1958,18 @@ impl PyExprNode {
     #[getter]
     fn args<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         if let Kind::Piecewise(branches)=self.e.kind(){
-            let pair=py.import("symox._matrixexpr_methods")?.getattr("_ExprCondPairView")?;
-            let arguments=branches.iter().map(|(value,condition)|pair.call1((
-                expr_object(py,value.clone())?,expr_object(py,condition.clone())?))).collect::<PyResult<Vec<_>>>()?;
+            // A native branch is already validated: a settled condition gives
+            // the pair ExprCondPair.__new__ would build, without re-running its
+            // Piecewise query. Other conditions take the full constructor.
+            let (pair,new)=pair_view(py)?;
+            let arguments=branches.iter().map(|(value,condition)|{
+                let objects=(expr_object(py,value.clone())?,expr_object(py,condition.clone())?);
+                match &new {
+                    Some(new) if !value.has_matrix() && symox::logic::is_settled_condition(condition)
+                        => new.call1((&pair,objects)),
+                    _ => pair.call1(objects),
+                }
+            }).collect::<PyResult<Vec<_>>>()?;
             return PyTuple::new(py,arguments);
         }
         if !self.e.has_matrix() { return PyTuple::new(py,python_args(&self.e).into_iter().map(wrap)); }
@@ -4298,6 +4333,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(integration_methods::_integration_methods, m)?)?;
     integration_methods::register();
     m.add_function(wrap_pyfunction!(_register_node_types, m)?)?;
+    m.add_function(wrap_pyfunction!(_register_expr_cond_pair, m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_args,m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_key,m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_monomial_add,m)?)?;

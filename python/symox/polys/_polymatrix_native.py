@@ -2,6 +2,7 @@
 from types import FunctionType,CodeType,ModuleType
 from sys import modules as _MODULES
 from marshal import dumps as _CODE
+from .._native_dispatch import strip_slot_cache as _strip_slot_cache
 from .. import _core
 
 _TYPE=type
@@ -179,6 +180,16 @@ def _class_unchanged(record, classes=(),_metadata=None):
             or not _ALL(_unchanged(function,_metadata) for function in functions)):return False
     if (_LEN(current)==_LEN(items)
             and _ALL(current.get(name) is value for name,value in relevant)):return True
+    # copy.copy/pickle of an instance caches __slotnames__ in the class
+    # dictionary (copyreg); only pickling reads it. Compare without it.
+    stripped=_strip_slot_cache(cls,current,items)
+    if stripped is None:return False
+    if stripped[0] is not current or stripped[1] is not items:
+        current,items=stripped
+        relevant=(_TUPLE((name,value) for name,value in items if name not in ('__str__','__repr__'))
+                  if classes and cls is _core.Expr else items)
+        if (_LEN(current)==_LEN(items)
+                and _ALL(current.get(name) is value for name,value in relevant)):return True
     if classes and _host_free_symbols_installed(cls,dict(items),current,_metadata):return True
     if classes and _STATS is not None and cls is _STATS[0] and _stats_installed(cls,dict(items),current,_metadata):return True
     if cls is not _core.Expr or not classes or _FORWARDING is None:return False

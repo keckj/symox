@@ -47,6 +47,10 @@ fn inherited_native<'py>(c:&Context<'py>,class:&Bound<'py,PyAny>,owner:&Bound<'p
     for name in names{guard!(c.effective(class,name)?.is(need(&c.raw(owner)?,name)?),"inherited native protocol");}Ok(())
 }
 
+fn slot_cache(namespace:&Bound<'_,PyAny>)->VResult<bool> {
+    Ok(match item(namespace,"__slotnames__")?{Some(value)=>value.downcast_exact::<PyList>().is_ok_and(|list|list.is_empty()),None=>false})
+}
+
 fn rank_error<'py>(c:&Context<'py>)->VResult<()> {
     c.builtins(&["Exception","BaseException"])?;
     let module="symox.polys.matrices.exceptions";
@@ -60,6 +64,10 @@ fn rank_error<'py>(c:&Context<'py>)->VResult<()> {
         for key in namespace.try_iter()?{
             let key=key?;let mut allowed=false;
             for name in ["__module__","__doc__","__weakref__"]{if key.eq(name)?{allowed=true;break;}}
+            // copy/pickle store copyreg's __slotnames__ cache in the class dict.
+            // No class of this verified hierarchy declares __slots__, so the
+            // only interpreter-written value is an exact empty list.
+            if !allowed&&key.eq("__slotnames__")?{allowed=slot_cache(&namespace)?;}
             guard!(allowed,"rank exception custom attribute");
         }
         let name=need(&namespace,"__module__")?;guard!(name.downcast_exact::<PyString>().is_ok()&&name.eq(module)?,"rank exception module");
@@ -70,8 +78,11 @@ fn rank_error<'py>(c:&Context<'py>)->VResult<()> {
     for record in records.iter(){
         let record=tuple(record)?;guard!(record.len()==2,"rank class record");let class=record.get_item(0)?;
         guard!(class.is(&rank)||class.is(&base),"rank class identity");let namespace=c.raw(&class)?;
-        let attributes=tuple(record.get_item(1)?)?;guard!(namespace.len()?==attributes.len(),"rank class namespace length");
-        for attribute in attributes.iter(){let attribute=tuple(attribute)?;guard!(attribute.len()==2,"rank attribute record");let key=attribute.get_item(0)?;guard!(key.downcast_exact::<PyString>().is_ok(),"rank attribute name");guard!(namespace.get_item(key)?.is(attribute.get_item(1)?),"rank class attribute changed");}
+        let attributes=tuple(record.get_item(1)?)?;
+        let mut recorded=0usize;
+        for attribute in attributes.iter(){let attribute=tuple(attribute)?;guard!(attribute.len()==2,"rank attribute record");let key=attribute.get_item(0)?;guard!(key.downcast_exact::<PyString>().is_ok(),"rank attribute name");if key.eq("__slotnames__")?{continue;}recorded+=1;guard!(namespace.get_item(key)?.is(attribute.get_item(1)?),"rank class attribute changed");}
+        let cached=usize::from(item(&namespace,"__slotnames__")?.is_some());
+        guard!(namespace.len()?==recorded+cached,"rank class namespace length");
     }
     let captured=c.member(HELPER,"_RANK_FUNCTIONS")?.downcast_into_exact::<PyList>().map_err(|_|Failure::Decline("rank function records"))?;
     guard!(captured.is_empty(),"rank custom constructor function");

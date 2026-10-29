@@ -12430,3 +12430,37 @@ Remaining gaps:
   `atoms(Function)` check.
 
 Measured: [audit](../audits/performance/2026-10-29-tracearr/README.md).
+
+## slotfold (wave 24): copyreg slot caches, native Piecewise pairs
+
+Now native / admitted:
+
+- `copy.copy`, `copy.deepcopy` and `pickle` of objects with the default
+  reduce store copyreg's `__slotnames__` cache in the class dict. The
+  native admission snapshots (polymatrix ground and its forwarding to risch
+  `polynomial_reduce`/`splitfactor`, DDM `lu_solve` error classes, LLL rank
+  exceptions in Rust) ignore exactly that entry when its value equals the
+  list copyreg computes for the class (`_native_dispatch.strip_slot_cache`;
+  for DMError/DMRankError an exact empty list). Any other `__slotnames__`
+  value, and every user override of a protocol method, still declines.
+- `Piecewise.args` builds the stock ExprCondPair in Rust when the condition
+  is a settled Boolean (Boolean category, no matrix, no Piecewise) and the
+  value has no matrix. This removes the Python revalidation that dominated
+  `piecewise_fold` and the Sum/Product/Integral constructors (about 2x
+  faster, same Piecewise argument order and conditions as SymPy 1.14).
+
+Fallbacks: a condition containing a Piecewise or a matrix, a matrix value,
+or a patched `ExprCondPair.__new__`/`__init__` goes through the Python
+constructor. `piecewise_fold` itself stays the existing Python algorithm
+(including the intentional `_bound_piecewise_variables` behavior).
+
+Remaining gaps:
+
+- `piecewise_fold` still spends its time in Python `has(Piecewise)` and
+  `atoms(Function)` queries: 1.2x-1.5x slower than SymPy on 4 of the 10
+  measured inputs.
+- Slot caches written on classes that copy/pickle never reach (metaclasses,
+  `contextvars.ContextVar`, classes with a custom reduce) still make some
+  admissions decline; only the copyreg cache values are recognized.
+
+Measured: [audit](../audits/performance/2026-10-29-slotfold/README.md).
