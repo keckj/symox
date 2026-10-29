@@ -649,7 +649,19 @@ impl PyMatrixExpr{
         }
         crate::with_derivative_errors(||Ok(wrap_matrixexpr(self.m.diff_many(&variables).map_err(|e|error(args.py(),e))?)))
     }
-    fn binary_add(&self,other:&Bound<'_,PyAny>,subtract:bool,reverse:bool)->PyResult<Self>{let py=other.py();let mut a=self.m.clone();let mut b=to_matrixexpr(other)?;if reverse{std::mem::swap(&mut a,&mut b);}if subtract{b=MatrixExpr::mul(Expr::minus_one(),&[b],true).map_err(|e|error(py,e))?;}Ok(wrap_matrixexpr(MatrixExpr::add(&[a,b],true).map_err(|e|error(py,e))?))}
+    fn binary_add(&self,other:&Bound<'_,PyAny>,subtract:bool,reverse:bool)->PyResult<Self>{let py=other.py();let mut a=self.m.clone();
+        // MatAdd's validate: a scalar term is SymPy's TypeError "Mix of Matrix
+        // and Scalar symbols"; an object that does not sympify is an
+        // unsupported operand.
+        let mut b=match to_matrixexpr(other){Ok(b)=>b,Err(error)=>{
+            if to_expr(other).is_ok(){return Err(PyTypeError::new_err("Mix of Matrix and Scalar symbols"));}
+            if other.getattr("_sympy_").is_err()&&other.getattr("_symox_").is_err()&&!other.is_instance_of::<pyo3::types::PyString>(){
+                let name=|v:&Bound<'_,PyAny>|v.get_type().name().map(|n|n.to_string()).unwrap_or_default();
+                let (left,right)=if reverse{(name(other),self.m.kind_name().to_string())}else{(self.m.kind_name().to_string(),name(other))};
+                return Err(PyTypeError::new_err(format!("unsupported operand type(s) for {}: '{left}' and '{right}'",if subtract{"-"}else{"+"})));
+            }
+            return Err(error);
+        }};if reverse{std::mem::swap(&mut a,&mut b);}if subtract{b=MatrixExpr::mul(Expr::minus_one(),&[b],true).map_err(|e|error(py,e))?;}Ok(wrap_matrixexpr(MatrixExpr::add(&[a,b],true).map_err(|e|error(py,e))?))}
     fn binary_mul(&self,other:&Bound<'_,PyAny>,reverse:bool)->PyResult<Self>{let py=other.py();let result=if is_matrix(other){let peer=to_matrixexpr(other)?;let terms=if reverse{vec![peer,self.m.clone()]}else{vec![self.m.clone(),peer]};MatrixExpr::mul(Expr::one(),&terms,true)}else{MatrixExpr::mul(to_expr(other)?,&[self.m.clone()],true)};Ok(wrap_matrixexpr(result.map_err(|e|error(py,e))?))}
 }
 #[pyfunction]

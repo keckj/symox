@@ -1,0 +1,12 @@
+{"label": "after", "call": "conjugate(A)", "first_s": 3.1481002224609256e-05, "repeated_s": 3.1758350087329745e-06, "result": "Adjoint(A.T)"}
+{"label": "after", "call": "conjugate(x*A)", "first_s": 6.21759973000735e-05, "repeated_s": 6.051329983165487e-06, "result": "Adjoint((x*A).T)"}
+{"label": "after", "call": "conjugate(A**2)", "first_s": 4.377200093585998e-05, "repeated_s": 4.843429996981285e-06, "result": "Adjoint(A.T)**2"}
+{"label": "after", "call": "str(sin(A - A.T))", "first_s": 0.0003999049949925393, "repeated_s": 2.2742525034118443e-05, "result": "sin(A - A.T)"}
+{"label": "after", "call": "srepr(sin(2*A - B))", "first_s": 0.0004430299886735156, "repeated_s": 4.504275500949007e-05, "result": "sin(MatAdd(MatMul(Integer(2), MatrixSymbol(\"A\", Integer(3), Integer(3))), MatMul"}
+{"label": "after", "call": "re(A)", "first_s": 0.0003908770013367757, "repeated_s": 5.4062960043665956e-05, "result": "(1/2)*Adjoint(A.T) + (1/2)*A"}
+{"label": "after", "call": "im(x*A)", "first_s": 0.0004581829998642206, "repeated_s": 7.490216004953254e-05, "result": "-(I/2)*(x*A + (-conjugate(x))*Adjoint(A.T))"}
+{"label": "after", "call": "Abs(A)", "first_s": 0.0002845389972208068, "repeated_s": 1.1002175015164539e-05, "result": "(A*Adjoint(A.T))**(1/2)"}
+{"label": "after", "call": "Abs(x*A*B)", "first_s": 0.0004019309999421239, "repeated_s": 4.963186998793389e-05, "result": "Abs(x)*(A*Adjoint(A.T))**(1/2)*(B*Adjoint(B.T))**(1/2)"}
+{"label": "after", "call": "re(log(A))", "first_s": 0.00036411698965821415, "repeated_s": 2.4291285008075647e-05, "result": "log((A*Adjoint(A.T))**(1/2))"}
+{"label": "after", "call": "Heaviside(A) error", "first_s": 0.0011002999963238835, "repeated_s": 0.0004211671099619707, "result": "!! ValueError: Function defined only for Real Values. Complex part: -(I/2)*"}
+{"label": "after", "call": "x + A error", "first_s": 3.171700518578291e-05, "repeated_s": 2.9565449949586765e-06, "result": "!! TypeError: Mix of Matrix and Scalar symbols"}

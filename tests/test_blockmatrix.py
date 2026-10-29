@@ -87,7 +87,8 @@ def test_block_arithmetic_matches_sympy(operation):
     expected=operation(sp,block(sp),block(sp,'E'))
     same(value,expected)
     assert value.func(*value.args)==value
-    assert sx.sympify(sx.srepr(value))==value
+    # srepr lists MatAdd terms in printing order (SymPy 1.14): compare printed forms.
+    assert sx.srepr(sx.sympify(sx.srepr(value)))==sx.srepr(value)
 
 
 def test_ordered_product_cells_and_unaligned_partitions():

@@ -432,6 +432,12 @@ def _make(name):
             if value is not None:
                 return value
             raise NotImplementedError(f"{name} of abstract matrices is not implemented")
+        if (name in ('re', 'im') and evaluate and len(args) == 1 and isinstance(args[0], _core.Expr)
+                and len(args[0].args) == 1 and getattr(args[0].args[0], '_symox_matrixexpr', False)):
+            from ._matrix_function_heads import function_part as _matrix_function_part
+            value = _matrix_function_part(name, args[0])
+            if value is not None:
+                return value
         if (name == 'exp' and evaluate and len(args) == 1 and isinstance(args[0], _core.Expr)
                 and args[0].func is globals().get('log') and getattr(args[0].args[0], "_symox_matrixexpr", False)):
             # exp(log(A)) is A (exp.eval), the matrix expression itself.

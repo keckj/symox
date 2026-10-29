@@ -452,11 +452,14 @@ def args_cnc(self, cset=False, warn=True, split_1=True):
 
 
 def as_real_imag(self, deep=True, **hints):
-    from . import I, S
+    # MatrixExpr.as_real_imag of the reference: no shortcut for a matrix
+    # equal to its conjugate, the sums and the quotient evaluate as built.
+    # MatrixExpr.__add__ and __sub__ are ``.doit()`` of the sum.
+    from . import I, S, MatAdd
     conjugate = self.conjugate()
-    if conjugate == self:
-        return self, S.Zero
-    return (self+conjugate)/2, (self-conjugate)/(2*I)
+    real = MatAdd(self, conjugate).doit()
+    imag = MatAdd(self, (-conjugate).doit()).doit()
+    return S.Half*real, imag/(2*I)
 
 
 def primitive(self):
