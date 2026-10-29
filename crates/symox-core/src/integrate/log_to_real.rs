@@ -294,13 +294,22 @@ fn pair_terms<C: RealCoefficient,E>(a: &MPoly<Rat>,b: &MPoly<Rat>,d: &MPoly<Rat>
 /// conjugate pair) with `r` the mean of its roots. So the decline is certain
 /// when some factor has a real root or `g(2*r - t) != (-1)^m * g(t)`; this
 /// costs one univariate factorization instead of the resultant.
+#[cfg(test)]
 fn odd_degree_certain_decline(q: &[Rat]) -> bool {
-    if q.len()%2!=0 {return false;}
+    q.len()%2==0 && odd_degree_factors_decline(&rational_factors(q))
+}
+
+/// The irreducible factors over QQ of the rational univariate `q`, as
+/// ascending dense coefficient vectors.
+fn rational_factors(q: &[Rat]) -> Vec<Vec<Rat>> {
     let qpoly=MPoly::from_terms(1,q.iter().enumerate().map(|(i,c)|(vec![i as u32],c.clone())).collect());
     let (_,integral)=qpoly.clear_denoms();
     let (_,factors)=crate::poly::factor_multi::factor_list_mz(&integral);
-    factors.iter().any(|(g,_)|{
-        let g=dense::from_mpoly(&g.to_rat(),0);
+    factors.iter().map(|(g,_)|dense::from_mpoly(&g.to_rat(),0)).collect()
+}
+
+fn odd_degree_factors_decline(factors: &[Vec<Rat>]) -> bool {
+    factors.iter().any(|g|{
         if g.len()<=2 {return false;}
         let descending=g.iter().rev().cloned().collect::<Vec<_>>();
         if crate::poly::rootisolation::count_real_roots(&descending,None,None)!=0 {return true;}
@@ -313,6 +322,81 @@ fn odd_degree_certain_decline(q: &[Rat]) -> bool {
         }
         let expected=if m%2==0 {g.clone()} else {dense::neg(&g)};
         composed!=expected
+    })
+}
+
+/// `sqrt(r)` when `r` is the square of a rational.
+fn rational_sqrt(r: &Rat) -> Option<Rat> {
+    if r.is_negative() {return None;}
+    let s=Rat::new(r.n.isqrt(),r.d.isqrt());
+    (s.mul(&s)==*r).then_some(s)
+}
+
+/// Whether the irreducible rational quartic `g` (ascending coefficients,
+/// no real root) has its roots in a field `QQ(i, sqrt(k))`, `k` rational.
+/// With `g` monic and shifted to `x**4 + p*x**2 + s*x + r`, this holds iff
+/// `g = h*conjugate(h)` over `QQ(i)` with `h = x**2 + i*b*x + c1 + i*c2`
+/// (`b**2 = z` a rational root of `z**3 - 2*p*z**2 + (p**2 - 4*r)*z + s**2`,
+/// or `b = 0`, `s = 0`) and `QQ(i, sqrt(D))`, `D = -(b**2 + 4*c1) - 4*i*c2`,
+/// is Galois over QQ, i.e. the norm `(b**2 + 4*c1)**2 + 16*c2**2` is a
+/// rational square (Kummer: `conjugate(D)/D` is then a square in `QQ(i)`).
+/// No cyclic quartic field contains `i` (-1 is not a sum of two squares),
+/// so such a field is `QQ(i, sqrt(k))`.
+fn gaussian_biquadratic(g: &[Rat]) -> bool {
+    if g.len()!=5 {return false;}
+    let monic=g.iter().map(|c|c.div(&g[4])).collect::<Vec<_>>();
+    let mu=monic[3].neg().div(&Rat::from_i64(4));
+    let shift=vec![mu,Rat::one()];
+    let mut shifted:Vec<Rat>=Vec::new();
+    for c in monic.iter().rev() {shifted=dense::add(&dense::mul(&shifted,&shift),&[c.clone()]);}
+    let at=|i:usize|shifted.get(i).cloned().unwrap_or_else(Rat::zero);
+    let (r,s,p)=(at(0),at(1),at(2));
+    let two=Rat::from_i64(2);let four=Rat::from_i64(4);
+    let cubic=[s.mul(&s),p.mul(&p).sub(&four.mul(&r)),p.mul(&two).neg(),Rat::one()];
+    let cubic=MPoly::from_terms(1,cubic.iter().enumerate().filter(|(_,c)|!c.is_zero())
+        .map(|(i,c)|(vec![i as u32],c.clone())).collect());
+    let (_,integral)=cubic.clear_denoms();
+    let (_,factors)=crate::poly::factor_multi::factor_list_mz(&integral);
+    factors.iter().any(|(f,_)|{
+        let f=dense::from_mpoly(&f.to_rat(),0);
+        if f.len()!=2 {return false;}
+        let z=f[0].neg().div(&f[1]);
+        let (b,c1,c2)=if z.is_zero() {
+            if !s.is_zero() {return false;}
+            let c1=p.div(&two);
+            let Some(c2)=rational_sqrt(&r.sub(&c1.mul(&c1))) else{return false};
+            (Rat::zero(),c1,c2)
+        } else {
+            let Some(b)=rational_sqrt(&z) else{return false};
+            (b.clone(),p.sub(&z).div(&two),s.div(&two.mul(&b)))
+        };
+        // h*conjugate(h) = x**4 + (2*c1 + b**2)*x**2 + 2*b*c2*x + c1**2 + c2**2
+        if (b.is_zero() && c2.is_zero()) || two.mul(&c1).add(&b.mul(&b))!=p || two.mul(&b).mul(&c2)!=s
+            || c1.mul(&c1).add(&c2.mul(&c2))!=r {return false;}
+        let e=b.mul(&b).add(&four.mul(&c1));
+        rational_sqrt(&e.mul(&e).add(&Rat::from_i64(16).mul(&c2).mul(&c2))).is_some()
+    })
+}
+
+/// Every non-real root `t` of `q` gives a pair `(re(t), |im(t)|)` that the
+/// general attempt reaches unless it declines before: `re(t)` is a real root
+/// of `R`, `im(t)` a real root of `c(re(t), v)`, and `d(re(t), im(t)) = 0`
+/// exactly, so the pair is computed only when `re(t)` and `im(t)` lie in a
+/// common rational or pure quadratic field `QQ(sqrt(k))`, i.e. when
+/// `QQ(t)` is contained in `QQ(i, sqrt(k))`. An irreducible factor of `q`
+/// with a non-real root and degree 3 or >= 5 never satisfies this, nor does
+/// a quartic one with a real root (`QQ(t)` would then be Galois and contain
+/// that root of degree 4) or one outside `gaussian_biquadratic`. The
+/// decline is then certain; this costs one univariate factorization instead
+/// of the resultant, its factorization and the root computations.
+fn nonreal_field_decline(factors: &[Vec<Rat>]) -> bool {
+    factors.iter().any(|g|{
+        let m=g.len().saturating_sub(1);
+        if m<3 {return false;}
+        let descending=g.iter().rev().cloned().collect::<Vec<_>>();
+        let real=crate::poly::rootisolation::count_real_roots(&descending,None,None);
+        if real>=m {return false;}
+        m!=4 || real!=0 || !gaussian_biquadratic(g)
     })
 }
 
@@ -348,7 +432,8 @@ fn general_attempt<E>(h: &MPoly<Rat>,q: &[Rat],x: &Expr,t: &Expr,
 {
     if h.nvars!=2 || h.is_zero() || h.degree(0)>32 || h.degree(1)>32 || h.len()>1024
         || h.coeffs().iter().chain(q).any(|c|c.n.bits().max(c.d.bits())>4096) {return Ok(None);}
-    if odd_degree_certain_decline(q) {return Ok(None);}
+    let factors=rational_factors(q);
+    if (q.len()%2==0 && odd_degree_factors_decline(&factors)) || nonreal_field_decline(&factors) {return Ok(None);}
     check()?;
     let (u,v)=(Expr::dummy("u",crate::symbol::Assumptions::NONE),Expr::dummy("v",crate::symbol::Assumptions::NONE));
     let (a,b)=split(h);
@@ -457,6 +542,30 @@ mod tests {
         let mut f=vec![0i64;6];for i in 0..5 {f[i]-=ab[i];f[i+1]+=ab[i];}
         assert!(!odd_degree_certain_decline(&q(&f)));
         assert!(!odd_degree_certain_decline(&q(&[1,0,0,0,256])));
+    }
+
+    #[test]
+    fn nonreal_field_structural_decline_is_exact() {
+        let q=|v:&[i64]|v.iter().map(|&c|Rat::from_i64(c)).collect::<Vec<_>>();
+        let decline=|v:&[i64]|nonreal_field_decline(&rational_factors(&q(v)));
+        // Admitted quartic fields QQ(i, sqrt(k)): x**4+1, x**4-x**2+1,
+        // a shifted (x-1)**4+1, and reducible x**4+4.
+        for f in [&[1i64,0,0,0,1][..],&[1,0,-1,0,1],&[2,-4,6,-4,1],&[4,0,0,0,1],&[1,0,0,0,256]] {
+            assert!(!decline(f),"{f:?}");
+            assert!(gaussian_biquadratic(&q(f)) || f==[4,0,0,0,1]);
+        }
+        // x**4-2*x**2+4 (the quartic of x**6+8): QQ(i*sqrt(2), i*sqrt(3)).
+        assert!(decline(&[4,0,-2,0,1]));
+        assert!(decline(&[8,0,0,0,0,0,1]));
+        // x**8+1 (degree 8), x**3-2 (cubic), x**4-2 (real roots).
+        assert!(decline(&[1,0,0,0,0,0,0,0,1]));
+        assert!(decline(&[-2,0,0,1]));
+        assert!(decline(&[-2,0,0,0,1]));
+        // x**4+x+1: QQ(t) does not contain i.
+        assert!(decline(&[1,1,0,0,1]));
+        // Only real roots, or quadratic factors: never declined here.
+        assert!(!decline(&[1,-3,0,1]));
+        assert!(!decline(&[4,4,5,5,1,1]));
     }
 
     #[test]
