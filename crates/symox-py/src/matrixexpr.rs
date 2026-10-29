@@ -276,7 +276,8 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
         "BlockMatrix" if args.len()==1=>MatrixExpr::block(to_block_grid(&args.get_item(0)?)?),
         "BlockDiagMatrix"=>MatrixExpr::block_diag(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?),
         "MatrixSlice" if args.len()==3=>{let parent=matrix(0)?;parent.slice_normalized(slice_spec(&args.get_item(1)?,parent.rows())?,slice_spec(&args.get_item(2)?,parent.cols())?)},
-        "HadamardProduct"=>MatrixExpr::hadamard_product(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?,evaluate),
+        // HadamardProduct.__new__: every argument must be a matrix expression.
+        "HadamardProduct"=>{if args.iter().any(|v|!is_matrix(&v)&&to_expr(&v).is_ok()){return Err(PyTypeError::new_err("Mix of Matrix and Scalar symbols"));}MatrixExpr::hadamard_product(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?,evaluate)},
         "KroneckerProduct"=>MatrixExpr::kronecker(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?,evaluate),
         "HadamardPower" if args.len()==2=>{let a=operand(0)?;let b=operand(1)?;if let (MatrixOperand::Scalar(a),MatrixOperand::Scalar(b))=(&a,&b){return Ok(wrap(symox::ops::pow(a,b)).into_pyobject(py)?.into_any().unbind());}MatrixExpr::hadamard_power(a,b,evaluate)},
         "MatAdd"=>{if args.is_empty(){return Ok(wrap(Expr::zero()).into_pyobject(py)?.into_any().unbind());}let terms=args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?;MatrixExpr::add(&terms,evaluate)},
@@ -310,6 +311,20 @@ fn _matrix_determinant(parent:&Bound<'_,PyAny>,evaluate:bool)->PyResult<PyExpr>{
 #[pyfunction]
 fn _matrix_dot_product(a:&Bound<'_,PyAny>,b:&Bound<'_,PyAny>)->PyResult<PyExpr>{
     Ok(wrap(symox::matrixcontraction::dot_product(&to_matrixexpr(a)?,&to_matrixexpr(b)?,false).map_err(|e|error(a.py(),e))?))
+}
+/// SymPy's matrix-line derivative of a matrix expression or a scalar by a
+/// matrix symbol (results of rank at most two); None when the native
+/// kernel declines.
+#[pyfunction]
+fn _matrix_lines_derivative(py:Python<'_>,expr:&Bound<'_,PyAny>,x:&Bound<'_,PyAny>)->PyResult<Option<PyObject>>{
+    use symox::matrixexpr::lines::{matrix_lines_derivative,Value};
+    let Ok(x)=x.downcast::<PyMatrixExpr>() else {return Ok(None)};
+    let value=if let Ok(m)=expr.downcast::<PyMatrixExpr>(){Value::Matrix(m.get().m.clone())}else if let Ok(e)=expr.downcast::<crate::PyExprNode>(){Value::Scalar(e.get().e.clone())}else{return Ok(None)};
+    Ok(match matrix_lines_derivative(&value,&x.get().m){
+        None=>None,
+        Some(Value::Matrix(m))=>Some(matrix_object(py,&m)?.unbind()),
+        Some(Value::Scalar(e))=>Some(crate::expr_object(py,e)?),
+    })
 }
 #[pymethods]
 impl PyMatrixExpr{
@@ -673,4 +688,4 @@ fn _block_collapse(value:&Bound<'_,PyAny>)->PyResult<PyObject>{
     if value.is_instance_of::<PyBlockGrid>(){return Err(PyTypeError::new_err("Block grids require a BlockMatrix wrapper before collapse"));}
     let expression=to_expr(value)?;crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression).map_err(|e|error(py,e))?)
 }
-pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_function(wrap_pyfunction!(_register_matrixexpr_type,m)?)?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;m.add_function(wrap_pyfunction!(_matrix_dot_product,m)?)?;Ok(())}
+pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_function(wrap_pyfunction!(_register_matrixexpr_type,m)?)?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;m.add_function(wrap_pyfunction!(_matrix_dot_product,m)?)?;m.add_function(wrap_pyfunction!(_matrix_lines_derivative,m)?)?;Ok(())}

@@ -44,6 +44,7 @@ const COMMUTATIVE_HOOK: u32 = 32768;
 const PRETTY: u32 = 65536;
 const NUMBER: u32 = 131072;
 const REPR: u32 = 262144;
+const ELEMENT: u32 = 524288;
 
 fn may_not_commute(flags: u32) -> bool { flags & (NONCOMMUTATIVE | UNCOMMUTED | COMMUTATIVE_HOOK) != 0 }
 
@@ -557,6 +558,7 @@ impl HostClass for HeadHost {
         })
     }
     fn differentiates(&self) -> bool { self.class.flags & DERIV != 0 }
+    fn array_element(&self) -> bool { self.class.flags & ELEMENT != 0 }
     fn substitutes(&self) -> bool { self.class.flags & SUBS != 0 }
     fn subs(&self, expr: &Expr, old: &Expr, new: &Expr) -> Option<Expr> {
         if self.class.flags & SUBS == 0 { return None; }

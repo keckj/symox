@@ -22,6 +22,8 @@ mod expansion;
 mod inspection;
 #[path="matrixexpr/permutation.rs"]
 mod permutation;
+#[path="matrixexpr/lines.rs"]
+pub mod lines;
 pub(crate) use permutation::label as permutation_label;
 pub use inspection::{expression_has_scalar,expression_has_matrix};
 
@@ -207,8 +209,10 @@ impl MatrixExpr {
 impl PartialOrd for MatrixExpr { fn partial_cmp(&self, other:&Self)->Option<Ordering>{Some(self.cmp(other))} }
 
 fn dimension(e:&Expr)->MResult<()> {
-    if crate::assumptions::is_integer(e) == Some(false) || crate::assumptions::is_negative(e) == Some(true) {
-        return Err(MatrixError::Value("Matrix dimensions must be nonnegative integers".into()));
+    // SymPy's MatrixExpr._check_dim: a Float is refused even when integral.
+    let float=matches!(e.kind(),Kind::Num(n) if n.is_float());
+    if float || crate::assumptions::is_integer(e) == Some(false) || crate::assumptions::is_negative(e) == Some(true) {
+        return Err(MatrixError::Value(format!("The dimension specification {e} should be a nonnegative integer.")));
     }
     Ok(())
 }
@@ -949,7 +953,8 @@ impl MatrixExpr {
             // MatrixExpr._eval_conjugate: Adjoint(Transpose(self)).
             MatrixKind::Dft(_) if op==2=>return self.unary(0,true)?.unary(1,false),
             MatrixKind::Identity|MatrixKind::GenericIdentity=>return Ok(self.clone()),MatrixKind::GenericZero=>return Err(self.shapeless_error()),MatrixKind::One=>return if op==2{Ok(self.clone())}else{Self::one(self.cols().clone(),self.rows().clone())},MatrixKind::Zero=>return if op==2{Ok(self.clone())}else{Self::zero(self.cols().clone(),self.rows().clone())},
-            MatrixKind::HadamardProduct(factors)=>return Self::hadamard_product(&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,true),
+            // HadamardProduct._eval_transpose: the transposed factors, not canonicalized.
+            MatrixKind::HadamardProduct(factors)=>return Self::hadamard_product(&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,op!=0),
             MatrixKind::Kronecker(factors)=>return Self::kronecker(&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,true),
             MatrixKind::ApplyFunction(function,parent) if op==0=>return Self::apply_function(function.clone(),&parent.transpose(true)?,false),
             MatrixKind::Diag(parent)=>return if op==0{Ok(self.clone())}else{Self::diag(&parent.conjugate(true)?)},

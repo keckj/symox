@@ -449,6 +449,13 @@ fn key_indices(k: &Bound<'_, PyAny>, n: usize) -> PyResult<(Vec<usize>, bool)> {
     Err(PyTypeError::new_err("invalid index"))
 }
 
+/// An N-dim array operand: SymPy's NDimArray has the higher `_op_priority`,
+/// so `call_highest_priority` hands the operation to its reflected method,
+/// which refuses a matrix (TypeError for `+`/`-`).
+fn ndim_array(o: &Bound<'_, PyAny>) -> bool {
+    !o.is_instance_of::<PyMatrix>() && o.getattr(pyo3::intern!(o.py(), "is_NDimArray")).is_ok_and(|v| v.is_truthy().unwrap_or(false))
+}
+
 fn scalar_or_matrix(o: &Bound<'_, PyAny>) -> PyResult<Result<Matrix, Expr>> {
     if let Ok(m) = o.downcast::<PyMatrix>() {
         return Ok(Ok(m.borrow().m.clone()));
@@ -1096,6 +1103,7 @@ impl PyMatrix {
     }
 
     fn __add__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if ndim_array(o) { return Ok(py.NotImplemented()); }
         match scalar_or_matrix(o) {
             Ok(Ok(m)) => Ok(self.with_peer(o, self.m.add(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
@@ -1103,6 +1111,7 @@ impl PyMatrix {
     }
 
     fn __radd__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if ndim_array(o) { return Ok(py.NotImplemented()); }
         match scalar_or_matrix(o) {
             Ok(Ok(m)) => Ok(self.with_peer(o, m.add(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
@@ -1110,6 +1119,7 @@ impl PyMatrix {
     }
 
     fn __sub__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if ndim_array(o) { return Ok(py.NotImplemented()); }
         match scalar_or_matrix(o) {
             Ok(Ok(m)) => Ok(self.with_peer(o, self.m.sub(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
@@ -1117,6 +1127,7 @@ impl PyMatrix {
     }
 
     fn __rsub__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if ndim_array(o) { return Ok(py.NotImplemented()); }
         match scalar_or_matrix(o) {
             Ok(Ok(m)) => Ok(self.with_peer(o, m.sub(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),

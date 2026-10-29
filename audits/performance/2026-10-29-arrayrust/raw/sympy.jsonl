@@ -1,0 +1,30 @@
+{"case": 0, "name": "(x.T*x).diff(x)", "result": "2*x", "first_ms": 50.16824700032885, "median_ms": 8.450821999758773}
+{"case": 1, "name": "(x.T*A*x).diff(x)", "result": "A*x + A.T*x", "first_ms": 53.98652999974729, "median_ms": 12.521825500243722}
+{"case": 2, "name": "Trace(A*X*B).diff(X)", "result": "A.T*B.T", "first_ms": 47.954968999874836, "median_ms": 7.006244499734748}
+{"case": 3, "name": "Trace(X**3).diff(X)", "result": "3*X.T**2", "first_ms": 60.58863199996267, "median_ms": 17.908764000367228}
+{"case": 4, "name": "Trace(X.T*A*X).diff(X)", "result": "A*X + A.T*X", "first_ms": 60.832665999441815, "median_ms": 13.775331000033475}
+{"case": 5, "name": "(x.T*X**-1*y).diff(X)", "result": "-X.T**(-1)*x*y.T*X.T**(-1)", "first_ms": 66.65637000060087, "median_ms": 22.014144499735266}
+{"case": 6, "name": "(Trace(X)*Trace(A*X)).diff(X)", "result": "Trace(A*X)*I + Trace(X)*A.T", "first_ms": 56.60989799980598, "median_ms": 13.754938499914715}
+{"case": 7, "name": "Trace(A*X*B*X).diff(X)", "result": "A.T*X.T*B.T + B.T*X.T*A.T", "first_ms": 59.39281700011634, "median_ms": 17.44098249992021}
+{"case": 8, "name": "(A*X).diff(X) [rank 4]", "result": "PermuteDims(ArrayTensorProduct(A.T, I), (3)(1 2))", "first_ms": 45.55866000009701, "median_ms": 4.299453499697847}
+{"case": 9, "name": "convert_array_to_matrix(convert_matrix_to_array(A*X*B))", "result": "A*X*B", "first_ms": 46.69381100029568, "median_ms": 5.6330809998144105}
+{"case": 0, "name": "(x.T*x).diff(x)", "result": "2*x", "first_ms": 49.83851099950698, "median_ms": 8.353522000561497}
+{"case": 1, "name": "(x.T*A*x).diff(x)", "result": "A*x + A.T*x", "first_ms": 53.879435999988345, "median_ms": 12.471791500047402}
+{"case": 2, "name": "Trace(A*X*B).diff(X)", "result": "A.T*B.T", "first_ms": 47.980841000025976, "median_ms": 6.977726000059192}
+{"case": 3, "name": "Trace(X**3).diff(X)", "result": "3*X.T**2", "first_ms": 59.53298399981577, "median_ms": 17.529841999930795}
+{"case": 4, "name": "Trace(X.T*A*X).diff(X)", "result": "A*X + A.T*X", "first_ms": 54.958212000201456, "median_ms": 13.52883900017332}
+{"case": 5, "name": "(x.T*X**-1*y).diff(X)", "result": "-X.T**(-1)*x*y.T*X.T**(-1)", "first_ms": 66.20233800003916, "median_ms": 21.871913999802928}
+{"case": 6, "name": "(Trace(X)*Trace(A*X)).diff(X)", "result": "Trace(A*X)*I + Trace(X)*A.T", "first_ms": 55.64937999952235, "median_ms": 13.605906500288256}
+{"case": 7, "name": "Trace(A*X*B*X).diff(X)", "result": "A.T*X.T*B.T + B.T*X.T*A.T", "first_ms": 59.73663800068607, "median_ms": 17.17044299994086}
+{"case": 8, "name": "(A*X).diff(X) [rank 4]", "result": "PermuteDims(ArrayTensorProduct(A.T, I), (3)(1 2))", "first_ms": 45.46189600023354, "median_ms": 4.448917500212701}
+{"case": 9, "name": "convert_array_to_matrix(convert_matrix_to_array(A*X*B))", "result": "A*X*B", "first_ms": 47.04684900025313, "median_ms": 5.8132555004704045}
+{"case": 0, "name": "(x.T*x).diff(x)", "result": "2*x", "first_ms": 49.81476400007523, "median_ms": 8.403648999774305}
+{"case": 1, "name": "(x.T*A*x).diff(x)", "result": "A*x + A.T*x", "first_ms": 52.965020999181434, "median_ms": 12.375174499538844}
+{"case": 2, "name": "Trace(A*X*B).diff(X)", "result": "A.T*B.T", "first_ms": 50.38197999965632, "median_ms": 7.076424499700806}
+{"case": 3, "name": "Trace(X**3).diff(X)", "result": "3*X.T**2", "first_ms": 61.14144200000737, "median_ms": 17.89611200001673}
+{"case": 4, "name": "Trace(X.T*A*X).diff(X)", "result": "A*X + A.T*X", "first_ms": 55.34655300016311, "median_ms": 13.733877000049688}
+{"case": 5, "name": "(x.T*X**-1*y).diff(X)", "result": "-X.T**(-1)*x*y.T*X.T**(-1)", "first_ms": 68.77119799992215, "median_ms": 22.413450000385637}
+{"case": 6, "name": "(Trace(X)*Trace(A*X)).diff(X)", "result": "Trace(A*X)*I + Trace(X)*A.T", "first_ms": 57.106745000055525, "median_ms": 13.834876000146323}
+{"case": 7, "name": "Trace(A*X*B*X).diff(X)", "result": "A.T*X.T*B.T + B.T*X.T*A.T", "first_ms": 60.00315799974487, "median_ms": 17.473855500611535}
+{"case": 8, "name": "(A*X).diff(X) [rank 4]", "result": "PermuteDims(ArrayTensorProduct(A.T, I), (3)(1 2))", "first_ms": 45.671404999666265, "median_ms": 4.437419999703707}
+{"case": 9, "name": "convert_array_to_matrix(convert_matrix_to_array(A*X*B))", "result": "A*X*B", "first_ms": 47.13576899939653, "median_ms": 5.83545400058938}

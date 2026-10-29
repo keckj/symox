@@ -450,6 +450,11 @@ def matrix_derivative(expr, x):
     S = _S()
     if not _is_matrix(expr) and not expr.has(x):
         return S.ZeroMatrix(*x.shape)
+    native = _core._matrix_lines_derivative(expr, x)
+    if native is not None:
+        # The native matrix-line kernel (crates/symox-core matrixexpr/lines.rs)
+        # covers the result; it declines on every other case.
+        return native
     if _has_elementwise(expr):
         # Element-wise operations need the ArrayDiagonal forms of SymPy's
         # array-expression path (DiagMatrix and HadamardProduct results).

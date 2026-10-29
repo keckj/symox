@@ -31,6 +31,7 @@ _NONCOMMUTATIVE, _UNCOMMUTED, _COMMUTATIVE_HOOK = 8192, 16384, 32768
 _PRETTY = 65536
 _NUMBER = 131072
 _REPR = 262144
+_ELEMENT = 524288
 
 # Hooks dispatched by the Python facades, enabled once a class defines one.
 _hooks = {'expand': False, 'free_symbols': False}
@@ -449,6 +450,8 @@ class _HostFunctionType(type):
             flags |= _PRETTY
         if _defines(cls, '_sympyrepr'):
             flags |= _REPR
+        if cls.__dict__.get('_symox_array_element'):
+            flags |= _ELEMENT
         _install_content_hash(cls)
         host = _core._host_class(cls, flags)
         cls._symox_head = _core._host_head(host, name, _class_facts(cls), nargs)

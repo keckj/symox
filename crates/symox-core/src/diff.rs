@@ -342,6 +342,20 @@ fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
     r
 }
 
+/// SymPy's `ArrayElement._eval_derivative`: an element differentiates only
+/// by an element of the same array, to the product of the Kronecker deltas
+/// of the index pairs; by anything else (a symbol, an index) it is 0.
+fn array_element_derivative(e: &Expr, head: &crate::expr::UndefinedFunction, args: &[Expr], x: &Expr) -> Expr {
+    let Kind::Func(Func::Undefined(other), indices) = x.kind() else { return Expr::zero() };
+    if other != head || indices.is_empty() || args.is_empty() { return Expr::zero(); }
+    if x == e { return Expr::one(); }
+    if indices[0] != args[0] || indices.len() != args.len() { return Expr::zero(); }
+    let deltas: Vec<Expr> = args[1..].iter().zip(&indices[1..]).map(|(i, j)| {
+        crate::functions::func(Func::Special(crate::special::SpecialFn::KroneckerDelta), vec![i.clone(), j.clone()])
+    }).collect();
+    mul(&deltas)
+}
+
 fn d_func(
     e: &Expr,
     f: &Func,
@@ -472,6 +486,9 @@ fn d_func(
         return if evaluated!=*e{d(&evaluated,x,cache)}else{derivative_unevaluated(e,vec![(x.clone(),1)])};
     }
     if let Func::Undefined(function) = f {
+        if function.host().is_some_and(|host| host.array_element()) {
+            return array_element_derivative(e, function, args, x);
+        }
         if let Some(host) = function.host().filter(|host| host.expression()) {
             // An Expr subclass without a chain rule: its _eval_derivative,
             // otherwise the derivative is held (Expr._eval_derivative_n_times).

@@ -89,6 +89,10 @@ pub trait HostClass: Send + Sync + fmt::Debug {
     /// `derivative` (an overridden SymPy `_eval_derivative`) instead of the
     /// chain rule over `fdiff`.
     fn differentiates(&self) -> bool { false }
+    /// Whether applications of a function head are elements of a named
+    /// symbolic array (SymPy `ArrayElement`, `_diff_wrt`): the first argument
+    /// names the array, the others are the indices.
+    fn array_element(&self) -> bool { false }
     /// Whether numerical evaluation consults `evalf` (SymPy `_eval_evalf`).
     fn evaluates_numerically(&self) -> bool { false }
     /// SymPy `_eval_evalf(prec)` of an application, at binary precision
