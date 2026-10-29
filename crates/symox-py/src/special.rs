@@ -86,6 +86,59 @@ fn hyperexpand(
     }
 }
 
+fn hyperexpand_error(py: Python<'_>, (class, m): (&'static str, String)) -> PyErr {
+    match class {
+        "ValueError" => PyValueError::new_err(m),
+        "TypeError" => PyTypeError::new_err(m),
+        "IndexError" => pyo3::exceptions::PyIndexError::new_err(m),
+        "PolynomialError" => match py.import("symox").and_then(|s| s.getattr("PolynomialError")).and_then(|c| c.call1((m,))) {
+            Ok(v) => PyErr::from_value(v),
+            Err(e) => e,
+        },
+        _ => pyo3::exceptions::PyNotImplementedError::new_err(m),
+    }
+}
+
+type OperatorTuple = (String, Vec<Vec<PyExpr>>, Option<usize>, Vec<PyExpr>);
+
+fn operator_tuple((kind, groups, index, coeffs): sp::HyperexpandOperator) -> OperatorTuple {
+    (kind, groups.into_iter().map(|g| g.into_iter().map(wrap).collect()).collect(), index, coeffs.into_iter().map(wrap).collect())
+}
+
+fn expr_list(v: &[Bound<'_, PyAny>]) -> PyResult<Vec<Expr>> { v.iter().map(to_expr).collect() }
+
+/// Native constructor of the SymPy hyperexpand shift operators: returns
+/// `(class, parameter groups, index, coefficients from the constant term up)`.
+#[pyfunction]
+fn _hyperexpand_operator(
+    py: Python<'_>,
+    kind: &str,
+    groups: Vec<Vec<Bound<'_, PyAny>>>,
+    index: usize,
+    z: &Bound<'_, PyAny>,
+) -> PyResult<OperatorTuple> {
+    let groups = groups.iter().map(|g| expr_list(g)).collect::<PyResult<Vec<_>>>()?;
+    let z = to_expr(z)?;
+    sp::hyperexpand_shift_operator(kind, &groups, index, &z).map(operator_tuple).map_err(|e| hyperexpand_error(py, e))
+}
+
+/// Native `devise_plan(Hyper_Function(tap, tbq), Hyper_Function(oap, obq), z)`.
+#[pyfunction]
+fn _hyperexpand_devise_plan(
+    py: Python<'_>,
+    tap: Vec<Bound<'_, PyAny>>,
+    tbq: Vec<Bound<'_, PyAny>>,
+    oap: Vec<Bound<'_, PyAny>>,
+    obq: Vec<Bound<'_, PyAny>>,
+    z: &Bound<'_, PyAny>,
+) -> PyResult<Vec<OperatorTuple>> {
+    let (tap, tbq, oap, obq) = (expr_list(&tap)?, expr_list(&tbq)?, expr_list(&oap)?, expr_list(&obq)?);
+    let z = to_expr(z)?;
+    sp::hyperexpand_devise_plan((&tap, &tbq), (&oap, &obq), &z)
+        .map(|ops| ops.into_iter().map(operator_tuple).collect())
+        .map_err(|e| hyperexpand_error(py, e))
+}
+
 /// Arbitrary precision value of a numeric expression as a decimal string
 /// with `dps` significant digits (`None` if not supported).
 #[pyfunction]
@@ -165,6 +218,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_rewrite, m)?)?;
     m.add_function(wrap_pyfunction!(besselsimp, m)?)?;
     m.add_function(wrap_pyfunction!(hyperexpand, m)?)?;
+    m.add_function(wrap_pyfunction!(_hyperexpand_operator, m)?)?;
+    m.add_function(wrap_pyfunction!(_hyperexpand_devise_plan, m)?)?;
     m.add_function(wrap_pyfunction!(nstr, m)?)?;
     m.add_function(wrap_pyfunction!(numeric, m)?)?;
     m.add_function(wrap_pyfunction!(numeric_many, m)?)?;

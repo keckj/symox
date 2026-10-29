@@ -100,10 +100,28 @@ fn lin(c0: Expr, c1: Expr) -> XPoly { normalize(vec![c0, c1]) }
 #[derive(Clone, Debug)]
 pub(crate) struct Op {
     pub poly: XPoly,
+    /// The reference class and constructor arguments of a shift operator
+    /// (used to rebuild the public Python operator objects of a plan).
+    pub tag: Option<OpTag>,
+}
+
+/// `kind` is the SymPy class name, `groups` the parameter lists given to
+/// the constructor (one list for the plain shifts) and `index` the `i`
+/// argument of the un-shift operators.
+#[derive(Clone, Debug)]
+pub(crate) struct OpTag {
+    pub kind: &'static str,
+    pub groups: Vec<Vec<Expr>>,
+    pub index: Option<usize>,
 }
 
 impl Op {
-    fn new(p: XPoly) -> Op { Op { poly: normalize(p) } }
+    fn new(p: XPoly) -> Op { Op { poly: normalize(p), tag: None } }
+
+    fn tagged(mut self, kind: &'static str, groups: Vec<Vec<Expr>>, index: Option<usize>) -> Op {
+        self.tag = Some(OpTag { kind, groups, index });
+        self
+    }
 
     /// `MultOperator(p)` for a `p` free of `_x`.
     pub fn mult(c: &Expr) -> Op { Op::new(vec![c.clone()]) }
@@ -112,17 +130,18 @@ impl Op {
         if ai.is_zero() {
             return Err(HxError::Value("Cannot increment zero upper index.".into()));
         }
-        Ok(Op::new(vec![Expr::one(), div(&Expr::one(), ai)]))
+        Ok(Op::new(vec![Expr::one(), div(&Expr::one(), ai)]).tagged("ShiftA", vec![vec![ai.clone()]], None))
     }
 
     pub fn shift_b(bi: &Expr) -> HResult<Op> {
         if bi.is_one() {
             return Err(HxError::Value("Cannot decrement unit lower index.".into()));
         }
-        Ok(Op::new(vec![Expr::one(), div(&Expr::one(), &sub(bi, &Expr::one()))]))
+        Ok(Op::new(vec![Expr::one(), div(&Expr::one(), &sub(bi, &Expr::one()))]).tagged("ShiftB", vec![vec![bi.clone()]], None))
     }
 
     pub fn unshift_a(ap: &[Expr], bq: &[Expr], i: usize, z: &Expr) -> HResult<Op> {
+        let groups = vec![ap.to_vec(), bq.to_vec()];
         let mut ap = ap.to_vec();
         let ai = sub(&ap.remove(i), &Expr::one());
         if ai.is_zero() {
@@ -142,10 +161,11 @@ impl Op {
             return Err(HxError::Value("Cannot decrement upper index: cancels with lower".into()));
         }
         let n = compose(&shift_down(&n), &lin(Expr::one(), div(&Expr::one(), &ai)));
-        Ok(Op::new(pscale(&psub(&n, &m), &div(&Expr::one(), &b0))))
+        Ok(Op::new(pscale(&psub(&n, &m), &div(&Expr::one(), &b0))).tagged("UnShiftA", groups, Some(i)))
     }
 
     pub fn unshift_b(ap: &[Expr], bq: &[Expr], i: usize, z: &Expr) -> HResult<Op> {
+        let groups = vec![ap.to_vec(), bq.to_vec()];
         let mut bq = bq.to_vec();
         let bi = add(&[bq.remove(i), Expr::one()]);
         if bi.is_zero() {
@@ -166,16 +186,17 @@ impl Op {
             return Err(HxError::Value("Cannot increment index: cancels with upper".into()));
         }
         let n = compose(&shift_down(&n), &lin(Expr::one(), div(&Expr::one(), &bm1)));
-        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))))
+        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))).tagged("UnShiftB", groups, Some(i)))
     }
 
-    pub fn meijer_shift_a(bi: &Expr) -> Op { Op::new(vec![bi.clone(), Expr::minus_one()]) }
-    pub fn meijer_shift_b(bi: &Expr) -> Op { Op::new(vec![sub(&Expr::one(), bi), Expr::one()]) }
-    pub fn meijer_shift_c(bi: &Expr) -> Op { Op::new(vec![neg(bi), Expr::one()]) }
-    pub fn meijer_shift_d(bi: &Expr) -> Op { Op::new(vec![sub(bi, &Expr::one()), Expr::minus_one()]) }
+    pub fn meijer_shift_a(bi: &Expr) -> Op { Op::new(vec![bi.clone(), Expr::minus_one()]).tagged("MeijerShiftA", vec![vec![bi.clone()]], None) }
+    pub fn meijer_shift_b(bi: &Expr) -> Op { Op::new(vec![sub(&Expr::one(), bi), Expr::one()]).tagged("MeijerShiftB", vec![vec![bi.clone()]], None) }
+    pub fn meijer_shift_c(bi: &Expr) -> Op { Op::new(vec![neg(bi), Expr::one()]).tagged("MeijerShiftC", vec![vec![bi.clone()]], None) }
+    pub fn meijer_shift_d(bi: &Expr) -> Op { Op::new(vec![sub(bi, &Expr::one()), Expr::minus_one()]).tagged("MeijerShiftD", vec![vec![bi.clone()]], None) }
 
     /// `MeijerUnShiftA` (decrement upper b index `i`).
     pub fn meijer_unshift_a(an: &[Expr], ap: &[Expr], bm: &[Expr], bq: &[Expr], i: usize, z: &Expr) -> HResult<Op> {
+        let groups = vec![an.to_vec(), ap.to_vec(), bm.to_vec(), bq.to_vec()];
         let mut bm = bm.to_vec();
         let bi = sub(&bm.remove(i), &Expr::one());
         let mut m: XPoly = vec![Expr::one()];
@@ -198,11 +219,12 @@ impl Op {
             return Err(HxError::Value("Cannot decrement upper b index (cancels)".into()));
         }
         let n = compose(&shift_down(&n), &lin(bi, Expr::minus_one()));
-        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))))
+        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))).tagged("MeijerUnShiftA", groups, Some(i)))
     }
 
     /// `MeijerUnShiftB` (increment upper a index `i`).
     pub fn meijer_unshift_b(an: &[Expr], ap: &[Expr], bm: &[Expr], bq: &[Expr], i: usize, z: &Expr) -> HResult<Op> {
+        let groups = vec![an.to_vec(), ap.to_vec(), bm.to_vec(), bq.to_vec()];
         let mut an = an.to_vec();
         let ai = add(&[an.remove(i), Expr::one()]);
         let mut m: XPoly = vec![z.clone()];
@@ -225,11 +247,12 @@ impl Op {
             return Err(HxError::Value("Cannot increment upper a index (cancels)".into()));
         }
         let n = compose(&shift_down(&n), &lin(sub(&Expr::one(), &ai), Expr::one()));
-        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))))
+        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))).tagged("MeijerUnShiftB", groups, Some(i)))
     }
 
     /// `MeijerUnShiftC` (decrement lower b index `i`).
     pub fn meijer_unshift_c(an: &[Expr], ap: &[Expr], bm: &[Expr], bq: &[Expr], i: usize, z: &Expr) -> HResult<Op> {
+        let groups = vec![an.to_vec(), ap.to_vec(), bm.to_vec(), bq.to_vec()];
         let mut bq = bq.to_vec();
         let bi = sub(&bq.remove(i), &Expr::one());
         let mut m: XPoly = vec![Expr::one()];
@@ -252,11 +275,12 @@ impl Op {
             return Err(HxError::Value("Cannot decrement lower b index (cancels)".into()));
         }
         let n = compose(&shift_down(&n), &lin(neg(&bi), Expr::one()));
-        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))))
+        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))).tagged("MeijerUnShiftC", groups, Some(i)))
     }
 
     /// `MeijerUnShiftD` (increment lower a index `i`).
     pub fn meijer_unshift_d(an: &[Expr], ap: &[Expr], bm: &[Expr], bq: &[Expr], i: usize, z: &Expr) -> HResult<Op> {
+        let groups = vec![an.to_vec(), ap.to_vec(), bm.to_vec(), bq.to_vec()];
         let mut ap = ap.to_vec();
         let ai = add(&[ap.remove(i), Expr::one()]);
         let mut m: XPoly = vec![z.clone()];
@@ -279,7 +303,7 @@ impl Op {
             return Err(HxError::Value("Cannot increment lower a index (cancels)".into()));
         }
         let n = compose(&shift_down(&n), &lin(sub(&ai, &Expr::one()), Expr::minus_one()));
-        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))))
+        Ok(Op::new(pscale(&psub(&m, &n), &div(&Expr::one(), &b0))).tagged("MeijerUnShiftD", groups, Some(i)))
     }
 
     /// `ReduceOrder(ai, bj)`.

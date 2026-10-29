@@ -106,11 +106,18 @@ pub(crate) fn sort_default(v: &mut [Expr]) { v.sort_by(crate::sortkey::cmp_defau
 /// `_mod1(x)`: the class of `x` modulo the integers.
 pub(crate) fn mod1(x: &Expr) -> Expr {
     if x.as_number().is_some() {
-        return sub(x, &crate::functions::floor(x));
+        return number_mod1(x);
     }
     let (c, rest) = crate::ops::as_coeff_add(x);
-    let c = Expr::num(c);
-    add(&[sub(&c, &crate::functions::floor(&c)), rest])
+    add(&[number_mod1(&Expr::num(c)), rest])
+}
+
+/// `Mod(c, 1)` of a number: SymPy returns the exact `S.Zero` for an
+/// integral Float (`Mod(Float(3.0), 1) == S.Zero`), so `1.0` and `1` share
+/// the zero bucket exactly as in SymPy's `sift(params, _mod1)`.
+fn number_mod1(c: &Expr) -> Expr {
+    let r = sub(c, &crate::functions::floor(c));
+    if r.is_zero() { Expr::zero() } else { r }
 }
 
 /// `sift(params, key)`: buckets in order of first appearance.
@@ -608,12 +615,65 @@ pub fn hyperexpand_options(
         Some("nonrepsmall") => Rewrite::Nonrepsmall,
         Some(_) => Rewrite::Default,
     };
-    hyperexpand_with(f, allow_hyper, rewrite, place).map_err(|e| match e {
+    hyperexpand_with(f, allow_hyper, rewrite, place).map_err(error_pair)
+}
+
+fn error_pair(e: HxError) -> (&'static str, String) {
+    match e {
         HxError::Value(m) => ("ValueError", m),
         HxError::NotImplemented(m) => ("NotImplementedError", m),
         HxError::Type(m) => ("TypeError", m),
         HxError::Polynomial(m) => ("PolynomialError", m),
-    })
+    }
+}
+
+/// A public shift operator: the reference class name, its constructor
+/// parameter groups and index (for the un-shift operators), and the
+/// coefficients of its polynomial in `z*d/dz`, from the constant term up.
+pub type OperatorRecord = (String, Vec<Vec<Expr>>, Option<usize>, Vec<Expr>);
+
+fn record(op: Op) -> OperatorRecord {
+    let (kind, groups, index) = match op.tag {
+        Some(t) => (t.kind.to_string(), t.groups, t.index),
+        None => ("Operator".to_string(), Vec::new(), None),
+    };
+    (kind, groups, index, op.poly)
+}
+
+/// The constructors of SymPy's `ShiftA`, `ShiftB`, `UnShiftA`, `UnShiftB`
+/// and the eight Meijer G shift and un-shift operators. `groups` holds the
+/// single parameter of a plain shift, or the parameter lists of an un-shift
+/// operator, whose `index` must be a valid position (the caller resolves
+/// Python's negative indices); errors are `(exception class name, message)`.
+pub fn shift_operator(kind: &str, groups: &[Vec<Expr>], index: usize, z: &Expr) -> Result<OperatorRecord, (&'static str, String)> {
+    let one = |g: &[Vec<Expr>]| match g {
+        [v] if v.len() == 1 => Ok(v[0].clone()),
+        _ => Err(("TypeError", format!("{kind} takes one parameter"))),
+    };
+    let check = |v: &[Expr]| if index < v.len() { Ok(()) } else { Err(("IndexError", "pop index out of range".to_string())) };
+    let op = match (kind, groups) {
+        ("ShiftA", g) => Op::shift_a(&one(g)?),
+        ("ShiftB", g) => Op::shift_b(&one(g)?),
+        ("MeijerShiftA", g) => Ok(Op::meijer_shift_a(&one(g)?)),
+        ("MeijerShiftB", g) => Ok(Op::meijer_shift_b(&one(g)?)),
+        ("MeijerShiftC", g) => Ok(Op::meijer_shift_c(&one(g)?)),
+        ("MeijerShiftD", g) => Ok(Op::meijer_shift_d(&one(g)?)),
+        ("UnShiftA", [ap, bq]) => check(ap).map(|_| Op::unshift_a(ap, bq, index, z))?,
+        ("UnShiftB", [ap, bq]) => check(bq).map(|_| Op::unshift_b(ap, bq, index, z))?,
+        ("MeijerUnShiftA", [an, ap, bm, bq]) => check(bm).map(|_| Op::meijer_unshift_a(an, ap, bm, bq, index, z))?,
+        ("MeijerUnShiftB", [an, ap, bm, bq]) => check(an).map(|_| Op::meijer_unshift_b(an, ap, bm, bq, index, z))?,
+        ("MeijerUnShiftC", [an, ap, bm, bq]) => check(bq).map(|_| Op::meijer_unshift_c(an, ap, bm, bq, index, z))?,
+        ("MeijerUnShiftD", [an, ap, bm, bq]) => check(ap).map(|_| Op::meijer_unshift_d(an, ap, bm, bq, index, z))?,
+        _ => return Err(("TypeError", format!("unknown shift operator {kind}"))),
+    };
+    op.map(record).map_err(error_pair)
+}
+
+/// SymPy's `devise_plan(Hyper_Function(tap, tbq), Hyper_Function(oap, obq), z)`.
+pub fn devise_plan(target: (&[Expr], &[Expr]), origin: (&[Expr], &[Expr]), z: &Expr) -> Result<Vec<OperatorRecord>, (&'static str, String)> {
+    let target = HF::new(target.0.to_vec(), target.1.to_vec());
+    let origin = HF::new(origin.0.to_vec(), origin.1.to_vec());
+    plan::devise_plan(&target, &origin, z).map(|ops| ops.into_iter().map(record).collect()).map_err(error_pair)
 }
 
 fn rewrite_kw(e: &Expr) -> Rewrite {

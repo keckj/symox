@@ -11875,3 +11875,46 @@ No intentional correction: every new value equals SymPy 1.14.
 Tests: `tests/test_native_limrest3.py` and
 `limrest3_values_from_sympy` in `crates/symox-core/src/limits/tests.rs`.
 Measured: [audit](../audits/performance/2026-10-29-limrest3/README.md).
+
+
+## hyperexpand shift operators and plans (wave 21, hyperx)
+
+Native now: the SymPy shift operator constructors `ShiftA`, `ShiftB`,
+`UnShiftA`, `UnShiftB`, `MeijerShiftA`-`D` and `MeijerUnShiftA`-`D`, and
+`devise_plan`, are thin Python wrappers over the existing Rust ports in
+`crates/symox-core/src/special/hyperexpand/` (`_hyperexpand_operator`,
+`_hyperexpand_devise_plan`). Domain: every parameter list SymPy accepts
+(exact, symbolic, Float). The Python objects keep SymPy's attributes
+(`_poly` in the shared generator `Dummy('x')`, `_ap`/`_bq`/`_an`/`_bm`,
+`_i`), the same `str`, and the same errors: `ValueError`
+("Cannot decrement unit upper index.", "Cannot increment index: cancels
+with upper", "Non-suitable parameters.", "... not reachable from ...",
+"Cannot increment zero upper index."), and `IndexError` for an
+out-of-range index. Before, the Python versions of these constructors and of
+`devise_plan` silently accepted the degenerate parameters, so
+`test_plan`/`test_ushift_operators` of SymPy's test_hyperexpand.py did
+not raise.
+
+Corrected: `_mod1` of an integral Float is the exact `S.Zero`, as SymPy's
+`Mod(Float(3.0), 1)`, so `1.0` and `1` share the zero bucket, and the
+Slater residue loop uses `int(round(lu))` and converts integral Float `bm`
+like SymPy. `hyperexpand(meijerg(((3.0, 1), ()), ((3/2,), (0,)), z))`
+now returns SymPy's
+`-2.36327180120735*z**(3/2)*hyper((-0.5, 3/2), (5/2,), z*exp_polar(I*pi))`
+instead of a `TypeError`.
+
+Slowness: the documented slow shift-operator tests were dominated by
+`verify_numerically`, which evaluated `f - g` and forced the evalf
+precision escalation on the cancellation. It now follows SymPy 1.14
+(`f.subs(reps).n()` and `g.subs(reps).n()` compared with `comp`).
+SymPy's test_shift_operators / test_reduction_operators /
+test_meijerg_shift_operators / test_lerchphi now run in 0.04-2.1 s instead
+of 12 s, 13 s, more than 200 s and more than 200 s
+([audit](../audits/performance/2026-10-29-hyperx/README.md)).
+
+Still Python: `devise_plan_meijer`, `ReduceOrder`, the Formula collection
+and `Hyper_Function.difficulty`. Open gaps: `test_lerchphi` line 623 still
+differs because `polylog(3, -1/2).is_extended_negative` is None (SymPy
+evaluates it numerically to True), so `Abs(...)` of the reference side stays
+unevaluated; `test_derivative_numerically` still uses finite differences
+instead of SymPy's `doit_numerically`.

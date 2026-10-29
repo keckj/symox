@@ -16,11 +16,19 @@ def random_complex_number(a=2,b=-1,c=3,d=1,rational=False,tolerance=None):
         return S.nsimplify(real,rational=True,tolerance=tolerance)+S.I*S.nsimplify(imag,rational=True,tolerance=tolerance)
     return S.Float(real)+S.I*S.Float(imag)
 def verify_numerically(f,g,z=None,tol=1e-6,a=2,b=-1,c=3,d=1):
-    f,g=S.sympify(f),S.sympify(g)
-    variables=f.free_symbols|g.free_symbols if z is None else [z] if getattr(z,'is_Symbol',False) else z
-    mapping={v:random_complex_number(a,b,c,d) for v in variables}
-    try:return abs(complex((f-g).subs(mapping,simultaneous=True).evalf(30)))<tol
-    except (TypeError,ValueError):return False
+    # SymPy 1.14: both sides are evaluated separately at the default
+    # precision and compared with comp; evaluating the (often identically
+    # zero) difference instead made evalf raise the precision to its limit.
+    from .numbers import comp
+    f,g=(S.sympify(i) for i in (f,g))
+    if z is None:
+        z=f.free_symbols|g.free_symbols
+    elif isinstance(z,S.Symbol):
+        z=[z]
+    reps=list(zip(z,[random_complex_number(a,b,c,d) for _ in z]))
+    z1=f.subs(reps).n()
+    z2=g.subs(reps).n()
+    return comp(z1,z2,tol)
 def test_derivative_numerically(f,z,tol=1e-6,a=2,b=-1,c=3,d=1):
     point=random_complex_number(a,b,c,d)
     point=S.Float(str(S.re(point).evalf(50)),60)+S.I*S.Float(str(S.im(point).evalf(50)),60)
