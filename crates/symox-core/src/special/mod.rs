@@ -69,7 +69,7 @@ pub fn orthopoly_subs_error(before: &Expr, after: &Expr) -> Option<String> {
 mod zeta;
 
 pub use expand::{besselsimp, expand_func, expand_func_deep, hyperexpand};
-pub use hyperexpand::hyperexpand_options;
+pub use hyperexpand::{devise_plan as hyperexpand_devise_plan, hyperexpand_options, shift_operator as hyperexpand_shift_operator, OperatorRecord as HyperexpandOperator};
 pub use integers::{bell_number, multinomial_coefficients, partition_number, stirling};
 
 macro_rules! special_fns {

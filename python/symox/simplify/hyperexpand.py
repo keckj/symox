@@ -131,10 +131,20 @@ def _annihilator(func, z, d):
     return S.expand(d*S.prod(d+b-1 for b in func.bq)-z*S.prod(d+a for a in func.ap))
 
 
+_X = []
+
+
+def _xvar():
+    # SymPy's module-level generator ``_x = Dummy('x')``.
+    if not _X:
+        _X.append(_S().Dummy('x'))
+    return _X[0]
+
+
 class Operator:
     def __init__(self, polynomial=0, generator=None):
         S = _S()
-        self._d = generator or S.Dummy('Euler_operator')
+        self._d = generator or _xvar()
         self._poly = S.Poly(polynomial, self._d)
 
     def apply(self, obj, op):
@@ -146,118 +156,163 @@ class Operator:
         return result
 
 
+def _native():
+    from symox import _core
+    return _core
+
+
+def _from_record(record):
+    # Rebuild the public operator object of a native shift operator.
+    kind, groups, index, coefficients = record
+    cls = globals()[kind]
+    obj = object.__new__(cls)
+    _set_poly(obj, coefficients)
+    if index is not None:
+        names = ('_ap', '_bq') if len(groups) == 2 else ('_an', '_ap', '_bm', '_bq')
+        for name, group in zip(names, groups):
+            setattr(obj, name, list(group))
+        obj._i = _S().Integer(index)
+    return obj
+
+
+def _set_poly(obj, coefficients):
+    S = _S(); x = _xvar()
+    obj._d = x
+    obj._poly = S.Poly(S.Add(*[c*x**k for k, c in enumerate(coefficients)]), x)
+
+
+def _shift(obj, kind, value):
+    value = _S().sympify(value)
+    _set_poly(obj, _native()._hyperexpand_operator(kind, [[value]], 0, 0)[3])
+
+
+def _unshift(obj, kind, groups, i, z):
+    # ``list.pop(i)`` semantics of the reference for the shifted group.
+    import operator
+    S = _S()
+    groups = [S.sympify(group) for group in groups]
+    i = S.sympify(i)
+    names = ('_ap', '_bq') if len(groups) == 2 else ('_an', '_ap', '_bm', '_bq')
+    for name, group in zip(names, groups):
+        setattr(obj, name, group)
+    obj._i = i
+    position = {'UnShiftA': 0, 'UnShiftB': 1, 'MeijerUnShiftA': 2, 'MeijerUnShiftB': 0,
+                'MeijerUnShiftC': 3, 'MeijerUnShiftD': 1}[kind]
+    values = [list(group) for group in groups]
+    index = operator.index(i)
+    if index < 0:
+        index += len(values[position])
+    if not 0 <= index < len(values[position]):
+        raise IndexError('pop index out of range')
+    _set_poly(obj, _native()._hyperexpand_operator(kind, values, index, S.sympify(z))[3])
+
+
 class MultOperator(Operator):
     def __init__(self, p):
         super().__init__(p)
 
 
 class ShiftA(Operator):
+    """ Increment an upper index. """
     def __init__(self, ai):
-        S = _S()
-        ai = S.sympify(ai)
-        if ai == 0:
-            raise ValueError('Cannot increment a zero upper parameter')
-        d = S.Dummy('Euler_operator')
-        super().__init__(1+d/ai, d)
+        _shift(self, 'ShiftA', ai)
+
+    def __str__(self):
+        return '<Increment upper %s.>' % (1/self._poly.all_coeffs()[0])
 
 
 class ShiftB(Operator):
+    """ Decrement a lower index. """
     def __init__(self, bi):
-        S = _S()
-        bi = S.sympify(bi)
-        if bi == 1:
-            raise ValueError('Cannot decrement a unit lower parameter')
-        d = S.Dummy('Euler_operator')
-        super().__init__(1+d/(bi-1), d)
+        _shift(self, 'ShiftB', bi)
 
-
-def _inverse_affine(target, z, slope, intercept):
-    S = _S()
-    d = S.Dummy('Euler_operator')
-    polynomial = S.Poly(_annihilator(target, z, d), d)
-    root = -intercept/slope
-    remainder = S.simplify(polynomial.eval(root))
-    if remainder == 0:
-        raise ValueError('Singular contiguous shift: parameters cancel')
-    quotient = S.div(polynomial, S.Poly(slope*d+intercept, d))[0]
-    return -quotient.as_expr()/remainder, d
+    def __str__(self):
+        return '<Decrement lower %s.>' % (1/self._poly.all_coeffs()[0] + 1)
 
 
 class UnShiftA(Operator):
+    """ Decrement an upper index. """
     def __init__(self, ap, bq, i, z):
-        ap, bq = list(_params(ap)), list(_params(bq))
-        ap[int(i)] -= 1
-        ai = ap[int(i)]
-        if ai == 0:
-            raise ValueError('Cannot decrement a unit upper parameter')
-        polynomial, d = _inverse_affine(Hyper_Function(ap, bq), z, 1/ai, 1)
-        super().__init__(polynomial, d)
+        _unshift(self, 'UnShiftA', (ap, bq), i, z)
+
+    def __str__(self):
+        return '<Decrement upper index #%s of %s, %s.>' % (self._i, self._ap, self._bq)
 
 
 class UnShiftB(Operator):
+    """ Increment a lower index. """
     def __init__(self, ap, bq, i, z):
-        ap, bq = list(_params(ap)), list(_params(bq))
-        bq[int(i)] += 1
-        bi = bq[int(i)]-1
-        if bi == 0:
-            raise ValueError('Cannot increment a zero lower parameter')
-        polynomial, d = _inverse_affine(Hyper_Function(ap, bq), z, 1/bi, 1)
-        super().__init__(polynomial, d)
+        _unshift(self, 'UnShiftB', (ap, bq), i, z)
+
+    def __str__(self):
+        return '<Increment lower index #%s of %s, %s.>' % (self._i, self._ap, self._bq)
 
 
 class MeijerShiftA(Operator):
+    """ Increment an upper b index. """
     def __init__(self, bi):
-        S = _S(); d = S.Dummy('Euler_operator')
-        super().__init__(S.sympify(bi)-d, d)
+        _shift(self, 'MeijerShiftA', bi)
+
+    def __str__(self):
+        return '<Increment upper b=%s.>' % (self._poly.all_coeffs()[1])
 
 
 class MeijerShiftB(Operator):
-    def __init__(self, ai):
-        S = _S(); d = S.Dummy('Euler_operator')
-        super().__init__(d+1-S.sympify(ai), d)
+    """ Decrement an upper a index. """
+    def __init__(self, bi):
+        _shift(self, 'MeijerShiftB', bi)
+
+    def __str__(self):
+        return '<Decrement upper a=%s.>' % (1 - self._poly.all_coeffs()[1])
 
 
 class MeijerShiftC(Operator):
+    """ Increment a lower b index. """
     def __init__(self, bi):
-        S = _S(); d = S.Dummy('Euler_operator')
-        super().__init__(d-S.sympify(bi), d)
+        _shift(self, 'MeijerShiftC', bi)
+
+    def __str__(self):
+        return '<Increment lower b=%s.>' % (-self._poly.all_coeffs()[1])
 
 
 class MeijerShiftD(Operator):
-    def __init__(self, ai):
-        S = _S(); d = S.Dummy('Euler_operator')
-        super().__init__(S.sympify(ai)-1-d, d)
+    """ Decrement a lower a index. """
+    def __init__(self, bi):
+        _shift(self, 'MeijerShiftD', bi)
+
+    def __str__(self):
+        return '<Decrement lower a=%s.>' % (self._poly.all_coeffs()[1] + 1)
 
 
 class _MeijerInverse(Operator):
-    group = 0
-    change = 1
+    _label = ''
 
     def __init__(self, an, ap, bm, bq, i, z):
-        groups = [list(_params(group)) for group in (an, ap, bm, bq)]
-        groups[self.group][int(i)] += self.change
-        parameter = groups[self.group][int(i)]
-        # Invert the forward affine operator evaluated on the new function.
-        slope, intercept = ((1, 1-parameter), (-1, parameter-1),
-                            (-1, parameter), (1, -parameter))[self.group]
-        polynomial, d = _inverse_affine(G_Function(*groups), z, _S().sympify(slope), intercept)
-        super().__init__(polynomial, d)
+        _unshift(self, type(self).__name__, (an, ap, bm, bq), i, z)
+
+    def __str__(self):
+        return '<%s index #%s of %s, %s, %s, %s.>' % (self._label, self._i, self._an,
+                                                    self._ap, self._bm, self._bq)
 
 
 class MeijerUnShiftA(_MeijerInverse):
-    group, change = 2, -1
+    """ Decrement an upper b index. """
+    _label = 'Decrement upper b'
 
 
 class MeijerUnShiftB(_MeijerInverse):
-    group, change = 0, 1
+    """ Increment an upper a index. """
+    _label = 'Increment upper a'
 
 
 class MeijerUnShiftC(_MeijerInverse):
-    group, change = 3, -1
+    """ Decrement a lower b index. """
+    _label = 'Decrement lower b'
 
 
 class MeijerUnShiftD(_MeijerInverse):
-    group, change = 1, 1
+    """ Increment a lower a index. """
+    _label = 'Increment lower a'
 
 
 class ReduceOrder(Operator):
@@ -272,7 +327,7 @@ class ReduceOrder(Operator):
 
     def __init__(self, ai, bj):
         S = _S(); ai, bj = S.sympify(ai), S.sympify(bj)
-        d = S.Dummy('Euler_operator')
+        d = _xvar()
         self._a, self._b = ai, bj
         super().__init__(S.prod((d+bj+k)/(bj+k) for k in range(int(ai-bj))), d)
 
@@ -284,7 +339,7 @@ class ReduceOrder(Operator):
             return None
         if int(n) > 256:
             raise ValueError('Contiguous order reduction exceeds 256 factors')
-        obj = object.__new__(cls); d = S.Dummy('Euler_operator')
+        obj = object.__new__(cls); d = _xvar()
         Operator.__init__(obj, S.prod(sign*d+a+k for k in range(int(n))), d)
         obj._a, obj._b = b, a
         return obj
@@ -366,43 +421,16 @@ def _pair_parameters(target, origin):
 
 
 def devise_plan(target, origin, z):
+    # Native port of the reference bucket-by-bucket plan.
     S = _S()
-    pairs = [_pair_parameters(a, b) for a, b in zip(target.args, origin.args)]
-    source = tuple(tuple(b for a, b in group) for group in pairs)
-    destination = tuple(tuple(a for a, b in group) for group in pairs)
-    if sum(abs(int(S.simplify(a-b))) for group in pairs for a, b in group) > 256:
-        raise ValueError('Shift plan exceeds 256 steps')
-    failed = set()
-    def search(state):
-        if state == destination:
-            return []
-        if state in failed:
-            return None
-        if len(failed) >= 10000:
-            raise ValueError('Shift planning exceeds 10000 states')
-        for group in range(2):
-            for i, value in enumerate(state[group]):
-                delta = int(S.simplify(destination[group][i]-value))
-                if not delta:
-                    continue
-                try:
-                    if group == 0:
-                        operator = ShiftA(value) if delta > 0 else UnShiftA(*state, i, z)
-                    else:
-                        operator = UnShiftB(*state, i, z) if delta > 0 else ShiftB(value)
-                except ValueError:
-                    continue
-                following = [list(values) for values in state]
-                following[group][i] += 1 if delta > 0 else -1
-                suffix = search(tuple(tuple(values) for values in following))
-                if suffix is not None:
-                    return [operator]+suffix
-        failed.add(state)
-        return None
-    result = search(source)
-    if result is None:
-        raise ValueError('No nonsingular monotone contiguous shift plan exists')
-    return list(reversed(result))
+    try:
+        records = _native()._hyperexpand_devise_plan(
+            list(target.ap), list(target.bq), list(origin.ap), list(origin.bq), S.sympify(z))
+    except ValueError as error:
+        if str(error) == 'not reachable':
+            raise ValueError('%s not reachable from %s' % (target, origin)) from None
+        raise
+    return [_from_record(record) for record in records]
 
 
 def devise_plan_meijer(fro, to, z):

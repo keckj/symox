@@ -1,0 +1,99 @@
+base {"case": "shift_a", "first": 0.9384034950053319, "median": 1.7093010370008415, "result": "True"}
+base {"case": "shift_a", "first": 1.4025273119987105, "median": 1.3542602430025, "result": "True"}
+base {"case": "shift_a", "first": 0.9022994400002062, "median": 1.216932140996505, "result": "True"}
+base {"case": "unshift_a", "first": 3.47972754699731, "median": 7.151076565001858, "result": "True"}
+base {"case": "unshift_a", "first": 4.28537069199956, "median": 3.097241321003821, "result": "True"}
+base {"case": "unshift_a", "first": 3.4609206710010767, "median": 4.295467928997823, "result": "True"}
+base {"case": "unshift_b_build", "first": 0.032137916998181026, "median": 0.012243500998010859, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_Euler_operator**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_Euler_"}
+base {"case": "unshift_b_build", "first": 0.03196832500543678, "median": 0.012578469999425579, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_Euler_operator**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_Euler_"}
+base {"case": "unshift_b_build", "first": 0.03198889800114557, "median": 0.011772541001846548, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_Euler_operator**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_Euler_"}
+base {"case": "unshift_errors", "first": 0.030819350999081507, "median": 0.0007070799983921461, "result": "['Cannot decrement a unit upper parameter', 'Singular contiguous shift: parameters cancel']"}
+base {"case": "unshift_errors", "first": 0.023710469002253376, "median": 0.0007309800057555549, "result": "['Cannot decrement a unit upper parameter', 'Singular contiguous shift: parameters cancel']"}
+base {"case": "unshift_errors", "first": 0.02513343199825613, "median": 0.0007582420003018342, "result": "['Cannot decrement a unit upper parameter', 'Singular contiguous shift: parameters cancel']"}
+base {"case": "meijer_unshift", "first": 0.08292023700050777, "median": 0.04266676600673236, "result": "True"}
+base {"case": "meijer_unshift", "first": 0.06677311000385089, "median": 0.0420037889998639, "result": "True"}
+base {"case": "meijer_unshift", "first": 0.06990242000028957, "median": 0.03945908899913775, "result": "True"}
+base {"case": "plan_mixed", "first": 0.03079120699840132, "median": 0.008722945000045002, "result": "['<symox.simplify.hyperexpand.ShiftB object at 0x7efc5691f940>', '<symox.simplify.hyperexpand.ShiftB object at 0x7efc569"}
+base {"case": "plan_mixed", "first": 0.0341210519982269, "median": 0.009251605995814316, "result": "['<symox.simplify.hyperexpand.ShiftB object at 0x7f6c2691fa90>', '<symox.simplify.hyperexpand.ShiftB object at 0x7f6c269"}
+base {"case": "plan_mixed", "first": 0.028010437003104016, "median": 0.008557494002161548, "result": "['<symox.simplify.hyperexpand.ShiftB object at 0x7f290d9239a0>', '<symox.simplify.hyperexpand.ShiftB object at 0x7f290d9"}
+base {"case": "plan_errors", "first": 0.00048350999713875353, "median": 0.00028753899823641405, "result": "no raise"}
+base {"case": "plan_errors", "first": 0.000520091998623684, "median": 0.00029344100039452314, "result": "no raise"}
+base {"case": "plan_errors", "first": 0.0005236940050963312, "median": 0.00030927500483812764, "result": "no raise"}
+base {"case": "plan_apply", "first": 38.77213981300156, "median": 39.42626677699445, "result": "True"}
+base {"case": "plan_apply", "first": 30.15065850400424, "median": 36.490575011994224, "result": "True"}
+base {"case": "plan_apply", "first": 44.42630150199693, "median": 42.762868378005805, "result": "True"}
+base {"case": "reduce_order", "first": 0.0021292210003593937, "median": 0.0017986120001296513, "result": "1"}
+base {"case": "reduce_order", "first": 0.002146257000276819, "median": 0.001755951001541689, "result": "1"}
+base {"case": "reduce_order", "first": 0.0021122470061527565, "median": 0.0016773059978731908, "result": "1"}
+base {"case": "meijerg_floats", "first": 0.02098182399640791, "median": 0.0012428939953679219, "result": "TypeError: '3.00000000000000' object cannot be interpreted as an integer"}
+base {"case": "meijerg_floats", "first": 0.020976765001250897, "median": 0.0012500359953264706, "result": "TypeError: '3.00000000000000' object cannot be interpreted as an integer"}
+base {"case": "meijerg_floats", "first": 0.021515519001695793, "median": 0.0012293429972487502, "result": "TypeError: '3.00000000000000' object cannot be interpreted as an integer"}
+base {"case": "hyperexpand_plan", "first": 0.021663229999830946, "median": 0.0062994820036692545, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}
+base {"case": "hyperexpand_plan", "first": 0.009261663995857816, "median": 0.005514895005035214, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}
+base {"case": "hyperexpand_plan", "first": 0.009187076997477561, "median": 0.00553451099403901, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}
+after {"case": "shift_a", "first": 0.026014726994617376, "median": 0.0037256589930620976, "result": "True"}
+after {"case": "shift_a", "first": 0.025664788998255972, "median": 0.003471677002380602, "result": "True"}
+after {"case": "shift_a", "first": 0.024880009004846215, "median": 0.0034646470012376085, "result": "True"}
+after {"case": "unshift_a", "first": 0.03540067499852739, "median": 0.01715355600026669, "result": "True"}
+after {"case": "unshift_a", "first": 0.036093376998906024, "median": 0.013529181000194512, "result": "True"}
+after {"case": "unshift_a", "first": 0.03640270400501322, "median": 0.012865925004007295, "result": "True"}
+after {"case": "unshift_b_build", "first": 0.004842453003220726, "median": 0.004119204000744503, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_x**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_x**2 + (66528 - 142"}
+after {"case": "unshift_b_build", "first": 0.004728155996417627, "median": 0.004032796998217236, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_x**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_x**2 + (66528 - 142"}
+after {"case": "unshift_b_build", "first": 0.00473364600475179, "median": 0.004033523000543937, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_x**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_x**2 + (66528 - 142"}
+after {"case": "unshift_errors", "first": 0.0005511409981409088, "median": 0.00021998000011080876, "result": "['Cannot decrement unit upper index.', 'Cannot increment index: cancels with upper']"}
+after {"case": "unshift_errors", "first": 0.0005274469949654303, "median": 0.00022810499649494886, "result": "['Cannot decrement unit upper index.', 'Cannot increment index: cancels with upper']"}
+after {"case": "unshift_errors", "first": 0.0005390840015024878, "median": 0.0002180660012527369, "result": "['Cannot decrement unit upper index.', 'Cannot increment index: cancels with upper']"}
+after {"case": "meijer_unshift", "first": 0.047931131994118914, "median": 0.014166221000778023, "result": "True"}
+after {"case": "meijer_unshift", "first": 0.04049295400182018, "median": 0.015039940000860952, "result": "True"}
+after {"case": "meijer_unshift", "first": 0.039598355993803125, "median": 0.014553579996572807, "result": "True"}
+after {"case": "plan_mixed", "first": 0.0027444050065241754, "median": 0.002174580004066229, "result": "['<Decrement lower 7/2.>', '<Decrement upper index #0 of [3/2, 1, 2], [7/2, 3].>', '<Decrement upper index #0 of [5/2, 1"}
+after {"case": "plan_mixed", "first": 0.002717212999414187, "median": 0.0022085279997554608, "result": "['<Decrement lower 7/2.>', '<Decrement upper index #0 of [3/2, 1, 2], [7/2, 3].>', '<Decrement upper index #0 of [5/2, 1"}
+after {"case": "plan_mixed", "first": 0.002771968996967189, "median": 0.0022108639968791977, "result": "['<Decrement lower 7/2.>', '<Decrement upper index #0 of [3/2, 1, 2], [7/2, 3].>', '<Decrement upper index #0 of [5/2, 1"}
+after {"case": "plan_errors", "first": 0.00019796600099653006, "median": 7.01120006851852e-05, "result": "Non-suitable parameters."}
+after {"case": "plan_errors", "first": 0.00018484299653209746, "median": 7.099499634932727e-05, "result": "Non-suitable parameters."}
+after {"case": "plan_errors", "first": 0.0001865759986685589, "median": 7.238199759740382e-05, "result": "Non-suitable parameters."}
+after {"case": "plan_apply", "first": 0.055103833998146, "median": 0.0328712960035773, "result": "True"}
+after {"case": "plan_apply", "first": 0.05751437800063286, "median": 0.0318514199971105, "result": "True"}
+after {"case": "plan_apply", "first": 0.06342881900491193, "median": 0.03351718300109496, "result": "True"}
+after {"case": "reduce_order", "first": 0.0024805810026009567, "median": 0.001728954004647676, "result": "1"}
+after {"case": "reduce_order", "first": 0.002243593000457622, "median": 0.0017416769987903535, "result": "1"}
+after {"case": "reduce_order", "first": 0.0026796340025612153, "median": 0.001760869003192056, "result": "1"}
+after {"case": "meijerg_floats", "first": 0.0284172160027083, "median": 0.003433739002502989, "result": "-2.36327180120735*z**(3/2)*hyper((-0.5, 3/2), (5/2,), z*exp_polar(I*pi))"}
+after {"case": "meijerg_floats", "first": 0.028153873994597234, "median": 0.0034452830004738644, "result": "-2.36327180120735*z**(3/2)*hyper((-0.5, 3/2), (5/2,), z*exp_polar(I*pi))"}
+after {"case": "meijerg_floats", "first": 0.02882096599932993, "median": 0.003726208000443876, "result": "-2.36327180120735*z**(3/2)*hyper((-0.5, 3/2), (5/2,), z*exp_polar(I*pi))"}
+after {"case": "hyperexpand_plan", "first": 0.008829775004414842, "median": 0.0054381730005843565, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}
+after {"case": "hyperexpand_plan", "first": 0.00889480999467196, "median": 0.005493701995874289, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}
+after {"case": "hyperexpand_plan", "first": 0.017428284998459276, "median": 0.005568714004766662, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}
+sympy {"case": "shift_a", "first": 0.03123665900056949, "median": 0.014415894002013374, "result": "True"}
+sympy {"case": "shift_a", "first": 0.03125277300568996, "median": 0.014380724998773076, "result": "True"}
+sympy {"case": "shift_a", "first": 0.046571027996833436, "median": 0.02842811799928313, "result": "True"}
+sympy {"case": "unshift_a", "first": 0.17006169199885335, "median": 0.06915008099895203, "result": "True"}
+sympy {"case": "unshift_a", "first": 0.14120089200150687, "median": 0.06256821300485171, "result": "True"}
+sympy {"case": "unshift_a", "first": 0.1358078480043332, "median": 0.05912443900160724, "result": "True"}
+sympy {"case": "unshift_b_build", "first": 0.031086034003237728, "median": 0.004894963996775914, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_x**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_x**2 + (66528 - 142"}
+sympy {"case": "unshift_b_build", "first": 0.03557107099913992, "median": 0.004935611999826506, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_x**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_x**2 + (66528 - 142"}
+sympy {"case": "unshift_b_build", "first": 0.032215049999649636, "median": 0.005195026002184022, "result": "Poly((864 - 1848*I)*(5082 + 2695*I)/(4161600*z)*_x**3 + (-2018 + 3327*I)*(1356 - 492*I)/(2080800*z)*_x**2 + (66528 - 142"}
+sympy {"case": "unshift_errors", "first": 0.002355743999942206, "median": 0.0007565029955003411, "result": "['Cannot decrement unit upper index.', 'Cannot increment index: cancels with upper']"}
+sympy {"case": "unshift_errors", "first": 0.0022426520008593798, "median": 0.000741780997486785, "result": "['Cannot decrement unit upper index.', 'Cannot increment index: cancels with upper']"}
+sympy {"case": "unshift_errors", "first": 0.0024132160033332184, "median": 0.0007415290019707754, "result": "['Cannot decrement unit upper index.', 'Cannot increment index: cancels with upper']"}
+sympy {"case": "meijer_unshift", "first": 0.06711382499634055, "median": 0.039343518001260236, "result": "True"}
+sympy {"case": "meijer_unshift", "first": 0.14612407400272787, "median": 0.08376374399813358, "result": "True"}
+sympy {"case": "meijer_unshift", "first": 0.07360258799599251, "median": 0.041030724001757335, "result": "True"}
+sympy {"case": "plan_mixed", "first": 0.02982490799331572, "median": 0.009474953993048985, "result": "['<Decrement lower 7/2.>', '<Decrement upper index #0 of [3/2, 1, 2], [7/2, 3].>', '<Decrement upper index #0 of [5/2, 1"}
+sympy {"case": "plan_mixed", "first": 0.03906524700141745, "median": 0.020020119998662267, "result": "['<Decrement lower 7/2.>', '<Decrement upper index #0 of [3/2, 1, 2], [7/2, 3].>', '<Decrement upper index #0 of [5/2, 1"}
+sympy {"case": "plan_mixed", "first": 0.02900030499586137, "median": 0.009944516001269221, "result": "['<Decrement lower 7/2.>', '<Decrement upper index #0 of [3/2, 1, 2], [7/2, 3].>', '<Decrement upper index #0 of [5/2, 1"}
+sympy {"case": "plan_errors", "first": 0.0001628909958526492, "median": 4.6070999815128744e-05, "result": "Non-suitable parameters."}
+sympy {"case": "plan_errors", "first": 0.0001754080003593117, "median": 4.574200283968821e-05, "result": "Non-suitable parameters."}
+sympy {"case": "plan_errors", "first": 0.00016467700334032997, "median": 4.549000004772097e-05, "result": "Non-suitable parameters."}
+sympy {"case": "plan_apply", "first": 0.12361134599632351, "median": 0.07597527399775572, "result": "True"}
+sympy {"case": "plan_apply", "first": 0.12063969000155339, "median": 0.07564904100581771, "result": "True"}
+sympy {"case": "plan_apply", "first": 0.12256008100666804, "median": 0.14982874399720458, "result": "True"}
+sympy {"case": "reduce_order", "first": 0.005347990998416208, "median": 0.0005782250009360723, "result": "1"}
+sympy {"case": "reduce_order", "first": 0.004653586998756509, "median": 0.0005101089991512708, "result": "1"}
+sympy {"case": "reduce_order", "first": 0.0048244620047626086, "median": 0.0005248669986031018, "result": "1"}
+sympy {"case": "meijerg_floats", "first": 1.119420305993117, "median": 0.9504275069994037, "result": "-2.36327180120735*z**(3/2)*hyper((-0.5, 3/2), (5/2,), z*exp_polar(I*pi))"}
+sympy {"case": "meijerg_floats", "first": 1.2119347430052585, "median": 0.9685193320037797, "result": "-2.36327180120735*z**(3/2)*hyper((-0.5, 3/2), (5/2,), z*exp_polar(I*pi))"}
+sympy {"case": "meijerg_floats", "first": 1.0813595639992855, "median": 0.8984501360027934, "result": "-2.36327180120735*z**(3/2)*hyper((-0.5, 3/2), (5/2,), z*exp_polar(I*pi))"}
+sympy {"case": "hyperexpand_plan", "first": 0.6586158790014451, "median": 0.11184244800097076, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}
+sympy {"case": "hyperexpand_plan", "first": 0.6706786759968963, "median": 0.11665423999511404, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}
+sympy {"case": "hyperexpand_plan", "first": 0.6403375349982525, "median": 0.11748494199855486, "result": "4/z - 2*log(1 - z)/z**2 + (2*z - 6)*atanh(sqrt(z))/z**(3/2)"}

@@ -10,7 +10,7 @@ use crate::{Expr, Kind};
 
 use super::ops::{apply_operators, Op};
 use super::{
-    bucket, hyperexpand_func, is_integer_number, num_cmp, polar_lift, sift_mod1, sort_default, sort_num, Buckets, Formula, HResult,
+    bucket, hyperexpand_func, is_integer_number, mod1, num_cmp, polar_lift, sift_mod1, sort_default, sort_num, Buckets, Formula, HResult,
     HxError, Rewrite, GF, HF,
 };
 
@@ -21,7 +21,25 @@ fn cmp0(e: &Expr) -> HResult<std::cmp::Ordering> { num_cmp(e).ok_or_else(rel_err
 fn le0(e: &Expr) -> HResult<bool> { Ok(cmp0(e)? != std::cmp::Ordering::Greater) }
 fn gt0(e: &Expr) -> HResult<bool> { Ok(cmp0(e)? == std::cmp::Ordering::Greater) }
 
-fn small(e: &Expr) -> HResult<i64> { e.as_i64().filter(|_| is_integer_number(e)).ok_or_else(|| HxError::Type(format!("'{e}' object cannot be interpreted as an integer"))) }
+/// `range(e)` argument: Python's TypeError names the class of a non-integer.
+fn small(e: &Expr) -> HResult<i64> {
+    e.as_i64().filter(|_| is_integer_number(e)).ok_or_else(|| {
+        let class = match e.as_number() {
+            Some(n) if n.is_float() => "Float".to_string(),
+            Some(n) if n.is_rational() && !n.is_integer() => if *e == Expr::rational(1, 2) { "Half".to_string() } else { "Rational".to_string() },
+            _ => e.to_string(),
+        };
+        HxError::Type(format!("'{class}' object cannot be interpreted as an integer"))
+    })
+}
+
+/// `int(round(e))` of a number (SymPy accepts an integral Float here).
+fn small_round(e: &Expr) -> HResult<i64> {
+    match e.as_number() {
+        Some(n) if n.is_float() => small(&crate::functions::floor(&add(&[e.clone(), Expr::rational(1, 2)]))),
+        _ => small(e),
+    }
+}
 
 fn remove_first(v: &mut Vec<Expr>, x: &Expr) -> HResult<()> {
     match v.iter().position(|e| e == x) {
@@ -689,7 +707,8 @@ pub(super) fn do_slater(
             let mut integrand = pow(z, &s);
             for b in bm {
                 let b = match b.as_number() {
-                    Some(n) if n.is_float() && crate::functions::floor(b) == *b => Expr::int(small(&crate::functions::floor(b))?),
+                    // `if not Mod(b, 1) and b.is_Number: b = int(round(b))`
+                    Some(n) if n.is_float() && mod1(b).is_zero() => Expr::int(small_round(b)?),
                     _ => b.clone(),
                 };
                 integrand = mul(&[integrand, f::gamma(&sub(&b, &s))]);
@@ -704,7 +723,7 @@ pub(super) fn do_slater(
                 integrand = div(&integrand, &f::gamma(&sub(a, &s)));
             }
             let integrand = crate::special::expand_func(&integrand);
-            for r in 0..small(&lu)? {
+            for r in 0..small_round(&lu)? {
                 let point = add(&[b_.clone(), Expr::int(r)]);
                 let resid = crate::calculus::residue(&integrand, &s, &point).map_err(HxError::NotImplemented)?;
                 let resid = apply_operators(resid, ops, &mut |e: &Expr| Ok(mul(&[z.clone(), crate::diff::diff(e, z)])))?;
