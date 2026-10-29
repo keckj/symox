@@ -95,6 +95,19 @@ Basic.register(ExprCondPair)
 ExprCondPair.__module__ = 'symox.functions.elementary.piecewise'
 
 
+def _register_pair_view():
+    # Native Piecewise.args builds pairs of settled conditions directly while
+    # this class keeps the constructor registered here.
+    import sys
+    from . import _core
+    register = getattr(_core, '_register_expr_cond_pair', None)
+    if register is not None:
+        register(sys.modules[__name__], ExprCondPair.__dict__['__new__'])
+
+
+_register_pair_view()
+
+
 def _children(value):
     if isinstance(value, (tuple, list)):
         return tuple(value)

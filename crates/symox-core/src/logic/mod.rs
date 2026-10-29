@@ -632,6 +632,25 @@ pub fn is_boolean_category(expression: &Expr) -> bool {
             | Func::Set(crate::sets::SetOp::Contains), _))
 }
 
+/// Whether a Piecewise node occurs anywhere in `expression` (shared DAG
+/// nodes are visited once).
+pub fn contains_piecewise(expression: &Expr) -> bool {
+    let mut seen = rustc_hash::FxHashSet::default();
+    let mut pending = vec![expression.clone()];
+    while let Some(node) = pending.pop() {
+        if !seen.insert(node.dag_id()) { continue; }
+        if matches!(node.kind(), Kind::Piecewise(_)) { return true; }
+        pending.extend(node.args());
+    }
+    false
+}
+
+/// A Piecewise condition the ExprCondPair constructor keeps unchanged: a
+/// Boolean-category node free of Piecewise (no fold or ITE rewrite applies).
+pub fn is_settled_condition(condition: &Expr) -> bool {
+    is_boolean_category(condition) && !condition.has_matrix() && !contains_piecewise(condition)
+}
+
 /// Convert Boolean-valued Piecewise expressions with an explicit default.
 /// Missing coverage or unsupported branches retain the caller's fallback.
 pub fn boolean_piecewise_to_ite(expression: &Expr) -> Option<Expr> {
