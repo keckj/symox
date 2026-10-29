@@ -54,7 +54,23 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
     }
     // The reference `solve` expands trig angles once, on the whole equation.
     let f = trig::expand_angles(&as_expr(eq), x);
-    solve_checked(&f, x, check)
+    let mut sols = solve_checked(&f, x, check)?;
+    // The reference `solve` rewrites Eq(lhs, rhs) as the unevaluated
+    // Add(lhs, -rhs) and rejects the solutions that make a denominator of
+    // any of its subexpressions zero (`_simple_dens`), including the
+    // denominators that cancel in lhs - rhs: Eq(x + 1/x, 1/x) has none.
+    if check {
+        if let Kind::Rel(RelOp::Eq, lhs, rhs) = eq.kind() {
+            let mut dens = simple_dens(lhs, x);
+            for d in simple_dens(rhs, x) {
+                if !dens.contains(&d) { dens.push(d); }
+            }
+            if !dens.is_empty() {
+                sols.retain(|s| !dens.iter().any(|d| denominator_vanishes(d, x, s)));
+            }
+        }
+    }
+    Some(sols)
 }
 
 fn solve_checked(f: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
@@ -82,6 +98,12 @@ fn solve_checked(f: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
     // A candidate such as `2*atan(I) = oo*I` (from the tan half-angle
     // rewrite) is not a finite solution either.
     sols.retain(|s| !matches!(s.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN) && !has_infinity(s));
+    // An equation with an infinite coefficient (1 - oo*x) has no finite
+    // solution where it evaluates to nan: the reference `solve_linear`
+    // and `checksol` reject the candidate `x = 0` (`1 - oo*0 = nan`).
+    if !product && has_infinity(&f) {
+        sols.retain(|s| verify(&f, x, s));
+    }
     if check && product {
         // Each factor's solutions were checked against that factor. Like the
         // reference, the union is then only filtered by the denominators of
@@ -1730,7 +1752,17 @@ fn self_power(f: &Expr, b: &Expr, e: &Expr, rhs: &Expr, x: &Expr, depth: u32) ->
         let roots = solve_rec(b, x, depth + 1)?;
         return Some(roots.into_iter().filter(|r| !subs1(e, x, r).is_zero()).collect());
     }
-    let mut solutions = solve_rec(&sub(&mul2(e, &log(b)), &log(rhs)), x, depth + 1).unwrap_or_default();
+    let logarithmic = sub(&mul2(e, &log(b)), &log(rhs));
+    let mut log_route_failed = false;
+    let mut solutions = solve_rec(&logarithmic, x, depth + 1).or_else(|| {
+        // The reference `_tsolve` ends with a posify/force retry, under
+        // which log((7**x)**x) = x**2*log(7): its candidates are kept only
+        // when they satisfy the original equation.
+        let forced = crate::simp::expand_log(&logarithmic, true);
+        if forced == logarithmic { return None; }
+        Some(solve_rec(&forced, x, depth + 1)?.into_iter()
+            .filter(|candidate| verify_equation(f, &[(x.clone(), candidate.clone())])).collect())
+    }).unwrap_or_else(|| { log_route_failed = true; Vec::new() });
     let mut targets = Vec::new();
     if rhs.is_one() {
         targets.extend([e.clone(), sub(b, &Expr::one()), add(&[b.clone(), Expr::one()])]);
@@ -1770,6 +1802,11 @@ fn self_power(f: &Expr, b: &Expr, e: &Expr, rhs: &Expr, x: &Expr, depth: u32) ->
         if !unique.contains(&solution) {
             unique.push(solution);
         }
+    }
+    // Without the logarithmic route nothing proves the absence of
+    // solutions: decline instead of reporting an empty list.
+    if log_route_failed && unique.is_empty() {
+        return None;
     }
     Some(unique)
 }

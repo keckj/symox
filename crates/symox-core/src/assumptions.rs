@@ -297,6 +297,11 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
                         && exact_queries(||is_negative(base))==Some(true){
                         seed.push(("imaginary",true));
                     }
+                    // Pow._eval_is_imaginary: an imaginary base to an odd
+                    // integer power is imaginary (even powers are real).
+                    if exponent.as_i64().is_some_and(|k|k%2!=0) && fact(base,"imaginary")==Some(true){
+                        seed.push(("imaginary",true));
+                    }
                 }
             }
         },
@@ -905,6 +910,12 @@ pub(crate) fn algebraic_zero(e:&Expr)->bool {
 fn pow_signs(b: &Expr, x: &Expr) -> Option<Signs> {
     let bs = real_signs(b);
     if let Some(k) = x.as_i64() {
+        // Pow._eval_is_extended_positive/negative: an imaginary base (finite
+        // and nonzero) to an even integer power is positive when the
+        // exponent is 0 mod 4 and negative otherwise ((I*t)**2 = -t**2).
+        if bs.is_none() && k % 2 == 0 && fact(b, "imaginary") == Some(true) {
+            return Some(if k % 4 == 0 { Signs::POS } else { Signs::NEG });
+        }
         let bs = bs?;
         if k == 0 {
             return Some(Signs::POS);

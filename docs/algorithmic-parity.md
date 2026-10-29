@@ -12956,3 +12956,117 @@ Remaining failures by class:
 - Intentional: DiracDelta**2 stays held.
 
 Measured: [audit](../audits/performance/2026-10-29-integsuite/README.md).
+
+
+## solvesuite: SymPy 1.14 solver tests (wave 25)
+
+SymPy 1.14's own tests (test_solvers, test_solveset, test_polysys,
+test_inequalities, test_polyroots) were run against symox, with the
+imports rewritten from `sympy` to `symox`. All the fixes below are in the
+Rust core (`crates/symox-core`). No Python algorithm was added.
+
+- `solve(Eq(lhs, rhs), x)`: as in the reference (`_simple_dens` on the
+  unevaluated `Add(lhs, -rhs)`), a solution is rejected when it makes a
+  denominator of either side zero, even when that denominator cancels in
+  `lhs - rhs`. `solve(Eq(x + 1/x, 1/x), x) == []` and
+  `solve(Eq(x**2 - 1/(x**2 - 4), 4 - 1/(x**2 - 4)), x) == []`. Without
+  `Eq`, the difference cancels at construction, as in SymPy
+  (`[-2, 2]`).
+- An equation with an infinite coefficient, for example `1 - oo*x`, has its
+  candidates checked against the equation itself. `x = 0` gives `nan` and
+  is rejected, so `solve(1 - oo*x, x) == []` and
+  `solveset(1 - oo*x) == EmptySet` (before: `[nan]`, `[0]`, `{0}`).
+- Assumptions: an imaginary base raised to an even integer power is real.
+  It is negative when the exponent is 2 mod 4 and positive when it is 0
+  mod 4. To an odd power it is imaginary
+  (`Pow._eval_is_extended_positive/negative/imaginary`). So with
+  imaginary `a, b`, `solve(sqrt(a**2 + b**2) - 3, a) == []`.
+- `b(x)**e(x) = rhs` (native `self_power`): when the logarithmic equation
+  `e*log(b) - log(rhs)` cannot be solved, it is retried after a forced
+  `expand_log`, which is the reference's posify/force retry of `_tsolve`.
+  The candidates of the retry are kept only when they satisfy the original
+  equation. When neither route gives a solution, solve declines; before,
+  it returned `[]`. So `solve((7**x)**x + pi, x)` gives SymPy's two roots,
+  and `solveset((exp(x) + 1)**x - 2, x, S.Reals)` is SymPy's ConditionSet.
+  Before, it returned EmptySet, which wrongly claimed there was no
+  solution.
+
+Regression tests: tests/test_native_solvesuite.py.
+
+Copied SymPy files (passed / failed; the reference run is SymPy 1.14 on the
+same copies):
+
+| file | SymPy 1.14 | symox before | symox after |
+|---|---|---|---|
+| test_solvers | 133 / 0 | 75 / 58 | 78 / 55 |
+| test_solveset | 180 / 3 | 82 / 99 | 84 / 97 |
+| test_polysys | 10 / 0 | 2 / 8 | 2 / 8 |
+| test_inequalities | 28 / 0 | 17 / 11 | 17 / 11 |
+| test_polyroots | 31 / 0 | 16 / 15 | 16 / 15 |
+
+In this environment the reference fails 3 tests of test_solveset itself:
+test_solve_polynomial, test_solve_quintics and test_issue_5114_solveset
+(CRootOf evalf precision).
+
+Tried and withdrawn:
+
+- Dropping a substituted equation that vanishes as a rational function in
+  the native substitution solver. This fixes
+  `solve([x*y - x - y]*2, [x, y]) == []` (test_issue_14645). But the extra
+  branches it keeps open made the 6-unknown system of test_issue_12476 go
+  from 139 s to more than 7.5 min. It is a gap until system solving prunes
+  those branches, for example through the Groebner path.
+- Filtering the candidates of the Python `tsolve_step` with `checksol` on
+  the numerator (test_issue_4463, test_uselogcombine: an extra `x = 0`
+  where the equation is `nan`). The fix belongs to the Python driver,
+  which has to be ported to Rust first.
+
+Remaining failures by class:
+
+- (a) Wrong result. test_solvers: test_issue_4463 and test_uselogcombine
+  (extra `0`), test_issue_14645 (`[]` for a dependent system),
+  test_issue_5849 (`[]` where SymPy finds a solution),
+  test_solve_undetermined_coeffs (`[]` after cancelling `(c + 1)`),
+  test_minsolve_linear_system, test_issue_17799 (extra solution),
+  test_issue_21882, and test_solve_args and test_issue_19113 (DID NOT
+  RAISE). test_solveset: test_issue_9522 (the solveset analogue of the Eq
+  denominator rule: `{2}` instead of EmptySet), test_sol_zero_real,
+  test_nonlinsolve_abs, test_substitution_incorrect, test_logarithmic
+  (missing `-sqrt(10)`), test_issue_8715 and test_integer_domain_relational
+  (missing `{0}` exclusion), test_issue_19144, test_simplification, and
+  the DID NOT RAISE cases (test_linear_eq_to_matrix, test_linsolve,
+  test_issue_14987, test_issue_14454). test_inequalities:
+  test_reduce_abs_inequalities (DID NOT RAISE). test_polyroots:
+  test_issue_19113.
+- (b) Held where SymPy computes. NotImplementedError or ConditionSet:
+  conjugate, atan2, tanh products, binomial, `x**(2*y)`, Lambert
+  multivariate, inexact or Matrix systems (test_solve_Matrix,
+  test_issue_5901, test_issue_6528, test_overdetermined, test_issue_15307,
+  test_issue_22717, test_issues_6819_...), the `_unrad` and nsolve
+  `method` options, solveset with `exp_is_pow=True`, erf/arg/hyperbolic
+  inversion, the exponential systems (test_issue_17566, 19587, 21908,
+  22413, 19814), positive-dimensional nonlinsolve, univariate inequalities
+  (test_issue_8235, 8545, 8974, 10268, test__solve_inequality, complex
+  factors), test_roots_preprocessed (`{}`), test_solve_biquadratic,
+  test_solve_issue_3686 and test_factor_system_poly.
+- (c) Different but equal form: test_linear_system, test_issue_5132,
+  test_exclude, test_issue_2777, test_rewrite_trig, test_issue_17452
+  (`exp(LambertW(11*log(pi/11) + 11*I*pi))`, equal to SymPy's
+  `exp(LambertW(-11*log(11) + 11*log(pi) + 11*I*pi))`), test_issue_7547
+  (last digit), the radical forms of test_issue_7724, test_issue_22768,
+  test_issue_14642 and test_issue_12032, test_roots0 (order),
+  test_solve_poly_system and test_solve_triangulated forms, and the
+  `Intersection(..., Reals)` results that print like SymPy's but are not
+  structurally equal (test_solve_mul, test_solve_invert,
+  test_solveset_real_exp, test_issue_9557, test_issue_11174, ...).
+- (d) Missing thin API: `roots_cubic`, `roots_quartic`, `roots_quintic`,
+  `roots_cyclotomic`, `solve_generic`, `symox.sets.contains.Contains`.
+- (e) Harness: private SymPy names (`_invert`, `_ispow`, `_simple_dens`,
+  `_nsort`, `_factor_sets`, `_pt`, `_transolve`, `_is_exponential`,
+  `_is_logarithmic`, `_is_lambert`, `_is_modular`, `_invert_modular`,
+  `_solveset_multi`, `_term_factors`, `_is_function_class_equation`,
+  `_invert_trig_hyp_real`, `_is_finite_with_finite_vars`).
+- Too slow (per-test timeout of 60 s): test_issue_12476 (139 s, before
+  and after) and test_solve_polynomial.
+
+Measured: [audit](../audits/performance/2026-10-29-solvesuite/README.md).
