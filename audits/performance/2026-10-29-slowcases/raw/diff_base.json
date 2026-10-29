@@ -1,0 +1,206 @@
+{
+"exp(x)-2": [
+"[log(Integer(2))]",
+0.005524141000933014
+],
+"exp(x)+1": [
+"[Mul(I, pi)]",
+0.004464079000172205
+],
+"exp(2*x)-3*exp(x)+2": [
+"[Integer(0), log(Integer(2))]",
+0.004794038002728485
+],
+"exp(exp(x))-2": [
+"[log(log(Integer(2)))]",
+0.008672788004332688
+],
+"exp(exp(x))+1": [
+"[Add(log(pi), Mul(Rational(1, 2), I, pi))]",
+0.009832354000536725
+],
+"exp(exp(x)+1)-5": [
+"[log(Add(Integer(-1), log(Integer(5))))]",
+0.013623327999084722
+],
+"exp(exp(exp(x)))+1": [
+"[log(Add(log(pi), Mul(Rational(1, 2), I, pi)))]",
+0.012864971002272796
+],
+"exp(exp(exp(x)))-2": [
+"[Add(log(Mul(Integer(-1), log(log(Integer(2))))), Mul(I, pi))]",
+0.01647064099961426
+],
+"exp(x**2)-3": [
+"[Mul(Integer(-1), Pow(log(Integer(3)), Rational(1, 2))), Pow(log(Integer(3)), Rational(1, 2))]",
+0.008156392003002111
+],
+"exp(sin(x))-2": [
+"[Add(pi, Mul(Integer(-1), asin(log(Integer(2))))), asin(log(Integer(2)))]",
+0.014010069004143588
+],
+"exp(-x)+1": [
+"[Mul(I, pi)]",
+0.004413198999827728
+],
+"exp(-exp(x))-2": [
+"[Add(log(log(Integer(2))), Mul(I, pi))]",
+0.008464478996756952
+],
+"exp(exp(-x))-3": [
+"[Mul(Integer(-1), log(log(Integer(3))))]",
+0.008636475999082904
+],
+"exp(2*exp(x))-4": [
+"[log(Add(log(Integer(2)), Mul(I, pi))), log(log(Integer(2)))]",
+0.011743256000045221
+],
+"exp(exp(2*x))-4": [
+"[Add(Mul(Rational(1, 2), log(log(Integer(2)))), Mul(Rational(1, 2), log(Integer(2))), Mul(I, pi)), log(Pow(log(Integer(4)), Rational(1, 2)))]",
+0.02029958100320073
+],
+"exp(exp(x)/2)-3": [
+"[log(log(Integer(9)))]",
+0.00804271899687592
+],
+"2**exp(x)-8": [
+"[log(Integer(3))]",
+0.009528980997856706
+],
+"2**(2**x)-16": [
+"[Integer(2)]",
+0.009361345000797883
+],
+"exp(log(x)+1)-2": [
+"[Mul(Integer(2), exp(Integer(-1)))]",
+0.0017502279952168465
+],
+"log(exp(x)+1)-2": [
+"[log(Add(Integer(-1), exp(Integer(2))))]",
+0.009270579997973982
+],
+"log(log(x))-1": [
+"[exp(E)]",
+0.0036872559940093197
+],
+"exp(x)*x-1": [
+"[LambertW(Integer(1))]",
+0.0052306729994597845
+],
+"exp(exp(x))*exp(x)-1": [
+"[Mul(Integer(-1), LambertW(Integer(1)))]",
+0.008539709997421596
+],
+"exp(exp(x)+x)-1": [
+"[Mul(Integer(-1), LambertW(Integer(1)))]",
+0.06600020099722315
+],
+"exp(a*exp(x))-2": [
+"[log(Mul(Pow(Symbol('a', positive=True), Integer(-1)), log(Integer(2))))]",
+0.00882139500026824
+],
+"exp(y*exp(x))-2": [
+"[log(Mul(Pow(Symbol('y'), Integer(-1)), log(Integer(2))))]",
+0.009159348002867773
+],
+"exp(exp(x)+y)-y": [
+"[log(Add(Mul(Integer(-1), Symbol('y')), log(Symbol('y'))))]",
+0.008565725001972169
+],
+"exp(x+exp(1))-3": [
+"[Add(Mul(Integer(-1), E), log(Integer(3)))]",
+0.006321559005300514
+],
+"exp(I*exp(x))-1": [
+"[]",
+0.006648145994404331
+],
+"exp(exp(I*x))-2": [
+"[Mul(Integer(-1), I, log(log(Integer(2))))]",
+0.011134958003822248
+],
+"exp(exp(x))-exp(2)": [
+"[log(Integer(2))]",
+0.006089057998906355
+],
+"exp(exp(x)**2)-4": [
+"[Add(Mul(Rational(1, 2), log(log(Integer(2)))), Mul(Rational(1, 2), log(Integer(2))), Mul(I, pi)), log(Pow(log(Integer(4)), Rational(1, 2)))]",
+0.021749108003859874
+],
+"exp(sqrt(exp(x)))-3": [
+"[Mul(Integer(2), log(log(Integer(3))))]",
+0.009267690002161544
+],
+"sqrt(exp(exp(x)))-2": [
+"[log(log(Integer(4)))]",
+0.011270918999798596
+],
+"exp(exp(x))**2-4": [
+"[log(Add(log(Integer(2)), Mul(I, pi))), log(log(Integer(2)))]",
+0.011323057995468844
+],
+"exp(exp(x)-1)-exp(1)": [
+"[log(Integer(2))]",
+0.006232888001250103
+],
+"exp(3*exp(x))-8": [
+"[log(Add(log(Integer(2)), Mul(Integer(-1), Rational(2, 3), I, pi))), log(Add(log(Integer(2)), Mul(Rational(2, 3), I, pi))), log(log(Integer(2)))]",
+0.007683818002988119
+],
+"exp(exp(x)/3)+1": [
+"[Add(log(Mul(Integer(3), pi)), Mul(Rational(1, 2), I, pi))]",
+0.009651583997765556
+],
+"cosh(exp(x))-2": [
+"[Add(log(Mul(Integer(-1), log(Add(Integer(2), Mul(Integer(-1), Pow(Integer(3), Rational(1, 2))))))), Mul(I, pi)), log(log(Add(Pow(Integer(3), Rational(1, 2)), Integer(2))))]",
+0.029224224999779835
+],
+"exp(exp(x))+exp(-exp(x))-3": [
+"[Add(log(log(Mul(Integer(2), Pow(Add(Integer(3), Mul(Integer(-1), Pow(Integer(5), Rational(1, 2)))), Integer(-1))))), Mul(I, pi)), log(log(Add(Mul(Rational(1, 2), Pow(Integer(5), Rational(1, 2))), Rational(3, 2))))]",
+0.03344129500328563
+],
+"exp(log(2)*exp(x))-4": [
+"[log(Integer(2))]",
+0.008694527998159174
+],
+"exp(exp(x))-x": [
+"ERR NotImplementedError: could not solve -x + exp(exp(x)) for x",
+0.010226694001175929
+],
+"exp(exp(exp(x)+1)+1)-5": [
+"[Add(log(Add(Integer(1), Mul(Integer(-1), log(Add(Integer(-1), log(Integer(5))))))), Mul(I, pi))]",
+0.04335240599903045
+],
+"exp(exp(exp(exp(x))))+1": [
+"[log(log(Add(log(pi), Mul(Rational(1, 2), I, pi))))]",
+0.029137129997252487
+],
+"exp(x)-y": [
+"[log(Symbol('y'))]",
+0.005253152994555421
+],
+"exp(exp(x))-y": [
+"[log(log(Symbol('y')))]",
+0.006869119999464601
+],
+"exp(exp(y*x))-2": [
+"[Mul(Pow(Symbol('y'), Integer(-1)), log(log(Integer(2))))]",
+0.009267872999771498
+],
+"exp(exp(x+y))-3": [
+"[log(Mul(exp(Mul(Integer(-1), Symbol('y'))), log(Integer(3))))]",
+0.012591193000844214
+],
+"3**exp(x)-9": [
+"[log(Integer(2))]",
+0.010365619004005566
+],
+"exp(2**x)-3": [
+"[Mul(Pow(log(Integer(2)), Integer(-1)), log(log(Integer(3))))]",
+0.015417667003930546
+],
+"exp(exp(x))-1": [
+"[]",
+0.0051055709991487674
+]
+}

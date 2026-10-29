@@ -11808,3 +11808,61 @@ still pays one native attempt (about 2-3.5 ms: `1/(x**8+1)` 0.91x on the
 first call, `1/(x**6+8)` 0.73x in the single-call sweep). Open: a cheap exact
 decline test for even degree, EX `C` (Cardano/cube-root `r_u`) and EX `log_to_atan`
 natively, and `integrate(1/(x**5 + x + 1)**3, x)` memory (TODO section 8).
+
+## Wave 21 slowcases: nested exponential solve and the 1/(x**5+x+1)**3 integral, 2026-10-29
+
+Two native changes, no new Python algorithm, no domain change.
+
+- `assumptions.rs`, `algebraic_proof`: for `exp`, `sin`/`cos`/`tan`, `log`
+  and rational powers, the structural conditions (argument algebraic,
+  argument rational multiple of `pi`, base algebraic) are now tested before
+  the numerical zero test. Every answer needs both conditions, so the
+  answers are unchanged; only the order differs, and a nested argument whose
+  algebraicity is unknown is no longer evaluated numerically. A rational
+  power whose base algebraicity is unknown returns None at once (every
+  remaining branch could only answer algebraic or unknown). This was 95% of
+  `solve(tower - 5)` for the `exp(...)+1` towers: building `log` of a
+  numeric complex argument asks `is_algebraic`.
+- `solve.rs`, generator inversion: while the symbolic inverse `g - t` of an
+  exponential generator `g` is solved with the dummy `t`, the same
+  generator substitution would ask the same inverse again with a fresh dummy,
+  down to the depth bound 8, every level failing and being retried through
+  the fallback (3586 `solve_rec` calls at depth 6). A thread-local stack of
+  active inversions now makes that inner generator path return None, so the
+  direct inversion `exp(a) = t -> a = log(t)` (as the reference `_invert`)
+  answers at once. Nothing else is skipped: the same fallback path runs.
+
+Checked: 51 solve inputs (exponential, log, Lambert, trigonometric,
+polynomial, mixed towers) give identical srepr before and after; the
+`is_algebraic` answers of 14 transcendental/algebraic constants are those of
+SymPy 1.14; `tests/test_native_slowcases.py`. Pre-existing form
+differences, unchanged: symox prints `log(pi) + I*pi/2` for SymPy's
+`log(I*pi)` and `log(4)` for `2*log(2)` inside these roots (equal values;
+the test checks an exact substitution certificate).
+
+Measured ([audit](../audits/performance/2026-10-29-slowcases/README.md)):
+the `exp(...)+1` tower goes from 426 s to 59 s at depth 10 (SymPy 78 s)
+and from 21.5 s to 1.9 s at depth 8 (SymPy 2.1 s); `exp(E)+1` at depth 10
+from 6.6 s to 1.7 s (SymPy 6.8 s).
+
+Open gaps:
+- the plain tower `exp(exp(...(x)))-2` is still slower than SymPy: at
+  depth 10, 7.1 s before, 2.1 s now, SymPy 1.1 s (0.5 s on an idle
+  machine). Native solve is 0.64 s of it (logcombine facts and numeric
+  `is_real` in `invert`); the rest is the Python simplify argument-rebuild
+  of the solution, which, as in SymPy, re-simplifies every nested argument
+  (1024 simplify calls at depth 10), with symox's Python `has`/`replace`
+  overhead per call.
+- `integrate(1/(x**5 + x + 1)**3, x)` still exhausts memory (6 GB cap, as
+  `1/(x**5+x+1)`); SymPy 1.14 does not finish within 1800 s either, for
+  k = 3 (about 3 GB when stopped) or for k = 1. The step is the general
+  `log_to_real` on the squarefree but reducible
+  `q(t) = -3381 t**5 + 160 t**3 + 80 t**2 + 15 t + 1` returned by `ratint_logpart` (factors of degrees 2 and 3):
+  `Poly(a.xreplace({u: r_u, v: r_v}), x)` with Cardano radicals `r_u, r_v`
+  of the cubic part. A prototype (audit `harness/split_probe.py`) that
+  reduces `h` modulo each irreducible factor of `q` and calls `log_to_real`
+  per factor (RootSum when it declines) finishes in 0.2 s (k = 1) and 0.8 s
+  (k = 3) with derivative minus integrand 0 to 30 digits at 1/3, -5/7 and
+  2. It is not enabled: applied unconditionally it changes the output form
+  for every reducible `q` that SymPy computes, and no work estimate yet
+  separates those from the exploding cases.

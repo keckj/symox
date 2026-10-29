@@ -1122,6 +1122,9 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         return None;
     }
     let roots = solve_rec(&fu, &u, depth + 1)?;
+    if exponential && coefficients.len() == 2 && is_active_inversion(g, &roots) {
+        return None;
+    }
     invert_generator(g, roots, x, depth)
 }
 
@@ -1293,6 +1296,25 @@ fn perfect_power_bases(f: &Expr, x: &Expr, gens: &[Expr]) -> Option<Expr> {
 /// `log((y - 1)/(y + 1))`, are not polynomial generators of the reference,
 /// which solves those equations by `_tsolve`; they are inverted root by root,
 /// whose forms are the reference's (`(-x**2 - exp(2*C1))/(x**2 - exp(2*C1))`).
+thread_local! {
+    /// The exponential generators `g` whose symbolic inverse `g - t` is being
+    /// solved, with their dummy `t`.
+    static ACTIVE_INVERSIONS: std::cell::RefCell<Vec<(Expr, Expr)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// `g - t` while the inverse of `g` is being computed for that dummy `t`.
+///
+/// Solving it through its generator asks for the inverse of `g` again (with
+/// a fresh dummy), and so on until the depth bound; every level then fails
+/// and is retried through the fallback before the direct inversion of the
+/// last level succeeds, which costs twice the work per level and per
+/// remaining depth. The direct inversion (`exp(a) = t` gives `a = log(t)`,
+/// as the reference `_invert`) is the step that answers in the end.
+fn is_active_inversion(g: &Expr, roots: &[Expr]) -> bool {
+    let [root] = roots else { return false };
+    ACTIVE_INVERSIONS.with(|active| active.borrow().iter().any(|(h, t)| h == g && t == root))
+}
+
 fn invert_generator(g: &Expr, roots: Vec<Expr>, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     let exponential = match g.kind() {
         Kind::Func(Func::Exp, _) => true,
@@ -1307,8 +1329,16 @@ fn invert_generator(g: &Expr, roots: Vec<Expr>, x: &Expr, depth: u32) -> Option<
         return Some(out);
     }
     let t = Expr::dummy("_t", crate::Assumptions::NONE);
-    let inverse = solve_rec(&sub(g, &t), x, depth + 1)
-        .filter(|inverse| !inverse.is_empty() && inverse.iter().all(|i| has(i, &t)));
+    let inverse = {
+        ACTIVE_INVERSIONS.with(|active| active.borrow_mut().push((g.clone(), t.clone())));
+        struct Pop;
+        impl Drop for Pop {
+            fn drop(&mut self) { ACTIVE_INVERSIONS.with(|active| { active.borrow_mut().pop(); }); }
+        }
+        let _pop = Pop;
+        solve_rec(&sub(g, &t), x, depth + 1)
+    }
+    .filter(|inverse| !inverse.is_empty() && inverse.iter().all(|i| has(i, &t)));
     let rational_base = matches!(g.kind(), Kind::Pow(..));
     // The reference simplifies the substituted inverses of `exp` when there
     // are at most two of them; a power of another base is solved through

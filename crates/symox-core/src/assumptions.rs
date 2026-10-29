@@ -51,11 +51,12 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
         // or of a nonzero rational multiple of pi is transcendental.
         let quotient=crate::ops::mul2(argument,&crate::ops::pow(&crate::ops::mul2(&Expr::pi(),&Expr::i()),&Expr::int(-1)));
         if rational_value(&quotient){return Some(true);}
-        if nonzero(argument){
-            if walk(argument,cache)==Some(true){return Some(false);}
-            let quotient=crate::ops::mul2(argument,&crate::ops::pow(&Expr::pi(),&Expr::int(-1)));
-            if rational_value(&quotient){return Some(false);}
-        }
+        // The structural conditions come before the numerical zero test:
+        // the answer is the same, and a nested argument whose algebraicity
+        // is unknown is not evaluated numerically.
+        let transcendental=walk(argument,cache)==Some(true)
+            || rational_value(&crate::ops::mul2(argument,&crate::ops::pow(&Expr::pi(),&Expr::int(-1))));
+        if transcendental&&nonzero(argument){return Some(false);}
         None
     }
     fn power(base:&Expr,exponent:&Expr,cache:&mut Cache)->Option<bool>{
@@ -64,6 +65,8 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
         if let Some(n)=exponent.as_number().filter(|n|!n.is_float()){
             let algebraic=walk(base,cache);
             if algebraic==Some(false){return Some(n.is_zero());}
+            // Every remaining answer is `algebraic` or unknown.
+            if algebraic.is_none(){return None;}
             if nonzero(base){return if n.is_zero(){algebraic.filter(|a|*a)}else{algebraic};}
             if n.is_positive(){return algebraic;}
             return None;
@@ -101,14 +104,14 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
             Kind::Func(Func::Exp,args) if args.len()==1=>exponential(&args[0],cache),
             Kind::Func(Func::Sin|Func::Cos|Func::Tan|Func::Cot|Func::Sec|Func::Csc,args) if args.len()==1=>{
                 let argument=&args[0];
-                if nonzero(argument)&&walk(argument,cache)==Some(true){Some(false)}
+                if walk(argument,cache)==Some(true)&&nonzero(argument){Some(false)}
                 else if crate::special::trig_eval::pi_coeff(argument).is_some_and(|c|rational_value(&c)){Some(true)}
                 else{None}
             },
             Kind::Func(Func::Log,args) if args.len()==1=>{
                 let shifted=crate::ops::add2(&args[0],&Expr::int(-1));
                 if shifted.is_zero(){Some(true)}
-                else if nonzero(&shifted)&&walk(&args[0],cache)==Some(true){Some(false)}
+                else if walk(&args[0],cache)==Some(true)&&nonzero(&shifted){Some(false)}
                 else{None}
             },
             Kind::Func(Func::Re|Func::Im|Func::Abs|Func::Conjugate,args) if args.len()==1=>walk(&args[0],cache),
