@@ -157,7 +157,7 @@ pub(crate) fn _log_to_real(h: &Bound<'_,PyAny>,q: &Bound<'_,PyAny>,x: &Bound<'_,
     if q.field.is_some() || q.algebraic.is_some() || q.expression.is_some()
         || q.base.modulus.is_some() || !matches!(q.base.domain,Domain::ZZ|Domain::QQ)
         || q.base.gens!=[t.clone()] || q.base.ngens!=1
-        || !matches!(q.base.rep.degree(0),1|2) {return Ok(None);}
+        || !(1..=16).contains(&q.base.rep.degree(0)) {return Ok(None);}
     let Some(polynomial)=symox::integrate::log_to_real::rational_input(&h.p,&x,&t,&mut ||py.check_signals())?
         else{return Ok(None)};
     let q=dense::from_mpoly(&q.base.rep,0);

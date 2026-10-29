@@ -164,7 +164,7 @@ pub fn integrate<E>(input:&Input,x:&Expr,symbol:&str,check:&mut impl FnMut()->Re
             // No partial RootSum/atan sum: a missing certificate restarts the
             // complete public driver, including its general RootSum choice.
             if q.field.is_some() || q.algebraic.is_some() || q.expression.is_some()
-                || !matches!(q.rep.degree(0),1|2){return Ok(None);}
+                || !(1..=16).contains(&q.rep.degree(0)){return Ok(None);}
             let Some(h)=primitive(h) else{return Ok(None)};
             let Some(h)=super::log_to_real::rational_input(&h,x,&t,check)? else{return Ok(None)};
             let Some(value)=super::log_to_real::convert(&h,&dense::from_mpoly(&q.rep,0),x,&t,check)? else{return Ok(None)};
