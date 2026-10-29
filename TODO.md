@@ -164,6 +164,15 @@ contient aussi des algorithmes mathématiques en Python : leur utilisation
 d'expressions natives ne suffit pas à respecter cette architecture. Leur portage
 doit conserver les domaines, replis, précisions et solutions existants.
 
+**Règle de travail pour chaque lot (consigne du 29 octobre)** : le calcul va en
+Rust (`crates/symox-core`, liaison PyO3 dans `crates/symox-py`). Le Python ne
+sert qu'à l'admission, à l'aiguillage vers le natif, aux enveloppes d'API et au
+passage des arguments. On n'ajoute ni n'étend d'algorithme Python : un écart de
+parité qui ne se corrigerait qu'en Python est consigné comme lacune, pas corrigé
+en Python. Faire passer les tests de SymPy n'est pas un but en soi si le calcul
+reste en Python. Chaque rapport de lot indique, correctif par correctif, si le
+calcul est en Rust ou en Python ; un lot qui n'a pas porté est renvoyé.
+
 - [x] Inventorier les calculs Python effectivement utilisés, avec entrées
   publiques, appels Rust et boucles restantes : [audit du 27 octobre](audits/architecture/python-runtime-2026-10-27/README.md).
   Le comptage reproductible hors tests/docs donne 135 304 SLOC Python et
@@ -188,6 +197,7 @@ doit conserver les domaines, replis, précisions et solutions existants.
   | Polynômes | `PolyMatrix` hors corps exacts audités, replis inexact/GF hors natif | `polys/polymatrix.py`, `polys/solvers.py`, `polys/_dense/` |
   | Matrices | Préfixes froids Berkowitz, produits/GJ hors routes natives, LU hors QQ et FFLU hors ZZ/QQ, substitutions hors QQ, LLL froid hors préfixe stock prouvé, préparations et normalforms | `polys/matrices/`, `matrices/_legacy_*.py` ; DDM Bareiss déjà validé |
   | Probabilités | Conditionnement, énumérations Markov, certains moments/assemblages | `stats/_joint.py`, `_processes.py`, `_queries.py` ; moments stock déjà natifs |
+  | Tableaux et matrices | Dérivées d'ordre symbolique de matrices/tableaux, dérivées de traces imbriquées, repli `piecewise_fold` des constructeurs `Sum`/`Product`/`Integral` (vague 23, écrits en Python) | `tensor/array/array_derivatives.py`, `_public_calculus.py`, `_public_core.py` |
 
   Les chemins natifs spécialisés déjà portés ne ferment pas ces familles.
   Les classes, signatures, conversions et protocoles d'extension restent des
