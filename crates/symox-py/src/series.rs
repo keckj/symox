@@ -160,13 +160,13 @@ fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir
     }
 }
 
-/// `(c0, [c_i])` of `limits::bounded_affine`: the limit is
-/// `c0 + sum(c_i*AccumBounds(-1, 1))`; `None` when it does not apply.
+/// `(c0, [(c_i, lo_i, hi_i)])` of `limits::bounded_affine`: the limit is
+/// `c0 + sum(c_i*AccumBounds(lo_i, hi_i))`; `None` when it does not apply.
 #[pyfunction]
-fn _limit_bounded_affine(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str) -> PyResult<Option<(PyExpr, Vec<PyExpr>)>> {
+fn _limit_bounded_affine(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str) -> PyResult<Option<(PyExpr, Vec<(PyExpr, PyExpr, PyExpr)>)>> {
     let minus = match dir { "+" => false, "-" => true, _ => return Ok(None) };
     Ok(lm::bounded_affine(&to_expr(e)?, &to_expr(z)?, &to_expr(z0)?, minus)
-        .map(|(c0, cs)| (w(c0), cs.into_iter().map(w).collect())))
+        .map(|(c0, cs)| (w(c0), cs.into_iter().map(|(c, lo, hi)| (w(c), w(lo), w(hi))).collect())))
 }
 
 #[pyfunction]

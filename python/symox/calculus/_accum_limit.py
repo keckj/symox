@@ -210,7 +210,9 @@ def _bounded_affine(e, z, z0, dir):
     """The limit of an expression affine in oscillating sin/cos parts once
     the tractable rewrites of Si, Ci and the Fresnel integrals are made:
     ``c0 + sum(c_i*AccumBounds(-1, 1))`` as the reference leading terms
-    give (``x*Ci(x)`` at ``oo`` is ``AccumBounds(-1, 1)``). None when the
+    give (``x*Ci(x)`` at ``oo`` is ``AccumBounds(-1, 1)``); a floor, ceiling
+    or Mod of an argument tending to an infinity contributes the bounds
+    ``AccumBounds(-1, 0)`` or ``AccumBounds(0, 1)`` of its remainder. None when the
     native decomposition does not apply."""
     from .accumulationbounds import AccumBounds
     if dir not in ('+', '-'):
@@ -224,8 +226,9 @@ def _bounded_affine(e, z, z0, dir):
     from .. import Add, Mul
     c0, coeffs = parts
     # The reference leading terms combine through Mul and Add flatten:
-    # x*(fresnels(x) - 1/2) is AccumBounds(-1, 1)/pi.
-    value = Add(c0, *[Mul(c, AccumBounds(-1, 1)) for c in coeffs])
+    # x*(fresnels(x) - 1/2) is AccumBounds(-1, 1)/pi, and the floor remainder
+    # AccumBounds(-1, 0) of floor(x + 1/2) - floor(x) gives 1/2 + AccumBounds(-1, 1).
+    value = Add(c0, *[Mul(c, AccumBounds(lo, hi)) for c, lo, hi in coeffs])
     return _checked(value)
 
 

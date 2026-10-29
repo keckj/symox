@@ -187,7 +187,7 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
     let mut g = gruntz::Gruntz::new(&t);
     let r = match g.limitinf(&et) {
         Ok(r) => Ok(r),
-        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)) {
+        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)).or_else(|| negative_base_squeeze(&et, &t)) {
             Some(r) => Ok(r),
             None => Err(err),
         },
@@ -328,6 +328,15 @@ fn has_bad(e: &Expr) -> bool {
 /// Replace oscillating `sin(u)`/`cos(u)` (with `u -> ±oo`) by bounded
 /// parameters; if the limit exists and does not depend on them, it is
 /// the limit of the original expression.
+/// Oscillating `sin`/`cos` next to a rounding remainder: the reference
+/// finds the rounding bounds only through the leading term of the whole
+/// expression, which an oscillating `sin(x)` at `oo` defeats, and its
+/// term-by-term heuristics then meet `oo - oo` (`sin(x) + floor(x) - x`
+/// stays unevaluated there), so the combination is left undecided.
+fn mixed_bounded(osc: &FxHashMap<Expr, Expr>, rounding: &Rounding) -> bool {
+    !osc.is_empty() && !rounding.map.is_empty()
+}
+
 fn bounded_heuristic(e: &Expr, t: &Expr) -> Option<Expr> {
     let mut map: FxHashMap<Expr, Expr> = FxHashMap::default();
     let mut g = gruntz::Gruntz::new(t);
@@ -336,10 +345,17 @@ fn bounded_heuristic(e: &Expr, t: &Expr) -> Option<Expr> {
     let prepared = g.prepare(e).ok()?;
     let e = &prepared;
     collect_oscillating(e, t, &mut g, &mut map);
+    let mut params: Vec<Expr> = map.values().cloned().collect();
+    let mut rounding = Rounding::new();
+    rounding.collect(e, t, &mut g);
+    if mixed_bounded(&map, &rounding) {
+        return None;
+    }
+    params.extend(rounding.params.iter().map(|(p, _, _)| p.clone()));
+    map.extend(rounding.map);
     if map.is_empty() {
         return None;
     }
-    let params: Vec<Expr> = map.values().cloned().collect();
     let e2 = xreplace(e, &map);
     // A bounded value is not a constant where it may reach 0: in a log or
     // under a non-polynomial power (sin(x)**(1/x) has no limit, as
@@ -359,12 +375,14 @@ fn bounded_heuristic(e: &Expr, t: &Expr) -> Option<Expr> {
 /// `c0 + sum(c_i * w_i)`: the tractable form is `a0 + sum(a_i * w_i)` where
 /// every `w_i` is a `sin(u)` or `cos(u)` with a real infinite limit of `u`
 /// (accumulating on `[-1, 1]`), and each `a_i` has a finite limit `c_i`.
-/// Returns `(c0, [c_i])` with the zero `c_i` left out; an infinite `c0`
+/// The bounded remainders of `floor`, `ceiling` and `Mod` at an infinite
+/// argument ([`Rounding`]) are further parameters, on `[-1, 0]` or `[0, 1]`.
+/// Returns `(c0, [(c_i, lo_i, hi_i)])` with the zero `c_i` left out; an infinite `c0`
 /// dominates the bounded part and comes back alone. The caller forms the
 /// accumulation bounds, as SymPy's leading terms do (`sin` at an infinite
 /// argument is `AccumBounds(-1, 1)`), e.g. `x*Ci(x)` at `oo` is `sin(x)`
 /// plus a vanishing part.
-pub fn bounded_affine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<(Expr, Vec<Expr>)> {
+pub fn bounded_affine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<(Expr, Vec<(Expr, Expr, Expr)>)> {
     if !x.is_symbol() || x0.is_constant(Constant::ComplexInfinity) || x0.is_constant(Constant::NaN) {
         return None;
     }
@@ -377,13 +395,21 @@ pub fn bounded_affine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<(Exp
     let prepared = g.prepare(&et).ok()?;
     let mut map: FxHashMap<Expr, Expr> = FxHashMap::default();
     collect_real_oscillating(&prepared, &t, &mut g, &mut map);
-    if map.is_empty() {
+    let mut rounding = Rounding::new();
+    rounding.collect(&prepared, &t, &mut g);
+    if map.is_empty() && rounding.map.is_empty() || mixed_bounded(&map, &rounding) {
         return None;
     }
     let mut pairs: Vec<(Expr, Expr)> = map.into_iter().collect();
     pairs.sort_by_key(|(_, p)| p.as_sym().map(|s| s.name().to_string()));
-    let params: Vec<Expr> = pairs.iter().map(|(_, p)| p.clone()).collect();
-    let back: FxHashMap<Expr, Expr> = pairs.iter().map(|(w, p)| (w.clone(), p.clone())).collect();
+    let mut params: Vec<Expr> = pairs.iter().map(|(_, p)| p.clone()).collect();
+    let mut ranges: Vec<(Expr, Expr)> = vec![(Expr::minus_one(), Expr::one()); params.len()];
+    for (p, lo, hi) in &rounding.params {
+        params.push(p.clone());
+        ranges.push((lo.clone(), hi.clone()));
+    }
+    let mut back: FxHashMap<Expr, Expr> = pairs.iter().map(|(w, p)| (w.clone(), p.clone())).collect();
+    back.extend(rounding.map);
     let e2 = xreplace(&prepared, &back);
     let (a0, coeffs) = affine_parts(&e2, &params)?;
     let lim = |a: &Expr| -> Option<Expr> {
@@ -401,13 +427,13 @@ pub fn bounded_affine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<(Exp
         return None;
     }
     let mut cs = Vec::new();
-    for a in &coeffs {
+    for (a, (lo, hi)) in coeffs.iter().zip(ranges) {
         let c = lim(a)?;
         if has_infinity(&c) || params.iter().any(|p| depends(&c, p)) {
             return None;
         }
         if !c.is_zero() {
-            cs.push(c);
+            cs.push((c, lo, hi));
         }
     }
     if has_infinity(&c0) {
@@ -531,6 +557,146 @@ fn real_infinity(l: &Expr) -> bool {
         }
         _ => false,
     }
+}
+
+/// The bounded remainders of `floor`, `ceiling` and `Mod` of an argument
+/// with a real infinite limit, as the reference `RoundFunction._eval_nseries`
+/// (`floor(u) = u + AccumBounds(-1, 0)`, `ceiling(u) = u + AccumBounds(0, 1)`
+/// for an infinite `u`) and `Mod._eval_nseries` (the rewrite
+/// `Mod(u, q) = u - q*floor(u/q)`, so `-q*AccumBounds(-1, 0)`).
+///
+/// Every occurrence gets its own parameter `p` with its range `(lo, hi)`:
+/// two rounding functions of different arguments are independent bounded
+/// values, as two accumulation bounds are (`floor(x + 1/2) - floor(x)` at
+/// `oo` is `1/2 + AccumBounds(-1, 1)`); they never cancel. The map sends
+/// the rounding function to its replacement, `u + p` or `-q*p`.
+struct Rounding {
+    map: FxHashMap<Expr, Expr>,
+    params: Vec<(Expr, Expr, Expr)>,
+}
+
+impl Rounding {
+    fn new() -> Self {
+        Rounding { map: FxHashMap::default(), params: Vec::new() }
+    }
+
+    fn param(&mut self, lo: i64, hi: i64) -> Expr {
+        let p = Expr::symbol(&format!("_symox_round{}", self.params.len()));
+        self.params.push((p.clone(), Expr::int(lo), Expr::int(hi)));
+        p
+    }
+
+    fn collect(&mut self, e: &Expr, t: &Expr, g: &mut gruntz::Gruntz) {
+        if !depends(e, t) || self.map.contains_key(e) {
+            return;
+        }
+        let real_infinite = |u: &Expr, g: &mut gruntz::Gruntz| {
+            real_arg(u, t)
+                && !has_rounding(u, t)
+                && g.limitinf(u).is_ok_and(|l| l.is_constant(Constant::Infinity) || l.is_constant(Constant::NegInfinity))
+        };
+        match e.kind() {
+            Kind::Func(f @ (Func::Floor | Func::Ceiling), a) if a.len() == 1 => {
+                if real_infinite(&a[0], g) {
+                    let p = if *f == Func::Floor { self.param(-1, 0) } else { self.param(0, 1) };
+                    self.map.insert(e.clone(), add(&[a[0].clone(), p]));
+                    return;
+                }
+            }
+            Kind::Func(Func::Special(crate::special::SpecialFn::Mod), a) if a.len() == 2 => {
+                let q = &a[1];
+                if !depends(q, t) && real_arg(q, t) && crate::assumptions::is_zero(q) == Some(false) {
+                    let u = crate::ops::div(&a[0], q);
+                    if real_infinite(&u, g) {
+                        let p = self.param(-1, 0);
+                        self.map.insert(e.clone(), neg(&mul2(q, &p)));
+                        return;
+                    }
+                }
+            }
+            _ => {}
+        }
+        for a in e.args() {
+            self.collect(&a, t, g);
+        }
+    }
+}
+
+/// Squeeze through the modulus: `(-c)**u` with a rational `c > 0` and a real
+/// `u` has the modulus `c**u`, so for a product `e` of powers `b**(+-u)`
+/// with numeric bases, `|e| = |e'|` where `e'` replaces every `(-c)` by
+/// `c`. When `e'` tends to 0, so does `e` (`(-1)**x*2**(-x)`, `(-1/4)**x`
+/// at `oo`, issues 22181 and 19739).
+fn negative_base_squeeze(e: &Expr, t: &Expr) -> Option<Expr> {
+    // The reference reaches these limits only through `pow_heuristics`,
+    // after `powsimp` has merged the product into a single power `B**g` of
+    // a constant base: every factor is `b**g` or `b**(-g)` for one common
+    // real exponent `g` and a numeric base, with no other coefficient
+    // (`3*(-1)**x*2**(-x)`, `(-1)**(2*x)*2**(-x)` and `(-1)**x/x` raise
+    // there, so they stay undecided here).
+    let factors: Vec<(Expr, Expr)> = match e.kind() {
+        Kind::Mul(c, f) if c.is_one() => f.clone(),
+        Kind::Pow(b, p) => vec![(b.clone(), p.clone())],
+        _ => return None,
+    };
+    // exp(u) is the power E**u
+    let factors: Vec<(Expr, Expr)> = factors
+        .into_iter()
+        .map(|(b, p)| match b.kind() {
+            Kind::Func(Func::Exp, a) if p.is_one() && a.len() == 1 => (Expr::e(), a[0].clone()),
+            _ => (b, p),
+        })
+        .collect();
+    let g = factors.first().map(|(_, p)| p.clone())?;
+    if !depends(&g, t) || !real_arg(&g, t) {
+        return None;
+    }
+    let ng = neg(&g);
+    let mut negative = false;
+    let mut v = Vec::with_capacity(factors.len());
+    for (b, p) in &factors {
+        if *p != g && *p != ng {
+            return None;
+        }
+        let modulus = if let Some(c) = b.as_number() {
+            if !c.is_rational() || c.is_zero() {
+                return None;
+            }
+            if c.is_negative() {
+                negative = true;
+                Expr::num(c.neg())
+            } else {
+                b.clone()
+            }
+        } else if *b == Expr::e() {
+            b.clone()
+        } else {
+            return None;
+        };
+        v.push(pow(&modulus, p));
+    }
+    if !negative {
+        return None;
+    }
+    // |B**g| = |B|**g for a real g: a vanishing modulus squeezes the
+    // oscillating sign to 0
+    let modulus = crate::ops::mul(&v);
+    let r = gruntz::Gruntz::new(t).limitinf(&modulus).ok()?;
+    r.is_zero().then(Expr::zero)
+}
+
+/// A real value for a real `t`: no `I`, every other symbol real.
+fn real_arg(a: &Expr, t: &Expr) -> bool {
+    !crate::traverse::has(a, &Expr::i())
+        && crate::traverse::free_symbols(a).iter().all(|v| v == t || crate::assumptions::is_real(v) == Some(true))
+}
+
+fn has_rounding(e: &Expr, t: &Expr) -> bool {
+    if !depends(e, t) {
+        return false;
+    }
+    matches!(e.kind(), Kind::Func(Func::Floor | Func::Ceiling | Func::Special(crate::special::SpecialFn::Mod | crate::special::SpecialFn::Frac), _))
+        || e.args().iter().any(|a| has_rounding(a, t))
 }
 
 fn collect_oscillating(e: &Expr, t: &Expr, g: &mut gruntz::Gruntz, map: &mut FxHashMap<Expr, Expr>) {

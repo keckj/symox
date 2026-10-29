@@ -12208,3 +12208,63 @@ Remaining gaps:
 
 Tests: `tests/test_native_derivsym.py` (values from SymPy 1.14).
 Measured: [audit](../audits/performance/2026-10-29-derivsym/README.md).
+
+
+## seriesrest (wave 22): rounding functions at infinity, Piecewise series at infinity, 2026-10-29
+
+Now native (crates/symox-core/src/limits, crates/symox-core/src/series):
+
+- `floor(u)`, `ceiling(u)` and `Mod(u, q)` in a limit where `u` (or `u/q`)
+  tends to a real infinity (all other symbols real, `q` constant, real and
+  nonzero). Each occurrence becomes `u + p` with its own bounded parameter
+  `p` on `[-1, 0]` (floor) or `[0, 1]` (ceiling), and `Mod(u, q)` becomes
+  `-q*p` with `p` on `[-1, 0]`, as in SymPy's `_eval_nseries` (`s +
+  AccumBounds(-1, 0)`). Independent parameters do not cancel, so
+  `floor(x + 1/2) - floor(x)` at `oo` is `AccumBounds(-1/2, 3/2)` and
+  `floor(x) - ceiling(x)` is `AccumBounds(-2, 0)`, as in SymPy. A limit
+  independent of the parameters is returned as such (`floor(x)/x` is 1,
+  `x*floor(3/x)/2` at `0+` is `3/2`, `floor(n/2)` is `oo`); an affine one
+  gives `c0 + sum(c_i*AccumBounds(lo_i, hi_i))` (`floor(x) - x`,
+  `Mod(x, 3)` is `AccumBounds(0, 3)`).
+- Series of `Mod(p, q)` with `q` independent of the variable through
+  `p - q*floor(p/q)`; `floor`/`ceiling` at an integer point whose rest has a
+  symbolic leading coefficient decided by assumptions (`Mod(x, b)` at
+  `n*b` from either side with `b` positive or negative, issue 25230).
+- Limits at `oo` of a single power of a negative numeric base, as reached by
+  SymPy's `pow_heuristics` after `powsimp`: a product of `b_i**(+-g)` with
+  numeric bases (rationals, `E`, `exp(u)`), one common real exponent `g` and
+  no other coefficient tends to 0 when its modulus does (issues 22181 and
+  19739, `(-1)**x*exp(-x)`, `(-1/2)**(x**2)`).
+- `Expr.series` at `oo`/`-oo` for an expression holding a `Piecewise`: the
+  expansion of `e(+-1/x)` at `0+`, substituted back, so undecidable
+  conditions keep the `Piecewise` (`Piecewise((x, y < 1), (x**5, True))`).
+
+Admitted domains and declines: rounding parameters are not mixed with
+oscillating `sin`/`cos` parameters (`sin(x) + floor(x) - x` stays
+unevaluated, as in SymPy). A product with a coefficient, a non-constant
+factor or exponents that are not `+-g` (`3*(-1)**x*2**(-x)`, `(-1)**x/x`,
+`(-1)**(2*x)*2**(-x)`) is not squeezed: SymPy raises NotImplementedError
+there, symox stays unevaluated.
+
+Remaining gaps (still unevaluated or different from SymPy 1.14):
+
+- Series-level AccumBounds: `floor(1/w).nseries(w, 0, 3)` is
+  `AccumBounds(-1 + 1/w, 1/w)` in SymPy, and `floor(x).series(x, oo)` raises
+  ValueError there; symox raises PoleError.
+- `limit(Mod(x, a), x, a)` with a real `a` of unknown sign: SymPy raises
+  NotImplementedError("Not sure of sign of 1/a"), symox stays unevaluated.
+  The same holds for the NotImplementedError cases of negative bases above.
+- `limit((-3)**x, x, oo)` is `zoo` in SymPy; `(-1/3)**x` at `-oo` is 0 in
+  SymPy although its modulus tends to `oo`. Both stay unevaluated.
+- `cos(x)*floor(x)/x` at `oo` (SymPy's term-by-term heuristics give
+  `AccumBounds(-1, 1)`) stays unevaluated.
+- Functions of a Piecewise series (`sin`, `cos`, `exp` of a `Piecewise` at
+  0, `Function._eval_nseries`) still raise NotImplementedError.
+- `O(x**2).subs(x, cos(x))`: SymPy moves the point to `pi/2` through the
+  first element of `solveset(x - cos(d), d)`; symox's solveset returns a
+  ConditionSet there, so the order stays `O(cos(x)**2)`.
+- `2**(-x)*sqrt(4**(x + 1) + 1)` at `oo` times out, `abs((-x/(x + 1))**x)`
+  and issue 22334 (`(n + 1)**k/((n + 1)**(k + 1) - n**(k + 1))`, which times
+  out in SymPy) stay unevaluated.
+
+Measured: [audit](../audits/performance/2026-10-29-seriesrest/README.md).
