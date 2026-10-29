@@ -51,7 +51,7 @@ same recursion as SymPy, with symox's Python `has`/`replace` per call). Gap.
 
 ## integrate(1/(x**5 + x + 1)**3, x)
 
-- symox base and new: memory exhausted at 6 GB (`raw/symox_k1.log`, exit
+- symox base (and b2d04ad9): memory exhausted at 6 GB (`raw/symox_k1.log`, exit
   137, already for k = 1).
 - SymPy 1.14: k = 3 not finished in 1800 s (`raw/sympy_k3.log`, exit 124);
   k = 1 not finished in 1800 s either (`raw/sympy_k1.log`, exit 124).
@@ -59,7 +59,14 @@ same recursion as SymPy, with symox's Python `has`/`replace` per call). Gap.
   r_v}), x)` with Cardano radicals, for the reducible quintic
   `q(t) = -3381 t**5 + 160 t**3 + 80 t**2 + 15 t + 1` (factors of degree 2
   and 3).
-- Prototype `split_probe.py`: per irreducible factor, 0.21 s (k = 1, length
-  9694) and 0.84 s (k = 3, length 27728), derivative minus integrand 0 to 30
-  digits at 1/3, -5/7, 2. Not enabled (changes the form for reducible `q`
-  that SymPy computes; no work estimate yet). Gap.
+- Gated per-factor split (enabled, `rationaltools.py`): estimate
+  `max(i*log10|r_u| + j*log10|r_v|)` over the monomials of `a`, threshold 11.
+  Largest value on the lrt3 sweep and the ratint/log_to_real tests: 8.4
+  (logged with a temporary hook, removed); the integration corpus never
+  reaches the loop; `1/(x**5+x+1)`: 12.75. lrt3 sweep after the change:
+  94 same, 0 different against `../2026-10-29-lrt3/sweep_new.json`
+  (`raw/lrt3_sweep_gate.json`, run with the same estimate at threshold 17;
+  no sweep value exceeds 5.0, so no branch differs at 11).
+- `harness/kcheck.py k out`: k = 1 0.76 s, k = 3 4.47 s, maxrss 66 MB, no
+  RootSum, derivative minus integrand 0 to 30 digits at 1/3, -5/7, 2, 7/2
+  (`raw/kcheck.txt`). SymPy 1.14: not finished in 1800 s for k = 1 or 3.

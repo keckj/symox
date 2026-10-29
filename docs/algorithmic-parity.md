@@ -11853,16 +11853,32 @@ Open gaps:
   of the solution, which, as in SymPy, re-simplifies every nested argument
   (1024 simplify calls at depth 10), with symox's Python `has`/`replace`
   overhead per call.
-- `integrate(1/(x**5 + x + 1)**3, x)` still exhausts memory (6 GB cap, as
-  `1/(x**5+x+1)`); SymPy 1.14 does not finish within 1800 s either, for
-  k = 3 (about 3 GB when stopped) or for k = 1. The step is the general
-  `log_to_real` on the squarefree but reducible
-  `q(t) = -3381 t**5 + 160 t**3 + 80 t**2 + 15 t + 1` returned by `ratint_logpart` (factors of degrees 2 and 3):
-  `Poly(a.xreplace({u: r_u, v: r_v}), x)` with Cardano radicals `r_u, r_v`
-  of the cubic part. A prototype (audit `harness/split_probe.py`) that
-  reduces `h` modulo each irreducible factor of `q` and calls `log_to_real`
-  per factor (RootSum when it declines) finishes in 0.2 s (k = 1) and 0.8 s
-  (k = 3) with derivative minus integrand 0 to 30 digits at 1/3, -5/7 and
-  2. It is not enabled: applied unconditionally it changes the output form
-  for every reducible `q` that SymPy computes, and no work estimate yet
-  separates those from the exploding cases.
+- `integrate(1/(x**5 + x + 1)**3, x)`: see the follow-up below.
+
+Follow-up, gated per-factor `log_to_real` (`integrals/rationaltools.py`,
+Python dispatch only):
+
+- In the general `log_to_real` loop, just before
+  `Poly(a.xreplace({u: r_u, v: r_v}), x)`, a work estimate
+  `max(i*log10|r_u| + j*log10|r_v|)` over the monomials `u**i*v**j` of `a`
+  (`|r|` = printed size of the root) is compared with 11. Below, the path is
+  unchanged. Above, when `q` is squarefree and reducible over its domain,
+  the result is the sum over the irreducible factors `f` of `log_to_real(h
+  rem f, f)` (`h` reduced modulo `f` in `t`, which leaves `h(a, x)` unchanged
+  at each root `a` of `f`), and a factor that declines keeps the exact
+  `RootSum(f, Lambda(t, t*log(h)))` of ratint. An irreducible `q` above the
+  estimate still runs the unchanged path.
+- Threshold: the largest estimate reached on the 94-input lrt3 sweep and the
+  ratint/log_to_real tests is 8.4; the integration corpus never reaches this
+  loop (the native kernels or earlier steps answer). The lrt3 sweep is
+  identical to its recorded output (`cmp.py`: 94 same, 0 different), the
+  integration and ODE corpora are unchanged.
+- `integrate(1/(x**5 + x + 1), x)` (estimate 12.75; `q(t) = -3381 t**5 +
+  160 t**3 + 80 t**2 + 15 t + 1`, factors of degrees 2 and 3) now finishes
+  in 0.8 s, and `**3` in 4.5 s, under 6 GB, without RootSum; derivative
+  minus integrand is 0 to 30 digits at 1/3, -5/7, 2 and 7/2. SymPy 1.14 does
+  not finish within 1800 s under the same caps (k = 1 and k = 3). This is a case SymPy does not finish, not a
+  correction: the form is the per-factor `log_to_real` form.
+- Remaining: the estimate is a size heuristic; an irreducible `q` whose
+  substitution explodes is still not handled, and the dispatch is Python
+  (the factor loop calls existing `factor_list`, `rem` and `log_to_real`).

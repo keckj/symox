@@ -65,3 +65,23 @@ def test_nested_exp_depth_is_not_exponential():
 ])
 def test_algebraic_answers_match_sympy(expression,expected):
     assert expression().is_algebraic is expected
+
+
+def test_reducible_quintic_log_part_is_split_by_factor():
+    # SymPy 1.14 does not finish this integral in 1800 s (memory grows in the
+    # general log_to_real substitution); the estimate gate splits q(t).
+    f=1/(x**5+x+1)
+    r=sx.integrate(f,x)
+    assert not r.has(sx.RootSum)
+    d=sx.diff(r,x)-f
+    for point in (sx.Rational(1,3),sx.Rational(-5,7),sx.Integer(2)):
+        assert abs(sx.N(d.subs(x,point),30))<sx.Float('1e-25')
+
+
+def test_substitution_estimate_below_threshold_keeps_general_path():
+    from symox.integrals import rationaltools as rt
+    u,v=sx.symbols('u v')
+    a=u**4+v**4*x+u*v
+    assert rt._lrt_substitution_log10(a,u,v,sx.Rational(1,2),sx.sqrt(2)/2)<rt._LRT_SPLIT_LOG10
+    big=sx.sqrt(sum(sx.sqrt(k)*sx.Rational(k,7) for k in range(2,200)))
+    assert rt._lrt_substitution_log10(a,u,v,sx.Rational(1,2),big)>rt._LRT_SPLIT_LOG10

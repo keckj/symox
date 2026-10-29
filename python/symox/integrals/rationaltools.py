@@ -977,6 +977,47 @@ def _get_real_roots(f, x):
             return None
 
 
+# Work estimate for the substitution of the real roots (r_u, r_v) into
+# a(u, v, x): expanding u**i*v**j at radicals multiplies their sizes, so the
+# printed sizes give the estimate max(i*log10|r_u| + j*log10|r_v|) over the
+# monomials of a. On the 94-input lrt3 sweep and the ratint/log_to_real
+# tests the largest value is 8.4 (the integration corpus never reaches this
+# loop); 1/(x**5+x+1), whose expansion exhausts 6 GB here and does not
+# finish in 1800 s in SymPy 1.14, gives 12.75. Above 11 a reducible q is
+# split into its irreducible factors; below, the path is unchanged.
+_LRT_SPLIT_LOG10 = 11
+
+
+def _lrt_substitution_log10(a, u, v, r_u, r_v):
+    from math import log10
+    lu = log10(max(len(str(r_u)), 1))
+    lv = log10(max(len(str(r_v)), 1))
+    terms = Poly(a, u, v).monoms() if a != 0 else []
+    return max((i*lu + j*lv for i, j in terms), default=0)
+
+
+def _lrt_split_factors(h, q, x, t):
+    """Sum of log_to_real over the irreducible factors of a squarefree,
+    reducible q, with h reduced modulo each factor (h(a, x) is unchanged at
+    the roots a of that factor); a factor log_to_real declines keeps the
+    exact RootSum. None when q is irreducible or not squarefree."""
+    _, factors = q.factor_list()
+    if len(factors) < 2 or any(k != 1 for _, k in factors):
+        return None
+    hx = Poly(h.as_expr(), x)
+    result = S.Zero
+    for f, _ in factors:
+        coeffs = [Poly(c, t).rem(f).as_expr() for c in hx.all_coeffs()]
+        n = len(coeffs) - 1
+        hf = Poly(sum(c*x**(n - i) for i, c in enumerate(coeffs)), *h.gens)
+        _, hf = hf.primitive()
+        part = log_to_real(hf, f, x, t)
+        if part is None:
+            part = RootSum(f, Lambda(t, t*log(hf.as_expr())), quadratic=True)
+        result += part
+    return result
+
+
 def log_to_real(h, q, x, t):
     r"""
     Convert complex logarithms to real functions.
@@ -1067,6 +1108,11 @@ def log_to_real(h, q, x, t):
 
             if D.evalf(chop=True) != 0:
                 continue
+
+            if _lrt_substitution_log10(a, u, v, r_u, r_v) > _LRT_SPLIT_LOG10:
+                split = _lrt_split_factors(h, q, x, t)
+                if split is not None:
+                    return split
 
             A = Poly(a.xreplace({u: r_u, v: r_v}), x)
             B = Poly(b.xreplace({u: r_u, v: r_v}), x)
