@@ -5,7 +5,17 @@ used. Matplotlib is imported only when a figure is shown or saved.
 """
 import math
 import operator
-import numpy as np
+
+
+class _LazyNumpy:
+    # NumPy is imported on first use, as in SymPy, so that importing symox
+    # does not start the BLAS thread pools.
+    def __getattr__(self,name):
+        import numpy
+        return getattr(numpy,name)
+
+
+np=_LazyNumpy()
 
 
 def _s():
@@ -370,8 +380,8 @@ def plot_contour(*args,show=True,**kwargs):
     return _plot(args,'contour',1,2,show,kwargs)
 
 
-_IMPLICIT_COMPARE={'LessThan':np.less_equal,'StrictLessThan':np.less,
-                   'GreaterThan':np.greater_equal,'StrictGreaterThan':np.greater}
+_IMPLICIT_COMPARE={'LessThan':'less_equal','StrictLessThan':'less',
+                   'GreaterThan':'greater_equal','StrictGreaterThan':'greater'}
 
 
 def _implicit_leaves(expr):
@@ -392,7 +402,7 @@ def _implicit_mask(expr,symbols,values):
         for mask in masks[1:]:result=combine(result,mask)
         return result
     z=np.asarray(_evaluate(expr.lhs-expr.rhs,symbols,values),dtype=float)
-    return _IMPLICIT_COMPARE[name](z,0)
+    return getattr(np,_IMPLICIT_COMPARE[name])(z,0)
 
 
 def plot_implicit(expr,x_var=None,y_var=None,adaptive=True,depth=0,n=300,line_color='blue',show=True,**kwargs):
