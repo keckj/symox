@@ -542,6 +542,52 @@ fn numpycode(
     run_code(expr, assign_to, CodeSettings::new(Lang::NumPy), settings)
 }
 
+/// `lambdify`'s generated return expression (module prefixes removed) and
+/// its `(module, name)` imports; `None` when the form is not reproduced.
+#[pyfunction]
+#[pyo3(signature = (expr, flavor, user_functions=None))]
+fn lambdify_source(
+    expr: &Bound<'_, PyAny>,
+    flavor: &str,
+    user_functions: Option<&Bound<'_, PyDict>>,
+) -> PyResult<Option<(String, Vec<(String, String)>)>> {
+    use symox::printing::code::LambdaFlavor;
+    let flavor = match flavor {
+        "math" => LambdaFlavor::Math,
+        "numpy" => LambdaFlavor::NumPy,
+        "scipy" => LambdaFlavor::SciPy,
+        _ => return Ok(None),
+    };
+    let mut uf = rustc_hash::FxHashMap::default();
+    if let Some(d) = user_functions {
+        for (k, v) in d.iter() {
+            let (Ok(k), Ok(v)) = (k.extract::<String>(), v.extract::<String>()) else {
+                return Ok(None);
+            };
+            uf.insert(k, v);
+        }
+    }
+    let Ok(e) = to_expr(expr) else { return Ok(None) };
+    Ok(symox::printing::code::lambdify_source(&e, flavor, &uf).ok())
+}
+
+/// Result type code of `lambdify`'s generated function for Python float
+/// arguments (`symox::printing::code::LambdaKind`; 0 when not determined).
+#[pyfunction]
+fn lambdify_result_kind(expr: &Bound<'_, PyAny>, flavor: &str) -> u8 {
+    use symox::printing::code::LambdaFlavor;
+    let flavor = match flavor {
+        "math" => LambdaFlavor::Math,
+        "numpy" => LambdaFlavor::NumPy,
+        "scipy" => LambdaFlavor::SciPy,
+        _ => return 0,
+    };
+    match to_expr(expr) {
+        Ok(e) => symox::printing::code::lambdify_result_kind(&e, flavor) as u8,
+        Err(_) => 0,
+    }
+}
+
 #[pyfunction]
 #[pyo3(signature = (expr, assign_to=None, **settings))]
 fn rust_code(
@@ -681,6 +727,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(cxxcode, m)?)?;
     m.add_function(wrap_pyfunction!(pycode, m)?)?;
     m.add_function(wrap_pyfunction!(numpycode, m)?)?;
+    m.add_function(wrap_pyfunction!(lambdify_source, m)?)?;
+    m.add_function(wrap_pyfunction!(lambdify_result_kind, m)?)?;
     m.add_function(wrap_pyfunction!(py_torchcode, m)?)?;
     m.add_function(wrap_pyfunction!(py_jaxcode, m)?)?;
     m.add_function(wrap_pyfunction!(py_slangcode, m)?)?;

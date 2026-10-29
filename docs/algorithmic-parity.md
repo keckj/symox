@@ -12268,3 +12268,91 @@ Remaining gaps (still unevaluated or different from SymPy 1.14):
   out in SymPy) stay unevaluated.
 
 Measured: [audit](../audits/performance/2026-10-29-seriesrest/README.md).
+
+## lambdaprint (wave 23): lambdify source, docstring and result types, 2026-10-29
+
+Native now (crates/symox-core/src/printing/code.rs, `lambdify_source`,
+`lambdify_result_kind`, bound in crates/symox-py/src/printing.rs):
+- The return expression of SymPy's `_lambdifygenerated` for the `math`,
+  `numpy`, `scipy` and default (`['numpy', 'scipy']` when SciPy is installed)
+  modules, printed with module prefixes removed and the `from mod import
+  name` imports recorded as SymPy's `fully_qualified_modules=False` printers
+  do. The Python printer gains SymPy's logic forms (`(x > 0) and (y < 1)`,
+  arguments in `default_sort_key` order, parentheses by precedence; NumPy
+  `logical_and.reduce((...))`, `logical_not`), `numpy.sinc(x/numpy.pi)`, the
+  SciPy special names (`jv`, `gammaln`, `psi`, `expi`, `poch`, ...) and the
+  NumPy flavor's `math.gamma`/`math.erf`.
+- The Python type of the result for Python float arguments (`float`,
+  `numpy.float64`, `numpy.bool_`, `bool`, 0-d array for `numpy.select`),
+  deduced from the printed source: native results are wrapped in that type.
+  Non-finite native values, integer and NumPy scalar arguments, unknown kinds
+  (constant expressions among them),
+  scipy.special and math calls in the NumPy flavor (last digits of `gamma`,
+  `erf`) go through the generated function, which then raises or warns as
+  SymPy's (`0.0 cannot be raised to a negative power`, `math domain error`,
+  `invalid value encountered in log`).
+
+Python side (python/symox/utilities/lambdify.py): the generated function is
+compiled with filename `<lambdifygenerated-N>`, registered in `linecache`
+(removed by a `weakref.finalize`), and exposed as `__wrapped__`, `__name__`,
+`__code__`, `__defaults__`, ... of the `CompiledFunction`, so
+`inspect.getsource`, `inspect.signature` and `__doc__` ("Created with
+lambdify. Signature: ... Expression: ... Source code: ... Imported modules:",
+75-character expression cut, `docstring_limit` redaction) are SymPy's. The
+mpmath path gets the same linecache registration and docstring. Complex
+expressions that the native evaluator refuses (`I*x`, `exp(I*x)`) now run
+SymPy's generated function instead of raising ValueError.
+
+Admitted: a Basic expression (not a Matrix or container), plain Symbol
+arguments with distinct identifier names, `modules` among `math`, `numpy`,
+`scipy`, None, or a list of those with dicts of user functions, and no
+`printer`, `cse` or `dummify` option. Everything else keeps the previous
+path.
+
+Remaining differences (probes in the audit harness: 294 sources, 1175 result
+types over 7 module choices and 5 argument kinds; before -> after: source
+288 -> 124, docstring 288 -> 132, signature 247 -> 104, result type
+614 -> 89; every remaining one is in a class below):
+- `modules='sympy'`, `'mpmath'` and `['math', 'mpmath']`: the generated text
+  (mpmath term order, `mpf` literals) is not reproduced; values are
+  unchanged. The mpmath flavor returns a float for `Mod` with integer
+  arguments and raises ValueError for `1/x` with `numpy.int64` (SymPy gives
+  int and numpy.float64).
+- List, tuple and Matrix results (structured path): no generated source,
+  elements are Python floats where SymPy gives numpy.float64.
+- Functions that SymPy prints without a definition in the namespace
+  (`conjugate`, `re`, `im`, `arg` with `math`, `besselj`, `zeta`,
+  `LambertW`, `factorial` with `numpy`, `conjugate` with `scipy` alone): the
+  generated function raises NameError in SymPy; symox keeps its native
+  function, which computes the value, without generated source.
+- The order of `Imported modules` lines follows a set in SymPy (random).
+- Array, mixed array/scalar and object arguments keep the native vector
+  path (the vector dispatch contract of tests/test_numpy_vector_dispatch.py):
+  float32 and integer arrays give float64 results, `math` and
+  `math.gamma`-printed functions accept arrays, and no RuntimeWarning is
+  emitted for invalid values (SymPy: float32 results, TypeError "only
+  length-1 arrays can be converted to Python scalars", warnings). A
+  relational on a float64 array gives `array([1., 0.])` (SymPy: a bool
+  array), and a constant expression is broadcast to the array shape (SymPy:
+  the Python scalar).
+- Expressions of more than 20000 tree nodes (shared subexpressions, whose
+  printed source would be exponential) keep the native function without
+  generated source.
+- Constants such as `Catalan`, `GoldenRatio` that SymPy prints as Floats,
+  held `UnevaluatedExpr`, `exp_polar`, undefined functions and free symbols
+  that are not arguments are declined (previous behavior kept).
+- `NumPyPrinter` (Python class) still prints `numpy.logical_and(a, b)`,
+  `(x > 0)` and `numpy.sinc(x)`; `SciPyPrinter` does not exist.
+- Part (2) of TODO section 7, unchanged: `QQ.algebraic_field((sqrt(2),
+  'alpha'))` raises NotAlgebraic (SymPy: `QQ<0>`); `type(ZZ).__name__` is
+  `Domain` (SymPy: IntegerRing, RationalField, RealField, AlgebraicField);
+  `Predicate('p')` is `_CallableExpr` (SymPy: UndefinedPredicate); last digit
+  of `yn(2, 1.5 + 0.5*I).evalf()`; nsolve error residuals
+  (`5.22912334436213620492` versus `...473229`, `1.00000001490116124936`
+  versus `1.0` for a 2x2 system without real root: different Jacobian
+  steps); level_spacing Dummy name and JointEigenDistribution repr as
+  listed in audit15. `catalan` digits, Dummy `str`, Matrix and triangular
+  Piecewise printing now match.
+
+Tests: `tests/test_native_lambdaprint.py`. Measured:
+[audit](../audits/performance/2026-10-29-lambdaprint/README.md).

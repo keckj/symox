@@ -1,0 +1,20 @@
+alias_field = ERR NotAlgebraic: alpha does not seem to be an algebraic element
+alias_repr = ERR NotAlgebraic: alpha does not seem to be an algebraic element
+field_plain = QQ<sqrt(2)>
+dom_type = Domain Domain Domain
+poly_dom_type = Domain
+catalan = 0.915965594177219015054603514932
+jn = 0.124336646090721 + 0.0733208852664041*I
+yn = -0.872557511733607 + 0.720966199365535*I
+nsolve_noroot = ERR ValueError: Could not find root within given tolerance. (5.22912334436213620492 > 2.16840434497100886801e-19)
+Try another starting point or tweak arguments.
+nsolve_complex = 1.0*I
+nsolve_sys = Matrix([[1.00000000000000], [1.00000000000000]])
+nsolve_bad = ERR ValueError: Could not find root within given tolerance. (1.00000001490116124936 > 2.16840434497100886801e-19)
+Try another starting point or tweak arguments.
+nsolve_prec = 0.739085133215160641655312087674
+undefpred = Q.mypred(x)
+undefpred_t = _CallableExpr
+matrix_multiline = Matrix([[x, 1], [2, y]])
+dummy_str = _d
+pw_tri = Piecewise((0, x < 0), (x, x < 1), (2 - x, x < 2), (0, True))

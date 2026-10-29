@@ -4079,7 +4079,8 @@ fn py_constant(name: &str) -> PyResult<PyExpr> {
 // lambdify
 // ----------------------------------------------------------------------
 
-/// A compiled numerical function.
+// A compiled numerical function. (No class docstring: the `__doc__` getter
+// gives SymPy's docstring of the generated function.)
 #[pyclass(name = "CompiledFunction", module = "symox._core", frozen)]
 pub struct PyCompiled {
     c: Compiled,
@@ -4094,6 +4095,67 @@ pub struct PyCompiled {
     // it is assembled on first access from the requested modules.
     modules: Option<Py<PyAny>>,
     globals: pyo3::sync::GILOnceCell<Py<PyAny>>,
+    // SymPy's generated Python function (source in linecache, docstring,
+    // signature), built on first need by `builder`; with `kind` (the result
+    // type for Python float arguments, `LambdaKind`) and the math flavor.
+    reference: pyo3::sync::GILOnceCell<(Py<PyAny>, u8, bool)>,
+    reference_function: pyo3::sync::GILOnceCell<Option<Py<PyAny>>>,
+}
+
+const COMPILED_DOC: &str = "A compiled numerical function.";
+
+impl PyCompiled {
+    /// The generated function, when a reference was attached and built.
+    fn reference_function<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
+        let Some((builder, _, _)) = self.reference.get(py) else { return Ok(None) };
+        let f = self.reference_function.get_or_try_init(py, || -> PyResult<Option<Py<PyAny>>> {
+            let value = builder.bind(py).call0()?;
+            Ok(if value.is_none() { None } else { Some(value.unbind()) })
+        })?;
+        Ok(f.as_ref().map(|f| f.bind(py).clone()))
+    }
+
+    /// SymPy's result types: Python float arguments of a known result type
+    /// use the native value (wrapped as that type) unless it is not finite
+    /// (the generated function then raises or warns as SymPy's does); every
+    /// other argument goes through the generated function.
+    fn call_reference(&self, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<Option<PyObject>> {
+        let Some((_, kind, math)) = self.reference.get(py) else { return Ok(None) };
+        let (kind, math) = (*kind, *math);
+        if args.iter().all(|a| a.is_exact_instance_of::<PyFloat>()) && kind != 0 {
+            let s: Vec<f64> = args.iter().map(|a| a.extract::<f64>()).collect::<PyResult<_>>()?;
+            let mut out = vec![0.0; self.c.n_outputs()];
+            self.c.call(&s, &mut out);
+            let v = out[0];
+            if v.is_finite() {
+                let np = || py.import("numpy");
+                return Ok(Some(match kind {
+                    1 => v.into_pyobject(py)?.into_any().unbind(),
+                    2 => np()?.getattr("float64")?.call1((v,))?.unbind(),
+                    3 => np()?.getattr("bool_")?.call1((v != 0.0,))?.unbind(),
+                    4 => pyo3::types::PyBool::new(py, v != 0.0).to_owned().into_any().unbind(),
+                    5 => np()?.getattr("asarray")?.call1((v,))?.unbind(),
+                    _ => return Ok(None),
+                }));
+            }
+        }
+        // Arrays, mixed and object arguments keep the native evaluation (the
+        // vector dispatch contract); scalars go through the generated function.
+        if !args.iter().all(|a| {
+            a.is_instance_of::<PyFloat>() || a.is_instance_of::<PyInt>()
+                || a.get_type().module().is_ok_and(|m| m.to_string() == "numpy")
+                    && a.getattr("ndim").and_then(|d| d.extract::<i64>()).is_ok_and(|d| d == 0)
+                    && a.get_type().name().is_ok_and(|n| n != "ndarray")
+                    && a.getattr("dtype").and_then(|d| d.getattr("kind")).and_then(|c| c.extract::<String>())
+                        .is_ok_and(|c| matches!(c.as_str(), "f" | "i" | "u" | "b"))
+        }) {
+            return Ok(None);
+        }
+        match self.reference_function(py)? {
+            Some(f) => Ok(Some(f.call(args, None)?.unbind())),
+            None => Ok(None),
+        }
+    }
 }
 
 fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -4128,6 +4190,11 @@ impl PyCompiled {
                 self.c.n_args(),
                 args.len()
             )));
+        }
+        if self.reference.get(py).is_some() {
+            if let Some(result) = self.call_reference(py, args)? {
+                return Ok(result);
+            }
         }
         // scalar fast path
         let scalars: Option<Vec<f64>> = args
@@ -4236,9 +4303,41 @@ impl PyCompiled {
         self.c.n_args()
     }
 
+    /// Attach SymPy's generated function: `builder()` returns it (or None),
+    /// `kind` is its result type code for Python float arguments.
+    fn _attach_reference(&self, py: Python<'_>, builder: Py<PyAny>, kind: u8, math: bool) -> bool {
+        self.reference.set(py, (builder, kind, math)).is_ok()
+    }
+
+    /// SymPy's docstring of the generated function.
+    #[getter]
+    fn __doc__(&self, py: Python<'_>) -> PyResult<PyObject> {
+        match self.reference_function(py)? {
+            Some(f) => Ok(f.getattr("__doc__")?.unbind()),
+            None => Ok(COMPILED_DOC.into_pyobject(py)?.into_any().unbind()),
+        }
+    }
+
+    /// The function attributes of SymPy's generated function; `__wrapped__`
+    /// lets `inspect.signature` and `inspect.getsource` reach it.
+    fn __getattr__(&self, py: Python<'_>, name: &str) -> PyResult<PyObject> {
+        const DELEGATED: &[&str] = &["__name__", "__qualname__", "__code__", "__defaults__",
+            "__kwdefaults__", "__closure__", "__annotations__", "__builtins__"];
+        if name == "__wrapped__" || DELEGATED.contains(&name) {
+            if let Some(f) = self.reference_function(py)? {
+                return Ok(if name == "__wrapped__" { f.unbind() } else { f.getattr(name)?.unbind() });
+            }
+        }
+        Err(pyo3::exceptions::PyAttributeError::new_err(format!(
+            "'CompiledFunction' object has no attribute '{name}'")))
+    }
+
     /// The namespace of SymPy's generated function (`f.__globals__`).
     #[getter]
     fn __globals__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        if let Some(f) = self.reference_function(py)? {
+            return Ok(f.getattr("__globals__")?.unbind());
+        }
         self.globals.get_or_try_init(py, || -> PyResult<Py<PyAny>> {
             let modules = match &self.modules { Some(m) => m.clone_ref(py), None => py.None() };
             let exprs = PyList::new(py, self.exprs.iter().cloned().map(wrap))?;
@@ -4282,7 +4381,9 @@ fn py_lambdify(
     Ok(PyCompiled { c, scalar_out, exprs, arguments: arg_list,
         object_evaluator: pyo3::sync::GILOnceCell::new(),numpy_vectors,
         numpy_evaluator, modules: modules.map(|m| m.clone().unbind()),
-        globals: pyo3::sync::GILOnceCell::new() })
+        globals: pyo3::sync::GILOnceCell::new(),
+        reference: pyo3::sync::GILOnceCell::new(),
+        reference_function: pyo3::sync::GILOnceCell::new() })
 }
 
 #[pymodule]

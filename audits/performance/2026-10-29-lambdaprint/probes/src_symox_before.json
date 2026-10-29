@@ -1,0 +1,1736 @@
+{
+ "None|E": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|Heaviside": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|I": "LAMBDIFY-ERR ValueError: cannot compile 'I (complex)' to a numerical function",
+ "None|LambertW": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|Mod": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|abs": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|acos": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|and": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|besselj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|ceil": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|conj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|erf": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|exp": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|factorial": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|float": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|gamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|half": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|inv": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|invsqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|list": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "None|log": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|log10": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|loggamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|mat": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "None|max": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|negpow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|oo": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|pi": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|poly": {
+  "doc": "A native compiled function that follows the Python integer arithmetic\n    of the reference generated code for ``int`` arguments.\n\n    The reference prints ``x + 1`` as Python source, so\n    ``lambdify(x, x + 1)(2**60)`` is the exact ``1152921504606846977``; the\n    native evaluator works in doubles. A polynomial with integer\n    coefficients and nonnegative integer powers is evaluated by the same\n    Python operations when an argument is an ``int``.\n    ",
+  "name": null,
+  "sig": "(*values, **kw)",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|pow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|pw": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|rat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|re": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|rel": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|sign": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|sin": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|sinc": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|sinh": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|sqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|tan": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "None|tuple": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "None|zeta": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|E": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|Heaviside": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|I": "LAMBDIFY-ERR ValueError: cannot compile 'I (complex)' to a numerical function",
+ "['math', 'mpmath']|LambertW": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|Mod": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|abs": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|acos": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|and": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|besselj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|ceil": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|conj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|erf": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|exp": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|factorial": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|float": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|gamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|half": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|inv": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|invsqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|list": {
+  "doc": null,
+  "name": "<lambda>",
+  "sig": "(*values)",
+  "src": "        return lambda *values:type(expr)(plan(*values) for plan in plans)\n"
+ },
+ "['math', 'mpmath']|log": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|log10": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|loggamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|mat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|max": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|negpow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|oo": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|pi": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|poly": {
+  "doc": "A native compiled function that follows the Python integer arithmetic\n    of the reference generated code for ``int`` arguments.\n\n    The reference prints ``x + 1`` as Python source, so\n    ``lambdify(x, x + 1)(2**60)`` is the exact ``1152921504606846977``; the\n    native evaluator works in doubles. A polynomial with integer\n    coefficients and nonnegative integer powers is evaluated by the same\n    Python operations when an argument is an ``int``.\n    ",
+  "name": null,
+  "sig": "(*values, **kw)",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|pow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|pw": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|rat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|re": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|rel": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|sign": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|sin": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|sinc": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|sinh": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|sqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|tan": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "['math', 'mpmath']|tuple": {
+  "doc": null,
+  "name": "<lambda>",
+  "sig": "(*values)",
+  "src": "        return lambda *values:type(expr)(plan(*values) for plan in plans)\n"
+ },
+ "['math', 'mpmath']|zeta": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|E": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|Heaviside": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|I": "LAMBDIFY-ERR ValueError: cannot compile 'I (complex)' to a numerical function",
+ "math|LambertW": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|Mod": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|abs": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|acos": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|and": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|besselj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|ceil": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|conj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|erf": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|exp": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|factorial": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|float": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|gamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|half": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|inv": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|invsqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|list": {
+  "doc": null,
+  "name": "<lambda>",
+  "sig": "(*values)",
+  "src": "        return lambda *values:type(expr)(plan(*values) for plan in plans)\n"
+ },
+ "math|log": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|log10": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|loggamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|mat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|max": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|negpow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|oo": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|pi": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|poly": {
+  "doc": "A native compiled function that follows the Python integer arithmetic\n    of the reference generated code for ``int`` arguments.\n\n    The reference prints ``x + 1`` as Python source, so\n    ``lambdify(x, x + 1)(2**60)`` is the exact ``1152921504606846977``; the\n    native evaluator works in doubles. A polynomial with integer\n    coefficients and nonnegative integer powers is evaluated by the same\n    Python operations when an argument is an ``int``.\n    ",
+  "name": null,
+  "sig": "(*values, **kw)",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|pow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|pw": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|rat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|re": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|rel": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|sign": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|sin": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|sinc": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|sinh": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|sqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|tan": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "math|tuple": {
+  "doc": null,
+  "name": "<lambda>",
+  "sig": "(*values)",
+  "src": "        return lambda *values:type(expr)(plan(*values) for plan in plans)\n"
+ },
+ "math|zeta": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "mpmath|E": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return exp(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|Heaviside": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((0) if (x < 0) else ((mpf(1)/mpf(2))) if (x == 0) else (1)))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|I": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1j*x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|LambertW": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return LambertW(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|Mod": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "mpmath|abs": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return abs(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|acos": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return acos(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|and": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ((x > 0) and (y < 1))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|besselj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return besselj(1, x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|ceil": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (ceiling(x) + floor(y))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|conj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return conjugate(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|erf": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return erf(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|exp": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (cos(y) + exp(x))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|factorial": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return factorial(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|float": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (mpf((0, 3602879701896397, -55, 52)) + (mpf((0, 3, -1, 2))*x))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|gamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gamma(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|half": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return ((mpf(1)/mpf(2))*x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|inv": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (x**(-1))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|invsqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/sqrt(x))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|list": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return [x, y]\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|log": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (atan2(y, x) + log(x))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|log10": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return ((log(10)**(-1))*log(x))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|loggamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return loggamma(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|mat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|max": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return max(x, y)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|negpow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (x**(-2))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|oo": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (inf + x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|pi": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (pi*x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|poly": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1 + (x**2) + (2*x))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|pow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x**y)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|pw": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((x) if ((x > 0)) else (((-1)*x))))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|rat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return ((mpf(1)/mpf(3))*x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|re": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return re(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|rel": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (x > 0)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|sign": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sign(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|sin": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sin(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|sinc": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((sin(x)/x) if (x != 0) else (1)))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|sinh": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinh(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|sqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sqrt(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|tan": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (tan(x)**2)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|tuple": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x, (x*y))\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "SRC-ERR OSError"
+ },
+ "mpmath|zeta": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return zeta(x)\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "SRC-ERR OSError"
+ },
+ "numpy|E": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|Heaviside": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|I": "LAMBDIFY-ERR ValueError: cannot compile 'I (complex)' to a numerical function",
+ "numpy|LambertW": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|Mod": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|abs": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|acos": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|and": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|besselj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|ceil": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|conj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|erf": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|exp": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|factorial": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|float": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|gamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|half": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|inv": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|invsqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|list": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "numpy|log": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|log10": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|loggamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|mat": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "numpy|max": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|negpow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|oo": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|pi": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|poly": {
+  "doc": "A native compiled function that follows the Python integer arithmetic\n    of the reference generated code for ``int`` arguments.\n\n    The reference prints ``x + 1`` as Python source, so\n    ``lambdify(x, x + 1)(2**60)`` is the exact ``1152921504606846977``; the\n    native evaluator works in doubles. A polynomial with integer\n    coefficients and nonnegative integer powers is evaluated by the same\n    Python operations when an argument is an ``int``.\n    ",
+  "name": null,
+  "sig": "(*values, **kw)",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|pow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|pw": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|rat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|re": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|rel": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|sign": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|sin": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|sinc": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|sinh": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|sqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|tan": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "numpy|tuple": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "numpy|zeta": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|E": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|Heaviside": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|I": "LAMBDIFY-ERR ValueError: cannot compile 'I (complex)' to a numerical function",
+ "scipy|LambertW": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|Mod": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|abs": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|acos": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|and": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|besselj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|ceil": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|conj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|erf": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|exp": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|factorial": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|float": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|gamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|half": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|inv": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|invsqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|list": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "scipy|log": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|log10": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|loggamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|mat": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "scipy|max": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|negpow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|oo": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|pi": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|poly": {
+  "doc": "A native compiled function that follows the Python integer arithmetic\n    of the reference generated code for ``int`` arguments.\n\n    The reference prints ``x + 1`` as Python source, so\n    ``lambdify(x, x + 1)(2**60)`` is the exact ``1152921504606846977``; the\n    native evaluator works in doubles. A polynomial with integer\n    coefficients and nonnegative integer powers is evaluated by the same\n    Python operations when an argument is an ``int``.\n    ",
+  "name": null,
+  "sig": "(*values, **kw)",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|pow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|pw": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|rat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|re": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|rel": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|sign": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|sin": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|sinc": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|sinh": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|sqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|tan": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "scipy|tuple": {
+  "doc": null,
+  "name": "call",
+  "sig": "(*values)",
+  "src": "    def call(*values):\n        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))\n        flattened=[]\n        def unpack(plan,value):\n            if plan is None:flattened.append(value);return\n            children=tuple(value)\n            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')\n            for child,entry in zip(plan,children):unpack(child,entry)\n        for plan,value in zip(input_plans,values):unpack(plan,value)\n        return restore(evaluator(*flattened))\n"
+ },
+ "scipy|zeta": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|E": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|Heaviside": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|I": "LAMBDIFY-ERR ValueError: cannot compile 'I (complex)' to a numerical function",
+ "sympy|LambertW": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|Mod": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|abs": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|acos": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|and": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|besselj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|ceil": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|conj": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|erf": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|exp": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|factorial": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|float": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|gamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|half": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|inv": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|invsqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|list": {
+  "doc": null,
+  "name": "<lambda>",
+  "sig": "(*values)",
+  "src": "        return lambda *values:type(expr)(plan(*values) for plan in plans)\n"
+ },
+ "sympy|log": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|log10": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|loggamma": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|mat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|max": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|negpow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|oo": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|pi": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|poly": {
+  "doc": "A native compiled function that follows the Python integer arithmetic\n    of the reference generated code for ``int`` arguments.\n\n    The reference prints ``x + 1`` as Python source, so\n    ``lambdify(x, x + 1)(2**60)`` is the exact ``1152921504606846977``; the\n    native evaluator works in doubles. A polynomial with integer\n    coefficients and nonnegative integer powers is evaluated by the same\n    Python operations when an argument is an ``int``.\n    ",
+  "name": null,
+  "sig": "(*values, **kw)",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|pow": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|pw": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|rat": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|re": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|rel": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|sign": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|sin": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|sinc": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|sinh": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|sqrt": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|tan": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ },
+ "sympy|tuple": {
+  "doc": null,
+  "name": "<lambda>",
+  "sig": "(*values)",
+  "src": "        return lambda *values:type(expr)(plan(*values) for plan in plans)\n"
+ },
+ "sympy|zeta": {
+  "doc": "A compiled numerical function.",
+  "name": null,
+  "sig": "SIG-ERR",
+  "src": "SRC-ERR TypeError"
+ }
+}
