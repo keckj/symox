@@ -3694,6 +3694,7 @@ def lambdify(args, expr, modules=None, **kwargs):
     for module in candidates:
         if isinstance(module, str) and module in _NAMESPACE_MODULES:
             _module_namespace(module)
+    shown = expr
     expr = _singularity_as_piecewise(expr)
     structured = _compile_structured(args,expr,modules,kwargs)
     if structured is not None:
@@ -3704,9 +3705,24 @@ def lambdify(args, expr, modules=None, **kwargs):
     implemented = _compile_implemented(args, expr, modules, kwargs)
     if implemented is not None:
         return _lambdify_globals(implemented, args, expr, modules)
-    native = _native_lambdify(args, expr, modules=modules, **kwargs)
+    try:
+        native = _native_lambdify(args, expr, modules=modules, **kwargs)
+    except (ValueError, NotImplementedError):
+        # Forms the native evaluator does not compile (complex values, ...):
+        # SymPy's generated function from the natively printed source.
+        from .utilities.lambdify import _reference_plan
+        plan = _reference_plan(args, expr, modules, kwargs, shown)
+        generated = plan[0]() if plan is not None else None
+        if generated is None:
+            raise
+        return generated
+    if isinstance(expr, _core.Expr) or isinstance(expr, Basic):
+        from .utilities.lambdify import _attach_reference
+        _attach_reference(native, args, expr, modules, kwargs, shown)
     exact = _integer_polynomial_lambda(args, expr, modules)
     if exact is None:
+        return native
+    if hasattr(native, '_attach_exact') and native._attach_exact(exact):
         return native
     return _ExactIntegerLambda(native, exact)
 
@@ -3764,6 +3780,10 @@ class _ExactIntegerLambda:
 
     def __getattr__(self, name):
         return getattr(self._native, name)
+
+    @property
+    def __doc__(self):
+        return self._native.__doc__
 
 
 def _numpy_integer(value):

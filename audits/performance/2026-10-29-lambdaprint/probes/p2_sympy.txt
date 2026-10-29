@@ -1,0 +1,20 @@
+alias_field = QQ<0>
+alias_repr = QQ<0>
+field_plain = QQ<sqrt(2)>
+dom_type = IntegerRing RationalField RealField
+poly_dom_type = AlgebraicField
+catalan = 0.915965594177219015054603514932
+jn = 0.124336646090721 + 0.0733208852664041*I
+yn = -0.872557511733608 + 0.720966199365535*I
+nsolve_noroot = ERR ValueError: Could not find root within given tolerance. (5.22912334436213473229 > 2.16840434497100886801e-19)
+Try another starting point or tweak arguments.
+nsolve_complex = 1.0*I
+nsolve_sys = Matrix([[1.00000000000000], [1.00000000000000]])
+nsolve_bad = ERR ValueError: Could not find root within given tolerance. (1.0 > 2.16840434497100886801e-19)
+Try another starting point or tweak arguments.
+nsolve_prec = 0.739085133215160641655312087674
+undefpred = Q.mypred(x)
+undefpred_t = UndefinedPredicate
+matrix_multiline = Matrix([[x, 1], [2, y]])
+dummy_str = _d
+pw_tri = Piecewise((0, x < 0), (x, x < 1), (2 - x, x < 2), (0, True))

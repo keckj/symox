@@ -1,0 +1,72 @@
+{
+ "build_numpy_sin": {
+  "first_median": 0.05755897601193283,
+  "repeat_median": 0.00018900759496318643,
+  "ok": true
+ },
+ "call_numpy_sinonly_float": {
+  "first_median": 0.05758139399404172,
+  "repeat_median": 5.661190007231198e-07,
+  "ok": true
+ },
+ "call_numpy_sinonly_int": {
+  "first_median": 0.057153579997248016,
+  "repeat_median": 7.952480009407736e-07,
+  "ok": true
+ },
+ "build_numpy_sin_poly": {
+  "first_median": 0.07846644200617447,
+  "repeat_median": 0.00044847891498648093,
+  "ok": true
+ },
+ "call_numpy_sin_float": {
+  "first_median": 0.07796941700507887,
+  "repeat_median": 6.533465057145804e-07,
+  "ok": true
+ },
+ "call_numpy_sin_npfloat": {
+  "first_median": 0.07768258400028571,
+  "repeat_median": 7.037810064502992e-07,
+  "ok": true
+ },
+ "call_numpy_sin_int": {
+  "first_median": 0.07727662200341001,
+  "repeat_median": 1.0218874958809464e-06,
+  "ok": true
+ },
+ "call_numpy_sin_array1000": {
+  "first_median": 0.07820095900387969,
+  "repeat_median": 7.771006996335927e-06,
+  "ok": true
+ },
+ "call_math_sin_float": {
+  "first_median": 0.0256929329916602,
+  "repeat_median": 2.2361350420396774e-07,
+  "ok": true
+ },
+ "call_default_gamma_float": {
+  "first_median": 0.13155602100596298,
+  "repeat_median": 5.772775039076805e-07,
+  "ok": true
+ },
+ "call_default_rel_float": {
+  "first_median": 0.123984724006732,
+  "repeat_median": 8.307570024044253e-07,
+  "ok": true
+ },
+ "call_default_piecewise_float": {
+  "first_median": 0.12423271100851707,
+  "repeat_median": 1.1211427001398988e-05,
+  "ok": true
+ },
+ "call_numpy_poly2_float": {
+  "first_median": 0.0785522329970263,
+  "repeat_median": 2.4502100131940097e-07,
+  "ok": true
+ },
+ "getsource_numpy_sin": {
+  "first_median": 0.060379988004569896,
+  "repeat_median": 4.317681949760299e-05,
+  "ok": true
+ }
+}

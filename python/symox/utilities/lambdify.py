@@ -468,9 +468,26 @@ def _compile_mpmath(args,expr,modules,options):
             if name in _implemented:namespace[name]=_implemented[name]
             else:return None
     source='def _lambdifygenerated('+', '.join(parameters)+'):\n    return '+body+'\n'
-    exec(compile(source,'<lambdifygenerated>','exec'),namespace)
+    import linecache,textwrap,weakref
+    global _lambdify_generated_counter
+    filename='<lambdifygenerated-%s>'%_lambdify_generated_counter
+    _lambdify_generated_counter+=1
+    exec(compile(source,filename,'exec'),namespace)
+    linecache.cache[filename]=(len(source),None,source.splitlines(True),filename)
     function=namespace['_lambdifygenerated']
-    function.__doc__='Created with lambdify. Signature:\n\nfunc('+', '.join(parameters)+')\n\nSource code:\n\n'+source
+    weakref.finalize(function,linecache.cache.pop,filename,None)
+    # SymPy's docstring (sig, str(expr) cut at 78 characters, source).
+    sig=textwrap.fill('func('+', '.join(parameters)+')',subsequent_indent=' '*8)
+    limit=options.get('docstring_limit',1000)
+    if isinstance(expr,_S.Basic) and _too_large_for_docstring(expr,limit):
+        expr_str="EXPRESSION REDACTED DUE TO LENGTH, (see lambdify's `docstring_limit`)"
+        src_str="SOURCE CODE REDACTED DUE TO LENGTH, (see lambdify's `docstring_limit`)"
+    else:
+        expr_str=str(expr)
+        if len(expr_str)>78:expr_str=textwrap.wrap(expr_str,75)[0]+'...'
+        src_str=source
+    function.__doc__=('Created with lambdify. Signature:\n\n'+sig+'\n\nExpression:\n\n'+expr_str
+                      +'\n\nSource code:\n\n'+src_str+'\n\nImported modules:\n\n')
     return function
 
 
@@ -562,3 +579,279 @@ def _lambdify_namespace(modules, exprs):
             namespace.update({str(term): term for term in expr.atoms(Symbol)})
     namespace.update({'builtins': builtins, 'range': range, '__builtins__': builtins.__dict__})
     return namespace
+
+
+# ----------------------------------------------------------------------
+# SymPy's generated function (source, docstring, signature, result types)
+# ----------------------------------------------------------------------
+
+_lambdify_generated_counter = 1
+_KEYWORDS = None
+
+
+def _module_named(name, modlist):
+    # SymPy's lambdify._module_present.
+    if name in modlist:
+        return True
+    return any(getattr(m, '__name__', None) == name for m in modlist)
+
+
+_REFERENCE_FLAVORS = {}
+
+
+def _reference_flavor(modules, options):
+    """The printer SymPy's lambdify selects ('math', 'numpy', 'scipy'), with
+    the user functions of dict modules, or None for printers whose source is
+    not reproduced natively (mpmath, sympy, cmath, cupy, jax, ...)."""
+    if options and (options.get('printer') is not None or options.get('cse') or options.get('dummify')
+                    or set(options) - {'docstring_limit', 'use_imps'}):
+        return None
+    # A module name (or the default) always selects the same printer.
+    cacheable = modules is None or type(modules) is str
+    if cacheable and modules in _REFERENCE_FLAVORS:
+        return _REFERENCE_FLAVORS[modules]
+    plan = _select_reference_flavor(modules)
+    if cacheable:
+        _REFERENCE_FLAVORS[modules] = plan
+    return plan
+
+
+def _select_reference_flavor(modules):
+    if modules is None:
+        try:
+            _module_namespace('scipy')
+        except ImportError:
+            try:
+                _module_namespace('numpy')
+            except ImportError:
+                return None
+            namespaces = ['numpy']
+        else:
+            namespaces = ['numpy', 'scipy']
+    elif isinstance(modules, (dict, str)) or not hasattr(modules, '__iter__'):
+        namespaces = [modules]
+    else:
+        namespaces = list(modules)
+    for name in ('mpmath', 'cupy', 'jax', 'numexpr', 'tensorflow', 'torch', 'sympy', 'symox', 'cmath'):
+        if _module_named(name, namespaces):
+            return None
+    if _module_named('scipy', namespaces):
+        flavor = 'scipy'
+    elif _module_named('numpy', namespaces):
+        flavor = 'numpy'
+    else:
+        flavor = 'math'
+    user_functions = {}
+    for m in namespaces[::-1]:
+        if isinstance(m, dict):
+            for k in m:
+                if not isinstance(k, str):
+                    return None
+                user_functions[k] = k
+    return flavor, namespaces, user_functions
+
+
+_REFERENCE_NODE_LIMIT = 20000
+
+
+def _reference_plan(args, expr, modules, options, shown=None):
+    """``(build, kind, flavor[, body, names, resolve])``: a builder of
+    SymPy's generated ``_lambdifygenerated`` function from the natively
+    printed source, its result type code for float arguments, the printer
+    flavor ('math', 'numpy' or 'scipy') and, without user functions, the
+    printed return expression, the argument names and the resolver of its
+    global names (for its native evaluation); None when the generated source
+    is not reproduced."""
+    from .. import _core
+    if not isinstance(expr, _core.Expr) and not isinstance(expr, _S.Basic) or getattr(expr, 'is_Matrix', False):
+        return None
+    plan = _reference_flavor(modules, options)
+    if plan is None:
+        return None
+    flavor, namespaces, user_functions = plan
+    iterable_args = (args,) if isinstance(args, _core.Expr) or isinstance(args, _S.Expr) else args
+    try:
+        iterable_args = list(iterable_args)
+    except TypeError:
+        return None
+    names = []
+    for arg in iterable_args:
+        if type(arg).__name__ != 'Symbol' or not isinstance(arg, _S.Symbol):
+            return None
+        name = arg.name
+        if not name or not name.isidentifier() or _iskeyword(name):
+            return None
+        names.append(name)
+    if len(set(names)) != len(names):
+        return None
+    # The printed source is a tree: shared subexpressions (a DAG such as 40
+    # nested sin(e) + cos(e)) would be exponential, keep the native result
+    # (the native printer counts the tree up to the limit).
+    printed = _core.lambdify_reference(expr, flavor, user_functions, names, _REFERENCE_NODE_LIMIT)
+    if printed is None:
+        return None
+    body, imports, kind, undefined, unknown = printed
+    # The native path raises for free symbols that are not arguments and for
+    # undefined functions without an implementation: keep that behavior.
+    if not expr.free_symbols <= set(iterable_args):
+        return None
+    if undefined:
+        from ..core.function import AppliedUndef
+        if any(str(f.func) not in (user_functions or {}) for f in expr.atoms(AppliedUndef)):
+            return None
+    if unknown and not _names_resolved(unknown, namespaces):
+        return None
+    limit = options.get('docstring_limit', 1000)
+    shown = expr if shown is None else shown
+
+    def build():
+        return _generated_function(names, body, imports, namespaces, expr, shown, limit)
+    if user_functions:
+        return build, kind, flavor
+
+    def resolve(used):
+        return _resolve_globals(used, imports, namespaces)
+    return build, kind, flavor, body, names, resolve
+
+
+def _resolve_globals(used, imports, namespaces):
+    """The objects the global names ``used`` by the generated function are
+    bound to (the namespace of ``_generated_function``), or None."""
+    import builtins, importlib
+    out = []
+    for name in used:
+        if name in ('builtins', 'range'):
+            return None
+        for m in namespaces:
+            space = _module_namespace(m) if isinstance(m, str) else m if isinstance(m, dict) else getattr(m, '__dict__', None)
+            if space is None:
+                return None
+            if name in space:
+                out.append(space[name])
+                break
+        else:
+            mod = next((mod for mod, k in imports if k == name), None)
+            if mod is not None:
+                try:
+                    out.append(getattr(importlib.import_module(mod), name))
+                except (ImportError, AttributeError):
+                    return None
+            elif hasattr(builtins, name):
+                out.append(getattr(builtins, name))
+            else:
+                return None
+    return out
+
+
+def _iskeyword(name):
+    import keyword
+    return keyword.iskeyword(name)
+
+
+def _names_resolved(unknown, namespaces):
+    """Every global name of the printed return expression that is not an
+    argument, an import or a keyword is a builtin or a name of the module
+    namespaces (otherwise the printed form is not SymPy's, e.g. a held
+    ``UnevaluatedExpr`` or a ``Catalan`` constant that SymPy prints as a
+    Float)."""
+    import builtins
+    for name in unknown:
+        if hasattr(builtins, name):
+            continue
+        for m in namespaces:
+            space = _module_namespace(m) if isinstance(m, str) else m if isinstance(m, dict) else getattr(m, '__dict__', {})
+            if name in space:
+                break
+        else:
+            return False
+    return True
+
+
+def _attach_reference(native, args, expr, modules, options, shown=None):
+    """Attach SymPy's generated function to a native ``CompiledFunction``
+    (built on first need), or leave it unchanged."""
+    if not hasattr(native, '_attach_reference'):
+        return native
+    plan = _reference_plan(args, expr, modules, options, shown)
+    if plan is not None:
+        native._attach_reference(*plan)
+    return native
+
+
+def _too_large_for_docstring(expr, limit):
+    if limit is None:
+        return False
+    from .. import postorder_traversal
+    i = 0
+    for _ in postorder_traversal(expr):
+        i += 1
+        if i > limit:
+            return True
+    return False
+
+
+def _generated_function(names, body, imports, namespaces, expr, shown, limit):
+    """SymPy's lambdify assembly: the namespace, the module imports, the
+    source registered in ``linecache`` and the docstring."""
+    import builtins, linecache, textwrap, weakref
+    global _lambdify_generated_counter
+    namespace = {}
+    for m in namespaces[::-1]:
+        if isinstance(m, str):
+            namespace.update(_module_namespace(m))
+        elif isinstance(m, dict):
+            namespace.update(m)
+        elif hasattr(m, '__dict__'):
+            namespace.update(m.__dict__)
+        else:
+            return None
+    for term in expr.atoms(_S.Symbol):
+        namespace[str(term)] = term
+    funcstr = 'def _lambdifygenerated(%s):\n    return %s\n' % (', '.join(names), body)
+    imp_mod_lines = []
+    for mod, k in imports:
+        if k not in namespace:
+            ln = 'from %s import %s' % (mod, k)
+            try:
+                exec(ln, {}, namespace)
+            except ImportError:
+                ln = '%s = %s.%s' % (k, mod, k)
+                try:
+                    exec(ln, {}, namespace)
+                except Exception:
+                    return None
+            imp_mod_lines.append(ln)
+    namespace.update({'builtins': builtins, 'range': range})
+    funclocals = {}
+    filename = '<lambdifygenerated-%s>' % _lambdify_generated_counter
+    _lambdify_generated_counter += 1
+    exec(compile(funcstr, filename, 'exec'), namespace, funclocals)
+    linecache.cache[filename] = (len(funcstr), None, funcstr.splitlines(True), filename)
+
+    def cleanup_linecache(filename):
+        def _cleanup():
+            if filename in linecache.cache:
+                del linecache.cache[filename]
+        return _cleanup
+    func = funclocals['_lambdifygenerated']
+    weakref.finalize(func, cleanup_linecache(filename))
+    sig = textwrap.fill('func({})'.format(', '.join(names)), subsequent_indent=' ' * 8)
+    if _too_large_for_docstring(shown, limit):
+        expr_str = "EXPRESSION REDACTED DUE TO LENGTH, (see lambdify's `docstring_limit`)"
+        src_str = "SOURCE CODE REDACTED DUE TO LENGTH, (see lambdify's `docstring_limit`)"
+    else:
+        expr_str = str(shown)
+        if len(expr_str) > 78:
+            expr_str = textwrap.wrap(expr_str, 75)[0] + '...'
+        src_str = funcstr
+    func.__doc__ = (
+        "Created with lambdify. Signature:\n\n"
+        "{sig}\n\n"
+        "Expression:\n\n"
+        "{expr}\n\n"
+        "Source code:\n\n"
+        "{src}\n\n"
+        "Imported modules:\n\n"
+        "{imp_mods}"
+        ).format(sig=sig, expr=expr_str, src=src_str, imp_mods='\n'.join(imp_mod_lines))
+    return func

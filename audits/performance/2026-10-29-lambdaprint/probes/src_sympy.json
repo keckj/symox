@@ -1,0 +1,1766 @@
+{
+ "None|E": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nexp(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return exp(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return exp(x)\n"
+ },
+ "None|Heaviside": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nHeaviside(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (select([less(x, 0),equal(x, 0),True], [0,1/2,1], default=nan))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (select([less(x, 0),equal(x, 0),True], [0,1/2,1], default=nan))\n"
+ },
+ "None|I": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nI*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1j*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1j*x\n"
+ },
+ "None|LambertW": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nLambertW(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return lambertw(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return lambertw(x)\n"
+ },
+ "None|Mod": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nMod(x, 3)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return mod(x, 3)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return mod(x, 3)\n"
+ },
+ "None|abs": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nAbs(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return abs(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return abs(x)\n"
+ },
+ "None|acos": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nacos(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return arccos(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return arccos(x)\n"
+ },
+ "None|and": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x > 0) & (y < 1)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return logical_and.reduce((greater(x, 0),less(y, 1)))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return logical_and.reduce((greater(x, 0),less(y, 1)))\n"
+ },
+ "None|besselj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nbesselj(1, x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return jv(1, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return jv(1, x)\n"
+ },
+ "None|ceil": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nceiling(x) + floor(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n"
+ },
+ "None|conj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nconjugate(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return conjugate(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return conjugate(x)\n"
+ },
+ "None|erf": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nerf(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return erf(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return erf(x)\n"
+ },
+ "None|exp": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nexp(x) + cos(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n"
+ },
+ "None|factorial": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nfactorial(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return factorial(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return factorial(x)\n"
+ },
+ "None|float": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1.5*x + 0.1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1.5*x + 0.1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1.5*x + 0.1\n"
+ },
+ "None|gamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ngamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gamma(x)\n"
+ },
+ "None|half": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/2)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/2)*x\n"
+ },
+ "None|inv": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-1.0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-1.0)\n"
+ },
+ "None|invsqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/sqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/sqrt(x)\n"
+ },
+ "None|list": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n[x, y]\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return [x, y]\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return [x, y]\n"
+ },
+ "None|log": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nlog(x) + atan2(y, x)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return log(x) + arctan2(y, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return log(x) + arctan2(y, x)\n"
+ },
+ "None|log10": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nlog(x)/log(10)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return log(x)/log(10)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return log(x)/log(10)\n"
+ },
+ "None|loggamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nloggamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gammaln(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gammaln(x)\n"
+ },
+ "None|mat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMatrix([[x, 1], [y, 2]])\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return array([[x, 1], [y, 2]])\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return array([[x, 1], [y, 2]])\n"
+ },
+ "None|max": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMax(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return reduce(maximum, [x, y])\n\n\nImported modules:\n\nfrom functools import reduce",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return reduce(maximum, [x, y])\n"
+ },
+ "None|negpow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**(-2)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-2.0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-2.0)\n"
+ },
+ "None|oo": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx + oo\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x + inf\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x + inf\n"
+ },
+ "None|pi": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\npi*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return pi*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return pi*x\n"
+ },
+ "None|poly": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**2 + 2*x + 1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n"
+ },
+ "None|pow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nx**y\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return x**y\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return x**y\n"
+ },
+ "None|pw": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nPiecewise((x, x > 0), (-x, True))\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return select([greater(x, 0),True], [x,-x], default=nan)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return select([greater(x, 0),True], [x,-x], default=nan)\n"
+ },
+ "None|rat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/3\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/3)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/3)*x\n"
+ },
+ "None|re": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nre(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return real(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return real(x)\n"
+ },
+ "None|rel": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx > 0\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return greater(x, 0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return greater(x, 0)\n"
+ },
+ "None|sign": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsign(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sign(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sign(x)\n"
+ },
+ "None|sin": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsin(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sin(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sin(x)\n"
+ },
+ "None|sinc": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinc(x/pi)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinc(x/pi)\n"
+ },
+ "None|sinh": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinh(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinh(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinh(x)\n"
+ },
+ "None|sqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sqrt(x)\n"
+ },
+ "None|tan": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ntan(x)**2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return tan(x)**2\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return tan(x)**2\n"
+ },
+ "None|tuple": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x, x*y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x, x*y,)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x, x*y,)\n"
+ },
+ "None|zeta": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nzeta(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return zeta(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return zeta(x)\n"
+ },
+ "['math', 'mpmath']|E": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nexp(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return exp(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return exp(x)\n"
+ },
+ "['math', 'mpmath']|Heaviside": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nHeaviside(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((0) if (x < 0) else (mpf(1)/mpf(2)) if (x == 0) else (1)))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (((0) if (x < 0) else (mpf(1)/mpf(2)) if (x == 0) else (1)))\n"
+ },
+ "['math', 'mpmath']|I": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nI*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1j*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1j*x\n"
+ },
+ "['math', 'mpmath']|LambertW": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nLambertW(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return LambertW(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return LambertW(x)\n"
+ },
+ "['math', 'mpmath']|Mod": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nMod(x, 3)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x % 3\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x % 3\n"
+ },
+ "['math', 'mpmath']|abs": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nAbs(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return abs(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return abs(x)\n"
+ },
+ "['math', 'mpmath']|acos": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nacos(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return acos(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return acos(x)\n"
+ },
+ "['math', 'mpmath']|and": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x > 0) & (y < 1)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x > 0) and (y < 1)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x > 0) and (y < 1)\n"
+ },
+ "['math', 'mpmath']|besselj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nbesselj(1, x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return besselj(1, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return besselj(1, x)\n"
+ },
+ "['math', 'mpmath']|ceil": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nceiling(x) + floor(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n"
+ },
+ "['math', 'mpmath']|conj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nconjugate(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return conjugate(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return conjugate(x)\n"
+ },
+ "['math', 'mpmath']|erf": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nerf(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return erf(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return erf(x)\n"
+ },
+ "['math', 'mpmath']|exp": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nexp(x) + cos(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n"
+ },
+ "['math', 'mpmath']|factorial": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nfactorial(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return factorial(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return factorial(x)\n"
+ },
+ "['math', 'mpmath']|float": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1.5*x + 0.1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return mpf((0, 3, -1, 2))*x + mpf((0, 3602879701896397, -55, 52))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return mpf((0, 3, -1, 2))*x + mpf((0, 3602879701896397, -55, 52))\n"
+ },
+ "['math', 'mpmath']|gamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ngamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gamma(x)\n"
+ },
+ "['math', 'mpmath']|half": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (mpf(1)/mpf(2))*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (mpf(1)/mpf(2))*x\n"
+ },
+ "['math', 'mpmath']|inv": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/x\n"
+ },
+ "['math', 'mpmath']|invsqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/sqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/sqrt(x)\n"
+ },
+ "['math', 'mpmath']|list": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n[x, y]\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return [x, y]\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return [x, y]\n"
+ },
+ "['math', 'mpmath']|log": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nlog(x) + atan2(y, x)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return log(x) + atan2(y, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return log(x) + atan2(y, x)\n"
+ },
+ "['math', 'mpmath']|log10": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nlog(x)/log(10)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return log(x)/log(10)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return log(x)/log(10)\n"
+ },
+ "['math', 'mpmath']|loggamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nloggamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return loggamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return loggamma(x)\n"
+ },
+ "['math', 'mpmath']|mat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMatrix([[x, 1], [y, 2]])\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n"
+ },
+ "['math', 'mpmath']|max": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMax(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return max(x, y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return max(x, y)\n"
+ },
+ "['math', 'mpmath']|negpow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**(-2)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-2)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-2)\n"
+ },
+ "['math', 'mpmath']|oo": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx + oo\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x + inf\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x + inf\n"
+ },
+ "['math', 'mpmath']|pi": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\npi*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return pi*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return pi*x\n"
+ },
+ "['math', 'mpmath']|poly": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**2 + 2*x + 1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n"
+ },
+ "['math', 'mpmath']|pow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nx**y\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return x**y\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return x**y\n"
+ },
+ "['math', 'mpmath']|pw": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nPiecewise((x, x > 0), (-x, True))\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return ((x) if (x > 0) else (-x))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return ((x) if (x > 0) else (-x))\n"
+ },
+ "['math', 'mpmath']|rat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/3\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (mpf(1)/mpf(3))*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (mpf(1)/mpf(3))*x\n"
+ },
+ "['math', 'mpmath']|re": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nre(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return re(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return re(x)\n"
+ },
+ "['math', 'mpmath']|rel": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx > 0\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (x > 0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (x > 0)\n"
+ },
+ "['math', 'mpmath']|sign": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsign(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sign(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sign(x)\n"
+ },
+ "['math', 'mpmath']|sin": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsin(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sin(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sin(x)\n"
+ },
+ "['math', 'mpmath']|sinc": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((sin(x)/x) if (x != 0) else (1)))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (((sin(x)/x) if (x != 0) else (1)))\n"
+ },
+ "['math', 'mpmath']|sinh": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinh(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinh(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinh(x)\n"
+ },
+ "['math', 'mpmath']|sqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sqrt(x)\n"
+ },
+ "['math', 'mpmath']|tan": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ntan(x)**2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return tan(x)**2\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return tan(x)**2\n"
+ },
+ "['math', 'mpmath']|tuple": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x, x*y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x, x*y,)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x, x*y,)\n"
+ },
+ "['math', 'mpmath']|zeta": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nzeta(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return zeta(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return zeta(x)\n"
+ },
+ "math|E": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nexp(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return exp(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return exp(x)\n"
+ },
+ "math|Heaviside": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nHeaviside(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((0) if (x < 0) else (1/2) if (x == 0) else (1)))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (((0) if (x < 0) else (1/2) if (x == 0) else (1)))\n"
+ },
+ "math|I": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nI*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1j*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1j*x\n"
+ },
+ "math|LambertW": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nLambertW(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return LambertW(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return LambertW(x)\n"
+ },
+ "math|Mod": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nMod(x, 3)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x % 3\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x % 3\n"
+ },
+ "math|abs": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nAbs(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return abs(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return abs(x)\n"
+ },
+ "math|acos": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nacos(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return acos(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return acos(x)\n"
+ },
+ "math|and": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x > 0) & (y < 1)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x > 0) and (y < 1)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x > 0) and (y < 1)\n"
+ },
+ "math|besselj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nbesselj(1, x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return besselj(1, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return besselj(1, x)\n"
+ },
+ "math|ceil": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nceiling(x) + floor(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n"
+ },
+ "math|conj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nconjugate(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return conjugate(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return conjugate(x)\n"
+ },
+ "math|erf": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nerf(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return erf(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return erf(x)\n"
+ },
+ "math|exp": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nexp(x) + cos(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n"
+ },
+ "math|factorial": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nfactorial(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return factorial(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return factorial(x)\n"
+ },
+ "math|float": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1.5*x + 0.1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1.5*x + 0.1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1.5*x + 0.1\n"
+ },
+ "math|gamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ngamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gamma(x)\n"
+ },
+ "math|half": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/2)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/2)*x\n"
+ },
+ "math|inv": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/x\n"
+ },
+ "math|invsqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/sqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/sqrt(x)\n"
+ },
+ "math|list": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n[x, y]\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return [x, y]\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return [x, y]\n"
+ },
+ "math|log": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nlog(x) + atan2(y, x)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return log(x) + atan2(y, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return log(x) + atan2(y, x)\n"
+ },
+ "math|log10": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nlog(x)/log(10)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return log(x)/log(10)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return log(x)/log(10)\n"
+ },
+ "math|loggamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nloggamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return lgamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return lgamma(x)\n"
+ },
+ "math|mat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMatrix([[x, 1], [y, 2]])\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n"
+ },
+ "math|max": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMax(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return max(x, y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return max(x, y)\n"
+ },
+ "math|negpow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**(-2)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-2)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-2)\n"
+ },
+ "math|oo": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx + oo\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x + inf\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x + inf\n"
+ },
+ "math|pi": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\npi*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return pi*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return pi*x\n"
+ },
+ "math|poly": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**2 + 2*x + 1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n"
+ },
+ "math|pow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nx**y\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return x**y\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return x**y\n"
+ },
+ "math|pw": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nPiecewise((x, x > 0), (-x, True))\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return ((x) if (x > 0) else (-x))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return ((x) if (x > 0) else (-x))\n"
+ },
+ "math|rat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/3\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/3)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/3)*x\n"
+ },
+ "math|re": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nre(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return re(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return re(x)\n"
+ },
+ "math|rel": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx > 0\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (x > 0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (x > 0)\n"
+ },
+ "math|sign": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsign(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (0.0 if x == 0 else copysign(1, x))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (0.0 if x == 0 else copysign(1, x))\n"
+ },
+ "math|sin": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsin(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sin(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sin(x)\n"
+ },
+ "math|sinc": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((sin(x)/x) if (x != 0) else (1)))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (((sin(x)/x) if (x != 0) else (1)))\n"
+ },
+ "math|sinh": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinh(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinh(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinh(x)\n"
+ },
+ "math|sqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sqrt(x)\n"
+ },
+ "math|tan": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ntan(x)**2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return tan(x)**2\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return tan(x)**2\n"
+ },
+ "math|tuple": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x, x*y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x, x*y,)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x, x*y,)\n"
+ },
+ "math|zeta": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nzeta(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return zeta(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return zeta(x)\n"
+ },
+ "mpmath|E": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nexp(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return exp(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return exp(x)\n"
+ },
+ "mpmath|Heaviside": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nHeaviside(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((0) if (x < 0) else (mpf(1)/mpf(2)) if (x == 0) else (1)))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (((0) if (x < 0) else (mpf(1)/mpf(2)) if (x == 0) else (1)))\n"
+ },
+ "mpmath|I": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nI*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1j*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1j*x\n"
+ },
+ "mpmath|LambertW": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nLambertW(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return LambertW(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return LambertW(x)\n"
+ },
+ "mpmath|Mod": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nMod(x, 3)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x % 3\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x % 3\n"
+ },
+ "mpmath|abs": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nAbs(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return abs(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return abs(x)\n"
+ },
+ "mpmath|acos": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nacos(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return acos(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return acos(x)\n"
+ },
+ "mpmath|and": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x > 0) & (y < 1)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x > 0) and (y < 1)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x > 0) and (y < 1)\n"
+ },
+ "mpmath|besselj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nbesselj(1, x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return besselj(1, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return besselj(1, x)\n"
+ },
+ "mpmath|ceil": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nceiling(x) + floor(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n"
+ },
+ "mpmath|conj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nconjugate(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return conjugate(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return conjugate(x)\n"
+ },
+ "mpmath|erf": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nerf(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return erf(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return erf(x)\n"
+ },
+ "mpmath|exp": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nexp(x) + cos(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n"
+ },
+ "mpmath|factorial": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nfactorial(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return factorial(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return factorial(x)\n"
+ },
+ "mpmath|float": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1.5*x + 0.1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return mpf((0, 3, -1, 2))*x + mpf((0, 3602879701896397, -55, 52))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return mpf((0, 3, -1, 2))*x + mpf((0, 3602879701896397, -55, 52))\n"
+ },
+ "mpmath|gamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ngamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gamma(x)\n"
+ },
+ "mpmath|half": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (mpf(1)/mpf(2))*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (mpf(1)/mpf(2))*x\n"
+ },
+ "mpmath|inv": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/x\n"
+ },
+ "mpmath|invsqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/sqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/sqrt(x)\n"
+ },
+ "mpmath|list": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n[x, y]\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return [x, y]\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return [x, y]\n"
+ },
+ "mpmath|log": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nlog(x) + atan2(y, x)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return log(x) + atan2(y, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return log(x) + atan2(y, x)\n"
+ },
+ "mpmath|log10": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nlog(x)/log(10)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return log(x)/log(10)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return log(x)/log(10)\n"
+ },
+ "mpmath|loggamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nloggamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return loggamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return loggamma(x)\n"
+ },
+ "mpmath|mat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMatrix([[x, 1], [y, 2]])\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n"
+ },
+ "mpmath|max": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMax(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return max(x, y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return max(x, y)\n"
+ },
+ "mpmath|negpow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**(-2)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-2)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-2)\n"
+ },
+ "mpmath|oo": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx + oo\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x + inf\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x + inf\n"
+ },
+ "mpmath|pi": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\npi*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return pi*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return pi*x\n"
+ },
+ "mpmath|poly": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**2 + 2*x + 1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n"
+ },
+ "mpmath|pow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nx**y\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return x**y\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return x**y\n"
+ },
+ "mpmath|pw": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nPiecewise((x, x > 0), (-x, True))\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return ((x) if (x > 0) else (-x))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return ((x) if (x > 0) else (-x))\n"
+ },
+ "mpmath|rat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/3\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (mpf(1)/mpf(3))*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (mpf(1)/mpf(3))*x\n"
+ },
+ "mpmath|re": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nre(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return re(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return re(x)\n"
+ },
+ "mpmath|rel": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx > 0\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (x > 0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (x > 0)\n"
+ },
+ "mpmath|sign": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsign(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sign(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sign(x)\n"
+ },
+ "mpmath|sin": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsin(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sin(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sin(x)\n"
+ },
+ "mpmath|sinc": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (((sin(x)/x) if (x != 0) else (1)))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (((sin(x)/x) if (x != 0) else (1)))\n"
+ },
+ "mpmath|sinh": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinh(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinh(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinh(x)\n"
+ },
+ "mpmath|sqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sqrt(x)\n"
+ },
+ "mpmath|tan": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ntan(x)**2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return tan(x)**2\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return tan(x)**2\n"
+ },
+ "mpmath|tuple": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x, x*y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x, x*y,)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x, x*y,)\n"
+ },
+ "mpmath|zeta": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nzeta(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return zeta(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return zeta(x)\n"
+ },
+ "numpy|E": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nexp(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return exp(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return exp(x)\n"
+ },
+ "numpy|Heaviside": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nHeaviside(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (select([less(x, 0),equal(x, 0),True], [0,1/2,1], default=nan))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (select([less(x, 0),equal(x, 0),True], [0,1/2,1], default=nan))\n"
+ },
+ "numpy|I": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nI*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1j*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1j*x\n"
+ },
+ "numpy|LambertW": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nLambertW(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return LambertW(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return LambertW(x)\n"
+ },
+ "numpy|Mod": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nMod(x, 3)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return mod(x, 3)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return mod(x, 3)\n"
+ },
+ "numpy|abs": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nAbs(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return abs(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return abs(x)\n"
+ },
+ "numpy|acos": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nacos(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return arccos(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return arccos(x)\n"
+ },
+ "numpy|and": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x > 0) & (y < 1)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return logical_and.reduce((greater(x, 0),less(y, 1)))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return logical_and.reduce((greater(x, 0),less(y, 1)))\n"
+ },
+ "numpy|besselj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nbesselj(1, x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return besselj(1, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return besselj(1, x)\n"
+ },
+ "numpy|ceil": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nceiling(x) + floor(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n"
+ },
+ "numpy|conj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nconjugate(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return conjugate(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return conjugate(x)\n"
+ },
+ "numpy|erf": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nerf(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return erf(x)\n\n\nImported modules:\n\nfrom math import erf",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return erf(x)\n"
+ },
+ "numpy|exp": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nexp(x) + cos(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n"
+ },
+ "numpy|factorial": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nfactorial(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return factorial(x)\n\n\nImported modules:\n\nfrom math import factorial",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return factorial(x)\n"
+ },
+ "numpy|float": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1.5*x + 0.1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1.5*x + 0.1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1.5*x + 0.1\n"
+ },
+ "numpy|gamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ngamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gamma(x)\n\n\nImported modules:\n\nfrom math import gamma",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gamma(x)\n"
+ },
+ "numpy|half": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/2)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/2)*x\n"
+ },
+ "numpy|inv": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-1.0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-1.0)\n"
+ },
+ "numpy|invsqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/sqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/sqrt(x)\n"
+ },
+ "numpy|list": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n[x, y]\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return [x, y]\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return [x, y]\n"
+ },
+ "numpy|log": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nlog(x) + atan2(y, x)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return log(x) + arctan2(y, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return log(x) + arctan2(y, x)\n"
+ },
+ "numpy|log10": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nlog(x)/log(10)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return log(x)/log(10)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return log(x)/log(10)\n"
+ },
+ "numpy|loggamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nloggamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return lgamma(x)\n\n\nImported modules:\n\nfrom math import lgamma",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return lgamma(x)\n"
+ },
+ "numpy|mat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMatrix([[x, 1], [y, 2]])\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return array([[x, 1], [y, 2]])\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return array([[x, 1], [y, 2]])\n"
+ },
+ "numpy|max": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMax(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return reduce(maximum, [x, y])\n\n\nImported modules:\n\nfrom functools import reduce",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return reduce(maximum, [x, y])\n"
+ },
+ "numpy|negpow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**(-2)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-2.0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-2.0)\n"
+ },
+ "numpy|oo": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx + oo\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x + inf\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x + inf\n"
+ },
+ "numpy|pi": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\npi*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return pi*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return pi*x\n"
+ },
+ "numpy|poly": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**2 + 2*x + 1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n"
+ },
+ "numpy|pow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nx**y\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return x**y\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return x**y\n"
+ },
+ "numpy|pw": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nPiecewise((x, x > 0), (-x, True))\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return select([greater(x, 0),True], [x,-x], default=nan)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return select([greater(x, 0),True], [x,-x], default=nan)\n"
+ },
+ "numpy|rat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/3\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/3)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/3)*x\n"
+ },
+ "numpy|re": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nre(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return real(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return real(x)\n"
+ },
+ "numpy|rel": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx > 0\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return greater(x, 0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return greater(x, 0)\n"
+ },
+ "numpy|sign": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsign(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sign(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sign(x)\n"
+ },
+ "numpy|sin": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsin(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sin(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sin(x)\n"
+ },
+ "numpy|sinc": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinc(x/pi)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinc(x/pi)\n"
+ },
+ "numpy|sinh": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinh(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinh(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinh(x)\n"
+ },
+ "numpy|sqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sqrt(x)\n"
+ },
+ "numpy|tan": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ntan(x)**2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return tan(x)**2\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return tan(x)**2\n"
+ },
+ "numpy|tuple": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x, x*y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x, x*y,)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x, x*y,)\n"
+ },
+ "numpy|zeta": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nzeta(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return zeta(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return zeta(x)\n"
+ },
+ "scipy|E": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nexp(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return exp(x)\n\n\nImported modules:\n\nfrom numpy import exp",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return exp(x)\n"
+ },
+ "scipy|Heaviside": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nHeaviside(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (select([less(x, 0),equal(x, 0),True], [0,1/2,1], default=nan))\n\n\nImported modules:\n\nfrom numpy import nan\nfrom numpy import less\nfrom numpy import equal\nfrom numpy import select",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (select([less(x, 0),equal(x, 0),True], [0,1/2,1], default=nan))\n"
+ },
+ "scipy|I": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nI*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1j*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1j*x\n"
+ },
+ "scipy|LambertW": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nLambertW(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return lambertw(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return lambertw(x)\n"
+ },
+ "scipy|Mod": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nMod(x, 3)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return mod(x, 3)\n\n\nImported modules:\n\nfrom numpy import mod",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return mod(x, 3)\n"
+ },
+ "scipy|abs": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nAbs(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return abs(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return abs(x)\n"
+ },
+ "scipy|acos": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nacos(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return arccos(x)\n\n\nImported modules:\n\nfrom numpy import arccos",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return arccos(x)\n"
+ },
+ "scipy|and": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x > 0) & (y < 1)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return logical_and.reduce((greater(x, 0),less(y, 1)))\n\n\nImported modules:\n\nfrom numpy import greater\nfrom numpy import logical_and\nfrom numpy import less",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return logical_and.reduce((greater(x, 0),less(y, 1)))\n"
+ },
+ "scipy|besselj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nbesselj(1, x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return jv(1, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return jv(1, x)\n"
+ },
+ "scipy|ceil": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nceiling(x) + floor(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n\n\nImported modules:\n\nfrom numpy import floor\nfrom numpy import ceil",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ceil(x) + floor(y)\n"
+ },
+ "scipy|conj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nconjugate(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return conjugate(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return conjugate(x)\n"
+ },
+ "scipy|erf": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nerf(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return erf(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return erf(x)\n"
+ },
+ "scipy|exp": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nexp(x) + cos(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n\n\nImported modules:\n\nfrom numpy import exp\nfrom numpy import cos",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n"
+ },
+ "scipy|factorial": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nfactorial(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return factorial(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return factorial(x)\n"
+ },
+ "scipy|float": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1.5*x + 0.1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1.5*x + 0.1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1.5*x + 0.1\n"
+ },
+ "scipy|gamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ngamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gamma(x)\n"
+ },
+ "scipy|half": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/2)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/2)*x\n"
+ },
+ "scipy|inv": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-1.0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-1.0)\n"
+ },
+ "scipy|invsqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/sqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/sqrt(x)\n\n\nImported modules:\n\nfrom numpy import sqrt",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/sqrt(x)\n"
+ },
+ "scipy|list": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n[x, y]\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return [x, y]\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return [x, y]\n"
+ },
+ "scipy|log": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nlog(x) + atan2(y, x)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return log(x) + arctan2(y, x)\n\n\nImported modules:\n\nfrom numpy import log\nfrom numpy import arctan2",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return log(x) + arctan2(y, x)\n"
+ },
+ "scipy|log10": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nlog(x)/log(10)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return log(x)/log(10)\n\n\nImported modules:\n\nfrom numpy import log",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return log(x)/log(10)\n"
+ },
+ "scipy|loggamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nloggamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gammaln(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gammaln(x)\n"
+ },
+ "scipy|mat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMatrix([[x, 1], [y, 2]])\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return array([[x, 1], [y, 2]])\n\n\nImported modules:\n\nfrom numpy import array",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return array([[x, 1], [y, 2]])\n"
+ },
+ "scipy|max": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMax(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return reduce(maximum, [x, y])\n\n\nImported modules:\n\nfrom numpy import maximum\nfrom functools import reduce",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return reduce(maximum, [x, y])\n"
+ },
+ "scipy|negpow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**(-2)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-2.0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-2.0)\n"
+ },
+ "scipy|oo": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx + oo\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x + inf\n\n\nImported modules:\n\nfrom numpy import inf",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x + inf\n"
+ },
+ "scipy|pi": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\npi*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return pi*x\n\n\nImported modules:\n\nfrom scipy.constants import pi",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return pi*x\n"
+ },
+ "scipy|poly": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**2 + 2*x + 1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n"
+ },
+ "scipy|pow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nx**y\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return x**y\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return x**y\n"
+ },
+ "scipy|pw": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nPiecewise((x, x > 0), (-x, True))\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return select([greater(x, 0),True], [x,-x], default=nan)\n\n\nImported modules:\n\nfrom numpy import greater\nfrom numpy import nan\nfrom numpy import select",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return select([greater(x, 0),True], [x,-x], default=nan)\n"
+ },
+ "scipy|rat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/3\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/3)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/3)*x\n"
+ },
+ "scipy|re": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nre(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return real(x)\n\n\nImported modules:\n\nfrom numpy import real",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return real(x)\n"
+ },
+ "scipy|rel": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx > 0\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return greater(x, 0)\n\n\nImported modules:\n\nfrom numpy import greater",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return greater(x, 0)\n"
+ },
+ "scipy|sign": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsign(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sign(x)\n\n\nImported modules:\n\nfrom numpy import sign",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sign(x)\n"
+ },
+ "scipy|sin": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsin(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sin(x)\n\n\nImported modules:\n\nfrom numpy import sin",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sin(x)\n"
+ },
+ "scipy|sinc": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinc(x/pi)\n\n\nImported modules:\n\nfrom scipy.constants import pi",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinc(x/pi)\n"
+ },
+ "scipy|sinh": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinh(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinh(x)\n\n\nImported modules:\n\nfrom numpy import sinh",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinh(x)\n"
+ },
+ "scipy|sqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sqrt(x)\n\n\nImported modules:\n\nfrom numpy import sqrt",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sqrt(x)\n"
+ },
+ "scipy|tan": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ntan(x)**2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return tan(x)**2\n\n\nImported modules:\n\nfrom numpy import tan",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return tan(x)**2\n"
+ },
+ "scipy|tuple": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x, x*y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x, x*y,)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x, x*y,)\n"
+ },
+ "scipy|zeta": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nzeta(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return zeta(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return zeta(x)\n"
+ },
+ "sympy|E": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nexp(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return exp(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return exp(x)\n"
+ },
+ "sympy|Heaviside": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nHeaviside(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return Heaviside(x, 1/2)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return Heaviside(x, 1/2)\n"
+ },
+ "sympy|I": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nI*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1j*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1j*x\n"
+ },
+ "sympy|LambertW": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nLambertW(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return LambertW(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return LambertW(x)\n"
+ },
+ "sympy|Mod": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nMod(x, 3)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x % 3\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x % 3\n"
+ },
+ "sympy|abs": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nAbs(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return Abs(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return Abs(x)\n"
+ },
+ "sympy|acos": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nacos(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return acos(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return acos(x)\n"
+ },
+ "sympy|and": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x > 0) & (y < 1)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x > 0) and (y < 1)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x > 0) and (y < 1)\n"
+ },
+ "sympy|besselj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nbesselj(1, x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return besselj(1, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return besselj(1, x)\n"
+ },
+ "sympy|ceil": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nceiling(x) + floor(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ceiling(x) + floor(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ceiling(x) + floor(y)\n"
+ },
+ "sympy|conj": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nconjugate(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return conjugate(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return conjugate(x)\n"
+ },
+ "sympy|erf": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nerf(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return erf(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return erf(x)\n"
+ },
+ "sympy|exp": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nexp(x) + cos(y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return exp(x) + cos(y)\n"
+ },
+ "sympy|factorial": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nfactorial(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return factorial(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return factorial(x)\n"
+ },
+ "sympy|float": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1.5*x + 0.1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1.5*x + 0.1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1.5*x + 0.1\n"
+ },
+ "sympy|gamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ngamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return gamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return gamma(x)\n"
+ },
+ "sympy|half": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/2)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/2)*x\n"
+ },
+ "sympy|inv": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/x\n"
+ },
+ "sympy|invsqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\n1/sqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 1/sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 1/sqrt(x)\n"
+ },
+ "sympy|list": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n[x, y]\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return [x, y]\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return [x, y]\n"
+ },
+ "sympy|log": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nlog(x) + atan2(y, x)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return log(x) + atan2(y, x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return log(x) + atan2(y, x)\n"
+ },
+ "sympy|log10": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nlog(x)/log(10)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return log(x)/log(10)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return log(x)/log(10)\n"
+ },
+ "sympy|loggamma": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nloggamma(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return loggamma(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return loggamma(x)\n"
+ },
+ "sympy|mat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMatrix([[x, 1], [y, 2]])\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return ImmutableDenseMatrix([[x, 1], [y, 2]])\n"
+ },
+ "sympy|max": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nMax(x, y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return max(x, y)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return max(x, y)\n"
+ },
+ "sympy|negpow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**(-2)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**(-2)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**(-2)\n"
+ },
+ "sympy|oo": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx + oo\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x + float('inf')\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x + float('inf')\n"
+ },
+ "sympy|pi": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\npi*x\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return 3.1415926535897932*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return 3.1415926535897932*x\n"
+ },
+ "sympy|poly": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx**2 + 2*x + 1\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return x**2 + 2*x + 1\n"
+ },
+ "sympy|pow": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\nx**y\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return x**y\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return x**y\n"
+ },
+ "sympy|pw": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nPiecewise((x, x > 0), (-x, True))\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return ((x) if (x > 0) else (-x))\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return ((x) if (x > 0) else (-x))\n"
+ },
+ "sympy|rat": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx/3\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (1/3)*x\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (1/3)*x\n"
+ },
+ "sympy|re": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nre(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return re(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return re(x)\n"
+ },
+ "sympy|rel": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nx > 0\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return (x > 0)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return (x > 0)\n"
+ },
+ "sympy|sign": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsign(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sign(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sign(x)\n"
+ },
+ "sympy|sin": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsin(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sin(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sin(x)\n"
+ },
+ "sympy|sinc": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinc(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinc(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinc(x)\n"
+ },
+ "sympy|sinh": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsinh(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sinh(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sinh(x)\n"
+ },
+ "sympy|sqrt": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nsqrt(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return sqrt(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return sqrt(x)\n"
+ },
+ "sympy|tan": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\ntan(x)**2\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return tan(x)**2\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return tan(x)**2\n"
+ },
+ "sympy|tuple": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x, y)\n\nExpression:\n\n(x, x*y)\n\nSource code:\n\ndef _lambdifygenerated(x, y):\n    return (x, x*y,)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x, y)",
+  "src": "def _lambdifygenerated(x, y):\n    return (x, x*y,)\n"
+ },
+ "sympy|zeta": {
+  "doc": "Created with lambdify. Signature:\n\nfunc(x)\n\nExpression:\n\nzeta(x)\n\nSource code:\n\ndef _lambdifygenerated(x):\n    return zeta(x)\n\n\nImported modules:\n\n",
+  "name": "_lambdifygenerated",
+  "sig": "(x)",
+  "src": "def _lambdifygenerated(x):\n    return zeta(x)\n"
+ }
+}
