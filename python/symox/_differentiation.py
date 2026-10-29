@@ -233,8 +233,36 @@ def _derivative_doit(native):
     return doit
 
 
+def _derivative_eval_derivative(self, v):
+    """Reference ``Derivative._eval_derivative``."""
+    from . import Derivative
+    v=_core.sympify(v)
+    if v not in self._wrt_variables:
+        dedv=self.expr.diff(v)
+        if getattr(dedv,'is_Derivative',False):
+            return Derivative(dedv.expr,*(tuple(self.variable_count)+tuple(dedv.variable_count)))
+        # self.variables raises TypeError for a symbolic count, as in SymPy.
+        return Derivative(dedv,*self.variables,evaluate=True)
+    return Derivative(self.expr,*(tuple(self.variable_count)+((v,1),)),evaluate=False)
+
+
+class _DerivativeOnly:
+    """A method that exists only on held Derivative nodes."""
+    def __init__(self, function):
+        self.function=function
+        self.__name__=function.__name__
+
+    def __get__(self, obj, owner=None):
+        if obj is None or not getattr(obj,'is_Derivative',False):
+            raise AttributeError(self.__name__)
+        return self.function.__get__(obj,owner)
+
+
 def install():
     from ._sparse import _SparseBase
+    if '_eval_derivative' not in _core.Expr.__dict__:
+        _derivative_eval_derivative.__name__='_eval_derivative'
+        _core.Expr._eval_derivative=_DerivativeOnly(_derivative_eval_derivative)
     _core.Expr.doit=_derivative_doit(_core.Expr.doit)
     _core.Expr.diff=scalar_diff
     _core.Matrix.diff=matrix_diff

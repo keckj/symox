@@ -61,6 +61,18 @@ struct Rewriter {
 
 impl Rewriter {
     fn go(&self, e: &Expr) -> Expr {
+        if let Some((body, vars)) = crate::diff::symbolic::parts(e) {
+            // Reference Basic.rewrite: the body is rewritten and the held
+            // derivative is rebuilt with self.func(*args) (evaluate=False).
+            if !self.deep {
+                return e.clone();
+            }
+            let new_body = self.go(body);
+            if new_body.same_presentation(body) {
+                return e.clone();
+            }
+            return crate::diff::symbolic::construct(&new_body, vars, false).unwrap_or_else(|_| e.clone());
+        }
         if opaque(e) {
             return if self.deep { crate::traverse::map_children(e, &mut |c| self.go(c)) } else { e.clone() };
         }

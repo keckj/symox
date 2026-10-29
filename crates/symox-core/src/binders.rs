@@ -177,7 +177,23 @@ pub fn doit(f:&Func,args:&[Expr],deep:bool)->Expr {
             _=>crate::integrate::integrate_definite(&value,&limit[0],&limit[1],&limit[2]),
         }};
     }
+    // Reference Sum.doit: eval_sum can leave held parts (a derivative whose
+    // order was a summation index), so an evaluated sum that is not a
+    // Piecewise is finished with a deep doit. A held Sum is returned as is.
+    if *f==Func::Sum && deep && !matches!(value.kind(),Kind::Func(Func::Sum,_)|Kind::Piecewise(..))
+        && has_held_derivative(&value) {
+        value=crate::functions::doit(&value,true);
+    }
     value
+}
+
+fn has_held_derivative(e:&Expr)->bool{
+    fn walk(e:&Expr,seen:&mut rustc_hash::FxHashSet<Expr>)->bool{
+        if matches!(e.kind(),Kind::Derivative(..)|Kind::Func(Func::SymbolicDerivative,_)){return true;}
+        if !seen.insert(e.clone()){return false;}
+        e.args().iter().any(|a|walk(a,seen))
+    }
+    walk(e,&mut rustc_hash::FxHashSet::default())
 }
 
 /// FTC/Leibniz use a fresh integration atom so a bound x in the body cannot

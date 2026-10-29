@@ -145,7 +145,9 @@ def test_inexact_coefficients_preserve_the_existing_precision_fallback():
 
 def test_symbolic_formulas_stay_open_and_specializations_keep_the_count_protocol():
     x=sx.Symbol('x');n=sx.Symbol('n',integer=True,nonnegative=True)
-    held=sx.Derivative(x,(x,n),evaluate=True)
+    # SymPy 1.14 evaluates an atom to its Piecewise in the order.
+    assert str(sx.Derivative(x,(x,n),evaluate=True))=='Piecewise((x, Eq(n, 0)), (1, Eq(n, 1)), (0, True))'
+    held=sx.Derivative(x,(x,n))
     assert held.is_Derivative
     assert held.subs(n,sx.Rational(1,2)).is_Derivative
     assert held.subs(n,sx.Float(0)).is_Derivative

@@ -12144,3 +12144,67 @@ Remaining gaps:
   module.
 
 Measured: [audit](../audits/performance/2026-10-29-holo/README.md).
+
+
+## derivsym (wave 22): symbolic derivative orders (issue 22210)
+
+Now native (`crates/symox-core/src/diff/symbolic.rs`):
+- The evaluation loop of `Derivative.__new__` for counts that are not
+  machine integers (`evaluate_counts`): each `(v, n)` goes through the
+  reference `_dispatch_eval_derivative_n_times`. A variable that is an
+  applied undefined function or a Derivative is masked with a Dummy (and
+  `expr.diff(xi)` is returned when the Dummy is absent). The loop stops at a
+  zero value, applies the canonical derivative replacement, and an unhandled
+  tail is concatenated to the held node as SymPy does.
+- `AtomicExpr._eval_derivative_n_times`: a Number, a NumberSymbol, I, oo,
+  zoo, nan or a Symbol gives `Piecewise((a, Eq(n, 0)), (1, Eq(n, 1)), (0, True))`
+  (the middle piece only for the variable itself).
+- `Mul._eval_derivative_n_times`: the Leibniz Sum over Dummy indices
+  `_k1, ...`, with `klast = n - sum(k)` and `Max(0, klast)` on the last
+  factor. The summand is `piecewise_fold`ed as the reference Sum
+  constructor does. An Integer count (a big order) keeps the existing
+  repeated-derivative path, as in SymPy. Products with a Piecewise factor or
+  host objects decline and stay held (a gap: SymPy builds the Sum there too).
+- `diff` of a held symbolic-order derivative by one of its variables is
+  re-evaluated (`diff(Derivative(x, (x, n)), x)` is the Piecewise in `n + 1`).
+- `rewrite` descends into the body of a symbolic-order derivative.
+- Sum.doit: an evaluated sum that is not a Piecewise and contains a held
+  derivative is finished with a deep doit (reference `Sum.doit`), so
+  `diff(x*sin(x), (x, n)).subs(n, 3).doit()` is `-x*cos(x) - 3*sin(x)`.
+- Assumptions: a sum of integer terms and a rational constant is nonzero
+  when the constant is not an integer or the sum is odd. So `Eq(2*n, 1)`,
+  `Eq(n, 1/3)` are False for an integer `n`, and `diff(x, (x, 2*n))` drops
+  the `Eq(n, 1/2)` piece as in SymPy.
+
+Python (SymPy compatible):
+- `Derivative._eval_derivative` (only on Derivative nodes).
+- `as_finite_difference`, `series`, `nseries`, `as_leading_term` raise the
+  reference TypeError "Cannot give expansion for symbolic count..." (a
+  Float count included, for as_finite_difference).
+- `dummy_eq` canonicalizes bound variables first (`as_dummy`), as
+  `Basic.dummy_eq` does.
+
+Bodies with no reference closed form (`sin(x)`, `x**2`, an Add) stay held,
+as in SymPy.
+
+Intentional difference: `integrate(Derivative(f(x), (x, n)), x)` returns a
+held Integral; SymPy raises TypeError (from `.variables`).
+
+Remaining gaps:
+- `Sum(...)` and `Integral(...)` constructed by the user do not
+  `piecewise_fold` their function (SymPy's `AddWithLimits` does); only the
+  Leibniz sums built natively are folded.
+- Matrix and array bodies with a symbolic order: `MatrixSymbol.diff((x, n))`,
+  `Matrix.diff((x, n))` raise ValueError (SymPy: held `Derivative(A, (x, n))`,
+  and an AttributeError for Matrix). `Array([...]).diff((x, n))` is
+  elementwise (SymPy keeps it held). `Derivative(Matrix([x]), (x, n))`
+  raises TypeError (SymPy: held).
+- `dsolve` of a symbolic-order derivative raises TypeError with another
+  message.
+- Item 2 of TODO section 6 (nested trace derivatives, the two-term
+  `(Trace(A)**2*X).diff(A)`, `Trace(Trace(Trace(A)*A)*A).diff(A)`,
+  ArrayContraction and elementwise simplification rules) was not attempted
+  in this wave; the gaps listed in the mat-rest7 and mat-rest8 sections stand.
+
+Tests: `tests/test_native_derivsym.py` (values from SymPy 1.14).
+Measured: [audit](../audits/performance/2026-10-29-derivsym/README.md).

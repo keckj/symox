@@ -761,18 +761,25 @@ def _compare(self, other):
 
 def _dummy_eq(self, other, symbol=None):
     from . import Dummy
-    o = _sympify(other)
-    dummies = [i for i in self.free_symbols if i.is_Dummy]
+    # Reference Basic.dummy_eq: bound variables are canonicalized first.
+    s = _as_dummy(self)
+    o = _as_dummy(_sympify(other))
+    dummies = [i for i in s.free_symbols if i.is_Dummy]
     if len(dummies) != 1:
-        return self == o
+        return s == o
     dummy = dummies[0]
     if symbol is None:
         symbols = o.free_symbols
         if len(symbols) != 1:
-            return self == o
+            return s == o
         symbol = next(iter(symbols))
     tmp = Dummy()
-    return self.xreplace({dummy: tmp}) == o.xreplace({symbol: tmp})
+    return s.xreplace({dummy: tmp}) == o.xreplace({symbol: tmp})
+
+
+def _as_dummy(e):
+    method = getattr(e, 'as_dummy', None)
+    return method() if method is not None else e
 
 
 def _iterfreeargs(e):
