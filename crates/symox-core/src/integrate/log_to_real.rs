@@ -283,16 +283,73 @@ fn pair_terms<C: RealCoefficient,E>(a: &MPoly<Rat>,b: &MPoly<Rat>,d: &MPoly<Rat>
     Ok(Some(Some(add(&[mul2(ru,&log(&polynomial(&norm,x))),mul2(rv,&add(&terms))]))))
 }
 
+/// For `q` of odd degree `n`, the row of `v^(n-1)` in `c` is
+/// `+-(n*q_n*u + q_(n-1))`, never constant modulo a quadratic factor, so the
+/// pre-check above declines as soon as `R(u)` has an irrational real root.
+/// Every real root of `q` and every real part of a root of `q` is such a
+/// root of `R` (`R` lies in the ideal of `c`, `d`). An irreducible factor
+/// `g` of `q` of degree >= 2 has an irrational real root when it has any
+/// real root; when all of its roots have rational real parts, its root set
+/// is invariant under `t -> 2*r - t` (Galois conjugation keeps the sum of a
+/// conjugate pair) with `r` the mean of its roots. So the decline is certain
+/// when some factor has a real root or `g(2*r - t) != (-1)^m * g(t)`; this
+/// costs one univariate factorization instead of the resultant.
+fn odd_degree_certain_decline(q: &[Rat]) -> bool {
+    if q.len()%2!=0 {return false;}
+    let qpoly=MPoly::from_terms(1,q.iter().enumerate().map(|(i,c)|(vec![i as u32],c.clone())).collect());
+    let (_,integral)=qpoly.clear_denoms();
+    let (_,factors)=crate::poly::factor_multi::factor_list_mz(&integral);
+    factors.iter().any(|(g,_)|{
+        let g=dense::from_mpoly(&g.to_rat(),0);
+        if g.len()<=2 {return false;}
+        let descending=g.iter().rev().cloned().collect::<Vec<_>>();
+        if crate::poly::rootisolation::count_real_roots(&descending,None,None)!=0 {return true;}
+        let m=g.len()-1;
+        let r=g[m-1].neg().div(&g[m].mul(&Rat::from_i64(m as i64)));
+        let reflection=vec![r.add(&r),Rat::from_i64(-1)];
+        let mut composed:Vec<Rat>=Vec::new();
+        for coefficient in descending {
+            composed=dense::add(&dense::mul(&composed,&reflection),&[coefficient]);
+        }
+        let expected=if m%2==0 {g.clone()} else {dense::neg(&g)};
+        composed!=expected
+    })
+}
+
+thread_local! {
+    /// The last declined `(h, q)` pairs: a decline depends only on them,
+    /// so the public fallback after a declined driver attempt does not pay
+    /// for the same refusal twice. Errors (signals) are never recorded.
+    static DECLINED: std::cell::RefCell<Vec<(MPoly<Rat>,Vec<Rat>)>>=const{std::cell::RefCell::new(Vec::new())};
+}
+
+fn general<E>(h: &MPoly<Rat>,q: &[Rat],x: &Expr,t: &Expr,
+    check: &mut impl FnMut()->Result<(),E>) -> Result<Option<Expr>,E>
+{
+    if DECLINED.with(|d|d.borrow().iter().any(|(dh,dq)|dh==h && dq.as_slice()==q)) {return Ok(None);}
+    let result=general_attempt(h,q,x,t,check)?;
+    if result.is_none() {
+        DECLINED.with(|d|{
+            let mut d=d.borrow_mut();
+            if d.len()>=8 {d.remove(0);}
+            d.push((h.clone(),q.to_vec()));
+        });
+    }
+    Ok(result)
+}
+
 /// The reference general `log_to_real` for a rational auxiliary polynomial
 /// `q` of degree >= 3: resultant `R(u)`, real roots of `R` and of each
 /// `c(r_u, v)` with the `count_roots` completeness test, the `D` test and
 /// `log_to_atan`. Only exactly decided rational and pure quadratic steps are
 /// computed here; every other step declines to the unchanged general path.
-fn general<E>(h: &MPoly<Rat>,q: &[Rat],x: &Expr,t: &Expr,
+fn general_attempt<E>(h: &MPoly<Rat>,q: &[Rat],x: &Expr,t: &Expr,
     check: &mut impl FnMut()->Result<(),E>) -> Result<Option<Expr>,E>
 {
     if h.nvars!=2 || h.is_zero() || h.degree(0)>32 || h.degree(1)>32 || h.len()>1024
         || h.coeffs().iter().chain(q).any(|c|c.n.bits().max(c.d.bits())>4096) {return Ok(None);}
+    if odd_degree_certain_decline(q) {return Ok(None);}
+    check()?;
     let (u,v)=(Expr::dummy("u",crate::symbol::Assumptions::NONE),Expr::dummy("v",crate::symbol::Assumptions::NONE));
     let (a,b)=split(h);
     let qpoly=MPoly::from_terms(1,q.iter().enumerate().map(|(i,c)|(vec![i as u32],c.clone())).collect());
@@ -386,6 +443,22 @@ mod tests {
         let result=convert(&h,&[Rat::one(),Rat::zero(),Rat::from_i64(3)],&x,&t,&mut ||{calls+=1;if calls==6{Err("stop")}else{Ok(())}});
         assert!(matches!(result,Err("stop")));
     }
+    #[test]
+    fn odd_degree_structural_decline_is_exact() {
+        let q=|v:&[i64]|v.iter().map(|&c|Rat::from_i64(c)).collect::<Vec<_>>();
+        // 823543*t^7+1: irrational real parts; t^3-2: irrational real root.
+        assert!(odd_degree_certain_decline(&q(&[1,0,0,0,0,0,0,823543])));
+        assert!(odd_degree_certain_decline(&q(&[-2,0,0,1])));
+        // (t+1)*(t^2+1)*(t^2+4): every real part rational; even degree.
+        assert!(!odd_degree_certain_decline(&q(&[4,4,5,5,1,1])));
+        // (t-1)*((t-2)^2+1)*((t-2)^2+3) = roots with real parts 1 and 2.
+        let a=[5i64,-4,1];let b=[7i64,-4,1];
+        let mut ab=vec![0i64;5];for i in 0..3 {for j in 0..3 {ab[i+j]+=a[i]*b[j];}}
+        let mut f=vec![0i64;6];for i in 0..5 {f[i]-=ab[i];f[i+1]+=ab[i];}
+        assert!(!odd_degree_certain_decline(&q(&f)));
+        assert!(!odd_degree_certain_decline(&q(&[1,0,0,0,256])));
+    }
+
     #[test]
     fn general_degree_four_quadratic_pairs_and_declines() {
         let x=Expr::symbol("x");let t=Expr::symbol("t");

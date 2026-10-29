@@ -11601,10 +11601,18 @@ polynomial arguments, and an exact trace certificate of the derivative.
 
 Measured ([audit](../audits/performance/2026-10-29-lrt3/README.md)): the
 admitted cases (`1/(x**4+1)`, `1/(x**4+a)`, `x**2/(x**4+1)`, `1/(x**6-1)`,
-`1/((x**2+1)*(x**2+4)*(x-1))`, ...) are about 1.2-2.2x faster in public
-`ratint`. Declined cases pay the native attempt (resultant and
-factorization), twice when they come through the native driver then the
-public `log_to_real`: `1/(x**7+a)`, `1/(x**8+a)` (including the RootSum
-case `1/(x**8+1)`), `1/(x**6+8)` are about 5-8 ms slower (0.6-0.75x). Open: these declined cases, a memo of the
-declined attempt, EX `C` (Cardano/cube-root `r_u`) and EX `log_to_atan`
+`1/((x**2+1)*(x**2+4)*(x-1))`, ...) are about 1.2-2.0x faster in public
+`ratint`. A declined `(h, q)` is kept in a small per-thread memo (declines
+only, never a signal), so the public `log_to_real` after a declined native
+ratint driver does not attempt again; and an odd-degree `q` with an
+irreducible factor over QQ that has a real root of degree >= 2, or is not
+symmetric about the mean of its roots, declines after one univariate
+factorization, before the resultant. This test is exact: such a factor gives
+`R(u)` an irrational real root, and for odd degree the `v^(n-1)` row of `c`
+is linear in `u`, so the pre-check above always declines. Declined cases are
+now within noise (`1/(x**7+1)` 0.99x, `1/(x**8+1)` 0.99x repeated, against
+0.62x and 0.71x before); the first call of an even-degree declined case
+still pays one native attempt (about 2-3.5 ms: `1/(x**8+1)` 0.91x on the
+first call, `1/(x**6+8)` 0.73x in the single-call sweep). Open: a cheap exact
+decline test for even degree, EX `C` (Cardano/cube-root `r_u`) and EX `log_to_atan`
 natively, and `integrate(1/(x**5 + x + 1)**3, x)` memory (TODO section 8).

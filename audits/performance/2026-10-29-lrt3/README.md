@@ -24,31 +24,42 @@ Result (medians, ms for the first call, us for repeated calls):
 
 | case | integrand | first base | first new | ratio | repeat base | repeat new | ratio | same |
 |---|---|---|---|---|---|---|---|---|
-| lrt_x4p1 | 1/(x**4+1) | 6.779 | 3.972 | 1.71x | 6229.1 | 3440.1 | 1.81x | True |
-| lrt_x4p4 | 1/(x**4+4) | 5.730 | 3.139 | 1.83x | 5071.6 | 2640.8 | 1.92x | True |
-| lrt_x4pq | 1/(x**4+1/4) | 6.024 | 3.023 | 1.99x | 4827.1 | 2525.2 | 1.91x | True |
-| lrt_x4mx2p1 | 1/(x**4-x**2+1) | 7.725 | 4.211 | 1.83x | 6983.8 | 3633.7 | 1.92x | True |
-| lrt_mixed | 1/((x**2+1)*(x**2+4)*(x-1)) | 10.682 | 5.388 | 1.98x | 10086.1 | 5017.9 | 2.01x | True |
-| lrt_x4_x6p1 | x**4/(x**6+1) | 9.708 | 7.831 | 1.24x | 8649.8 | 7321.7 | 1.18x | True |
-| lrt_x6p1 | 1/(x**6+1) | 9.699 | 7.697 | 1.26x | 8411.8 | 7142.6 | 1.18x | True |
-| lrt_x3p1_x_1 | 1/(x**3+x+1) | 184.164 | 181.222 | 1.02x | 163618.6 | 165022.3 | 0.99x | True |
-| lrt_x3m2 | 1/(x**3-2) | 21.901 | 23.525 | 0.93x | 5012.8 | 5243.9 | 0.96x | True |
-| lrt_x5p1 | 1/(x**5+1) | 32.696 | 33.721 | 0.97x | 14344.4 | 15223.4 | 0.94x | True |
-| lrt_x6m2 | 1/(x**6-2) | 34.033 | 32.638 | 1.04x | 13751.7 | 14303.7 | 0.96x | True |
-| lrt_x8p1 | 1/(x**8+1) | 30.754 | 35.730 | 0.86x | 12427.5 | 17539.0 | 0.71x | True |
-| lrt_x2_x4px1 | x**2/(x**4+x+1) | 21.167 | 22.352 | 0.95x | 20405.8 | 20413.3 | 1.00x | True |
-| lrt_x5p2 | 1/(x**5+2) | 6.368 | 6.785 | 0.94x | 5324.6 | 5773.0 | 0.92x | True |
-| lrt_x7p1 | 1/(x**7+1) | 11.321 | 17.681 | 0.64x | 10332.6 | 16628.7 | 0.62x | True |
+| lrt_x4p1 | 1/(x**4+1) | 6.561 | 3.876 | 1.69x | 5869.2 | 3301.2 | 1.78x | True |
+| lrt_x4p4 | 1/(x**4+4) | 5.596 | 2.948 | 1.90x | 4854.5 | 2517.6 | 1.93x | True |
+| lrt_x4pq | 1/(x**4+1/4) | 5.493 | 2.938 | 1.87x | 4804.5 | 2442.5 | 1.97x | True |
+| lrt_x4mx2p1 | 1/(x**4-x**2+1) | 7.379 | 4.143 | 1.78x | 6645.5 | 3510.3 | 1.89x | True |
+| lrt_mixed | 1/((x**2+1)*(x**2+4)*(x-1)) | 10.321 | 5.352 | 1.93x | 9754.3 | 4896.1 | 1.99x | True |
+| lrt_x4_x6p1 | x**4/(x**6+1) | 9.526 | 7.642 | 1.25x | 8428.9 | 6982.3 | 1.21x | True |
+| lrt_x6p1 | 1/(x**6+1) | 9.452 | 7.548 | 1.25x | 8346.8 | 7001.8 | 1.19x | True |
+| lrt_x3p1_x_1 | 1/(x**3+x+1) | 177.124 | 172.611 | 1.03x | 162498.9 | 158135.7 | 1.03x | True |
+| lrt_x3m2 | 1/(x**3-2) | 21.282 | 21.725 | 0.98x | 4864.3 | 4796.6 | 1.01x | True |
+| lrt_x5p1 | 1/(x**5+1) | 31.335 | 31.103 | 1.01x | 13828.2 | 13677.8 | 1.01x | True |
+| lrt_x6m2 | 1/(x**6-2) | 30.644 | 30.937 | 0.99x | 13208.2 | 12781.4 | 1.03x | True |
+| lrt_x8p1 | 1/(x**8+1) | 28.394 | 31.354 | 0.91x | 11899.2 | 11991.7 | 0.99x | True |
+| lrt_x2_x4px1 | x**2/(x**4+x+1) | 20.861 | 20.561 | 1.01x | 19474.0 | 19322.5 | 1.01x | True |
+| lrt_x5p2 | 1/(x**5+2) | 6.215 | 6.054 | 1.03x | 5147.5 | 5100.9 | 1.01x | True |
+| lrt_x7p1 | 1/(x**7+1) | 11.068 | 11.148 | 0.99x | 10064.7 | 10144.9 | 0.99x | True |
+
 
 The first seven cases are computed natively now (1.2x to 2.0x). The other
 eight decline to the unchanged Python algorithm by design (EX `c(r_u, v)`,
 cube-root or Cardano resultant roots, incomplete real root lists where the
-exact RootSum is kept). They pay the native attempt (resultant,
-factorization of `R` and Sturm counts), twice when the native ratint driver
-declines and the public `log_to_real` tries again: within noise for most,
-but 1/(x**8+1) is 0.71x (+5 ms) and 1/(x**7+1) 0.62x (+6 ms). In the sweep,
-the median single-call ratio is 0.98x (range 0.57x to 2.19x); the
-`x**7 + a`, `x**8 + a` and `x**6 + 8` families lose 5 to 8 ms each.
+exact RootSum is kept). A declined `(h, q)` is recorded in a small
+per-thread memo (8 entries, declines only, never a signal), so the public
+`log_to_real` after a declined native ratint driver does not try again, and
+an odd-degree `q` whose factors over QQ have a real root of degree >= 2 or
+are not symmetric about the mean of their roots declines after one
+univariate factorization, before the resultant (exact: such a `q` gives
+`R(u)` an irrational real root, which the pre-check always declines for odd
+degree). The previous version (commit 5574a340) attempted twice: repeat
+ratios 0.71x for 1/(x**8+1) and 0.62x for 1/(x**7+1). Now all declined cases
+are within noise (0.99x to 1.03x repeated; repeated calls also hit the memo).
+The first call of an even-degree declined case still pays one native
+attempt (resultant and factorization of `R`, about 2-3.5 ms): 1/(x**8+1) is
+0.91x on the first call. In the sweep (single calls, `diff.py`, file
+`sweep_new.json`), the only case below 0.95x is `1/(x**6+8)` (0.73x, was
+0.59x); the `x**7 + a` and `x**8 + a` families, which were 0.57x-0.76x,
+are no longer below 0.95x.
 `1/(x**8-1)` is 8.21 s base and 8.41 s new: an earlier version of this
 change tripled it (24 s) by computing the 8 s `roots` of a sextic factor of
 `c(1/8, v)` natively before declining; the degree >= 5 factor check now
