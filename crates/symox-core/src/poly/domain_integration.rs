@@ -18,6 +18,13 @@ impl Polynomial {
                     e.ground=Some(g.to_field());return p;
                 }
             }
+            // A legacy polynomial over an inexact composite ring
+            // (`RR[y]`, `CC[y]`) integrates over its fraction field.
+            if p.expression.is_none() && p.modulus.is_none() {
+                if let Some(e) = self.inexact_ring_field() {
+                    return e.into();
+                }
+            }
             if let Some(field) = &mut p.field {
                 field.promote_field();
             } else if let Some(a) = p.algebraic.as_ref().filter(|a| a.gaussian == Some(true)) {
@@ -30,6 +37,16 @@ impl Polynomial {
             }
         }
         p
+    }
+    fn inexact_ring_field(&self) -> Option<super::expression_domain::ExpressionPoly> {
+        let d = super::gaussian_ground::descriptor(self)?;
+        let gens = self.true_gens().to_vec();
+        let ground = super::gaussian_ground::unify(&d, &d, &gens).ok()??;
+        if ground.inexact.is_none() || !ground.ring || ground.symbols.is_empty() {
+            return None;
+        }
+        let e = super::expression_domain::ExpressionPoly::from_terms(self.terms(), &gens).ok()?;
+        ground.to_field().convert_poly(&e).ok()
     }
     pub fn integrate_checked(&self, variable: usize, auto: bool) -> PResult<Self> {
         if variable >= self.true_gens().len() {

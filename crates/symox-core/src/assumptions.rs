@@ -271,9 +271,18 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
             }else{None};
             if positive==Some(true)||quadratic.and_then(|f|f.sign)==Some(1){seed.push(("positive",true));}
             if negative==Some(true)||quadratic.and_then(|f|f.sign)==Some(-1){seed.push(("negative",true));}
+            let mut numeric=false;
             if matches!(name,"extended_nonnegative"|"extended_nonpositive"|"extended_positive"|"extended_negative")&&positive!=Some(true)&&negative!=Some(true){
                 if exact_queries(||is_nonnegative(e))==Some(true){seed.push(("nonnegative",true));}
                 else if exact_queries(||is_nonpositive(e))==Some(true){seed.push(("nonpositive",true));}
+                else {numeric=true;}
+            }
+            if (numeric||matches!(name,"extended_real"|"positive"|"negative"))&&positive!=Some(true)&&negative!=Some(true){
+                match reference_numeric_sign(e){
+                    Some(NumericSign::Positive)=>seed.push(("extended_positive",true)),
+                    Some(NumericSign::Negative)=>seed.push(("extended_negative",true)),
+                    None=>{},
+                }
             }
             for structural in structural_names(name){
                 if let Some(value)=structural_fact(e,structural){seed.push((structural,value));}
@@ -826,6 +835,40 @@ fn numeric_refine(e: &Expr, s: Signs) -> Option<Signs> {
     Some(s)
 }
 
+enum NumericSign{Positive,Negative}
+
+/// `Expr._eval_is_extended_positive_negative` for the numbers whose class
+/// keeps it (every function but `Abs`, `exp`, `log` and `Piecewise`, and a
+/// numeric `Add`): the sign of the numerical value when it has
+/// significance, and no answer when the evaluation fails, has no
+/// significance or is complex. It does
+/// not need the value to be finite (`polylog(3, -1/2)` is extended
+/// negative while its finiteness stays unknown).
+fn reference_numeric_sign(e:&Expr)->Option<NumericSign>{
+    let inherits=match e.kind(){
+        Kind::Func(Func::Abs|Func::Exp|Func::Log|Func::Undefined(_),_)=>false,
+        Kind::Func(..)=>true,
+        // A sum of radicals keeps the exact sign machinery (its evaluation
+        // can be costly on solver roots); a sum with function values takes
+        // the numerical sign.
+        Kind::Add(..)=>{
+            let mut found=false;
+            crate::traverse::preorder(e,&mut |s| found|=matches!(s.kind(),Kind::Func(..)));
+            found
+        },
+        _=>false,
+    };
+    if !inherits||!numeric_refinement_enabled()||!crate::symbolic_number::is_symbolic_number(e)||!crate::functions::is_numeric_value(e)||crate::poly::rootof::is_rootof(e){return None;}
+    let (first,last,scale)=numeric_samples(e)?;
+    // `_eval_evalf(2)` of a complex value is a sum without `_prec`: no
+    // answer (`polylog(2, 3)`).
+    if stable_component(&first.im,&last.im,&scale){return None;}
+    if first.im.is_zero()&&last.im.is_zero()&&stable_component(&first.re,&last.re,&scale){
+        return Some(if last.re.sign()>0{NumericSign::Positive}else{NumericSign::Negative});
+    }
+    None
+}
+
 fn numerically_null(first:&crate::evalf_mp::MpComplex,last:&crate::evalf_mp::MpComplex,scale:&crate::bigfloat::BigFloat)->bool {
     let tiny=|v:&crate::bigfloat::BigFloat|v.is_zero()||v.abs().cmp(&scale.ldexp(-96)).is_le();
     tiny(&first.re)&&tiny(&first.im)&&tiny(&last.re)&&tiny(&last.im)
@@ -1124,28 +1167,42 @@ fn is_real_uncached(e: &Expr) -> Option<bool> {
 pub fn is_positive(e:&Expr)->Option<bool>{cached_bool(e,Query::Positive,is_positive_uncached)}
 fn is_positive_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::NOT_POSITIVE) || exact_queries(||is_real(e))==Some(false){return Some(false);}
-    let s = real_signs(e)?;
-    if s == Signs::POS {
-        Some(true)
-    } else if !s.has(Signs::POS) {
-        Some(false)
-    } else {
-        None
-    }
+    let signed = real_signs(e).and_then(|s| {
+        if s == Signs::POS {
+            Some(true)
+        } else if !s.has(Signs::POS) {
+            Some(false)
+        } else {
+            None
+        }
+    });
+    // `Expr._eval_is_positive`: False when the numerical sign excludes it,
+    // whatever the finiteness (`polylog(3, 1/2).is_negative`).
+    signed.or_else(|| match reference_numeric_sign(e) {
+        Some(NumericSign::Negative) => Some(false),
+        _ => None,
+    })
 }
 
 #[inline]
 pub fn is_negative(e:&Expr)->Option<bool>{cached_bool(e,Query::Negative,is_negative_uncached)}
 fn is_negative_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::NOT_NEGATIVE) || exact_queries(||is_real(e))==Some(false){return Some(false);}
-    let s = real_signs(e)?;
-    if s == Signs::NEG {
-        Some(true)
-    } else if !s.has(Signs::NEG) {
-        Some(false)
-    } else {
-        None
-    }
+    let signed = real_signs(e).and_then(|s| {
+        if s == Signs::NEG {
+            Some(true)
+        } else if !s.has(Signs::NEG) {
+            Some(false)
+        } else {
+            None
+        }
+    });
+    // `Expr._eval_is_negative`: False when the numerical sign excludes it,
+    // whatever the finiteness (`polylog(3, 1/2).is_negative`).
+    signed.or_else(|| match reference_numeric_sign(e) {
+        Some(NumericSign::Positive) => Some(false),
+        _ => None,
+    })
 }
 
 #[inline]

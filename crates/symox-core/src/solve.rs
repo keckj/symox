@@ -1376,10 +1376,33 @@ fn expanded_log_root(value: &Expr) -> Expr {
         return value.clone();
     }
     let separated = crate::simp::expand_log(value, false);
+    // `log._eval_simplify` keeps a logarithm whose expansion is larger by
+    // `count_ops` (`log(I*pi)`, not `log(pi) + I*pi/2`). The reference
+    // reaches `log(-1 + log(4))` as `log(log(4*exp(-1)))`, whose inner
+    // simplification gives `-1 + 2*log(2)`: the logarithms of positive
+    // rationals in the argument are expanded. Only numeric arguments take
+    // this path; symbolic roots keep the generic expansion below.
+    if let Kind::Func(Func::Log, a) = value.kind() {
+        if a.len() == 1 && crate::traverse::free_symbols(&a[0]).is_empty() && crate::simptools::methods::count_ops(&separated) > crate::simptools::methods::count_ops(value) {
+            return crate::functions::func(Func::Log, vec![expand_rational_logs(&a[0])]);
+        }
+    }
     let distributed = expand(&separated);
     let cancels = distributed.is_rational_number()
         || distributed.is_add() && distributed.args().iter().any(|t| t.is_rational_number());
     if cancels { distributed } else { separated }
+}
+
+fn expand_rational_logs(e: &Expr) -> Expr {
+    if let Kind::Func(Func::Log, a) = e.kind() {
+        if a.len() == 1 && a[0].is_rational_number() && crate::assumptions::is_positive(&a[0]) == Some(true) {
+            return crate::simp::expand_log(e, false);
+        }
+    }
+    if e.is_atom() {
+        return e.clone();
+    }
+    crate::traverse::map_children(e, &mut expand_rational_logs)
 }
 
 fn has_log(e: &Expr) -> bool {

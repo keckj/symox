@@ -12702,3 +12702,47 @@ Remaining gaps (still held or different):
   `besselk(1, I*t)`), and `(Abs(x+y) - Abs(x-y))/(2*x)` at 0 (sign of `y`).
 
 Measured: [audit](../audits/performance/2026-10-29-limheld/README.md).
+
+
+## Wave 22: RR[y] gcd scale, numeric signs, log forms (rrnorm)
+
+- `gcd`, `lcm`, `cofactors` of `Poly` (and of expressions with explicit
+  generators) over a real `RR[y...]` ring in two or more generators follow
+  `dmp_inner_gcd`: the operands go to `QQ[y...]` and `dmp_rr_prs_gcd` keeps
+  its scale (`gcd(1.5*x*z + 1.5*y, 3.0*x*z + 3.0*y)` is `1.5*x*z + 1.5*y`).
+  Native in `poly/rr_prs_gcd.rs`.
+- `sqf_list`, `sqf_list_include` over such a ring port `dmp_sqf_list`:
+  `RR[y].gcd` ground content (a monomial gcd has coefficient one),
+  `dmp_primitive` whose two-generator content gcd is `dup_inner_gcd` over
+  `RR[y]` itself, Yun's loop with the converted gcd, the recursive content
+  factorisation and the degree check (AssertionError as in the reference).
+- `Poly.integrate` over `RR[y...]` returns a polynomial over `RR(y...)`.
+- `Expr._eval_is_extended_positive_negative`: functions other than Abs,
+  exp, log, Piecewise, and numeric sums containing a function value, get their extended sign from the
+  numerical value when it has significance (`polylog(3, -1/2)` is extended
+  negative while finiteness stays unknown), no answer for a complex value
+  or a non-number such as `hyper` with Tuple arguments (`polylog(2, 3)`); `is_positive` and
+  `is_negative` are False when that sign excludes them.
+  `test_hyperexpand.py::test_lerchphi` line 623 holds.
+- `simplify(log(a))` for a numeric `a` is `log._eval_simplify` before any deep step
+  (`log(-1 + 2*log(2))` stays). The exp inversion in solve keeps `log(I*pi)`
+  (not `log(pi) + I*pi/2`) and expands logs of positive rationals in its
+  argument (`log(-1 + 2*log(2))`).
+
+Remaining gaps: `simplify` of a symbolic one-argument `log` still runs the
+deep generic simplification (`simplify(log(1/(C1 + exp(-x))))` gives
+`log(exp(x)/(C1*exp(x) + 1))`; SymPy keeps the input). The
+`log._eval_simplify` head is applied to numeric logs only, because symox's
+solvers simplify the whole log where SymPy simplifies only its argument.
+A numeric sum of radicals alone keeps the exact sign machinery and gets no
+numerical extended sign (its evaluation is costly on solver roots).
+Other remaining gaps: `asin(2).is_extended_real`, `is_extended_positive` and
+`is_extended_negative` are None (SymPy: False, from `asin._eval_is_real`).
+`integrate(atan(y*x)/x**2, (x, 1, oo))` with positive `y`
+gives `-y*log(y**2)/2 + ...` where SymPy has `-y*log(y)`. The reference gets
+it from `Add._eval_as_leading_term`, which replaces an undecided leading
+coefficient by `trigsimp().cancel()` (the Poly construction there expands
+`log(y**2)` to `2*log(y)`); the native leading term only uses that test as a
+zero check.
+
+Measured: [audit](../audits/performance/2026-10-29-rrnorm/README.md).

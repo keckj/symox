@@ -1244,7 +1244,38 @@ impl Polynomial {
         let(q,r)=self.div_with_options(o,auto)?;
         if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("polynomial division is not exact in the selected coefficient domain".into()));}Ok(q)
     })}
+    /// Two legacy polynomials over a real `RR[y...]` ring in several
+    /// generators: their `dmp_inner_gcd` scale is that of the reference
+    /// `QQ[y...]` subresultant gcd, kept by the composite inexact ground.
+    pub fn inexact_ring_pair(&self,o:&Self)->PResult<Option<(super::gaussian_ground::GaussianGround,ExpressionPoly,ExpressionPoly)>>{
+        if self.expression.is_some()||o.expression.is_some()||self.modulus.is_some()||o.modulus.is_some(){return Ok(None);}
+        let (Some(a),Some(b))=(super::gaussian_ground::descriptor(self),super::gaussian_ground::descriptor(o)) else {return Ok(None)};
+        let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
+        if gens.len()<2{return Ok(None);}
+        let Some(ground)=super::gaussian_ground::unify(&a,&b,&gens)? else {return Ok(None)};
+        if !ground.ring||ground.symbols.is_empty()||!ground.inexact.is_some_and(|k|!k.complex){return Ok(None);}
+        let convert=|p:&Self|->PResult<ExpressionPoly>{ground.convert_poly(&ExpressionPoly::from_terms(p.terms(),p.true_gens())?.reorder(&gens)?)};
+        let (f,g)=(convert(self)?,convert(o)?);
+        Ok(Some((ground,f,g)))
+    }
+    /// A legacy polynomial over a real `RR[y...]` ring in several
+    /// generators, as a polynomial over the composite inexact ground.
+    pub fn inexact_ring_expression(&self)->PResult<Option<ExpressionPoly>>{
+        Ok(self.inexact_ring_pair(self)?.map(|(_,f,_)|f))
+    }
+    /// `dmp_sqf_list` of a legacy real `RR[y...]` polynomial in several
+    /// generators (see `inexact_ground::sqf_list`).
+    pub fn inexact_ring_sqf_list(&self,all:bool)->PResult<Option<(Expr,Vec<(Self,usize)>)>>{
+        let Some(f)=self.inexact_ring_expression()? else {return Ok(None)};
+        let (c,fs)=super::inexact_ground::sqf_list(&f,all)?;
+        Ok(Some((c,fs.into_iter().map(|(p,k)|(p.into(),k)).collect())))
+    }
+    pub fn inexact_ring_sqf_list_include(&self,all:bool)->PResult<Option<Vec<(Self,usize)>>>{
+        let Some(f)=self.inexact_ring_expression()? else {return Ok(None)};
+        Ok(Some(super::inexact_ground::sqf_list_include(&f,all)?.into_iter().map(|(p,k)|(p.into(),k)).collect()))
+    }
     pub fn checked_gcd(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{
+        if let Some((k,a,b))=self.inexact_ring_pair(o)?{return Ok(k.gcd(&a,&b)?.into());}
         if let Some((a,b))=self.checked_expression_pair(o)?{
             if let Some(g)=gaussian_ground_of(&a,&b){return Ok(g.gcd(&a,&b)?.into());}
             return Ok(a.gcd(&b)?.into());
@@ -1252,6 +1283,7 @@ impl Polynomial {
         Ok(self.gcd(o))
     })}
     pub fn checked_lcm(&self,o:&Self)->PResult<Self>{super::mpoly::checked_operation(||{
+        if let Some((k,a,b))=self.inexact_ring_pair(o)?{return Ok(k.lcm(&a,&b)?.into());}
         if let Some((a,b))=self.checked_expression_pair(o)?{
             if let Some(g)=gaussian_ground_of(&a,&b){return Ok(g.lcm(&a,&b)?.into());}
             return Ok(a.lcm(&b)?.into());
@@ -1259,6 +1291,7 @@ impl Polynomial {
         Ok(self.lcm(o))
     })}
     pub fn checked_cofactors(&self,o:&Self)->PResult<(Self,Self,Self)>{super::mpoly::checked_operation(||{
+        if let Some((k,a,b))=self.inexact_ring_pair(o)?{let(h,p,q)=k.cofactors(&a,&b)?;return Ok((h.into(),p.into(),q.into()));}
         if let Some((a,b))=self.checked_expression_pair(o)?{
             let(h,p,q)=match gaussian_ground_of(&a,&b){Some(g)=>g.cofactors(&a,&b)?,None=>a.cofactors(&b)?};
             return Ok((h.into(),p.into(),q.into()));
