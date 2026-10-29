@@ -1,0 +1,57 @@
+{
+ "limit(y/x/log(x), x, 0)": {
+  "value": "Limit(y/(x*log(x)), x, 0, dir='+')",
+  "first": 0.0016995559999486431,
+  "median": 0.0007299459975911304
+ },
+ "limit(-y*z*exp(x)/x, x, oo)": {
+  "value": "Limit(-y*z*exp(x)/x, x, oo, dir='-')",
+  "first": 0.0016312980005750433,
+  "median": 0.0006746239960193634
+ },
+ "limit(xr**n - xr**(n - 5), xr, oo)": {
+  "value": "Limit(x**n - x**(n - 5), x, oo, dir='-')",
+  "first": 0.0018968549993587658,
+  "median": 0.0008611679950263351
+ },
+ "limit(xp**n - xp**(n + 2), xp, oo)": {
+  "value": "Limit(x**n - x**(n + 2), x, oo, dir='-')",
+  "first": 0.0017245419876417145,
+  "median": 0.0008230879902839661
+ },
+ "limit(Piecewise((x**2/2, x <= 0.5), (x/2 - 0.125, True)), x, 0)": {
+  "value": "Limit(Piecewise((x**2/2, x <= 0.5), (x/2 - 0.125, True)), x, 0, dir='+')",
+  "first": 0.0020274380076443776,
+  "median": 0.0008987759938463569
+ },
+ "limit(Piecewise(((x - 9)/5, x < -1), ((x - 9)/5, x > 4), (sqrt(Abs(x - 3)), True)), x, -1)": {
+  "value": "Limit(Piecewise((x/5 - 9/5, (x > 4) | (x < -1)), (sqrt(Abs(x - 3)), True)), x, -1, dir='+')",
+  "first": 0.0029910739976912737,
+  "median": 0.0017863999964902177
+ },
+ "limit(2*sqrt(x)*Piecewise(((4*x - 2)/Abs(sqrt(4 - 4*(2*x - 1)**2)), 4*x - 2 >= 0), ((2 - 4*x)/Abs(sqrt(4 - 4*(2*x - 1)**2)), True)), x, 0)": {
+  "value": "Limit(2*sqrt(x)*Piecewise(((4*x - 2)/Abs(sqrt(4 - 4*(2*x - 1)**2)), x >= 1/2), ((2 - 4*x)/Abs(sqrt(4 - 4*(2*x - 1)**2)), True)), x, 0, dir='+')",
+  "first": 0.004029030998935923,
+  "median": 0.0026332450070185587
+ },
+ "(1 + Order(x)).limit(x, 0)": {
+  "value": "Limit(1 + O(x), x, 0, dir='+')",
+  "first": 0.0014065829891478643,
+  "median": 0.0005109719932079315
+ },
+ "((x + Order(x**2))/x).limit(x, 0)": {
+  "value": "Limit((x + O(x**2))/x, x, 0, dir='+')",
+  "first": 0.0022014689893694595,
+  "median": 0.0008370400028070435
+ },
+ "limit(sin(x)/x, x, 0)": {
+  "value": "1",
+  "first": 0.0010528209968470037,
+  "median": 0.00022940398775972426
+ },
+ "limit(exp(x)*(exp(1/x - exp(-x)) - exp(1/x)), x, oo)": {
+  "value": "-1",
+  "first": 0.0015291870076907799,
+  "median": 0.0005747740069637075
+ }
+}

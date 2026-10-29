@@ -294,7 +294,7 @@ fn series_impl(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, logfac: Optio
     Ok(add(&terms))
 }
 
-fn contains_order(e: &Expr) -> bool {
+pub(crate) fn contains_order(e: &Expr) -> bool {
     e.may_have_order() && (is_order(e) || e.args().iter().any(contains_order))
 }
 
