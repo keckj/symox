@@ -26,6 +26,7 @@ pub(crate) use rational_conditions::piecewise_original as rational_piecewise_ori
 pub mod rational_reduction;
 pub mod risch_polynomial_reduce;
 pub mod risch_splitfactor;
+pub mod prde;
 pub mod log_to_atan;
 pub mod log_to_real;
 pub mod ratint_driver;

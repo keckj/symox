@@ -27,6 +27,7 @@ from symox.integrals.risch import (gcdex_diophantine, frac_in, derivation,
 from symox.polys import Poly, lcm, cancel, sqf_list
 from symox.polys.polymatrix import PolyMatrix as Matrix
 from symox.solvers import solve
+from symox.integrals import _prde_native
 
 zeros = Matrix.zeros
 eye = Matrix.eye
@@ -45,6 +46,9 @@ def prde_normal_denom(fa, fd, G, DE):
     c1, ..., cm in Const(k) and y in k(t) of Dy + f*y == Sum(ci*gi, (i, 1, m)),
     q == y*h in k<t> satisfies a*Dq + b*q == Sum(ci*Gi, (i, 1, m)).
     """
+    native = _prde_native.prde_normal_denom(fa, fd, G, DE)
+    if native is not None:
+        return native
     dn, ds = splitfactor(fd, DE)
     Gas, Gds = list(zip(*G))
     gd = reduce(lambda i, j: i.lcm(j), Gds, Poly(1, DE.t))
@@ -111,6 +115,9 @@ def prde_special_denom(a, ba, bd, G, DE, case='auto'):
     For case == 'primitive', k<t> == k[t], so it returns (a, b, G, 1) in this
     case.
     """
+    native = _prde_native.prde_special_denom(a, ba, bd, G, DE, case)
+    if native is not None:
+        return native
     # TODO: Merge this with the very similar special_denom() in rde.py
     if case == 'auto':
         case = DE.case
@@ -189,6 +196,9 @@ def prde_linear_constraints(a, b, G, DE):
     Because M has entries in k(t), and because Matrix does not play well with
     Poly, M will be a Matrix of Basic expressions.
     """
+    native = _prde_native.prde_linear_constraints(a, b, G, DE)
+    if native is not None:
+        return native
     m = len(G)
 
     Gns, Gds = list(zip(*G))
@@ -213,6 +223,9 @@ def poly_linear_constraints(p, d):
     by d if and only if (c1, ..., cm) is a solution of Mx = 0, in
     which case the quotient is Sum(ci*qi, (i, 1, m)).
     """
+    native = _prde_native.poly_linear_constraints(p, d)
+    if native is not None:
+        return native
     m = len(p)
     q, r = zip(*[pi.div(d) for pi in p])
 
@@ -246,6 +259,9 @@ def constant_system(A, u, DE):
     Because Poly does not play well with Matrix yet, this algorithm assumes that
     all matrix entries are Basic expressions.
     """
+    native = _prde_native.constant_system(A, u, DE)
+    if native is not None:
+        return native
     if not A:
         return A, u
     Au = A.row_join(u)
@@ -308,6 +324,9 @@ def prde_spde(a, b, Q, n, DE):
     a*Dq + b*q == Sum(ci*gi, (i, 1, m)), p = (q - Sum(ci*ri, (i, 1, m)))/a has
     degree at most n1 and satisfies A*Dp + B*p == Sum(ci*qi, (i, 1, m))
     """
+    native = _prde_native.prde_spde(a, b, Q, n, DE)
+    if native is not None:
+        return native
     R, Z = list(zip(*[gcdex_diophantine(b, a, qi) for qi in Q]))
 
     A = a
@@ -333,6 +352,9 @@ def prde_no_cancel_b_large(b, Q, n, DE):
     Dq + b*q == Sum(ci*qi, (i, 1, m)), then q = Sum(dj*hj, (j, 1, r)), where
     d1, ..., dr in Const(k) and A*Matrix([[c1, ..., cm, d1, ..., dr]]).T == 0.
     """
+    native = _prde_native.prde_no_cancel_b_large(b, Q, n, DE)
+    if native is not None:
+        return native
     db = b.degree(DE.t)
     m = len(Q)
     H = [Poly(0, DE.t)]*m
@@ -369,6 +391,9 @@ def prde_no_cancel_b_small(b, Q, n, DE):
     Dq + b*q == Sum(ci*qi, (i, 1, m)) then q = Sum(dj*hj, (j, 1, r)) where
     d1, ..., dr in Const(k) and A*Matrix([[c1, ..., cm, d1, ..., dr]]).T == 0.
     """
+    native = _prde_native.prde_no_cancel_b_small(b, Q, n, DE)
+    if native is not None:
+        return native
     m = len(Q)
     H = [Poly(0, DE.t)]*m
 
@@ -517,6 +542,9 @@ def param_poly_rischDE(a, b, q, n, DE):
     (j, 1, r)) where d1, ..., dr are in Const(k) and (c1, ..., cm,
     d1, ..., dr) is a solution of Ax == 0.
     """
+    native = _prde_native.param_poly_rischDE(a, b, q, n, DE)
+    if native is not None:
+        return native
     m = len(q)
     if n < 0:
         # Only the trivial zero solution is possible.
@@ -657,6 +685,9 @@ def param_rischDE(fa, fd, G, DE):
 
     Elements of k(t) are tuples (a, d) with a and d in k[t].
     """
+    native = _prde_native.param_rischDE(fa, fd, G, DE)
+    if native is not None:
+        return native
     m = len(G)
     q, (fa, fd) = weak_normalizer(fa, fd, DE)
     # Solutions of the weakly normalized equation Dz + f*z = q*Sum(ci*Gi)
