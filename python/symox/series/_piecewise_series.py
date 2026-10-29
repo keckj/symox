@@ -185,8 +185,15 @@ def mul_nseries(e, x, n):
 
 def series(expr, x, x0, n, dir):
     """``Expr.series`` for an expression holding a ``Piecewise`` in ``x``."""
-    from symox import Dummy, Order, Rational, collect, sympify
+    from symox import Dummy, Order, Rational, S, collect, sympify
     x0 = sympify(x0)
+    if x0 in (S.Infinity, S.NegativeInfinity):
+        # Expr.series at an infinity: the expansion of e(sgn/x) at 0+,
+        # substituted back (the conditions stay as they are when they do
+        # not decide a branch, Piecewise((x, y < 1), (x**5, True)) at oo).
+        from symox import series as _series
+        sgn = 1 if x0 is S.Infinity else -1
+        return _series(expr.subs(x, sgn/x), x, 0, n, "+").subs(x, sgn/x)
     if x0.is_infinite:
         return None
     if x0 or dir == "-":

@@ -782,6 +782,13 @@ impl Engine {
         if matches!(f, Func::Floor | Func::Ceiling) && args.len() == 1 {
             return self.ser_floor(*f == Func::Floor, &args[0], n);
         }
+        if let (Func::Special(crate::special::SpecialFn::Mod), [p, q]) = (f, args) {
+            // `Mod._eval_nseries` expands the rewrite `p - q*floor(p/q)`.
+            if !depends(q, &self.x) {
+                let fl = func(Func::Floor, vec![crate::ops::div(p, q)]);
+                return self.ser(&sub(p, &mul2(q, &fl)), n);
+            }
+        }
         if let Func::Special(s) = f {
             use crate::special::SpecialFn;
             let order_arg = match (s, args.len()) {
@@ -1139,7 +1146,9 @@ impl Engine {
             }
         }
         let c0e = c0.to_expr();
-        let integer = c0e.as_number().map(|k| k.is_integer());
+        // `arg0 == floor(arg0)` in the reference: a numeric integer or an
+        // expression known to be an integer (`n` for `floor(x/b)` at `n*b`).
+        let integer = c0e.as_number().map(|k| k.is_integer()).or_else(|| crate::assumptions::is_integer(&c0e));
         if integer != Some(true) {
             let fl = func(Func::Floor, vec![c0e.clone()]);
             let ce = func(Func::Ceiling, vec![c0e.clone()]);
@@ -1151,7 +1160,21 @@ impl Engine {
         }
         let rest = sub(arg, &c0e);
         let s = match self.ser_nonzero(&rest, n.max(1)) {
-            Ok(r) => sign_of(r.lead().unwrap()).ok_or_else(unsupported)?,
+            Ok(r) => {
+                let lead = r.lead().unwrap();
+                // a symbolic leading coefficient (`1/b` for `floor(x/b)`)
+                // decides only through its assumptions
+                sign_of(lead)
+                    .or_else(|| {
+                        let le = lead.to_expr();
+                        match (crate::assumptions::is_positive(&le), crate::assumptions::is_negative(&le)) {
+                            (Some(true), _) => Some(1),
+                            (_, Some(true)) => Some(-1),
+                            _ => None,
+                        }
+                    })
+                    .ok_or_else(unsupported)?
+            }
             Err(SErr::Pole(msg)) if msg.ends_with("(identically zero)") => 0,
             Err(err) => return Err(err),
         };

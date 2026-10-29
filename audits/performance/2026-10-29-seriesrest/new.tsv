@@ -1,0 +1,20 @@
+fresh	floor(x+1/2)-floor(x) at oo	0.002600	AccumBounds(-1/2, 3/2)
+repeat	floor(x+1/2)-floor(x) at oo	0.001130	AccumBounds(-1/2, 3/2)
+fresh	ceiling(x+1/2)-ceiling(x) at oo	0.002641	AccumBounds(-1/2, 3/2)
+repeat	ceiling(x+1/2)-ceiling(x) at oo	0.001105	AccumBounds(-1/2, 3/2)
+fresh	floor(x)-x at oo	0.002144	AccumBounds(-1, 0)
+repeat	floor(x)-x at oo	0.000717	AccumBounds(-1, 0)
+fresh	Mod(x, 3) at oo	0.002318	AccumBounds(0, 3)
+repeat	Mod(x, 3) at oo	0.000782	AccumBounds(0, 3)
+fresh	floor(x)/x at oo	0.001175	1
+repeat	floor(x)/x at oo	0.000244	1
+fresh	x*floor(3/x)/2 at 0+	0.001284	3/2
+repeat	x*floor(3/x)/2 at 0+	0.000319	3/2
+fresh	Mod(x, b) at n*b+	0.000827	0
+repeat	Mod(x, b) at n*b+	0.000173	0
+fresh	(-1)**x*2**(-x) at oo	0.001262	0
+repeat	(-1)**x*2**(-x) at oo	0.000382	0
+fresh	(-1/4)**x at oo	0.001915	0
+repeat	(-1/4)**x at oo	0.000872	0
+fresh	Piecewise series at oo	0.002682	Piecewise((x, y < 1), (x**5, True))
+repeat	Piecewise series at oo	0.001205	Piecewise((x, y < 1), (x**5, True))
