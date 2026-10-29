@@ -2135,6 +2135,7 @@ impl PyPoly {
     #[pyo3(signature=(all=false))]
     fn sqf_list_include(&self,all:bool)->PyResult<Vec<(PyPoly,u32)>>{
         if let Some(c)=self.legacy_cc(){return c.sqf_list_include(all);}
+        if let Some(fs)=self.p.inexact_ring_sqf_list_include(all).map_err(err)?{return Ok(fs.into_iter().map(|(p,k)|(PyPoly{p},k as u32)).collect());}
         if let Some((f,g))=self.gg(){let(c,fs)=g.sqf_list(f,all).map_err(err)?;return gaussian_include(f,g,c,fs);}
         if let Some(f)=self.ex(){return Ok(f.sqf_list_include(all).map_err(err)?.into_iter().map(|(p,k)|(PyPoly{p:p.into()},k as u32)).collect());}
         checked_factor_views::include(&self.p,true,all)
@@ -2143,6 +2144,10 @@ impl PyPoly {
     #[pyo3(signature=(all=false))]
     fn sqf_list<'py>(&self, py: Python<'py>, all:bool) -> PyResult<Bound<'py, PyTuple>> {
         if let Some(c)=self.legacy_cc(){return c.sqf_list(py,all);}
+        if let Some((c,fs))=self.p.inexact_ring_sqf_list(all).map_err(err)?{
+            let items=fs.into_iter().map(|(p,k)|PyTuple::new(py,[PyPoly{p}.into_pyobject(py)?.into_any(),(k as u32).into_pyobject(py)?.into_any()])).collect::<PyResult<Vec<_>>>()?;
+            return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),PyList::new(py,items)?.into_any()]);
+        }
         if let Some(f)=self.ex(){
             let(c,fs)=match self.gg(){Some((f,g))=>g.sqf_list(f,all).map_err(err)?,None=>f.sqf_list(all).map_err(err)?};
             let items=fs.into_iter().map(|(p,k)|PyTuple::new(py,[PyPoly{p:p.into()}.into_pyobject(py)?.into_any(),(k as u32).into_pyobject(py)?.into_any()])).collect::<PyResult<Vec<_>>>()?;
@@ -2797,6 +2802,18 @@ fn poly_result(py: Python<'_>, e: Expr, as_poly: bool, gens: &[Expr]) -> PyResul
 
 /// Explicit generators and no options: the reference `sring` and
 /// `parallel_poly_from_expr` select `EX` when `construct_domain` does.
+/// Expressions over explicit generators that `parallel_poly_from_expr`
+/// puts over a real `RR[y...]` ring: the reference `gcd`/`lcm` keep the
+/// `dmp_inner_gcd` scale of those polynomials (`1.5*x*z + 1.5*y`).
+fn inexact_ring_exprs(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Option<(PolyValue,PolyValue)>>{
+    if gens.is_empty()||kwargs.is_some_and(|k|!k.is_empty())||f.downcast::<PyPoly>().is_ok()||g.downcast::<PyPoly>().is_ok()||list_items(f)?.is_some()||list_items(g)?.is_some(){return Ok(None);}
+    let (a,b)=(to_expr(f)?,to_expr(g)?);
+    if a.float_info().max_precision.is_none()&&b.float_info().max_precision.is_none(){return Ok(None);}
+    let (Ok(p),Ok(q))=(PyPoly::build(f,gens,None),PyPoly::build(g,gens,None)) else {return Ok(None)};
+    if !p.p.inexact_ring_pair(&q.p).is_ok_and(|r|r.is_some()){return Ok(None);}
+    Ok(Some((p.p,q.p)))
+}
+
 fn expression_pair(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Option<(ExpressionPoly,ExpressionPoly)>>{
     if gens.is_empty()||kwargs.is_some_and(|k|!k.is_empty())||f.downcast::<PyPoly>().is_ok()||g.downcast::<PyPoly>().is_ok()||list_items(f)?.is_some(){return Ok(None);}
     let gv=gens_of(gens)?;
@@ -2892,6 +2909,9 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
         let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some()||v.expression.as_ref().is_some_and(|e|e.ground.is_some());
         if special(&p.get().p)||q.downcast::<PyPoly>().is_ok_and(|q|special(&q.get().p)){return poly_obj(py,p.get().gcd(q)?.p);}
     }}
+    if let (Some(q),None)=(g,modulus) {if let Some((a,b))=inexact_ring_exprs(f,q,gens,_kwargs)? {
+        return Ok(w(a.checked_gcd(&b).map_err(err)?.as_expr()).into_pyobject(py)?.into_any().unbind());
+    }}
     if let (Some(q),None)=(g,modulus) {if let Some((v,polys))=explicit_expression_polys(&[f,q],gens,_kwargs,&[])? {
         return expression_output(py,v[0].gcd(&v[1]).map_err(err)?,polys);
     }
@@ -2943,6 +2963,9 @@ fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
         let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some()||v.expression.as_ref().is_some_and(|e|e.ground.is_some());
         if special(&p.get().p)||q.downcast::<PyPoly>().is_ok_and(|q|special(&q.get().p)){return poly_obj(py,p.get().lcm(q)?.p);}
+    }}
+    if let (Some(q),None)=(g,modulus) {if let Some((a,b))=inexact_ring_exprs(f,q,gens,_kwargs)? {
+        return Ok(w(a.checked_lcm(&b).map_err(err)?.as_expr()).into_pyobject(py)?.into_any().unbind());
     }}
     if let (Some(q),None)=(g,modulus) {if let Some((v,polys))=explicit_expression_polys(&[f,q],gens,_kwargs,&[])? {
         return expression_output(py,v[0].lcm(&v[1]).map_err(err)?,polys);

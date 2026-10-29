@@ -1,0 +1,12 @@
+Poly.gcd RR[y]                  0.0002s  Poly(1.0*x*z + 1.0*y, x, z, domain='RR[y]')
+Poly.lcm RR[y]                  0.0002s  Poly(1.0*x**3*z**2 + 1.0*y*x**2*z - 1.0*y**2*x*z - 1.0*y**3, x, z, domain='RR[y]')
+Poly.cofactors RR[y]            0.0002s  (Poly(1.0*x*z + 1.0*y, x, z, domain='RR[y]'), Poly(1.5, x, z, domain='RR[y]'), Poly(3.0, x
+gcd expr RR[y]                  0.0001s  1.0*x*z + 1.0*y
+Poly.sqf_list RR[y]             0.0003s  (1.50000000000000, [(Poly(1.0*x + 1.0, x, z, domain='RR[y]'), 1), (Poly(1.0*x*z + 1.0*y, x
+Poly.integrate RR[y]            0.0001s  Poly(0.75*x**2*z + 1.5*y*x, x, z, domain='RR[y]')
+polylog sign                    0.0000s  None
+hyperexpand lerchphi            0.1337s  -polylog(3, -1/2) + polylog(3, 1/2)
+solve exp tower +1              0.0165s  [log(log(pi) + I*pi/2)]
+solve exp(exp(x)+1)-4           0.0157s  [log(-1 + log(4))]
+simplify log                    0.0121s  log(-1 + log(4))
+integrate atan(p*x)/x**2        0.0013s  -p*log(p**2)/2 + p*log(p**2 + 1)/2 + atan(p)

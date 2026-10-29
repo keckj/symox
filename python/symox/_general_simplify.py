@@ -32,6 +32,14 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         # log._eval_simplify: a held log(x, b) is simplified in its
         # evaluated form, log(x)/log(b).
         return simplify(expression.func(*expression.args),**options)
+    if (len(expression.args)==1 and getattr(expression.func,'__name__',None)=='log'
+            and not expression.free_symbols and measure is count_ops and ratio==1.7
+            and not rational and not inverse and doit):
+        # log._eval_simplify is returned before any deep step; the native
+        # simplify implements it. Numeric logs only: the solvers reach
+        # symbolic logs through this simplify where the reference simplifies
+        # their argument alone.
+        return _core.simplify(expression)
     if doit and _core._host_contains(expression)[0]:
         # The reference simplify ends with doit() on unhandled heads; host
         # classes that opt in (held WignerD) are evaluated first here.

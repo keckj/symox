@@ -2512,8 +2512,57 @@ fn exact_real_pair(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<Option<(su
     Ok(Some((convert(f)?, convert(g)?)))
 }
 
+/// `RR[y...]` in several generators: the polynomials flattened over
+/// `QQ` in the generators followed by the ground symbols, the image of
+/// `dmp_convert(f, u, RR[y], QQ[y])` (each `mpf` through `to_rational`).
+fn exact_real_ring(f: &ExpressionPoly) -> bool {
+    let ground = f.ground.as_ref().expect("inexact ground");
+    f.gens.len() >= 2 && ground.ring && !ground.symbols.is_empty() && ground.inexact.is_some_and(|k| !k.complex)
+}
+fn flatten_real_ring(k: &Dom, p: &ExpressionPoly) -> PResult<MPoly<Rat>> {
+    let nv = p.gens.len() + k.symbols.len();
+    let mut terms = Vec::new();
+    for (monomial, c) in p.terms() {
+        let c = k.from_expr(&c)?;
+        if !k.r.is_one(&c.d) {
+            return Err(PolyError::ExactQuotientFailed("ring element with a denominator".into()));
+        }
+        for (e, x) in c.n.iter() {
+            let r = k.k().exact_parts(x).0;
+            if r.is_zero() {
+                continue;
+            }
+            let mut exponent = monomial.clone();
+            exponent.extend_from_slice(e);
+            terms.push((exponent, r));
+        }
+    }
+    Ok(MPoly::from_terms(nv, terms))
+}
+/// `dmp_convert(h, u, QQ[y], RR[y])`.
+fn unflatten_real_ring(k: &Dom, ground: &GaussianGround, p: &MPoly<Rat>, gens: &[Expr]) -> PResult<ExpressionPoly> {
+    let vars: Vec<Expr> = gens.iter().chain(k.symbols.iter()).cloned().collect();
+    let terms = p.iter().map(|(e, c)| {
+        let mut factors = vec![super::convert::rat_to_expr(c)];
+        for (s, &n) in vars.iter().zip(e) {
+            if n != 0 {
+                factors.push(crate::ops::powi(s, n as i64));
+            }
+        }
+        crate::ops::mul(&factors)
+    }).collect::<Vec<_>>();
+    ground.convert_expr(&crate::ops::add(&terms), gens)
+}
+
 fn exact_multi_cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<Option<(ExpressionPoly, ExpressionPoly, ExpressionPoly)>> {
     let ground = f.ground.as_ref().expect("inexact ground");
+    if exact_real_ring(f) && f.gens == g.gens {
+        // `_dmp_inner_gcd` of `RR[y]`: `dmp_rr_prs_gcd` over `QQ[y]`.
+        let k = dom(f);
+        let (h, p, q) = super::rr_prs_gcd::inner_gcd(&flatten_real_ring(&k, f)?, &flatten_real_ring(&k, g)?, f.gens.len())?;
+        let back = |p: &MPoly<Rat>| unflatten_real_ring(&k, ground, p, &f.gens);
+        return Ok(Some((back(&h)?, back(&p)?, back(&q)?)));
+    }
     if let Some((exact, a, b)) = exact_complex_pair(f, g)? {
         let (h, p, q) = exact.cofactors(&a, &b)?;
         return Ok(Some((ground.convert_poly(&h)?, ground.convert_poly(&p)?, ground.convert_poly(&q)?)));
@@ -2600,6 +2649,13 @@ pub fn lcm(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
             let (fc, ff) = primitive(f)?;
             let (gc, gg) = primitive(g)?;
             let c = k.lcm(&fc, &gc)?;
+            if f.gens == g.gens {
+                // `dmp_quo(dmp_mul(f, g), dmp_gcd(f, g))` with the reference
+                // `QQ[y]` gcd of the primitive parts.
+                let (a, b) = (flatten_real_ring(&k, &ff)?, flatten_real_ring(&k, &gg)?);
+                let (_, _, q) = super::rr_prs_gcd::inner_gcd(&a, &b, f.gens.len())?;
+                return unflatten_real_ring(&k, ground, &a.mul(&q), &f.gens)?.mul_ground(&k.to_expr(&c));
+            }
             let (a, b) = exact_real_pair(&ff, &gg)?.expect("real multivariate primitives");
             let h = a.gcd(&b);
             let (q, remainder) = b.div(&h)?;
@@ -2980,12 +3036,146 @@ pub fn compose(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly
     let (k, r) = pair(f, g, |k, a, b| k.d_compose(a, b))?;
     k.poly(&r, &f.gens)
 }
+/// `dmp_sqf_list` over a real `RR[y...]` ring in several generators:
+/// `dmp_ground_primitive` over `RR[y...]` (whose `RR` ground gcd is one),
+/// `dmp_primitive` in the main generator and Yun's algorithm with the
+/// reference `dmp_inner_gcd` (through `QQ[y...]`, each result converted
+/// back to `RR`), then the recursive decomposition of the content, combined
+/// by multiplicity.
+fn multi_sqf_list(f: &ExpressionPoly, all: bool) -> PResult<(Expr, Vec<(ExpressionPoly, usize)>)> {
+    let k = dom(f);
+    let ground = f.ground.as_ref().expect("inexact ground");
+    let n = f.gens.len();
+    let mut terms = f.terms();
+    terms.sort_by(|a, b| b.0.cmp(&a.0));
+    if terms.is_empty() {
+        return Ok((k.to_expr(&k.zero()), Vec::new()));
+    }
+    let mut cs = terms.iter().map(|(_, c)| k.from_expr(c)).collect::<PResult<Vec<_>>>()?;
+    // `dmp_ground_content` over `RR[y]`, with the `RR[y].gcd` of
+    // `PolyElement.cofactors` (a monomial gcd has the coefficient one).
+    let mut coeff = {
+        let flat = flatten_real_ring(&k, f)?;
+        let mut groups: std::collections::BTreeMap<Vec<u32>, Vec<(Vec<u32>, Rat)>> = std::collections::BTreeMap::new();
+        for (e, c) in flat.iter() {
+            let mut g = e.to_vec();
+            g[..n].iter_mut().for_each(|v| *v = 0);
+            groups.entry(e[..n].to_vec()).or_default().push((g, c.clone()));
+        }
+        let mut cont = MPoly::<Rat>::zero(flat.nvars);
+        for (_, t) in groups {
+            cont = super::rr_prs_gcd::rr_ground_gcd(&cont, &MPoly::from_terms(flat.nvars, t));
+            if cont.constant_value().is_some_and(|c| c.is_one()) {
+                break;
+            }
+        }
+        let c = unflatten_real_ring(&k, ground, &cont, &f.gens)?;
+        k.from_expr(&c.terms().into_iter().next().map(|(_, c)| c).unwrap_or_else(|| Expr::int(0)))?
+    };
+    if !k.is_one(&coeff) {
+        cs = cs.iter().map(|c| k.quo(c, &coeff)).collect::<PResult<Vec<_>>>()?;
+    }
+    if k.is_negative(&cs[0]) {
+        cs = cs.iter().map(|c| k.neg(c)).collect();
+        coeff = k.neg(&coeff);
+    }
+    let mut primitive = ExpressionPoly::from_terms(terms.into_iter().zip(&cs).map(|((m, _), c)| (m, k.to_expr(c))).collect(), &f.gens)?;
+    primitive.ground = f.ground.clone();
+    let back = |p: &MPoly<Rat>| unflatten_real_ring(&k, ground, p, &f.gens);
+    let real = |p: &MPoly<Rat>| -> PResult<MPoly<Rat>> { flatten_real_ring(&k, &back(p)?) };
+    let a = flatten_real_ring(&k, &primitive)?;
+    let deg = a.degree(0);
+    let (content, a) = super::rr_prs_gcd::primitive_main(&a, n)?;
+    let (content, a) = (real(&content)?, real(&a)?);
+    let diff = |p: &MPoly<Rat>| -> PResult<MPoly<Rat>> {
+        real(&MPoly::from_terms(p.nvars, p.iter().filter(|(e, _)| e[0] > 0).map(|(e, c)| {
+            let mut e = e.to_vec();
+            let m = e[0];
+            e[0] -= 1;
+            (e, c.mul(&Rat::from_i64(i64::from(m))))
+        }).collect()))
+    };
+    let mut result: Vec<(MPoly<Rat>, usize)> = Vec::new();
+    if deg != 0 {
+        let h = diff(&a)?;
+        let (_, p, q) = super::rr_prs_gcd::inner_gcd(&a, &h, n)?;
+        let (mut p, mut q) = (real(&p)?, real(&q)?);
+        let mut i = 1;
+        loop {
+            let d = diff(&p)?;
+            let h = real(&q.sub(&d))?;
+            if h.is_zero() {
+                result.push((p, i));
+                break;
+            }
+            let (g, np, nq) = super::rr_prs_gcd::inner_gcd(&p, &h, n)?;
+            let g = real(&g)?;
+            (p, q) = (real(&np)?, real(&nq)?);
+            if all || g.degree(0) > 0 {
+                result.push((g, i));
+            }
+            i += 1;
+        }
+    }
+    // The content, in the remaining generators.
+    let rest = &f.gens[1..];
+    let drop = |p: &MPoly<Rat>| MPoly::from_terms(p.nvars - 1, p.iter().map(|(e, c)| (e[1..].to_vec(), c.clone())).collect());
+    let lift = |p: &MPoly<Rat>| MPoly::from_terms(p.nvars + 1, p.iter().map(|(e, c)| {
+        let mut x = vec![0u32];
+        x.extend_from_slice(e);
+        (x, c.clone())
+    }).collect());
+    let content = unflatten_real_ring(&k, ground, &drop(&content), rest)?;
+    let (coeff_content, factors) = if rest.len() == 1 { sqf_list(&content, all)? } else { multi_sqf_list(&content, all)? };
+    coeff = k.mul(&coeff, &k.from_expr(&coeff_content)?)?;
+    for (fac, i) in factors {
+        let fac = lift(&flatten_real_ring(&k, &fac)?);
+        match result.iter_mut().find(|(_, j)| *j == i) {
+            Some((r, _)) => *r = real(&r.mul(&fac))?,
+            None => result.push((fac, i)),
+        }
+    }
+    result.sort_by_key(|(_, i)| *i);
+    let mut degrees = vec![0i64; n];
+    for (p, i) in &result {
+        for (v, d) in degrees.iter_mut().enumerate() {
+            *d += *i as i64 * p.degree(v).max(0);
+        }
+    }
+    if (0..n).any(|v| degrees[v] != f.degree(v)) {
+        return Err(reference("AssertionError", ""));
+    }
+    let factors = result.iter().map(|(p, i)| Ok((back(p)?, *i))).collect::<PResult<Vec<_>>>()?;
+    Ok((k.to_expr(&coeff), factors))
+}
+
 pub fn sqf_list(f: &ExpressionPoly, all: bool) -> PResult<(Expr, Vec<(ExpressionPoly, usize)>)> {
+    if exact_real_ring(f) {
+        return multi_sqf_list(f, all);
+    }
     let (k, (c, fs)) = unary(f, |k, a| k.sqf_list(a, all))?;
     let fs = fs.into_iter().map(|(p, i)| Ok((k.poly(&p, &f.gens)?, i))).collect::<PResult<Vec<_>>>()?;
     Ok((k.to_expr(&c), fs))
 }
 pub fn sqf_list_include(f: &ExpressionPoly, all: bool) -> PResult<Vec<(ExpressionPoly, usize)>> {
+    if exact_real_ring(f) {
+        // `dmp_sqf_list_include`
+        let (c, fs) = multi_sqf_list(f, all)?;
+        let mut out = Vec::new();
+        match fs.first() {
+            Some((p, 1)) => {
+                out.push((mul_ground(p, &c)?, 1));
+                out.extend(fs[1..].iter().cloned());
+            }
+            _ => {
+                let mut g = ExpressionPoly::from_terms(vec![(vec![0; f.gens.len()], c)], &f.gens)?;
+                g.ground = f.ground.clone();
+                out.push((g, 1));
+                out.extend(fs);
+            }
+        }
+        return Ok(out);
+    }
     let (k, (c, fs)) = unary(f, |k, a| k.sqf_list(a, all))?;
     let mut out = Vec::new();
     if let Some((p, 1)) = fs.first() {

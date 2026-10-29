@@ -410,6 +410,19 @@ pub fn simplify(e: &Expr) -> Expr {
     if crate::functions::is_numeric_value(e) && crate::assumptions::is_zero(e) == Some(true) {
         return Expr::zero();
     }
+    // `log._eval_simplify`, which simplify returns at once: the logarithm
+    // of the simplified argument with its logarithms expanded
+    // (`expand_log(deep=True)`), unless that is larger by `count_ops` than
+    // the input (`log(I*pi)` stays, `log(-1 + 2*log(2))` keeps its
+    // expanded inner logarithm where the generic chain would give
+    // `log(-1 + log(4))`).
+    if let Kind::Func(Func::Log, args) = e.kind() {
+        if args.len() == 1 {
+            let expr = crate::simp::expand_log(&crate::functions::func(Func::Log, vec![simplify(&args[0])]), false);
+            let measure = crate::simptools::methods::count_ops;
+            return if measure(&expr) <= measure(e) { expr } else { e.clone() };
+        }
+    }
     let mut trig_memo = crate::simp::TrigMemo::default();
     let t = crate::simp::trigsimp_cached(e, &mut trig_memo);
     // Zero is already the smallest possible result. In particular, do not
