@@ -442,7 +442,7 @@ pub fn harmonic_number(n: u64, m: u32) -> BigRational {
     let mut s = BigRational::zero();
     for k in 1..=n {
         let d = num_traits::pow(BigInt::from(k), m as usize);
-        s += BigRational::new(BigInt::one(), d);
+        s = crate::bigint_gcd::ratio_add(&s, &BigRational::new_raw(BigInt::one(), d));
     }
     s
 }

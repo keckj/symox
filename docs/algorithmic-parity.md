@@ -11548,3 +11548,61 @@ QQ_I SymPy 1.14 raises the same ZeroDivisionError, so that case is parity. A
 monkeypatch of `Poly.LC` reached through an in-function import is not seen by
 the snapshot. No intentional output correction is made relative to SymPy
 1.14.
+
+## Native big-integer gcd and Rational normalisation (wave 20, biggcd)
+
+num-bigint computes `gcd` with Stein's binary algorithm: one full-length
+subtraction and shift per bit, and pathological on unbalanced operands
+(`gcd(a, 2**k)` with a huge odd `a` strips `a` one bit at a time). Every
+`Rational` normalisation, rational `Add`/`Mul`/division, `Rational.gcd`,
+`gcd(Integer, Integer)` and the content of ZZ/QQ polynomials went through it.
+`crates/symox-core/src/bigint_gcd.rs` now computes the same unique
+non-negative gcd with: removal of the common power of two first
+(`gcd(a, 2**k * m)` with `m = 1` costs one trailing-zero count), one
+Euclidean division for operands whose sizes differ by more than a limb, then
+Lehmer's algorithm (Knuth Algorithm L) on 64-bit limbs with 63-bit leading
+digits. Each cofactor matrix is unimodular and is applied only if its entries
+fit in 63 bits, alternate in sign and give non-negative results; otherwise an
+exact Euclidean step is taken, so the gcd never depends on a heuristic. The
+rational helpers (`ratio`, `ratio_add`, `ratio_mul`, `ratio_div`) build the
+same reduced `BigRational` as `num_rational::Ratio` with Henrici's gcds (the
+formulas of Python's `fractions`): a sum of coprime-denominator fractions
+needs no reduction, otherwise only `gcd(t, gcd(d1, d2))`.
+
+Callers moved to it: `Number::rational`, `Number` add/mul/div of rationals
+(hence every core `Add`/`Mul` of Rationals, `Integer/Integer`,
+`Rational(p, q)`), `Number::gcd`, `Rational.gcd` in `ops.rs`, the radsimp
+integer gcd, the egyptian-fraction reduction of `ntheory/misc.rs`, the ZZ/QQ
+polynomial ground `poly::int::Int::gcd` (and so `Rat`, `content`,
+`primitive`, the QQ arithmetic of dense polynomials), `harmonic_number`
+(Henrici addition instead of `Ratio` add-assign), and the matrix-integer
+Lehmer gcd of `matrix/int.rs`, whose separate implementation now delegates to
+the shared one. `igcd`/`ilcm` already used Python's `math.gcd`/`math.lcm`
+(the same functions as SymPy 1.14 with Python ground types) and are
+unchanged.
+
+Every value is identical: the gcd is unique and the reduced fraction with a
+positive denominator is canonical; the audit compares `str()` digests with
+SymPy 1.14 on all 16 calls, the integration corpus is identical case by case
+(verdict and printed result) and the ODE corpus counts are unchanged. Main
+effects (first call, release build): `gamma(Rational(200001, 2))` 11.1 s ->
+0.04 s (SymPy 1.7 s), `Rational(3**200001, 2**100000)` 0.44 s -> 0.004 s,
+`Add` of 1000 rationals with 40-digit denominators 41.8 s -> 0.08 s (SymPy
+5.2 s), `harmonic(20000)` 47 s -> 0.27 s (SymPy 7.7 s); details in
+[the audit](../audits/performance/2026-10-29-biggcd/README.md).
+
+Evidence: `tests/test_native_biggcd.py` (13 SymPy 1.14 digests on smaller
+instances of the audit witnesses, sign/zero/integer-result cases, and
+randomized arithmetic certified by `fractions.Fraction`, `math.gcd` and
+`math.lcm`), and Rust unit tests comparing with num-bigint's gcd/lcm and
+`Ratio` arithmetic on 400 random pairs, Fibonacci operands and quotients
+wider than a limb.
+
+Remaining gaps: the gcd is quadratic (Lehmer, like CPython's), not
+subquadratic (no half-gcd), so `gcd(Integer(A), Integer(B))` on 10**5-digit
+operands is about 1.4x slower than SymPy's `math.gcd` (0.08 s vs 0.055 s);
+`BigRational` operator arithmetic used directly by other kernels
+(orthogonal polynomials, Bernoulli/Euler polynomial coefficients, summation
+helpers, a few `BigRational::new` sites) still reduces through num-rational
+and num-bigint's binary gcd. No intentional output correction relative to
+SymPy 1.14.

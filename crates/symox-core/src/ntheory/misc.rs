@@ -70,7 +70,7 @@ pub fn egypt_harmonic(x: &BigInt, y: &BigInt) -> (Vec<BigInt>, BigInt, BigInt) {
         let nn = &an * &d + &ad;
         let nd = &ad * &d;
         if &nn * y <= x * &nd {
-            let g = nn.gcd(&nd);
+            let g = crate::bigint_gcd::gcd(&nn, &nd);
             an = nn / &g;
             ad = nd / &g;
             rv.push(d.clone());
@@ -81,7 +81,7 @@ pub fn egypt_harmonic(x: &BigInt, y: &BigInt) -> (Vec<BigInt>, BigInt, BigInt) {
     }
     let rn = x * &ad - &an * y;
     let rd = y * &ad;
-    let g = rn.gcd(&rd);
+    let g = crate::bigint_gcd::gcd(&rn, &rd);
     if g.is_zero() {
         return (rv, rn, rd);
     }

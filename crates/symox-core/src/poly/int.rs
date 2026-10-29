@@ -322,7 +322,7 @@ impl Int {
         if self.is_one() || o.is_one() {
             return Int::one();
         }
-        Int::from_big(self.to_big().gcd(&o.to_big()))
+        Int::from_big(crate::bigint_gcd::gcd(&self.to_big(), &o.to_big()))
     }
 
     pub fn lcm(&self, o: &Int) -> Int {

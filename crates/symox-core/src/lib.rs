@@ -16,6 +16,7 @@ pub mod ask;
 pub mod assumptions;
 pub mod assumption_facts;
 pub mod bigfloat;
+pub mod bigint_gcd;
 pub mod binders;
 pub mod calculus;
 pub mod complex_parts;
