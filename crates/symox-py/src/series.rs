@@ -1,6 +1,6 @@
 //! Python bindings for series expansions, `Order` and limits.
 
-use pyo3::exceptions::{PyNotImplementedError, PyValueError};
+use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
@@ -18,6 +18,11 @@ fn w(e: Expr) -> PyExpr {
 fn serr(e: SErr) -> PyErr {
     match e {
         SErr::Pole(s) => PyValueError::new_err(format!("PoleError: {s}")),
+        // Reference Derivative._eval_nseries / _eval_as_leading_term read
+        // self.variables, which raises TypeError for a symbolic count.
+        SErr::Unsupported(s) if s == "Derivative with symbolic order" => PyTypeError::new_err(
+            "\nCannot give expansion for symbolic count. If you just want a list of\nall variables of differentiation, use _wrt_variables.",
+        ),
         e => PyNotImplementedError::new_err(e.to_string()),
     }
 }

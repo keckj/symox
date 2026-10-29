@@ -131,6 +131,9 @@ def _as_finite_diff(derivative, points=1, x0=None, wrt=None):
         points=_points(sequence)
     if not derivative.is_Derivative:
         return _map_derivatives(derivative,points,x0,wrt)
+    # Reference _as_finite_diff reads derivative.variables, which raises
+    # TypeError for a count that is not an Integer (symbolic or Float).
+    derivative.variables
     counts=derivative.variable_count
     if wrt is None:
         result=derivative

@@ -1229,10 +1229,30 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
     // Sums of real terms are left to real_signs: the generic extended_real
     // fact is not cached and would revisit a shared DAG exponentially.
     if let Kind::Add(_,terms)=e.kind() {
+        if integer_offset_nonzero(e) {return Some(false);}
         if terms.iter().all(|(t,_)|is_real(t)==Some(true)) {return None;}
         return add_is_zero(e);
     }
     None
+}
+
+/// `zero -> even -> integer` in the reference fact rules: a sum of integer
+/// terms and a rational constant is nonzero when the constant is not an
+/// integer (`n - 1/3`), or when the sum is odd (`2*n - 1`).
+fn integer_offset_nonzero(e:&Expr)->bool{
+    let args=e.args();
+    let mut constant=None;
+    let mut rest=Vec::with_capacity(args.len());
+    for a in &args {
+        match a.as_number() {
+            Some(c) if constant.is_none() => constant=Some(c.clone()),
+            Some(_) => return false,
+            None => rest.push(a),
+        }
+    }
+    let Some(c)=constant else {return false};
+    if !c.is_rational() || rest.is_empty() || !rest.iter().all(|t|is_integer(t)==Some(true)) {return false;}
+    !c.is_integer() || is_odd(e)==Some(true)
 }
 
 /// SymPy's `Add._eval_is_zero`: the real terms must sum to a nonzero

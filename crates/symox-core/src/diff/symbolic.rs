@@ -330,17 +330,169 @@ pub fn construct(body: &Expr, vars: Vec<(Expr, Expr)>, evaluate: bool) -> Result
         }) {
             return Ok(Expr::zero());
         }
-        let prefix = all.iter().take_while(|(_, n)| literal(n).is_some()).count();
-        if prefix > 0 {
-            let machine = all[..prefix]
-                .iter()
-                .map(|(v, n)| (v.clone(), literal(n).unwrap()))
-                .collect::<Vec<_>>();
-            let evaluated = super::diff_evaluated(&base, &machine);
-            return construct(&evaluated, all[prefix..].to_vec(), false);
-        }
+        return evaluate_counts(&base, &all);
     }
     Ok(raw(&base, &all))
+}
+
+/// One step of the reference evaluation loop.
+enum Step {
+    /// The derivative of the current expression for this count.
+    Value(Expr),
+    /// `Derivative.__new__` returns this value at once (`expr.diff(v)` for a
+    /// masked variable absent from the expression).
+    Return(Expr),
+    /// No closed form: this and the following counts stay held.
+    Unhandled,
+}
+
+/// The evaluation loop of the reference `Derivative.__new__` for sorted,
+/// merged counts that are not all machine integers. A literal prefix keeps the
+/// established native evaluator; a non-literal count dispatches to the
+/// reference `_eval_derivative_n_times` closed forms (`AtomicExpr` and `Mul`),
+/// and every other expression keeps the remaining counts held.
+fn evaluate_counts(base: &Expr, all: &[(Expr, Expr)]) -> Result<Expr, Error> {
+    let prefix = all.iter().take_while(|(_, n)| literal(n).is_some()).count();
+    let mut expr = if prefix > 0 {
+        let machine = all[..prefix]
+            .iter()
+            .map(|(v, n)| (v.clone(), literal(n).unwrap()))
+            .collect::<Vec<_>>();
+        super::diff_evaluated(base, &machine)
+    } else {
+        base.clone()
+    };
+    let mut unhandled: &[(Expr, Expr)] = &[];
+    for (i, (v, n)) in all.iter().enumerate().skip(prefix) {
+        if expr.is_zero() {
+            return Ok(expr);
+        }
+        let step = match literal(n) {
+            Some(count) => Step::Value(super::diff_evaluated(&expr, &[(v.clone(), count)])),
+            None => n_times(&expr, v, n)?,
+        };
+        match step {
+            Step::Value(value) => expr = value,
+            Step::Return(value) => return Ok(value),
+            Step::Unhandled => {
+                unhandled = &all[i..];
+                break;
+            }
+        }
+    }
+    let expr = super::canonical_derivatives(&expr);
+    if unhandled.is_empty() || expr.is_zero() {
+        return Ok(expr);
+    }
+    // Expr.__new__(cls, expr, *unhandled): the counts are concatenated, not
+    // merged or evaluated again.
+    let (inner, mut vars) = data(&expr)
+        .map(|(e, v)| (e.clone(), v))
+        .unwrap_or_else(|| (expr.clone(), Vec::new()));
+    vars.extend(unhandled.iter().cloned());
+    Ok(raw(&inner, &vars))
+}
+
+/// `cls._dispatch_eval_derivative_n_times(expr, v, count)` for a non-literal
+/// count, with the reference Dummy masking of a function or derivative
+/// variable.
+fn n_times(expr: &Expr, v: &Expr, n: &Expr) -> Result<Step, Error> {
+    if v.is_symbol() {
+        return Ok(closed_form(expr, v, n)?.map_or(Step::Unhandled, Step::Value));
+    }
+    if !(super::applied_undef(v) || is_derivative(v)) {
+        return Ok(Step::Unhandled);
+    }
+    // Derivatives and undefined functions are independent of all others, so
+    // a masked variable absent from the expression gives expr.diff(xi).
+    let xi = Expr::dummy("xi", Default::default());
+    let mut map = rustc_hash::FxHashMap::default();
+    map.insert(v.clone(), xi.clone());
+    let masked = crate::subs::xreplace(expr, &map);
+    if !crate::traverse::free_symbols(&masked).contains(&xi) {
+        return Ok(Step::Return(super::diff(&masked, &xi)));
+    }
+    Ok(match closed_form(&masked, &xi, n)? {
+        Some(value) if value.is_zero() => Step::Value(value),
+        Some(value) => Step::Value(crate::subs::subs(&value, &[(xi, v.clone())])),
+        None => Step::Unhandled,
+    })
+}
+
+/// `AtomicExpr._eval_derivative_n_times` and `Mul._eval_derivative_n_times`
+/// for a Symbol `s` and a non-literal count `n`; `None` is the reference
+/// `Basic` default (no closed form).
+fn closed_form(expr: &Expr, s: &Expr, n: &Expr) -> Result<Option<Expr>, Error> {
+    use crate::relational::{eq, piecewise};
+    let atomic = match expr.kind() {
+        Kind::Num(_) | Kind::Const(_) => true,
+        Kind::Sym(symbol) => expr.host_handle().is_none() && symbol.scalar_identity().is_none(),
+        _ => false,
+    };
+    if atomic {
+        let mut pieces = vec![(expr.clone(), eq(n, &Expr::zero()))];
+        if expr == s {
+            pieces.push((Expr::one(), eq(n, &Expr::one())));
+        }
+        pieces.push((Expr::zero(), Expr::boolean(true)));
+        return Ok(Some(piecewise(pieces)));
+    }
+    // Mul._eval_derivative_n_times defers an Integer count to the
+    // repeated-derivative default, kept here as the existing big-order path.
+    let integer_count = n.as_number().is_some_and(|c| c.is_integer());
+    if expr.is_mul() && !expr.has_host() && !integer_count {
+        return leibniz(expr, s, n);
+    }
+    Ok(None)
+}
+
+/// The general Leibniz rule of `Mul._eval_derivative_n_times`:
+/// `Sum(n!/(k1!...k_{m-1}! klast!) * args[0].diff((s, k1)) * ... *
+/// args[-1].diff((s, Max(0, klast))), (k1, 0, n), ...)` with
+/// `klast = n - k1 - ... - k_{m-1}`, folded as the `Sum` constructor folds
+/// its summand.
+fn leibniz(expr: &Expr, s: &Expr, n: &Expr) -> Result<Option<Expr>, Error> {
+    use crate::ops::{add, div, mul2, sub};
+    use crate::special::SpecialFn;
+    let args = crate::traverse::ordered_args(expr);
+    // The Sum constructor masks Piecewise subexpressions free of the summation
+    // variables before folding; those factors keep the held derivative.
+    if args.len() < 2 || args.iter().any(crate::integrate::piecewise::has_piecewise) {
+        return Ok(None);
+    }
+    let factorial = |e: &Expr| crate::special::apply(SpecialFn::Factorial, vec![e.clone()]);
+    let kvals: Vec<Expr> = (1..args.len())
+        .map(|i| Expr::dummy(&format!("k{i}"), Default::default()))
+        .collect();
+    let klast = sub(n, &add(&kvals));
+    let mut denominator = Expr::one();
+    for k in &kvals {
+        denominator = mul2(&denominator, &factorial(k));
+    }
+    let mut product = Expr::one();
+    for (arg, k) in args.iter().zip(&kvals) {
+        product = mul2(&product, &construct(arg, vec![(s.clone(), k.clone())], true)?);
+    }
+    let last = construct(
+        args.last().unwrap(),
+        vec![(s.clone(), crate::functions::max(vec![Expr::zero(), klast.clone()]))],
+        true,
+    )?;
+    let summand = mul2(
+        &mul2(&div(&div(&factorial(n), &denominator), &factorial(&klast)), &product),
+        &last,
+    );
+    let summand = crate::integrate::piecewise::piecewise_fold(&summand, Some(true));
+    if summand.is_constant(crate::expr::Constant::NaN) {
+        return Ok(Some(summand));
+    }
+    let limits = kvals
+        .into_iter()
+        .map(|k| vec![k, Expr::zero(), n.clone()])
+        .collect();
+    crate::binders::held(Func::Sum, &summand, limits)
+        .map(Some)
+        .map_err(Error::Value)
 }
 /// Structural construction for trusted native callers. Evaluated construction
 /// and changed counters must use construct -> Result. Generic transformations
@@ -382,14 +534,11 @@ pub fn differentiate(e: &Expr, x: &Expr) -> Expr {
         return Expr::zero();
     }
     if vars.iter().any(|(v, _)| v == x) {
+        // Reference Derivative._eval_derivative: the derivative wrt v was not
+        // computed, so it is attempted again with the appended count,
+        // evaluate=True.
         vars.push((x.clone(), Expr::one()));
-        return construct(body, vars, false)
-            .and_then(|result| {
-                if let Some((_, vars)) = parts(&result) {
-                    validate_orders(&vars, true)?;
-                }
-                Ok(result)
-            })
+        return construct(body, vars, true)
             .unwrap_or_else(|error| {
                 record(error);
                 super::derivative_unevaluated(e, vec![(x.clone(), 1)])
