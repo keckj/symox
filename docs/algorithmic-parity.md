@@ -12464,3 +12464,71 @@ Remaining gaps:
   admissions decline; only the copyreg cache values are recognized.
 
 Measured: [audit](../audits/performance/2026-10-29-slotfold/README.md).
+
+
+## ratintgrow (wave 24): ratint growth family and the non-real field decline, 2026-10-29
+
+Native change (`integrate/log_to_real.rs`, `general_attempt`): an exact
+structural decline before the resultant. For every non-real root `t` of an
+irreducible factor of the auxiliary `q(t)`, the pair `(Re t, |Im t|)` is a
+common root of `c` and `d`, so the native kernel (which only admits rational
+or `Q(sqrt(k))` pairs) can succeed only if `Q(t)` lies in some
+`Q(i, sqrt(k))`, a field of degree at most 4. The kernel now declines, with
+the same result through the unchanged Python path, when a rational factor
+of `q` has a non-real root and
+
+- degree 3 or at least 5, or
+- degree 4 with a real root, or
+- degree 4, no real root, and it is not a "Gaussian biquadratic": after the
+  shift to `x**4 + p*x**2 + s*x + r` it must split as `h*conj(h)` over
+  `Q(i)` with `h = x**2 + i*b*x + c1 + i*c2` (`b**2` a rational root of the
+  resolvent `z**3 - 2*p*z**2 + (p**2 - 4*r)*z + s**2`, or `b = 0`, `s = 0`),
+  and the discriminant norm `(b**2 + 4*c1)**2 + 16*c2**2` must be a rational
+  square (then the splitting field is the V4 field `Q(i, sqrt(k))`; no
+  cyclic quartic field contains `i`).
+
+The test is a necessary condition only: when it passes the kernel runs as
+before. Admitted domains are unchanged (QQ coefficients, rational or pure
+quadratic pairs); repeated calls were already served by the decline memo, so
+only first calls gain (`1/(x**6+8)` 1.30x, `1/(x**4-2*x**2+4)` 1.16x,
+`1/(x**8+1)` 1.12x, `1/(x**8+16)` 1.13x, all identical results).
+
+Family status against SymPy 1.14 (`tests/test_native_ratintgrow.py`):
+
+- `1/(x**6+8)`, `1/(x**4-2*x**2+4)`, `1/(x**6+27)`, `1/(x**4+2)`,
+  `1/((x-1)**4+1)`, `1/(x**4+x**2+1)`, `x**2/(x**6+8)`, casus irreducibilis
+  cubics and quartics (`1/(x**3-3*x+1)`, `1/(x**3-4*x+1)`,
+  `x/(x**3-3*x+1)`, `1/(x**4+x+1)`, `1/(x**4-4*x**2+x+1)`, RootSum kept):
+  printed result identical to SymPy, symox faster on every one. The "0.73x"
+  of `1/(x**6+8)` was a base-vs-new symox ratio of a wasted native attempt,
+  not a ratio against SymPy (131.7 ms for SymPy, 11.6 ms for symox).
+- `1/(x**3+x+1)`: 7892 characters (SymPy 16653; the 82704 of the 2026-10-26
+  audit predates the ratint-dom EX cancel), `integrate` returns the same
+  expression as `ratint`, log arguments of degree 1 and 2 and one `atan` as
+  in SymPy. Only the Cardano coefficients of the quadratic log argument are
+  written differently. Checked numerically at 50 digits (derivative minus
+  integrand, definite value, real root as the quadratic's `x` coefficient);
+  an exact minimal-polynomial certificate did not finish in 900 s (SymPy)
+  or within 6G (symox) and is not claimed.
+- `integrate(atan(a*x)/x**2, (x, 1, oo))` prints SymPy's
+  `-a*log(a**2)/2 + a*log(a**2 + 1)/2 + atan(a)` with no condition, as SymPy.
+
+Still on the Python path: Cardano / cube-root pairs, EX and `QQ<a>`
+coefficients, parametric integrands, quartic factors whose root field is
+not a `Q(i, sqrt(k))` (`1/(x**4+2)`, `1/(x**6+8)`), and degree >= 5 factors.
+
+Remaining gaps (equal values, different forms):
+
+- Indefinite `integrate(atan(a*x)/x**2, x)`: symox's native parts rule gives
+  `a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x`, SymPy (heurisch)
+  `a*log(x) - a*log(a**2*x**2 + 1)/2 - atan(a*x)/x`.
+- With `b > 0`, the definite integral is `-b*log(b**2)/2 + ...` in symox and
+  `-b*log(b) + ...` in SymPy.
+- `limit(atan(a*x)/x, x, oo)` is 0 in symox (correct); SymPy leaves the
+  `Limit` unevaluated.
+
+Intentional corrections unchanged: `1/(x**8+16)` and `1/(x**6-2)` keep the
+exact `RootSum` where SymPy 1.14's incomplete `_get_real_roots` returns a
+wrong primitive (0 for `1/(x**8+16)`).
+
+Measured: [audit](../audits/performance/2026-10-29-ratintgrow/README.md).
