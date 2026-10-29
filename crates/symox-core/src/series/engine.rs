@@ -95,10 +95,13 @@ pub fn hidden_zero(e: &Expr) -> Option<bool> {
         return None;
     }
     let syms = crate::traverse::free_symbols(e);
-    if syms.is_empty() && crate::functions::is_numeric_value(e) {
-        // a plain number would have been folded
+    if syms.is_empty() && crate::functions::is_numeric_value(e) && e.float_info().max_precision.is_some() {
+        // a sum holding a Float would have been folded
         return Some(false);
     }
+    // A symbol-free sum of exact constants is not always folded
+    // (`log(2*pi)/2 - log(2)/2 - log(pi)/2`): it goes through the numeric
+    // screen and the exact checks below.
     let point = |k: i64| -> Option<f64> {
         let pairs: Vec<(Expr, Expr)> = syms
             .iter()
@@ -1039,6 +1042,11 @@ impl Engine {
             return Err(SErr::Unsupported("auxiliary function with a varying order".into()));
         }
         let a = self.ser_nonzero(z, n.max(1))?;
+        if a.val == 0 {
+            if let Some(r) = self.ser_asym_taylor(kind, args, z, n)? {
+                return Ok(r);
+            }
+        }
         if a.val >= 0
             || matches!(a.lead(), Some(C::E(e)) if depends(e, &self.logt))
             || !matches!(sign_of(a.lead().unwrap()), Some(1 | -1))
@@ -1059,6 +1067,59 @@ impl Engine {
         r.exact = false;
         r.prec = r.prec.min(prec);
         Ok(r.norm())
+    }
+
+    /// Taylor expansion of an auxiliary function at a constant term `c0`
+    /// that is not a number: `c0` holds the slower variables of the Gruntz
+    /// rewrite (or `logt`) and tends to the infinite argument, as in
+    /// `_eis(x - w)` with `w = exp(-exp(x))`. The reference
+    /// `Function._eval_nseries` expands at `c0` with `fdiff`; the
+    /// derivatives `f^(k) = a_k + b_k*f` follow from `f' = c + d*f`. `None`
+    /// when the function has no such derivative or `c0` is a number.
+    fn ser_asym_taylor(&mut self, kind: super::asym::Asym, args: &[Expr], z: &Expr, n: i64) -> SRes<Option<Ser>> {
+        let zs = Expr::symbol("_symox_asym_z");
+        let Some((c, d)) = kind.first_order_ode(&zs) else { return Ok(None) };
+        let mut m = n;
+        for _ in 0..5 {
+            let a = self.ser(z, m.max(1))?;
+            if a.is_zero() || a.val != 0 {
+                return Ok(None);
+            }
+            let c0 = a.at(0);
+            let c0e = c0.to_expr();
+            if crate::traverse::free_symbols(&c0e).is_empty() || depends(&c0e, &self.x) {
+                return Ok(None);
+            }
+            let mut at = args.to_vec();
+            *at.last_mut().unwrap() = c0e.clone();
+            let f0 = kind.apply(at);
+            let r = a.sub(&Ser::constant(c0.clone()));
+            if r.is_zero() && r.exact {
+                return self.constant(&f0).map(Some);
+            }
+            let vr = r.val.max(1);
+            let prec = if r.exact { m + vr } else { r.prec };
+            let kmax = ((prec + vr - 1) / vr).max(1) as usize;
+            let at_c0 = |e: &Expr| crate::subs::subs(e, &[(zs.clone(), c0e.clone())]);
+            let (mut ak, mut bk) = (Expr::zero(), Expr::one());
+            let mut lk: Vec<C> = vec![C::zero(); kmax + 1];
+            let mut fact = Number::ONE;
+            for (k, l) in lk.iter_mut().enumerate().skip(1) {
+                let a1 = add(&[crate::diff::diff(&ak, &zs), mul2(&bk, &c)]);
+                let b1 = add(&[crate::diff::diff(&bk, &zs), mul2(&bk, &d)]);
+                ak = crate::expand::expand(&a1);
+                bk = crate::expand::expand(&b1);
+                fact = fact.mul(&Number::int(k as i64));
+                let fk = add(&[at_c0(&ak), mul2(&at_c0(&bk), &f0)]);
+                *l = C::from_expr(crate::ops::div(&fk, &Expr::num(fact.clone())));
+            }
+            let res = Ser::constant(C::from_expr(f0)).add(&r.compose(&lk, prec));
+            if res.prec >= n || res.exact {
+                return Ok(Some(res));
+            }
+            m += (n - res.prec).max(1);
+        }
+        Err(SErr::Precision)
     }
 
     /// One-sided `floor`/`ceiling`: a constant near the point. A non-integer

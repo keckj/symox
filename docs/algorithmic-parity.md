@@ -11808,3 +11808,70 @@ still pays one native attempt (about 2-3.5 ms: `1/(x**8+1)` 0.91x on the
 first call, `1/(x**6+8)` 0.73x in the single-call sweep). Open: a cheap exact
 decline test for even degree, EX `C` (Cardano/cube-root `r_u`) and EX `log_to_atan`
 natively, and `integrate(1/(x**5 + x + 1)**3, x)` memory (TODO section 8).
+
+## limrest3 (wave 21): limits held after limrest2, 2026-10-29
+
+Now computed natively (Rust, `crates/symox-core/src/limits` and `series`),
+with the SymPy 1.14 values:
+- Dominant cancellations of `Ei`, `erf` and `erfi`:
+  `(Ei(x - exp(-exp(x))) - Ei(x))*exp(-x)*exp(exp(x))*x -> -1`,
+  `(erf(x - exp(-exp(x))) - erf(x))*exp(exp(x))*exp(x**2) -> -2/sqrt(pi)`,
+  and the polynomially small shifts `Ei(x + 1/x) - Ei(x)` etc. The auxiliary
+  `_eis`/`_erfs`/`_erfis` of an argument whose leading term is a constant
+  in the faster mrv variable (a slower expression such as `x`) are expanded
+  by Taylor around it, as the reference `Function._eval_nseries`, with the
+  derivatives from the first-order equations `_eis' = 1/z - _eis`,
+  `_erfs' = -2/sqrt(pi) + 2*z*_erfs` (and the `erfi` analogue). Other
+  auxiliary functions still decline at a finite argument.
+- `lowergamma(s, z)` and `uppergamma(s, z)` with `s -> oo` and a fixed
+  positive `z` (sign proven): the reference tractable form
+  `uppergamma = exp(loggamma(s)) - lowergamma(s, z)` and
+  `lowergamma._eval_aseries`, `z**s*exp(-z)*Sum(z**k/rf(s, k + 1))`, as a
+  new auxiliary function whose coefficient of `s**-K` is
+  `Sum_{k<K} (-1)**(K-1-k)*S2(K-1, k)*z**k`.
+  `uppergamma(x, 1)/gamma(x) -> 1`, `x*lowergamma(x, 1) -> exp(-1)`.
+  A non-positive or undecided `z` declines.
+- Stirling remainder of `log(factorial(x))` (`-> 1/360` after `x**3`): the
+  series hidden-zero test no longer treats every symbol-free numeric
+  expression as nonzero; only expressions holding a Float keep that
+  shortcut. Exact numbers go through the numeric screen and the exact
+  simplifications (expand, expand_log, trigsimp, cancel); undecided stays
+  undecided. This also fixes `limit((x + 1/2)*log(x) - x + log(2*pi)/2 -
+  loggamma(x + 1), x, oo)`, which returned the unsimplified hidden zero
+  instead of `0`.
+- `harmonic(n, m)` and `subfactorial(n)` with `n -> oo` (or a finite real
+  point): a restricted port of the function branch of the reference
+  `heuristics`, `f(limit of the argument)`, used only after Gruntz fails,
+  only for these two heads, a real first argument (no `I`, every other
+  symbol real) and other arguments independent of the variable. The value
+  is then given by `harmonic.eval` (`zeta(m)` for `m > 1`, `oo` for
+  `m <= 1` not proven negative, unevaluated `harmonic(oo, m)` when
+  `m - 1` has no known sign; `nan` for a negative `m` is declined, so the
+  limit stays held, as in SymPy). `subfactorial(x) -> oo`. `gruntz(subfactorial(x), x, oo)` still
+  raises PoleError, as in SymPy.
+- `atan(u)`/`acot(u)` with `u -> c*oo` and `c` a parameter of unknown sign
+  or complex: the reference tractable form
+  `I/2*(log(1 - I*u) - log(1 + I*u))`, which gives
+  `limit(a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x, x, oo) =
+  -a*log(a**2)/2`, and so `integrate(atan(a*x)/x**2, (x, 1, oo)) =
+  -a*log(a**2)/2 + a*log(a**2 + 1)/2 + atan(a)` for a generic or real `a`
+  (checked numerically at `a = -3, -1/2, 1/3, 2`). For `a` positive, symox
+  keeps `-y*log(y**2)/2`, equal to SymPy's `-y*log(y)`.
+- Two-sided `acoth` at its log singularity `u -> +-1`:
+  `acoth(s*(1 + r)) = s*(log(2)/2 - log(r)/2) + o(1)` (the reference log
+  form), so `limit(acoth(sin(x)/x), x, 0, '+-') = oo`,
+  `acoth(1 - x**2) -> oo`, and `acoth(1 - x) + log(x)/2` gives
+  `log(2)/2 -+ I*pi/2` on the two sides (and the reference ValueError for
+  `'+-'`).
+
+Still held or falling back: `subfactorial` or `harmonic` inside a product
+or sum that Gruntz cannot treat (the heuristic only applies to the bare
+function, as in SymPy); `lowergamma(s, z)` with `s -> oo` and `z` not
+proven positive; the `_eis`/`_erfs` Taylor step when the expansion point
+depends on the limit variable; issue 22334, floor/ceiling/Mod at oo,
+`(-1)**x*2**(-x)` and the other items of the limrest2 list.
+
+No intentional correction: every new value equals SymPy 1.14.
+Tests: `tests/test_native_limrest3.py` and
+`limrest3_values_from_sympy` in `crates/symox-core/src/limits/tests.rs`.
+Measured: [audit](../audits/performance/2026-10-29-limrest3/README.md).

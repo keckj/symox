@@ -46,9 +46,13 @@ pub enum Asym {
     BesI,
     /// `sqrt(2 z/pi)*exp(z)*K(nu, z) - 1`: `Σ a_k(nu) z**-k`
     BesK,
+    /// `z**-s*exp(z)*lowergamma(s, z)` for a fixed `z` and `s -> oo`
+    /// (arguments `(z, s)`): `Σ_k z**k/rf(s, k + 1)`, whose coefficient of
+    /// `s**-K` is `Σ_{k<K} (-1)**(K-1-k) S2(K-1, k) z**k`.
+    LowerS,
 }
 
-const NAMES: [(Asym, &str); 12] = [
+const NAMES: [(Asym, &str); 13] = [
     (Asym::Erfs, "_symox_erfs"),
     (Asym::Erfis, "_symox_erfis"),
     (Asym::Eis, "_symox_eis"),
@@ -61,6 +65,7 @@ const NAMES: [(Asym, &str); 12] = [
     (Asym::BesQ, "_symox_besq"),
     (Asym::BesI, "_symox_besi"),
     (Asym::BesK, "_symox_besk"),
+    (Asym::LowerS, "_symox_lowers"),
 ];
 
 impl Asym {
@@ -135,6 +140,17 @@ impl Asym {
                 let p = pow(&Expr::pi(), &Expr::int(-(2 * m + 1 + d)));
                 mul2(&Expr::int(sgn(m)), &mul2(&num, &p))
             }
+            Asym::LowerS => {
+                // 1/rf(s, k + 1) = s**-(k+1) * Σ_m (-1)**m S2(k + m, k) s**-m
+                let zz = &args[0];
+                let terms: Vec<Expr> = (0..k)
+                    .map(|j| {
+                        let s2 = crate::special::integers::stirling2((k - 1) as u64, j as u64);
+                        mul2(&mul2(&Expr::int(sgn(k - 1 - j)), &int(s2)), &pow(zz, &Expr::int(j)))
+                    })
+                    .collect();
+                add(&terms)
+            }
             Asym::BesP | Asym::BesQ | Asym::BesI | Asym::BesK => {
                 let s = match self {
                     Asym::BesP if k % 2 == 1 => return zero,
@@ -153,6 +169,24 @@ impl Asym {
                 let den = factorial(k) * BigInt::from(8).pow(k as u32);
                 crate::expand::expand(&crate::ops::div(&acc, &int(den)))
             }
+        }
+    }
+}
+
+impl Asym {
+    /// `f'(z) = c(z) + d(z)*f(z)` for the auxiliary functions whose
+    /// derivative closes on themselves (`_eis.fdiff` and `_erfs.fdiff` of the
+    /// reference): the Taylor expansion at a non-constant point uses it.
+    pub fn first_order_ode(self, z: &Expr) -> Option<(Expr, Expr)> {
+        let two_rsqrtpi = mul2(&Expr::int(2), &pow(&Expr::pi(), &Expr::rational(-1, 2)));
+        match self {
+            // exp(-z)*Ei(z): 1/z - f
+            Asym::Eis => Some((pow(z, &Expr::minus_one()), Expr::minus_one())),
+            // exp(z**2)*erfc(z): -2/sqrt(pi) + 2*z*f
+            Asym::Erfs => Some((crate::ops::neg(&two_rsqrtpi), mul2(&Expr::int(2), z))),
+            // exp(-z**2)*erfi(z): 2/sqrt(pi) - 2*z*f
+            Asym::Erfis => Some((two_rsqrtpi, mul2(&Expr::int(-2), z))),
+            _ => None,
         }
     }
 }

@@ -85,3 +85,27 @@ fn homogeneous_normalization_does_not_erase_parameter_poles() {
         }
     }
 }
+
+#[test]
+fn limrest3_values_from_sympy() {
+    for (e, x0, want) in [
+        ("(Ei(x - exp(-exp(x))) - Ei(x))*exp(-x)*exp(exp(x))*x", "oo", "-1"),
+        ("(erf(x - exp(-exp(x))) - erf(x))*exp(exp(x))*exp(x**2)", "oo", "-2/sqrt(pi)"),
+        ("uppergamma(x, 1)/gamma(x)", "oo", "1"),
+        ("subfactorial(x)", "oo", "oo"),
+        ("((x + 1/2)*log(x) - x + log(2*pi)/2 - log(factorial(x)) + 1/(12*x))*x**3", "oo", "1/360"),
+        ("harmonic(x, 3)", "oo", "zeta(3)"),
+        ("-x + (x + 1/2)*log(x) - loggamma(x + 1) + log(2*pi)/2", "oo", "0"),
+        ("lowergamma(x, 1)*x", "oo", "exp(-1)"),
+        ("lowergamma(x, 2)*x/2**x", "oo", "exp(-2)"),
+        ("harmonic(x)", "0", "0"),
+        ("atan(a*x)/x", "oo", "0"),
+        ("a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x", "oo", "-a*log(a**2)/2"),
+    ] {
+        assert_eq!(lim(e, x0, Dir::Plus), want, "{e}");
+    }
+    for (e, want) in [("acoth(sin(x)/x)", "oo"), ("acoth(x - 1)", "-oo"), ("acoth(1 + x) + log(x)/2", "log(2)/2")] {
+        assert_eq!(lim(e, "0", Dir::Plus), want, "{e}");
+        assert_eq!(lim(e, "0", Dir::Minus), want, "{e}");
+    }
+}
