@@ -12020,25 +12020,45 @@ Now as in SymPy 1.14:
   erfc, erfi), so `hyperexpand(...).rewrite(erfc)` gives `erfc(x)`.
 - `holonomicerrors` module with SymPy's exception classes and messages.
 
-Intentional corrections:
+- `integrate((x, 0, x))` from a removable singularity: the antiderivative's
+  value at the lower limit is taken by its (two-sided) limit when
+  substitution is undefined, and the conditions are `[0] + y0`. The base
+  returned nan for `sin(x)**2/x`; now `log(x)/2 - Ci(2*x)/2 + EulerGamma/2 +
+  log(2)/2` with y0 `[0, 0, 1, 0]`, as in SymPy. Checked against
+  `mpmath.quad` of `sin(t)**2/t` on [0, X] at X = 0.3, 1, 2.5, 7 (agreement
+  to 15+ digits: 0.0443303740474110, 0.423691008343307, 1.18834166349614,
+  1.57343831929460) and `integrate((x, 0, 2))` = `-Ci(4)/2 + EulerGamma/2 +
+  log(2)` = 1.05224586195418 (SymPy and quad). Undefined values now decline
+  (NotImplementedError, or no initial conditions) instead of producing nan:
+  definite limits without a proved finite value, dsolve constants fitted at
+  a point where the general solution is undefined, and `0**negative` power
+  conditions.
+- `expr_to_holonomic(erfc(z)).to_expr()` returns `1 - erf(z)` as in SymPy.
+
+Intentional corrections (each checked against the series of the function):
 
 - Powers of functions with Frobenius conditions: `(3*sqrt(x))**3` keeps
   `{3/2: [27]}` (Miller recurrence on the series); SymPy raises the dict key
-  to the power (`[1/8]`). Likewise `x**n` keeps `{n: [1]}` where SymPy gives
-  the ordinary `[1]`.
+  to the power (`[1/8]`). Proof: `(3*sqrt(x))**3/x**(3/2) = 27`. For
+  `expr_to_holonomic(sqrt(x)*exp(x))**3` symox gives `{3/2: [1]}` and SymPy
+  `[1/8]`; the function `x**(3/2)*exp(3*x)` is 0 at 0 (so the ordinary
+  `y(0) = 1/8` is false) and `f/x**(3/2) = 1 + 3*x + 9*x**2/2 + ...`.
+- `x**n` keeps `{n: [1]}` where SymPy gives the ordinary `[1]`: `x**n/x**n
+  = 1`, while `y(0) = 1` is false for `n = 2` (`(x**2)(0) = 0`).
 - `f*x` with a bare polynomial expression (SymPy raises NotImplementedError)
-  keeps symox's ordinary Taylor jet (`sin*x` has y0 `[0, 0, 2]`).
+  keeps symox's ordinary Taylor jet: `sin*x` has y0 `[0, 0, 2]`, and
+  `diff(x*sin(x), x, k)` at 0 is `0, 0, 2` for k = 0, 1, 2.
 
 Remaining gaps:
 
 - Annihilators may differ from SymPy's by a constant factor
   (`(-1) + (x)*Dx` for SymPy's `(-3/2) + (x)*Dx`-style scalings, e.g.
   `2.5*x**2`, `x*sqrt(x)`); this is the existing normalization divergence.
-- `expr_to_holonomic(erfc(x)).to_expr()` returns `erfc(x)` where SymPy
-  returns `1 - erf(x)` (equal values).
-- Definite integration from singular conditions (`integrate((x, 0, x))` of
-  `sin(x)**2/x` gives nan; SymPy gives `log(x)/2 - Ci(2*x)/2 + ...`), and
-  `integrate((x, 2, 3))` at x0 = 1 returns an exact form where SymPy returns
+- Composites keep their input as `to_expr` (`3*erfc(x)` where SymPy gives
+  `3 - 3*erf(x)`, equal values).
+- `expr_to_holonomic` of `Ci` is not implemented (NotImplementedError, as in
+  the base; SymPy converts it through Meijer G).
+- `integrate((x, 2, 3))` at x0 = 1 returns an exact form where SymPy returns
   a Float.
 - The `tractable` erf rewrite (internal `_erfs`) is not provided.
 - `lambdify` (not started in this wave): the native `CompiledFunction` has no

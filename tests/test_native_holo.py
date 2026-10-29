@@ -141,3 +141,34 @@ def test_symox_extension_product_with_polynomial_keeps_jet():
     R, D = DifferentialOperators(QQ.old_poly_ring(x), 'D')
     sine = HolonomicFunction(D**2 + 1, x, 0, [0, 1])
     assert (sine*x).y0 == [0, 0, 2]
+
+
+def test_integrate_from_removable_singularity():
+    # SymPy 1.14: HolonomicFunction((4)*Dx + (4*x)*Dx**2 + (3)*Dx**3 + (x)*Dx**4,
+    # x, 0, [0, 0, 1, 0]) and log(x)/2 - Ci(2*x)/2 + EulerGamma/2 + log(2)/2
+    # (the base returned nan here).
+    h = expr_to_holonomic(sin(x)**2/x).integrate((x, 0, x))
+    assert str(h) == 'HolonomicFunction((4)*Dx + (4*x)*Dx**2 + (3)*Dx**3 + (x)*Dx**4, x, 0, [0, 0, 1, 0])'
+    assert h.to_expr() == log(x)/2 - Ci(2*x)/2 + EulerGamma/2 + log(2)/2
+    # SymPy 1.14: -Ci(4)/2 + EulerGamma/2 + log(2) (quad: 1.05224586195418)
+    value = expr_to_holonomic(sin(x)**2/x).integrate((x, 0, 2))
+    assert value == -Ci(4)/2 + EulerGamma/2 + log(2)
+    assert abs(value.evalf() - Float('1.05224586195418')) < 1e-13
+    # SymPy 1.14: log(x)/2 - Ci(2*x)/2 + Ci(2)/2
+    h = expr_to_holonomic(sin(x)**2/x, x0=1).integrate((x, 1, x))
+    assert h.to_expr() == log(x)/2 - Ci(2*x)/2 + Ci(2)/2
+    assert not h.to_expr().has(nan)
+
+
+def test_erfc_to_expr_matches_sympy():
+    # SymPy 1.14: 1 - erf(x), 1 - erf(2*x)
+    assert expr_to_holonomic(erfc(x), x).to_expr() == 1 - erf(x)
+    assert expr_to_holonomic(erfc(2*x), x).to_expr() == 1 - erf(2*x)
+
+
+def test_power_correction_series():
+    # Intentional correction: f = (sqrt(x)*exp(x))**3 vanishes at 0, so
+    # SymPy's ordinary [1/8] is wrong; f/x**(3/2) = 1 + 3*x + ... gives {3/2: [1]}.
+    h = expr_to_holonomic(sqrt(x)*exp(x), x)**3
+    assert h.y0 == {Rational(3, 2): [1]}
+    assert series(exp(3*x), x, 0, 1).removeO() == 1

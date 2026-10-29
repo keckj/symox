@@ -25,6 +25,33 @@ def DifferentialOperators(base, generator=None):
     return parent, parent.derivative_operator
 
 
+def _integral_class():
+    from .. import Integral
+    return Integral
+
+
+def _finite_value(expression, x, x0):
+    # The value at x0, through the (two-sided when it exists) limit when
+    # direct substitution is undefined (0/0, oo - oo at a singular point).
+    # None when no finite value is proved.
+    from .. import nan, zoo, oo, limit
+    def undefined(v):
+        return v.has(nan, zoo, oo) or v.is_finite is False
+    value = expression.subs(x, x0)
+    if undefined(value):
+        try:
+            right = limit(expression, x, x0, '+')
+            left = limit(expression, x, x0, '-')
+        except (NotImplementedError, ValueError):
+            return None
+        if right != left and (right - left).simplify() != 0:
+            return None
+        value = right
+    if undefined(value) or str(value.func) == 'Limit':
+        return None
+    return value
+
+
 def _int_valued(value):
     # Reference int_valued: integers and integral Floats.
     value = _expr(value)
@@ -397,7 +424,12 @@ class HolonomicFunction:
             if len(limits) != 3 or limits[0] != self.x:
                 raise ValueError('expected (independent variable, lower bound, upper bound)')
             if limits[2] != self.x:
-                return self.integrate(self.x).to_expr().subs(self.x, limits[2]) - self.integrate(self.x).to_expr().subs(self.x, limits[1])
+                primitive = self.integrate(self.x).to_expr()
+                upper = _finite_value(primitive, self.x, _expr(limits[2]))
+                lower = _finite_value(primitive, self.x, _expr(limits[1]))
+                if upper is None or lower is None:
+                    raise NotImplementedError('the antiderivative has no proved finite value at a limit')
+                return upper - lower
             base = _expr(limits[1])
         else:
             if limits != self.x:
@@ -405,10 +437,22 @@ class HolonomicFunction:
             base = self.x0
         parent = self.annihilator.parent
         result = HolonomicFunction(self.annihilator*parent.derivative_operator, self.x, base)
+        primitive = None
         if self._expr is not None:
             primitive = integrate(self._expr, self.x)
-            result._expr = primitive - primitive.subs(self.x, base)
-            result.y0 = _conditions(result._expr, self.x, base, result._initial_count())
+            start = _finite_value(primitive, self.x, base)
+            if start is None or primitive.has(_integral_class()):
+                primitive = None
+            else:
+                primitive = primitive - start
+        if primitive is not None:
+            result._expr = primitive
+            if isinstance(self.y0, list) and base == self.x0:
+                # Reference integrate: F(x0) = 0 and F' = f give [0] + y0,
+                # also when F has a removable singularity at x0.
+                result.y0 = [_expr(0)] + list(self.y0)
+            else:
+                result.y0 = _conditions(result._expr, self.x, base, result._initial_count())
         elif self.y0 is not None and base == self.x0:
             result.y0 = [_expr(0)] + self.y0
         return result
@@ -794,6 +838,11 @@ class HolonomicFunction:
             parameters = set().union(*(c.free_symbols for c in self.annihilator.coefficients))
             constants = sorted(expression.free_symbols-parameters-{self.x}, key=str)
             conditions = [expression.diff(self.x,i).subs(self.x,self.x0)-v for i,v in enumerate(self.y0)]
+            from .. import nan, zoo, oo
+            if any(c.has(nan, zoo, oo) for c in conditions):
+                # The general solution is undefined at the (singular) point:
+                # decline rather than fit constants to nan.
+                raise NotImplementedError('initial conditions at a singular point of the general solution')
             values = solve(conditions, constants, dict=True)
             if not values:
                 raise ValueError('unable to resolve the initial conditions')
@@ -1080,6 +1129,10 @@ def expr_to_holonomic(func, x=None, x0=0, y0=None, lenics=None, domain=None, ini
     else:
         raise NotImplementedError('no D-finite conversion implemented for %s' % func)
     result._expr = func
+    if name == 'erfc':
+        # Reference to_expr: hyperexpand of the series gives 1 - erf(z).
+        from .. import erf
+        result._expr = 1 - erf(func.args[0])
     if y0 is None and initcond and _expr(x0) == 0 and result.annihilator.is_singular(0) \
             and (lenics is None or lenics <= 1):
         singular = _algebraic_singular_ics(func, x)
@@ -1274,7 +1327,7 @@ def _find_conditions(func, x, x0, order, evalf=False, use_limit=True):
         if use_limit and (value is nan or value == nan):
             from .. import limit
             value = limit(func, x, x0)
-        if value.is_finite is False or value is nan or value == nan:
+        if value.is_finite is False or value.has(nan) or 'Limit' in str(value):
             return None
         y0.append(value)
         func = func.diff(x)
@@ -1302,12 +1355,17 @@ def _power_conditions(y0, power):
     from .. import cancel
     if y0 is None:
         return None
+    from .. import nan, zoo, oo
     if not isinstance(y0, dict):
-        return [y0[0]**power] if y0 else None
+        if not y0:
+            return None
+        value = _expr(y0[0])**power
+        # 0**(negative) is not a value: decline the conditions.
+        return None if value.has(nan, zoo, oo) else [value]
     if len(y0) != 1:
         return None
     (r, c), = y0.items()
-    if not c or c[0] == 0:
+    if not c or _expr(c[0]).is_zero is not False and _expr(c[0]) == 0:
         return None
     b = [c[0]**power]
     for k in range(1, len(c)):
