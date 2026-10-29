@@ -12353,3 +12353,80 @@ Remaining gaps (still different from SymPy 1.14):
   unchanged.
 
 Measured: [audit](../audits/performance/2026-10-29-idxmvn/README.md).
+
+
+## tracearr (wave 23)
+
+Symbolic-order matrix and array derivatives, held `Derivative` of explicit
+matrices and arrays, constructor `piecewise_fold`, risch test isolation.
+Nothing new is native: this is Python dispatch glue around existing native
+nodes (`python/symox/tensor/array/array_derivatives.py`,
+`symbolic_order_derivative`), called from `MatrixExpr.diff`/`Matrix.diff`
+(`_adapters._diff_dispatch`), `NDimArray.diff` and `Derivative.__new__`.
+
+Now as SymPy 1.14:
+
+- `X.diff((x, n))` for a MatrixSymbol/MatrixExpr, an immutable dense or
+  sparse matrix and an N-dim array is the held `ArrayDerivative`
+  (`Derivative(X, (x, n))`) with SymPy's shape, free_symbols, srepr prefix,
+  latex, `doit`, `subs`/`xreplace` (a concrete order re-evaluates) and
+  `.diff(x)` (orders merged; `S.Zero` for a variable not in the expression).
+  Quick-zero exit (`X.diff((x, n), y)` is `ZeroMatrix`), canonical sort of
+  the variables, integer orders evaluated up to the first symbolic one, and
+  `ValueError('order of differentiation must be nonnegative')` for a
+  negative order (the previous message differed). A mutable matrix raises
+  SymPy's `AttributeError: 'ArrayDerivative' object has no attribute
+  'as_mutable'` when the result is held.
+- `Derivative(Matrix(...), x)`, `Derivative(Array(...), (x, n))`:
+  held `Derivative` (previously TypeError), `doit` evaluates.
+- `Sum`, `Product`, `Integral` constructors apply
+  `ExprWithLimits._common_new`'s `piecewise_fold`, protecting Piecewise
+  atoms free of the limit variables
+  (`Sum(x*Piecewise((n, x > 0), (1, True)), (n, 0, k))` is
+  `Sum(Piecewise((n*x, x > 0), (x, True)), (n, 0, k))`).
+- Nested traces checked against SymPy: `Trace(A*Trace(B*X)*X).diff(X)`,
+  `Trace(X**3).diff(X)`, `(Trace(X)*Trace(X)).diff(X)`.
+
+Behaviour change: `Array([x, x**2]).diff((x, n))` was an elementwise
+Piecewise in `n`; it is now held as in SymPy.
+
+Intentional correction: `Derivative(Array([x, x**2]), x).doit()` is
+`[1, 2*x]`; SymPy raises "Can't calculate derivative wrt x**2." (it
+differentiates by the array elements). The derivative by `x` is
+unambiguous; tested in tests/test_native_tracearr.py.
+
+Risch test isolation: `copy.copy`/`pickle` of a DifferentialExtension (or of
+a Poly) makes `copyreg` cache `__slotnames__` in the class dict; the
+admission of `polynomial_reduce` then sees a changed class protocol and
+declines, so an earlier test in the same process silenced the native call.
+The tests now remove that cache (monkeypatch) before asserting the native
+call, and a test pins the scenario. Admission gap (not changed): in
+production, one copy/pickle of a DifferentialExtension disables the native
+`polynomial_reduce` for the rest of the process (results are unchanged, the
+Python algorithm runs).
+
+Remaining gaps:
+
+- `srepr` of MatrixSymbol prints `MatrixSymbol("X", ...)` where SymPy prints
+  `Str('X')` (pre-existing).
+- `X.diff((x, 1/2))` is a ValueError (SymPy: ZeroMatrix); `X.diff((X, n))`
+  is a ValueError (SymPy: TypeError). Symbolic orders by MatrixSymbol
+  variables use the previous path.
+- Array-expression derivatives: `Trace(Trace(Trace(A)*A)*A).diff(A)` (needs
+  a deep doit of matrix products), `(Trace(A)**2*X).diff(A)` (SymPy: a
+  two-term ArrayAdd), `Trace(X**k).diff(X)` (SymPy: `ArrayDiagonal` of a
+  `HadamardPower`), the `Trace(A*X**k)` error type, the
+  `y/(2*sqrt(x.T*y))` TypeError, `Trace.arg`, `_normalize`, `as_explicit`.
+- The public array-expression module is not SymPy's (no
+  `array_expressions`, `arrayexpr_derivatives`, `utils` submodules,
+  `dummy_eq`, `Reshape`, ...). SymPy 1.14's own tests of
+  sympy.tensor.array.expressions and sympy.matrices.expressions derivatives
+  run against symox with adapted imports: 41 failed / 47 passed and
+  16 failed / 21 passed (cookbook, applyfunc forms, Hadamard canonicalize,
+  ElementwiseApplyFunction with a lambda, missing submodules).
+- Constructor `piecewise_fold` runs the existing Python `piecewise_fold`;
+  on a Piecewise function it is about 2x slower than SymPy (Piecewise/And
+  construction cost). A Piecewise-free function only pays a cheap
+  `atoms(Function)` check.
+
+Measured: [audit](../audits/performance/2026-10-29-tracearr/README.md).

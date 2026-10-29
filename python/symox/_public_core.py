@@ -41,6 +41,11 @@ class PrecisionExhausted(ArithmeticError):
     """A requested numerical accuracy could not be attained."""
 
 
+def _is_ndim_array(value):
+    from .tensor.array._array import NDimArray
+    return isinstance(value,NDimArray)
+
+
 class Derivative(metaclass=_ExprType):
     """Held native derivative, with the reference constructor keyword schema."""
     _matches=staticmethod(lambda expr:expr.is_Derivative)
@@ -52,6 +57,14 @@ class Derivative(metaclass=_ExprType):
         if evaluate and not kwargs.get('simplify',True):
             from ._differentiation import unsimplified_diff
             return unsimplified_diff(expr,variables)
+        if variables and (isinstance(expr,(_core._MatrixExpr,_core.Matrix))
+                or getattr(expr,'_symox_sparse',False) or _is_ndim_array(expr)):
+            # Explicit matrices/arrays, and symbolic orders by scalar Symbols,
+            # stay held as SymPy's Derivative (doit evaluates integer orders).
+            from .tensor.array import array_derivatives
+            held=array_derivatives.symbolic_order_derivative(expr,variables,array_derivatives.Derivative,evaluate=bool(evaluate))
+            if held is not None:
+                return held
         if isinstance(expr,_core._MatrixExpr) and variables:
             # Derivative(X, v) of a matrix expression stays held, as in SymPy
             # (doit: ZeroMatrix(*X.shape) when X does not contain v, else

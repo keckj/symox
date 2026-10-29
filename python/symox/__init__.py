@@ -687,7 +687,36 @@ class Integral(metaclass=_CalculusMeta):
             if free is not None and len(free) != 1:
                 raise ValueError("specify dummy variables for %s" % f)
         limits = tuple(_flatten_limit(limit) for limit in limits)
+        function = _fold_piecewise_function(function, limits)
         return _core._calculus("Integral", function, limits)
+
+
+def _fold_piecewise_function(function, limits):
+    """``ExprWithLimits._common_new``: ``piecewise_fold`` the function,
+    keeping the Piecewise atoms free of the limit variables intact."""
+    if not isinstance(function, _core.Expr):
+        return function
+    from ._public_calculus import _has_piecewise, piecewise_fold
+    if not _has_piecewise(function):
+        return function
+    piecewise = _node_types.node_class('Piecewise')
+    variables = []
+    for limit in limits:
+        if isinstance(limit, (tuple, list)) or getattr(limit, 'is_Tuple', False):
+            if not len(limit):
+                return function
+            limit = limit[0]
+        variables.append(limit)
+    if not limits:
+        variables = list(function.free_symbols)
+    if not all(isinstance(v, _core.Expr) for v in variables):
+        return function
+    reps = {}
+    for p in function.atoms(piecewise):
+        if not p.has(*variables):
+            reps[p] = Dummy()
+    folded = piecewise_fold(function.xreplace(reps))
+    return folded.xreplace({v: k for k, v in reps.items()})
 
 
 def _flatten_limit(limit):
@@ -710,7 +739,7 @@ class Sum(metaclass=_CalculusMeta):
     def __new__(cls, function, *limits, **kwargs):
         if kwargs:
             raise NotImplementedError("Sum constructor options are not implemented")
-        return _core._calculus("Sum", function, limits)
+        return _core._calculus("Sum", _fold_piecewise_function(function, limits), limits)
 
 
 class Product(metaclass=_CalculusMeta):
@@ -718,7 +747,7 @@ class Product(metaclass=_CalculusMeta):
     def __new__(cls, function, *limits, **kwargs):
         if kwargs:
             raise NotImplementedError("Product constructor options are not implemented")
-        return _core._calculus("Product", function, limits)
+        return _core._calculus("Product", _fold_piecewise_function(function, limits), limits)
 
 
 from ._concrete import ReorderError  # noqa: E402

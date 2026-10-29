@@ -768,6 +768,12 @@ class NDimArray:
     def diff(self, *variables, **options):
         if options.get('evaluate', True) is False:
             raise NotImplementedError('Held array derivatives require lazy array expressions')
+        if variables and options.get('evaluate', True) is True:
+            # Symbolic orders by scalar Symbols: SymPy's held ArrayDerivative.
+            from .array_derivatives import symbolic_order_derivative
+            held = symbolic_order_derivative(self, variables)
+            if held is not None:
+                return held
         from .arrayop import derive_by_array, _validate_variable
         from ._adapters import _array_variable, _check_derivative_options
         if not variables:

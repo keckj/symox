@@ -1,0 +1,13 @@
+case                       first_b_ms first_a_ms   rep_b_us   rep_a_us   ratio   sympy_us  before -> after
+matsym_order_n                   0.03       0.51        1.9       58.7   31.61       59.0  EXC ValueError: derivative order must  -> Derivative(X, (x, n))
+immutable_matrix_order_n         0.06       0.44        7.6       65.1    8.56      129.1  EXC ValueError: derivative order must  -> Derivative(Matrix([[x]]), (x, n))
+array_order_n                    0.42       0.53      127.1       91.5    0.72       97.6  [Piecewise((x, Eq(n, 0)), (1, Eq(n, 1) -> Derivative([x, x**2], (x, n))
+derivative_matrix_doit           0.05       0.62        5.6      144.0   25.74      289.7  EXC TypeError: cannot convert object o -> Matrix([[1]])
+derivative_array_order_n         0.13       0.49       26.6       62.2    2.34       29.7  EXC TypeError: cannot convert object o -> Derivative([x, x**2], (x, n))
+sum_piecewise_fold               0.15       1.30        9.9      781.8   79.33      370.0  Sum(x*Piecewise((n, x > 0), (1, True)) -> Sum(Piecewise((n*x, x > 0), (x, True))
+integral_piecewise_fold          0.40       1.45       41.5      816.2   19.69      358.0  Integral(y*Piecewise((x, x > 0), (1, T -> Integral(Piecewise((x*y, x > 0), (y, T
+sum_plain                        0.07       0.09        2.3        7.4    3.19       32.6  Sum(n**2, (n, 0, k)) -> Sum(n**2, (n, 0, k))
+integral_plain                   0.31       0.32       30.0       36.5    1.22       27.3  Integral(x**2, (x, 0, 1)) -> Integral(x**2, (x, 0, 1))
+matsym_diff_x                    0.12       0.37        5.4        8.9    1.64      107.2  X -> X
+matrix_diff_x                    0.14       0.38       12.1       15.6    1.29      490.5  Matrix([[2*x, 1]]) -> Matrix([[2*x, 1]])
+nested_trace                     2.83       2.74     1120.1     1119.0    1.00    18527.9  Trace(A*X)*B.T + Trace(B*X)*A.T -> Trace(A*X)*B.T + Trace(B*X)*A.T
