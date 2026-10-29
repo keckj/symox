@@ -12844,3 +12844,115 @@ API, (e) harness artefact):
   test_matexpr_subs and test_deprecated_conv_modules.
 
 Measured: [audit](../audits/performance/2026-10-29-arraysuite/README.md).
+
+
+## integsuite (wave 25): SymPy 1.14 integration test files, 2026-10-29
+
+SymPy 1.14's test_integrals, test_risch, test_heurisch, test_manual,
+test_meijerint, test_transforms, test_laplace and test_rationaltools were
+run against symox (imports rewritten to `symox`, 120 s per-test timeout).
+In the test_laplace and test_meijerint copies, the imports of private SymPy
+helpers (`_laplace_deep_collect`, `_rewrite_single`, `_rewrite1`,
+`_inflate_g`, the lookup-table `z`) were made optional so the files collect.
+The tests that call them fail as harness artefacts.
+
+Fixes (all computation in Rust, crates/symox-core; crates/symox-py only
+passes the `final` hint through):
+
+- `Integral.doit(final=False)` (integrate.rs, integrate/host_methods.rs).
+  SymPy adds the `sign(c)*pi*floor((a - pi/2)/pi)` continuity term to each
+  `atan(c*tan(a))` only in the final round. Its manualintegrate stage does
+  inner integrals with `final=False`. Symox ignored the flag, so the inner
+  results already carried the floor terms and the outer round added them
+  again: `integrate(cos(3*theta)/(5 - 4*cos(theta)), (theta, 0, 2*pi))` was
+  `67*pi/24` (wrong) instead of `pi/12`, and the `cos(2*theta)` case was
+  `19*pi/12` instead of `pi/6`. A scoped flag (`with_final_round`) now
+  disables the floor terms in non-final rounds.
+- Guard of `c**(a*y + b)` with a symbolic slope `a` (integrate.rs, table
+  rule). The guard is now SymPy's `Ne(a*log(c), 0)` with the rational
+  factors dropped (`Ne(n*log(x), 0)`, `Ne(n*log(2), 0)`, `Ne(log(x), 0)`
+  for `x**(2*y + 1)`). Before, `integrate(2**(n*y), y)` returned
+  `2**(n*y)/(n*log(2))` with no branch (wrong at `n = 0`), and
+  `x**(n*y)` was guarded by `Ne(log(x), 0)` (wrong at `n = 0`). A numeric
+  slope keeps the plain `y` branch, as in SymPy.
+- Constant factor in front of such a guarded integral (integrate.rs, the
+  `split_const` branch of the Mul rule). The `a = 0` branch is dropped only
+  when the denominator of `c/a` is numeric: `n*2**(n*y)` gives
+  `2**(n*y)/log(2)` (as SymPy), `3*x**(n*y)` keeps the guard.
+
+Admitted domains: any integrand that reaches the native table with an
+exponential `c**(a*y + b)`, `a` and `b` polynomial-free in `y`; any
+`doit(final=...)` call, the flag being forwarded to every native stage.
+Nothing new falls back to Python.
+
+Intentional correction: on the degenerate branch, `c**(a*y + b)` integrates
+to `c**b*y` (SymPy 1.14 returns `y` even when `b != 0`):
+`integrate(x**(n*y + 3), y)` is
+`Piecewise((x**(n*y + 3)/(n*log(x)), Ne(n*log(x), 0)), (x**3*y, True))`.
+Form differences, same value: `3*x**(n*y)` stays `3*Piecewise(...)`
+(SymPy distributes the 3), and `n*x**(n*y)` stays
+`n*Piecewise(..., Ne(n*log(x), 0))` (SymPy:
+`Piecewise((x**(n*y)/log(x), Ne(log(x), 0)), (n*y, True))`).
+
+Failed+errors / tests per file (SymPy 1.14 itself: 0 failures, 2 xfails):
+
+| file | base 3d7da725 | after |
+|---|---|---|
+| test_integrals | 52/205 | 51/205 |
+| test_risch | 8/36 | 8/36 |
+| test_heurisch | 3/33 | 3/33 |
+| test_manual | 0/42 | 0/42 |
+| test_meijerint | 13/33 | 13/33 |
+| test_transforms | 6/16 | 6/16 |
+| test_laplace | 2/4 | 2/4 |
+| test_rationaltools | 0/12 | 0/12 |
+
+test_integrate_returns_piecewise now passes the `x**(n*y)` assertion and
+fails later on the heurisch `sqrt(x - y)*exp(t)` form (below).
+
+Remaining failures by class:
+
+- (a) wrong result: none found. Two SymPy assertions expect a value that
+  symox does not give, and symox is right: test_inverse_laplace_transform
+  expects `ILT(k*F(s - a)) == k*f(t)*exp(-a*t)`; the shift theorem gives
+  `exp(a*t)`, which symox returns (`L{exp(a*t)*f(t)} = F(s - a)`, which
+  SymPy 1.14 itself computes). In test_integrate_with_complex_constants,
+  symox's `-I*(log(exp(I*t) - 2) - log(exp(I*t)))/2` has the exact
+  derivative of SymPy's `-t/2 - I*log(exp(I*t) - 2)/2` (they differ by a
+  piecewise constant).
+- (b) held or raises where SymPy computes. test_integrals:
+  test_integration (`1/t` over `(t, 1, x)` held), issues 4153, 14096,
+  14241, 21721 held, test_transform, test_evalf_integrals (timeout),
+  SingularityFunction held, test_is_zero, test_series and issue 23942
+  (series of an Integral), test_integrate_series, issues 18038 and 4492
+  (TypeError), 15218, 20781. test_risch: test_DifferentialExtension_symlog,
+  test_risch_integrate, issue 23948 (CoercionFailed),
+  test_risch_integrate_float. test_heurisch: issue 26922 (custom doit
+  hints). test_transforms: test_as_integral. test_meijerint: issue 8368
+  (None), issue 7337 (`_eval_interval` missing),
+  test_inversion_exp_real_nonreal_shift (`Eq(im(c), 0)` not reduced to
+  False for `c` with `extended_real=False`, so a branchless Piecewise is
+  returned instead of None).
+- (c) equivalent form (verified by exact differentiation or 50-digit
+  numerics for 4527, 15494, 23566, the rest checked by form): issues
+  3686, 13733, 21741, 4884, 4403, 5167, 4527, 4892a, 4950 (Float), 15124,
+  15431, 15494, 7827, 23566, test_integrate_Abs_sign, test_limit_bug,
+  test_risch_option, test_mul_pow_derivative. Not yet verified:
+  test_multiple_integration, test_basics_multiple,
+  test_integrate_linearterm_pow, issues 15432, 17473, 21034, 21024, 23718,
+  27374, test_integrate_returns_piecewise (`sqrt(x - y)` form),
+  test_heurisch_exp, test_heurisch_hacking (constant inside the log),
+  test_gcdex_diophantine, test_residue_reduce, the transforms bessel
+  conditions (`-a/2` vs `-re(a)/2`), inverse_mellin, fourier, cosine and
+  hankel forms, meijerint test_meijerint_definite, test_probability,
+  test_messy, test_fresnel (gamma quotient), test_issue_6462,
+  test_indefinite_1_bug.
+- (d) missing API: `Integer.quo` (test_risch laurent_series,
+  recognize_derivative); SymPyDeprecationWarning on Poly integrands
+  (test_poly_deprecated, test_integrate_poly, test_integrate_poly_definite);
+  test_constructor (`(n, Interval(1, 2))` limits) and test_subs5.
+- (e) harness: test_laplace_transform, meijerint test_rewrite_single,
+  test_rewrite1, test_inflate, test_lookup_table (private SymPy helpers).
+- Intentional: DiracDelta**2 stays held.
+
+Measured: [audit](../audits/performance/2026-10-29-integsuite/README.md).

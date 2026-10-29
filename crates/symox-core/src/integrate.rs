@@ -128,9 +128,12 @@ fn doit_indefinite(g: &Expr, x: &Expr, meijerg: Option<bool>) -> Option<Expr> {
 /// The final round of `Integral.doit`: every `atan` whose argument is
 /// linear in some `tan(a)` (coefficient `c` free of it) gets
 /// `sign(c)*pi*floor((a - pi/2)/pi)` added, and `sign(c)*pi*floor(a/pi)`
-/// for `cot(a)`, so that the antiderivative is continuous.
+/// for `cot(a)`, so that the antiderivative is continuous. Only in a final
+/// round, as in the reference.
 pub(crate) fn atan_floor_terms(antideriv: &Expr) -> Expr {
-    if is_held_integral(antideriv) {
+    // `doit(final=False)` (the inner rounds of the manualintegrate stage)
+    // leaves them to the final round, which would otherwise add them twice
+    if is_held_integral(antideriv) || !host_methods::final_round() {
         return antideriv.clone();
     }
     let mut atans: Vec<Expr> = Vec::new();
@@ -1269,10 +1272,13 @@ fn integ_inner(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Op
             if !c.is_one() {
                 let r = integ(&rest, x, depth + 1, seen)?;
                 // c * Piecewise((F/a, Ne(a, 0)), ...) with c a multiple of a:
-                // the a = 0 branch is a constant, drop it (SymPy does too)
+                // the a = 0 branch is a constant, drop it (SymPy does too).
+                // `c/a` must have a numeric denominator, so that `c`
+                // vanishes wherever `a` does (not `c = 3`, `a = n*log(x)`)
                 if let Kind::Piecewise(p) = r.kind() {
                     if let Kind::Rel(crate::expr::RelOp::Ne, a, z) = p[0].1.kind() {
-                        if z.is_zero() && !has(&div(&c, a), a) {
+                        let den = numer_denom(&div(&c, a)).1;
+                        if z.is_zero() && (den.is_number() || crate::functions::is_numeric_value(&den)) {
                             return Some(mul2(&c, &p[0].0));
                         }
                     }
@@ -1552,13 +1558,27 @@ fn table(f: &Expr, x: &Expr) -> Option<Expr> {
         }
         // c^(a x + b)
         if free(base, x) {
-            if let Some((a, _)) = linear(n, x) {
+            if let Some((a, b)) = linear(n, x) {
                 let lb = log(base);
                 let r = div(f, &mul2(&a, &lb));
-                if lb.is_number() || crate::functions::is_numeric_value(&lb) {
+                // the guard is `Ne(a*log(c), 0)` as `risch_integrate` gives it,
+                // without rational factors and factors `1/v` that never vanish:
+                // a symbolic slope `a` may vanish as well as `log(c)`
+                let guard: Vec<Expr> = crate::simptools::mul_args(&mul2(&a, &lb))
+                    .into_iter()
+                    .filter(|w| !matches!(w.kind(), Kind::Num(_)))
+                    .filter(|w| !matches!(w.kind(), Kind::Pow(_, e) if e.is_number() && crate::assumptions::is_negative(e) == Some(true)))
+                    .collect();
+                let guard = mul(&guard);
+                if guard.is_number() || crate::functions::is_numeric_value(&guard) {
                     return Some(r);
                 }
-                return Some(piecewise(vec![(r, ne(&lb, &Expr::zero())), (x.clone(), Expr::boolean(true))]));
+                // where `a*log(c)` vanishes, `c^(a x + b)` is the constant
+                // `c^b` (`1` when only `log(c)` can vanish); the reference
+                // returns `x` also for `b != 0`, wrong where `a` vanishes
+                let slope_fixed = a.is_number() || crate::functions::is_numeric_value(&a);
+                let at_zero = if slope_fixed { x.clone() } else { mul2(&pow(base, &b), x) };
+                return Some(piecewise(vec![(r, ne(&guard, &Expr::zero())), (at_zero, Expr::boolean(true))]));
             }
         }
         // 1/sqrt(c - d x^2), 1/sqrt(x^2 + c), sqrt(c - d x^2), ...

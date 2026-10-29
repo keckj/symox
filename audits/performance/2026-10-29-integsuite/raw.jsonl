@@ -1,0 +1,60 @@
+{"label": "base", "case": "cos3_def", "first": 1.7304106819997287, "median": 1.684983482000007, "result": "67*pi/24"}
+{"label": "base", "case": "cos3_def", "first": 1.725088223000057, "median": 1.6908268310003223, "result": "67*pi/24"}
+{"label": "base", "case": "cos3_def", "first": 1.7861491300000125, "median": 1.7432205860000067, "result": "67*pi/24"}
+{"label": "base", "case": "cos2_def", "first": 1.6606034989999898, "median": 1.6180685240001367, "result": "19*pi/12"}
+{"label": "base", "case": "cos2_def", "first": 1.6666653100000985, "median": 1.6075637139997525, "result": "19*pi/12"}
+{"label": "base", "case": "cos2_def", "first": 1.627543200999753, "median": 1.6328617460003443, "result": "19*pi/12"}
+{"label": "base", "case": "cos2_indef", "first": 1.6818238240002756, "median": 1.5669520409996949, "result": "-30*theta*tan(theta/2)**2/(48*tan(theta/2)**2 + 48) - 30*theta/(48*tan(theta/2)**2 + 48) - 2*atan(3*tan(theta/2))/3 - 2*pi*floor((theta/2 - pi/2)/pi)/3 - 2*pi*floor(theta/(2*pi) - 1/2)/3 + 100*(atan(3"}
+{"label": "base", "case": "cos2_indef", "first": 1.6593114649999734, "median": 1.5923330279997572, "result": "-30*theta*tan(theta/2)**2/(48*tan(theta/2)**2 + 48) - 30*theta/(48*tan(theta/2)**2 + 48) - 2*atan(3*tan(theta/2))/3 - 2*pi*floor((theta/2 - pi/2)/pi)/3 - 2*pi*floor(theta/(2*pi) - 1/2)/3 + 100*(atan(3"}
+{"label": "base", "case": "cos2_indef", "first": 1.6392348730000776, "median": 1.6089586049997706, "result": "-30*theta*tan(theta/2)**2/(48*tan(theta/2)**2 + 48) - 30*theta/(48*tan(theta/2)**2 + 48) - 2*atan(3*tan(theta/2))/3 - 2*pi*floor((theta/2 - pi/2)/pi)/3 - 2*pi*floor(theta/(2*pi) - 1/2)/3 + 100*(atan(3"}
+{"label": "base", "case": "cos1_def", "first": 0.08624461199997313, "median": 0.06284927200022139, "result": "pi/3"}
+{"label": "base", "case": "cos1_def", "first": 0.08826496600022438, "median": 0.06287241400013954, "result": "pi/3"}
+{"label": "base", "case": "cos1_def", "first": 0.0867320560000735, "median": 0.06283286099960605, "result": "pi/3"}
+{"label": "base", "case": "inv2cos_final_false", "first": 0.05476820600006249, "median": 0.03267070199990485, "result": "2*sqrt(3)*(atan(sqrt(3)*tan(x/2)/3) + pi*floor((x/2 - pi/2)/pi))/3"}
+{"label": "base", "case": "inv2cos_final_false", "first": 0.05588106899995182, "median": 0.033188785999755055, "result": "2*sqrt(3)*(atan(sqrt(3)*tan(x/2)/3) + pi*floor((x/2 - pi/2)/pi))/3"}
+{"label": "base", "case": "inv2cos_final_false", "first": 0.05697283400013475, "median": 0.0332649459996901, "result": "2*sqrt(3)*(atan(sqrt(3)*tan(x/2)/3) + pi*floor((x/2 - pi/2)/pi))/3"}
+{"label": "base", "case": "x_pow_ny", "first": 0.000419012999827828, "median": 0.00012504199958129902, "result": "Piecewise((x**(n*y)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "x_pow_ny", "first": 0.00043371699985073064, "median": 0.00012194600003567757, "result": "Piecewise((x**(n*y)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "x_pow_ny", "first": 0.00038389600013033487, "median": 0.00012126299998271861, "result": "Piecewise((x**(n*y)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "two_pow_ny", "first": 0.00037690099998144433, "median": 0.00011341300023559597, "result": "2**(n*y)/(n*log(2))"}
+{"label": "base", "case": "two_pow_ny", "first": 0.00035843599971485673, "median": 0.00011263999977018102, "result": "2**(n*y)/(n*log(2))"}
+{"label": "base", "case": "two_pow_ny", "first": 0.00035376000005271635, "median": 0.00011325500008751987, "result": "2**(n*y)/(n*log(2))"}
+{"label": "base", "case": "three_x_pow_ny", "first": 0.0004432519999681972, "median": 0.0001490979998379771, "result": "3*Piecewise((x**(n*y)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "three_x_pow_ny", "first": 0.0004216239999550453, "median": 0.00014588899966838653, "result": "3*Piecewise((x**(n*y)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "three_x_pow_ny", "first": 0.0004824530001314997, "median": 0.00014714499957335647, "result": "3*Piecewise((x**(n*y)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "x_pow_ny_plus3", "first": 0.0004365069999039406, "median": 0.00014063500020711217, "result": "Piecewise((x**(n*y + 3)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "x_pow_ny_plus3", "first": 0.0004401910000524367, "median": 0.0001399530001435778, "result": "Piecewise((x**(n*y + 3)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "x_pow_ny_plus3", "first": 0.0004173920001449005, "median": 0.00014282499978435226, "result": "Piecewise((x**(n*y + 3)/(n*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "x_pow_2y", "first": 0.00046733199997106567, "median": 0.00014783100004933658, "result": "Piecewise((x**(2*y + 1)/(2*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "x_pow_2y", "first": 0.0004106749997845327, "median": 0.00014307900028143195, "result": "Piecewise((x**(2*y + 1)/(2*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "base", "case": "x_pow_2y", "first": 0.000432197999998607, "median": 0.00014375599994309596, "result": "Piecewise((x**(2*y + 1)/(2*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "after", "case": "cos3_def", "first": 1.7507405869996546, "median": 1.720444786000371, "result": "pi/12"}
+{"label": "after", "case": "cos3_def", "first": 1.7381437340000048, "median": 1.6712664659999064, "result": "pi/12"}
+{"label": "after", "case": "cos3_def", "first": 1.7395363619998534, "median": 1.6959312270000737, "result": "pi/12"}
+{"label": "after", "case": "cos2_def", "first": 1.61379510200004, "median": 1.5744830300000103, "result": "pi/6"}
+{"label": "after", "case": "cos2_def", "first": 1.6194894690002002, "median": 1.5816706709997561, "result": "pi/6"}
+{"label": "after", "case": "cos2_def", "first": 1.6413818080000055, "median": 1.5990070809998542, "result": "pi/6"}
+{"label": "after", "case": "cos2_indef", "first": 1.6447251879999385, "median": 1.588964765000128, "result": "-30*theta*tan(theta/2)**2/(48*tan(theta/2)**2 + 48) - 30*theta/(48*tan(theta/2)**2 + 48) - 2*atan(3*tan(theta/2))/3 - 2*pi*floor((theta/2 - pi/2)/pi)/3 + 100*(atan(3*tan(theta/2)) + pi*floor((theta/2 "}
+{"label": "after", "case": "cos2_indef", "first": 1.643121186999906, "median": 1.5918817110000418, "result": "-30*theta*tan(theta/2)**2/(48*tan(theta/2)**2 + 48) - 30*theta/(48*tan(theta/2)**2 + 48) - 2*atan(3*tan(theta/2))/3 - 2*pi*floor((theta/2 - pi/2)/pi)/3 + 100*(atan(3*tan(theta/2)) + pi*floor((theta/2 "}
+{"label": "after", "case": "cos2_indef", "first": 1.6240846239998064, "median": 1.5839346060001844, "result": "-30*theta*tan(theta/2)**2/(48*tan(theta/2)**2 + 48) - 30*theta/(48*tan(theta/2)**2 + 48) - 2*atan(3*tan(theta/2))/3 - 2*pi*floor((theta/2 - pi/2)/pi)/3 + 100*(atan(3*tan(theta/2)) + pi*floor((theta/2 "}
+{"label": "after", "case": "cos1_def", "first": 0.08539680100011537, "median": 0.06217498900014107, "result": "pi/3"}
+{"label": "after", "case": "cos1_def", "first": 0.08388278199981869, "median": 0.062199391000376636, "result": "pi/3"}
+{"label": "after", "case": "cos1_def", "first": 0.08420111199984603, "median": 0.06436852199976784, "result": "pi/3"}
+{"label": "after", "case": "inv2cos_final_false", "first": 0.05418327400002454, "median": 0.031167639000159397, "result": "2*sqrt(3)*atan(sqrt(3)*tan(x/2)/3)/3"}
+{"label": "after", "case": "inv2cos_final_false", "first": 0.054549540000152774, "median": 0.03237591499964765, "result": "2*sqrt(3)*atan(sqrt(3)*tan(x/2)/3)/3"}
+{"label": "after", "case": "inv2cos_final_false", "first": 0.056870369000080245, "median": 0.03323728999976083, "result": "2*sqrt(3)*atan(sqrt(3)*tan(x/2)/3)/3"}
+{"label": "after", "case": "x_pow_ny", "first": 0.0004312390001359745, "median": 0.0001425089999429474, "result": "Piecewise((x**(n*y)/(n*log(x)), Ne(n*log(x), 0)), (y, True))"}
+{"label": "after", "case": "x_pow_ny", "first": 0.0003706679999595508, "median": 0.00014210500012268312, "result": "Piecewise((x**(n*y)/(n*log(x)), Ne(n*log(x), 0)), (y, True))"}
+{"label": "after", "case": "x_pow_ny", "first": 0.0003660319998743944, "median": 0.00014054800021767733, "result": "Piecewise((x**(n*y)/(n*log(x)), Ne(n*log(x), 0)), (y, True))"}
+{"label": "after", "case": "two_pow_ny", "first": 0.000433960999998817, "median": 0.00016027300034693326, "result": "Piecewise((2**(n*y)/(n*log(2)), Ne(n*log(2), 0)), (y, True))"}
+{"label": "after", "case": "two_pow_ny", "first": 0.00040495099983672844, "median": 0.00016333199982909719, "result": "Piecewise((2**(n*y)/(n*log(2)), Ne(n*log(2), 0)), (y, True))"}
+{"label": "after", "case": "two_pow_ny", "first": 0.0004426679997777683, "median": 0.00016569199988225591, "result": "Piecewise((2**(n*y)/(n*log(2)), Ne(n*log(2), 0)), (y, True))"}
+{"label": "after", "case": "three_x_pow_ny", "first": 0.0004442439999365888, "median": 0.0001722179999887885, "result": "3*Piecewise((x**(n*y)/(n*log(x)), Ne(n*log(x), 0)), (y, True))"}
+{"label": "after", "case": "three_x_pow_ny", "first": 0.0004542370002127427, "median": 0.00016383999991376186, "result": "3*Piecewise((x**(n*y)/(n*log(x)), Ne(n*log(x), 0)), (y, True))"}
+{"label": "after", "case": "three_x_pow_ny", "first": 0.0004436369999893941, "median": 0.00016592400015724706, "result": "3*Piecewise((x**(n*y)/(n*log(x)), Ne(n*log(x), 0)), (y, True))"}
+{"label": "after", "case": "x_pow_ny_plus3", "first": 0.0004291529999136401, "median": 0.00015759899997647153, "result": "Piecewise((x**(n*y + 3)/(n*log(x)), Ne(n*log(x), 0)), (x**3*y, True))"}
+{"label": "after", "case": "x_pow_ny_plus3", "first": 0.0004098120002709038, "median": 0.00016093799968075473, "result": "Piecewise((x**(n*y + 3)/(n*log(x)), Ne(n*log(x), 0)), (x**3*y, True))"}
+{"label": "after", "case": "x_pow_ny_plus3", "first": 0.00048367299996243673, "median": 0.00016426799993496388, "result": "Piecewise((x**(n*y + 3)/(n*log(x)), Ne(n*log(x), 0)), (x**3*y, True))"}
+{"label": "after", "case": "x_pow_2y", "first": 0.0004526679999798944, "median": 0.0001523000000815955, "result": "Piecewise((x**(2*y + 1)/(2*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "after", "case": "x_pow_2y", "first": 0.00043081500007247087, "median": 0.0001461080000808579, "result": "Piecewise((x**(2*y + 1)/(2*log(x)), Ne(log(x), 0)), (y, True))"}
+{"label": "after", "case": "x_pow_2y", "first": 0.0004097279997949954, "median": 0.00014139800032353378, "result": "Piecewise((x**(2*y + 1)/(2*log(x)), Ne(log(x), 0)), (y, True))"}
