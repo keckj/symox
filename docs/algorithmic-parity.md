@@ -13126,3 +13126,69 @@ correct value through the Python algorithm, unchanged by this port):
 Trace(A*X)).diff(X)` and `(Trace(X)**-1).diff(X)` (SymPy returns 0).
 
 Measured: [audit](../audits/performance/2026-10-29-arrayrust/README.md).
+
+
+## solveset result checks and the modular step (solvesetrust)
+
+Now native (`crates/symox-core/src/sets/solveset_steps.rs`,
+`crates/symox-core/src/sets/solveset_modular.rs`):
+
+- The `_check` step of the top-level `solveset`: a finite solution where a
+  subexpression of the original equation is infinite is removed
+  (`domain_check`; for `Eq(lhs, rhs)` both sides are checked, so a
+  denominator that cancels in `lhs - rhs` still excludes its zeros).
+  RootOf solutions are kept, undecided candidates are kept, as in the
+  reference. Fixes test_issue_9522 (`{2}` became EmptySet), test_issue_8715
+  and the `x*log(x)` case of test_sol_zero_real (`{0, 1}` became `{1}`).
+- `f.expand().is_zero`: an identically zero equation is solved by the
+  domain (it was EmptySet: `-x**2 - 2*x + (x + 1)**2 - 1`), and a
+  numerator that vanishes gives the domain minus the poles
+  (`(x**2 - 1)/(x - 1) - x - 1` gives `Complement(Complexes, {1})`).
+- `solve_univariate_inequality` excludes the real zeros of the
+  denominators of both sides of the original relational (`x + 1/x > -2 +
+  1/x` excludes 0; `x + 1/x >= 1/x` is `Interval.open(0, oo)`). On a domain
+  smaller than the reals, the inequality is solved over the reals, the
+  singularities are removed and the result is intersected with the domain,
+  as in the reference (test_integer_domain_relational). A denominator whose
+  real zeros are not a finite set of numbers makes the inequality unsolved,
+  as `solvify` does in the reference.
+- `_solve_modular`/`_invert_modular` for `A - Mod(B, C) = 0`: linear,
+  affine and power arguments (`discrete_log`, `totient`, `nthroot_mod`,
+  `sqrt_mod` of the native ntheory module), on any domain (`ConditionSet`
+  unless it is a subset of the integers). The reference TypeError
+  (`Abs(rhs) >= Abs(C)` undecided), NotInvertible and AttributeError are
+  raised with the same classes. The Python module only admits the
+  expression and wraps the result.
+
+Intentional corrections (SymPy 1.14 is wrong, symox keeps the safe result):
+
+- test_logarithmic: `-sqrt(10)` is not a solution of
+  `log(x - 3) + log(x + 3) = 0`: the principal logarithms sum to `2*pi*I`.
+- `Mod(k*x, 5) = 1` for an integer symbol `k`: SymPy returns
+  `5*Integers`, but `k = x = 1` is a solution; symox keeps a ConditionSet.
+- `Mod((1/2)**x, 5) = 1`: SymPy uses the numerator of the base and returns
+  `4*Naturals0`, but `Mod(1/16, 5) = 1/16`; symox keeps a ConditionSet.
+- test_substitution_incorrect: the symox results are the correct ones the
+  test comments describe.
+- `log(x**y) - y*log(x)` over the reals: SymPy returns Reals, which is wrong
+  for `x = -1, y = 2`; symox keeps a ConditionSet.
+
+Still in Python, or still different (gaps):
+
+- `negative_base_step`/`negative_base_guard` and `radical_step` (the
+  `unrad` step and `checksol` of the candidates) are still Python: they
+  need native `unrad` and `checksol`.
+- test_nonlinsolve_abs: `solveset_real(Abs(x) - y, y)` is
+  `Intersection({Abs(x)}, Reals)` where SymPy has `{Abs(x)}`
+  (SymPy decides `Abs(x) < oo`), so the Python substitution gives EmptySet.
+  `nonlinsolve([Abs(x) - 1], x)` returns the real solutions where SymPy
+  raises ValueError.
+- `nonlinsolve([Eq(x + 1/x, 1/x)], [x])` gives `{(0,)}` (SymPy
+  `{(EmptySet,)}`): the Python nonlinsolve path does not use the checked
+  solveset.
+- The parametric pole complement of test_issue_19144
+  (`Complement(..., {-sqrt(y**2), sqrt(y**2)})`) and test_simplification
+  (`{1/2}` printed unsimplified) are form differences.
+- `x + sqrt(x**2 - 5) > 0` over the integers stays a ConditionSet.
+
+Measured: [audit](../audits/performance/2026-10-29-solvesetrust/README.md).

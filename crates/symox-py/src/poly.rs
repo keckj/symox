@@ -8,7 +8,7 @@
 #[path = "algebraic_number.rs"]
 pub(crate) mod algebraic_number;
 #[path="an_rational.rs"]
-mod an_rational;
+pub(crate) mod an_rational;
 #[path="domains.rs"]
 pub(crate) mod domains;
 #[path="poly_division.rs"]

@@ -1,81 +1,10 @@
 """Reference ``solveset`` steps that the native solver does not take.
 
-``_solve_modular``/``_invert_modular`` follow SymPy 1.14's
-``sympy.solvers.solveset`` for ``A - Mod(B, C) = 0`` over the integers, and
-``_solve_radical`` follows its ``unrad`` step for equations with radicals
-(every candidate is checked with ``checksol``; an undecided candidate stays
-in a ConditionSet).
+``modular_step`` admits ``A - Mod(B, C) = 0`` to the native port of SymPy
+1.14's ``_solve_modular``/``_invert_modular``, and ``_solve_radical``
+follows its ``unrad`` step for equations with radicals (every candidate is
+checked with ``checksol``; an undecided candidate stays in a ConditionSet).
 """
-
-
-def _term_factors(f):
-    from .. import Add, Mul
-    for add_arg in Add.make_args(f):
-        yield from Mul.make_args(add_arg)
-
-
-def _is_modular(f, symbol):
-    from .. import Mod
-    if not f.has(Mod):
-        return False
-    modterms = list(f.atoms(Mod))
-    return (len(modterms) == 1 and
-            modterms[0].args[0].has(symbol) and
-            modterms[0].args[1].is_integer and
-            any(isinstance(term, Mod) for term in _term_factors(f)))
-
-
-def _invert_modular(modterm, rhs, n, symbol):
-    from .. import (S, ImageSet, Lambda, Mod, discrete_log, divisors,
-                    igcd, invert, nthroot_mod, totient)
-    a, m = modterm.args
-    if rhs.is_integer is False:
-        return symbol, S.EmptySet
-    if rhs.is_real is False or any(term.is_real is False
-                                   for term in _term_factors(a)):
-        return modterm, rhs
-    if abs(rhs) >= abs(m):
-        return symbol, S.EmptySet
-    if a == symbol:
-        return symbol, ImageSet(Lambda(n, m*n + rhs), S.Integers)
-    if a.is_Add:
-        g, h = a.as_independent(symbol)
-        if g is not S.Zero:
-            x_indep_term = rhs - Mod(g, m)
-            return _invert_modular(Mod(h, m), Mod(x_indep_term, m), n, symbol)
-    if a.is_Mul:
-        g, h = a.as_independent(symbol)
-        if g is not S.One:
-            x_indep_term = rhs*invert(g, m)
-            return _invert_modular(Mod(h, m), Mod(x_indep_term, m), n, symbol)
-    if a.is_Pow:
-        base, expo = a.args
-        if expo.has(symbol) and not base.has(symbol):
-            if not m.is_Integer and rhs.is_Integer and a.base.is_Integer:
-                return modterm, rhs
-            mdiv = m.p // igcd(m.p, rhs.p)
-            try:
-                remainder = discrete_log(mdiv, rhs.p, a.base.p)
-            except ValueError:
-                return modterm, rhs
-            period = totient(m)
-            for p in divisors(period):
-                if pow(a.base, p, m / igcd(m.p, a.base.p)) == 1:
-                    period = p
-                    break
-            return expo, ImageSet(Lambda(n, period*n + remainder), S.Naturals0)
-        elif base.has(symbol) and not expo.has(symbol):
-            try:
-                remainder_list = nthroot_mod(rhs, expo, m, all_roots=True)
-                if remainder_list == []:
-                    return symbol, S.EmptySet
-            except (ValueError, NotImplementedError):
-                return modterm, rhs
-            g_n = S.EmptySet
-            for rem in remainder_list:
-                g_n += ImageSet(Lambda(n, m*n + rem), S.Integers)
-            return base, g_n
-    return modterm, rhs
 
 
 def _normalize(f, symbol):
@@ -89,54 +18,17 @@ def _normalize(f, symbol):
     return f
 
 
-def solve_modular(f, symbol, domain, solver):
-    """SymPy's ``_solve_modular`` (``solver`` is the recursive solveset)."""
-    from .. import S, ConditionSet, Dummy, Eq, FiniteSet, ImageSet, Lambda, Mod
-    unsolved_result = ConditionSet(symbol, Eq(f, 0), domain)
-    modterm = list(f.atoms(Mod))[0]
-    rhs = -S.One*(f.subs(modterm, S.Zero))
-    if f.as_coefficients_dict()[modterm].is_negative:
-        rhs *= -S.One
-    if not domain.is_subset(S.Integers):
-        return unsolved_result
-    if rhs.has(symbol):
-        return unsolved_result
-    n = Dummy('n', integer=True)
-    f_x, g_n = _invert_modular(modterm, rhs, n, symbol)
-    if f_x == modterm and g_n == rhs:
-        return unsolved_result
-    if f_x == symbol:
-        if domain is not S.Integers:
-            return domain.intersect(g_n)
-        return g_n
-    if isinstance(g_n, ImageSet):
-        lamda_expr = g_n.lamda.expr
-        lamda_vars = g_n.lamda.variables
-        base_sets = g_n.base_sets
-        sol_set = solver(f_x - lamda_expr, symbol, S.Integers)
-        if isinstance(sol_set, FiniteSet):
-            tmp_sol = S.EmptySet
-            for sol in sol_set:
-                tmp_sol += ImageSet(Lambda(lamda_vars, sol), *base_sets)
-            sol_set = tmp_sol
-        else:
-            sol_set = ImageSet(Lambda(lamda_vars, sol_set), *base_sets)
-        return domain.intersect(sol_set)
-    return unsolved_result
-
-
-def modular_step(f, symbol, domain, solver):
-    """Returns the reference result for a modular equation, or None."""
-    from .. import Expr, Equality, sympify
+def modular_step(f, symbol, domain, solver=None):
+    """The reference result for ``A - Mod(B, C) = 0``, or None when ``f`` is
+    not modular in ``symbol``. ``_solve_modular`` and ``_invert_modular``
+    run natively (``crates/symox-core/src/sets/solveset_modular.rs``) and
+    raise the reference TypeError, NotInvertible or AttributeError."""
+    from .. import Expr, _core, _unwrap, _wrap_set, sympify
     f = sympify(f)
-    if isinstance(f, Equality):
-        f = f.lhs - f.rhs
-    if not isinstance(f, Expr) or f.is_Mul or not f.has(symbol):
+    if not isinstance(f, Expr) and not getattr(f, 'is_Relational', False):
         return None
-    f = _normalize(f, symbol)
-    if not _is_modular(f, symbol):
-        return None
-    return solve_modular(f, symbol, domain, solver)
+    result = _core._solveset_modular(f, symbol, _unwrap(domain))
+    return None if result is None else _wrap_set(result)
 
 
 def _has_radical(f, symbol):
