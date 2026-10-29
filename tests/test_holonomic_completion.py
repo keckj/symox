@@ -57,7 +57,9 @@ def test_shift_ore_relation_and_fibonacci():
 def test_conversions_satisfy_reference_equation(expression):
     h = expr_to_holonomic(expression,x,initcond=False)
     assert_annihilates(h,expression)
-    assert h.to_expr() == expression
+    # SymPy 1.14 expresses erfc(z) through to_expr as 1 - erf(z).
+    expected = 1 - s.erf(expression.args[0]) if str(expression.func) == 'erfc' else expression
+    assert h.to_expr() == expected
     assert h.y0 is None
 
 

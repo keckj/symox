@@ -1,0 +1,23 @@
+case               mode    before_ms   after_ms   ratio  status before/after
+sin_x0_0           first      19.644     19.557    1.00  ok/ok
+sin_x0_0           repeat      1.874      1.925    1.03  ok/ok
+sin_pow3           first      29.707     32.641    1.10  ok/ok
+sin_pow3           repeat     11.762     14.630    1.24  ok/ok
+exp_pow_neg        first      18.825     18.532    0.98  NotImplementedError/ok
+exp_pow_neg        repeat      0.897      1.185    1.32  NotImplementedError/ok
+sqrt_x             first      18.845     18.925    1.00  ok/ok
+sqrt_x             repeat      1.072      1.214    1.13  ok/ok
+x2_plus_x          first      19.887     19.624    0.99  ok/ok
+x2_plus_x          repeat      2.410      1.693    0.70  ok/ok
+sinc               first      24.566     25.217    1.03  ok/ok
+sinc               repeat      7.519      7.785    1.04  ok/ok
+erfc               first      18.785     19.053    1.01  ok/ok
+erfc               repeat      2.098      2.137    1.02  ok/ok
+erf_rewrite_erfc   first       0.113      0.283    2.51  ok/ok
+erf_rewrite_erfc   repeat      0.014      0.149   10.39  ok/ok
+sin_plus_cos       first      22.350     22.510    1.01  ok/ok
+sin_plus_cos       repeat      5.900      5.903    1.00  ok/ok
+float_cos          first      20.900     24.790    1.19  ValueError/ok
+float_cos          repeat      3.745      7.458    1.99  ValueError/ok
+float_param_sin    first      22.740     25.335    1.11  ok/ok
+float_param_sin    repeat      6.323      8.042    1.27  ok/ok

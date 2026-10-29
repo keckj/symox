@@ -6,6 +6,8 @@ systems. No symbolic reference engine is used to discover annihilators.
 import math
 import operator
 from .recurrence import _OreAlgebra, _OreOperator, _expr, _base, HolonomicSequence, RecurrenceOperators
+from .holonomicerrors import (BaseHolonomicError, NotPowerSeriesError, NotHolonomicError,
+                              SingularityError, NotHyperSeriesError)
 
 
 class DifferentialOperator(_OreOperator):
@@ -23,8 +25,64 @@ def DifferentialOperators(base, generator=None):
     return parent, parent.derivative_operator
 
 
+def _integral_class():
+    from .. import Integral
+    return Integral
+
+
+def _finite_value(expression, x, x0):
+    # The value at x0, through the (two-sided when it exists) limit when
+    # direct substitution is undefined (0/0, oo - oo at a singular point).
+    # None when no finite value is proved.
+    from .. import nan, zoo, oo, limit
+    def undefined(v):
+        return v.has(nan, zoo, oo) or v.is_finite is False
+    value = expression.subs(x, x0)
+    if undefined(value):
+        try:
+            right = limit(expression, x, x0, '+')
+            left = limit(expression, x, x0, '-')
+        except (NotImplementedError, ValueError):
+            return None
+        if right != left and (right - left).simplify() != 0:
+            return None
+        value = right
+    if undefined(value) or str(value.func) == 'Limit':
+        return None
+    return value
+
+
+def _int_valued(value):
+    # Reference int_valued: integers and integral Floats.
+    value = _expr(value)
+    if value.is_Float:
+        return value._mpf_[2] >= 0
+    return bool(value.is_Integer)
+
+
 def _normal(coefficients, parent):
     from .. import cancel, expand, lcm, gcd
+    from .. import Float, Dummy
+    coefficients = [_expr(c) for c in coefficients]
+    floats = set().union(*(c.atoms(Float) for c in coefficients))
+    if floats:
+        # Inexact coefficients: normalize the polynomial structure over
+        # QQ(markers) with each Float replaced by a marker, then restore.
+        marks = {f: Dummy('float') for f in floats}
+        back = {v: k for k, v in marks.items()}
+        x = parent.base.symbols[0]
+        exact = [c.xreplace(marks) for c in coefficients]
+        denominator = _expr(1)
+        for c in exact:
+            denominator = lcm(denominator, cancel(c).as_numer_denom()[1])
+        values = [expand(cancel(c*denominator)) for c in exact]
+        common = _expr(0)
+        for value in values:
+            common = gcd(common, value)
+        common = common.as_independent(*back)[1] if common != 0 else common
+        if common != 0 and common.has(x):
+            values = [cancel(value/common) for value in values]
+        return DifferentialOperator([expand(v.xreplace(back)) for v in values], parent)
     denominator = _expr(1)
     for c in coefficients:
         denominator = lcm(denominator, cancel(c).as_numer_denom()[1])
@@ -78,11 +136,20 @@ class HolonomicFunction:
 
     def __repr__(self):
         if self._have_init_cond():
-            return 'HolonomicFunction(%r, %s, %s, %r)' % (self.annihilator, self.x, self.x0, self.y0)
+            from .. import sstr
+            return 'HolonomicFunction(%r, %s, %s, %s)' % (self.annihilator, self.x, self.x0, sstr(self.y0))
         return 'HolonomicFunction(%r, %s)' % (self.annihilator, self.x)
 
     def __eq__(self, other):
-        return isinstance(other, HolonomicFunction) and (self.annihilator, self.x, self.x0, self.y0) == (other.annihilator, other.x, other.x0, other.y0)
+        # Reference semantics: the initial conditions are compared only
+        # when both functions have them.
+        if not isinstance(other, HolonomicFunction):
+            return False
+        if self.annihilator != other.annihilator or self.x != other.x:
+            return False
+        if self._have_init_cond() and other._have_init_cond():
+            return self.x0 == other.x0 and self.y0 == other.y0
+        return True
 
     def _have_init_cond(self):
         return bool(self.y0)
@@ -161,7 +228,14 @@ class HolonomicFunction:
 
     def _coerce(self, other):
         if not isinstance(other, HolonomicFunction):
-            other = expr_to_holonomic(other, self.x, self.x0, domain=self.annihilator.parent.base.domain)
+            expression = _expr(other)
+            other = expr_to_holonomic(expression, self.x, self.x0, domain=self.annihilator.parent.base.domain)
+            if isinstance(other.y0, dict) and expression.is_polynomial(self.x):
+                # Symox extension (the reference raises for a bare
+                # expression operand): an entire polynomial keeps its
+                # ordinary Taylor jet, so the combination stays ordinary.
+                other.y0 = _conditions(expression, self.x, other.x0, other._initial_count())
+                other._expr = expression
         if self.x != other.x:
             raise ValueError('holonomic functions must use the same independent variable')
         return other
@@ -180,6 +254,19 @@ class HolonomicFunction:
     def _binary(self, other, product=False):
         from .. import Integer
         left, right = self.unify(other)
+        if (isinstance(left.y0, list) and isinstance(right.y0, list)
+                and left.x0 != right.x0):
+            # Reference __add__/__mul__: move the conditions to 0 when both
+            # equations are regular there, else to a regular common point.
+            selfat0 = left.annihilator.is_singular(0)
+            otherat0 = right.annihilator.is_singular(0)
+            if left.x0 == 0 and not selfat0 and not otherat0:
+                return left._binary(right.change_ics(0), product)
+            if right.x0 == 0 and not selfat0 and not otherat0:
+                return left.change_ics(0)._binary(right, product)
+            if not left.annihilator.is_singular(left.x0) and not right.annihilator.is_singular(left.x0):
+                return left._binary(right.change_ics(left.x0), product)
+            return left.change_ics(right.x0)._binary(right, product)
         a, b = left._system(), right._system()
         m, n = len(a), len(b)
         size = m*n if product else m+n
@@ -252,12 +339,34 @@ class HolonomicFunction:
         return self * expr_to_holonomic(1/other, self.x, self.x0)
 
     def __pow__(self, power):
-        power = operator.index(power)
+        # Reference HolonomicFunction.__pow__. A first-order equation
+        # p1*y' + p0*y = 0 gives p1*(y**n)' + n*p0*y**n = 0 for any
+        # exponent n (negative, rational or symbolic).
+        if self.annihilator.order <= 1:
+            p0, p1 = self.annihilator.coefficients
+            from .. import expand
+            annihilator = DifferentialOperator([expand(p0*power), p1], self.annihilator.parent)
+            return HolonomicFunction(annihilator, self.x, self.x0, _power_conditions(self.y0, power))
         if power < 0:
-            raise NotImplementedError('negative powers of arbitrary D-finite functions need not be D-finite')
-        result = expr_to_holonomic(1, self.x, self.x0)
-        for _ in range(power):
-            result = result*self
+            raise NotHolonomicError("Negative Power on a Holonomic Function")
+        from .. import Integer
+        result = HolonomicFunction(self.annihilator.parent.derivative_operator, self.x,
+                                   Integer(0), [Integer(1)])
+        if power == 0:
+            return result
+        try:
+            power = operator.index(power)
+        except TypeError:
+            raise TypeError("unsupported operand type(s) for >>=: '%s' and 'int'"
+                            % type(power).__name__) from None
+        square = self
+        while True:
+            if power % 2:
+                result = result*square
+            power >>= 1
+            if not power:
+                break
+            square = square*square
         return result
 
     def diff(self, *args, **kwargs):
@@ -315,7 +424,12 @@ class HolonomicFunction:
             if len(limits) != 3 or limits[0] != self.x:
                 raise ValueError('expected (independent variable, lower bound, upper bound)')
             if limits[2] != self.x:
-                return self.integrate(self.x).to_expr().subs(self.x, limits[2]) - self.integrate(self.x).to_expr().subs(self.x, limits[1])
+                primitive = self.integrate(self.x).to_expr()
+                upper = _finite_value(primitive, self.x, _expr(limits[2]))
+                lower = _finite_value(primitive, self.x, _expr(limits[1]))
+                if upper is None or lower is None:
+                    raise NotImplementedError('the antiderivative has no proved finite value at a limit')
+                return upper - lower
             base = _expr(limits[1])
         else:
             if limits != self.x:
@@ -323,10 +437,22 @@ class HolonomicFunction:
             base = self.x0
         parent = self.annihilator.parent
         result = HolonomicFunction(self.annihilator*parent.derivative_operator, self.x, base)
+        primitive = None
         if self._expr is not None:
             primitive = integrate(self._expr, self.x)
-            result._expr = primitive - primitive.subs(self.x, base)
-            result.y0 = _conditions(result._expr, self.x, base, result._initial_count())
+            start = _finite_value(primitive, self.x, base)
+            if start is None or primitive.has(_integral_class()):
+                primitive = None
+            else:
+                primitive = primitive - start
+        if primitive is not None:
+            result._expr = primitive
+            if isinstance(self.y0, list) and base == self.x0:
+                # Reference integrate: F(x0) = 0 and F' = f give [0] + y0,
+                # also when F has a removable singularity at x0.
+                result.y0 = [_expr(0)] + list(self.y0)
+            else:
+                result.y0 = _conditions(result._expr, self.x, base, result._initial_count())
         elif self.y0 is not None and base == self.x0:
             result.y0 = [_expr(0)] + self.y0
         return result
@@ -639,14 +765,14 @@ class HolonomicFunction:
         grp = []
         for i in reals:
             for j in grp:
-                if (j[0] - i).is_integer:
+                if _int_valued(j[0] - i):
                     j.append(i)
                     break
             else:
                 grp.append([i])
         independent = all(len(i) == 1 for i in grp)
         allpos = all(i >= 0 for i in reals)
-        allint = all(i.is_integer for i in reals)
+        allint = all(_int_valued(i) for i in reals)
         if self.is_singularics() == True:
             rootstoconsider = []
             for i in ordered(self.y0.keys()):
@@ -712,6 +838,11 @@ class HolonomicFunction:
             parameters = set().union(*(c.free_symbols for c in self.annihilator.coefficients))
             constants = sorted(expression.free_symbols-parameters-{self.x}, key=str)
             conditions = [expression.diff(self.x,i).subs(self.x,self.x0)-v for i,v in enumerate(self.y0)]
+            from .. import nan, zoo, oo
+            if any(c.has(nan, zoo, oo) for c in conditions):
+                # The general solution is undefined at the (singular) point:
+                # decline rather than fit constants to nan.
+                raise NotImplementedError('initial conditions at a singular point of the general solution')
             values = solve(conditions, constants, dict=True)
             if not values:
                 raise ValueError('unable to resolve the initial conditions')
@@ -746,7 +877,7 @@ class HolonomicFunction:
             nonzeroterms = roots(coefficients[0], nn, filter='R')
             sol = Integer(0)
             for j, i in enumerate(nonzeroterms):
-                if i < 0 or not i.is_integer:
+                if i < 0 or not _int_valued(i):
                     continue
                 i = int(i)
                 if i < len(u0):
@@ -934,23 +1065,32 @@ def _conditions(expression, x, x0, count):
 
 
 def expr_to_holonomic(func, x=None, x0=0, y0=None, lenics=None, domain=None, initcond=True):
-    from .. import QQ, Symbol, cancel
+    from .. import QQ, RR, Float, Symbol, cancel
     func = _expr(func)
     if x is None:
         symbols = sorted(func.free_symbols, key=str)
         if len(symbols) > 1:
             raise ValueError('specify the independent variable for multivariate expressions')
         x = symbols[0] if symbols else Symbol('x')
+    floats = None
     if domain is None:
         parameters = sorted(func.free_symbols-{x},key=str)
-        domain = QQ.frac_field(*parameters) if parameters else QQ
+        if func.has(Float):
+            # Reference: a Float in the input selects RR (RR(parameters)).
+            floats = sorted(func.atoms(Float), key=lambda f: (str(f), f._prec))
+            domain = RR.frac_field(*parameters) if parameters else RR
+        else:
+            domain = QQ.frac_field(*parameters) if parameters else QQ
     parent, D = DifferentialOperators(_base(domain,x), 'Dx')
     name = str(func.func)
-    # Prefer a first-order logarithmic derivative for rational/algebraic powers
-    # and exponentials whose logarithmic derivative is rational.
-    ratio = cancel(func.diff(x)/func) if func != 0 else _expr(0)
-    num, den = ratio.as_numer_denom()
-    if num.is_polynomial(x) and den.is_polynomial(x):
+    if not floats:
+        # Prefer a first-order logarithmic derivative for rational/algebraic
+        # powers and exponentials whose logarithmic derivative is rational.
+        ratio = cancel(func.diff(x)/func) if func != 0 else _expr(0)
+        num, den = ratio.as_numer_denom()
+    if floats:
+        result = _float_annihilator(func, x, x0, floats, parent)
+    elif num.is_polynomial(x) and den.is_polynomial(x):
         result = HolonomicFunction(_normal([-ratio, _expr(1)], parent), x, x0)
     elif func.is_Add or func.is_Mul:
         items = [expr_to_holonomic(a,x,x0,domain=domain,initcond=False) for a in func.args]
@@ -981,12 +1121,27 @@ def expr_to_holonomic(func, x=None, x0=0, y0=None, lenics=None, domain=None, ini
         return _special(func, x, x0, y0, lenics, domain, initcond, True)
     elif func.is_Pow and func.args[1].is_Integer and int(func.args[1]) >= 0:
         result = expr_to_holonomic(func.args[0],x,x0,domain=domain,initcond=False)**int(func.args[1])
+    elif func.is_Pow and not func.args[1].has(x):
+        # Reference: expr_to_holonomic(base)**exponent. Negative powers of a
+        # base of order >= 2 raise NotHolonomicError, fractional ones the
+        # reference TypeError.
+        result = expr_to_holonomic(func.args[0],x,x0,domain=domain,initcond=False)**func.args[1]
     else:
         raise NotImplementedError('no D-finite conversion implemented for %s' % func)
     result._expr = func
+    if name == 'erfc':
+        # Reference to_expr: hyperexpand of the series gives 1 - erf(z).
+        from .. import erf
+        result._expr = 1 - erf(func.args[0])
     if y0 is None and initcond and _expr(x0) == 0 and result.annihilator.is_singular(0) \
             and (lenics is None or lenics <= 1):
         singular = _algebraic_singular_ics(func, x)
+        if singular is not None:
+            result.y0 = singular
+            return result
+    if y0 is None and initcond and result.annihilator.is_singular(result.x0) \
+            and func.is_rational_function(x):
+        singular = _rational_singular_ics(result, func, x, lenics)
         if singular is not None:
             result.y0 = singular
             return result
@@ -998,20 +1153,38 @@ def expr_to_holonomic(func, x=None, x0=0, y0=None, lenics=None, domain=None, ini
     result.y0 = [_expr(v) for v in y0] if y0 is not None else _conditions(func,x,_expr(x0),count) if initcond else None
     if y0 is not None and result.y0 != _conditions(func,x,_expr(x0),len(result.y0)):
         result._expr = None
-    if y0 is None and initcond and (result.y0 is None or _fractional_exponent(result)):
+    if y0 is None and initcond and (result.y0 is None or _fractional_exponent(result)
+                                    or ((func.is_Add or func.is_Mul or func.is_Pow)
+                                        and _fractional_exponent(result, True))):
+        # The reference composite path (sums, products and powers) uses the
+        # singular conditions for any single simple indicial root.
         _undefined_conditions(result, func, x, lenics)
     return result
 
 
-def _fractional_exponent(result):
+def _float_annihilator(func, x, x0, floats, parent):
+    # The annihilator of an expression with Float coefficients is computed
+    # exactly with a placeholder symbol for each Float, then the Floats are
+    # substituted back into the coefficients, which are converted to the RR
+    # operator algebra. No rounding happens before the final substitution.
+    from .. import Dummy
+    marks = {f: Dummy('float%d' % i) for i, f in enumerate(floats)}
+    exact = expr_to_holonomic(func.xreplace(marks), x, x0, initcond=False)
+    back = {v: k for k, v in marks.items()}
+    coefficients = [c.xreplace(back) for c in exact.annihilator.coefficients]
+    return HolonomicFunction(DifferentialOperator(coefficients, parent), x, x0)
+
+
+def _fractional_exponent(result, integer=False):
     # A single simple non-integer indicial root: ordinary values at x0 do
     # not determine the function (x**(3/2)*exp(x) has y(0) = 0 for every
-    # multiple), so the reference singular conditions are used.
+    # multiple), so the reference singular conditions are used. With
+    # integer=True any single simple root qualifies.
     if not result.annihilator.is_singular(result.x0):
         return False
     r = result._indicial()
     keys = list(r)
-    return len(r) == 1 and r[keys[0]] == 1 and not keys[0].is_integer
+    return len(r) == 1 and r[keys[0]] == 1 and (integer or not keys[0].is_integer)
 
 
 def _algebraic_singular_ics(func, x):
@@ -1026,6 +1199,29 @@ def _algebraic_singular_ics(func, x):
     for i, (c,) in enumerate(reversed([[v] for v in Poly(base, x).all_coeffs()])):
         if c != 0:
             return {_expr(i)*exponent: [_expr(c)**exponent]}
+    return None
+
+
+def _rational_singular_ics(result, func, x, lenics):
+    # Reference _convert_poly_rat_alg at a singular point x0: a polynomial
+    # at x0 = 0 takes {i: [c_i, c_(i+1), ...]} from its lowest nonzero
+    # coefficient c_i; otherwise a single simple indicial root r gives the
+    # Taylor coefficients of func/(x - x0)**r.
+    from .. import Poly, factorial
+    x0 = result.x0
+    if x0 == 0 and func.is_polynomial(x):
+        coeffs = list(reversed(Poly(func, x).all_coeffs()))
+        for i, c in enumerate(coeffs):
+            if not _expr(c).is_zero:
+                return {_expr(i): [_expr(v) for v in coeffs[i:]]}
+        return None
+    r = result._indicial()
+    keys = list(r)
+    if len(r) == 1 and r[keys[0]] == 1:
+        count = lenics if lenics else result.annihilator.order
+        ics = _find_conditions(func/(x - x0)**keys[0], x, x0, count)
+        if ics:
+            return {keys[0]: [j/factorial(i) for i, j in enumerate(ics)]}
     return None
 
 
@@ -1045,6 +1241,10 @@ def _undefined_conditions(result, func, x, lenics):
             if ics:
                 result.y0 = {keys[0]: [j/factorial(i) for i, j in enumerate(ics)]}
                 return
+    ics = _find_conditions(func, x, x0, count)
+    if ics:
+        result.y0 = ics
+        return
     for _ in range(64):
         x0 += 1
         ics = _find_conditions(func, x, x0, count)
@@ -1107,23 +1307,27 @@ def from_hyper(func, x0=0, evalf=False):
     else:
         evaluate = False
     x0 = _expr(x0)
-    y0 = _find_conditions(simp, x, x0, order, evaluate)
+    y0 = _find_conditions(simp, x, x0, order, evaluate, use_limit=False)
     while not y0:
         x0 += 1
-        y0 = _find_conditions(simp, x, x0, order, evaluate)
+        y0 = _find_conditions(simp, x, x0, order, evaluate, use_limit=False)
     result.x0, result.y0 = x0, y0
     return result
 
 
-def _find_conditions(func, x, x0, order, evalf=False):
-    # SymPy's _find_conditions with use_limit=False.
+def _find_conditions(func, x, x0, order, evalf=False, use_limit=True):
+    # SymPy's _find_conditions: an undefined value is replaced by the limit
+    # at x0 unless use_limit is False.
     from .. import nan
     y0 = []
     for _ in range(order):
         value = func.subs(x, x0)
         if evalf:
             value = value.evalf()
-        if value.is_finite is False or value is nan or value == nan:
+        if use_limit and (value is nan or value == nan):
+            from .. import limit
+            value = limit(func, x, x0)
+        if value.is_finite is False or value.has(nan) or 'Limit' in str(value):
             return None
         y0.append(value)
         func = func.diff(x)
@@ -1142,27 +1346,31 @@ def from_meijerg(func, x0=0, evalf=False, initcond=True, domain=None):
     return result
 
 
-class BaseHolonomicError(Exception):
-    def new(self, *args):
-        raise NotImplementedError("abstract base class")
-
-
-class NotPowerSeriesError(BaseHolonomicError):
-    def __init__(self, holonomic, x0):
-        self.holonomic = holonomic
-        self.x0 = x0
-
-    def __str__(self):
-        return 'A Power Series does not exists for %s about %s.' % (self.holonomic, self.x0)
-
-
-class NotHyperSeriesError(BaseHolonomicError):
-    def __init__(self, holonomic, x0):
-        self.holonomic = holonomic
-        self.x0 = x0
-
-    def __str__(self):
-        return 'Power series expansion of %s about %s is not hypergeometric' % (self.holonomic, self.x0)
+def _power_conditions(y0, power):
+    # Initial conditions of y**power for a first-order y. An ordinary list
+    # keeps the reference [y(x0)**power]. A singular condition
+    # {r: [c0, c1, ...]} (y = (x - x0)**r*(c0 + c1*(x - x0) + ...)) gives
+    # {r*power: [b0, b1, ...]} with the power series of the bracket raised
+    # to power (J. C. P. Miller recurrence), which needs c0 != 0.
+    from .. import cancel
+    if y0 is None:
+        return None
+    from .. import nan, zoo, oo
+    if not isinstance(y0, dict):
+        if not y0:
+            return None
+        value = _expr(y0[0])**power
+        # 0**(negative) is not a value: decline the conditions.
+        return None if value.has(nan, zoo, oo) else [value]
+    if len(y0) != 1:
+        return None
+    (r, c), = y0.items()
+    if not c or _expr(c[0]).is_zero is not False and _expr(c[0]) == 0:
+        return None
+    b = [c[0]**power]
+    for k in range(1, len(c)):
+        b.append(cancel(sum(((power + 1)*j - k)*c[j]*b[k - j] for j in range(1, k + 1))/(k*c[0])))
+    return {r*power: b}
 
 
 def _singular_combination(y1, y2, product):

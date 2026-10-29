@@ -554,6 +554,199 @@ def _erfc_erf(e, z, **hints):
     return 1 - _s().erf(z)
 
 
+# erf, erfc, erfi, erf2, erfinv, erfcinv and the Fresnel integrals
+# (``error_functions.py``; the ``tractable`` rules are not included).
+
+def _erf_arg(z):
+    s = _s()
+    return (1 - s.I)*z/s.sqrt(s.pi)
+
+
+def _erf_fresnel(e, z, **hints):
+    s = _s()
+    arg = _erf_arg(z)
+    return (1 + s.I)*(s.fresnelc(arg) - s.I*s.fresnels(arg))
+
+
+def _erf_meijerg(e, z, **hints):
+    s = _s()
+    return z/s.sqrt(s.pi)*s.meijerg([s.S.Half], [], [0], [s.Rational(-1, 2)], z**2)
+
+
+def _erf_hyper(e, z, **hints):
+    s = _s()
+    return 2*z/s.sqrt(s.pi)*s.hyper([s.S.Half], [3*s.S.Half], -z**2)
+
+
+def _erf_uppergamma(e, z, **hints):
+    s = _s()
+    return s.sqrt(z**2)/z*(1 - s.uppergamma(s.S.Half, z**2)/s.sqrt(s.pi))
+
+
+def _erf_expint(e, z, **hints):
+    s = _s()
+    return s.sqrt(z**2)/z - z*s.expint(s.S.Half, z**2)/s.sqrt(s.pi)
+
+
+def _erf_erfc(e, z, **hints):
+    return 1 - _s().erfc(z)
+
+
+def _erf_erfi(e, z, **hints):
+    s = _s()
+    return -s.I*s.erfi(s.I*z)
+
+
+def _erfc_erfi(e, z, **hints):
+    s = _s()
+    return 1 + s.I*s.erfi(s.I*z)
+
+
+def _erfc_fresnel(e, z, **hints):
+    s = _s()
+    arg = _erf_arg(z)
+    return 1 - (1 + s.I)*(s.fresnelc(arg) - s.I*s.fresnels(arg))
+
+
+def _erfc_meijerg(e, z, **hints):
+    s = _s()
+    return 1 - z/s.sqrt(s.pi)*s.meijerg([s.S.Half], [], [0], [s.Rational(-1, 2)], z**2)
+
+
+def _erfc_hyper(e, z, **hints):
+    s = _s()
+    return 1 - 2*z/s.sqrt(s.pi)*s.hyper([s.S.Half], [3*s.S.Half], -z**2)
+
+
+def _erfc_uppergamma(e, z, **hints):
+    s = _s()
+    return 1 - s.sqrt(z**2)/z*(1 - s.uppergamma(s.S.Half, z**2)/s.sqrt(s.pi))
+
+
+def _erfc_expint(e, z, **hints):
+    s = _s()
+    return 1 - s.sqrt(z**2)/z + z*s.expint(s.S.Half, z**2)/s.sqrt(s.pi)
+
+
+def _erfi_erf(e, z, **hints):
+    s = _s()
+    return -s.I*s.erf(s.I*z)
+
+
+def _erfi_erfc(e, z, **hints):
+    s = _s()
+    return s.I*s.erfc(s.I*z) - s.I
+
+
+def _erfi_fresnel(e, z, **hints):
+    s = _s()
+    arg = (1 + s.I)*z/s.sqrt(s.pi)
+    return (1 - s.I)*(s.fresnelc(arg) - s.I*s.fresnels(arg))
+
+
+def _erfi_meijerg(e, z, **hints):
+    s = _s()
+    return z/s.sqrt(s.pi)*s.meijerg([s.S.Half], [], [0], [s.Rational(-1, 2)], -z**2)
+
+
+def _erfi_hyper(e, z, **hints):
+    s = _s()
+    return 2*z/s.sqrt(s.pi)*s.hyper([s.S.Half], [3*s.S.Half], z**2)
+
+
+def _erfi_uppergamma(e, z, **hints):
+    s = _s()
+    return s.sqrt(-z**2)/z*(s.uppergamma(s.S.Half, -z**2)/s.sqrt(s.pi) - 1)
+
+
+def _erfi_expint(e, z, **hints):
+    s = _s()
+    return s.sqrt(-z**2)/z - z*s.expint(s.S.Half, -z**2)/s.sqrt(s.pi)
+
+
+def _erf2_erf(e, x, y, **hints):
+    s = _s()
+    return s.erf(y) - s.erf(x)
+
+
+def _erf2_erfc(e, x, y, **hints):
+    s = _s()
+    return s.erfc(x) - s.erfc(y)
+
+
+def _erf2_erfi(e, x, y, **hints):
+    s = _s()
+    return s.I*(s.erfi(s.I*x) - s.erfi(s.I*y))
+
+
+def _erf2_via_erf(rule):
+    def body(e, x, y, **hints):
+        s = _s()
+        target = getattr(s, rule)
+        return s.erf(y).rewrite(target) - s.erf(x).rewrite(target)
+    return body
+
+
+def _erf2_uppergamma(e, x, y, **hints):
+    s = _s()
+    return (s.sqrt(y**2)/y*(1 - s.uppergamma(s.S.Half, y**2)/s.sqrt(s.pi)) -
+            s.sqrt(x**2)/x*(1 - s.uppergamma(s.S.Half, x**2)/s.sqrt(s.pi)))
+
+
+def _erfinv_erfcinv(e, z, **hints):
+    return _s().erfcinv(1 - z)
+
+
+def _erfcinv_erfinv(e, z, **hints):
+    return _s().erfinv(1 - z)
+
+
+def _fresnels_erf(e, z, **hints):
+    s = _s()
+    return (1 + s.I)/4*(s.erf((1 + s.I)/2*s.sqrt(s.pi)*z) - s.I*s.erf((1 - s.I)/2*s.sqrt(s.pi)*z))
+
+
+def _fresnels_hyper(e, z, **hints):
+    s = _s()
+    return s.pi*z**3/6*s.hyper([s.Rational(3, 4)], [s.Rational(3, 2), s.Rational(7, 4)], -s.pi**2*z**4/16)
+
+
+def _fresnels_meijerg(e, z, **hints):
+    s = _s()
+    R = s.Rational
+    return (s.pi*z**R(9, 4)/(s.sqrt(2)*(z**2)**R(3, 4)*(-z)**R(3, 4))
+            * s.meijerg([], [1], [R(3, 4)], [R(1, 4), 0], -s.pi**2*z**4/16))
+
+
+def _fresnels_Integral(e, z, **hints):
+    s = _s()
+    t = _t(z)
+    return s.Integral(s.sin(s.pi*t**2/2), (t, 0, z))
+
+
+def _fresnelc_erf(e, z, **hints):
+    s = _s()
+    return (1 - s.I)/4*(s.erf((1 + s.I)/2*s.sqrt(s.pi)*z) + s.I*s.erf((1 - s.I)/2*s.sqrt(s.pi)*z))
+
+
+def _fresnelc_hyper(e, z, **hints):
+    s = _s()
+    return z*s.hyper([s.Rational(1, 4)], [s.S.Half, s.Rational(5, 4)], -s.pi**2*z**4/16)
+
+
+def _fresnelc_meijerg(e, z, **hints):
+    s = _s()
+    R = s.Rational
+    return (s.pi*z**R(3, 4)/(s.sqrt(2)*s.root(z**2, 4)*s.root(-z, 4))
+            * s.meijerg([], [1], [R(1, 4)], [R(3, 4), 0], -s.pi**2*z**4/16))
+
+
+def _fresnelc_Integral(e, z, **hints):
+    s = _s()
+    t = _t(z)
+    return s.Integral(s.cos(s.pi*t**2/2), (t, 0, z))
+
+
 def _sf_Piecewise(e, x, a, n, **hints):
     s = _s()
     if n in (-1, -2, -3, -4):
@@ -664,6 +857,48 @@ RULES = {
     ('catalan', 'hyper'): _catalan_hyper,
     ('catalan', 'Product'): _catalan_Product,
     ('erfc', 'erf'): _erfc_erf,
+    ('erf', 'uppergamma'): _erf_uppergamma,
+    ('erf', 'fresnels'): _erf_fresnel,
+    ('erf', 'fresnelc'): _erf_fresnel,
+    ('erf', 'meijerg'): _erf_meijerg,
+    ('erf', 'hyper'): _erf_hyper,
+    ('erf', 'expint'): _erf_expint,
+    ('erf', 'erfc'): _erf_erfc,
+    ('erf', 'erfi'): _erf_erfi,
+    ('erfc', 'erfi'): _erfc_erfi,
+    ('erfc', 'fresnels'): _erfc_fresnel,
+    ('erfc', 'fresnelc'): _erfc_fresnel,
+    ('erfc', 'meijerg'): _erfc_meijerg,
+    ('erfc', 'hyper'): _erfc_hyper,
+    ('erfc', 'uppergamma'): _erfc_uppergamma,
+    ('erfc', 'expint'): _erfc_expint,
+    ('erfi', 'erf'): _erfi_erf,
+    ('erfi', 'erfc'): _erfi_erfc,
+    ('erfi', 'fresnels'): _erfi_fresnel,
+    ('erfi', 'fresnelc'): _erfi_fresnel,
+    ('erfi', 'meijerg'): _erfi_meijerg,
+    ('erfi', 'hyper'): _erfi_hyper,
+    ('erfi', 'uppergamma'): _erfi_uppergamma,
+    ('erfi', 'expint'): _erfi_expint,
+    ('erf2', 'erf'): _erf2_erf,
+    ('erf2', 'erfc'): _erf2_erfc,
+    ('erf2', 'erfi'): _erf2_erfi,
+    ('erf2', 'fresnels'): _erf2_via_erf('fresnels'),
+    ('erf2', 'fresnelc'): _erf2_via_erf('fresnelc'),
+    ('erf2', 'meijerg'): _erf2_via_erf('meijerg'),
+    ('erf2', 'hyper'): _erf2_via_erf('hyper'),
+    ('erf2', 'uppergamma'): _erf2_uppergamma,
+    ('erf2', 'expint'): _erf2_via_erf('expint'),
+    ('erfinv', 'erfcinv'): _erfinv_erfcinv,
+    ('erfcinv', 'erfinv'): _erfcinv_erfinv,
+    ('fresnels', 'erf'): _fresnels_erf,
+    ('fresnels', 'hyper'): _fresnels_hyper,
+    ('fresnels', 'meijerg'): _fresnels_meijerg,
+    ('fresnels', 'Integral'): _fresnels_Integral,
+    ('fresnelc', 'erf'): _fresnelc_erf,
+    ('fresnelc', 'hyper'): _fresnelc_hyper,
+    ('fresnelc', 'meijerg'): _fresnelc_meijerg,
+    ('fresnelc', 'Integral'): _fresnelc_Integral,
     ('SingularityFunction', 'Piecewise'): _sf_Piecewise,
     ('SingularityFunction', 'Heaviside'): _sf_Heaviside,
     ('SingularityFunction', 'DiracDelta'): _sf_Heaviside,
