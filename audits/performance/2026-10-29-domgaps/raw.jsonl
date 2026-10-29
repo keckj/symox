@@ -1,0 +1,140 @@
+{"label": "before-1", "case": "import", "first_us": 247830.41599948774}
+{"label": "before-1", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 18628.6, "median_us": 1103.6, "error": "TypeError"}
+{"label": "before-1", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1839.1, "median_us": 1872.3, "error": null}
+{"label": "before-1", "case": "charpoly QQ(x) full 3x3", "first_us": 2570.3, "median_us": 2447.3, "error": null}
+{"label": "before-1", "case": "charpoly QQ[x] zero column", "first_us": 2115.3, "median_us": 2106.3, "error": null}
+{"label": "before-1", "case": "smith QQ(x) rank deficient", "first_us": 3044.4, "median_us": 1696.0, "error": "ZeroDivisionError"}
+{"label": "before-1", "case": "invariant_factors QQ(x) full", "first_us": 1970.5, "median_us": 1889.8, "error": null}
+{"label": "before-1", "case": "rref QQ(x) 3x3", "first_us": 1951.0, "median_us": 1935.0, "error": null}
+{"label": "before-1", "case": "det QQ(x,y) 2x2", "first_us": 1376.8, "median_us": 1305.5, "error": null}
+{"label": "before-1", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1030.1, "median_us": 293.4, "error": null}
+{"label": "before-1", "case": "QQ(x) elem == 0 x1000", "first_us": 494.6, "median_us": 482.3, "error": null}
+{"label": "before-1", "case": "QQ(x) elem == 2 x1000", "first_us": 474.4, "median_us": 482.6, "error": null}
+{"label": "before-1", "case": "QQ[x] elem != 1 x1000", "first_us": 498.1, "median_us": 475.0, "error": null}
+{"label": "before-1", "case": "QQ(x) elem < elem x1000", "first_us": 14.2, "median_us": 1.7, "error": "TypeError"}
+{"label": "after-1", "case": "import", "first_us": 243866.0890002211}
+{"label": "after-1", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 18603.8, "median_us": 1248.1, "error": null}
+{"label": "after-1", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1911.2, "median_us": 1931.4, "error": null}
+{"label": "after-1", "case": "charpoly QQ(x) full 3x3", "first_us": 2649.5, "median_us": 2437.4, "error": null}
+{"label": "after-1", "case": "charpoly QQ[x] zero column", "first_us": 2066.7, "median_us": 2019.2, "error": null}
+{"label": "after-1", "case": "smith QQ(x) rank deficient", "first_us": 2490.8, "median_us": 1173.5, "error": null}
+{"label": "after-1", "case": "invariant_factors QQ(x) full", "first_us": 1915.7, "median_us": 1897.3, "error": null}
+{"label": "after-1", "case": "rref QQ(x) 3x3", "first_us": 1951.1, "median_us": 1960.4, "error": null}
+{"label": "after-1", "case": "det QQ(x,y) 2x2", "first_us": 1410.8, "median_us": 1302.9, "error": null}
+{"label": "after-1", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1080.3, "median_us": 291.2, "error": null}
+{"label": "after-1", "case": "QQ(x) elem == 0 x1000", "first_us": 471.5, "median_us": 448.6, "error": null}
+{"label": "after-1", "case": "QQ(x) elem == 2 x1000", "first_us": 515.4, "median_us": 515.5, "error": null}
+{"label": "after-1", "case": "QQ[x] elem != 1 x1000", "first_us": 553.9, "median_us": 524.3, "error": null}
+{"label": "after-1", "case": "QQ(x) elem < elem x1000", "first_us": 263.3, "median_us": 261.3, "error": null}
+{"label": "before-2", "case": "import", "first_us": 242862.970000715}
+{"label": "before-2", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 18173.7, "median_us": 1143.3, "error": "TypeError"}
+{"label": "before-2", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1977.0, "median_us": 1879.8, "error": null}
+{"label": "before-2", "case": "charpoly QQ(x) full 3x3", "first_us": 2647.8, "median_us": 2455.9, "error": null}
+{"label": "before-2", "case": "charpoly QQ[x] zero column", "first_us": 2094.9, "median_us": 2000.8, "error": null}
+{"label": "before-2", "case": "smith QQ(x) rank deficient", "first_us": 2966.5, "median_us": 1647.4, "error": "ZeroDivisionError"}
+{"label": "before-2", "case": "invariant_factors QQ(x) full", "first_us": 1939.5, "median_us": 1886.5, "error": null}
+{"label": "before-2", "case": "rref QQ(x) 3x3", "first_us": 1936.5, "median_us": 1927.6, "error": null}
+{"label": "before-2", "case": "det QQ(x,y) 2x2", "first_us": 1361.2, "median_us": 1310.1, "error": null}
+{"label": "before-2", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1032.3, "median_us": 293.2, "error": null}
+{"label": "before-2", "case": "QQ(x) elem == 0 x1000", "first_us": 502.0, "median_us": 494.0, "error": null}
+{"label": "before-2", "case": "QQ(x) elem == 2 x1000", "first_us": 496.7, "median_us": 498.2, "error": null}
+{"label": "before-2", "case": "QQ[x] elem != 1 x1000", "first_us": 505.6, "median_us": 493.0, "error": null}
+{"label": "before-2", "case": "QQ(x) elem < elem x1000", "first_us": 22.3, "median_us": 1.6, "error": "TypeError"}
+{"label": "after-2", "case": "import", "first_us": 234836.8009988917}
+{"label": "after-2", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 17981.2, "median_us": 1164.9, "error": null}
+{"label": "after-2", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1751.8, "median_us": 1756.1, "error": null}
+{"label": "after-2", "case": "charpoly QQ(x) full 3x3", "first_us": 2535.3, "median_us": 2358.2, "error": null}
+{"label": "after-2", "case": "charpoly QQ[x] zero column", "first_us": 2002.1, "median_us": 1940.7, "error": null}
+{"label": "after-2", "case": "smith QQ(x) rank deficient", "first_us": 2502.6, "median_us": 1165.4, "error": null}
+{"label": "after-2", "case": "invariant_factors QQ(x) full", "first_us": 1948.1, "median_us": 1864.6, "error": null}
+{"label": "after-2", "case": "rref QQ(x) 3x3", "first_us": 1921.4, "median_us": 1883.8, "error": null}
+{"label": "after-2", "case": "det QQ(x,y) 2x2", "first_us": 1374.2, "median_us": 1286.1, "error": null}
+{"label": "after-2", "case": "Matrix.charpoly QQ(x) entries", "first_us": 986.0, "median_us": 288.8, "error": null}
+{"label": "after-2", "case": "QQ(x) elem == 0 x1000", "first_us": 453.1, "median_us": 407.2, "error": null}
+{"label": "after-2", "case": "QQ(x) elem == 2 x1000", "first_us": 487.9, "median_us": 493.1, "error": null}
+{"label": "after-2", "case": "QQ[x] elem != 1 x1000", "first_us": 554.8, "median_us": 517.7, "error": null}
+{"label": "after-2", "case": "QQ(x) elem < elem x1000", "first_us": 261.6, "median_us": 262.8, "error": null}
+{"label": "before-3", "case": "import", "first_us": 239681.1849976075}
+{"label": "before-3", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 18598.6, "median_us": 1154.5, "error": "TypeError"}
+{"label": "before-3", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1852.7, "median_us": 1917.8, "error": null}
+{"label": "before-3", "case": "charpoly QQ(x) full 3x3", "first_us": 2510.2, "median_us": 2435.5, "error": null}
+{"label": "before-3", "case": "charpoly QQ[x] zero column", "first_us": 2131.9, "median_us": 2074.2, "error": null}
+{"label": "before-3", "case": "smith QQ(x) rank deficient", "first_us": 3129.1, "median_us": 1686.2, "error": "ZeroDivisionError"}
+{"label": "before-3", "case": "invariant_factors QQ(x) full", "first_us": 1959.9, "median_us": 1912.6, "error": null}
+{"label": "before-3", "case": "rref QQ(x) 3x3", "first_us": 1946.2, "median_us": 1907.7, "error": null}
+{"label": "before-3", "case": "det QQ(x,y) 2x2", "first_us": 1406.2, "median_us": 1294.8, "error": null}
+{"label": "before-3", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1088.4, "median_us": 287.8, "error": null}
+{"label": "before-3", "case": "QQ(x) elem == 0 x1000", "first_us": 492.1, "median_us": 477.7, "error": null}
+{"label": "before-3", "case": "QQ(x) elem == 2 x1000", "first_us": 492.0, "median_us": 490.5, "error": null}
+{"label": "before-3", "case": "QQ[x] elem != 1 x1000", "first_us": 500.8, "median_us": 485.1, "error": null}
+{"label": "before-3", "case": "QQ(x) elem < elem x1000", "first_us": 14.0, "median_us": 1.7, "error": "TypeError"}
+{"label": "after-3", "case": "import", "first_us": 246046.43199927523}
+{"label": "after-3", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 18700.6, "median_us": 1229.9, "error": null}
+{"label": "after-3", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1918.0, "median_us": 1916.7, "error": null}
+{"label": "after-3", "case": "charpoly QQ(x) full 3x3", "first_us": 2591.1, "median_us": 2523.1, "error": null}
+{"label": "after-3", "case": "charpoly QQ[x] zero column", "first_us": 2218.7, "median_us": 2114.9, "error": null}
+{"label": "after-3", "case": "smith QQ(x) rank deficient", "first_us": 2609.7, "median_us": 1225.0, "error": null}
+{"label": "after-3", "case": "invariant_factors QQ(x) full", "first_us": 1918.1, "median_us": 1913.4, "error": null}
+{"label": "after-3", "case": "rref QQ(x) 3x3", "first_us": 1973.4, "median_us": 1926.2, "error": null}
+{"label": "after-3", "case": "det QQ(x,y) 2x2", "first_us": 1385.6, "median_us": 1312.9, "error": null}
+{"label": "after-3", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1066.5, "median_us": 298.0, "error": null}
+{"label": "after-3", "case": "QQ(x) elem == 0 x1000", "first_us": 447.7, "median_us": 421.3, "error": null}
+{"label": "after-3", "case": "QQ(x) elem == 2 x1000", "first_us": 512.1, "median_us": 512.0, "error": null}
+{"label": "after-3", "case": "QQ[x] elem != 1 x1000", "first_us": 560.0, "median_us": 547.6, "error": null}
+{"label": "after-3", "case": "QQ(x) elem < elem x1000", "first_us": 266.1, "median_us": 264.0, "error": null}
+{"label": "before-4", "case": "import", "first_us": 248951.17499909247}
+{"label": "before-4", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 19496.4, "median_us": 1139.3, "error": "TypeError"}
+{"label": "before-4", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1940.9, "median_us": 1958.2, "error": null}
+{"label": "before-4", "case": "charpoly QQ(x) full 3x3", "first_us": 2722.0, "median_us": 2560.8, "error": null}
+{"label": "before-4", "case": "charpoly QQ[x] zero column", "first_us": 2165.3, "median_us": 2168.7, "error": null}
+{"label": "before-4", "case": "smith QQ(x) rank deficient", "first_us": 3177.5, "median_us": 1838.2, "error": "ZeroDivisionError"}
+{"label": "before-4", "case": "invariant_factors QQ(x) full", "first_us": 1990.1, "median_us": 1941.9, "error": null}
+{"label": "before-4", "case": "rref QQ(x) 3x3", "first_us": 2033.5, "median_us": 1968.8, "error": null}
+{"label": "before-4", "case": "det QQ(x,y) 2x2", "first_us": 1446.7, "median_us": 1342.7, "error": null}
+{"label": "before-4", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1058.3, "median_us": 293.4, "error": null}
+{"label": "before-4", "case": "QQ(x) elem == 0 x1000", "first_us": 505.5, "median_us": 482.3, "error": null}
+{"label": "before-4", "case": "QQ(x) elem == 2 x1000", "first_us": 478.6, "median_us": 475.9, "error": null}
+{"label": "before-4", "case": "QQ[x] elem != 1 x1000", "first_us": 523.3, "median_us": 485.4, "error": null}
+{"label": "before-4", "case": "QQ(x) elem < elem x1000", "first_us": 22.2, "median_us": 1.6, "error": "TypeError"}
+{"label": "after-4", "case": "import", "first_us": 245223.62099742168}
+{"label": "after-4", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 18603.2, "median_us": 1270.5, "error": null}
+{"label": "after-4", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1997.7, "median_us": 1935.8, "error": null}
+{"label": "after-4", "case": "charpoly QQ(x) full 3x3", "first_us": 2558.0, "median_us": 2513.8, "error": null}
+{"label": "after-4", "case": "charpoly QQ[x] zero column", "first_us": 2132.0, "median_us": 2124.0, "error": null}
+{"label": "after-4", "case": "smith QQ(x) rank deficient", "first_us": 2561.1, "median_us": 1208.7, "error": null}
+{"label": "after-4", "case": "invariant_factors QQ(x) full", "first_us": 1941.2, "median_us": 1929.0, "error": null}
+{"label": "after-4", "case": "rref QQ(x) 3x3", "first_us": 1983.5, "median_us": 1928.4, "error": null}
+{"label": "after-4", "case": "det QQ(x,y) 2x2", "first_us": 1431.1, "median_us": 1323.5, "error": null}
+{"label": "after-4", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1066.9, "median_us": 298.3, "error": null}
+{"label": "after-4", "case": "QQ(x) elem == 0 x1000", "first_us": 437.3, "median_us": 408.4, "error": null}
+{"label": "after-4", "case": "QQ(x) elem == 2 x1000", "first_us": 482.3, "median_us": 478.7, "error": null}
+{"label": "after-4", "case": "QQ[x] elem != 1 x1000", "first_us": 512.9, "median_us": 501.1, "error": null}
+{"label": "after-4", "case": "QQ(x) elem < elem x1000", "first_us": 256.8, "median_us": 254.6, "error": null}
+{"label": "before-5", "case": "import", "first_us": 245733.9629982016}
+{"label": "before-5", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 18737.5, "median_us": 1230.3, "error": "TypeError"}
+{"label": "before-5", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1985.6, "median_us": 1934.1, "error": null}
+{"label": "before-5", "case": "charpoly QQ(x) full 3x3", "first_us": 2638.5, "median_us": 2463.6, "error": null}
+{"label": "before-5", "case": "charpoly QQ[x] zero column", "first_us": 2133.0, "median_us": 2062.5, "error": null}
+{"label": "before-5", "case": "smith QQ(x) rank deficient", "first_us": 3534.4, "median_us": 1687.1, "error": "ZeroDivisionError"}
+{"label": "before-5", "case": "invariant_factors QQ(x) full", "first_us": 1975.4, "median_us": 1911.6, "error": null}
+{"label": "before-5", "case": "rref QQ(x) 3x3", "first_us": 1981.6, "median_us": 1944.8, "error": null}
+{"label": "before-5", "case": "det QQ(x,y) 2x2", "first_us": 1437.6, "median_us": 1325.4, "error": null}
+{"label": "before-5", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1130.2, "median_us": 297.1, "error": null}
+{"label": "before-5", "case": "QQ(x) elem == 0 x1000", "first_us": 496.2, "median_us": 487.1, "error": null}
+{"label": "before-5", "case": "QQ(x) elem == 2 x1000", "first_us": 476.0, "median_us": 485.6, "error": null}
+{"label": "before-5", "case": "QQ[x] elem != 1 x1000", "first_us": 481.7, "median_us": 478.6, "error": null}
+{"label": "before-5", "case": "QQ(x) elem < elem x1000", "first_us": 14.2, "median_us": 1.7, "error": "TypeError"}
+{"label": "after-5", "case": "import", "first_us": 243445.61100224382}
+{"label": "after-5", "case": "charpoly QQ(x) 2x2 zero column", "first_us": 18400.0, "median_us": 1254.4, "error": null}
+{"label": "after-5", "case": "charpoly QQ(x) 3x3 zero column", "first_us": 1957.7, "median_us": 1971.0, "error": null}
+{"label": "after-5", "case": "charpoly QQ(x) full 3x3", "first_us": 2810.7, "median_us": 2519.0, "error": null}
+{"label": "after-5", "case": "charpoly QQ[x] zero column", "first_us": 2149.5, "median_us": 2040.2, "error": null}
+{"label": "after-5", "case": "smith QQ(x) rank deficient", "first_us": 2636.9, "median_us": 1224.1, "error": null}
+{"label": "after-5", "case": "invariant_factors QQ(x) full", "first_us": 1906.2, "median_us": 1885.5, "error": null}
+{"label": "after-5", "case": "rref QQ(x) 3x3", "first_us": 1938.4, "median_us": 1919.5, "error": null}
+{"label": "after-5", "case": "det QQ(x,y) 2x2", "first_us": 1592.3, "median_us": 1319.6, "error": null}
+{"label": "after-5", "case": "Matrix.charpoly QQ(x) entries", "first_us": 1031.6, "median_us": 292.2, "error": null}
+{"label": "after-5", "case": "QQ(x) elem == 0 x1000", "first_us": 443.4, "median_us": 425.3, "error": null}
+{"label": "after-5", "case": "QQ(x) elem == 2 x1000", "first_us": 482.0, "median_us": 484.2, "error": null}
+{"label": "after-5", "case": "QQ[x] elem != 1 x1000", "first_us": 520.1, "median_us": 502.0, "error": null}
+{"label": "after-5", "case": "QQ(x) elem < elem x1000", "first_us": 260.9, "median_us": 258.5, "error": null}
