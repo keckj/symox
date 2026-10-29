@@ -120,8 +120,7 @@ impl Number {
         if d.is_zero() {
             return None;
         }
-        let r = BigRational::new(n, d);
-        Some(Self::from_ratio(r))
+        Some(Self::from_ratio(crate::bigint_gcd::ratio(n, d)))
     }
 
     pub fn rational_i64(n: i64, d: i64) -> Option<Number> {
@@ -318,7 +317,7 @@ impl Number {
                 Self::float_result(r)
             }
             (Rational(_), _) | (_, Rational(_)) => {
-                Self::from_ratio(self.to_ratio().unwrap() + o.to_ratio().unwrap())
+                Self::from_ratio(crate::bigint_gcd::ratio_add(&self.to_ratio().unwrap(), &o.to_ratio().unwrap()))
             }
             _ => Self::from_bigint(self.to_bigint().unwrap() + o.to_bigint().unwrap()),
         }
@@ -353,7 +352,7 @@ impl Number {
                 Self::float_result(r)
             }
             (Rational(_), _) | (_, Rational(_)) => {
-                Self::from_ratio(self.to_ratio().unwrap() * o.to_ratio().unwrap())
+                Self::from_ratio(crate::bigint_gcd::ratio_mul(&self.to_ratio().unwrap(), &o.to_ratio().unwrap()))
             }
             _ => Self::from_bigint(self.to_bigint().unwrap() * o.to_bigint().unwrap()),
         }
@@ -397,9 +396,10 @@ impl Number {
             }
             _ if o.is_zero() => None,
             (Int(a), Int(b)) => Self::rational_i64(*a, *b),
-            _ => Some(Self::from_ratio(
-                self.to_ratio().unwrap() / o.to_ratio().unwrap(),
-            )),
+            _ => Some(Self::from_ratio(crate::bigint_gcd::ratio_div(
+                &self.to_ratio().unwrap(),
+                &o.to_ratio().unwrap(),
+            ))),
         }
     }
 
@@ -537,12 +537,12 @@ impl Number {
                 }
             }
             _ => match (self.to_bigint(), o.to_bigint()) {
-                (Some(a), Some(b)) => Self::from_bigint(a.gcd(&b)),
+                (Some(a), Some(b)) => Self::from_bigint(crate::bigint_gcd::gcd(&a, &b)),
                 _ => {
                     // gcd of rationals: gcd(numerators)/lcm(denominators)
                     match (self.numer_denom(), o.numer_denom()) {
                         (Some((an, ad)), Some((bn, bd))) => {
-                            Self::rational(an.gcd(&bn), ad.lcm(&bd)).unwrap()
+                            Self::rational(crate::bigint_gcd::gcd(&an, &bn), crate::bigint_gcd::lcm(&ad, &bd)).unwrap()
                         }
                         _ => Int(1),
                     }

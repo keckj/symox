@@ -839,7 +839,7 @@ fn is_positive_rational_base(b: &Expr) -> bool {
 fn rational_gcd(a: &Number, b: &Number) -> Number {
     let (p1, q1) = a.numer_denom().unwrap();
     let (p2, q2) = b.numer_denom().unwrap();
-    Number::rational(p1.gcd(&p2), q1.lcm(&q2)).unwrap()
+    Number::rational(crate::bigint_gcd::gcd(&p1, &p2), crate::bigint_gcd::lcm(&q1, &q2)).unwrap()
 }
 
 fn exceptional_scalar_power(base: &Expr, exponent: &Expr) -> Option<Expr> {

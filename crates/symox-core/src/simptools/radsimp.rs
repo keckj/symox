@@ -650,8 +650,7 @@ pub fn rad_rationalize(num: &Expr, den: &Expr) -> (Expr, Expr) {
 fn gcd2(a: &Expr, b: &Expr) -> Expr {
     match (a.as_number().and_then(Number::to_bigint), b.as_number().and_then(Number::to_bigint)) {
         (Some(x), Some(y)) => {
-            use num_integer::Integer;
-            Expr::num(Number::from_bigint(x.gcd(&y)))
+            Expr::num(Number::from_bigint(crate::bigint_gcd::gcd(&x, &y)))
         }
         _ => crate::poly::api::gcd(a, b, &[]).unwrap_or_else(|_| Expr::one()),
     }
