@@ -1095,6 +1095,75 @@ impl PyDomain {
 pub struct PyDomainElement {
     pub value: DomainElement,
 }
+impl PyDomainElement {
+    /// The reference `PolyElement`/`FracElement` comparisons that differ from
+    /// the structural ones below. Equality: a falsy operand equals exactly
+    /// the zero element (`if not p2: return not p1`), whatever its type; for
+    /// ZZ/QQ polynomial rings and rational function fields a foreign truthy
+    /// operand is compared with the constant coefficient (`len(p) <= 1`,
+    /// and `denom == 1` for a fraction), through the ground element's own
+    /// `==`. Ordering between elements of the same ZZ/QQ ring or field uses
+    /// the reference `sort_key`. None keeps the general path.
+    pub(crate) fn reference_ring_compare(
+        &self,
+        o: &Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<Option<PyObject>> {
+        let functions = matches!(self.value.domain, ExactDomain::Functions { .. });
+        if !functions && !matches!(self.value.domain, ExactDomain::Composite { .. }) {
+            return Ok(None);
+        }
+        let other = o.extract::<PyRef<'_, Self>>().ok();
+        let answer = |b: bool| -> PyResult<Option<PyObject>> {
+            Ok(Some(b.into_pyobject(py)?.to_owned().into_any().unbind()))
+        };
+        if !matches!(op, CompareOp::Eq | CompareOp::Ne) {
+            let Some(other) = other.filter(|_| functions) else { return Ok(None) };
+            let Some(ordering) = self.value.reference_sort_cmp(&other.value) else { return Ok(None) };
+            return answer(match op {
+                CompareOp::Lt => ordering.is_lt(),
+                CompareOp::Le => ordering.is_le(),
+                CompareOp::Gt => ordering.is_gt(),
+                _ => ordering.is_ge(),
+            });
+        }
+        let falsy = match &other {
+            Some(b) => b.value.is_zero(),
+            None => !o.is_truthy()?,
+        };
+        let equal = if falsy {
+            self.value.is_zero()
+        } else if !functions || other.as_ref().is_some_and(|b| b.value.domain == self.value.domain) {
+            return Ok(None);
+        } else {
+            match self.value.reference_scalar_coefficient() {
+                Err(()) => return Ok(None),
+                Ok(None) => false,
+                Ok(Some((c, _, denominator_one)))
+                    if (o.is_exact_instance_of::<pyo3::types::PyInt>()
+                        || o.is_exact_instance_of::<pyo3::types::PyBool>())
+                        && o.extract::<i64>().is_ok() =>
+                {
+                    // A machine Python int (or bool) compares by value with
+                    // both reference ground types.
+                    denominator_one && c == symox::poly::int::Rat::from_i64(o.extract::<i64>()?)
+                }
+                Ok(Some((c, integral, denominator_one))) => {
+                    let coefficient = Self {
+                        value: DomainElement {
+                            domain: if integral { ExactDomain::ZZ } else { ExactDomain::QQ },
+                            value: ElementValue::Rational(c),
+                        },
+                    }
+                    .into_pyobject(py)?;
+                    coefficient.rich_compare(o, CompareOp::Eq)?.is_truthy()? && denominator_one
+                }
+            }
+        };
+        answer(if matches!(op, CompareOp::Eq) { equal } else { !equal })
+    }
+}
 /// Round a real-domain literal directly, without re-evaluation or conversion
 /// through binary64. None means a nonliteral/nonfinite unsupported value.
 fn stored_real_rounding(expr: &Expr, ceiling: bool) -> Option<PyResult<num_bigint::BigInt>> {
@@ -1577,6 +1646,22 @@ impl PyDomainElement {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<PyObject> {
+        if let Some(result) = self.reference_ring_compare(o, op, py)? {
+            return Ok(result);
+        }
+        // A ground ZZ/QQ coefficient does not know polynomial elements: the
+        // reference `int`/`PythonMPQ.__eq__` returns NotImplemented and the
+        // reflected `PolyElement.__eq__` decides.
+        if matches!(op, CompareOp::Eq | CompareOp::Ne) && matches!(self.value.value, ElementValue::Rational(_)) {
+            if let Ok(other) = o.extract::<PyRef<'_, Self>>() {
+                if matches!(other.value.domain, ExactDomain::Functions { .. } | ExactDomain::Composite { .. }) {
+                    let reflected = other.reference_ring_compare(&self.clone().into_pyobject(py)?.into_any(), op, py)?;
+                    if let Some(result) = reflected {
+                        return Ok(result);
+                    }
+                }
+            }
+        }
         if matches!(self.value.value,ElementValue::Inexact(_)) {
             if o.downcast::<super::algebraic_number::PyAlgebraicNumber>().is_ok() {
                 return Ok(match op {CompareOp::Eq=>false.into_pyobject(py)?.to_owned().into_any().unbind(),CompareOp::Ne=>true.into_pyobject(py)?.to_owned().into_any().unbind(),_=>py.NotImplemented()});

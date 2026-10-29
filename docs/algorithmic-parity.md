@@ -11548,3 +11548,59 @@ QQ_I SymPy 1.14 raises the same ZeroDivisionError, so that case is parity. A
 monkeypatch of `Poly.LC` reached through an in-function import is not seen by
 the snapshot. No intentional output correction is made relative to SymPy
 1.14.
+
+## Domain element comparisons, charpoly and Smith over QQ(x) (wave 20)
+
+Fixed at the source: the equality and ordering of ZZ/QQ polynomial ring
+and rational function field elements (`ZZ[x]`, `QQ[x, y]`, `ZZ(x)`,
+`QQ(x, y)`, any number of generators, lex/grlex/grevlex) now follow the
+SymPy 1.14 `PolyElement`/`FracElement` methods, in Rust
+(`DomainElement::reference_sort_cmp`, `reference_scalar_coefficient`) with
+the dispatch in `crates/symox-py/src/domains.rs` and the reflected
+`Expr == element` path in `crates/symox-py/src/lib.rs`:
+
+- a falsy operand (`0`, `Integer(0)`, `QQ(0)`, `None`, `0.0`, `''`)
+  equals exactly the zero element, in both directions; this also covers
+  the composite rings ZZ_I[x], QQ_I(x) and QQ<a>[x];
+- a truthy foreign operand is compared with the constant coefficient of a
+  polynomial of length at most 1 (for a fraction, also `denom == 1`)
+  through the ground element's `==` (`1/2` in QQ(x) is not equal to
+  `QQ(1, 2)` because its stored denominator is 2, as in SymPy);
+- `<`, `<=`, `>`, `>=` between elements of the same ring or field use the
+  reference `sort_key` (length, then terms in decreasing ring order; a
+  fraction compares its denominator first). They raised TypeError before.
+
+Consequences, each now matching SymPy 1.14: `DomainMatrix.charpoly()` over
+QQ(x) and QQ[x] with a zero column or rank deficiency (it raised TypeError
+in `_sort_factors`); `smith_normal_form`, `invariant_factors` and
+`smith_normal_decomp` over QQ(x) on rank-deficient inputs (they raised
+ZeroDivisionError, see the wave-19 section above). The native Smith kernel
+now runs these inputs itself (the zero-pivot decline is kept only for QQ_I,
+where SymPy 1.14 raises ZeroDivisionError too). Smith over QQ<a>: the
+Python body now raises SymPy's exact `TypeError: unsupported operand
+type(s) for /: 'int' and 'ANP'` for every non-empty input; an empty matrix
+is returned unchanged. QQ<a> stays on the Python body.
+
+Evidence: `tests/test_native_domgaps.py`, a SymPy 1.14 table of 12196
+comparison outcomes over 12 domains (the same file passes unchanged under
+SymPy 1.14), plus charpoly, Smith form, invariants and both transforms
+hard-coded from SymPy. Timings are in
+[the audit](../audits/performance/2026-10-29-domgaps/README.md).
+
+Remaining gaps, unchanged: orderings of ZZ_I/QQ_I/QQ<a>/EX/RR polynomial
+elements (SymPy orders them, Symox raises TypeError); EX elements compared
+with 0; a ZZ ground coefficient compared with a float (`int == 1.0` is True
+with Python ground types, Symox `ZZ(1) == 1.0` and `ZZ(1) == True` are
+False; the polynomial and fraction elements themselves follow the reference
+for Python ints and bools); RR[x] `1 ==
+QQ(1)` (False in SymPy); truthy scalar equality for composite rings over a
+fraction field ground such as QQ(x)[y]; term orders other than
+lex/grlex/grevlex (the general path is kept); `poly_ring(..., order=grlex)`
+with an order object (Symox accepts only the string).
+
+Recorded gap, not changed: `ratint(1/(x**2 + I), x)` prints `I**(3/2)`
+where SymPy prints `sqrt(I)*I`. SymPy's `Mul.flatten` keeps a bare `I` as a
+separate `(-1)**(1/2)` accumulator and never merges it with `Pow(I, e)`
+(`I*I**(1/3)` stays `I**(1/3)*I`, `sqrt(I)*sqrt(I)*I` gives `I*I`), while
+Symox merges equal bases. The values are equal; aligning the printed form
+requires a change to the core Mul canonical form, which is not local.

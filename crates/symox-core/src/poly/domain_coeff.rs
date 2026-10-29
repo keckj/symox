@@ -273,10 +273,12 @@ impl super::smith::Pid for DomainCoeff {
             _ => i == 0,
         }
     }
-    /// The `symox._core` zero of QQ_I and of the rational function fields
-    /// compares unequal to the int 0, so the reference reaches `1 / 0`.
+    /// The QQ_I zero compares unequal to the int 0 (the reference
+    /// `GaussianElement.__eq__` returns NotImplemented), so the reference
+    /// reaches `1 / 0`. The rational function field zero equals 0 as the
+    /// reference `FracElement`, and the normalisation is skipped.
     fn zero_pivot_raises() -> bool {
-        matches!(constant(false).domain, ExactDomain::Gaussian { integral: false } | ExactDomain::Functions { ring: false, .. })
+        matches!(constant(false).domain, ExactDomain::Gaussian { integral: false })
     }
 }
 

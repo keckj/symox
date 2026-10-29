@@ -1700,6 +1700,13 @@ impl PyExprNode {
                 let reverse=match op {Lt=>Gt,Le=>Ge,Gt=>Lt,Ge=>Le,other=>other};
                 return element.__richcmp__(&self.clone().into_pyobject(py)?.into_any(),reverse,py);
             }
+            // The strict _sympify rejects a PolyElement/FracElement, so the
+            // reflected reference element equality decides.
+            if matches!(op, Eq | Ne) {
+                if let Some(result) = element.reference_ring_compare(&self.clone().into_pyobject(py)?.into_any(), op, py)? {
+                    return Ok(result);
+                }
+            }
             if matches!(element.value.value, symox::poly::domains::ElementValue::Rational(_)) {
                 Some(element.value.as_expr())
             } else { None }

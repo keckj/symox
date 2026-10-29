@@ -82,6 +82,36 @@ impl std::fmt::Display for ExactDomain {
         }
     }
 }
+/// `(len(p), p.terms())` of the reference `PolyElement.sort_key()`, compared
+/// lexicographically: `terms()` lists `(monom, coeff)` by decreasing ring
+/// order, and the tuples themselves compare monomials as plain tuples.
+fn reference_poly_cmp(p: &super::MPoly<Rat>, q: &super::MPoly<Rat>, order: &str) -> Option<std::cmp::Ordering> {
+    fn terms<'a>(p: &'a super::MPoly<Rat>, order: &str) -> Option<Vec<(&'a [u32], &'a Rat)>> {
+        let key = |m: &[u32]| -> (u64, Vec<i64>) {
+            let degree = m.iter().map(|&e| e as u64).sum();
+            match order {
+                "lex" => (0, m.iter().map(|&e| e as i64).collect()),
+                "grlex" => (degree, m.iter().map(|&e| e as i64).collect()),
+                _ => (degree, m.iter().rev().map(|&e| -(e as i64)).collect()),
+            }
+        };
+        if !matches!(order, "lex" | "grlex" | "grevlex") {
+            return None;
+        }
+        let mut terms: Vec<_> = p.iter().collect();
+        terms.sort_by_key(|term| std::cmp::Reverse(key(term.0)));
+        Some(terms)
+    }
+    let (a, b) = (terms(p, order)?, terms(q, order)?);
+    let mut ordering = a.len().cmp(&b.len());
+    for (s, t) in a.iter().zip(&b) {
+        if ordering.is_ne() {
+            break;
+        }
+        ordering = s.0.cmp(t.0).then_with(|| s.1.cmp(t.1));
+    }
+    Some(ordering)
+}
 fn failure(s: impl Into<String>) -> PolyError {
     PolyError::Failed(s.into())
 }
@@ -533,6 +563,55 @@ impl DomainElement {
             ElementValue::GaussianFraction(p, _) => p.is_zero(),
             ElementValue::Expression(e) | ElementValue::Inexact(e) => e.is_zero(),
         }
+    }
+    /// The ordering of the reference `PolyElement.sort_key()` (ZZ[x], QQ[x])
+    /// or `FracElement.sort_key()` (ZZ(x), QQ(x)) between two elements of
+    /// the same domain: `(len(p), p.terms())`, terms in decreasing ring
+    /// order, and `(denom.sort_key(), numer.sort_key())` for fractions. The
+    /// components are totally ordered, so Python's tuple comparison reduces
+    /// to this lexicographic order. None outside these domains, for another
+    /// domain or for a term order other than lex, grlex and grevlex.
+    pub fn reference_sort_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let ExactDomain::Functions { ring, order, .. } = &self.domain else { return None };
+        if self.domain != other.domain {
+            return None;
+        }
+        let (ElementValue::Function(a), ElementValue::Function(b)) = (&self.value, &other.value) else {
+            return None;
+        };
+        if *ring {
+            let (p, q) = (self.ring_polynomial().ok()?, other.ring_polynomial().ok()?);
+            return reference_poly_cmp(&p, &q, order);
+        }
+        match reference_poly_cmp(&a.d.to_rat(), &b.d.to_rat(), order)? {
+            std::cmp::Ordering::Equal => reference_poly_cmp(&a.n.to_rat(), &b.n.to_rat(), order),
+            ordering => Some(ordering),
+        }
+    }
+    /// The coefficient that the reference `PolyElement.__eq__` compares with
+    /// a foreign truthy scalar, for ZZ/QQ polynomial rings and rational
+    /// function fields: `p.get(zero_monom)` when `len(p) <= 1`, and for a
+    /// fraction `f.numer.get(zero_monom)` with `f.denom == 1` required as
+    /// well. `Ok(None)` means the reference answer is False without any
+    /// coefficient comparison, `Err(())` that the domain is not covered.
+    /// The flag is the integral ground (ZZ coefficients rather than QQ).
+    #[allow(clippy::result_unit_err)]
+    pub fn reference_scalar_coefficient(&self) -> Result<Option<(Rat, bool, bool)>, ()> {
+        let (ExactDomain::Functions { integral, ring, .. }, ElementValue::Function(r)) = (&self.domain, &self.value) else {
+            return Err(());
+        };
+        if *ring {
+            let p = self.ring_polynomial().map_err(|_| ())?;
+            return Ok(match p.constant_value() {
+                Some(c) if !c.is_zero() && p.len() == 1 => Some((c, *integral, true)),
+                _ => None,
+            });
+        }
+        let numer = r.n.to_rat();
+        Ok(match numer.constant_value() {
+            Some(c) if !c.is_zero() && numer.len() == 1 => Some((c, *integral, r.d.is_one())),
+            _ => None,
+        })
     }
     /// Exact multivariate polynomial view of a ring element. Rational function
     /// denominators are constant in QQ[parameters], and one in ZZ[parameters].

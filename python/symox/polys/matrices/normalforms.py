@@ -236,6 +236,10 @@ def _smith_normal_decomp(m, domain, shape, full):
     if m[0][0] != 0:
         c = domain.canonical_unit(m[0][0])
         if domain.is_Field:
+            if domain.is_AlgebraicField:
+                # SymPy 1.14's ANP defines no reflected division by an int,
+                # so this normalisation raises for every QQ<a> input.
+                raise TypeError("unsupported operand type(s) for /: 'int' and 'ANP'")
             c = 1 / m[0][0]
         if c != domain.one:
             m[0][0] *= c
