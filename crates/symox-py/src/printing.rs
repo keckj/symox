@@ -571,6 +571,50 @@ fn lambdify_source(
     Ok(symox::printing::code::lambdify_source(&e, flavor, &uf).ok())
 }
 
+/// Everything `lambdify` needs to reproduce SymPy's generated function, in
+/// one pass: `(body, imports, kind, undefined, names)` with the printed
+/// return expression and its imports, the result type code for float
+/// arguments, whether an undefined function occurs
+/// and the global names of `body` that are not arguments, imports or
+/// keywords; None when the source is not reproduced or the printed tree
+/// exceeds `node_limit` nodes.
+#[pyfunction]
+#[pyo3(signature = (expr, flavor, user_functions, arguments, node_limit))]
+#[allow(clippy::type_complexity)]
+fn lambdify_reference(
+    expr: &Bound<'_, PyAny>,
+    flavor: &str,
+    user_functions: &Bound<'_, PyDict>,
+    arguments: Vec<String>,
+    node_limit: usize,
+) -> PyResult<Option<(String, Vec<(String, String)>, u8, bool, Vec<String>)>> {
+    use symox::printing::code::{self as code, LambdaFlavor};
+    let flavor = match flavor {
+        "math" => LambdaFlavor::Math,
+        "numpy" => LambdaFlavor::NumPy,
+        "scipy" => LambdaFlavor::SciPy,
+        _ => return Ok(None),
+    };
+    let Ok(e) = to_expr(expr) else { return Ok(None) };
+    let (size, undefined) = code::lambdify_tree_size(&e, node_limit);
+    if size > node_limit {
+        return Ok(None);
+    }
+    let mut uf = rustc_hash::FxHashMap::default();
+    for (k, v) in user_functions.iter() {
+        let (Ok(k), Ok(v)) = (k.extract::<String>(), v.extract::<String>()) else {
+            return Ok(None);
+        };
+        uf.insert(k, v);
+    }
+    let Ok((body, imports)) = code::lambdify_source(&e, flavor, &uf) else { return Ok(None) };
+    let kind = code::lambdify_result_kind(&e, flavor);
+    let known: Vec<&str> = arguments.iter().map(String::as_str)
+        .chain(imports.iter().map(|(_, k)| k.as_str())).collect();
+    let names = code::lambdify_global_names(&body, &known);
+    Ok(Some((body, imports, kind as u8, undefined, names)))
+}
+
 /// Result type code of `lambdify`'s generated function for Python float
 /// arguments (`symox::printing::code::LambdaKind`; 0 when not determined).
 #[pyfunction]
@@ -729,6 +773,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(numpycode, m)?)?;
     m.add_function(wrap_pyfunction!(lambdify_source, m)?)?;
     m.add_function(wrap_pyfunction!(lambdify_result_kind, m)?)?;
+    m.add_function(wrap_pyfunction!(lambdify_reference, m)?)?;
     m.add_function(wrap_pyfunction!(py_torchcode, m)?)?;
     m.add_function(wrap_pyfunction!(py_jaxcode, m)?)?;
     m.add_function(wrap_pyfunction!(py_slangcode, m)?)?;

@@ -15,6 +15,7 @@ pub mod latex;
 pub mod jax;
 pub mod order;
 pub mod pretty;
+pub mod pyeval;
 pub mod pytorch;
 pub mod slang;
 pub mod sycl;

@@ -167,3 +167,70 @@ def test_complex_expressions():
     f = lambdify(x, exp(I*x), 'numpy')
     assert inspect.getsource(f) == 'def _lambdifygenerated(x):\n    return exp(1j*x)\n'
     assert f(0.5) == numpy.complex128(0.8775825618903728+0.479425538604203j)
+
+
+def test_scalar_values_are_sympys_bit_for_bit():
+    # SymPy evaluates the printed source: 15 digit literals, printed order,
+    # `**` as C pow (the compiled expression differs in the last digits)
+    pytest.importorskip('numpy')
+    from symox import Float, Rational, atan, cos, pi
+    cases = [
+        (cos(x)/x**2, 'numpy', (3.0,), -0.10999916628893838),
+        ((x + Float(0.7)*Rational(1, 3)*Integer(3) + Rational(10, 3))**(-2), 'numpy', (1.7,), 0.030421849648458663),
+        (15*x + Float(0.7)*sqrt(3), 'math', (0.3,), 5.712435565298214),
+        (exp(x)*cos(Rational(1, 3)) + sqrt(3)/3 + Float(0.7)/pi, 'math', (1.7,), 5.9728118010923374),
+        (2*x + 3*pi + 11, 'numpy', (7.3,), 35.02477796076938),
+        (sqrt(x**2 + x + 2), 'numpy', (0.05,), 1.4326548781894404),
+        (x**3*y**3 + x + 2 + 2*pi, 'numpy', (0.05, 0.05), 8.333185322804585),
+        (Piecewise((x**2 + pi, x < 1), (x/3, True)), 'numpy', (0.3,), 3.231592653589793),
+        (atan(x*log(pi)/3), 'math', (0.3,), 0.11397686304001121),
+        (-x**2 + sin(x)/7, 'numpy', (5,), -25.136989182094734),
+    ]
+    for e, modules, args, value in cases:
+        f = lambdify(sorted(e.free_symbols, key=str), e, modules)
+        assert float(f(*args)) == value, (e, modules, args)
+        assert _t(f(*args)) == _t(f.__wrapped__(*args))
+
+
+def test_scalar_values_match_generated_function():
+    numpy = pytest.importorskip('numpy')
+    import random
+    from symox import Float, Rational, atan, cos, pi, tanh
+    rnd = random.Random(1)
+    atoms = [x, y, Integer(2), Integer(3), Rational(1, 3), Float(0.7), pi]
+    funcs = [sin, cos, exp, sqrt, log, atan, tanh]
+
+    def build(d):
+        if d == 0:
+            return rnd.choice(atoms)
+        r = rnd.random()
+        if r < 0.3:
+            return build(d - 1) + build(d - 1)
+        if r < 0.55:
+            return build(d - 1)*build(d - 1)
+        if r < 0.7:
+            return build(d - 1)**rnd.choice([2, 3, -1, -2, Rational(1, 2)])
+        return rnd.choice(funcs)(build(d - 1))
+    values = [0.3, 1.7, 2.9, 0.05, 7.3, 2, 5, 13, numpy.float64(0.7)]
+    for _ in range(120):
+        e = build(3)
+        if not e.free_symbols:
+            continue
+        args = sorted(e.free_symbols, key=str)
+        for modules in ['numpy', 'math']:
+            f = lambdify(args, e, modules)
+            g = getattr(f, '__wrapped__', None)
+            if g is None:  # the generated function itself
+                continue
+            for v in values:
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    try:
+                        r1 = f(*(v,)*len(args))
+                    except Exception as exc:
+                        r1 = type(exc)
+                    try:
+                        r2 = g(*(v,)*len(args))
+                    except Exception as exc:
+                        r2 = type(exc)
+                assert repr(r1) == repr(r2) and type(r1) is type(r2), (e, modules, v)

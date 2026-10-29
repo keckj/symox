@@ -3681,11 +3681,13 @@ def lambdify(args, expr, modules=None, **kwargs):
         if generated is None:
             raise
         return generated
-    if isinstance(expr, Basic):
+    if isinstance(expr, _core.Expr) or isinstance(expr, Basic):
         from .utilities.lambdify import _attach_reference
         _attach_reference(native, args, expr, modules, kwargs, shown)
     exact = _integer_polynomial_lambda(args, expr, modules)
     if exact is None:
+        return native
+    if hasattr(native, '_attach_exact') and native._attach_exact(exact):
         return native
     return _ExactIntegerLambda(native, exact)
 

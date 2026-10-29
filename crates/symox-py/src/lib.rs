@@ -4096,10 +4096,19 @@ pub struct PyCompiled {
     modules: Option<Py<PyAny>>,
     globals: pyo3::sync::GILOnceCell<Py<PyAny>>,
     // SymPy's generated Python function (source in linecache, docstring,
-    // signature), built on first need by `builder`; with `kind` (the result
-    // type for Python float arguments, `LambdaKind`) and the math flavor.
-    reference: pyo3::sync::GILOnceCell<(Py<PyAny>, u8, bool)>,
+    // signature), built on first need by `builder`; with the result type
+    // (`LambdaKind`) for Python float arguments and the printer flavor (0
+    // math, 1 numpy, 2 scipy); the result type for small int arguments and
+    // their bound are derived on first need.
+    reference: pyo3::sync::GILOnceCell<(Py<PyAny>, u8, u8)>,
     reference_function: pyo3::sync::GILOnceCell<Option<Py<PyAny>>>,
+    int_kind: pyo3::sync::GILOnceCell<(u8, u64)>,
+    // The printed return expression, its argument names and the resolver of
+    // its global names, and its bit-exact native evaluation built from them.
+    printed: pyo3::sync::GILOnceCell<(String, Vec<String>, Py<PyAny>)>,
+    program: pyo3::sync::GILOnceCell<Option<symox::printing::pyeval::Program>>,
+    // Python integer evaluation of an integer polynomial (`int` arguments).
+    exact: pyo3::sync::GILOnceCell<Py<PyAny>>,
 }
 
 const COMPILED_DOC: &str = "A compiled numerical function.";
@@ -4115,40 +4124,124 @@ impl PyCompiled {
         Ok(f.as_ref().map(|f| f.bind(py).clone()))
     }
 
-    /// SymPy's result types: Python float arguments of a known result type
-    /// use the native value (wrapped as that type) unless it is not finite
-    /// (the generated function then raises or warns as SymPy's does); every
-    /// other argument goes through the generated function.
-    fn call_reference(&self, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<Option<PyObject>> {
-        let Some((_, kind, math)) = self.reference.get(py) else { return Ok(None) };
-        let (kind, math) = (*kind, *math);
-        if args.iter().all(|a| a.is_exact_instance_of::<PyFloat>()) && kind != 0 {
-            let s: Vec<f64> = args.iter().map(|a| a.extract::<f64>()).collect::<PyResult<_>>()?;
-            let mut out = vec![0.0; self.c.n_outputs()];
-            self.c.call(&s, &mut out);
-            let v = out[0];
-            if v.is_finite() {
-                let np = || py.import("numpy");
-                return Ok(Some(match kind {
-                    1 => v.into_pyobject(py)?.into_any().unbind(),
-                    2 => np()?.getattr("float64")?.call1((v,))?.unbind(),
-                    3 => np()?.getattr("bool_")?.call1((v != 0.0,))?.unbind(),
-                    4 => pyo3::types::PyBool::new(py, v != 0.0).to_owned().into_any().unbind(),
-                    5 => np()?.getattr("asarray")?.call1((v,))?.unbind(),
-                    _ => return Ok(None),
+    /// The result type and argument bound of small Python `int` arguments
+    /// (`symox::printing::code::lambdify_int_result_kind`), derived once.
+    fn int_kind(&self, py: Python<'_>, float_kind: u8, flavor: u8) -> (u8, u64) {
+        *self.int_kind.get_or_init(py, || {
+            use symox::printing::code::{self as code, LambdaFlavor};
+            let flavor = match flavor { 0 => LambdaFlavor::Math, 1 => LambdaFlavor::NumPy, _ => LambdaFlavor::SciPy };
+            let e = &self.exprs[0];
+            // the compiled expression is the printed one
+            if self.exprs.len() != 1 || code::lambdify_result_kind(e, flavor) as u8 != float_kind {
+                return (0, 0);
+            }
+            let (kind, bound) = code::lambdify_int_result_kind(e, flavor);
+            (kind as u8, bound)
+        })
+    }
+
+    /// The native evaluation of the printed return expression, with SymPy's
+    /// Python float semantics (`symox::printing::pyeval`), built once.
+    fn program(&self, py: Python<'_>) -> Option<&symox::printing::pyeval::Program> {
+        self.program.get_or_init(py, || {
+            use symox::printing::pyeval::{self, Binding};
+            let (body, names, resolve) = self.printed.get(py)?;
+            let parsed = pyeval::parse(body, names)?;
+            let objects = resolve.bind(py).call1((parsed.globals().to_vec(),)).ok()?;
+            if objects.is_none() {
+                return None;
+            }
+            let objects: Vec<Bound<'_, PyAny>> = objects.extract().ok()?;
+            let modules = py.import("sys").ok()?.getattr("modules").ok()?;
+            let mut bindings = Vec::with_capacity(objects.len());
+            for obj in &objects {
+                if let Ok(f) = obj.downcast_exact::<PyFloat>() {
+                    bindings.push(Binding::Float(f.value()));
+                    continue;
+                }
+                // a module function is identified by identity
+                let name: Option<String> = obj.getattr("__name__").ok().and_then(|n| n.extract().ok());
+                let key = name.and_then(|name| ["math", "numpy", "builtins"].iter().find_map(|m| {
+                    let module = modules.get_item(*m).ok()?;
+                    module.getattr(name.as_str()).ok()?.is(obj).then(|| format!("{m}.{name}"))
                 }));
+                bindings.push(key.map_or(Binding::Other, Binding::Function));
+            }
+            parsed.resolve(&bindings)
+        }).as_ref()
+    }
+
+    /// SymPy's results: Python `float` (or `numpy.float64`, or small `int`)
+    /// arguments of a known result type use the native evaluation of the
+    /// printed source (bit for bit SymPy's value), wrapped as that type,
+    /// unless it is not finite somewhere or has no exact native evaluation
+    /// (the generated function then computes, raises or warns as SymPy's
+    /// does); other scalar arguments go through the generated function
+    /// itself, arrays and objects keep the native paths.
+    fn call_reference(&self, py: Python<'_>, reference: &(Py<PyAny>, u8, u8), args: &Bound<'_, PyTuple>) -> PyResult<Option<PyObject>> {
+        let (_, float_kind, flavor) = *reference;
+        let mut numpy: Option<Option<&NumpyScalars>> = None;
+        let (mut ints, mut largest, mut np_floats, mut other) = (false, 0u64, false, false);
+        let mut values = [0.0f64; 8];
+        let mut int_args = [false; 8];
+        let native = args.len() <= values.len() && self.c.n_outputs() == 1;
+        for (i, a) in args.iter().enumerate() {
+            let v = if let Ok(f) = a.downcast_exact::<PyFloat>() {
+                f.value()
+            } else if a.is_exact_instance_of::<PyInt>() {
+                match a.extract::<i64>() {
+                    Ok(v) => {
+                        ints = true;
+                        largest = largest.max(v.unsigned_abs());
+                        if i < int_args.len() { int_args[i] = true; }
+                        v as f64
+                    }
+                    Err(_) => { other = true; 0.0 }
+                }
+            } else if numpy.get_or_insert_with(|| numpy_scalars(py)).is_some_and(|n| a.get_type().is(n.float64.bind(py))) {
+                np_floats = true;
+                a.downcast::<PyFloat>()?.value()
+            } else {
+                other = true;
+                0.0
+            };
+            if native && !other { values[i] = v; }
+        }
+        if !other && native {
+            let kind = if ints {
+                let (kind, bound) = self.int_kind(py, float_kind, flavor);
+                if largest <= bound { kind } else { 0 }
+            } else {
+                float_kind
+            };
+            // `numpy.float64` arguments keep the numpy result types only
+            let kind = if np_floats && !matches!(kind, 2 | 3 | 5) { 0 } else { kind };
+            // the value of the printed source, bit for bit
+            let value = if kind != 0 {
+                self.program(py).and_then(|p| p.eval(&values[..args.len()], &int_args[..args.len()]))
+            } else {
+                None
+            };
+            if let Some(v) = value {
+                let numpy = || numpy.unwrap_or_else(|| numpy_scalars(py));
+                match kind {
+                    1 => return Ok(Some(PyFloat::new(py, v).into_any().unbind())),
+                    4 => return Ok(Some(pyo3::types::PyBool::new(py, v != 0.0).to_owned().into_any().unbind())),
+                    2 | 3 | 5 => if let Some(n) = numpy() {
+                        return Ok(Some(match kind {
+                            2 => n.float64.bind(py).call1((v,))?,
+                            3 => n.bool_.bind(py).call1((v != 0.0,))?,
+                            _ => n.asarray.bind(py).call1((v,))?,
+                        }.unbind()));
+                    },
+                    _ => {}
+                }
             }
         }
         // Arrays, mixed and object arguments keep the native evaluation (the
         // vector dispatch contract); scalars go through the generated function.
-        if !args.iter().all(|a| {
-            a.is_instance_of::<PyFloat>() || a.is_instance_of::<PyInt>()
-                || a.get_type().module().is_ok_and(|m| m.to_string() == "numpy")
-                    && a.getattr("ndim").and_then(|d| d.extract::<i64>()).is_ok_and(|d| d == 0)
-                    && a.get_type().name().is_ok_and(|n| n != "ndarray")
-                    && a.getattr("dtype").and_then(|d| d.getattr("kind")).and_then(|c| c.extract::<String>())
-                        .is_ok_and(|c| matches!(c.as_str(), "f" | "i" | "u" | "b"))
-        }) {
+        if other && !args.iter().all(|a| a.is_instance_of::<PyFloat>() || a.is_instance_of::<PyInt>()
+            || numpy_scalars(py).is_some_and(|n| a.is_instance(n.scalars.bind(py)).unwrap_or(false))) {
             return Ok(None);
         }
         match self.reference_function(py)? {
@@ -4156,6 +4249,70 @@ impl PyCompiled {
             None => Ok(None),
         }
     }
+
+    /// Python `int` (or `bool`) arguments, or NumPy integer arguments only,
+    /// of an integer polynomial follow the exact Python integer arithmetic
+    /// of SymPy's generated code.
+    fn exact_integers(&self, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<bool> {
+        if args.is_empty() {
+            return Ok(false);
+        }
+        if args.iter().any(|a| a.is_exact_instance_of::<PyInt>() || a.is_exact_instance_of::<pyo3::types::PyBool>()) {
+            return Ok(true);
+        }
+        // NumPy integer arrays and scalars keep their integer dtype in the
+        // reference generated code (x + 1 on an int64 array); NumPy is only
+        // consulted once it is imported.
+        if args.iter().any(|a| a.is_instance_of::<PyFloat>()) {
+            return Ok(false);
+        }
+        let Some(n) = numpy_scalars_imported(py) else { return Ok(false) };
+        for a in args.iter() {
+            let integer = if a.is_instance(n.ndarray.bind(py))? {
+                let kind: String = a.getattr("dtype")?.getattr("kind")?.extract()?;
+                matches!(kind.as_str(), "b" | "i" | "u")
+            } else {
+                a.is_instance(n.integers.bind(py))?
+            };
+            if !integer {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+}
+
+/// NumPy's scalar result types and the scalar argument types that go
+/// through `lambdify`'s generated function, looked up once.
+struct NumpyScalars {
+    float64: Py<PyAny>,
+    bool_: Py<PyAny>,
+    asarray: Py<PyAny>,
+    ndarray: Py<PyAny>,
+    scalars: Py<PyAny>,
+    integers: Py<PyAny>,
+}
+
+static NUMPY_SCALARS: pyo3::sync::GILOnceCell<Option<NumpyScalars>> = pyo3::sync::GILOnceCell::new();
+
+fn numpy_scalars(py: Python<'_>) -> Option<&NumpyScalars> {
+    NUMPY_SCALARS.get_or_init(py, || {
+        let np = py.import("numpy").ok()?;
+        let get = |name: &str| np.getattr(name).ok().map(Bound::unbind);
+        let scalars = PyTuple::new(py, [get("floating")?, get("integer")?, get("bool_")?]).ok()?;
+        let integers = PyTuple::new(py, [get("integer")?, get("bool_")?]).ok()?;
+        Some(NumpyScalars { float64: get("float64")?, bool_: get("bool_")?, asarray: get("asarray")?,
+            ndarray: get("ndarray")?, scalars: scalars.into_any().unbind(), integers: integers.into_any().unbind() })
+    }).as_ref()
+}
+
+/// `numpy_scalars` when NumPy is already imported (without importing it).
+fn numpy_scalars_imported(py: Python<'_>) -> Option<&NumpyScalars> {
+    if let Some(n) = NUMPY_SCALARS.get(py) {
+        return n.as_ref();
+    }
+    let imported = py.import("sys").ok()?.getattr("modules").ok()?.contains("numpy").ok()?;
+    if imported { numpy_scalars(py) } else { None }
 }
 
 fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -4184,6 +4341,11 @@ fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
 impl PyCompiled {
     #[pyo3(signature = (*args))]
     fn __call__(&self, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
+        if let Some(exact) = self.exact.get(py) {
+            if self.exact_integers(py, args)? {
+                return Ok(exact.bind(py).call(args, None)?.unbind());
+            }
+        }
         if args.len() != self.c.n_args() {
             return Err(PyTypeError::new_err(format!(
                 "expected {} argument(s), got {}",
@@ -4191,8 +4353,8 @@ impl PyCompiled {
                 args.len()
             )));
         }
-        if self.reference.get(py).is_some() {
-            if let Some(result) = self.call_reference(py, args)? {
+        if let Some(reference) = self.reference.get(py) {
+            if let Some(result) = self.call_reference(py, reference, args)? {
                 return Ok(result);
             }
         }
@@ -4304,9 +4466,22 @@ impl PyCompiled {
     }
 
     /// Attach SymPy's generated function: `builder()` returns it (or None),
-    /// `kind` is its result type code for Python float arguments.
-    fn _attach_reference(&self, py: Python<'_>, builder: Py<PyAny>, kind: u8, math: bool) -> bool {
-        self.reference.set(py, (builder, kind, math)).is_ok()
+    /// `kind` is its result type code for Python float arguments and
+    /// `flavor` the printer ('math', 'numpy' or 'scipy').
+    #[pyo3(signature = (builder, kind, flavor, body=None, names=None, resolve=None))]
+    fn _attach_reference(&self, py: Python<'_>, builder: Py<PyAny>, kind: u8, flavor: &str,
+                         body: Option<String>, names: Option<Vec<String>>, resolve: Option<Py<PyAny>>) -> bool {
+        let flavor = match flavor { "math" => 0, "numpy" => 1, "scipy" => 2, _ => return false };
+        if let (Some(body), Some(names), Some(resolve)) = (body, names, resolve) {
+            let _ = self.printed.set(py, (body, names, resolve));
+        }
+        self.reference.set(py, (builder, kind, flavor)).is_ok()
+    }
+
+    /// Attach the Python integer evaluation of an integer polynomial, used
+    /// for Python `int` arguments and for NumPy integer arguments only.
+    fn _attach_exact(&self, py: Python<'_>, exact: Py<PyAny>) -> bool {
+        self.exact.set(py, exact).is_ok()
     }
 
     /// SymPy's docstring of the generated function.
@@ -4383,7 +4558,11 @@ fn py_lambdify(
         numpy_evaluator, modules: modules.map(|m| m.clone().unbind()),
         globals: pyo3::sync::GILOnceCell::new(),
         reference: pyo3::sync::GILOnceCell::new(),
-        reference_function: pyo3::sync::GILOnceCell::new() })
+        reference_function: pyo3::sync::GILOnceCell::new(),
+        int_kind: pyo3::sync::GILOnceCell::new(),
+        printed: pyo3::sync::GILOnceCell::new(),
+        program: pyo3::sync::GILOnceCell::new(),
+        exact: pyo3::sync::GILOnceCell::new() })
 }
 
 #[pymodule]

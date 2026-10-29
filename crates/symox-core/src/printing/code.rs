@@ -2240,3 +2240,286 @@ pub fn lambdify_result_kind(e: &Expr, flavor: LambdaFlavor) -> LambdaKind {
         k => k,
     }
 }
+
+/// Result type of `lambdify`'s generated function when some arguments are
+/// Python `int`s (the others `float`s) of magnitude at most the returned
+/// bound, and when the native double evaluation then gives its value. The
+/// generated code keeps `int` arithmetic exact: the bound keeps every integer
+/// intermediate below 2**53, where it is a double; a module function then
+/// converts it exactly. Functions that keep integer types (`numpy.sign`,
+/// `abs`, ...), negative or symbolic powers of integers and `select` give
+/// `Unknown`.
+pub fn lambdify_int_result_kind(e: &Expr, flavor: LambdaFlavor) -> (LambdaKind, u64) {
+    const EXACT: f64 = 9007199254740992.0; // 2**53
+    let mut s = CodeSettings::new(if flavor == LambdaFlavor::Math { Lang::Python } else { Lang::NumPy });
+    s.allow_unknown_functions = true;
+    s.lambdify = true;
+    s.scipy = flavor == LambdaFlavor::SciPy;
+    let _session = super::order::session();
+    let p = CodePrinter::new(&s);
+    let math = flavor == LambdaFlavor::Math;
+    fn converts(head: &str) -> bool {
+        let Some((module, name)) = head.split_once('.') else { return false };
+        (module == "numpy" || module == "math") && matches!(name,
+            "sin" | "cos" | "tan" | "sinh" | "cosh" | "tanh" | "exp" | "log" | "sqrt" | "log10"
+            | "log2" | "expm1" | "log1p" | "arcsin" | "arccos" | "arctan" | "arcsinh" | "arccosh"
+            | "arctanh" | "asin" | "acos" | "atan" | "asinh" | "acosh" | "atanh")
+    }
+    fn join(a: LambdaKind, b: LambdaKind) -> LambdaKind {
+        use LambdaKind::*;
+        match (a, b) {
+            (Unknown | Bool | NpBool | Array0, _) | (_, Unknown | Bool | NpBool | Array0) => Unknown,
+            (NpFloat, _) | (_, NpFloat) => NpFloat,
+            (Float, _) | (_, Float) => Float,
+            _ => Int,
+        }
+    }
+    fn num(n: &Number) -> (LambdaKind, f64) {
+        match n {
+            Number::Float(_) => (LambdaKind::Float, 0.0),
+            n if n.is_integer() => (LambdaKind::Int, n.to_f64().abs()),
+            n if n.is_rational() => (LambdaKind::Float, 0.0),
+            _ => (LambdaKind::Unknown, 0.0),
+        }
+    }
+    struct Walk<'a, 'b> {
+        p: &'a CodePrinter<'b>,
+        math: bool,
+        bound: f64,
+        exact: bool,
+        budget: usize,
+    }
+    impl Walk<'_, '_> {
+        // (kind, magnitude bound of an `Int` value)
+        fn go(&mut self, e: &Expr) -> (LambdaKind, f64) {
+            use LambdaKind::*;
+            if self.budget == 0 {
+                return (Unknown, 0.0);
+            }
+            self.budget -= 1;
+            let (k, m) = self.kind(e);
+            if k == Int && !(m < EXACT) {
+                self.exact = false;
+            }
+            (k, m)
+        }
+        fn call(&mut self, head: &str, args: &[Expr]) -> LambdaKind {
+            let mut int = false;
+            for a in args {
+                match self.go(a).0 {
+                    LambdaKind::Int => int = true,
+                    LambdaKind::Float | LambdaKind::NpFloat => {}
+                    _ => return LambdaKind::Unknown,
+                }
+            }
+            if int && !converts(head) {
+                return LambdaKind::Unknown;
+            }
+            match head {
+                "math.sin" | "math.cos" | "math.tan" | "math.asin" | "math.acos" | "math.atan"
+                | "math.sinh" | "math.cosh" | "math.tanh" | "math.asinh" | "math.acosh"
+                | "math.atanh" | "math.exp" | "math.log" | "math.sqrt" | "math.log10" | "math.log2"
+                | "math.expm1" | "math.log1p" if self.math => LambdaKind::Float,
+                _ if self.math => LambdaKind::Unknown,
+                "numpy.select" | "numpy.sinc" | "numpy.real" | "numpy.imag" => LambdaKind::Unknown,
+                h if h.starts_with("numpy.logical") || h.starts_with("numpy.is") => LambdaKind::Unknown,
+                h if h.starts_with("numpy.") => LambdaKind::NpFloat,
+                _ => LambdaKind::Unknown,
+            }
+        }
+        fn kind(&mut self, e: &Expr) -> (LambdaKind, f64) {
+            use LambdaKind::*;
+            match e.kind() {
+                Kind::Sym(_) => (Int, self.bound),
+                Kind::Num(n) => num(n),
+                Kind::Const(Constant::Pi | Constant::E) => (Float, 0.0),
+                Kind::Add(c, terms) => {
+                    let (mut k, mut m) = num(c);
+                    if c.is_zero() {
+                        (k, m) = (Int, 0.0);
+                    }
+                    // partial sums of the integer terms are integers too
+                    for (t, c) in terms {
+                        let (kt, mt) = self.go(t);
+                        let (kc, mc) = num(c);
+                        let kt = join(kt, kc);
+                        if kt == Int {
+                            m += mt * mc;
+                        }
+                        k = join(k, kt);
+                    }
+                    if !(m < EXACT) {
+                        self.exact = false;
+                    }
+                    (k, m)
+                }
+                Kind::Mul(c, factors) => {
+                    let (mut k, mut m) = num(c);
+                    m = m.max(1.0);
+                    for (b, x) in factors {
+                        let (kf, mf) = if x.is_one() {
+                            self.go(b)
+                        } else {
+                            self.go(&Expr::from_kind(Kind::Pow(b.clone(), x.clone())))
+                        };
+                        if kf == Int {
+                            m *= mf.max(1.0);
+                        }
+                        k = join(k, kf);
+                    }
+                    if !(m < EXACT) {
+                        self.exact = false;
+                    }
+                    (k, m)
+                }
+                Kind::Pow(b, x) => {
+                    let Ok(s) = self.p.print(e) else { return (Unknown, 0.0) };
+                    if s.contains("numpy.") || s.contains("math.") || s.contains("scipy.") {
+                        return match whole_call(&s) {
+                            Some(head) => (self.call(head, &[b.clone(), x.clone()]), 0.0),
+                            None => (Unknown, 0.0),
+                        };
+                    }
+                    if whole_call(&s).is_some() {
+                        return (Unknown, 0.0);
+                    }
+                    let (kb, mb) = self.go(b);
+                    let (kx, _) = self.go(x);
+                    if kb == Int {
+                        // `int ** int` is a float for negative exponents
+                        return match x.kind() {
+                            Kind::Num(n) if n.is_integer() && !n.is_negative() => match n.to_i64() {
+                                Some(n) => (Int, mb.max(1.0).powi(n.min(1 << 20) as i32)),
+                                None => (Unknown, 0.0),
+                            },
+                            _ => (Unknown, 0.0),
+                        };
+                    }
+                    match join(kb, kx) {
+                        Int => (Unknown, 0.0),
+                        k => (k, 0.0),
+                    }
+                }
+                Kind::Rel(_, a, b) => {
+                    let k = join(self.go(a).0, self.go(b).0);
+                    if k == Unknown {
+                        (Unknown, 0.0)
+                    } else if self.math {
+                        (Bool, 0.0)
+                    } else {
+                        (NpBool, 0.0)
+                    }
+                }
+                Kind::Func(Func::Logic(crate::logic::LogicOp::And | crate::logic::LogicOp::Or | crate::logic::LogicOp::Not), args) => {
+                    let want = if self.math { Bool } else { NpBool };
+                    for a in args {
+                        if self.go(a).0 != want {
+                            return (Unknown, 0.0);
+                        }
+                    }
+                    (want, 0.0)
+                }
+                Kind::Func(_, args) => {
+                    let Ok(s) = self.p.print(e) else { return (Unknown, 0.0) };
+                    match whole_call(&s) {
+                        Some(head) => {
+                            let head = head.to_string();
+                            (self.call(&head, args), 0.0)
+                        }
+                        None => (Unknown, 0.0),
+                    }
+                }
+                _ => (Unknown, 0.0),
+            }
+        }
+    }
+    if crate::traverse::free_symbols(e).is_empty() {
+        return (LambdaKind::Unknown, 0);
+    }
+    let run = |bound: f64| {
+        let mut w = Walk { p: &p, math, bound, exact: true, budget: 2000 };
+        let (k, _) = w.go(e);
+        (if w.budget == 0 { LambdaKind::Unknown } else { k }, w.exact)
+    };
+    let (kind, exact) = run(1.0);
+    if matches!(kind, LambdaKind::Unknown | LambdaKind::Int) || !exact {
+        return (LambdaKind::Unknown, 0);
+    }
+    // the largest power of two bound that keeps the integers exact
+    let (mut lo, mut hi) = (0u32, 53u32);
+    while lo < hi {
+        let mid = (lo + hi).div_ceil(2);
+        if run(2f64.powi(mid as i32)).1 { lo = mid } else { hi = mid - 1 }
+    }
+    (kind, 1u64 << lo)
+}
+
+/// Size of the tree printed for `e` (with repetitions), counted up to
+/// `limit + 1`, and whether it holds an undefined function application.
+pub fn lambdify_tree_size(e: &Expr, limit: usize) -> (usize, bool) {
+    let mut stack = vec![e.clone()];
+    let (mut count, mut undefined) = (0usize, false);
+    while let Some(node) = stack.pop() {
+        count += 1;
+        if count > limit {
+            break;
+        }
+        undefined |= matches!(node.kind(), Kind::Func(Func::Undefined(_), _));
+        stack.extend(node.args());
+    }
+    (count, undefined)
+}
+
+/// The global names of a printed `lambdify` return expression (Python's
+/// `(?<![\w.])[A-Za-z_]\w*(?!\w|\s*=(?!=))` outside string literals),
+/// without `known` names and Python keywords, in first-occurrence order.
+pub fn lambdify_global_names(body: &str, known: &[&str]) -> Vec<String> {
+    const KEYWORDS: &[&str] = &["False", "None", "True", "and", "as", "assert", "async", "await",
+        "break", "class", "continue", "def", "del", "elif", "else", "except", "finally", "for",
+        "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass",
+        "raise", "return", "try", "while", "with", "yield"];
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    // `'[^']*'|"[^"]*"` removed, as `re.sub` does
+    let chars: Vec<char> = body.chars().collect();
+    let mut text = Vec::with_capacity(chars.len());
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '\'' || c == '"' {
+            if let Some(end) = chars[i + 1..].iter().position(|&d| d == c) {
+                i += end + 2;
+                continue;
+            }
+        }
+        text.push(c);
+        i += 1;
+    }
+    let mut out: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < text.len() {
+        if !word(text[i]) {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < text.len() && word(text[i]) {
+            i += 1;
+        }
+        let first = text[start];
+        if start > 0 && text[start - 1] == '.' || !(first.is_ascii_alphabetic() || first == '_') {
+            continue;
+        }
+        let mut j = i;
+        while j < text.len() && text[j].is_whitespace() {
+            j += 1;
+        }
+        if j < text.len() && text[j] == '=' && text.get(j + 1) != Some(&'=') {
+            continue;
+        }
+        let name: String = text[start..i].iter().collect();
+        if !known.contains(&name.as_str()) && !KEYWORDS.contains(&name.as_str()) && !out.contains(&name) {
+            out.push(name);
+        }
+    }
+    out
+}

@@ -1,11 +1,15 @@
 """lambdify before/after timings: python bench.py <label> <out.json>.
 
-Run with PYTHONPATH pointing at the symox tree to measure. Every case runs
-in a fresh process for the first call, then repeated calls (median of runs).
+Run with PYTHONPATH pointing at the symox tree to measure (BENCH_MODULE=sympy
+measures the reference SymPy instead; run it from /tmp). Every case runs in
+a fresh process for the first call, then repeated calls (median of runs).
 """
-import json, subprocess, sys, time, statistics
+import json, os, subprocess, sys, time, statistics
 
 CASES = {
+    'build_numpy_sin': ("f=None", "f=S.lambdify(x, S.sin(x), 'numpy')"),
+    'call_numpy_sinonly_float': ("f=S.lambdify(x, S.sin(x), 'numpy')", "f(0.5)"),
+    'call_numpy_sinonly_int': ("f=S.lambdify(x, S.sin(x), 'numpy')", "f(1)"),
     'build_numpy_sin_poly': ("f=None", "f=S.lambdify(x, S.sin(x)+x**2, 'numpy')"),
     'call_numpy_sin_float': ("f=S.lambdify(x, S.sin(x)+x**2, 'numpy')", "f(0.5)"),
     'call_numpy_sin_npfloat': ("f=S.lambdify(x, S.sin(x)+x**2, 'numpy'); v=np.float64(0.5)", "f(v)"),
@@ -19,7 +23,7 @@ CASES = {
     'getsource_numpy_sin': ("import inspect; f=S.lambdify(x, S.sin(x), 'numpy')", "inspect.getsource(f)"),
 }
 
-PRE = "import symox as S, numpy as np; x, y = S.symbols('x y')\n"
+PRE = "import %s as S, numpy as np; x, y = S.symbols('x y')\n" % os.environ.get('BENCH_MODULE', 'symox')
 
 
 def child(name):

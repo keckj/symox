@@ -596,14 +596,27 @@ def _module_named(name, modlist):
     return any(getattr(m, '__name__', None) == name for m in modlist)
 
 
+_REFERENCE_FLAVORS = {}
+
+
 def _reference_flavor(modules, options):
     """The printer SymPy's lambdify selects ('math', 'numpy', 'scipy'), with
     the user functions of dict modules, or None for printers whose source is
     not reproduced natively (mpmath, sympy, cmath, cupy, jax, ...)."""
-    if options.get('printer') is not None or options.get('cse') or options.get('dummify'):
+    if options and (options.get('printer') is not None or options.get('cse') or options.get('dummify')
+                    or set(options) - {'docstring_limit', 'use_imps'}):
         return None
-    if set(options) - {'docstring_limit', 'use_imps'}:
-        return None
+    # A module name (or the default) always selects the same printer.
+    cacheable = modules is None or type(modules) is str
+    if cacheable and modules in _REFERENCE_FLAVORS:
+        return _REFERENCE_FLAVORS[modules]
+    plan = _select_reference_flavor(modules)
+    if cacheable:
+        _REFERENCE_FLAVORS[modules] = plan
+    return plan
+
+
+def _select_reference_flavor(modules):
     if modules is None:
         try:
             _module_namespace('scipy')
@@ -642,70 +655,108 @@ _REFERENCE_NODE_LIMIT = 20000
 
 
 def _reference_plan(args, expr, modules, options, shown=None):
-    """``(build, kind, math)``: a builder of SymPy's generated
-    ``_lambdifygenerated`` function from the natively printed source, its
-    result type code for float arguments and the math flavor; None when the
-    generated source is not reproduced."""
-    import keyword
+    """``(build, kind, flavor[, body, names, resolve])``: a builder of
+    SymPy's generated ``_lambdifygenerated`` function from the natively
+    printed source, its result type code for float arguments, the printer
+    flavor ('math', 'numpy' or 'scipy') and, without user functions, the
+    printed return expression, the argument names and the resolver of its
+    global names (for its native evaluation); None when the generated source
+    is not reproduced."""
     from .. import _core
-    if not isinstance(expr, _S.Basic) or getattr(expr, 'is_Matrix', False):
+    if not isinstance(expr, _core.Expr) and not isinstance(expr, _S.Basic) or getattr(expr, 'is_Matrix', False):
         return None
     plan = _reference_flavor(modules, options)
     if plan is None:
         return None
     flavor, namespaces, user_functions = plan
-    iterable_args = (args,) if isinstance(args, _S.Expr) else args
+    iterable_args = (args,) if isinstance(args, _core.Expr) or isinstance(args, _S.Expr) else args
     try:
         iterable_args = list(iterable_args)
     except TypeError:
         return None
     names = []
     for arg in iterable_args:
-        if not isinstance(arg, _S.Symbol) or type(arg).__name__ != 'Symbol':
+        if type(arg).__name__ != 'Symbol' or not isinstance(arg, _S.Symbol):
             return None
         name = arg.name
-        if not name or not name.isidentifier() or keyword.iskeyword(name):
+        if not name or not name.isidentifier() or _iskeyword(name):
             return None
         names.append(name)
     if len(set(names)) != len(names):
         return None
     # The printed source is a tree: shared subexpressions (a DAG such as 40
-    # nested sin(e) + cos(e)) would be exponential, keep the native result.
-    from .. import preorder_traversal
-    for count, _ in enumerate(preorder_traversal(expr)):
-        if count > _REFERENCE_NODE_LIMIT:
-            return None
+    # nested sin(e) + cos(e)) would be exponential, keep the native result
+    # (the native printer counts the tree up to the limit).
+    printed = _core.lambdify_reference(expr, flavor, user_functions, names, _REFERENCE_NODE_LIMIT)
+    if printed is None:
+        return None
+    body, imports, kind, undefined, unknown = printed
     # The native path raises for free symbols that are not arguments and for
     # undefined functions without an implementation: keep that behavior.
     if not expr.free_symbols <= set(iterable_args):
         return None
-    from ..core.function import AppliedUndef
-    if any(str(f.func) not in (user_functions or {}) for f in expr.atoms(AppliedUndef)):
+    if undefined:
+        from ..core.function import AppliedUndef
+        if any(str(f.func) not in (user_functions or {}) for f in expr.atoms(AppliedUndef)):
+            return None
+    if unknown and not _names_resolved(unknown, namespaces):
         return None
-    printed = _core.lambdify_source(expr, flavor, user_functions)
-    if printed is None:
-        return None
-    body, imports = printed
-    if not _names_resolved(body, names, imports, namespaces):
-        return None
-    kind = _core.lambdify_result_kind(expr, flavor)
     limit = options.get('docstring_limit', 1000)
     shown = expr if shown is None else shown
 
     def build():
         return _generated_function(names, body, imports, namespaces, expr, shown, limit)
-    return build, kind, flavor == 'math'
+    if user_functions:
+        return build, kind, flavor
+
+    def resolve(used):
+        return _resolve_globals(used, imports, namespaces)
+    return build, kind, flavor, body, names, resolve
 
 
-def _names_resolved(body, names, imports, namespaces):
-    """Every global name of the printed return expression is an argument,
-    an import, a builtin or a name of the module namespaces (otherwise the
-    printed form is not SymPy's, e.g. a held ``UnevaluatedExpr`` or a
-    ``Catalan`` constant that SymPy prints as a Float)."""
-    import builtins, keyword, re
-    known = set(names) | {k for _, k in imports} | set(keyword.kwlist)
-    for name in re.findall(r'(?<![\w.])[A-Za-z_]\w*(?!\w|\s*=(?!=))', re.sub(r"'[^']*'|\"[^\"]*\"", '', body)):
-        if name in known or hasattr(builtins, name):
+def _resolve_globals(used, imports, namespaces):
+    """The objects the global names ``used`` by the generated function are
+    bound to (the namespace of ``_generated_function``), or None."""
+    import builtins, importlib
+    out = []
+    for name in used:
+        if name in ('builtins', 'range'):
+            return None
+        for m in namespaces:
+            space = _module_namespace(m) if isinstance(m, str) else m if isinstance(m, dict) else getattr(m, '__dict__', None)
+            if space is None:
+                return None
+            if name in space:
+                out.append(space[name])
+                break
+        else:
+            mod = next((mod for mod, k in imports if k == name), None)
+            if mod is not None:
+                try:
+                    out.append(getattr(importlib.import_module(mod), name))
+                except (ImportError, AttributeError):
+                    return None
+            elif hasattr(builtins, name):
+                out.append(getattr(builtins, name))
+            else:
+                return None
+    return out
+
+
+def _iskeyword(name):
+    import keyword
+    return keyword.iskeyword(name)
+
+
+def _names_resolved(unknown, namespaces):
+    """Every global name of the printed return expression that is not an
+    argument, an import or a keyword is a builtin or a name of the module
+    namespaces (otherwise the printed form is not SymPy's, e.g. a held
+    ``UnevaluatedExpr`` or a ``Catalan`` constant that SymPy prints as a
+    Float)."""
+    import builtins
+    for name in unknown:
+        if hasattr(builtins, name):
             continue
         for m in namespaces:
             space = _module_namespace(m) if isinstance(m, str) else m if isinstance(m, dict) else getattr(m, '__dict__', {})

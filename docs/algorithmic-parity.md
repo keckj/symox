@@ -12291,6 +12291,23 @@ Native now (crates/symox-core/src/printing/code.rs, `lambdify_source`,
   `erf`) go through the generated function, which then raises or warns as
   SymPy's (`0.0 cannot be raised to a negative power`, `math domain error`,
   `invalid value encountered in log`).
+- The value for those scalar arguments (crates/symox-core/src/printing/
+  pyeval.rs): the printed return expression is parsed once and evaluated
+  natively with Python's semantics (exact `int` arithmetic below 2**53, no
+  signed zero for integers, libm `pow` for `**`, lazy `if`/`else`,
+  `and`/`or`, eager NumPy `select` and `logical_*.reduce`), its global names
+  resolved once as the generated function's namespace resolves them and
+  identified by object identity. Only the libm-backed `math` functions,
+  `abs` and the NumPy functions that are exact (`sqrt`, `absolute`, `sign`,
+  `floor`, `ceil`, comparisons, logic, `select`) or call libm (`sin`,
+  `cos`) are evaluated; NumPy's own SIMD kernels (`exp`, `log`, `tan`, `arctan`,
+  `tanh`, ..., whose last digit differs from libm on AVX-512 machines),
+  `math.floor`/`ceil` (int results), SciPy and user functions, non-finite
+  arguments or intermediates, and integer literals above 2**53 leave the
+  value to the generated function. The value is then SymPy's bit for bit
+  (fuzz: 0 differences over 4144 cases; the compiled native tree, with
+  full-precision Float constants and folding, differed in the last digit in
+  949 of them).
 
 Python side (python/symox/utilities/lambdify.py): the generated function is
 compiled with filename `<lambdifygenerated-N>`, registered in `linecache`
