@@ -12746,3 +12746,101 @@ coefficient by `trigsimp().cancel()` (the Poly construction there expands
 zero check.
 
 Measured: [audit](../audits/performance/2026-10-29-rrnorm/README.md).
+
+
+## arraysuite (wave 25): SymPy's array and matrix-expression tests, 2026-10-29
+
+SymPy 1.14's own tests of `sympy/tensor/array/expressions/tests`,
+`sympy/tensor/array/tests` and six files of
+`sympy/matrices/expressions/tests` (derivatives, trace, matexpr, hadamard,
+applyfunc, kronecker) run against symox with `sympy` replaced by `symox`
+in the imports (copies kept outside tests/).
+
+Nothing new is native. Committed fixes are API surface only:
+
+- `symox.tensor.array.arrayop.Flatten` (Python: SymPy's lazy iterator over
+  stored entries of an NDimArray, a matrix or an iterable; no computation).
+- `det`, `per`, `Permanent` importable from
+  `symox.matrices.expressions.determinant` (aliases of the existing
+  top-level functions).
+
+Tested in tests/test_native_arraysuite.py.
+
+Dropped: an attempt that published SymPy's Python array-expression package
+(`array_expressions`, `arrayexpr_derivatives`, `utils`, the
+`from_*`/`conv_*` converters, already vendored privately in
+`symox._arrayexpr`) as `symox.tensor.array.expressions` and switched
+`MatrixExpr.diff` to SymPy's array algorithm brought the run to 148 passed
+of 201, but put the conversions and derivative rules in Python and made the
+matrix derivative 10x-70x slower (SymPy's own speed). These are real
+algorithms and must be ported to Rust on the native nodes; they are
+recorded as gaps below.
+
+Before / after (SymPy test files):
+
+| file | tests | before | after |
+|---|---|---|---|
+| array/expressions/test_array_expressions | 25 | collection error | collection error |
+| array/expressions/test_arrayexpr_derivatives | 1 | collection error | collection error |
+| array/expressions/test_as_explicit | 2 | collection error | collection error |
+| array/expressions/test_convert_array_to_indexed | 1 | 1 F | 1 F |
+| array/expressions/test_convert_array_to_matrix | 16 | collection error | collection error |
+| array/expressions/test_convert_indexed_to_array | 6 | collection error | collection error |
+| array/expressions/test_convert_matrix_to_array | 1 | collection error | collection error |
+| array/expressions/test_deprecated_conv_modules | 1 | 1 F | 1 F |
+| array/tests/test_array_comprehension | 2 | 2 F | 2 F |
+| array/tests/test_array_derivatives | 1 | 1 F | 1 F |
+| array/tests/test_arrayop | 9 | collection error (Flatten) | 9 P |
+| array/tests/test_immutable_ndim_array | 19 | 1 F / 18 P | 1 F / 18 P |
+| array/tests/test_mutable_ndim_array | 15 | 15 P | 15 P |
+| array/tests/test_ndim_array | 5 | 1 F / 4 P | 1 F / 4 P |
+| array/tests/test_ndim_array_conversions | 1 | 1 P | 1 P |
+| matrices/expressions/test_applyfunc | 5 | 2 F / 3 P | 2 F / 3 P |
+| matrices/expressions/test_derivatives | 12 | collection error | collection error |
+| matrices/expressions/test_hadamard | 9 | 2 F / 7 P | 2 F / 7 P |
+| matrices/expressions/test_kronecker | 18 | 7 F / 11 P | 7 F / 11 P |
+| matrices/expressions/test_matexpr | 42 | collection error (det) | 17 F / 23 P / 2 xfail |
+| matrices/expressions/test_trace | 10 | 4 F / 6 P | 4 F / 6 P |
+| total | 201 | 65 P | 97 P, 39 F, 2 xfail, 63 not collected |
+
+Remaining failures by class ((a) wrong result, (b) symox raises or holds
+where SymPy computes, (c) different but provably equal form, (d) missing
+API, (e) harness artefact):
+
+- (d), needs a Rust port (not thin): the public modules
+  `array_expressions`, `arrayexpr_derivatives`, `utils` and SymPy's
+  converter internals (`_support_function_tp1_recognize`, ...) are absent;
+  7 files (63 tests) fail at collection. The public
+  `symox.tensor.array.expressions` is a symox implementation whose
+  conversions differ from SymPy's (`convert_array_to_indexed` of a tensor
+  product, test_convert_array_to_indexed; `convert_array_to_matrix` turns a
+  contraction of ArraySymbols into a MatMul of MatrixSymbols, SymPy keeps
+  the array expression). Port the conversions
+  (convert_matrix_to_array, convert_array_to_matrix, the indexed
+  converters) and array_derive with the ArrayContraction/PermuteDims
+  canonicalization to crates/symox-core on the native nodes; then
+  `MatrixExpr.diff` can follow SymPy's array algorithm without the 10x-70x
+  slowdown of the Python version. Also `Trace._normalize`,
+  `Trace.as_explicit` with symbolic dims, `Trace.doit(deep=False)`,
+  Hadamard `validate=False`, `Basic.dummy_eq` on structural containers.
+- (a) error behavior: no error where SymPy raises
+  (test_matrix_symbol_creation, test_invalid_args, test_issue_20222).
+  test_HadamardProduct: `HadamardPower(A.T, 2)` kept among the args where
+  SymPy's test expects `A.T` (to be checked).
+- (b) KroneckerProduct: combine_mul, combine_pow, the `kroneckerproduct`
+  expand hint, `_entry`, explicit identity (test_kronecker, 7).
+  Native matrix expressions: `Eq(A, B)` of different shapes held (SymPy:
+  False), MatMul/MatAdd postprocessors with explicit matrices, single
+  indexing and `as_explicit` with symbolic dims, MatrixSet membership,
+  `gcd_terms` of a MatAdd, numpy conversion, MatrixElement diff
+  (test_matexpr). `ArrayComprehension` with symbolic length,
+  `ArrayDerivative(..., evaluate=...)`, symbolic NDimArray indexing.
+  ElementwiseApplyFunction requires a native Lambda (applyfunc). Native
+  `diff` exits with 0 through `has` before calling a host class's
+  `_eval_derivative` (`ArrayElement` diff, diff.rs).
+- (c) KroneckerProduct conjugate/adjoint form.
+- (e) `Trace(A).arg is A` (native nodes rebuild the argument object);
+  `MatrixSymbol.args[0]` is a str (SymPy: `Str`), which also breaks
+  test_matexpr_subs and test_deprecated_conv_modules.
+
+Measured: [audit](../audits/performance/2026-10-29-arraysuite/README.md).

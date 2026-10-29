@@ -257,4 +257,63 @@ def _expand_matrix_scalars(expression):
     return expression
 
 
-__all__=['tensorproduct','tensorcontraction','tensordiagonal','permutedims','derive_by_array']
+class Flatten:
+    """SymPy's ``Flatten``: a lazy iterator over the flat entries of an
+    array, a matrix or another iterable.
+
+    >>> from symox.tensor.array.arrayop import Flatten
+    >>> from symox.tensor.array import Array
+    >>> A = Array(range(6)).reshape(2, 3)
+    >>> Flatten(A)
+    Flatten([[0, 1, 2], [3, 4, 5]])
+    >>> [i for i in Flatten(A)]
+    [0, 1, 2, 3, 4, 5]
+    """
+    def __init__(self, iterable):
+        from collections.abc import Iterable
+        from ... import _core
+        is_matrix=isinstance(iterable,(_core.Matrix,)) or getattr(iterable,'is_Matrix',False)
+        if not isinstance(iterable,Iterable) and not is_matrix:
+            raise NotImplementedError("Data type not yet supported")
+        if isinstance(iterable,list):
+            iterable=NDimArray(iterable)
+        self._iter=iterable
+        self._idx=0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        from ... import S
+        if len(self._iter)>self._idx:
+            source=self._iter
+            if isinstance(source,NDimArray):
+                result=(source._sparse_array.get(self._idx,S.Zero) if source._sparse
+                        else source._array[self._idx])
+            elif hasattr(source,'__next__'):
+                result=next(source)
+            else:
+                result=source[self._idx]
+        else:
+            raise StopIteration
+        self._idx+=1
+        return result
+
+    def next(self):
+        return self.__next__()
+
+    def _sympystr(self, printer):
+        # SymPy's StrPrinter prints an NDimArray as its nested list.
+        inner=str(self._iter) if isinstance(self._iter,NDimArray) else printer._print(self._iter)
+        return type(self).__name__+'('+inner+')'
+
+    # SymPy's Printable (imported lazily: the printing package needs the
+    # complete symox namespace).
+    def __str__(self):
+        from ...printing.str import sstr
+        return sstr(self, order=None)
+
+    __repr__ = __str__
+
+
+__all__=['tensorproduct','tensorcontraction','tensordiagonal','permutedims','derive_by_array','Flatten']
