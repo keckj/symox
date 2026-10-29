@@ -1,0 +1,170 @@
+{"side": "base", "run": 1, "data": {"case": "ei", "first_ms": 6.086011999286711, "repeat_us": 1783.9239687873487, "reps": 32, "result": "Limit(x*(-Ei(x) + Ei(x - exp(-exp(x))))*exp(-x)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 1, "data": {"case": "ei", "first_ms": 2.979909004352521, "repeat_us": 697.0042400644161, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 1, "data": {"case": "erf", "first_ms": 3.5890260041924194, "repeat_us": 2006.1031400109641, "reps": 50, "result": "Limit((-erf(x) + erf(x - exp(-exp(x))))*exp(x**2)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 1, "data": {"case": "erf", "first_ms": 1.7925039937836118, "repeat_us": 847.6775400049519, "reps": 50, "result": "-2/sqrt(pi)"}}
+{"side": "base", "run": 1, "data": {"case": "ugam", "first_ms": 1.796948999981396, "repeat_us": 575.2451199805364, "reps": 50, "result": "Limit(uppergamma(x, 1)/gamma(x), x, oo, dir='-')"}}
+{"side": "new", "run": 1, "data": {"case": "ugam", "first_ms": 1.7756980014382862, "repeat_us": 531.617820088286, "reps": 50, "result": "1"}}
+{"side": "base", "run": 1, "data": {"case": "subfac", "first_ms": 1.2696369958575815, "repeat_us": 356.5117401012685, "reps": 50, "result": "Limit(subfactorial(x), x, oo, dir='-')"}}
+{"side": "new", "run": 1, "data": {"case": "subfac", "first_ms": 0.8095949960988946, "repeat_us": 142.45516009395942, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 1, "data": {"case": "stirl", "first_ms": 83.22425300139003, "repeat_us": 57157.86700238823, "reps": 2, "result": "Limit(x**3*(-x + (x + 1/2)*log(x) - log(factorial(x)) + log(2*pi)/2 + 1/(12*x)), x, oo, dir='-')"}}
+{"side": "new", "run": 1, "data": {"case": "stirl", "first_ms": 17.419946001609787, "repeat_us": 977.1019090707837, "reps": 11, "result": "1/360"}}
+{"side": "base", "run": 1, "data": {"case": "harm_m1", "first_ms": 1.476156001444906, "repeat_us": 415.046580019407, "reps": 50, "result": "Limit(harmonic(n, m + 1), n, oo, dir='-')"}}
+{"side": "new", "run": 1, "data": {"case": "harm_m1", "first_ms": 0.8237799993366934, "repeat_us": 168.71903993887827, "reps": 50, "result": "zeta(m + 1)"}}
+{"side": "base", "run": 1, "data": {"case": "harm_z1", "first_ms": 1.3542050000978634, "repeat_us": 420.6556199642364, "reps": 50, "result": "Limit(harmonic(x, z + 1), x, oo, dir='-')"}}
+{"side": "new", "run": 1, "data": {"case": "harm_z1", "first_ms": 1.0441809936310165, "repeat_us": 161.51197996805422, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 1, "data": {"case": "atan_lim", "first_ms": 2.2347429985529743, "repeat_us": 1079.5704199699685, "reps": 50, "result": "Limit(a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x, x, oo, dir='-')"}}
+{"side": "new", "run": 1, "data": {"case": "atan_lim", "first_ms": 1.4961959968786687, "repeat_us": 643.456440011505, "reps": 50, "result": "-a*log(a**2)/2"}}
+{"side": "base", "run": 1, "data": {"case": "atan_int", "first_ms": 2.0672350001404993, "repeat_us": 1127.2581999946851, "reps": 50, "result": "Integral(atan(a*x)/x**2, (x, 1, oo))"}}
+{"side": "new", "run": 1, "data": {"case": "atan_int", "first_ms": 1.69914399884874, "repeat_us": 1164.680119982222, "reps": 50, "result": "-a*log(a**2)/2 + a*log(a**2 + 1)/2 + atan(a)"}}
+{"side": "base", "run": 1, "data": {"case": "c_sinx", "first_ms": 0.8380299987038597, "repeat_us": 181.9679600885138, "reps": 50, "result": "1"}}
+{"side": "new", "run": 1, "data": {"case": "c_sinx", "first_ms": 0.8008150034584105, "repeat_us": 197.32882006792352, "reps": 50, "result": "1"}}
+{"side": "base", "run": 1, "data": {"case": "c_e", "first_ms": 1.0146470012841746, "repeat_us": 377.74894008180127, "reps": 50, "result": "E"}}
+{"side": "new", "run": 1, "data": {"case": "c_e", "first_ms": 1.0530150029808283, "repeat_us": 381.0929600149393, "reps": 50, "result": "E"}}
+{"side": "base", "run": 1, "data": {"case": "c_gruntz", "first_ms": 1.2355090002529323, "repeat_us": 446.3537000992801, "reps": 50, "result": "1"}}
+{"side": "new", "run": 1, "data": {"case": "c_gruntz", "first_ms": 1.2226079998072237, "repeat_us": 439.741839945782, "reps": 50, "result": "1"}}
+{"side": "base", "run": 1, "data": {"case": "c_ei", "first_ms": 1.0098020065925084, "repeat_us": 261.8881399394013, "reps": 50, "result": "1"}}
+{"side": "new", "run": 1, "data": {"case": "c_ei", "first_ms": 1.2882719966000877, "repeat_us": 269.0740399702918, "reps": 50, "result": "1"}}
+{"side": "base", "run": 1, "data": {"case": "c_erf", "first_ms": 0.9499650041107088, "repeat_us": 301.16166002699174, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "new", "run": 1, "data": {"case": "c_erf", "first_ms": 0.9839639969868585, "repeat_us": 301.331719965674, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "base", "run": 1, "data": {"case": "c_harm3", "first_ms": 1.1314369985484518, "repeat_us": 189.65017996379174, "reps": 50, "result": "zeta(3)"}}
+{"side": "new", "run": 1, "data": {"case": "c_harm3", "first_ms": 0.8650700037833303, "repeat_us": 189.26354008726776, "reps": 50, "result": "zeta(3)"}}
+{"side": "base", "run": 1, "data": {"case": "c_lgam", "first_ms": 1.1099670009571128, "repeat_us": 387.348059884971, "reps": 50, "result": "1"}}
+{"side": "new", "run": 1, "data": {"case": "c_lgam", "first_ms": 1.1490249962662347, "repeat_us": 379.0771000785753, "reps": 50, "result": "1"}}
+{"side": "base", "run": 1, "data": {"case": "c_atan", "first_ms": 0.8891809993656352, "repeat_us": 208.9411199267488, "reps": 50, "result": "-1"}}
+{"side": "new", "run": 1, "data": {"case": "c_atan", "first_ms": 0.8401700033573434, "repeat_us": 206.06746009434573, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 2, "data": {"case": "ei", "first_ms": 3.2993139975587837, "repeat_us": 1764.6075400989503, "reps": 50, "result": "Limit(x*(-Ei(x) + Ei(x - exp(-exp(x))))*exp(-x)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 2, "data": {"case": "ei", "first_ms": 1.4584520031348802, "repeat_us": 688.5077599145006, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 2, "data": {"case": "erf", "first_ms": 3.1316329987021163, "repeat_us": 1944.5893800002523, "reps": 50, "result": "Limit((-erf(x) + erf(x - exp(-exp(x))))*exp(x**2)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 2, "data": {"case": "erf", "first_ms": 1.53442000009818, "repeat_us": 831.9563600525726, "reps": 50, "result": "-2/sqrt(pi)"}}
+{"side": "base", "run": 2, "data": {"case": "ugam", "first_ms": 1.7287060036323965, "repeat_us": 567.8775999695063, "reps": 50, "result": "Limit(uppergamma(x, 1)/gamma(x), x, oo, dir='-')"}}
+{"side": "new", "run": 2, "data": {"case": "ugam", "first_ms": 1.218136996612884, "repeat_us": 529.891860060161, "reps": 50, "result": "1"}}
+{"side": "base", "run": 2, "data": {"case": "subfac", "first_ms": 1.2471390000428073, "repeat_us": 352.71246000775136, "reps": 50, "result": "Limit(subfactorial(x), x, oo, dir='-')"}}
+{"side": "new", "run": 2, "data": {"case": "subfac", "first_ms": 0.7845949949114583, "repeat_us": 139.7633999295067, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 2, "data": {"case": "stirl", "first_ms": 83.68300900474424, "repeat_us": 56715.591501415474, "reps": 2, "result": "Limit(x**3*(-x + (x + 1/2)*log(x) - log(factorial(x)) + log(2*pi)/2 + 1/(12*x)), x, oo, dir='-')"}}
+{"side": "new", "run": 2, "data": {"case": "stirl", "first_ms": 17.223458002263214, "repeat_us": 971.7612721777351, "reps": 11, "result": "1/360"}}
+{"side": "base", "run": 2, "data": {"case": "harm_m1", "first_ms": 1.3661980046890676, "repeat_us": 405.2194600808434, "reps": 50, "result": "Limit(harmonic(n, m + 1), n, oo, dir='-')"}}
+{"side": "new", "run": 2, "data": {"case": "harm_m1", "first_ms": 0.8429810040979646, "repeat_us": 165.39402000489645, "reps": 50, "result": "zeta(m + 1)"}}
+{"side": "base", "run": 2, "data": {"case": "harm_z1", "first_ms": 1.4741170016350225, "repeat_us": 416.965420008637, "reps": 50, "result": "Limit(harmonic(x, z + 1), x, oo, dir='-')"}}
+{"side": "new", "run": 2, "data": {"case": "harm_z1", "first_ms": 0.9051910019479692, "repeat_us": 173.70393994497135, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 2, "data": {"case": "atan_lim", "first_ms": 2.2783500025980175, "repeat_us": 1060.8254600083455, "reps": 50, "result": "Limit(a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x, x, oo, dir='-')"}}
+{"side": "new", "run": 2, "data": {"case": "atan_lim", "first_ms": 1.4865939956507646, "repeat_us": 642.2290000773501, "reps": 50, "result": "-a*log(a**2)/2"}}
+{"side": "base", "run": 2, "data": {"case": "atan_int", "first_ms": 2.051972995104734, "repeat_us": 1164.631759893382, "reps": 50, "result": "Integral(atan(a*x)/x**2, (x, 1, oo))"}}
+{"side": "new", "run": 2, "data": {"case": "atan_int", "first_ms": 1.8330000020796433, "repeat_us": 1322.237799904542, "reps": 50, "result": "-a*log(a**2)/2 + a*log(a**2 + 1)/2 + atan(a)"}}
+{"side": "base", "run": 2, "data": {"case": "c_sinx", "first_ms": 0.8087509995675646, "repeat_us": 189.68245989526622, "reps": 50, "result": "1"}}
+{"side": "new", "run": 2, "data": {"case": "c_sinx", "first_ms": 0.8304500006488524, "repeat_us": 188.60855998354964, "reps": 50, "result": "1"}}
+{"side": "base", "run": 2, "data": {"case": "c_e", "first_ms": 1.0332420060876757, "repeat_us": 367.00550001114607, "reps": 50, "result": "E"}}
+{"side": "new", "run": 2, "data": {"case": "c_e", "first_ms": 1.0741969963419251, "repeat_us": 366.5747800550889, "reps": 50, "result": "E"}}
+{"side": "base", "run": 2, "data": {"case": "c_gruntz", "first_ms": 1.1704740027198568, "repeat_us": 431.71304001589306, "reps": 50, "result": "1"}}
+{"side": "new", "run": 2, "data": {"case": "c_gruntz", "first_ms": 1.2476720003178343, "repeat_us": 428.76389998127706, "reps": 50, "result": "1"}}
+{"side": "base", "run": 2, "data": {"case": "c_ei", "first_ms": 1.005489997623954, "repeat_us": 264.1239399963524, "reps": 50, "result": "1"}}
+{"side": "new", "run": 2, "data": {"case": "c_ei", "first_ms": 0.9844610030995682, "repeat_us": 265.57268007309176, "reps": 50, "result": "1"}}
+{"side": "base", "run": 2, "data": {"case": "c_erf", "first_ms": 0.9612979993107729, "repeat_us": 298.6168800271116, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "new", "run": 2, "data": {"case": "c_erf", "first_ms": 0.9738439985085279, "repeat_us": 284.4536800694186, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "base", "run": 2, "data": {"case": "c_harm3", "first_ms": 0.8396959965466522, "repeat_us": 190.07897994015366, "reps": 50, "result": "zeta(3)"}}
+{"side": "new", "run": 2, "data": {"case": "c_harm3", "first_ms": 0.9344530044472776, "repeat_us": 197.95701999100856, "reps": 50, "result": "zeta(3)"}}
+{"side": "base", "run": 2, "data": {"case": "c_lgam", "first_ms": 1.181616993562784, "repeat_us": 383.0972401192412, "reps": 50, "result": "1"}}
+{"side": "new", "run": 2, "data": {"case": "c_lgam", "first_ms": 1.1086840022471733, "repeat_us": 379.32281993562356, "reps": 50, "result": "1"}}
+{"side": "base", "run": 2, "data": {"case": "c_atan", "first_ms": 0.8531140047125518, "repeat_us": 210.80334001453593, "reps": 50, "result": "-1"}}
+{"side": "new", "run": 2, "data": {"case": "c_atan", "first_ms": 0.8436419957433827, "repeat_us": 210.95470001455396, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 3, "data": {"case": "ei", "first_ms": 3.0111560045043007, "repeat_us": 1780.7600599189755, "reps": 50, "result": "Limit(x*(-Ei(x) + Ei(x - exp(-exp(x))))*exp(-x)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 3, "data": {"case": "ei", "first_ms": 1.4757199969608337, "repeat_us": 708.5580199782271, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 3, "data": {"case": "erf", "first_ms": 3.032660002645571, "repeat_us": 1866.3058000674937, "reps": 50, "result": "Limit((-erf(x) + erf(x - exp(-exp(x))))*exp(x**2)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 3, "data": {"case": "erf", "first_ms": 1.5754809937789105, "repeat_us": 791.0437800455838, "reps": 50, "result": "-2/sqrt(pi)"}}
+{"side": "base", "run": 3, "data": {"case": "ugam", "first_ms": 1.7496439977549016, "repeat_us": 551.9574800564442, "reps": 50, "result": "Limit(uppergamma(x, 1)/gamma(x), x, oo, dir='-')"}}
+{"side": "new", "run": 3, "data": {"case": "ugam", "first_ms": 1.3139529983163811, "repeat_us": 534.0241600060835, "reps": 50, "result": "1"}}
+{"side": "base", "run": 3, "data": {"case": "subfac", "first_ms": 1.36234299861826, "repeat_us": 359.52244012150913, "reps": 50, "result": "Limit(subfactorial(x), x, oo, dir='-')"}}
+{"side": "new", "run": 3, "data": {"case": "subfac", "first_ms": 0.7955679975566454, "repeat_us": 151.6197000455577, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 3, "data": {"case": "stirl", "first_ms": 82.95575300144264, "repeat_us": 57130.06649966701, "reps": 2, "result": "Limit(x**3*(-x + (x + 1/2)*log(x) - log(factorial(x)) + log(2*pi)/2 + 1/(12*x)), x, oo, dir='-')"}}
+{"side": "new", "run": 3, "data": {"case": "stirl", "first_ms": 17.295715006184764, "repeat_us": 970.772909402678, "reps": 11, "result": "1/360"}}
+{"side": "base", "run": 3, "data": {"case": "harm_m1", "first_ms": 1.312207998125814, "repeat_us": 414.01973998290487, "reps": 50, "result": "Limit(harmonic(n, m + 1), n, oo, dir='-')"}}
+{"side": "new", "run": 3, "data": {"case": "harm_m1", "first_ms": 0.8251000035670586, "repeat_us": 164.87389992107637, "reps": 50, "result": "zeta(m + 1)"}}
+{"side": "base", "run": 3, "data": {"case": "harm_z1", "first_ms": 1.3608700028271414, "repeat_us": 425.1012399618048, "reps": 50, "result": "Limit(harmonic(x, z + 1), x, oo, dir='-')"}}
+{"side": "new", "run": 3, "data": {"case": "harm_z1", "first_ms": 0.9683640018920414, "repeat_us": 164.3390800745692, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 3, "data": {"case": "atan_lim", "first_ms": 2.2793780008214526, "repeat_us": 1099.9504599021748, "reps": 50, "result": "Limit(a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x, x, oo, dir='-')"}}
+{"side": "new", "run": 3, "data": {"case": "atan_lim", "first_ms": 1.7538320025778376, "repeat_us": 637.3566199908964, "reps": 50, "result": "-a*log(a**2)/2"}}
+{"side": "base", "run": 3, "data": {"case": "atan_int", "first_ms": 2.058780999504961, "repeat_us": 1153.0795998987742, "reps": 50, "result": "Integral(atan(a*x)/x**2, (x, 1, oo))"}}
+{"side": "new", "run": 3, "data": {"case": "atan_int", "first_ms": 1.69904299400514, "repeat_us": 1216.4812999253627, "reps": 50, "result": "-a*log(a**2)/2 + a*log(a**2 + 1)/2 + atan(a)"}}
+{"side": "base", "run": 3, "data": {"case": "c_sinx", "first_ms": 0.782473995059263, "repeat_us": 188.62504002754577, "reps": 50, "result": "1"}}
+{"side": "new", "run": 3, "data": {"case": "c_sinx", "first_ms": 0.8044380010687746, "repeat_us": 192.07372009987012, "reps": 50, "result": "1"}}
+{"side": "base", "run": 3, "data": {"case": "c_e", "first_ms": 1.004224002826959, "repeat_us": 365.25610004900955, "reps": 50, "result": "E"}}
+{"side": "new", "run": 3, "data": {"case": "c_e", "first_ms": 1.0132819952559657, "repeat_us": 379.84527996741235, "reps": 50, "result": "E"}}
+{"side": "base", "run": 3, "data": {"case": "c_gruntz", "first_ms": 1.1685920035233721, "repeat_us": 435.68713997956365, "reps": 50, "result": "1"}}
+{"side": "new", "run": 3, "data": {"case": "c_gruntz", "first_ms": 1.159158993687015, "repeat_us": 435.6903998996131, "reps": 50, "result": "1"}}
+{"side": "base", "run": 3, "data": {"case": "c_ei", "first_ms": 1.0125510016223416, "repeat_us": 265.1861200865824, "reps": 50, "result": "1"}}
+{"side": "new", "run": 3, "data": {"case": "c_ei", "first_ms": 0.9808469985728152, "repeat_us": 265.5046399740968, "reps": 50, "result": "1"}}
+{"side": "base", "run": 3, "data": {"case": "c_erf", "first_ms": 1.5853549994062632, "repeat_us": 301.05144003755413, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "new", "run": 3, "data": {"case": "c_erf", "first_ms": 1.0012530037784018, "repeat_us": 282.5064799981192, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "base", "run": 3, "data": {"case": "c_harm3", "first_ms": 0.8505190053256229, "repeat_us": 188.97565998486243, "reps": 50, "result": "zeta(3)"}}
+{"side": "new", "run": 3, "data": {"case": "c_harm3", "first_ms": 0.8501069969497621, "repeat_us": 191.77012000000104, "reps": 50, "result": "zeta(3)"}}
+{"side": "base", "run": 3, "data": {"case": "c_lgam", "first_ms": 1.1106300007668324, "repeat_us": 374.0025599836372, "reps": 50, "result": "1"}}
+{"side": "new", "run": 3, "data": {"case": "c_lgam", "first_ms": 1.1707030062098056, "repeat_us": 375.9964198980015, "reps": 50, "result": "1"}}
+{"side": "base", "run": 3, "data": {"case": "c_atan", "first_ms": 0.8564379968447611, "repeat_us": 203.86821997817606, "reps": 50, "result": "-1"}}
+{"side": "new", "run": 3, "data": {"case": "c_atan", "first_ms": 0.879350998729933, "repeat_us": 212.7582998946309, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 4, "data": {"case": "ei", "first_ms": 3.1015489948913455, "repeat_us": 1821.3128599745687, "reps": 50, "result": "Limit(x*(-Ei(x) + Ei(x - exp(-exp(x))))*exp(-x)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 4, "data": {"case": "ei", "first_ms": 1.565878999826964, "repeat_us": 725.9535801131278, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 4, "data": {"case": "erf", "first_ms": 2.979504999530036, "repeat_us": 1927.249779982958, "reps": 50, "result": "Limit((-erf(x) + erf(x - exp(-exp(x))))*exp(x**2)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 4, "data": {"case": "erf", "first_ms": 1.5393240028060973, "repeat_us": 819.1267198708374, "reps": 50, "result": "-2/sqrt(pi)"}}
+{"side": "base", "run": 4, "data": {"case": "ugam", "first_ms": 1.861800999904517, "repeat_us": 591.8786000984255, "reps": 50, "result": "Limit(uppergamma(x, 1)/gamma(x), x, oo, dir='-')"}}
+{"side": "new", "run": 4, "data": {"case": "ugam", "first_ms": 1.2121979962103069, "repeat_us": 512.5436399248429, "reps": 50, "result": "1"}}
+{"side": "base", "run": 4, "data": {"case": "subfac", "first_ms": 1.3660589975188486, "repeat_us": 350.3609000472352, "reps": 50, "result": "Limit(subfactorial(x), x, oo, dir='-')"}}
+{"side": "new", "run": 4, "data": {"case": "subfac", "first_ms": 0.7485469977837056, "repeat_us": 141.2921400333289, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 4, "data": {"case": "stirl", "first_ms": 82.23251599702053, "repeat_us": 56971.08549793484, "reps": 2, "result": "Limit(x**3*(-x + (x + 1/2)*log(x) - log(factorial(x)) + log(2*pi)/2 + 1/(12*x)), x, oo, dir='-')"}}
+{"side": "new", "run": 4, "data": {"case": "stirl", "first_ms": 17.353537004964892, "repeat_us": 1013.9800909779626, "reps": 11, "result": "1/360"}}
+{"side": "base", "run": 4, "data": {"case": "harm_m1", "first_ms": 1.3736799955950119, "repeat_us": 414.4305999216158, "reps": 50, "result": "Limit(harmonic(n, m + 1), n, oo, dir='-')"}}
+{"side": "new", "run": 4, "data": {"case": "harm_m1", "first_ms": 0.8205069971154444, "repeat_us": 164.0579399827402, "reps": 50, "result": "zeta(m + 1)"}}
+{"side": "base", "run": 4, "data": {"case": "harm_z1", "first_ms": 1.3626930012833327, "repeat_us": 420.40403990540653, "reps": 50, "result": "Limit(harmonic(x, z + 1), x, oo, dir='-')"}}
+{"side": "new", "run": 4, "data": {"case": "harm_z1", "first_ms": 0.8411809976678342, "repeat_us": 161.54240001924336, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 4, "data": {"case": "atan_lim", "first_ms": 2.498911999282427, "repeat_us": 1063.7475599651225, "reps": 50, "result": "Limit(a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x, x, oo, dir='-')"}}
+{"side": "new", "run": 4, "data": {"case": "atan_lim", "first_ms": 1.490306000050623, "repeat_us": 631.8749400088564, "reps": 50, "result": "-a*log(a**2)/2"}}
+{"side": "base", "run": 4, "data": {"case": "atan_int", "first_ms": 2.119525001035072, "repeat_us": 1160.7624399766792, "reps": 50, "result": "Integral(atan(a*x)/x**2, (x, 1, oo))"}}
+{"side": "new", "run": 4, "data": {"case": "atan_int", "first_ms": 1.720799999020528, "repeat_us": 1170.5589399207383, "reps": 50, "result": "-a*log(a**2)/2 + a*log(a**2 + 1)/2 + atan(a)"}}
+{"side": "base", "run": 4, "data": {"case": "c_sinx", "first_ms": 0.8376810001209378, "repeat_us": 184.159880009247, "reps": 50, "result": "1"}}
+{"side": "new", "run": 4, "data": {"case": "c_sinx", "first_ms": 0.7803059997968376, "repeat_us": 183.21059993468225, "reps": 50, "result": "1"}}
+{"side": "base", "run": 4, "data": {"case": "c_e", "first_ms": 1.053440006216988, "repeat_us": 372.26735992589965, "reps": 50, "result": "E"}}
+{"side": "new", "run": 4, "data": {"case": "c_e", "first_ms": 0.9961609976016916, "repeat_us": 372.8092400706373, "reps": 50, "result": "E"}}
+{"side": "base", "run": 4, "data": {"case": "c_gruntz", "first_ms": 1.461328996811062, "repeat_us": 462.0402200089302, "reps": 50, "result": "1"}}
+{"side": "new", "run": 4, "data": {"case": "c_gruntz", "first_ms": 1.144571004260797, "repeat_us": 441.4076200919226, "reps": 50, "result": "1"}}
+{"side": "base", "run": 4, "data": {"case": "c_ei", "first_ms": 0.9829200062085874, "repeat_us": 257.0570800162386, "reps": 50, "result": "1"}}
+{"side": "new", "run": 4, "data": {"case": "c_ei", "first_ms": 0.982566001766827, "repeat_us": 268.9251000992954, "reps": 50, "result": "1"}}
+{"side": "base", "run": 4, "data": {"case": "c_erf", "first_ms": 0.956864001636859, "repeat_us": 290.0733400019817, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "new", "run": 4, "data": {"case": "c_erf", "first_ms": 0.9568710011080839, "repeat_us": 297.29419999057427, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "base", "run": 4, "data": {"case": "c_harm3", "first_ms": 0.9313760019722395, "repeat_us": 185.35545998020098, "reps": 50, "result": "zeta(3)"}}
+{"side": "new", "run": 4, "data": {"case": "c_harm3", "first_ms": 0.8588069977122359, "repeat_us": 186.84138005482964, "reps": 50, "result": "zeta(3)"}}
+{"side": "base", "run": 4, "data": {"case": "c_lgam", "first_ms": 1.1066199949709699, "repeat_us": 398.38316006353125, "reps": 50, "result": "1"}}
+{"side": "new", "run": 4, "data": {"case": "c_lgam", "first_ms": 1.2828170001739636, "repeat_us": 390.21008007694036, "reps": 50, "result": "1"}}
+{"side": "base", "run": 4, "data": {"case": "c_atan", "first_ms": 0.8831259983708151, "repeat_us": 205.33899994916283, "reps": 50, "result": "-1"}}
+{"side": "new", "run": 4, "data": {"case": "c_atan", "first_ms": 0.8837900022626854, "repeat_us": 209.3154400063213, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 5, "data": {"case": "ei", "first_ms": 3.0897579999873415, "repeat_us": 1757.546739972895, "reps": 50, "result": "Limit(x*(-Ei(x) + Ei(x - exp(-exp(x))))*exp(-x)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 5, "data": {"case": "ei", "first_ms": 1.4322520000860095, "repeat_us": 713.8404800207354, "reps": 50, "result": "-1"}}
+{"side": "base", "run": 5, "data": {"case": "erf", "first_ms": 3.3114569960162044, "repeat_us": 1894.4775199634023, "reps": 50, "result": "Limit((-erf(x) + erf(x - exp(-exp(x))))*exp(x**2)*exp(exp(x)), x, oo, dir='-')"}}
+{"side": "new", "run": 5, "data": {"case": "erf", "first_ms": 1.5328760055126622, "repeat_us": 789.1060599649791, "reps": 50, "result": "-2/sqrt(pi)"}}
+{"side": "base", "run": 5, "data": {"case": "ugam", "first_ms": 1.7217190033989027, "repeat_us": 555.7234599837102, "reps": 50, "result": "Limit(uppergamma(x, 1)/gamma(x), x, oo, dir='-')"}}
+{"side": "new", "run": 5, "data": {"case": "ugam", "first_ms": 1.285437996557448, "repeat_us": 512.783220037818, "reps": 50, "result": "1"}}
+{"side": "base", "run": 5, "data": {"case": "subfac", "first_ms": 1.218397002958227, "repeat_us": 362.66782000893727, "reps": 50, "result": "Limit(subfactorial(x), x, oo, dir='-')"}}
+{"side": "new", "run": 5, "data": {"case": "subfac", "first_ms": 0.7626180013176054, "repeat_us": 152.31672005029395, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 5, "data": {"case": "stirl", "first_ms": 85.57462700264296, "repeat_us": 57393.74900076655, "reps": 2, "result": "Limit(x**3*(-x + (x + 1/2)*log(x) - log(factorial(x)) + log(2*pi)/2 + 1/(12*x)), x, oo, dir='-')"}}
+{"side": "new", "run": 5, "data": {"case": "stirl", "first_ms": 17.173688000184484, "repeat_us": 983.8257273341615, "reps": 11, "result": "1/360"}}
+{"side": "base", "run": 5, "data": {"case": "harm_m1", "first_ms": 1.3650409964611754, "repeat_us": 411.52288002194837, "reps": 50, "result": "Limit(harmonic(n, m + 1), n, oo, dir='-')"}}
+{"side": "new", "run": 5, "data": {"case": "harm_m1", "first_ms": 0.9048540014191531, "repeat_us": 163.9537198934704, "reps": 50, "result": "zeta(m + 1)"}}
+{"side": "base", "run": 5, "data": {"case": "harm_z1", "first_ms": 1.8181230043410324, "repeat_us": 457.38104003248736, "reps": 50, "result": "Limit(harmonic(x, z + 1), x, oo, dir='-')"}}
+{"side": "new", "run": 5, "data": {"case": "harm_z1", "first_ms": 0.8594940009061247, "repeat_us": 168.93927997443825, "reps": 50, "result": "oo"}}
+{"side": "base", "run": 5, "data": {"case": "atan_lim", "first_ms": 2.639120000822004, "repeat_us": 1109.1945398948155, "reps": 50, "result": "Limit(a*(log(x) - log(a**2*x**2 + 1)/2) - atan(a*x)/x, x, oo, dir='-')"}}
+{"side": "new", "run": 5, "data": {"case": "atan_lim", "first_ms": 1.5087319989106618, "repeat_us": 627.6006599364337, "reps": 50, "result": "-a*log(a**2)/2"}}
+{"side": "base", "run": 5, "data": {"case": "atan_int", "first_ms": 2.3489309969590977, "repeat_us": 1315.04839999252, "reps": 50, "result": "Integral(atan(a*x)/x**2, (x, 1, oo))"}}
+{"side": "new", "run": 5, "data": {"case": "atan_int", "first_ms": 1.7306690060649998, "repeat_us": 1221.8781000410672, "reps": 50, "result": "-a*log(a**2)/2 + a*log(a**2 + 1)/2 + atan(a)"}}
+{"side": "base", "run": 5, "data": {"case": "c_sinx", "first_ms": 0.8265040014521219, "repeat_us": 188.05318002705462, "reps": 50, "result": "1"}}
+{"side": "new", "run": 5, "data": {"case": "c_sinx", "first_ms": 0.8067679955274798, "repeat_us": 187.32465992798097, "reps": 50, "result": "1"}}
+{"side": "base", "run": 5, "data": {"case": "c_e", "first_ms": 1.0175119969062507, "repeat_us": 367.57617999683134, "reps": 50, "result": "E"}}
+{"side": "new", "run": 5, "data": {"case": "c_e", "first_ms": 1.0522489974391647, "repeat_us": 376.9974200986326, "reps": 50, "result": "E"}}
+{"side": "base", "run": 5, "data": {"case": "c_gruntz", "first_ms": 1.150868003605865, "repeat_us": 439.3707599956542, "reps": 50, "result": "1"}}
+{"side": "new", "run": 5, "data": {"case": "c_gruntz", "first_ms": 1.1529270050232299, "repeat_us": 440.44938011211343, "reps": 50, "result": "1"}}
+{"side": "base", "run": 5, "data": {"case": "c_ei", "first_ms": 0.990077001915779, "repeat_us": 273.65861998987384, "reps": 50, "result": "1"}}
+{"side": "new", "run": 5, "data": {"case": "c_ei", "first_ms": 1.0080249994643964, "repeat_us": 264.03563999338076, "reps": 50, "result": "1"}}
+{"side": "base", "run": 5, "data": {"case": "c_erf", "first_ms": 1.2432349976734258, "repeat_us": 286.6527400328778, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "new", "run": 5, "data": {"case": "c_erf", "first_ms": 0.9825949964579195, "repeat_us": 284.55146006308496, "reps": 50, "result": "1/sqrt(pi)"}}
+{"side": "base", "run": 5, "data": {"case": "c_harm3", "first_ms": 0.8485419966746122, "repeat_us": 186.01866002427414, "reps": 50, "result": "zeta(3)"}}
+{"side": "new", "run": 5, "data": {"case": "c_harm3", "first_ms": 0.8289020042866468, "repeat_us": 213.04675989085808, "reps": 50, "result": "zeta(3)"}}
+{"side": "base", "run": 5, "data": {"case": "c_lgam", "first_ms": 1.3904759980505332, "repeat_us": 399.97859988943674, "reps": 50, "result": "1"}}
+{"side": "new", "run": 5, "data": {"case": "c_lgam", "first_ms": 1.509563000581693, "repeat_us": 392.94746005907655, "reps": 50, "result": "1"}}
+{"side": "base", "run": 5, "data": {"case": "c_atan", "first_ms": 0.8513440043316223, "repeat_us": 235.26165998191573, "reps": 50, "result": "-1"}}
+{"side": "new", "run": 5, "data": {"case": "c_atan", "first_ms": 0.8442399994237348, "repeat_us": 217.9528599663172, "reps": 50, "result": "-1"}}

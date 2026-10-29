@@ -323,6 +323,19 @@ impl Gruntz {
                                 let s = if l.is_constant(Constant::Infinity) { 1 } else { -1 };
                                 sub(&mul(&[Expr::rational(s, 2), Expr::pi()]), &fx::atan(&inv))
                             }
+                        } else if is_parametric_inf(&l) {
+                            // `a*x` with a parameter of unknown sign (or
+                            // complex): the reference tractable form of atan,
+                            // `I/2*(log(1 - I*u) - log(1 + I*u))`, an identity
+                            // of the principal branches; acot(u) = atan(1/u).
+                            let r = if *f == Func::Acot {
+                                fx::atan(&pow(a, &Expr::minus_one()))
+                            } else {
+                                let iu = mul2(&Expr::i(), a);
+                                let lg = sub(&fx::log(&sub(&Expr::one(), &iu)), &fx::log(&add(&[Expr::one(), iu])));
+                                mul(&[Expr::rational(1, 2), Expr::i(), lg])
+                            };
+                            return self.prepare(&r);
                         } else {
                             e.clone()
                         }
@@ -566,6 +579,26 @@ impl Gruntz {
             (S::RisingFactorial, [a, k]) => div(&gamma(add(&[a.clone(), k.clone()])), &gamma(a.clone())),
             (S::FallingFactorial, [a, k]) => {
                 div(&gamma(add(&[a.clone(), one.clone()])), &gamma(add(&[a.clone(), neg(k), one])))
+            }
+            (S::LowerGamma | S::UpperGamma, [a, z]) if depends(a, &self.x) && !depends(z, &self.x) => {
+                // The reference `lowergamma._eval_aseries` in the order
+                // (`z**s*exp(-z)*Σ z**k/rf(s, k + 1)`) and
+                // `uppergamma = exp(loggamma(s)) - lowergamma(s, z)`, for an
+                // order tending to `+oo` and a positive fixed `z` (so that
+                // `z**s` is a real exponential).
+                if !self.limitinf(a)?.is_constant(Constant::Infinity) || self.sign(z)? != 1 {
+                    return Ok(None);
+                }
+                let lower = mul(&[
+                    pow(z, a),
+                    fx::exp(&neg(z)),
+                    crate::series::asym::Asym::LowerS.apply(vec![z.clone(), a.clone()]),
+                ]);
+                if s == S::LowerGamma {
+                    lower
+                } else {
+                    sub(&fx::exp(&crate::functions::func(Func::LogGamma, vec![a.clone()])), &lower)
+                }
             }
             (S::Harmonic, [n]) => return self.harmonic_tractable(n, &one),
             (S::Harmonic, [n, m]) => return self.harmonic_tractable(n, m),
@@ -1113,6 +1146,21 @@ impl Gruntz {
                         }
                         _ => unknown("acoth at its branch point"),
                     },
+                    _ if c1 == Expr::one() || c1 == Expr::minus_one() => {
+                        // Log singularity at +-1 (the reference log form
+                        // `(log(1 + 1/u) - log(1 - 1/u))/2`): with
+                        // u = s*(1 + r), acoth(u) = s*(log(2)/2 - log(r)/2) + o(1),
+                        // and log(r) = log(c2) + e2*logw + o(1).
+                        let s = c1.clone();
+                        let r = sub(&mul2(&s, &a[0]), &Expr::one());
+                        let (c2, e2) = self.lt_fallback(&r, w, logw)?;
+                        if self.sign(&e2)? != 1 {
+                            return unknown("acoth at +-1");
+                        }
+                        let lr = add(&[fx::log(&c2), mul2(&e2, logw)]);
+                        let v = mul2(&s, &div(&sub(&fx::log(&Expr::int(2)), &lr), &Expr::int(2)));
+                        Ok((v, Expr::zero()))
+                    }
                     _ => {
                         let r = crate::special::apply(crate::special::SpecialFn::Acoth, vec![c1.clone()]);
                         let on_cut = crate::evalf::eval_c64(&c1).map_or(true, |z| z.im.abs() < 1e-12 && z.re.abs() <= 1.0);

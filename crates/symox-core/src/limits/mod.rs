@@ -187,7 +187,7 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
     let mut g = gruntz::Gruntz::new(&t);
     let r = match g.limitinf(&et) {
         Ok(r) => Ok(r),
-        Err(err) => match bounded_heuristic(&et, &t) {
+        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)) {
             Some(r) => Ok(r),
             None => Err(err),
         },
@@ -197,6 +197,57 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
         return unknown("auxiliary function in the limit value");
     }
     Ok(r)
+}
+
+/// The function branch of the reference `heuristics` (`e.func(*[limit(a)
+/// for a in e.args])`), restricted to functions continuous at the limit of
+/// their argument, where it is the value of the limit:
+/// * `harmonic(n, m)` with `m` fixed and `n -> +oo` is `harmonic(oo, m)`
+///   (`zeta(m)` for `m > 1`, `oo` for `m <= 1` not proven negative, held
+///   when undecided, `nan` and thus undecided for `m < 0`); with `n` tending to a real
+///   number `n0 > -1` it is `harmonic(n0, m) = zeta(m) - zeta(m, n0 + 1)`,
+///   continuous there.
+/// * `subfactorial(a)` with `a -> +oo`: `uppergamma(a + 1, -1)/e`, which is
+///   `gamma(a + 1)/e + O(1/a)` for a real order, so `oo`.
+///
+/// The arguments must be real for a real `t` (no `I`, every other symbol
+/// real), so that the argument tends to its limit along the real axis.
+fn function_value(e: &Expr, t: &Expr) -> Option<Expr> {
+    use crate::special::{apply, SpecialFn as S};
+    let Kind::Func(Func::Special(s @ (S::Harmonic | S::Subfactorial)), args) = e.kind() else { return None };
+    let real_arg = |a: &Expr| {
+        !crate::traverse::has(a, &Expr::i())
+            && crate::traverse::free_symbols(a)
+                .iter()
+                .all(|v| v == t || crate::assumptions::is_real(v) == Some(true))
+    };
+    let arg = &args[0];
+    if !depends(arg, t) || args[1..].iter().any(|a| depends(a, t)) || !real_arg(arg) {
+        return None;
+    }
+    let mut g = gruntz::Gruntz::new(t);
+    let l = g.limitinf(arg).ok()?;
+    let r = match s {
+        S::Subfactorial if l.is_constant(Constant::Infinity) => Expr::oo(),
+        S::Harmonic => {
+            let mut at = args.clone();
+            if l.is_constant(Constant::Infinity) {
+                at[0] = Expr::oo();
+            } else {
+                let n0 = l.as_number()?;
+                if !n0.is_rational() || n0.cmp_value(&crate::number::Number::int(-1)) != Some(std::cmp::Ordering::Greater) {
+                    return None;
+                }
+                at[0] = l.clone();
+            }
+            apply(S::Harmonic, at)
+        }
+        _ => return None,
+    };
+    if has_nan(&r) {
+        return None;
+    }
+    Some(r)
 }
 
 /// Value of the limit from a leading term `c * t**e` (with `t -> 0+`
