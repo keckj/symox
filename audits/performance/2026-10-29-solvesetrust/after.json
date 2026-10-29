@@ -1,0 +1,52 @@
+{
+ "mod_linear": {
+  "first_s": 0.0008322300000145333,
+  "median_s": 0.00021481099975062534,
+  "result": "ImageSet(Lambda(_n, 7*_n + 5), Integers)"
+ },
+ "mod_square_160": {
+  "first_s": 0.0004025020007247804,
+  "median_s": 0.0002674060015124269,
+  "result": "Union(ImageSet(Lambda(_n, 160*_n + 3), Integers), ImageSet(Lambda(_n, 160*_n + 13), Integers), ImageSet(Lambda(_n, 160*_n + 67), Integers), ImageSet(Lambda(_n, 160*_n + 77), Integers), ImageSet(Lambda(_n, 160*_n + 83), Integers), ImageSet(Lambda(_n, 160*_n + 93), Integers), ImageSet(Lambda(_n, 160*_n + 147), Integers), ImageSet(Lambda(_n, 160*_n + 157), Integers))"
+ },
+ "mod_dlog_41": {
+  "first_s": 0.00020899599985568784,
+  "median_s": 0.00016060599955380894,
+  "result": "ImageSet(Lambda(_n, 40*_n + 3), Naturals0)"
+ },
+ "radical_sqrt": {
+  "first_s": 0.0008214619992941152,
+  "median_s": 0.0003328519997012336,
+  "result": "{4}"
+ },
+ "radical_two_roots": {
+  "first_s": 0.004052313999636681,
+  "median_s": 0.002987812000355916,
+  "result": "{16/9}"
+ },
+ "eq_cancelled_pole": {
+  "first_s": 0.0002913270000135526,
+  "median_s": 0.00023267399956239387,
+  "result": "EmptySet"
+ },
+ "x_log_x": {
+  "first_s": 0.0002902069991250755,
+  "median_s": 0.0002279250002175104,
+  "result": "{1}"
+ },
+ "identically_zero": {
+  "first_s": 0.0003704720002133399,
+  "median_s": 0.0003118289987469325,
+  "result": "Reals"
+ },
+ "ineq_pole_reals": {
+  "first_s": 0.0002686830011953134,
+  "median_s": 0.00017941000078280922,
+  "result": "Union(Interval.open(-2, 0), Interval.open(0, oo))"
+ },
+ "ineq_pole_integers": {
+  "first_s": 0.00129210500017507,
+  "median_s": 0.0010281949998898199,
+  "result": "Union(Range(-1, 0, 1), Range(1, oo, 1))"
+ }
+}

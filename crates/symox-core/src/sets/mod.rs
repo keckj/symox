@@ -11,6 +11,9 @@
 
 mod props;
 mod solveset;
+mod solveset_steps;
+mod solveset_modular;
+pub use solveset_modular::{solveset_modular, ModularError};
 mod lambda;
 pub use lambda::{identity_function,lambda_checked,lambda_signature,lambda_arity,lambda_parts,lambda_apply,validate_lambda,validate_lambda_tree};
 

@@ -1046,7 +1046,12 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
     let real = is_real_domain(domain);
     // product: union of the factors' solutions
     let (num, den) = crate::simplify::numer_denom(&crate::simplify::together(f));
-    if !has(&num, x) {
+    if !has(&num, x) || super::solveset_steps::vanishes_identically(&num) {
+        // `_solve_as_rational`: a zero numerator is solved by the domain
+        // minus the zeros of the denominator
+        if num.is_zero() || has(&num, x) {
+            return Some(exclude_poles(domain.clone(), &den, x, domain, context));
+        }
         return Some(empty_set());
     }
     // Preserve independent scalar denominators while inverting a chain.
@@ -1288,7 +1293,11 @@ fn filter_domain(sols: Vec<Expr>, domain: &Expr) -> Expr {
 /// an `Eq`/`Ne` or an inequality (real domains only). Returns an `Err`
 /// for unsupported inputs.
 pub fn solveset(f: &Expr, x: &Expr, domain: &Expr) -> Result<Expr, String> {
-    solveset_with_context(f,x,domain,&SolveContext::default())
+    let result = solveset_with_context(f,x,domain,&SolveContext::default())?;
+    if !x.is_symbol() || matches!(f.kind(), Kind::Rel(op, ..) if *op != RelOp::Eq) {
+        return Ok(result);
+    }
+    Ok(super::solveset_steps::check_solutions(f, x, result))
 }
 
 fn solveset_with_context(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Result<Expr, String> {
@@ -1314,12 +1323,18 @@ fn solveset_with_context(f: &Expr, x: &Expr, domain: &Expr, context: &SolveConte
     if !x.is_symbol() {
         return Err(format!("{x} is not a symbol"));
     }
+    if let Ok(Some(result)) = super::solveset_modular(f, x, domain) {
+        return Ok(result);
+    }
     if !has(f, x) {
         return Ok(match crate::assumptions::exact_queries(|| crate::assumptions::is_zero(f)) {
             Some(true) => domain.clone(),
             Some(false) => empty_set(),
             None => condition_set(x, &crate::relational::eq(f, &Expr::zero()), domain),
         });
+    }
+    if super::solveset_steps::vanishes_identically(f) {
+        return Ok(domain.clone());
     }
     match solve_zero(f, x, domain, context) {
         Some(s) => Ok(s),
@@ -1653,17 +1668,36 @@ fn solve_univariate_inequality_set(ineq: &Expr, x: &Expr, domain: &Expr) -> Resu
             let real_x = Expr::dummy("inequality_gen", crate::symbol::Assumptions::REAL);
             let plain = real_x.as_sym().map(|d| d.assumptions());
             if plain != Some(sym.assumptions()) {
-                let result = solve_univariate_inequality_inner(&subs1(ineq, x, &real_x), &real_x, domain)?;
+                let result = solve_univariate_inequality_checked(&subs1(ineq, x, &real_x), &real_x, domain)?;
                 return Ok(subs1(&result, &real_x, x));
             }
         }
     }
-    solve_univariate_inequality_inner(ineq, x, domain)
+    solve_univariate_inequality_checked(ineq, x, domain)
+}
+
+fn solve_univariate_inequality_checked(ineq: &Expr, x: &Expr, domain: &Expr) -> Result<Expr, String> {
+    let result = solve_univariate_inequality_inner(ineq, x, domain)?;
+    if is_empty_set(&result) {
+        return Ok(result);
+    }
+    let points = super::solveset_steps::relational_singularities(ineq, x, &|d| solve_zero(d, x, &reals(), &SolveContext::default()))
+        .map_err(|_| format!("The inequality, {ineq}, cannot be solved using solve_univariate_inequality."))?;
+    if points.is_empty() {
+        return Ok(result);
+    }
+    // the reference solves over the reals, excludes the singularities and
+    // then intersects with a smaller domain
+    if is_op(domain, SetOp::Reals) {
+        return Ok(complement(&result, &finite_set(points)));
+    }
+    let real = solve_univariate_inequality_inner(ineq, x, &reals())?;
+    Ok(intersection(vec![complement(&real, &finite_set(points)), domain.clone()]))
 }
 
 fn solve_univariate_inequality_inner(ineq: &Expr, x: &Expr, domain: &Expr) -> Result<Expr, String> {
     match ineq.kind() {
-        Kind::Rel(RelOp::Eq, a, b) => return solveset(&sub(a, b), x, domain),
+        Kind::Rel(RelOp::Eq, ..) => return solveset(ineq, x, domain),
         Kind::Bool(true) => return Ok(domain.clone()),
         Kind::Bool(false) => return Ok(empty_set()),
         Kind::Rel(..) => {}
