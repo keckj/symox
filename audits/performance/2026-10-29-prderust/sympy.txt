@@ -1,0 +1,10 @@
+log(x)**2          first    70.12 ms  repeat    26.12 ms
+x*log(x)           first    60.91 ms  repeat    19.03 ms
+log(x)**3/x        first    44.53 ms  repeat    19.06 ms
+x**2*log(x)**2     first    77.52 ms  repeat    31.74 ms
+x*log(x+1)         first    54.46 ms  repeat    27.77 ms
+log(x**2+1)        first    58.71 ms  repeat    32.69 ms
+x*log(x)**3        first    89.63 ms  repeat    42.47 ms
+log(x)**4          first    87.79 ms  repeat    44.58 ms
+(x+1)*log(x)**2    first    59.78 ms  repeat    33.19 ms
+log(x)**2/x**2     first    84.24 ms  repeat    38.02 ms

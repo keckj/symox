@@ -13070,3 +13070,53 @@ Remaining failures by class:
   and after) and test_solve_polynomial.
 
 Measured: [audit](../audits/performance/2026-10-29-solvesuite/README.md).
+
+## prderust (wave 27): native base-case parametric Risch DE, 2026-10-29
+
+Native (Rust, `crates/symox-core/src/integrate/prde.rs`, binding
+`crates/symox-py/src/prde.rs`, admission
+`python/symox/integrals/_prde_native.py`): `prde_normal_denom`,
+`prde_special_denom`, `prde_linear_constraints`, `poly_linear_constraints`,
+`constant_system`, `prde_spde`, `prde_no_cancel_b_large`,
+`prde_no_cancel_b_small`, `param_poly_rischDE` (with the parametric
+`bound_degree`, `weak_normalizer`, `splitfactor`, `gcdex_diophantine` and
+the canonical PolyMatrix `rref`/`nullspace` it uses) and `param_rischDE`.
+`limited_integrate` keeps its Python body and reaches the native
+`param_rischDE`; its expression assembly is unchanged.
+
+Admitted domain: `DE.case == 'base'` (the active level is the base field
+`QQ(x)`, `D = [Poly(1, x)]`), stock `DifferentialExtension` (exact type,
+slots read through the captured member descriptors), plain univariate ZZ
+or QQ `Poly` arguments in `DE.t`, exact lists, integer degree bounds with
+`|n| <= 2**20`, and `constant_system` matrices over QQ with rational
+entries. Every function the stock bodies reach (prde, rde, risch,
+PolyMatrix), every global and builtin name they read, and the class
+dictionaries of `Poly`, `PolyMatrix` and `DifferentialExtension` must be
+the ones captured at `import symox`; any change sends the call to the
+unchanged Python body. The kernels reproduce the stock outputs exactly:
+same Poly domains (including the coefficient-inferred domain of
+`Poly.cancel(include=True)`), same matrix shape, gens (`(t,)`) and domain
+(QQ), and the in-place update of `Q` by the two `prde_no_cancel_*`
+functions.
+
+Still Python: every non-base case (`exp`, `primitive`, `tan`, `other_*`),
+`weak_normalizer` with a non-ground `d1` (the resultant and
+positive-integer-roots path), `param_rischDE` when the reduced system has
+no polynomial unknown (`v == 0`, where the stock `wl[-0:]` keeps the whole
+vector), `prde_cancel_liouvillian`, `limited_integrate_reduce`,
+`parametric_log_deriv(_heu)`, `is_deriv_k`, `is_log_deriv_k_t_radical`
+and `is_log_deriv_k_t_radical_in_field`, inexact (RR/CC) and algebraic or
+rational-function coefficient domains.
+
+Parity note (not changed here): symox `Poly.cancel(g, include=True)`
+over ZZ/QQ returns its results in the domain inferred from the two inputs
+(`Poly(1, x, domain='QQ').cancel(Poly(1, x), include=True)` is
+`(Poly(1, x, domain='ZZ'), Poly(1, x, domain='ZZ'))`), where SymPy 1.14
+keeps QQ. The native kernels follow the symox Python behavior so the
+native and fallback paths agree; the difference to SymPy is a remaining
+domain gap of `Poly.cancel`, visible in some `param_rischDE` and
+`prde_normal_denom` outputs.
+
+No intentional corrections. SymPy test_prde.py (3 failed, 12 passed) and
+test_risch.py (8 failed, 28 passed) have the same failures before and
+after. Measured: [audit](../audits/performance/2026-10-29-prderust/README.md).

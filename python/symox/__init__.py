@@ -4663,3 +4663,8 @@ del _register_risch_polynomial_root
 from .integrals._risch_splitfactor_native import register_root as _register_risch_splitfactor_root
 _register_risch_splitfactor_root(globals())
 del _register_risch_splitfactor_root
+
+# Capture the stock parametric Risch DE protocol for the native base-case kernels.
+from .integrals._prde_native import register_root as _register_prde_root
+_register_prde_root(globals())
+del _register_prde_root

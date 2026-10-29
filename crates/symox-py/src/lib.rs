@@ -25,6 +25,7 @@ mod integration_methods;
 mod rational_protocols;
 mod risch_polynomial_reduce;
 mod risch_splitfactor;
+mod prde;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -4675,6 +4676,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     rational_protocols::register(m)?;
     risch_polynomial_reduce::register(m)?;
     risch_splitfactor::register(m)?;
+    prde::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
     logic::register(m)?;
