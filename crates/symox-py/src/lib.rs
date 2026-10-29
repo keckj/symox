@@ -1071,8 +1071,9 @@ type IntegrationMethods=symox::integrate::host_methods::Methods;
 
 /// The `integrate`/`Integral.doit` hints: `conds`, the `meijerg` switch and
 /// the `risch`, `heurisch` and `manual` switches.
-fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(IntegrationConditions,Option<bool>,IntegrationMethods)> {
+fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(IntegrationConditions,Option<bool>,IntegrationMethods,bool)> {
     let mut conditions=IntegrationConditions::Piecewise;
+    let mut final_round=true;
     let mut meijerg=None;
     let mut others=IntegrationMethods::default();
     let mut methods=0;
@@ -1091,8 +1092,8 @@ fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(Integratio
                         _=>others.manual=Some(on),
                     }
                 },
-                // the tan-in-atan correction is applied in any case
-                "final"=>{},
+                // `final=False`: no tan-in-atan floor terms in this round
+                "final"=>final_round=value.is_truthy()?,
                 "conds"=>conditions=match value.extract::<String>().ok().as_deref(){
                     Some("piecewise")=>IntegrationConditions::Piecewise,
                     Some("none")=>IntegrationConditions::None,
@@ -1112,7 +1113,7 @@ fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(Integratio
     else if others.manual==Some(true){meijerg=off;others.risch=off;others.heurisch=off;}
     else if others.risch==Some(true){meijerg=off;others.manual=off;others.heurisch=off;}
     else if others.heurisch==Some(true){meijerg=off;others.manual=off;others.risch=off;}
-    Ok((conditions,meijerg,others))
+    Ok((conditions,meijerg,others,final_round))
 }
 
 /// Preserve only the exact powers explicitly deferred by derivative recipes.
@@ -3645,7 +3646,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
 }
 
 fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
-    let (conditions,meijerg,methods)=integrate_options(kwargs)?;
+    let (conditions,meijerg,methods,final_round)=integrate_options(kwargs)?;
     // `integrate(f, *args)` is `Integral(f, *args).doit()`, and the
     // constructor denests an `Integral` integrand (not a
     // `NonElementaryIntegral`) by prepending its limits.
@@ -3671,14 +3672,14 @@ fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<
     // `x*Heaviside(x)`). A result that keeps an `Integral` is computed again
     // from the original integrand, so an unevaluated integral keeps `H0`.
     if let Some(stripped)=strip_heaviside_h0(f){
-        let attempt=symox::integrate::host_methods::with_methods(methods,conditions,||integrate_native(py,&stripped,args,conditions,meijerg));
+        let attempt=symox::integrate::host_methods::with_final_round(final_round,||symox::integrate::host_methods::with_methods(methods,conditions,||integrate_native(py,&stripped,args,conditions,meijerg)));
         host::raise_pending()?;
         let attempt=attempt?;
         if let Ok(value)=to_expr(attempt.bind(py)){
             if !holds_integral(&value){return Ok(attempt);}
         }
     }
-    let result=symox::integrate::host_methods::with_methods(methods,conditions,||integrate_native(py,f,args,conditions,meijerg));
+    let result=symox::integrate::host_methods::with_final_round(final_round,||symox::integrate::host_methods::with_methods(methods,conditions,||integrate_native(py,f,args,conditions,meijerg)));
     host::raise_pending()?;
     result
 }

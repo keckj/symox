@@ -75,6 +75,19 @@ pub struct Methods {
 thread_local! {
     static METHODS: Cell<Methods> = const { Cell::new(Methods { risch: None, manual: None, heurisch: None }) };
     static CONDS: Cell<Conds> = const { Cell::new(Conds::Piecewise) };
+    static FINAL_ROUND: Cell<bool> = const { Cell::new(true) };
+}
+
+/// Whether the `Integral.doit` in progress is a final round (the `final`
+/// hint, true by default): only a final round adds the floor terms that
+/// make `atan(c*tan(a))` antiderivatives continuous.
+pub(crate) fn final_round() -> bool {
+    FINAL_ROUND.with(|f| f.get())
+}
+
+/// Run `body` as an `Integral.doit(final=...)` round.
+pub fn with_final_round<R>(final_round: bool, body: impl FnOnce() -> R) -> R {
+    scoped(&FINAL_ROUND, final_round, body)
 }
 
 pub fn methods() -> Methods {
