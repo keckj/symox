@@ -12464,3 +12464,66 @@ Remaining gaps:
   admissions decline; only the copyreg cache values are recognized.
 
 Measured: [audit](../audits/performance/2026-10-29-slotfold/README.md).
+
+## limheld (wave 24): limits left held where SymPy 1.14 concludes
+
+Native in the Rust Gruntz driver (`crates/symox-core/src/limits`):
+
+- Parametric sign of the leading coefficient. When `c0` still depends on
+  the limit variable after rewriting, each x-free factor of `c0` gives its
+  decided sign or a symbolic `sign(a)`. The result is `oo*sign(a)*...`, as
+  in SymPy (`limit(y/x/log(x), x, 0) == -oo*sign(y)`,
+  `limit(-y*z*exp(x)/x, x, oo) == -oo*sign(y)*sign(z)`). A zero leading
+  coefficient, or an undecided sign in the x-dependent part, still declines.
+- The sign of an x-free sum is retried on its `together` form, so exponent
+  differences such as `-1 + (n - 5)/n` get the sign of `-5/n`
+  (`limit(x**n - x**(n - 5), x, oo) == oo`, issue 8635/18176).
+- Piecewise in a limit. The branch is chosen by the eventual truth of each
+  condition in the one-sided neighbourhood actually used (signs of `l - r`
+  for x -> x0+ or x0-, or for large x). Accepted conditions are Boolean
+  constants, relations in the limit variable, and `Not`/`And`/`Or` of them.
+  A relation between x-free sides, a relation involving `I`, or a sign that
+  cannot be decided leaves the limit held.
+- Order terms. `limit(O(g), x, x0)` at the order's own point is
+  `Order(limit(g), (x, x0))`, as in SymPy (`limit(O(x**2), x, 0)` is
+  `Order(0, (x, 0))`, which is not `O(0)`). A sum whose order terms
+  (including `f*O(g)`) vanish at the same point is the limit of the
+  remaining terms (`(1 + O(x)).limit(x, 0) == 1`,
+  `((x + O(x**2))/x).limit(x, 0) == 1`). An order at another point, or one
+  that does not vanish, declines.
+- `limit(e, x, nan)` is `nan`.
+
+On the SymPy 1.14 files test_limits, test_gruntz, test_series,
+test_nseries and test_order (1342 evaluated asserts and raises), results
+equal to SymPy went from 1022 to 1034. No result that matched SymPy
+before changed.
+
+Intentional differences from SymPy 1.14 (SymPy evaluates the Piecewise
+conditions at the point itself):
+
+- `limit(Piecewise((1, x < 0), (2, True)), x, 0, '-')` is `1` (SymPy: 2).
+- `limit(Piecewise((1, x <= 0), (2, True)), x, 0, '+')` is `2` (SymPy: 1).
+- The left limit of test_piecewise2's `func3` at -1 is `-2` (SymPy: 2).
+- `limit(Piecewise((1/x, x < 1), (x, True)), x, oo)` is `oo`. SymPy raises
+  TypeError (comparison with zoo).
+- `limit(Piecewise((x, y < 1), (2, True)), x, 0)` stays a Limit. SymPy
+  returns 2, which is wrong when `y < 1`.
+
+Remaining gaps (still held or different):
+
+- `O(x**2).subs(x, cos(x))`: SymPy gives `O((x - pi/2)**2, (x, pi/2))`.
+  The native solveset returns a ConditionSet for `x - cos(d)`, and SymPy's
+  ImageSet of `acos` is not built.
+- `floor(1/w).nseries` (`AccumBounds(-1 + 1/w, 1/w)`), series of a
+  function applied to a Piecewise, and Piecewise series at oo with
+  undecidable conditions.
+- `limit(1 + O(x**2), x, 1)`: SymPy gives 1. Symox declines because the
+  order is at another point.
+- Gruntz cancellations: `(1 + x**log(3))**(1/x)`,
+  `((x**(x+1) + (x+1)**x)/x**(x+1))**x`,
+  `((1 + (2/3)**(x+1))**(2**x))/2**((4/3)**(x-1))`, `abs((-x/(x+1))**x)`,
+  `2**(-x)*sqrt(4**(x+1) + 1)`.
+- `factorial(x)` at -oo, `bessely`/`besselk` at `I*oo` (mrv of
+  `besselk(1, I*t)`), and `(Abs(x+y) - Abs(x-y))/(2*x)` at 0 (sign of `y`).
+
+Measured: [audit](../audits/performance/2026-10-29-limheld/README.md).

@@ -119,6 +119,62 @@ pub fn limit(e: &Expr, x: &Expr, x0: &Expr, dir: Dir) -> LRes<Expr> {
     if !depends(e, x) {
         return Ok(e.clone());
     }
+    if x0.is_constant(Constant::NaN) {
+        // Limit.doit: a nan limit point gives nan.
+        return Ok(Expr::nan());
+    }
+    // `may_have_order` is a mask hint (symbol bits can collide with it):
+    // the exact `contains_order` decides.
+    if crate::series::contains_order(e) {
+        use crate::series::order::{order, order_parts};
+        if let Some((inner, vars)) = order_parts(e) {
+            // Limit.doit: Order(limit(e.expr, z, z0), *e.args[1:]).
+            return Ok(order(&limit(&inner, x, x0, Dir::Plus)?, &vars));
+        }
+        // An order term `O(g)` at the same variable and point tends to 0
+        // when `g` does; the limit is then the limit of the rest
+        // (`(1 + O(x)).limit(x, 0)` is 1, as the reference leading term).
+        let ex = crate::expand::expand(e);
+        let terms = if ex.is_add() { ex.args() } else { vec![ex.clone()] };
+        let mut rest = Vec::new();
+        let mut orders = Vec::new();
+        for t in terms {
+            if !crate::series::contains_order(&t) {
+                rest.push(t);
+                continue;
+            }
+            // `O(g)` or `f*O(g)` (that is `O(f*g)`) with `f` free of orders
+            let parts = match t.kind() {
+                Kind::Mul(c, facs) => {
+                    let (o, f): (Vec<_>, Vec<_>) = facs.iter().partition(|(b, _)| crate::series::contains_order(b));
+                    match o.as_slice() {
+                        [(b, p)] if p.is_one() && f.iter().all(|(_, p)| !crate::series::contains_order(p)) => order_parts(b).map(|(g, vars)| {
+                            let mut v = vec![Expr::num(c.clone()), g];
+                            v.extend(f.iter().map(|(b, p)| crate::ops::mul_factor(b, p)));
+                            (crate::ops::mul(&v), vars)
+                        }),
+                        _ => None,
+                    }
+                }
+                _ => order_parts(&t),
+            };
+            match parts {
+                Some((g, vars)) if !crate::series::contains_order(&g) => orders.push((g, vars)),
+                _ => return unknown("order term"),
+            }
+        }
+        if !orders.is_empty() {
+            for (g, vars) in &orders {
+                if vars.len() != 1 || vars[0].0 != *x || vars[0].1 != *x0 {
+                    return unknown("order term at another point");
+                }
+                if !limit(g, x, x0, dir)?.is_zero() {
+                    return unknown("order term that does not vanish at the limit point");
+                }
+            }
+            return limit(&add(&rest), x, x0, dir);
+        }
+    }
     fn unknown_function(e:&Expr,x:&Expr)->bool {
         if matches!(e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal) && depends(e,x){return true;}
         e.args().iter().any(|a|unknown_function(a,x))

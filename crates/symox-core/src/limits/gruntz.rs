@@ -126,6 +126,41 @@ impl Gruntz {
             Ok(1) => Ok(Expr::oo()),
             Ok(-1) => Ok(Expr::neg_oo()),
             Ok(_) => unknown("zero leading coefficient"),
+            Err(err) if depends(c0, &self.x) => {
+                // The reference `sign(c0, x)` of a product multiplies the
+                // signs of its factors, and an x-free factor of unknown sign
+                // contributes the symbolic `sign(a)` (`y/(x*log(x))` at 0+
+                // is `-oo*sign(y)`).
+                if let Kind::Mul(c, facs) = c0.kind() {
+                    let (free, dep): (Vec<_>, Vec<_>) = facs.iter().partition(|(b, p)| !depends(b, &self.x) && !depends(p, &self.x));
+                    let free: Vec<Expr> = free.into_iter().map(|(b, p)| mul_factor(b, p)).collect();
+                    if !free.is_empty() && !dep.is_empty() {
+                        // `sign(a)` is the direction `a/|a|` for a complex
+                        // `a`; one symbolic sign per factor, as the reference
+                        // recursion through `Mul.as_two_terms`.
+                        let mut rest = vec![Expr::num(c.clone())];
+                        rest.extend(dep.into_iter().map(|(b, p)| mul_factor(b, p)));
+                        let mut s = self.sign(&mul(&rest))?;
+                        let mut signs = Vec::new();
+                        for a in &free {
+                            match self.sign(a) {
+                                Ok(t) => s *= t,
+                                Err(_) => signs.push(fx::sign(a)),
+                            }
+                        }
+                        if s == 0 {
+                            return unknown("zero leading coefficient");
+                        }
+                        if signs.is_empty() {
+                            return Ok(if s > 0 { Expr::oo() } else { Expr::neg_oo() });
+                        }
+                        signs.push(Expr::int(s as i64));
+                        signs.push(Expr::oo());
+                        return Ok(mul(&signs));
+                    }
+                }
+                Err(err)
+            }
             Err(err) => {
                 let nonreal = || crate::evalf::eval_c64(c0).is_some_and(|z| z.im.abs() > 1e-12 * (1.0 + z.re.abs()));
                 if !depends(c0, &self.x)
@@ -150,7 +185,24 @@ impl Gruntz {
                 None if crate::assumptions::is_positive(e) == Some(true) => Ok(1),
                 None if crate::assumptions::is_negative(e) == Some(true) => Ok(-1),
                 None if crate::assumptions::is_zero(e) == Some(true) => Ok(0),
-                None => unknown(format!("sign of {e}")),
+                None => {
+                    // An undecided sum of fractions (`-1 + (n - 5)/n`, the
+                    // exponent difference of `x**n - x**(n - 5)`) may have a
+                    // decided sign once over a common denominator (`-5/n`).
+                    let t = crate::simplify::together(e);
+                    if t != *e && matches!(e.kind(), Kind::Add(..)) {
+                        if let Some(s) = sign_of(&C::from_expr(t.clone())) {
+                            return Ok(s);
+                        }
+                        if crate::assumptions::is_positive(&t) == Some(true) {
+                            return Ok(1);
+                        }
+                        if crate::assumptions::is_negative(&t) == Some(true) {
+                            return Ok(-1);
+                        }
+                    }
+                    unknown(format!("sign of {e}"))
+                }
             };
         }
         if *e == self.x {
@@ -221,6 +273,24 @@ impl Gruntz {
         if let Some(r) = self.prep.get(e) {
             return Ok(r.clone());
         }
+        if let Kind::Piecewise(pieces) = e.kind() {
+            // The branch that holds on a whole neighbourhood of `x = oo`
+            // (the one-sided neighbourhood of the original point): each
+            // condition is decided by the eventual sign of `lhs - rhs`.
+            // An undecided condition before the selected branch declines.
+            for (value, cond) in pieces {
+                match self.eventually_true(cond)? {
+                    Some(true) => {
+                        let r = self.prepare(value)?;
+                        self.prep.insert(e.clone(), r.clone());
+                        return Ok(r);
+                    }
+                    Some(false) => continue,
+                    None => return unknown(format!("condition {cond} near the limit point")),
+                }
+            }
+            return unknown("no Piecewise branch holds near the limit point");
+        }
         if let Kind::Mul(c, facs) = e.kind() {
             // factors (not bases and exponents separately) must be prepared
             let mut v = vec![Expr::num(c.clone())];
@@ -254,6 +324,59 @@ impl Gruntz {
         let r = self.prepare_node(&e1)?;
         self.prep.insert(e.clone(), r.clone());
         Ok(r)
+    }
+
+    /// Truth of a Piecewise condition for all large `x`: `Some(b)` when
+    /// proven, `None` when undecided (a condition on other symbols with an
+    /// unknown truth value, a relational between non-real values, ...).
+    fn eventually_true(&mut self, c: &Expr) -> LRes<Option<bool>> {
+        use crate::expr::RelOp;
+        use crate::logic::LogicOp;
+        Ok(match c.kind() {
+            Kind::Bool(b) => Some(*b),
+            Kind::Rel(op, l, r) => {
+                if !depends(l, &self.x) && !depends(r, &self.x) {
+                    return Ok(None);
+                }
+                let d = sub(l, r);
+                if crate::traverse::has(&d, &Expr::i()) {
+                    return Ok(None);
+                }
+                let s = match self.sign(&d) {
+                    Ok(s) if s != 0 => s,
+                    Ok(_) => return Ok(None),
+                    Err(LimitError::Unknown(_)) => return Ok(None),
+                    Err(err) => return Err(err),
+                };
+                Some(match op {
+                    RelOp::Lt | RelOp::Le => s < 0,
+                    RelOp::Gt | RelOp::Ge => s > 0,
+                    RelOp::Eq => false,
+                    RelOp::Ne => true,
+                })
+            }
+            Kind::Func(Func::Logic(op), args) => match op {
+                LogicOp::Not if args.len() == 1 => self.eventually_true(&args[0])?.map(|b| !b),
+                LogicOp::And | LogicOp::Or => {
+                    let and = *op == LogicOp::And;
+                    let mut undecided = false;
+                    for a in args {
+                        match self.eventually_true(a)? {
+                            Some(b) if b != and => return Ok(Some(b)),
+                            Some(_) => {}
+                            None => undecided = true,
+                        }
+                    }
+                    if undecided {
+                        None
+                    } else {
+                        Some(and)
+                    }
+                }
+                _ => None,
+            },
+            _ => None,
+        })
     }
 
     fn prepare_node(&mut self, e: &Expr) -> LRes<Expr> {

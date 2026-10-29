@@ -109,3 +109,34 @@ fn limrest3_values_from_sympy() {
         assert_eq!(lim(e, "0", Dir::Minus), want, "{e}");
     }
 }
+
+#[test]
+fn limheld_values_from_sympy() {
+    assert_eq!(lim("y/x/log(x)", "0", Dir::Plus), "-oo*sign(y)");
+    assert_eq!(lim("-y*z*exp(x)/x", "oo", Dir::Plus), "-oo*sign(y)*sign(z)");
+    assert_eq!(lim("Piecewise((x**2/2, x <= 1/2), (x/2 - 1/8, True))", "0", Dir::Plus), "0");
+    assert_eq!(lim("Piecewise(((x - 9)/5, x < -1), ((x - 9)/5, x > 4), (sqrt(Abs(x - 3)), True))", "-1", Dir::Plus), "2");
+    assert_eq!(lim("Piecewise(((x - 9)/5, x < -1), ((x - 9)/5, x > 4), (sqrt(Abs(x - 3)), True))", "-1", Dir::Minus), "-2");
+    assert!(lim("Piecewise((x, y < 1), (2, True))", "0", Dir::Plus).starts_with("ERR"));
+    assert_eq!(lim("x", "nan", Dir::Plus), "nan");
+}
+
+#[test]
+fn limheld_order_mask_collision_is_not_an_order_term() {
+    // A Dummy whose mask bit coincides with ORDER_MASK (limit_seq's `_n`
+    // after one earlier Dummy) is a plain variable: limit(d, d, oo) is oo.
+    let oo = parse_str("oo").unwrap();
+    let mut found = false;
+    for i in 0..4096u32 {
+        let d = Expr::dummy("_n", crate::symbol::Assumptions::default());
+        if !d.may_have_order() {
+            continue;
+        }
+        found = true;
+        assert_eq!(limit(&d, &d, &oo, Dir::Minus).unwrap().to_string(), "oo", "dummy {i}");
+        let e = crate::ops::add(&[d.clone(), Expr::int(1)]);
+        assert_eq!(limit(&e, &d, &oo, Dir::Minus).unwrap().to_string(), "oo", "dummy {i}");
+        break;
+    }
+    assert!(found, "no Dummy mask collided with ORDER_MASK");
+}
