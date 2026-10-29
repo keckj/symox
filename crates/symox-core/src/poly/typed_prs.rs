@@ -44,6 +44,20 @@ fn remove<C: Coeff>(p: &MPoly<C>) -> PResult<MPoly<C>> {
 
 impl Polynomial {
     fn subresultant_data(&self, other: &Self, discriminant: bool) -> PResult<(Self, Vec<Self>)> {
+        if !discriminant {
+            // Univariate ZZ operands of positive degree: the same PRS on
+            // dense integer vectors (exact divisions at each step).
+            if let Some((a, b)) = self.plain_univariate_pair(other) {
+                if a.domain == super::polyobj::Domain::ZZ {
+                    if let Some((sequence, result)) =
+                        super::dense_prs::subresultants_univariate(&a.rep, &b.rep)?
+                    {
+                        let sequence = sequence.into_iter().map(|r| a.with_rep(r).into()).collect();
+                        return Ok((a.with_rep(result).into(), sequence));
+                    }
+                }
+            }
+        }
         if let Some((a, b)) = self.checked_expression_pair(other)? {
             if discriminant {
                 return Ok((a.retain_main(a.discriminant()?)?.into(), Vec::new()));

@@ -1,0 +1,11 @@
+new prs_200_150 5.6248 3.9634 413949b51d93e11f
+new prs_150_200 5.5539 3.9585 413949b51d93e11f
+new prs_120_90 0.4697 0.2923 1c83f6845af44cfb
+new prs_60_45 0.0201 0.0093 7e4aa2a48cd592cf
+new prs_40_30 0.0048 0.0021 e9ce0b44ee0dd8d3
+new subres_60_45 0.0204 0.0094 0b629bbc789f1f83
+new poly_prs_60_45 0.0182 0.0082 fa55955de20e1b4e
+new prs_small 0.0005 0.0002 508e1708828f244c
+new prs_abnormal 0.0006 0.0002 4752325e3a5bf392
+new prs_dense_30 0.0014 0.0007 f6a61c3ac45ffb5c
+new factor_2000 2.4942 nan ValueError: factorization resource limit: work
