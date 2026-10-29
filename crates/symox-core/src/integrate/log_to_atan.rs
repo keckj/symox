@@ -4,8 +4,8 @@
 //! combine atan terms: equal derivatives alone do not fix branch constants.
 use crate::poly::{dense, int::Field, Rat};
 
-fn gcdex<C: Field,E>(a: &[C], b: &[C], check: &mut impl FnMut() -> Result<(), E>)
-    -> Result<Option<(Vec<C>, Vec<C>, Vec<C>)>, E>
+fn gcdex<C: Field,E>(a: &[C], b: &[C], divisor: &impl Fn(&C)->bool,
+    check: &mut impl FnMut() -> Result<(), E>) -> Result<Option<(Vec<C>, Vec<C>, Vec<C>)>, E>
 {
     // The reference half-gcdex, followed by t=(h-s*a)/b. This fixes the
     // Bezout representative and its monic normalization, not just its identity.
@@ -13,12 +13,13 @@ fn gcdex<C: Field,E>(a: &[C], b: &[C], check: &mut impl FnMut() -> Result<(), E>
     let (mut s, mut t) = (vec![C::one()], vec![]);
     while !g.is_empty() {
         check()?;
+        if !divisor(&dense::lc(&g)) { return Ok(None); }
         let (q, r) = dense::divrem(&f, &g);
         f = std::mem::replace(&mut g, r);
         let next = dense::sub(&s, &dense::mul(&q, &t));
         s = std::mem::replace(&mut t, next);
     }
-    if f.is_empty() || b.is_empty() { return Ok(None); }
+    if f.is_empty() || b.is_empty() || !divisor(&dense::lc(&f)) || !divisor(&dense::lc(b)) { return Ok(None); }
     check()?;
     let inverse = dense::lc(&f).inv();
     let s = dense::scale(&s, &inverse);
@@ -42,6 +43,15 @@ pub fn arguments<E>(f: &[Rat], g: &[Rat], check: &mut impl FnMut() -> Result<(),
 pub(crate) fn arguments_field<C: Field,E>(f: &[C],g: &[C],check: &mut impl FnMut()->Result<(),E>)
     -> Result<Option<Vec<Vec<C>>>,E>
 {
+    arguments_divisors(f,g,&|_:&C|true,check)
+}
+
+/// `divisor` admits each leading coefficient used as a divisor. A caller
+/// whose general representation does not normalise some quotients (the
+/// reference `EX` cancel form of an irrational inverse) declines there.
+pub(crate) fn arguments_divisors<C: Field,E>(f: &[C],g: &[C],divisor: &impl Fn(&C)->bool,
+    check: &mut impl FnMut()->Result<(),E>) -> Result<Option<Vec<Vec<C>>>,E>
+{
     check()?;
     if f.is_empty() || g.is_empty() || f.len().max(g.len()) > 129
         || f.last().is_some_and(C::is_zero) || g.last().is_some_and(C::is_zero) {
@@ -52,14 +62,14 @@ pub(crate) fn arguments_field<C: Field,E>(f: &[C],g: &[C],check: &mut impl FnMut
     loop {
         check()?;
         if f.len() < g.len() { (f, g) = (dense::neg(&g), f); }
-        if g.is_empty() { return Ok(None); }
+        if g.is_empty() || !divisor(&dense::lc(&g)) { return Ok(None); }
         let (p, q) = dense::divrem(&f, &g);
         if q.is_empty() {
             result.push(p);
             check()?;
             return Ok(Some(result));
         }
-        let Some((s, t, h)) = gcdex(&g, &dense::neg(&f), check)?
+        let Some((s, t, h)) = gcdex(&g, &dense::neg(&f), divisor, check)?
             else { return Ok(None) };
         check()?;
         let numerator = dense::add(&dense::mul(&f, &s), &dense::mul(&g, &t));

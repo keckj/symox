@@ -11739,3 +11739,72 @@ Poly method and QQ cases, and SHA-256 digests of the SymPy PRS for
 checks that the kernel declines.
 [Measurements and probes](../audits/performance/2026-10-29-polycap3/README.md).
 No new intentional correction is made relative to SymPy 1.14.
+
+
+## Native log_to_real for auxiliary polynomials of degree >= 3, wave 20, 2026-10-29
+
+`log_to_real(h, q, x, t)` with a rational squarefree `q` of degree 3 to 16
+(and `h` in QQ[t][x] under the existing size guards) now has a native path
+(`general` in `crates/symox-core/src/integrate/log_to_real.rs`), reached
+from the public `log_to_real` (same `_stock_real_protocol` admission as the
+degree 1/2 kernel) and from the native ratint driver. It runs the SymPy 1.14
+general algorithm step by step: `t = u + I*v` split into `a, b, c, d`, the
+resultant `R(u) = res_v(c, d)`, `roots(R, filter='R')` with the
+`count_roots` completeness test, `C = c(r_u, v)`, its real roots with the
+same test, the reference sign pairing (`-r_v` when negative or when a minus
+sign can be extracted, zero dropped), the `D(r_u, r_v)` test, `log_to_atan`
+and the final `r*log(h(x, r))` for the real roots of `q`, in the same order
+and output form.
+
+Admitted exactly (computed natively):
+
+- `R` and every `C` over ZZ/QQ, real root lists complete by a Sturm count;
+- each pair `(r_u, r_v)` in QQ, or in one pure quadratic field `QQ(sqrt(k))`
+  with generator `sqrt(k)`, where the AN arithmetic coincides with the EX
+  `p + q*sqrt(k)` canonical forms of the reference; `log_to_atan` then also
+  declines unless every divisor leading coefficient it meets is rational or
+  a pure `q*sqrt(k)` (for any other divisor the EX `cancel`+`expand`
+  quotient is not in `p + q*sqrt(k)` form);
+- `D == 0` decided exactly; `D != 0` skipped only when exactly nonzero and
+  certifiably above the `evalf(chop=True)` threshold (1e-10).
+
+Declined (the unchanged Python algorithm runs): a real root of `R` of degree
+>= 3 over QQ, or a quadratic one for which some `v` coefficient of `c` does
+not reduce to a constant modulo its minimal polynomial; a real root of `C`
+in an irreducible factor of degree >= 5 (generally not found by `roots`).
+These three are checked by factorization and Sturm counts before any root
+computation, so a decline costs a factorization, not a second root
+computation (`1/(x**8-1)`: the reference spends 8 s in `roots` of a sextic
+factor of `C` and returns an incomplete list). Also declined: `C` over EX or
+identically zero; a pair outside a
+common pure quadratic field with `D` not clearly nonzero; an incomplete real
+root list. This keeps the wave-18 correction: an incomplete list still
+returns None and ratint keeps the exact `RootSum` (`1/(x**6-2)`,
+`1/(x**8+1)`, where SymPy 1.14 is wrong). Cardano and cube-root cases such as
+`1/(x**3-2)`, `1/(x**3+x+1)`, `1/(x**5+1)` stay on the Python path, and
+so does every EX, QQ<a> or parametric `q`.
+
+No intentional output correction: on 94 ratint inputs (binomials
+`x**n + a`, n = 3..8, and mixed quartic/sextic denominators) the outputs are
+identical to the Python path (srepr, Dummy indices normalized), and on the
+admitted logpart groups `tests/test_native_lrt3.py` checks equality with the
+complete Python path, with SymPy 1.14 `log_to_real` after normalizing
+polynomial arguments, and an exact trace certificate of the derivative.
+
+Measured ([audit](../audits/performance/2026-10-29-lrt3/README.md)): the
+admitted cases (`1/(x**4+1)`, `1/(x**4+a)`, `x**2/(x**4+1)`, `1/(x**6-1)`,
+`1/((x**2+1)*(x**2+4)*(x-1))`, ...) are about 1.2-2.0x faster in public
+`ratint`. A declined `(h, q)` is kept in a small per-thread memo (declines
+only, never a signal), so the public `log_to_real` after a declined native
+ratint driver does not attempt again; and an odd-degree `q` with an
+irreducible factor over QQ that has a real root of degree >= 2, or is not
+symmetric about the mean of its roots, declines after one univariate
+factorization, before the resultant. This test is exact: such a factor gives
+`R(u)` an irrational real root, and for odd degree the `v^(n-1)` row of `c`
+is linear in `u`, so the pre-check above always declines. Declined cases are
+now within noise (`1/(x**7+1)` 0.99x, `1/(x**8+1)` 0.99x repeated, against
+0.62x and 0.71x before); the first call of an even-degree declined case
+still pays one native attempt (about 2-3.5 ms: `1/(x**8+1)` 0.91x on the
+first call, `1/(x**6+8)` 0.73x in the single-call sweep). Open: a cheap exact
+decline test for even degree, EX `C` (Cardano/cube-root `r_u`) and EX `log_to_atan`
+natively, and `integrate(1/(x**5 + x + 1)**3, x)` memory (TODO section 8).
