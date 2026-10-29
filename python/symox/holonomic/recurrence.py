@@ -38,7 +38,10 @@ class _ParameterizedPolynomialRing:
 
 
 def _base(domain,x):
-    from .. import QQ,ZZ
+    from .. import QQ,ZZ,RR
+    if domain.is_FractionField and domain.domain == RR:
+        # The native RR(parameters)[x] parent is unsupported; store in RR(parameters, x).
+        return _ParameterizedPolynomialRing(domain,x)
     try:
         return domain.old_poly_ring(x)
     except NotImplementedError:

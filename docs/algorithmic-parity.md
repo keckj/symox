@@ -11986,3 +11986,65 @@ Remaining gaps (not changed by this wave):
   as in SymPy. This needs native Idx/Indexed nodes.
 
 Measured: [audit](../audits/performance/2026-10-29-spec7/README.md).
+
+## Holonomic functions and erf-family rewrites (wave 22, holo)
+
+Not native: the holonomic module is existing Python orchestration
+(`python/symox/holonomic`) over native exact domains, and this wave extends
+it in place. The SymPy algorithms ported here (`__pow__`, singular initial
+conditions, Frobenius root grouping) are short control flow over the native
+polynomial and domain kernels, so no new Rust kernel was added.
+
+Now as in SymPy 1.14:
+
+- Float inputs select the RR (or RR(parameters)) domain. The annihilator is
+  computed exactly with each Float replaced by a marker and then restored;
+  RR operators are normalized structurally the same way (gcd/lcm over
+  QQ(markers)). RR(parameters)[x] is stored in RR(parameters, x) instead of
+  the native RR(parameters)[x] parent, which is unsupported.
+- `HolonomicFunction.__pow__`: any exponent (negative, rational, symbolic)
+  for first-order equations; square-and-multiply from `Dx` at x0 = 0
+  otherwise, with SymPy's NotHolonomicError for negative powers and its
+  TypeErrors for rational or symbolic powers. `expr_to_holonomic` routes
+  `f**c` (c free of x) through `__pow__`, so `1/sin(x)` and `1/erf(x)` raise
+  NotHolonomicError and `sqrt(sin(x))` raises TypeError, as in SymPy.
+- Singular initial conditions: polynomials at 0, rational functions and
+  Add/Mul/Pow with one simple indicial root (`{r: Taylor coefficients}`),
+  removable singularities through `limit` (`sin(x)/x` at 0), and `int_valued`
+  root grouping in `_frobenius` (Float roots such as 2.0).
+- `+` and `*` with conditions at different points move them to 0 (or to a
+  regular common point) as in SymPy instead of raising ValueError.
+- `__eq__` compares initial conditions only when both sides have them.
+- erf, erfc, erfi, erf2, erfinv, erfcinv, fresnels and fresnelc rewrites
+  (uppergamma, fresnels, fresnelc, meijerg, hyper, expint, Integral, erf,
+  erfc, erfi), so `hyperexpand(...).rewrite(erfc)` gives `erfc(x)`.
+- `holonomicerrors` module with SymPy's exception classes and messages.
+
+Intentional corrections:
+
+- Powers of functions with Frobenius conditions: `(3*sqrt(x))**3` keeps
+  `{3/2: [27]}` (Miller recurrence on the series); SymPy raises the dict key
+  to the power (`[1/8]`). Likewise `x**n` keeps `{n: [1]}` where SymPy gives
+  the ordinary `[1]`.
+- `f*x` with a bare polynomial expression (SymPy raises NotImplementedError)
+  keeps symox's ordinary Taylor jet (`sin*x` has y0 `[0, 0, 2]`).
+
+Remaining gaps:
+
+- Annihilators may differ from SymPy's by a constant factor
+  (`(-1) + (x)*Dx` for SymPy's `(-3/2) + (x)*Dx`-style scalings, e.g.
+  `2.5*x**2`, `x*sqrt(x)`); this is the existing normalization divergence.
+- `expr_to_holonomic(erfc(x)).to_expr()` returns `erfc(x)` where SymPy
+  returns `1 - erf(x)` (equal values).
+- Definite integration from singular conditions (`integrate((x, 0, x))` of
+  `sin(x)**2/x` gives nan; SymPy gives `log(x)/2 - Ci(2*x)/2 + ...`), and
+  `integrate((x, 2, 3))` at x0 = 1 returns an exact form where SymPy returns
+  a Float.
+- The `tractable` erf rewrite (internal `_erfs`) is not provided.
+- `lambdify` (not started in this wave): the native `CompiledFunction` has no
+  generated source for `inspect.getsource`, `__code__` or `__name__`, and
+  returns Python floats where SymPy returns NumPy scalars (`np.float64`,
+  `np.float32`, NumPy ints) and SymPy Floats/expressions for the 'sympy'
+  module.
+
+Measured: [audit](../audits/performance/2026-10-29-holo/README.md).
