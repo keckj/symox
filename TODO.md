@@ -754,9 +754,11 @@ Les groupes de Galois de degrés 5/6, `g(mat)` en Julia/Octave, `to_meijerg`,
   13,7 s pour SymPy dans la sonde documentée.
 - [ ] Lever le blocage de `factor_list(x**300 + x + 1)` par estimation du
   travail avant recherche, là où SymPy termine en environ 9 s.
-- [ ] Réduire les intermédiaires des grands résultants :
+- [x] Réduire les intermédiaires des grands résultants :
   `resultant(expand((x + 1)**200), expand((x - 2)**150 + 1), x)` atteint
-  encore la limite de stockage de la chaîne de sous-résultants.
+  encore la limite de stockage de la chaîne de sous-résultants. Fait en
+  vague 20 (polycap3) : PRS dense exacte sur ZZ, 3,9 s contre 16,7 s pour
+  SymPy avec `includePRS=True`.
 - [ ] Étendre les bornes de `cyclotomic_poly(20001, x)` et
   `decompogen(x**4100 + x**2, x)` là où la référence termine.
 - [ ] Évaluer exactement au-delà des plafonds actuels : `bernoulli(5002)`,
@@ -765,9 +767,11 @@ Les groupes de Galois de degrés 5/6, `g(mat)` en Julia/Octave, `to_meijerg`,
 - [ ] Réduire les épuisements mémoire de l'intégration rationnelle et de la
   simplification de ses primitives ; conserver les cas documentés, dont
   `integrate(1/(x**5 + x + 1)**3, x)`, même quand SymPy ne termine pas non plus.
-- [ ] Reprendre l'inventaire des budgets des solveurs et des racines :
+- [x] Reprendre l'inventaire des budgets des solveurs et des racines :
   `solve.rs` et `poly/roots.rs` n'ont été que documentés dans `reslimits`.
-  Vérifier les chemins d'épuisement restants et tout nouveau plafond.
+  Vérifier les chemins d'épuisement restants et tout nouveau plafond. Fait
+  en vague 20 (polycap3) : aucun plafond ne refuse une entrée que SymPy
+  calcule ; reste l'écart de vitesse des tours `exp` imbriquées.
 
 Preuves : [inventaire et cas ouverts de reslimits](docs/algorithmic-parity.md#resource-limits-wave-17).
 Les timings ci-dessus sont des mesures historiques à reproduire, sans délai

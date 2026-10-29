@@ -11548,3 +11548,78 @@ QQ_I SymPy 1.14 raises the same ZeroDivisionError, so that case is parity. A
 monkeypatch of `Poly.LC` reached through an in-function import is not seen by
 the snapshot. No intentional output correction is made relative to SymPy
 1.14.
+
+## Wave 20 polycap3: dense subresultant PRS over ZZ and solver budgets, 2026-10-29
+
+`resultant(f, g, x, includePRS=True)`, `Poly.resultant(..., includePRS=True)`
+and `subresultants(f, g, x)` for univariate operands over ZZ of positive
+degree (at most 2**20) now run a dense Rust kernel
+(`crates/symox-core/src/poly/dense_prs.rs`). It is the Brown-Traub
+recurrence of SymPy 1.14 `dup_inner_subresultants`: each pseudo-remainder is
+divided exactly by `-lc * c**d`, and `c` is updated by the exact quotient
+`(-lc)**d / c**(d-1)`. The PRS is therefore the same list of subresultants,
+not just an equivalent one. The resultant keeps the existing Symox sign
+correction for swapped operands of odd degrees. For example,
+`resultant(x - 1, x**3 + 2, x)` is 3 where SymPy 1.14 gives -3. The
+sequences are the same as SymPy's. The kernel has its own dense degree,
+retained-bits and limb-work estimates. When one of them is exceeded it
+declines and the previous sparse PRS runs unchanged, with its own limits, so
+no previously computed input is refused. A non-exact normalization raises
+the same error as the sparse path. The witness
+`resultant(expand((x + 1)**200), expand((x - 2)**150 + 1), x, includePRS=True)`
+used to stop on the sparse PRS storage limit after about 15 s. It now
+returns SymPy's 152-element PRS and resultant (same string hash) in 3.9 s,
+against 16.7 s for SymPy 1.14. The non-PRS resultant and the discriminant
+keep the modular path.
+
+Still on the sparse PRS: QQ operands (a remaining performance gap for large
+inputs), multivariate and
+parametric operands, algebraic fields, GF(p), EX, and inputs above the dense
+limits.
+
+`factor_list(x**2000 + x + 1)` and `factor_list(x**4000 + x + 1)`: SymPy
+1.14 did not finish within 600 s (timeout, 620 s CPU and 173 MB for the
+second). Symox keeps its explicit work-estimate refusal. Neither side
+proves irreducibility.
+
+Inventory of the solver and root limits (TODO section 8), each probed
+against SymPy 1.14 under the same caps:
+
+- `solve.rs` `solve_rec` depth 8 (nested inversions). This is not a
+  refusal: nested `exp`, `log`, `sqrt` and `exp(e) + 1` towers of depth 10
+  are solved and return SymPy's result. Remaining performance gap: about
+  3.6x per level on `exp(exp(...)) + 1` (depth 10: 426 s against 78 s for
+  SymPy; depth 8: 19 s against 1.9 s) and on plain nested `exp` (depth 10:
+  6.8 s against 0.4 s). There is a pre-existing form difference: Symox
+  prints `log(4)` where SymPy prints `2*log(2)`.
+- `solve.rs` rational-root candidates bounded by `|a0|, |an| < 2**40`. This
+  is a fallback after `complete_roots`. Cubic and quintic probes with a root
+  2**41 and rational or integer leading coefficients give SymPy's roots, and
+  the linear ODEs built from them are solved in 0.05 s (SymPy did not finish
+  within 300 s).
+- `solve.rs` `system_invert` (64 structural rounds) and the `nsolve` fast
+  path (`maxsteps` 100, then the mpmath-equivalent solver). These are
+  structural bounds or have a complete fallback. They are recorded and were
+  not changed.
+- `solve/lambert.rs` power bounds of 4096. For `x**n*exp(x) - 2`, Symox
+  takes 0.28 s, 1.95 s and 7.97 s at n = 9, 64 and 256, against 1.88 s,
+  13.0 s and 58.9 s for SymPy. At n = 4096 and 4097 neither finishes within
+  180 s, and SymPy extrapolates to more than 1000 s. `x**4097 - exp(x)` is
+  solved in 0.05 s. So the bound refuses nothing that SymPy computes.
+- `solve/rational_coverage.rs` dense certificate degree 4096. This is an
+  optional post-check, not a limit on the answer.
+- `poly/roots.rs` `DECOMPOSE_MAX_DEGREE` 2**20 (memory bound, see polycap2).
+  The `nroots` precision doubling (4 rounds) returns its last approximation.
+  The double-double Aberth polish loops (6 and 8 iterations) are numerical
+  internals.
+
+No limit in `solve*.rs` or `poly/roots.rs` was found to refuse an input that
+SymPy 1.14 computes under the same caps. None was changed.
+
+Evidence: `tests/test_native_polycap3.py` has 10 small reference PRS, the
+Poly method and QQ cases, and SHA-256 digests of the SymPy PRS for
+(x+1)**40/(x-2)**30+1 and (x+1)**60/(x-2)**45+1, certified against
+`((-3)**m + 1)**n`. A Rust unit test compares the dense and sparse PRS and
+checks that the kernel declines.
+[Measurements and probes](../audits/performance/2026-10-29-polycap3/README.md).
+No new intentional correction is made relative to SymPy 1.14.
