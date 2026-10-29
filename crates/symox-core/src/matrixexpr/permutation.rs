@@ -182,7 +182,8 @@ mod tests {
                 assert_eq!(p.trace().unwrap(),matrix.trace().unwrap());
                 assert_eq!(p.transpose(true).unwrap().as_explicit().unwrap(),matrix.transpose());
                 assert_eq!(p.adjoint(true).unwrap().as_explicit().unwrap(),matrix.transpose());
-                assert_eq!(p.conjugate(true).unwrap(),p);
+                // MatrixExpr._eval_conjugate in SymPy 1.14: Adjoint(Transpose(P)).
+                assert_eq!(p.conjugate(true).unwrap(),p.transpose(false).unwrap().adjoint(false).unwrap());
                 for exponent in [-3,-1,0,1,2,5] {
                     assert_eq!(p.pow(Expr::int(exponent),true).unwrap().as_explicit().unwrap(),
                                matrix.powi(exponent).unwrap());

@@ -12268,3 +12268,88 @@ Remaining gaps (still unevaluated or different from SymPy 1.14):
   out in SymPy) stay unevaluated.
 
 Measured: [audit](../audits/performance/2026-10-29-seriesrest/README.md).
+
+## Wave 23 idxmvn: conjugate, re, im, Abs of abstract matrices (2026-10-29)
+
+Now native (crates/symox-core/src/matrixexpr.rs):
+
+- `conjugate(M)` of a matrix expression follows `MatrixExpr._eval_conjugate`.
+  It is `Adjoint(Transpose(M))` for MatrixSymbol, MatMul (`x*A`, `2*A`,
+  `A*B`), MatAdd, HadamardProduct, DiagonalOf, slices, blocks, DFT and
+  permutation matrices. The kind rules are kept: `Transpose(A)` gives
+  `Adjoint(A)`, `Adjoint(A)` gives `A.T`, `Inverse(A)` gives
+  `Inverse(conjugate(A))` and `A**n` gives `conjugate(A)**n`. A
+  KroneckerProduct gives the product of the conjugates. Identity,
+  ZeroMatrix, OneMatrix and explicit matrices keep their own rule.
+  Before this wave, symox built a MatrixConjugate node and distributed it
+  over sums and products.
+- The native printer orders the terms of a MatAdd with `as_ordered_terms`
+  inside a function application and in srepr: `sin(A - A.T)` instead of
+  `sin(-A.T + A)`.
+- Adding a scalar to a matrix expression raises `TypeError("Mix of Matrix
+  and Scalar symbols")` (`x + A`, `sin(A) + A`, `A - 2`, `MatAdd(x, A)`). A
+  non-SymPy operand gives the Python "unsupported operand type(s)" error.
+
+Python routing (`_matrix_function_heads.py`), on top of the native
+conjugate:
+
+- `re(M)` and `im(M)` are `MatrixExpr.as_real_imag`:
+  `S.Half*(M + conj).doit()` and `(M - conj).doit()/(2*I)`. The shortcut for
+  `M == conjugate(M)` is gone, as in SymPy: `re(I)` is `I` and `im(I)` is
+  ZeroMatrix.
+- `Abs(M)` follows `Abs.eval`. A MatMul is the product of the Abs of its
+  factors; scalar factors whose Abs stays unevaluated are grouped into one
+  `Abs(...)`. For MatrixSymbol, its Transpose and Adjoint, an integer power
+  and Inverse, it is `(M*conjugate(M))**(1/2)`. For Identity, ZeroMatrix and
+  OneMatrix it is the unevaluated `Abs(M)`.
+- `Heaviside(M)` and `DiracDelta(M)` raise SymPy's ValueError "Function
+  defined only for Real Values" with `im(M)` (filldedent for DiracDelta).
+- `re`/`im` of `log(M)` are `log(Abs(M))` and `arg(M)`, `re`/`im` of `arg(M)`
+  are `arg(M)` and 0. For a MatrixSymbol M (or its transpose or adjoint),
+  `re`/`im` of `exp(M)` raise SymPy's TypeError "MatAdd.expand() takes 1
+  positional argument". For `sec`, `csc`, `cosh`, `tanh`, `coth`, `acosh` and
+  `atanh` they raise "Mix of Matrix and Scalar symbols".
+- `evaluate=False` builds the unevaluated head (`Abs(A)`, `re(A)`,
+  `Heaviside(A)`).
+
+Admitted domains and declines: Abs of a MatAdd (SymPy expands
+`(A + B)*conjugate(A + B)`), of a Transpose or Adjoint of a compound
+argument, or of a product with a negative MatPow factor still raises
+NotImplementedError. So does `re`/`im` of `f(M)` for a compound M.
+
+Intentional corrections: `test_matrix_permutations` expected
+`conjugate(P) == P` for a permutation matrix. SymPy 1.14 returns
+`Adjoint(P.T)`, and the test now expects that, as does the Rust test
+`finite_permutations_preserve_composition_powers_and_determinants`.
+Since srepr lists MatAdd terms in printing order, as SymPy does,
+`sympify(srepr(e))` rebuilds a MatAdd with a different argument order. It is
+not `==` to `e`, which is also the case in SymPy 1.14 (`A - A.T`). The
+round trips of `test_blockmatrix` and `test_block_decompositions` now compare
+srepr strings. `test_matexpr_print_parity` no longer lists native ordering
+exceptions.
+
+Remaining gaps (still different from SymPy 1.14):
+
+- `re`/`im` of `sin`, `cos`, `tan`, `cot`, `sinh`, `erf` and `erfc` of a
+  matrix stay unevaluated. SymPy expands them through `as_real_imag` of the
+  argument, e.g. `sin((1/2)*Adjoint(A.T) + (1/2)*A)*cos(...)`. `re(cosh(A))`
+  depends on the SymPy cache state: it raises in a fresh process and
+  evaluates after a failed `re(exp(A))`.
+- `Abs(Transpose(A*B))` (SymPy gives `(B.T*A.T*Adjoint(B)*Adjoint(A))**(1/2)`)
+  and `Abs(A + B)` (expanded sum under the square root) are not admitted.
+- `sin(Matrix(...))` of an explicit matrix still raises TypeError. SymPy
+  holds `sin(ImmutableDenseMatrix)` (`cos(-Matrix([[1, 2]]))` is
+  `cos(Matrix([[-1, -2]]))`). This needs an explicit-matrix argument for the
+  native function node, with `.args[0]` the ImmutableDenseMatrix.
+- `MultivariateNormal` with MatrixSymbol parameters of symbolic dimension
+  still raises NotImplementedError. SymPy builds the density as
+  `MatrixElement(...)` of a 1x1 matrix expression, and `marginal_distribution`
+  raises ValueError "n: Exponent must be a positive Integer".
+- `Idx` inside compound indices (`y[i + 1]`): Idx and Indexed are still not
+  native nodes, unchanged since wave 21. `ranges`, `subs`, `atoms(Idx)`, the
+  srepr, the latex with bounds and `diff` to KroneckerDelta still differ from
+  SymPy.
+- srepr of a MatrixSymbol name prints `"A"` where SymPy prints `Str('A')`,
+  unchanged.
+
+Measured: [audit](../audits/performance/2026-10-29-idxmvn/README.md).

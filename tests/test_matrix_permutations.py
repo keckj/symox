@@ -49,7 +49,8 @@ def test_permutation_matrices_and_structural_roundtrips(images):
     assert sx.trace(matrix) == sum(i==j for i,j in enumerate(images))
     assert matrix.T.to_sympy() == expected.T
     assert matrix.adjoint().to_sympy() == expected.adjoint()
-    assert matrix.conjugate() == matrix
+    # MatrixExpr._eval_conjugate in SymPy 1.14: Adjoint(Transpose(P)).
+    assert matrix.conjugate().to_sympy() == expected.conjugate()
     assert matrix.inverse().to_sympy() == expected.inverse()
     if permutation.is_Identity:
         assert matrix.doit() == sx.Identity(len(images))

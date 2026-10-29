@@ -918,7 +918,30 @@ impl MatrixExpr {
         ],true)?;
         cache.insert(n,result.clone());Ok(result)
     }
+    /// SymPy's `conjugate(M)` of a matrix expression, `M._eval_conjugate()`:
+    /// `Adjoint(Transpose(M))` unless the class has its own rule (Adjoint,
+    /// Transpose, Inverse, MatPow, KroneckerProduct and the constant
+    /// Identity, ZeroMatrix, OneMatrix); the conjugate is not distributed
+    /// over sums or products, as in the reference.
+    fn conjugate_sympy(&self)->MResult<Self>{
+        match self.kind(){
+            MatrixKind::Identity|MatrixKind::GenericIdentity|MatrixKind::Zero|MatrixKind::GenericZero|MatrixKind::One=>Ok(self.clone()),
+            MatrixKind::Explicit(m)=>Ok(Self::explicit(m.conjugate())),
+            MatrixKind::Adjoint(b)=>b.transpose(true),
+            MatrixKind::Transpose(b)=>b.adjoint(true),
+            MatrixKind::Conjugate(b)=>Ok(b.clone()),
+            MatrixKind::Inverse(b)=>b.conjugate_sympy()?.inverse(false),
+            MatrixKind::Pow(b,e)=>b.conjugate_sympy()?.pow(e.clone(),false),
+            MatrixKind::Kronecker(factors)=>Self::kronecker(&factors.iter().map(Self::conjugate_sympy).collect::<MResult<Vec<_>>>()?,true),
+            _=>{
+                let (r,c)=self.shape();
+                let transpose=Self::new(MatrixKind::Transpose(self.clone()),c.clone(),r.clone());
+                Ok(Self::new(MatrixKind::Adjoint(transpose),r,c))
+            },
+        }
+    }
     fn unary(&self,op:u8,evaluate:bool)->MResult<Self>{
+        if evaluate&&op==2{return self.conjugate_sympy();}
         let apply=|m:&Self|m.unary(op,true);
         if evaluate {match self.kind(){
             MatrixKind::Permutation(p)=>return if op==2{Ok(self.clone())}else{Self::permutation(permutation::inverse(p),false)},
@@ -1395,7 +1418,7 @@ impl MatrixExpr {
             MatrixKind::Slice(parent,rows,cols)=>format!("{}, {}, {}",parent.to_repr(),rows.repr(),cols.repr()),
             MatrixKind::HadamardPower(a,b)=>{let operand=|o:&MatrixOperand|match o{MatrixOperand::Scalar(e)=>s(e),MatrixOperand::Matrix(m)=>m.to_repr()};format!("{}, {}",operand(a),operand(b))},
             MatrixKind::Explicit(m)=>format!("{}, {}, [{}]",m.rows(),m.cols(),m.data().iter().map(s).collect::<Vec<_>>().join(", ")),
-            MatrixKind::Add(a)=>a.iter().map(me).collect::<Vec<_>>().join(", "),MatrixKind::Mul(c,a)=>{let mut a=a.iter().map(me).collect::<Vec<_>>();if !c.is_one(){a.insert(0,s(c));}a.join(", ")},
+            MatrixKind::Add(a)=>crate::printing::order::matrix_ordered(a).iter().map(me).collect::<Vec<_>>().join(", "),MatrixKind::Mul(c,a)=>{let mut a=a.iter().map(me).collect::<Vec<_>>();if !c.is_one(){a.insert(0,s(c));}a.join(", ")},
             MatrixKind::Pow(b,e)=>format!("{}, {}",b.to_repr(),s(e)),MatrixKind::Inverse(b)=>format!("{}, {}",b.to_repr(),s(&Expr::minus_one())),_=>self.children()[0].to_repr(),
         };format!("{}({args})",self.kind_name())
     }
@@ -1440,7 +1463,8 @@ impl MatrixExpr {
             MatrixKind::Diag(parent)|MatrixKind::DiagonalOf(parent)|MatrixKind::Diagonal(parent)=>format!("{}({})",self.kind_name(),parent.to_str()),
             MatrixKind::Slice(parent,rows,cols)=>{let p=if parent.str_precedence()<PREC_ATOM{format!("({})",parent.to_str())}else{parent.to_str()};format!("{p}[{}, {}]",slice(rows,parent.rows()),slice(cols,parent.cols()))},
             MatrixKind::HadamardPower(a,b)=>{let operand=|o:&MatrixOperand|match o{MatrixOperand::Scalar(e)=>scalar(e),MatrixOperand::Matrix(m)=>m.to_str()};format!("HadamardPower({}, {})",operand(a),operand(b))},
-            MatrixKind::Add(a)=>{let mut out=String::new();for e in a{let v=e.to_str();if !out.is_empty(){if let Some(positive)=v.strip_prefix('-'){out.push_str(" - ");out.push_str(positive);continue;}out.push_str(" + ");}out.push_str(&v);}out},
+            // The printer's `_print_Add` walks `MatAdd.as_ordered_terms()`.
+            MatrixKind::Add(a)=>{let mut out=String::new();for e in &crate::printing::order::matrix_ordered(a){let v=e.to_str();if !out.is_empty(){if let Some(positive)=v.strip_prefix('-'){out.push_str(" - ");out.push_str(positive);continue;}out.push_str(" + ");}out.push_str(&v);}out},
             // SymPy's `_print_MatMul`: a real negative or negative imaginary
             // numeric coefficient becomes a leading sign.
             MatrixKind::Mul(c,a)=>{

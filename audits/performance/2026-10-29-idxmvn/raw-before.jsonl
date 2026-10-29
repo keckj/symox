@@ -1,0 +1,12 @@
+{"label": "before", "call": "conjugate(A)", "first_s": 3.582499630283564e-05, "repeated_s": 3.0923900339985265e-06, "result": "MatrixConjugate(A)"}
+{"label": "before", "call": "conjugate(x*A)", "first_s": 9.557799785397947e-05, "repeated_s": 6.396315002348274e-06, "result": "conjugate(x)*MatrixConjugate(A)"}
+{"label": "before", "call": "conjugate(A**2)", "first_s": 5.255998985376209e-05, "repeated_s": 4.721079967566766e-06, "result": "MatrixConjugate(A)**2"}
+{"label": "before", "call": "str(sin(A - A.T))", "first_s": 0.0003813579969573766, "repeated_s": 2.0770650007762014e-05, "result": "sin(-A.T + A)"}
+{"label": "before", "call": "srepr(sin(2*A - B))", "first_s": 0.00043505099893081933, "repeated_s": 4.281681503925938e-05, "result": "sin(MatAdd(MatMul(Integer(-1), MatrixSymbol(\"B\", Integer(3), Integer(3))), MatMu"}
+{"label": "before", "call": "re(A)", "first_s": 0.0002464380086166784, "repeated_s": 3.2038750214269383e-06, "result": "!! NotImplementedError: re of abstract matrices is not implemented"}
+{"label": "before", "call": "im(x*A)", "first_s": 0.00026427098782733083, "repeated_s": 6.112405026215129e-06, "result": "!! NotImplementedError: im of abstract matrices is not implemented"}
+{"label": "before", "call": "Abs(A)", "first_s": 0.00021895801182836294, "repeated_s": 3.147829993395135e-06, "result": "!! NotImplementedError: Abs of abstract matrices is not implemented"}
+{"label": "before", "call": "Abs(x*A*B)", "first_s": 0.0002520339912734926, "repeated_s": 6.878284984850325e-06, "result": "!! NotImplementedError: Abs of abstract matrices is not implemented"}
+{"label": "before", "call": "re(log(A))", "first_s": 8.633600373286754e-05, "repeated_s": 5.6689450138946995e-06, "result": "re(log(A))"}
+{"label": "before", "call": "Heaviside(A) error", "first_s": 0.00030902698927093297, "repeated_s": 7.754285034025088e-06, "result": "!! NotImplementedError: Heaviside of abstract matrices is not implemented"}
+{"label": "before", "call": "x + A error", "first_s": 3.251599264331162e-05, "repeated_s": 2.896745063480921e-06, "result": "!! TypeError: Expected a matrix expression or explicit matrix"}

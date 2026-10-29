@@ -162,7 +162,13 @@ class MatAdd(MatrixExpr):
         if not args:
             # validate(*args) with nothing left to unpack.
             raise ValueError('not enough values to unpack (expected 2, got 0)')
-        return _core._matrixexpr_node('MatAdd', args, evaluate)
+        try:
+            return _core._matrixexpr_node('MatAdd', args, evaluate)
+        except TypeError as error:
+            # validate(*args) of the reference: a scalar term is rejected.
+            if str(error) == 'Expected a matrix expression or explicit matrix':
+                raise TypeError('Mix of Matrix and Scalar symbols') from None
+            raise
 
 
 class MatMul(MatrixExpr):
