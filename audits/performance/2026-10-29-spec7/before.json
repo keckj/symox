@@ -1,0 +1,54 @@
+{
+ "sin(A)": {
+  "fresh": "refused NotImplementedError",
+  "repeat": "refused NotImplementedError"
+ },
+ "cos(-A)": {
+  "fresh": "refused NotImplementedError",
+  "repeat": "refused NotImplementedError"
+ },
+ "exp(log(A))": {
+  "fresh": 8.504000288667157e-05,
+  "repeat": 6.341499101836234e-06
+ },
+ "sqrt(A)": {
+  "fresh": 3.690899757202715e-05,
+  "repeat": 1.6030026017688215e-06
+ },
+ "sin(x).subs(x,A)": {
+  "fresh": 0.00013639199460158125,
+  "repeat": 1.999049709411338e-05
+ },
+ "Function(f)(A)": {
+  "fresh": 0.00010009399557020515,
+  "repeat": 4.8555011744610965e-06
+ },
+ "2*x*A": {
+  "fresh": 5.3975003538653255e-05,
+  "repeat": 3.716999344760552e-06
+ },
+ "A**2*B": {
+  "fresh": 2.5802000891417265e-05,
+  "repeat": 1.9979997887276113e-06
+ },
+ "ZeroMatrix**(1/2)": {
+  "fresh": 2.2223000996746123e-05,
+  "repeat": 7.138998626032844e-06
+ },
+ "sin(x)*cos(x)+x**2": {
+  "fresh": 0.00011122800060547888,
+  "repeat": 1.334850094281137e-05
+ },
+ "srepr(Tuple)": {
+  "fresh": 0.00010878500324906781,
+  "repeat": 1.9759998394874856e-05
+ },
+ "Markov Str P": {
+  "fresh": "refused NotImplementedError",
+  "repeat": "refused NotImplementedError"
+ },
+ "Markov int P": {
+  "fresh": 0.0013961939985165372,
+  "repeat": 0.0007673325017094612
+ }
+}

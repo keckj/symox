@@ -30,6 +30,7 @@ _SUBS, _ASSUME, _EVALF, _FUNC = 512, 1024, 2048, 4096
 _NONCOMMUTATIVE, _UNCOMMUTED, _COMMUTATIVE_HOOK = 8192, 16384, 32768
 _PRETTY = 65536
 _NUMBER = 131072
+_REPR = 262144
 
 # Hooks dispatched by the Python facades, enabled once a class defines one.
 _hooks = {'expand': False, 'free_symbols': False}
@@ -122,6 +123,12 @@ def _print(obj, format):
             kind = _printer_kind(type(obj))
             name = obj.name
             return '_' + name if kind == 'Dummy' else name + '_' if kind == 'Wild' else name
+        return None
+    if format == 'repr':
+        method = getattr(obj, '_sympyrepr', None)
+        if method is not None:
+            from .printing.repr import ReprPrinter
+            return str(method(ReprPrinter()))
         return None
     if format == 'latex':
         method = getattr(obj, '_latex', None)
@@ -217,6 +224,8 @@ def atom_class(metaclass, name, bases, namespace, **kwargs):
         flags |= _LATEX
     if _defines(cls, '_pretty'):
         flags |= _PRETTY
+    if _defines(cls, '_sympyrepr'):
+        flags |= _REPR
     if _defines(cls, 'name'):
         flags |= _RENAMES
     _install_content_hash(cls)
@@ -438,6 +447,8 @@ class _HostFunctionType(type):
             flags |= _LATEX
         if _defines(cls, '_pretty'):
             flags |= _PRETTY
+        if _defines(cls, '_sympyrepr'):
+            flags |= _REPR
         _install_content_hash(cls)
         host = _core._host_class(cls, flags)
         cls._symox_head = _core._host_head(host, name, _class_facts(cls), nargs)
@@ -822,6 +833,8 @@ def expression_class(cls):
         flags |= _LATEX
     if _defines(cls, '_pretty'):
         flags |= _PRETTY
+    if _defines(cls, '_sympyrepr'):
+        flags |= _REPR
     key = cls.class_key()
     host = _core._host_class(cls, flags, (key[0], key[1]))
     cls._symox_head = _core._host_head(host, cls.__name__, _class_facts(cls), None)

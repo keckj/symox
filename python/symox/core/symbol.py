@@ -1,22 +1,40 @@
 """Compatible imports backed by existing native implementations."""
 from symox._api_exports import export as _export
 _export(globals(), 'symox', 'Dummy Symbol Wild symbols var')
+from symox import Atom as _Atom, _host
+_host_defined=_host._defined[0]
 
 
-class Str:
-    """An immutable label which does not contribute free mathematical symbols."""
+class Str(_Atom):
+    """An immutable label which does not contribute free mathematical symbols.
+
+    As in SymPy it is an ``Atom``: it can be stored in native expressions
+    (``Eq(Y[1], Str('a'))``, ``FiniteSet(Str('a'), Str('b'))``) as a host atom."""
+    # Created as a host atom class like a user Atom subclass (the metaclass
+    # only does so outside the symox package), then given its public module.
+    __module__='symox_host'
     __slots__=('name',)
-    def __init__(self,name):object.__setattr__(self,'name',str(name))
-    def __setattr__(self,name,value):raise AttributeError('string atoms are immutable')
-    args=()
-    free_symbols=frozenset()
     is_Atom=True
+    is_Symbol=False
+    def __new__(cls,name,**kwargs):
+        if not isinstance(name,str):raise TypeError('name should be a string, not %s' % repr(type(name)))
+        # Host paths are consulted once a host instance exists (see below).
+        _host._defined[0]=True
+        obj=_Atom.__new__(cls,**kwargs);object.__setattr__(obj,'name',name);return obj
+    def __getnewargs__(self):return (self.name,)
+    def _hashable_content(self):return (self.name,)
+    def _sympystr(self,printer):return self.name
+    def _sympyrepr(self,printer):return "%s(%s)" % (type(self).__name__,printer._print(self.name))
     def __str__(self):return self.name
-    __repr__=__str__
-    def __hash__(self):return hash((type(self),self.name))
-    def __eq__(self,other):return isinstance(other,Str) and self.name==other.name
+    def __repr__(self):return self.name
     def subs(self,*args,**kwargs):return self
     def xreplace(self,rule):return rule.get(self,self)
+
+
+Str.__module__=__name__
+# Defining the class at import is not a user host class: the host paths
+# stay disabled until an instance (or a user host class) exists.
+_host._defined[0]=_host_defined
 
 
 def uniquely_named_symbol(xname,exprs=(),compare=str,modify=None,**assumptions):

@@ -622,7 +622,10 @@ impl Expr {
         if matches!(&kind,Kind::Sym(symbol) if symbol.host().is_some_and(|host|host.may_not_commute()))
             || matches!(&kind,Kind::Func(Func::Undefined(head),_) if head.host().is_some_and(|host|host.may_not_commute()))
             || matches!(&kind,Kind::Sym(symbol) if symbol.facts().get("commutative")==Some(false))
-            || matches!(&kind,Kind::Func(Func::Undefined(head),_) if !head.internal && head.facts().get("commutative")==Some(false)){features|=1024;}
+            || matches!(&kind,Kind::Func(Func::Undefined(head),_) if !head.internal && head.facts().get("commutative")==Some(false))
+            // A matrix expression used as a scalar argument (``sin(A)``,
+            // ``f(A)``) does not commute, as in SymPy.
+            || matches!(&kind,Kind::Func(Func::MatrixProxy(_),_)){features|=1024;}
         if !canonical && matches!(kind,Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){features|=16;}
         if matches!(&kind,Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity|Constant::NaN))
             || matches!(&kind,Kind::Num(Number::Float(value)) if !value.is_finite())
