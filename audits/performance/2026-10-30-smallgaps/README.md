@@ -170,14 +170,23 @@ cores). Files: `raw/bench_*`.
 - `cargo clippy -- -D clippy::correctness`: clean, after the
   `cephes_gamma.rs` allow. Before, it failed on that function with
   `approx_constant`, an error that predates this change.
-- Full suite (`run_suite.py`): see the final section of the branch report.
-  First run: 59531 collected and finished in 677 files ; 59464 passed, 60
-  skipped, 4 xfailed, 3 failed. The 3 failures were wall-clock timeouts
-  under load (888 s run):
-  - `test_fuzz_harness::test_worker_recovers_from_death_and_timeout` ;
-  - `test_fuzz_harness::test_finite_run_and_deduplication` ;
-  - `test_dirac_affine_integration::test_large_numeric_powers_are_preflighted_but_cheap_large_powers_remain_supported`.
+- Full suite (`run_suite.py`, 24 shards), on commit d73e7dc4: SUITE CLEAN.
+  59531 tests collected and finished in 677 files ; 59467 passed, 60
+  skipped, 4 xfailed, 0 failed ; 356 s at load average 12 to 20.
+  Three earlier runs of the same build, under higher load, were not clean,
+  each for a different test unrelated to this change:
+  - run 1 (load about 60, 888 s) had 3 wall-clock timeouts:
+    `test_fuzz_harness::test_worker_recovers_from_death_and_timeout`,
+    `test_fuzz_harness::test_finite_run_and_deduplication` and
+    `test_dirac_affine_integration::test_large_numeric_powers_are_preflighted_but_cheap_large_powers_remain_supported`.
+    The fuzz deduplication test is flaky on the base build too (1 failure
+    in 4 runs) ;
+  - run 2: a 1 ms SIGALRM in
+    `test_matrix_inexact_native_inverse::test_pending_interruption_propagates_from_native_elimination`
+    fired before `pytest.raises` was entered and stopped that shard ;
+  - run 3: the jax subprocess of
+    `tests/extra/test_jax_codegen.py::test_custom_functions_and_standalone_source`
+    exited with status 1 (the shard peaked at 4.5 GB, under its 6 GB cap).
 
-  Run alone, the worker and dirac tests pass. The fuzz deduplication test
-  is flaky on both builds (base 1 failure in 4 runs, after 1 failure in 3
-  runs).
+  Each of these tests passes when run alone, and each passed in the other
+  runs.
