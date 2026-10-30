@@ -8,6 +8,7 @@
 //! like SymPy's.
 pub mod exprtools;
 pub mod radsimp;
+pub mod radical_denominator;
 pub mod powsimp;
 pub mod misc;
 pub mod sqrtdenest;

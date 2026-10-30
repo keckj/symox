@@ -14652,3 +14652,61 @@ stays held (SymPy `zoo`); with any
 `1/2 + x*DiracDelta(0) + ...`) and `log(sin(x))` carries
 `O(x**3*log(x))` (SymPy `O(x**3)`).
 
+
+## exroots (wave 36): EX roots and the simplify denominator step, 2026-10-30
+
+Native now (Rust, `crates/symox-core`):
+
+- `simptools/radical_denominator.rs`: SymPy 1.14's `simplify` step
+  `n, d = fraction(radsimp(1/denom, symbolic=False, max_terms=1))` for a sum
+  denominator, then `(numer*n).expand()/d`. Sums of square roots are decided
+  natively; another numeric denominator goes to the host fallback
+  (`nsimplify`) through `_core._st_simplify_rationalize_denominator`, and
+  declines without a host. `(2 + sqrt(5))/(50*(1 + sqrt(5)))` simplifies to
+  `sqrt(5)/200 + 3/200`. Not applied in native-selection mode (the internal
+  solvers' simplify, which the reference does not call there).
+- `poly/roots.rs` over EX (coefficients that construct EX): monic and
+  preprocess steps, the `(-b)/A` trees of `roots_linear` and
+  `roots_quadratic` and their `simplify`, and SymPy's `ordered` for
+  `multiple=True`. 24 of the 25 audited `roots` cases are SymPy's output
+  (6 before). Under the native system solvers the roots keep their previous
+  raw form, whose `nonlinsolve` output already matches SymPy.
+- `expand/fixpoint.rs`: SymPy's `expand` repeats the `mul` and
+  `multinomial` hints until nothing changes, e.g.
+  `expand((x + y)**(2/3)*(1 + (x + y)**(2/3)))` is
+  `x*(x + y)**(1/3) + y*(x + y)**(1/3) + (x + y)**(2/3)` (the previous single
+  pass left `(x + y)**(4/3)`).
+- `integrate/log_to_atan_ex.rs`: the EX field quotient of `log_to_atan` by a
+  constant (`_core._log_to_atan_ex_constant`); `1/(x**5 + 1)` is now SymPy's
+  output.
+
+Still Python: the `log_to_atan` choice between the native quotient and the
+plain coefficient quotient (the shorter is kept), the rest of `log_to_real`,
+and the order of the substituted `A`/`B` expansion (`_substituted_poly`: each
+term of `a(r_u, r_v)` and `b(r_u, r_v)` is expanded natively on its own, as
+SymPy's `expand` of a sum does, before `Poly`).
+
+Intentional deviations and remaining gaps:
+
+- `roots(x**4 + 2*x**2 + 3)` keeps the quadratic-in-x**2 form
+  `sqrt(-1 + sqrt(2)*I)`; SymPy gives its binomial form (`try_decompose`
+  uses `roots_quadratic`; unchanged since before the wave).
+- `integrate(1/(x**3 + x + 1))` and `integrate(1/(x**3 + 2*x - 1))` are exact
+  but not SymPy's form (9543 and 9987 characters, SymPy 16653 and 17352):
+  the native EX `cancel`/`expand` of the Cardano radicals does not reach
+  SymPy's normal form, so neither `log_to_atan` quotient matches.
+- Native `expand` of a sum is not always the sum of the expanded terms. SymPy
+  applies the multinomial hint to the whole tree before the mul hint, so in
+  `k*(p/d + ...)**(3/2)` the rational `k` meets the unexpanded numerator `p`
+  and `fraction` puts its denominator into `d` (`51/(180000*2**(1/3) + ...)`);
+  the native expand distributes `k` over the already expanded base and
+  reduces it first (`17/(60000*2**(1/3) + ...)`), so like terms no longer
+  combine. Native `expand` also leaves `b**(-3/2)` for a sum `b`, where SymPy's
+  multinomial hint gives `1/(b*sqrt(b))` expanded. With the whole sum expanded
+  at once, `ratint(1/((x**2 + 1)*(x**3 + 2)))` was 9261 characters (SymPy
+  9057, `log(A**2 + B**2)` 1549 characters, SymPy 1424); `log_to_real` now
+  expands the substituted `A`/`B` term by term (SymPy's order), which gives
+  SymPy's output exactly (9057 characters), and tests/test_native_ratint_dom.py
+  keeps the SymPy bound 9057. The native expand order itself is not fixed.
+
+Measured: [audit](../audits/performance/2026-10-30-exroots/README.md).

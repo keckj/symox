@@ -917,10 +917,19 @@ def log_to_atan(f, g):
         # Division by a nonzero constant is exact. SymPy's EX elements are
         # canonicalised by cancel, so its f.div(g) leaves a zero remainder;
         # symox's EX arithmetic does not always recognise (a/c)*c - a as 0
-        # for nested radicals, so divide by the constant directly.
+        # for nested radicals. The native quotient is that of the reference
+        # (the EX field quotient of each coefficient by the constant, the
+        # remainder pass skipped). The native EX simplify does not reach
+        # SymPy's normal form of the Cardano radicals, so the shorter of that
+        # quotient and the plain coefficient quotient is kept.
         c = g.LC()
         p = Poly([coeff/c for coeff in f.all_coeffs()], *f.gens, domain=f.domain)
-        return 2*atan(p.as_expr())
+        plain = 2*atan(p.as_expr())
+        if len(f.gens) == 1:
+            native = _rational_core._log_to_atan_ex_constant(f.all_coeffs(), c, f.gen)
+            if len(str(native)) < len(str(plain)):
+                return native
+        return plain
 
     p, q = f.div(g)
 
@@ -956,6 +965,23 @@ def _complete_real_roots(f, rs):
         if not im.is_Number or abs(im) < 1e-40:
             return False
     return True
+
+
+def _substituted_poly(p, subs, x):
+    """``Poly(p.xreplace(subs), x)`` with the terms expanded one at a time.
+
+    SymPy's ``expand`` of a sum is the sum of the expanded terms. The native
+    expand of the whole sum can distribute a term's rational coefficient over
+    an already expanded radical base before the like terms combine, which
+    leaves unreduced ``2**(1/3)`` denominators (ratint of
+    ``1/((x**2 + 1)*(x**3 + 2))``); expanding each term keeps SymPy's form.
+    """
+    from symox.core.add import Add
+    from symox.core.function import expand
+    e = p.xreplace(subs)
+    if e.is_Add:
+        e = Add(*[expand(t) for t in e.args])
+    return Poly(e, x)
 
 
 def _get_real_roots(f, x):
@@ -1114,8 +1140,8 @@ def log_to_real(h, q, x, t):
                 if split is not None:
                     return split
 
-            A = Poly(a.xreplace({u: r_u, v: r_v}), x)
-            B = Poly(b.xreplace({u: r_u, v: r_v}), x)
+            A = _substituted_poly(a, {u: r_u, v: r_v}, x)
+            B = _substituted_poly(b, {u: r_u, v: r_v}, x)
 
             AB = (A**2 + B**2).as_expr()
 

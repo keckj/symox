@@ -87,8 +87,49 @@ impl UPoly {
         self.c.iter().filter(|x| !x.is_zero()).count()
     }
     fn monic(&self) -> Vec<Expr> {
+        // Over EX the reference `Poly.monic` divides in the domain:
+        // `Expression.simplify` (`cancel`, then `expand` with `eflags`).
+        if let Some(m) = self.expression().and_then(|p| p.monic().ok()) {
+            let c = m.all_coeffs();
+            if c.len() == self.c.len() {
+                return c;
+            }
+        }
         let l = self.c[0].clone();
         self.c.iter().map(|x| simp(&div(x, &l), self.numerical)).collect()
+    }
+    /// The polynomial over EX when its coefficients select EX (the
+    /// reference `construct_domain`), with the coefficients unsimplified as
+    /// `EX.from_sympy`.
+    fn expression(&self) -> Option<super::expression_domain::ExpressionPoly> {
+        if self.numerical || self.c.is_empty() || self.c[0].is_zero() {
+            return None;
+        }
+        if !super::expression_domain::construct_selects_expression(&self.c).ok()? {
+            return None;
+        }
+        let x = Expr::dummy("x", Default::default());
+        let n = self.deg();
+        let terms = self.c.iter().enumerate().filter(|(_, c)| !c.is_zero())
+            .map(|(i, c)| (vec![(n - i) as u32], c.clone())).collect();
+        super::expression_domain::ExpressionPoly::from_terms(terms, std::slice::from_ref(&x)).ok()
+    }
+    /// The reference `_simplify` of `roots_linear` and `roots_quadratic`:
+    /// nothing over a numerical domain, `simplify` over EX and `factor` over
+    /// a composite domain.
+    /// The coefficients select EX (the reference `_simplify` calls `simplify`).
+    /// Under the native system solvers the roots keep their earlier raw
+    /// form, whose output already matches the reference there.
+    fn is_expression(&self) -> bool {
+        !self.numerical
+            && !crate::simplify::native_selection()
+            && super::expression_domain::construct_selects_expression(&self.c).unwrap_or(false)
+    }
+    fn simplified(&self, e: &Expr) -> Expr {
+        if self.is_expression() {
+            return crate::simplify::simplify(e);
+        }
+        simp(e, self.numerical)
     }
 }
 
@@ -98,6 +139,20 @@ fn simp(e: &Expr, numerical: bool) -> Expr {
     } else {
         factor(e).unwrap_or_else(|_| e.clone())
     }
+}
+
+/// The reference `preprocess_roots` over EX: `clear_denoms`, then
+/// `primitive`. `None` unless the coefficients select EX before and after
+/// (otherwise `retract` changes the domain and the existing path runs).
+fn preprocess_expression(f: &UPoly) -> Option<UPoly> {
+    let p = f.expression()?;
+    let (_, p) = p.clear_denoms().ok()?;
+    let (_, p) = p.primitive().ok()?;
+    let c = p.all_coeffs();
+    if c.len() != f.c.len() || !super::expression_domain::construct_selects_expression(&c).ok()? {
+        return None;
+    }
+    Some(UPoly { c, numerical: false })
 }
 
 fn upoly_from_rats(c: &[Rat]) -> UPoly {
@@ -126,8 +181,9 @@ pub fn roots_trivial(c: &[Expr]) -> Option<Vec<Expr>> {
 // ----------------------------------------------------------------------
 
 fn roots_linear(f: &UPoly) -> Vec<Expr> {
-    let r = neg(&div(&f.nth(0), &f.nth(1)));
-    vec![simp(&r, f.numerical)]
+    // The reference `-f.nth(0)/f.nth(1)`, that is `(-nth(0))/nth(1)`.
+    let r = if f.is_expression() { div(&neg(&f.nth(0)), &f.nth(1)) } else { neg(&div(&f.nth(0), &f.nth(1))) };
+    vec![f.simplified(&r)]
 }
 
 fn sqrt_squares(d: &Expr) -> Expr {
@@ -175,9 +231,9 @@ fn roots_quadratic(f: &UPoly) -> Vec<Expr> {
     let num = f.numerical;
     if c.is_zero() {
         let r0 = Expr::zero();
-        let r1 = neg(&div(&b, &a));
+        let r1 = if f.is_expression() { div(&neg(&b), &a) } else { neg(&div(&b, &a)) };
         if !num {
-            return vec![r0, simp(&r1, false)];
+            return vec![r0, f.simplified(&r1)];
         }
         if is_neg(&r1) {
             return vec![r1, r0];
@@ -185,16 +241,17 @@ fn roots_quadratic(f: &UPoly) -> Vec<Expr> {
         return vec![r0, r1];
     }
     if b.is_zero() {
-        let r = simp(&neg(&div(&c, &a)), num);
+        let r = if f.is_expression() { f.simplified(&div(&neg(&c), &a)) } else { simp(&neg(&div(&c, &a)), num) };
         let rr = sqrt_squares(&r);
         return vec![neg(&rr), rr];
     }
     let mut d = sub(&pow(&b, &Expr::int(2)), &mul(&[Expr::int(4), a.clone(), c.clone()]));
     let aa = mul(&[Expr::int(2), a.clone()]);
-    let mut bb = neg(&div(&b, &aa));
+    // The reference `-b/A`, that is `(-b)/A`: the sign distributes over `b`.
+    let mut bb = if f.is_expression() { div(&neg(&b), &aa) } else { neg(&div(&b, &aa)) };
     if !num {
-        d = simp(&d, false);
-        bb = simp(&bb, false);
+        d = f.simplified(&d);
+        bb = f.simplified(&bb);
     }
     // The reference `factor_terms(_sqrt(d)/A)`.
     let dd = crate::simptools::exprtools::factor_terms(&div(&sqrt_squares(&d), &aa), false, false, false, true);
@@ -600,8 +657,12 @@ fn roots_quartic(f: &UPoly) -> Vec<Expr> {
 /// `roots(..., multiple=True)` for an expression-coefficient polynomial
 /// (used recursively by the closed forms).
 fn roots_list(f: &UPoly) -> Vec<Expr> {
+    // `roots(..., multiple=True)` lists `ordered(result)`.
     let mut out = Vec::new();
-    for (r, k) in roots_of(f) {
+    let found = roots_of(f);
+    let order = crate::simptools::ordered(found.iter().map(|(r, _)| r.clone()).collect());
+    for r in order {
+        let k = found.iter().find(|(s, _)| *s == r).map_or(0, |(_, k)| *k);
         for _ in 0..k {
             out.push(r.clone());
         }
@@ -1143,6 +1204,10 @@ fn roots_of_with(f: &UPoly, preprocess: bool) -> Vec<(Expr, u32)> {
                 }
             }
         }
+        }
+    } else if let Some(g) = preprocess.then(|| preprocess_expression(&f)).flatten() {
+        for (r, k) in roots_of_with(&g, false) {
+            update(&mut result, &mut zeros, r, k);
         }
     } else if let Some((coeff, g)) = preprocess.then(|| preprocess_symbolic(&f)).flatten().filter(|(_, g)| g.c != f.c) {
         for (r, k) in roots_of_with(&g, false) {

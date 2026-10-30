@@ -1,0 +1,12 @@
+{"case": "roots((3125/4 + 3125*sqrt(5)/4)*x**4 + (-125*sqrt(5)/4 - 125/2)*x**2 + 5*sqrt(5)/64 + 75/64)", "first_ms": 3.34, "repeat_ms": 3.09, "len": 204}
+{"case": "roots(sqrt(3)*x**2 - 2*x + sqrt(2))", "first_ms": 1.38, "repeat_ms": 1.07, "len": 82}
+{"case": "roots(x**4 - sqrt(3)*x**2 - 1)", "first_ms": 0.79, "repeat_ms": 0.51, "len": 120}
+{"case": "roots(sqrt(2)*x**4 + 3*x**2 + sqrt(5))", "first_ms": 1.71, "repeat_ms": 1.42, "len": 214}
+{"case": "simplify((2 + sqrt(5))/(50*(1 + sqrt(5))))", "first_ms": 2.46, "repeat_ms": 2.1, "len": 19}
+{"case": "simplify((1 + sqrt(3))/(2 - sqrt(3)))", "first_ms": 2.77, "repeat_ms": 2.46, "len": 13}
+{"case": "simplify((2 + sqrt(5))/(50*(1 + sqrt(5))) + 1/(25*(1 + sqrt(5))))", "first_ms": 3.33, "repeat_ms": 2.99, "len": 21}
+{"case": "simplify(sqrt(-1/(25*(1 + sqrt(5))) + (2 + sqrt(5))/(50*(1 + sqrt(5)))))", "first_ms": 5.76, "repeat_ms": 5.37, "len": 40}
+{"case": "integrate(1/(x**3-2))", "first_ms": 27.63, "repeat_ms": 8.34, "len": 136}
+{"case": "integrate(1/(x**3+x+1))", "first_ms": 394.51, "repeat_ms": 369.7, "len": 9543}
+{"case": "integrate(1/(x**3+2*x-1))", "first_ms": 363.12, "repeat_ms": 344.07, "len": 9987}
+{"case": "integrate(1/(x**5+1))", "first_ms": 51.65, "repeat_ms": 32.72, "len": 493}

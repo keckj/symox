@@ -3443,10 +3443,11 @@ fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multip
         }
     }
     if multiple {
-        // SymPy: ordered(result)
-        rs.sort_by_cached_key(|(r, _)| symox::sortkey::sort_key(r));
+        // SymPy: ordered(result), by node count then default_sort_key.
+        let order = symox::simptools::ordered(rs.iter().map(|(r, _)| r.clone()).collect());
         let l = PyList::empty(py);
-        for (r, k) in rs {
+        for r in order {
+            let k = rs.iter().find(|(s, _)| *s == r).map_or(0, |(_, k)| *k);
             for _ in 0..k {
                 l.append(w(r.clone()))?;
             }

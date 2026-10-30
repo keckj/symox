@@ -30,6 +30,7 @@ pub mod prde;
 pub mod prde_limited;
 pub mod prde_const;
 pub mod log_to_atan;
+pub mod log_to_atan_ex;
 pub mod log_to_real;
 pub mod ratint_driver;
 pub mod ratint_general;

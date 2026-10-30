@@ -15,6 +15,7 @@ use crate::ops::{add, add_from_terms, mul, mul_factor, pow};
 
 mod options;
 mod memo;
+mod fixpoint;
 pub use options::{expand_with_options, ExpandBudget, ExpandError, ExpandOptions};
 
 type Mono = SmallVec<[i64; 8]>;
@@ -32,8 +33,19 @@ fn arithmetic_expand_with(
     options: &ExpandOptions,
     opaque: &mut dyn FnMut(&Expr) -> Option<Expr>,
 ) -> Expr {
-    let mut cache = FxHashMap::default();
-    exf(e, &mut cache, options, opaque)
+    let mut value = exf(e, &mut FxHashMap::default(), options, opaque);
+    // SymPy repeats the multinomial and mul hints until nothing changes.
+    for _ in 0..fixpoint::MAX_PASSES {
+        if !fixpoint::needs_pass(&value, options) {
+            break;
+        }
+        let next = exf(&value, &mut FxHashMap::default(), options, opaque);
+        if next == value {
+            break;
+        }
+        value = next;
+    }
+    value
 }
 
 /// `ex` for a subexpression that is not flattened into its parent (a power

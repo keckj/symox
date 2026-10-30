@@ -45,6 +45,7 @@ pub(crate) fn register_rational_reduction(m: &Bound<'_, PyModule>) -> PyResult<(
     m.add_function(wrap_pyfunction!(_log_to_real, m)?)?;
     m.add_function(wrap_pyfunction!(_ratint_logpart, m)?)?;
     m.add_function(wrap_pyfunction!(_ratint_ratpart, m)?)?;
+    m.add_function(wrap_pyfunction!(_log_to_atan_ex_constant, m)?)?;
     m.add_function(wrap_pyfunction!(_log_to_atan, m)?)
 }
 
@@ -347,6 +348,19 @@ pub(crate) fn _log_to_atan(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>)
     let result=symox::ops::add(&terms);
     py.check_signals()?;
     Ok(Some(wrap(result)))
+}
+
+/// `log_to_atan(f, g)` for a nonzero `EX` constant `g`: the reference
+/// `f.div(g)` quotient, coefficient by coefficient (`f` given highest
+/// degree first).
+#[pyfunction]
+pub(crate) fn _log_to_atan_ex_constant(
+    coefficients: Vec<Bound<'_, PyAny>>, c: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>,
+) -> PyResult<crate::PyExpr> {
+    let coefficients = coefficients.iter().map(to_expr).collect::<PyResult<Vec<_>>>()?;
+    let result = symox::integrate::log_to_atan_ex::constant_divisor(&coefficients, &to_expr(c)?, &to_expr(x)?)
+        .map_err(crate::poly::err)?;
+    Ok(wrap(result))
 }
 
 /// Expose exact Cartesian numeric polynomial coefficients to heurisch.
