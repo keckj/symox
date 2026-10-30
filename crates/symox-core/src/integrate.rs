@@ -28,6 +28,7 @@ pub mod risch_polynomial_reduce;
 pub mod risch_splitfactor;
 pub mod prde;
 pub mod prde_limited;
+pub mod prde_const;
 pub mod log_to_atan;
 pub mod log_to_real;
 pub mod ratint_driver;

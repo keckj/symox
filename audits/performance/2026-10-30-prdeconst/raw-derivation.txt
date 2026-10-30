@@ -1,0 +1,21 @@
+== head
+tower ZZ(x,t0)   coefficientD=False    967.4 us
+tower ZZ(x,t0)   coefficientD=True     629.8 us
+exp ZZ[x]        coefficientD=False    534.7 us
+exp ZZ[x]        coefficientD=True     219.4 us
+prim ZZ(x)       coefficientD=False    656.4 us
+prim ZZ(x)       coefficientD=True     327.3 us
+== new
+tower ZZ(x,t0)   coefficientD=False    530.7 us
+tower ZZ(x,t0)   coefficientD=True     328.7 us
+exp ZZ[x]        coefficientD=False    239.5 us
+exp ZZ[x]        coefficientD=True      72.2 us
+prim ZZ(x)       coefficientD=False    341.1 us
+prim ZZ(x)       coefficientD=True     160.5 us
+== sympy
+tower ZZ(x,t0)   coefficientD=False   1880.1 us
+tower ZZ(x,t0)   coefficientD=True    1209.9 us
+exp ZZ[x]        coefficientD=False    661.0 us
+exp ZZ[x]        coefficientD=True     404.2 us
+prim ZZ(x)       coefficientD=False   1003.2 us
+prim ZZ(x)       coefficientD=True     581.9 us

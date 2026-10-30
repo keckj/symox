@@ -15,11 +15,17 @@ from .. import _core
 
 _TYPE = type
 _LEN = len
+_ZIP = zip
 _STR = str
 _INT = int
 _LIST = list
 _MISSING = object()
 _ROOT = None
+# Number of constant_system calls answered by the fraction-field kernel.
+STATS = {'constant_system_field': 0, 'derivation': 0}
+_POLY = _core.Poly
+_EXPR = _core.Expr
+_AS_POLY = None
 
 
 def _state(f):
@@ -89,6 +95,16 @@ def register_root(namespace):
         visit(value.__func__ if _TYPE(value) in (classmethod, staticmethod) else value)
     classes = tuple((c, tuple(c.__dict__.items())) for c in (_core.Poly, matrix, cls))
     _ROOT = (kernel, cls, slots, tuple(functions), tuple(lookups), classes, matrix, new.__func__, qq)
+    global _AS_POLY
+    reader = _core.__dict__.get('_ddm_function_metadata')
+    if _TYPE(reader) is not BuiltinFunctionType or reader.__self__ is not _core:
+        return
+    from .. import _poly_constructor
+    _AS_POLY = (_core.Poly.__dict__.get('as_poly'), _core.Poly.__dict__.get('diff'),
+                _core.Poly.__dict__.get('as_expr'), _core.Poly.__dict__.get('__add__'),
+                _poly_constructor.__dict__.get('construct'), _core.Expr.__dict__.get('as_poly'),
+                risch.__dict__, risch.derivation, risch.derivation.__code__, reader,
+                _poly_constructor.__dict__)
 
 
 def _verified():
@@ -111,6 +127,53 @@ def _verified():
         if _LEN(d) != _LEN(items) or any(d.get(k, _MISSING) is not v for k, v in items):
             return None
     return root
+
+
+def derivation(p, DE, coefficientD):
+    """``derivation(p, DE, coefficientD, basic=False)`` for a stock Poly
+    ``p`` over ZZ, QQ, ZZ[...], QQ[...], ZZ(...) or QQ(...) (exp, primitive,
+    base or any other case: the stock body does not depend on it). The
+    native kernel runs the stock loop with the native Poly constructor; it
+    is used only while the Poly methods and the constructor the stock body
+    reaches are the ones captured at import. ``None`` requests the Python
+    body.
+    """
+    root = _ROOT
+    if root is None or _TYPE(p) is not _POLY or _TYPE(DE) is not root[1]:
+        return None
+    c = _POLY.__dict__
+    captured = _AS_POLY
+    if (captured is None or c.get('as_poly') is not captured[0] or c.get('diff') is not captured[1]
+            or c.get('as_expr') is not captured[2] or c.get('__add__') is not captured[3]
+            or captured[10].get('construct') is not captured[4]
+            or _EXPR.__dict__.get('as_poly') is not captured[5]):
+        return None
+    # The stock body reads Poly, len and zip: a module global or a builtin
+    # replaced for risch.derivation keeps the stock body (and its calls).
+    ns, f = captured[6], captured[6].get('derivation')
+    if f is not captured[7] or ns.get('Poly') is not _POLY or 'len' in ns or 'zip' in ns:
+        return None
+    # The code object is read by the native metadata reader (no audit event).
+    values = captured[9](f)
+    if values is None or values[0] is not captured[8]:
+        return None
+    b = f.__builtins__
+    if b.get('len') is not _LEN or b.get('zip') is not _ZIP:
+        return None
+    slots, cls = root[2], root[1]
+    try:
+        t = slots[1][1].__get__(DE, cls)
+        T = slots[3][1].__get__(DE, cls)
+        D = slots[4][1].__get__(DE, cls)
+        level = slots[5][1].__get__(DE, cls)
+    except AttributeError:
+        return None
+    if _TYPE(T) is not _LIST or _TYPE(D) is not _LIST or _TYPE(level) is not _INT:
+        return None
+    r = root[0]('derivation', (p, coefficientD), t, None, T, D, level)
+    if r is not None:
+        STATS['derivation'] += 1
+    return r
 
 
 def _fields(de):
@@ -253,23 +316,62 @@ def constant_system(A, u, DE):
     root = _ROOT
     if root is None or _TYPE(A) is not root[6] or _TYPE(u) is not root[6]:
         return None
-    if not (A._rows * A._cols) or A.domain is not root[8] or u.domain is not root[8]:
+    if not (A._rows * A._cols):
         return None
     gens = A.gens
     if _TYPE(gens) is not tuple or _LEN(gens) != 1 or _TYPE(DE) is not root[1]:
         return None
+    if A.domain is root[8] and u.domain is root[8]:
+        try:
+            T = root[2][3][1].__get__(DE, root[1])
+        except AttributeError:
+            return None
+        if _TYPE(T) is not _LIST or _verified() is None:
+            return None
+        r = _call('constant_system', (A._rows, A._cols, _LIST(A._items), u._rows, u._cols, _LIST(u._items)),
+                  (gens[0], None, T, None, None))
+        if r is None:
+            return None
+        a, v = r
+        return _matrix(a, gens), _matrix(v, gens)
+    return _constant_system_field(A, u, DE, gens)
+
+
+def _constant_system_field(A, u, DE, gens):
+    """Fraction-field systems (ZZ(x), QQ(x, t0), ...) in any DE state: the
+    rref, the derivation loop and the PolyMatrix domains are computed by the
+    native kernel, which calls the Poly constructor for the domain inference
+    of ``PolyMatrix(items, gens)``. As in the stock body, the result uses the
+    generators of ``A`` (``A.row_join(u)``).
+    """
+    root = _ROOT
+    domain_type = _TYPE(root[8])
+    if _TYPE(A.domain) is not domain_type or _TYPE(u.domain) is not domain_type:
+        return None
+    if _TYPE(A._items) is not _LIST or _TYPE(u._items) is not _LIST:
+        return None
+    cls = root[1]
     try:
-        T = root[2][3][1].__get__(DE, root[1])
+        T = root[2][3][1].__get__(DE, cls)
+        D = root[2][4][1].__get__(DE, cls)
+        level = root[2][5][1].__get__(DE, cls)
     except AttributeError:
         return None
-    if _TYPE(T) is not _LIST or _verified() is None:
+    if _TYPE(T) is not _LIST or _TYPE(D) is not _LIST or _TYPE(level) is not _INT or _verified() is None:
         return None
-    r = _call('constant_system', (A._rows, A._cols, _LIST(A._items), u._rows, u._cols, _LIST(u._items)),
-              (gens[0], None, T, None, None))
+    r = root[0]('constant_system_field',
+                (A._rows, A._cols, _LIST(A._items), A.domain, u._rows, u._cols, _LIST(u._items), u.domain),
+                gens[0], None, T, D, level)
     if r is None:
         return None
-    a, v = r
-    return _matrix(a, gens), _matrix(v, gens)
+    (ar, ac, ai, ad), (ur, uc, ui, ud) = r
+    if ad == root[8]:
+        ad = root[8]
+    if ud == root[8]:
+        ud = root[8]
+    new, matrix = root[7], root[6]
+    STATS['constant_system_field'] += 1
+    return new(matrix, ar, ac, ai, gens, ad), new(matrix, ur, uc, ui, gens, ud)
 
 
 def limited_integrate_reduce(fa, fd, G, DE):

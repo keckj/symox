@@ -1454,7 +1454,7 @@ impl PyPoly {
     /// Backend constructor used after public option/input normalization.
     #[staticmethod]
     #[pyo3(signature=(rep,gens,domain=None,modulus=None,extension=None))]
-    fn _from_normalized(rep:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,domain:Option<&Bound<'_,PyAny>>,modulus:Option<u64>,extension:Option<&Bound<'_,PyAny>>)->PyResult<Self>{
+    pub(crate) fn _from_normalized(rep:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,domain:Option<&Bound<'_,PyAny>>,modulus:Option<u64>,extension:Option<&Bound<'_,PyAny>>)->PyResult<Self>{
         let expr=rep;
         if modulus.is_none() && extension.is_none(){if let Ok(source)=expr.downcast::<PyPoly>(){
             let source=source.get();let wanted=gens_of(gens)?;
@@ -1574,7 +1574,7 @@ impl PyPoly {
     #[getter]
     fn domain(&self,py:Python<'_>)->PyResult<PyObject>{self.domain_descriptor()?.object(py)}
 
-    fn domain_descriptor(&self) -> PyResult<domains::PyDomain> { domains::PyDomain::of(&self.p) }
+    pub(crate) fn domain_descriptor(&self) -> PyResult<domains::PyDomain> { domains::PyDomain::of(&self.p) }
 
     fn set_domain(&self,domain:&Bound<'_,PyAny>)->PyResult<Self>{
         let selected=domains::Selection::new(Some(domain),None,None)?;
@@ -1646,7 +1646,7 @@ impl PyPoly {
         let expr=w(self.p.as_expr()).into_pyobject(py)?.into_any();
         Self::_from_normalized(&expr,&gens,Some(domain),None,None)
     }
-    fn to_field(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_field();Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
+    pub(crate) fn to_field(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_field();Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
     fn to_ring(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_ring()?;Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
 
     #[getter]

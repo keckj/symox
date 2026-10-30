@@ -14159,3 +14159,122 @@ Remaining gaps:
   `Interval(0, oo)` for CTMCs, where SymPy gives `Naturals0` and `Reals`;
   a symbolic-size `Range(n)` state space raises "Cannot iterate over
   symbolic Range" where SymPy keeps `Range(0, n, 1)`.
+
+
+## prdeconst (wave 34): constant_system over rational function fields in Rust
+
+Now native (Rust, `crates/symox-core/src/integrate/prde_const.rs`, binding
+`crates/symox-py/src/prde_const.rs`, admission
+`python/symox/integrals/_prde_native.py::_constant_system_field`): the
+whole of `constant_system(A, u, DE)` (sympy/integrals/prde.py) when `A` or
+`u` is not over `QQ`: the reduced row echelon form of `A.row_join(u)` over
+the fraction field (`ddm::field_irref` on `poly::ratfunc::RF` values), the
+loop over the entries that involve `DE.T` with the exact derivation
+`D(f) = sum_k DE.D[k] * df/dDE.T[k]` over the active levels (base, `exp`
+and `primitive` towers, any `DE.level`), the building of the constant
+system (`A - Aj*Rm1`, `u - Aj*um1`, `col_join`), and the output
+PolyMatrix pair. The items are rebuilt with the stock operations (the
+`a - b` differences stay uncancelled, products and quotients are
+cancelled with the Rust `cancel`), and the PolyMatrix domains are those of
+the stock body: `parallel_poly_from_expr(field=True)` inference through
+the Rust Poly constructor (`PyPoly::_from_normalized(...).to_field()`,
+then the `_field_joint` rule over the `EX` coefficients when the item
+domains differ), `unify_native` for `_unified`, and membership by
+conversion into the domain. The generators are those of `A`.
+
+Admitted: `A` and `u` stock PolyMatrix objects with one plain symbol
+generator, at least one row and one column, domains `QQ`, `ZZ(...)` or
+`QQ(...)` over plain commutative symbols, entries without floats, at most
+32 symbols in the variable set (generator, `DE.T`, symbols of `DE.D`,
+domain parameters), the active `DE.D` stock Poly objects over plain
+symbols, an unmodified `DifferentialExtension` (slot descriptors, as the
+wave-27/28 kernels). `QQ`/`QQ` systems keep the existing rational kernel.
+
+Still falls back to the Python body: domains whose parameters are not plain
+symbols (`ZZ(log(a))`, `ZZ(x, _t0, log(5))`, `QQ_I`, algebraic fields), an
+`A` with zero columns (SymPy and the stock body keep `u` unreduced there),
+a zero `D(A[i, j])`, entries that depend on the generator, any step whose
+domain or item the kernel cannot reproduce. Not ported (gaps): the public
+`derivation(p, DE)` with `K(x)[t]` Poly coefficients (item 2 of the task),
+`is_deriv_k` and `is_log_deriv_k_t_radical_in_field` (item 3): their
+Python bodies still run, and only their constant systems are native.
+
+Gap seen, not changed (pre-existing, shared by the stock body): an
+inferred fraction field orders its generators by `default_sort_key`
+(`ZZ(t0,x)`), SymPy's `construct_domain` by `_sort_gens` (`ZZ(x,t0)`);
+the entries are equal. tests/test_native_prdeconst.py compares these
+domains up to the order of their generators, and the native results with
+the stock body exactly (domain object, string, generators, items).
+
+Validation: every call reached by SymPy's test_prde.py and test_risch.py
+that the kernel answers (48 calls over `ZZ(x)`, `QQ(x)`, `ZZ(x, t0)`,
+`ZZ(y)`, ...) equals the stock body (shape, generators, domain, srepr of the
+items). SymPy test_prde.py: 1 failed, 14 passed, test_risch.py: 5 failed,
+31 passed, before and after (same failing tests). Measured:
+[audit](../audits/performance/2026-10-30-prdeconst/README.md).
+
+## prdeconst item 2: derivation(p, DE) with K(x)[t] Poly coefficients in Rust
+
+`risch.derivation(p, DE, coefficientD)` with `basic=False` and a stock Poly
+`p` over `ZZ`, `QQ`, `ZZ[...]`, `QQ[...]`, `ZZ(...)` or `QQ(...)` of plain
+symbols, in any DE case (exp, primitive, base, tan, ...: the stock body does
+not depend on the case), is answered by `_core._prde_kernel('derivation')`
+(crates/symox-py/src/prde_const.rs, `derivation_poly`). The kernel runs the
+stock loop over the active `(D, T)` pairs (`coefficientD=True` uses the
+levels below the top one and returns `Poly(0, t)` at the base level) and
+keeps the stock term expressions `d.as_expr()*pv.diff(v).as_expr()`
+(`pv = p.as_poly(v)`, or the expression derivative when that raises
+`PolynomialError`), so each term Poly has the stock domain and the sum
+unifies them in the stock order from `Poly(0, t)` over ZZ: the result
+domain is not the domain of `p` (for example `ZZ[x]` -> `ZZ(x)` in a
+primitive extension, `QQ[x]` -> `ZZ[x]` with `coefficientD=True`). The two
+Poly constructions call the Rust constructor `Poly._from_normalized`
+directly (the call `symox._poly_constructor.construct` makes for these
+arguments; its `_zero_float_domain` step is the identity on exact
+domains), instead of going through the Python option handling. The
+`diff`, `as_expr`, `*` and `+` steps are the existing Rust Poly/Expr
+methods. The constant-system kernel's own `RF` derivation is not reused
+here: the stock result domain depends on the unexpanded form of each term
+(a cancelled `RF` value can give `ZZ[x]` where the stock term gives
+`ZZ(x)`), so the value is built from the stock terms.
+
+Admission (`_prde_native.derivation`): a `_core.Poly` `p`, an unmodified
+`DifferentialExtension` (slot descriptors), the Poly `as_poly`, `diff`,
+`as_expr`, `__add__`, `Expr.as_poly` and `_poly_constructor.construct`
+captured at import, `risch.derivation` itself with its captured code (read
+by the native metadata reader, no audit event), no module-level `len`/`zip`
+in `risch` and the real `len`/`zip` in its builtins (the stock body's
+observable calls are kept when they are replaced), exact `D` entries,
+plain-symbol `T` entries. Counter: `_prde_native.STATS['derivation']`.
+
+Still falls back to the Python body: `basic=True` (an expression and a
+`cancel`), `p` an expression, domains whose parameters are not plain
+symbols (`ZZ(log(a))`, `QQ(x, _t0, log(5))`, `ZZ(x, E)`), `EX`, `RR`,
+`QQ_I`, a `D` entry over such a domain, any term the constructor rejects.
+
+Validation: every call reached by SymPy's test_prde.py and test_risch.py
+that the kernel answers (893 calls, `coefficientD` both ways, cases base,
+exp, primitive, tan, other_nonlinear and `DE.case` unset) equals the stock
+body (generators, domain object and string, srepr); 87 calls declined.
+28 generated calls (tests/test_native_prdeconst.py) equal SymPy 1.14 up to
+the known generator order of inferred domains. SymPy test_prde.py: 1
+failed, 14 passed, test_risch.py: 5 failed, 31 passed (unchanged).
+`derivation` alone: 1.8x to 3.0x faster than the stock body and 2.1x to
+5.6x faster than SymPy; the ten public `risch_integrate` calls of the audit
+take 0.89x to 0.95x of the base e9e858e5 time (items 1 and 2, first and
+repeated calls), with identical results.
+
+Profile of the two repeated `risch_integrate` calls slower than SymPy
+(`exp(x)*log(x)` 1.34x, `x*exp(x)*log(x)` 1.09x before item 2; 1.26x and
+0.98x after it): about 70% of the time
+is `splitfactor`, 12 calls per integral, and within it the Python
+admission of the native splitfactor kernel
+(`_risch_splitfactor_native.reduce`: `_risch_native._prove_fields`, the
+`PolyMatrix`/`ratint` protocol snapshots `_polymatrix_native._class_unchanged`
+and `_stock_ratint_protocol_with_metadata`, `_states_match`), not the
+kernel (`_core._risch_splitfactor` is below the profiler resolution).
+Under cProfile, `splitfactor` takes 94 ms per symox call against 16 ms in
+SymPy, while `derivation` was already faster than SymPy. Gap (not changed
+here, shared file): the per-call verification of the splitfactor protocol
+snapshot costs more than the stock computation it replaces on these
+inputs.
