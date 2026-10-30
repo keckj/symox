@@ -459,6 +459,15 @@ def matrix_derivative(expr, x):
         # Element-wise operations need the ArrayDiagonal forms of SymPy's
         # array-expression path (DiagMatrix and HadamardProduct results).
         return _array_matrix_derivative(expr, x)
+    native = _core._matrix_lines_rank_four(expr, x)
+    if native is not None:
+        # Rank-four result computed natively (lines.rs, SymPy's _rank_four
+        # array form); only the array-expression objects are built here.
+        from .tensor.array.expressions import ArrayAdd, ArrayTensorProduct, PermuteDims
+        terms = [ArrayTensorProduct(a, b) if permutation is None
+                 else PermuteDims(ArrayTensorProduct(a, b), permutation)
+                 for a, b, permutation in native]
+        return terms[0] if len(terms) == 1 else ArrayAdd(*terms)
     lines = _lines(expr, x)
     parts = [[_to_matrix(j) for j in line.build()] for line in lines]
 

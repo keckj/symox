@@ -30,6 +30,8 @@ mod risch_splitfactor;
 mod solveset_steps;
 mod solveset_radical;
 mod prde;
+mod matrix_rank_four;
+mod arrayexpr_canon;
 mod prde_frac;
 mod prde_const;
 mod prde_deriv;
@@ -4693,6 +4695,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     solveset_steps::register(m)?;
     solveset_radical::register(m)?;
     prde::register(m)?;
+    matrix_rank_four::register(m)?;
+    arrayexpr_canon::register(m)?;
     prde_frac::register(m)?;
     piecewise_fold::register(m)?;
     derivative_orders::register(m)?;

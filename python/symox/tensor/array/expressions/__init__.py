@@ -9,9 +9,15 @@ import operator
 import symox as S
 from .. import Array,NDimArray
 from ...._kind import matrix_tag
+from .... import _core
 
 
-def _shape(value):return tuple(S.sympify(n) for n in value.shape) if hasattr(value,'shape') else ()
+_NO_SHAPE=object()
+def _shape(value):
+    shape=getattr(value,'shape',_NO_SHAPE)
+    if shape is _NO_SHAPE:return ()
+    # native expressions are already sympified (sympify returns them unchanged)
+    return tuple(n if isinstance(n,_core.Expr) else S.sympify(n) for n in shape)
 def _entry(value,indices):
     if not indices:return S.sympify(value)
     return S.sympify(value[tuple(indices)])
@@ -57,6 +63,14 @@ class _ArrayExpr:
     def __neg__(self):return ArrayTensorProduct(-1,self)
     def __eq__(self,other):return type(self) is type(other) and self.args==other.args
     def __hash__(self):return hash((type(self),self.args))
+    def dummy_eq(self,other,symbol=None):
+        def eq(a,b):
+            if isinstance(a,tuple):return isinstance(b,tuple) and len(a)==len(b) and all(eq(u,v) for u,v in zip(a,b))
+            if hasattr(a,'dummy_eq'):
+                try:return a.dummy_eq(b) if isinstance(a,_ArrayExpr) else a.dummy_eq(b,symbol)
+                except (TypeError,AttributeError):return False
+            return a==b
+        return type(self) is type(other) and eq(self.args,other.args)
     def __repr__(self):return type(self).__name__+'('+', '.join(map(str,self.args))+')'
     def doit(self,**hints):return self
     def subs(self,*args,**kwargs):
@@ -128,6 +142,9 @@ class ArrayTensorProduct(_ArrayExpr):
         flattened=[]
         for arg in args:flattened.extend(arg.args if isinstance(arg,ArrayTensorProduct) else [arg])
         self.args=tuple(flattened);self.shape=tuple(n for a in self.args for n in _shape(a))
+    def doit(self,**hints):
+        from ._canon import _doit
+        return _doit(self,hints.get('deep',True))
     def _entry(self,indices):
         result=S.Integer(1);offset=0
         for arg in self.args:
@@ -141,6 +158,9 @@ class ArrayAdd(_ArrayExpr):
         self.shape=_shape(args[0])
         if any(_shape(a)!=self.shape for a in args):raise ValueError('array sum shapes must match')
         self.args=tuple(args)
+    def doit(self,**hints):
+        from ._canon import _doit
+        return _doit(self,hints.get('deep',True))
     def _entry(self,indices):return S.Add(*(_entry(a,indices) for a in self.args))
 
 
@@ -152,6 +172,12 @@ class PermuteDims(_ArrayExpr):
         from ....combinatorics import Permutation
         self.expr,self.permutation=expr,Permutation(list(permutation))
         self.args=(expr,self.permutation);self.shape=tuple(expr.shape[i] for i in permutation)
+    def doit(self,**hints):
+        from ._canon import _doit
+        return _doit(self,hints.get('deep',True))
+    def nest_permutation(self):
+        from ._canon import nest_permutation
+        return nest_permutation(self)
     def _entry(self,indices):
         original=[None]*len(indices)
         for axis,old in enumerate(self.permutation.array_form):original[old]=indices[axis]
@@ -244,6 +270,9 @@ class ArrayContraction(_AxisOperation):
         # SymPy sorts each contraction and the contractions by first axis
         groups=sorted((tuple(sorted(operator.index(i) for i in g)) for g in groups),key=lambda g:min(g) if g else -1)
         super().__init__(expr,*groups)
+    def doit(self,**hints):
+        from ._canon import _doit
+        return _doit(self,hints.get('deep',True))
     @property
     def contraction_indices(self):return self.groups
     def sort_args_by_name(self):
@@ -284,6 +313,9 @@ class ArrayDiagonal(_AxisOperation):
         super().__init__(expr,*groups)
         if any(len(g)<2 for g in self.groups):raise ValueError('diagonals require at least two axes')
         self.shape+=tuple(expr.shape[g[0]] for g in self.groups)
+    def doit(self,**hints):
+        from ._canon import _doit
+        return _doit(self,hints.get('deep',True))
     @property
     def diagonal_indices(self):return self.groups
     def _entry(self,indices):
@@ -333,20 +365,8 @@ def convert_array_to_indexed(expr,indices):
 
 
 def convert_matrix_to_array(expr):
-    kind=matrix_tag(expr)
-    if kind=='MatrixSymbol':return ArraySymbol(expr.name,expr.shape)
-    if kind=='MatAdd':return ArrayAdd(*(convert_matrix_to_array(a) for a in expr.args))
-    if kind=='Transpose':return PermuteDims(convert_matrix_to_array(expr.args[0]),(1,0))
-    if kind=='MatMul':
-        factors=[convert_matrix_to_array(a) if hasattr(a,'shape') else a for a in expr.args]
-        product_=ArrayTensorProduct(*factors);matrices=[a for a in factors if _shape(a)]
-        groups=[(2*i+1,2*i+2) for i in range(len(matrices)-1)]
-        return _array_contraction(product_,*groups) if groups else product_
-    if kind=='KroneckerProduct':
-        product_=ArrayTensorProduct(*(convert_matrix_to_array(a) for a in expr.args));n=len(expr.args)
-        order=tuple(range(0,2*n,2))+tuple(range(1,2*n,2))
-        return Reshape(PermuteDims(product_,order),expr.shape)
-    return expr
+    from ._canon import convert_matrix_to_array
+    return convert_matrix_to_array(expr)
 
 
 def _as_matrix_factor(value):
