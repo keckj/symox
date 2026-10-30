@@ -1,6 +1,7 @@
 """Protocol-only selection of stock ZZ/QQ AUTO statistics in Rust."""
 from types import FunctionType, MethodDescriptorType, GetSetDescriptorType, WrapperDescriptorType
 from marshal import dumps as _CODE
+from ..._code_key import code_key as _CODE_KEY
 import builtins as _builtins
 from symox import _core
 
@@ -30,7 +31,7 @@ def _function(function):
     return (function,function.__code__,function.__defaults__,
             None if keywords is None else _TUPLE(keywords.items()),
             _TUPLE(c.cell_contents for c in function.__closure__ or ()),
-            _CODE(function.__code__,0))
+            _CODE_KEY(function.__code__,_CODE))
 
 
 def _same_function(current,state,reloaded=False):
@@ -39,7 +40,7 @@ def _same_function(current,state,reloaded=False):
             or current.__defaults__ is not defaults
             or not _keywords(current.__kwdefaults__,keywords)):return False
     try:
-        return ((current.__code__ is code or (reloaded and _CODE(current.__code__,0)==serialized))
+        return ((current.__code__ is code or (reloaded and _CODE_KEY(current.__code__,_CODE)==serialized))
                 and _LEN(current.__closure__ or ())==_LEN(closure)
                 and _ALL(cell.cell_contents is old for cell,old in zip(current.__closure__ or (),closure)))
     except (ValueError,TypeError):return False
