@@ -1,0 +1,2 @@
+limited_integrate_reduce base    native    327.8 us  python  34805.7 us  ratio 0.009
+constant_system primitive 3x3    native    168.5 us  python   1749.1 us  ratio 0.096

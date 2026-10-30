@@ -828,6 +828,9 @@ def limited_integrate_reduce(fa, fd, G, DE):
     t is linear and non-Liouvillian, which for the transcendental case, implies
     that Dt == a*t + b with for some a, b in k*.
     """
+    native = _prde_native.limited_integrate_reduce(fa, fd, G, DE)
+    if native is not None:
+        return native
     dn, ds = splitfactor(fd, DE)
     E = [splitfactor(gd, DE) for _, gd in G]
     En, Es = list(zip(*E))
