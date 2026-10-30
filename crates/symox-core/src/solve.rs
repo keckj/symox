@@ -20,6 +20,7 @@ pub use rational_coverage::complete_rational_roots;
 mod trig;
 pub use recast::{solve_atom,solve_atom_system};
 pub(crate) mod lambert;
+pub mod tsolve;
 
 /// `lhs - rhs` for an equation (`Eq`) or the expression itself.
 pub fn as_expr(eq: &Expr) -> Expr {
@@ -363,6 +364,8 @@ fn verify_equation(f: &Expr, assignments: &[(Expr, Expr)]) -> bool {
     let v = subs(f, assignments);
     if v.is_zero() { return true; }
     if matches!(v.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)) { return false; }
+    // the reference `checksol` rejects a value holding nan, zoo or +-oo
+    if tsolve::has_illegal(&v) { return false; }
     let precision = assignments.iter().filter_map(|(_, value)| crate::evalf_mp::max_precision(value))
         .chain(crate::evalf_mp::max_precision(f)).max();
     let Some(precision) = precision else {
