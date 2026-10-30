@@ -13322,9 +13322,13 @@ stay MatrixSymbols (the previous Python conversion turned them into
 ArraySymbols and kept `Trace`, Hadamard products and transposes of
 products unconverted). Errors follow SymPy: a non-integer positive power of
 a scalar is a TypeError, a positive integer MatPow of a non-leaf base is an
-AttributeError naming the array class. Positive integer powers above 4096
-raise NotImplementedError instead of building the product (SymPy builds
-it). `_ArrayExpr.dummy_eq` was added (structural comparison, Python).
+AttributeError naming the array class. Every positive integer power is
+expanded as in SymPy, without a size limit (`M**5000`, `Trace(M)**5000`
+and `HadamardPower(M, 5000)` give SymPy's groups, in about 0.2 s against
+40 s for SymPy); only an exponent whose product cannot be allocated
+(beyond a machine word, or a failed allocation) is a MemoryError, where
+SymPy's `range` loop exhausts memory as well. `_ArrayExpr.dummy_eq` was
+added (structural comparison, Python).
 
 Checks: 34 canonical-form cases and 30 conversion cases give the same
 output as SymPy 1.14 (tests/test_native_arrexprcanon.py). The matrix

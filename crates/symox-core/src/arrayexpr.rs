@@ -43,6 +43,8 @@ pub enum AErr {
     Type(String),
     Index(String),
     Attribute(String),
+    /// An allocation the expression needs cannot be made (Python's MemoryError).
+    Memory(String),
     /// The sort-key callback failed (the caller holds the error).
     Callback,
 }

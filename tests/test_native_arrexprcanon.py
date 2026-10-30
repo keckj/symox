@@ -167,3 +167,36 @@ def test_hadamard_power_symbolic_exponent_dummy_eq():
     d0 = m.Dummy('d0')
     result = ae.ArrayElementwiseApplyFunc(m.Lambda(d0, d0**k), M)
     assert cm(m.HadamardPower(M, k)).dummy_eq(result)
+
+
+def _groups_digest(e):
+    import hashlib
+    return hashlib.md5(str([tuple(int(i) for i in g) for g in e.args[1:]]).encode()).hexdigest()[:12]
+
+
+# SymPy 1.14 expands every positive integer power (no size limit); the
+# digests are those of SymPy's contraction/diagonal groups for n = 5000.
+@pytest.mark.parametrize('name,build,kind,groups,digest', [
+    ('matpow', lambda n: M**n, 'ArrayContraction', 4999, '0bdba11c768b'),
+    ('tracepow', lambda n: m.Trace(M)**n, 'ArrayContraction', 5000, '3972054d6935'),
+    ('hadpow', lambda n: m.HadamardPower(M, n), 'ArrayDiagonal', 2, 'aa042e083334'),
+])
+def test_convert_large_integer_powers_match_sympy(name, build, kind, groups, digest):
+    out = cm(build(5000))
+    assert type(out).__name__ == kind
+    assert type(out.expr).__name__ == 'ArrayTensorProduct'
+    assert len(out.expr.args) == 5000 and set(out.expr.args) == {M}
+    assert len(out.args) - 1 == groups
+    assert _groups_digest(out) == digest
+
+
+def test_convert_large_scalar_power_matches_sympy():
+    out = cm(x**5000)
+    assert type(out).__name__ == 'ArrayTensorProduct'
+    assert len(out.args) == 5000 and set(out.args) == {x}
+
+
+def test_convert_unbuildable_power_is_a_memory_error():
+    # SymPy's range loop cannot build 10**30 factors either
+    with pytest.raises(MemoryError):
+        cm(M**(10**30))

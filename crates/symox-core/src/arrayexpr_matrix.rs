@@ -23,9 +23,21 @@ pub struct Conversion {
     pub dims: Vec<Expr>,
 }
 
-/// Largest positive integer power expanded into a product (SymPy expands
-/// any; a larger one is declined rather than built).
-const MAX_POWER: i64 = 4096;
+/// `n` copies of `base`, the `[base for i in range(n)]` of SymPy; an
+/// allocation that cannot be made is a MemoryError, as in Python.
+fn repeat(base: Node, n: usize) -> R<Vec<Node>> {
+    let mut v = Vec::new();
+    v.try_reserve_exact(n).map_err(|_| AErr::Memory(format!("cannot build a product of {n} factors")))?;
+    v.resize(n, base);
+    Ok(v)
+}
+
+/// A positive integer exponent as a factor count; one that does not fit a
+/// machine word cannot be expanded (SymPy's `range` loop exhausts memory).
+fn count(exp: &Expr) -> R<usize> {
+    exp.as_i64().and_then(|n| usize::try_from(n).ok())
+        .ok_or_else(|| AErr::Memory(format!("cannot build a product of {exp} factors")))
+}
 
 impl Conversion {
     fn dim(&mut self, d: &Expr) -> usize {
@@ -55,11 +67,10 @@ impl Conversion {
 
     fn power(exp: &Expr) -> R<Option<usize>> {
         if crate::assumptions::is_positive(exp) != Some(true) { return Ok(None); }
-        match exp.as_i64() {
-            Some(n) if exp.is_integer_number() && n <= MAX_POWER => Ok(Some(n as usize)),
-            Some(_) if exp.is_integer_number() => Err(AErr::NotImplemented("power too large to expand".into())),
-            _ => Err(AErr::Type("object cannot be interpreted as an integer".into())),
+        if !exp.is_integer_number() {
+            return Err(AErr::Type("object cannot be interpreted as an integer".into()));
         }
+        Ok(Some(count(exp)?))
     }
 
     /// The raw constructor tree of `convert_matrix_to_array(expr)` for a scalar.
@@ -74,7 +85,7 @@ impl Conversion {
             Kind::Pow(b, x) => {
                 let base = self.scalar(b)?;
                 match Self::power(x)? {
-                    Some(n) => Ok(Node::Tensor(vec![base; n])),
+                    Some(n) => Ok(Node::Tensor(repeat(base, n)?)),
                     None => Ok(self.scalar_leaf(e)),
                 }
             },
@@ -125,7 +136,7 @@ impl Conversion {
                             };
                             return Err(AErr::Attribute(format!("'{class}' object has no attribute 'as_coeff_matrices'")));
                         }
-                        Ok(self.chain(None, vec![base; n]))
+                        Ok(self.chain(None, repeat(base, n)?))
                     },
                     None => Ok(self.matrix_leaf(m)),
                 }
@@ -133,9 +144,9 @@ impl Conversion {
             MatrixKind::HadamardProduct(a) => Ok(Self::hadamard(a.iter().map(|x| self.matrix(x)).collect::<R<_>>()?)),
             MatrixKind::HadamardPower(MatrixOperand::Matrix(b), MatrixOperand::Scalar(x)) => {
                 if x.is_integer_number() && crate::assumptions::is_positive(x) == Some(true) {
-                    let n = match x.as_i64() { Some(n) if n <= MAX_POWER => n as usize, _ => return Err(AErr::NotImplemented("power too large to expand".into())) };
+                    let n = count(x)?;
                     let base = self.matrix(b)?;
-                    return Ok(Self::hadamard(vec![base; n]));
+                    return Ok(Self::hadamard(repeat(base, n)?));
                 }
                 let base = self.matrix_leaf(b);
                 let exponent = self.scalar_leaf(x);

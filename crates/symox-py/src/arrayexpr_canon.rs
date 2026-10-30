@@ -8,7 +8,7 @@
 //! `leaves[i] = (rank, shape | None, is_zero_matrix)`, dimensions are ids and
 //! `ones[d]` says whether dimension `d` is 1. `order(nodes)` returns the
 //! stable `default_sort_key` order of the given encoded nodes.
-use pyo3::exceptions::{PyAttributeError, PyIndexError, PyNotImplementedError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyAttributeError, PyIndexError, PyMemoryError, PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 use symox::arrayexpr::{AErr, Ctx, LeafInfo, Node};
@@ -60,6 +60,7 @@ pub(crate) fn to_pyerr(e: AErr, failure: Option<PyErr>) -> PyErr {
         AErr::Type(m) => PyTypeError::new_err(m),
         AErr::Index(m) => PyIndexError::new_err(m),
         AErr::Attribute(m) => PyAttributeError::new_err(m),
+        AErr::Memory(m) => PyMemoryError::new_err(m),
         AErr::Callback => failure.unwrap_or_else(|| PyValueError::new_err("sort key failed")),
     }
 }
