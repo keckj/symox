@@ -3199,6 +3199,12 @@ def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
             return self
         if _has_pw(self, x):
             return eval_nseries(self, x, n)
+    if (x is not None and not x0 and dir == "+" and isinstance(n, int) and logx is None
+            and cdir is not None and not (isinstance(cdir, int) and cdir >= 0)):
+        # _eval_nseries(cdir): the step functions take the side of cdir
+        r = _core._nseries_cdir(self, sympify(x), n, sympify(cdir))
+        if r is not None:
+            return r
     return _series_call(self, x, x0, n, dir, logx)
 
 

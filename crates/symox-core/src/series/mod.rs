@@ -18,6 +18,7 @@ pub mod asym;
 pub mod coeff;
 pub mod direction;
 pub mod engine;
+pub mod nseries_cdir;
 pub mod order;
 pub mod print;
 pub mod ser;
