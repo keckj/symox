@@ -32,6 +32,7 @@ mod solveset_radical;
 mod prde;
 mod prde_frac;
 mod prde_const;
+mod prde_deriv;
 mod piecewise_fold;
 mod derivative_orders;
 

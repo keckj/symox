@@ -110,7 +110,7 @@ impl Host for PyHost<'_> {
     }
 }
 
-fn items(v: &Bound<'_, PyAny>, len: usize) -> PyResult<Option<Vec<Expr>>> {
+pub(crate) fn items(v: &Bound<'_, PyAny>, len: usize) -> PyResult<Option<Vec<Expr>>> {
     let Ok(l) = v.downcast_exact::<PyList>() else { return Ok(None) };
     if l.len() != len {
         return Ok(None);
@@ -165,11 +165,7 @@ fn function(space: &ExactDomain, e: &Expr) -> Option<RF> {
 /// domain))` or `None`.
 pub(crate) fn constant_system_field(py: Python<'_>, args: &Bound<'_, PyTuple>, gen: &Bound<'_, PyAny>,
     tower: &Bound<'_, PyAny>, derivations: &Bound<'_, PyAny>, level: &Bound<'_, PyAny>) -> PyResult<Option<PyObject>> {
-    if args.len() != 8 || !gen.is_instance_of::<crate::PyExprNode>() {
-        return Ok(None);
-    }
-    let g = crate::to_expr(gen)?;
-    if !plain_symbol(&g) {
+    if args.len() != 8 {
         return Ok(None);
     }
     let (Ok(tower), Ok(derivations)) = (tower.downcast_exact::<PyList>(), derivations.downcast_exact::<PyList>()) else { return Ok(None) };
@@ -177,13 +173,46 @@ pub(crate) fn constant_system_field(py: Python<'_>, args: &Bound<'_, PyTuple>, g
         return Ok(None);
     }
     let Ok(level) = level.extract::<isize>() else { return Ok(None) };
-    if level.unsigned_abs() > 1 << 16 {
-        return Ok(None);
-    }
     let arg = |i: usize| args.get_item(i);
     let (Some(ar), Some(ac), Some(ur), Some(uc)) = (size(&arg(0)?), size(&arg(1)?), size(&arg(4)?), size(&arg(5)?)) else { return Ok(None) };
     let (Some(da), Some(du)) = (domain(&arg(3)?)?, domain(&arg(7)?)?) else { return Ok(None) };
     let (Some(ai), Some(ui)) = (items(&arg(2)?, ar * ac)?, items(&arg(6)?, ur * uc)?) else { return Ok(None) };
+    let result = field_system(py, gen, (ar, ac, ai, da), (ur, uc, ui, du), tower, derivations, level, |_, a, u, _| (a, u))?;
+    let Some((a, u)) = result else { return Ok(None) };
+    let out = |m: Matrix<ExactDomain>| -> PyResult<Bound<'_, PyAny>> {
+        let items = PyList::new(py, m.items.into_iter().map(crate::wrap))?;
+        let d = PyDomain { inner: m.domain }.object(py)?;
+        Ok((m.rows, m.cols, items, d).into_pyobject(py)?.into_any())
+    };
+    Ok(Some((out(a)?, out(u)?).into_pyobject(py)?.into_any().unbind()))
+}
+
+/// The domain of `PolyMatrix(items, gen)` (`parallel_poly_from_expr(items,
+/// gen, field=True)`) when it is QQ or a fraction field over plain symbols.
+pub(crate) fn infer_domain(py: Python<'_>, gen: &Bound<'_, PyAny>, items: &[Expr]) -> PyResult<Option<ExactDomain>> {
+    let gens = PyTuple::new(py, [gen.clone()])?;
+    let mut host = PyHost { py, gens, space: ExactDomain::QQ };
+    Ok(host.infer(items).filter(admitted))
+}
+
+/// `constant_system(A, u, DE)` over the fraction field of every symbol
+/// involved, `A = (rows, cols, items, domain)` and the same for `u`. The
+/// `finish` callback runs in the rational function scope with the result
+/// matrices (values and items) and the derivation of the active levels.
+/// `Ok(None)` when the kernel does not reproduce the stock body.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn field_system<R>(py: Python<'_>, gen: &Bound<'_, PyAny>, a: (usize, usize, Vec<Expr>, ExactDomain),
+    u: (usize, usize, Vec<Expr>, ExactDomain), tower: &Bound<'_, PyList>, derivations: &Bound<'_, PyList>, level: isize,
+    finish: impl FnOnce(&mut dyn FnMut(&RF) -> Expr, Matrix<ExactDomain>, Matrix<ExactDomain>, &Tower) -> R) -> PyResult<Option<R>> {
+    if !gen.is_instance_of::<crate::PyExprNode>() || level.unsigned_abs() > 1 << 16 {
+        return Ok(None);
+    }
+    let g = crate::to_expr(gen)?;
+    if !plain_symbol(&g) {
+        return Ok(None);
+    }
+    let (ar, ac, ai, da) = a;
+    let (ur, uc, ui, du) = u;
     let mut space: Vec<Expr> = vec![g.clone()];
     let mut t_vars = Vec::with_capacity(tower.len());
     for v in tower.iter() {
@@ -239,22 +268,17 @@ pub(crate) fn constant_system_field(py: Python<'_>, args: &Bound<'_, PyTuple>, g
         let mut host = PyHost { py, gens, space: field.clone() };
         let a = Matrix { rows: ar, cols: ac, values: av, items: ai.clone(), domain: da };
         let u = Matrix { rows: ur, cols: uc, values: uv, items: ui.clone(), domain: du };
-        Ok(k::constant_system(&mut host, a, u, &tw, &mut || match py.check_signals() {
+        let solved = k::constant_system(&mut host, a, u, &tw, &mut || match py.check_signals() {
             Ok(()) => true,
             Err(e) => { interrupted = Some(e); false }
-        }))
+        });
+        Ok(solved.map(|(a, u)| finish(&mut |v: &RF| host.expr(v), a, u, &tw)))
     });
     if let Some(e) = interrupted {
         return Err(e);
     }
     py.check_signals()?;
-    let Ok(Some((a, u))) = result else { return Ok(None) };
-    let out = |m: Matrix<ExactDomain>| -> PyResult<Bound<'_, PyAny>> {
-        let items = PyList::new(py, m.items.into_iter().map(crate::wrap))?;
-        let d = PyDomain { inner: m.domain }.object(py)?;
-        Ok((m.rows, m.cols, items, d).into_pyobject(py)?.into_any())
-    };
-    Ok(Some((out(a)?, out(u)?).into_pyobject(py)?.into_any().unbind()))
+    Ok(result.ok().flatten())
 }
 
 /// `ZZ`, `QQ`, `ZZ[...]`, `QQ[...]`, `ZZ(...)` or `QQ(...)` over plain
@@ -268,7 +292,7 @@ fn exact_ground(d: &ExactDomain) -> bool {
     }
 }
 
-fn exact_poly(p: &Bound<'_, PyAny>) -> PyResult<bool> {
+pub(crate) fn exact_poly(p: &Bound<'_, PyAny>) -> PyResult<bool> {
     let Ok(p) = p.downcast_exact::<PyPoly>() else { return Ok(false) };
     Ok(exact_ground(&p.borrow().domain_descriptor()?.inner))
 }

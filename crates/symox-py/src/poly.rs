@@ -2736,7 +2736,7 @@ fn factor_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: 
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
-fn sqf_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+pub(crate) fn sqf_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
     if let Some(p)=gaussian_poly_argument(f,gens,modulus,_kwargs){return Ok(p.sqf_list(f.py(),false)?.into_any().unbind());}
     checked_factor_views::global_list(f,gens,modulus,_kwargs,true)
 }
@@ -3026,7 +3026,7 @@ fn cofactors<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, g
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, **_kwargs))]
-fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+pub(crate) fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let py=f.py();
     let stripped=if f.downcast::<PyTuple>().is_err(){inapplicable_extension(py,f,None,gens,_kwargs)?}else{None};let _kwargs=stripped.as_ref().or(_kwargs);
     if f.downcast::<PyPoly>().is_err()&&f.downcast::<PyTuple>().is_err()&&domains::selects_expression(_kwargs.map(|k|k.get_item("domain")).transpose()?.flatten().as_ref())&&_kwargs.is_some_and(|k|k.len()==1){

@@ -140,3 +140,58 @@ verification of the splitfactor protocol snapshot (Python admission), not
 into the computation: about 5.7x SymPy's whole `splitfactor` on these
 inputs. Not changed here (other wave's admission module); recorded as a gap
 in docs/algorithmic-parity.md.
+
+## Item 3: is_deriv_k(fa, fd, DE) in Rust
+
+Computation location: Rust, `crates/symox-py/src/prde_deriv.rs` (new): the
+whole stock body. `Df/f` uses the native `derivation` loop (item 2) and the
+Rust Poly `*`, `-`, `cancel(include=True)`. The `E_part + L_part` row
+(`D[i].quo(Poly(T[i], T[i]))`, `D[i]`) is built with the Rust Poly methods,
+and the PolyMatrix domains are inferred over `dum`. `constant_system` is the
+item 1 fraction-field kernel (refactored into `field_system`). The checks
+`derivation(u_i, basic=True) == 0` and `u_i.is_Rational` run exactly on
+`RF` values over the active levels. The answer `(ans, result, const)` uses
+the native `Add`/`Mul`/`Pow` constructors, `as_numer_denom`, the Rust
+`sqf_list` and `cancel`. The empty row (a tower without exp/log extension)
+returns None, as the stock `constant_system` (`not A`). Python, admission
+only: `_prde_native.is_deriv_k` (hook at the top of `prde.is_deriv_k`). It
+creates the Dummy once, and the stock body reuses it when the kernel
+declines. The admission also accepts the stock AccumBounds coefficient fold
+(`_compat._accum_fold`, installed once an AccumBounds exists) when it is the
+captured function with its code, globals and builtins. The kernel only
+builds host-free expressions, for which that fold returns None.
+
+`deriv_k.py <symox|sympy> [stock]` times `is_deriv_k` alone (median of 7
+runs of 200 calls). `stock` is the stock Python body in the same process.
+Raw: `raw-deriv-k.txt` (run while both corpora ran on the machine).
+
+| case | native us | stock us | SymPy us | stock/native | SymPy/native |
+|---|---|---|---|---|---|
+| two logs (SymPy sym1) | 1985 | 3909 | 16793 | 1.97 | 8.46 |
+| log+exp (SymPy sym2) | 1688 | 4109 | 11529 | 2.43 | 6.83 |
+| two logs, rational | 2504 | 4593 | 18100 | 1.83 | 7.23 |
+| log, None | 529 | 1817 | 4220 | 3.43 | 7.98 |
+| log, x**3 | 954 | 1758 | 2801 | 1.84 | 2.94 |
+| no extension | 277 | 359 | 929 | 1.30 | 3.36 |
+
+Public calls, `raw-item3.txt` (`before` = item 2, i.e. HEAD 67c742e6 Python
+with the same `_core`: the new kernel is only reached through the new
+admission; `after` = item 3; 3 interleaved rounds, while both corpora ran):
+after/before 0.95-1.01 first call and 0.97-1.02 repeated call (noise:
+`is_deriv_k` runs a few times per integrand, inside the tower construction).
+Every result is identical to before (srepr) and to SymPy (str). The known
+srepr gap on #1 and #3 is unchanged.
+
+`is_log_deriv_k_t_radical_in_field` is not ported (see
+docs/algorithmic-parity.md): it needs `splitfactor`, `residue_reduce` with
+its `RootSum`/`real_roots` residue terms, `residue_reduce_derivation`,
+`parametric_log_deriv` and a recursion on the tower, with `ValueError` and
+`NotImplementedError` paths for each case. It remains the stock Python
+body.
+
+The splitfactor admission caching was not done. No registration generation
+or change notification exists for the class dictionaries and function
+records that `_prove_fields` and `_states_match` compare. Python 3.10 has no
+dict or type watchers, and the abi3 build cannot read `tp_version_tag`. A
+cache keyed on anything else would miss a class or method mutation, so it
+would weaken the protocol checks.

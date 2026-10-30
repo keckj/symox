@@ -1054,6 +1054,9 @@ def is_deriv_k(fa, fd, DE):
     is_log_deriv_k_t_radical_in_field, is_log_deriv_k_t_radical
 
     """
+    native = _prde_native.is_deriv_k(fa, fd, DE)
+    if native is not None and native[0]:
+        return native[1]
     # Compute Df/f
     dfa, dfd = (fd*derivation(fa, DE) - fa*derivation(fd, DE)), fd*fa
     dfa, dfd = dfa.cancel(dfd, include=True)
@@ -1075,7 +1078,7 @@ def is_deriv_k(fa, fd, DE):
 
     # The expression dfa/dfd might not be polynomial in any of its symbols so we
     # use a Dummy as the generator for PolyMatrix.
-    dum = Dummy()
+    dum = Dummy() if native is None else native[1]
     lhs = Matrix([E_part + L_part], dum)
     rhs = Matrix([dfa.as_expr()/dfd.as_expr()], dum)
 

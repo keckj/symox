@@ -14278,3 +14278,79 @@ SymPy, while `derivation` was already faster than SymPy. Gap (not changed
 here, shared file): the per-call verification of the splitfactor protocol
 snapshot costs more than the stock computation it replaces on these
 inputs.
+
+## prdeconst item 3: is_deriv_k(fa, fd, DE) in Rust
+
+`prde.is_deriv_k(fa, fd, DE)` with stock Polys over `ZZ`, `QQ`, `ZZ[...]`,
+`QQ[...]`, `ZZ(...)` or `QQ(...)` of plain symbols, and an elementary tower
+(`len(DE.exts) == len(DE.D)`, exts `None`, `'exp'` or `'log'`), is answered by
+`_core._prde_kernel('is_deriv_k')` (crates/symox-py/src/prde_deriv.rs). The
+kernel follows the stock body step by step:
+- `Df/f` uses the native `derivation` and the Rust Poly `cancel(include=True)`;
+- `E_part` (`D[i].quo(Poly(T[i], T[i]))`) and `L_part` over every
+  extension use the stock `DE.indices`;
+- the PolyMatrix domains of the row and of `Df/f` are inferred over the
+  Dummy;
+- the fraction-field `constant_system` (item 1);
+- `not A` gives None: an empty row, i.e. no exp/log extension, gives None as
+  the stock `constant_system`, which returns `(A, u)` unchanged;
+- `derivation(u_i, basic=True) != 0` gives None, decided exactly on the `RF`
+  values over the active levels;
+- a non-Rational `u_i` raises the stock `NotImplementedError("Cannot work
+  with non-rational coefficients in this case.")`;
+- `(ans, result, const)` is built with the stock term order, the native
+  `Add`/`Mul`/`Pow`, `as_numer_denom`, `sqf_list` and `cancel`.
+
+Admission (`_prde_native.is_deriv_k`):
+- the item 1 prde protocol and the item 2 `derivation` protocol;
+- an evaluating context;
+- `symox.cancel` and `prde.cancel` as captured;
+- the `exts`/`extargs` slot descriptors;
+- no AccumBounds coefficient fold, or the stock `_fold_coefficient` (code,
+  globals, `AccumulationBounds` and the builtins it reads as captured). The
+  fold list itself must be the one captured. That fold is installed for the
+  rest of the process once any AccumBounds exists; the kernel only builds
+  host-free expressions, for which it returns None.
+
+The Dummy is created once in the admission, and a kernel decline reuses it
+in the stock body, so the Dummy counter matches the stock path. Counter:
+`_prde_native.STATS['is_deriv_k']`.
+
+Still falls back to the Python body:
+- domain parameters that are not plain symbols (`ZZ[x, _t0, log(5)]` in
+  test_risch);
+- `EX` or inexact coefficients;
+- host or wild terms in `T`/`extargs`;
+- exts other than `None`/`'exp'`/`'log'`;
+- any other fold or a rebound fold list.
+
+Validation:
+- Every call reached by SymPy's test_prde.py and test_risch.py that the
+  kernel answers (42 calls: 10 returning a result, 32 None) equals the
+  stock body (srepr of `ans`, `u` and `const`, exceptions included). 1 call
+  is declined.
+- 28 direct cases (SymPy test_is_deriv_k plus generated log, exp, mixed,
+  `None`, rational-power and non-rational cases) and 13
+  `DifferentialExtension(expr, x)` tower constructions equal SymPy 1.14
+  (tests/test_native_prdeconst.py).
+- SymPy test_prde.py: 1 failed, 14 passed. test_risch.py: 5 failed, 31
+  passed. Both unchanged.
+
+Speed:
+- `is_deriv_k` alone is 1.3x to 3.4x faster than the stock body and 2.9x to
+  8.5x faster than SymPy.
+- The ten public `risch_integrate` calls of the audit are within noise of
+  item 2 (0.95x to 1.02x), with identical results.
+
+Remaining gaps of item 3:
+- `is_log_deriv_k_t_radical_in_field` is not ported. It needs
+  `splitfactor`, `residue_reduce` (`RootSum` residue terms and their
+  `real_roots`), `residue_reduce_derivation`, `parametric_log_deriv` and the
+  recursion down the tower, with per-case `ValueError`/
+  `NotImplementedError` behavior. It stays on the stock Python body.
+- The splitfactor admission overhead (`_risch_native._prove_fields`,
+  `_states_match`, `_str_keyed`) is unchanged. No registration generation or
+  change notification exists for the class dictionaries and function
+  records it compares: Python 3.10 has no dict or type watchers, and the
+  abi3 build cannot read `tp_version_tag`. A cache keyed on anything else
+  would miss a class or method mutation and weaken the protocol checks.
