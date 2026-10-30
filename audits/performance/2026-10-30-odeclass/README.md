@@ -1,4 +1,4 @@
-# odeclass (wave 35): native first-order classify_ode matches
+# odeclass (wave 35): native classify_ode matches
 
 Base 173328b9, branch feat-odeclass-20261030h. Reference SymPy 1.14.0.
 
@@ -174,10 +174,111 @@ SymPy. dsolve is within noise (+-5%) or faster (1st_homogeneous_coeff_best_01: 0
 to 0.16 s, SymPy 1.55 s); separable_reduced_02 is dominated by the
 integration (8.8 s, SymPy does not finish within 300 s).
 
+## Round 2: higher-order matches
+
+| Fix | Where | Native decision |
+| --- | --- | --- |
+| `get_linear_coefficients` + `_lin_eq2dict` (the coefficient extraction; SymPy 1.14 has no `_nth_linear_match`) | Rust, `crates/symox-core/src/ode/linear.rs` | match / no match / decline |
+| `nth_linear_constant_coeff_homogeneous`, `..._undetermined_coefficients`, `..._variation_of_parameters` | Rust, `linear.rs` (`_test_term`, `test` entry of `_undetermined_coefficients_match`) | match / no match / decline |
+| `nth_linear_euler_eq_homogeneous`, `..._nonhomogeneous_undetermined_coefficients`, `..._nonhomogeneous_variation_of_parameters` | Rust, `linear.rs` | match / no match / decline |
+| trial set of the undetermined-coefficients hints | Python (stock code, computed lazily when a solver asks) | - |
+| `match_2nd_hypergeometric` | Rust, `crates/symox-core/src/ode/second.rs` | `[A, B]` / `[]` / decline |
+| `2nd_linear_airy` | Rust, `second.rs` | match (`b`, `m`) / no match / decline |
+| `2nd_linear_bessel` | Rust rejection only (`second.rs`); the positive factor/simplify chain stays Python | no match / decline |
+| `2nd_power_series_ordinary`, `2nd_power_series_regular` | Rust, `second.rs` | ordinary / regular / neither / decline |
+| `nth_order_reducible` | Rust, `crates/symox-core/src/ode/reducible.rs` | match (smallest order) / no match / decline |
+| `Riccati_special_minus2` positive match | Rust, `reducible.rs` | match / no match / decline |
+| `factorable` | Python (gap) | - |
+
+Bindings: `crates/symox-py/src/ode_classify.rs` (`ode_linear_coefficients`,
+`ode_nth_linear_match`, `ode_match_2nd_hypergeometric`, `ode_airy_match`,
+`ode_bessel_rejected`, `ode_power_series2`, `ode_nth_order_reducible`);
+admission and wrappers in `python/symox/solvers/ode/_classify_native.py`
+with hook lines in `single.py`, `hypergeometric.py` and `ode.py`. Every
+decline runs the unchanged Python matcher.
+
+Declines: Floats in a value compared with `0` (SymPy's `Float(0) != 0` is
+true), non-polynomial `deq` values (the reference retries on the expanded
+numerator), binders, `RootOf`, relational/boolean/piecewise/set/matrix
+content, special functions in the power series substitution, and
+non-commutative input.
+
+Gaps (still Python): `factorable` (collect/cancel, two `factor` calls and
+`solve(eq, df)` on almost every equation; porting the factor branch alone
+would duplicate work on declines, and a native `solve` with SymPy parity is
+out of scope), the trial set generation, `eq_preprocessed` and
+`eq_high_order_free`, `equivalence_hypergeometric` and `match_2nd_2F1`, the
+positive Bessel match, `Liouville`, `nth_algebraic`, `lie_group`,
+`2nd_nonlinear_autonomous_conserved`. `cancel` and `factor` are the public
+callables passed to the kernels.
+
+### Differential tests (native decision vs the reference matcher, hook disabled)
+
+| Script | Decisions | Matches | Agreements (no match) | Declines | Disagreements |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `difftest_linear.py` (corpus + `linear_eqs.py`) | 9368 | 1125 | 7974 | 269 | 0 |
+| `difftest_second.py` (corpus, 23 extra, 4332 generated, classify at x0 = 0, 1, -1, y) | 15450 | 5162 | 8707 | 1581 | 0 |
+| `difftest_reducible.py` (corpus + the 2024 three-term combinations of 24 terms) | 2339 | 826 | 1260 | 253 | 0 |
+| `difftest.py` (first order, now with the positive Riccati path) | 2730 | - | 2556 | 174 | 0 |
+
+### SymPy 1.14 tests
+
+`tests/test_native_odelinear.py`, `tests/test_native_odesecond.py`,
+`tests/test_native_odereducible.py`: SymPy 1.14 expectations
+(classify_ode tuples, wild values, dsolve results) and native-equals-stock
+checks. 350 passed, 2 skipped together with `test_native_odeclass.py`. The
+copied SymPy `test_ode.py` and `test_single.py`: the same 22 failures
+before and after (60 s against 94 s at the base).
+
+### ODE corpus (315 cases)
+
+`{'cls': 303, 'hint': 279, 'def': 274}` after each item, identical per case
+(classify, hinted, default) to the base run. Sum of classify times over
+the corpus: 27.2 s base, 22.4 s after round 1, 11.5 s after round 2 (with a
+parallel cargo test); hinted 67.1 s to 69.2 s and default 79.8 s to 79.6 s
+are dominated by the solvers.
+
+### Other checks on the final state (1fbb4536)
+
+Python suite (24 shards): 58498 passed, 0 failed (58226 after round 1, plus
+the new test files). `cargo test -p symox --release`: 806 + 1 passed; the
+doctests pass when run serially (5 passed; a parallel run hits the known
+codegen doctest timing failure). Clippy correctness: clean. Integration
+corpus: `{"COND": 20, "DIFF": 10, "EQUIV": 8, "MISSING": 1, "SAME": 1171}`,
+the baseline.
+
+### Timings, round-2 cases (classify_ode)
+
+`BENCH_OPS=classify BENCH_CASES=... bench.py`, base package (173328b9)
+against round 2 back to back, SymPy 1.14 from /tmp (`raw_r2_before.json`,
+`raw_r2_after.json`, `raw_r2_sympy.json`), seconds.
+
+| Case / operation | first: before | after | SymPy | repeat: before | after | SymPy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| euler_hom_01/classify | 0.037 | 0.030 | 0.314 | 0.032 | 0.028 | 0.198 |
+| euler_undet_01/classify | 0.080 | 0.031 | 0.324 | 0.077 | 0.028 | 0.205 |
+| euler_var_01/classify | 0.112 | 0.041 | 0.402 | 0.106 | 0.038 | 0.273 |
+| reducible_01/classify | 0.046 | 0.020 | 0.231 | 0.043 | 0.016 | 0.127 |
+| undet_01/classify | 0.190 | 0.019 | 0.842 | 0.182 | 0.018 | 0.674 |
+| var_of_parameters_01/classify | 0.195 | 0.022 | 0.860 | 0.174 | 0.018 | 0.680 |
+| 2nd_lin_bessel_01/classify | 0.052 | 0.050 | 0.392 | 0.047 | 0.044 | 0.255 |
+| 2nd_2F1_hyper_01/classify | 0.069 | 0.063 | 0.479 | 0.064 | 0.055 | 0.316 |
+| 2nd_lin_airy_01/classify | 0.035 | 0.023 | 0.256 | 0.030 | 0.020 | 0.129 |
+| lin_const_coeff_hom_01/classify | 0.027 | 0.018 | 0.235 | 0.024 | 0.015 | 0.117 |
+| liouville_01/classify | 0.078 | 0.031 | 0.374 | 0.072 | 0.028 | 0.241 |
+
+classify_ode is 1.07-10.2 times faster than the base and 5.7-38.8 times
+faster than SymPy on these cases. Bessel and 2F1 gain least: their
+remaining cost is `factorable`, the Bessel factor chain and
+`match_2nd_2F1`, which stay in Python.
+
 ## Reproduce
 
 ```
 cd /tmp && /home/keckj/Documents/symox/.venv/bin/python bench.py sympy raw_sympy.json
 PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python bench.py symox raw_after.json
 PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python difftest.py <sspeed>/cases.json extra_eqs.py riccati_eqs.py
+PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python difftest_linear.py <sspeed>/cases.json linear_eqs.py
+PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python difftest_second.py <sspeed>/cases.json 20
+PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python difftest_reducible.py <sspeed>/cases.json
 ```

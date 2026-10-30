@@ -14,8 +14,8 @@
 //!   the order-one power series match).
 //! * `linear`: `df + P*f - Q` on `collect(expand(eq/eq.coeff(df)))`.
 //! * `bernoulli`: `df + P*f - Q*f**n` on the same form.
-//! * `riccati_special`: `a*df + b*f**2 + c*f/x + d/x**2`, decided only when
-//!   no match is possible.
+//! * `riccati_special`: `a*df + b*f**2 + c*f/x + d/x**2`, rejected early when
+//!   no match is possible, otherwise matched on the collected form.
 
 use num_bigint::BigInt;
 
@@ -54,7 +54,7 @@ pub struct FirstOrder {
     /// the equation has no term free of `f` and no power of `f`.
     pub bernoulli: Outcome<(Expr, Expr, Option<Expr>)>,
     /// Never `Match`: a match is left to the reference.
-    pub riccati_special: Outcome<()>,
+    pub riccati_special: Outcome<[Expr; 4]>,
 }
 
 fn terms(e: &Expr) -> Vec<Expr> {
@@ -409,12 +409,13 @@ fn bernoulli_power(t: &Expr, power: &Expr, hooks: &mut Hooks<'_>) -> Option<Expr
 /// coefficients free of `x`, `f` and `df`) when the collected form has no
 /// linear `df` term with such a coefficient, or no `f**2` at all (the term
 /// `b*f**2`, `b != 0`, must then equal a term of the collected form).
-fn riccati_special(c: Option<&Expr>, de: &Outcome<(Expr, Expr)>, fx: &Expr, x: &Expr) -> Outcome<()> {
+/// Otherwise the pattern itself is matched on the collected form.
+fn riccati_special(c: Option<&Expr>, de: &Outcome<(Expr, Expr)>, fx: &Expr, x: &Expr, df: &Expr) -> Outcome<[Expr; 4]> {
     match de {
         Outcome::NoMatch => Outcome::NoMatch,
         Outcome::Match((_, e)) if e.is_zero() || has(e, x) || has(e, fx) => Outcome::NoMatch,
         Outcome::Match(_) if c.is_some_and(|c| !has(c, &crate::ops::pow(fx, &Expr::int(2)))) => Outcome::NoMatch,
-        _ => Outcome::Decline,
+        _ => c.map_or(Outcome::Decline, |c| super::reducible::riccati_special(c, fx, x, df)),
     }
 }
 
@@ -426,7 +427,7 @@ pub fn first_order(eq_expanded: &Expr, fx: &Expr, x: &Expr, df: &Expr, hooks: &m
         Some(c) => split_de(c, df, &[], hooks),
         None => Outcome::Decline,
     };
-    let riccati = riccati_special(c.as_ref(), &de, fx, x);
+    let riccati = riccati_special(c.as_ref(), &de, fx, x, df);
     let (linear, bernoulli) = {
         let k = coeff(eq_expanded, df);
         if k.is_zero() || blocked(eq_expanded) {

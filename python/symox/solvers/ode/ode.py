@@ -1139,6 +1139,7 @@ def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta
     if not reduced_eq:
         reduced_eq = eq
 
+    from ._classify_native import series2_hook as _classify_native_series2
     if order == 1:
 
         # NON-REDUCED FORM OF EQUATION matches
@@ -1172,6 +1173,8 @@ def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta
                     rseries.update({'terms': terms, 'f0': point, 'f0val': value})
                     matching_hints["1st_power_series"] = rseries
 
+    elif order == 2 and _classify_native_series2(matching_hints, reduced_eq, f, x, kwargs.get('x0', 0), (a3, b3, c3), terms):
+        pass
     elif order == 2:
         # Homogeneous second order differential equation of the form
         # a3*f(x).diff(x, 2) + b3*f(x).diff(x) + c3

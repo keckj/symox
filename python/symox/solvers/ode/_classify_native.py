@@ -25,7 +25,7 @@ def _roles():
             s.LinearCoefficients._equation: ('de', (0, 1)),
             s.FirstLinear._equation: ('linear', (0, 1)),
             s.Bernoulli._equation: ('bernoulli', (0, 1, 2)),
-            s.RiccatiSpecial._equation: ('riccati_special', ()),
+            s.RiccatiSpecial._equation: ('riccati_special', (0, 1, 2, 3)),
         }
         _ROLES = {k: v + (_original_wilds(s, k),) for k, v in _ROLES.items()}
     return _ROLES
@@ -78,8 +78,6 @@ def solver_match(solver):
     value = native.get(role[0])
     if value is None or value is False:
         return value
-    if role[0] == 'riccati_special':
-        return None
     wilds = solver.wilds()
     return {wilds[i]: value[j] for i, j in enumerate(role[1]) if j < len(value)}
 
@@ -129,3 +127,200 @@ def riccati_match(eq, f, x):
     if value is False:
         return False, []
     return True, list(value)
+
+
+def _linear_args(eq, func):
+    if not isinstance(eq, _core.Expr) or not getattr(eq, 'is_commutative', False):
+        return None
+    if not isinstance(func, _core.Expr) or len(func.args) != 1:
+        return None
+    return func.args[0]
+
+
+def linear_coefficients(eq, func, order):
+    """``get_linear_coefficients(eq, func, order)`` decided natively: the
+    reference dict, ``None`` (not linear), or ``_MISSING`` (not decided)."""
+    native = getattr(_core, 'ode_linear_coefficients', None)
+    x = _linear_args(eq, func)
+    if native is None or x is None or not isinstance(order, int) or order < 0:
+        return _MISSING
+    try:
+        value = native(eq, func, x, order)
+    except Exception:
+        return _MISSING
+    if value is None:
+        return _MISSING
+    if value is False:
+        return None
+    terms = {i: value[i + 1] for i in range(order + 1)}
+    terms[-1] = value[0]
+    return terms
+
+
+def nth_linear_match(solver, eq):
+    """The ``nth_linear_*`` matcher of ``solver`` on ``eq`` decided natively:
+    ``(True, r)`` with the solver's ``self.r``, ``(False, None)``, or ``None``
+    when the reference matcher must run."""
+    native = getattr(_core, 'ode_nth_linear_match', None)
+    problem = solver.ode_problem
+    func = problem.func
+    order = problem.order
+    x = _linear_args(eq, func)
+    if native is None or x is None or x != problem.sym or not isinstance(order, int) or order < 0:
+        return None
+    try:
+        value = native(eq, func, x, order, solver.hint)
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if value is False:
+        return False, None
+    r = {i: value[i + 1] for i in range(order + 1)}
+    r[-1] = value[0]
+    return True, r
+
+
+class LazyTrialset:
+    """``self.trialset`` of the constant-coefficient undetermined-coefficients
+    solver after a native match: the reference
+    ``_undetermined_coefficients_match(...)['trialset']``, computed on first
+    use by the solution step. An assignment (the reference matcher) stores
+    the value as before."""
+
+    def __set_name__(self, owner, name):
+        self.name = '_' + name
+
+    def __get__(self, obj, owner=None):
+        if obj is None:
+            return self
+        d = obj.__dict__
+        if self.name not in d:
+            args = d.get('_native_trial_args')
+            if args is None:
+                raise AttributeError('trialset')
+            from .nonhomogeneous import _undetermined_coefficients_match
+            d[self.name] = _undetermined_coefficients_match(*args)['trialset']
+        return d[self.name]
+
+    def __set__(self, obj, value):
+        obj.__dict__[self.name] = value
+
+
+def _second_args(eq, func):
+    x = _linear_args(eq, func)
+    if x is None or not isinstance(x, _core.Expr):
+        return None
+    return x
+
+
+def match_2nd_hypergeometric(eq, func):
+    """``match_2nd_hypergeometric(eq, func)`` decided natively: ``[A, B]``,
+    ``[]``, or ``_MISSING`` (not decided)."""
+    from symox.polys.polytools import cancel
+    native = getattr(_core, 'ode_match_2nd_hypergeometric', None)
+    x = _second_args(eq, func)
+    if native is None or x is None:
+        return _MISSING
+    try:
+        value = native(eq, func, x, cancel)
+    except Exception:
+        return _MISSING
+    if value is None:
+        return _MISSING
+    if value is False:
+        return []
+    return list(value)
+
+
+def airy_match(solver, eq):
+    """The ``2nd_linear_airy`` matcher decided natively: ``(True, rn)``,
+    ``(False, None)``, or ``None`` when the reference matcher must run."""
+    from symox.polys.polytools import cancel
+    native = getattr(_core, 'ode_airy_match', None)
+    problem = solver.ode_problem
+    order = problem.order
+    x = _second_args(eq, problem.func)
+    if native is None or x is None or x != problem.sym or not isinstance(order, int) or order < 0:
+        return None
+    try:
+        value = native(eq, problem.func, x, order, cancel)
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if value is False:
+        return False, None
+    return True, {'b': value[0], 'm': value[1]}
+
+
+def bessel_rejected(solver, eq):
+    """``True`` when the ``2nd_linear_bessel`` matcher provably returns
+    ``False``; otherwise the reference matcher must run."""
+    native = getattr(_core, 'ode_bessel_rejected', None)
+    problem = solver.ode_problem
+    x = _second_args(eq, problem.func)
+    if native is None or x is None or x != problem.sym:
+        return False
+    try:
+        return native(eq, problem.func, x) is False
+    except Exception:
+        return False
+
+
+def power_series2(reduced_eq, f, x, point, wilds, terms):
+    """The order-two power series hints of ``classify_ode`` decided
+    natively: a dict of the matching hints (possibly empty), or ``_MISSING``."""
+    from symox.core.sympify import sympify
+    from symox.polys.polytools import cancel
+    native = getattr(_core, 'ode_power_series2', None)
+    func = f(x)
+    if native is None or _second_args(reduced_eq, func) is None or not isinstance(x, _core.Expr):
+        return _MISSING
+    try:
+        at = sympify(point)
+        if not isinstance(at, _core.Expr):
+            return _MISSING
+        value = native(reduced_eq, func, x, at, cancel)
+    except Exception:
+        return _MISSING
+    if value is None:
+        return _MISSING
+    a3, b3, c3 = wilds
+    if value[0] == 'ordinary':
+        r = {a3: value[1], b3: value[2], c3: value[3]}
+        r.update({'a3': a3, 'b3': b3, 'c3': c3, 'x0': point, 'terms': terms})
+        return {"2nd_power_series_ordinary": r}
+    if value[0] == 'regular':
+        return {"2nd_power_series_regular": {'p': value[1], 'q': value[2], 'x0': point, 'terms': terms}}
+    return {}
+
+
+def series2_hook(matching_hints, reduced_eq, f, x, point, wilds, terms):
+    """``classify_ode`` hook: ``True`` when the order-two power series hints
+    were decided natively (and added to ``matching_hints``)."""
+    native = power_series2(reduced_eq, f, x, point, wilds, terms)
+    if native is _MISSING:
+        return False
+    matching_hints.update(native)
+    return True
+
+
+def nth_order_reducible(solver):
+    """``NthOrderReducible._matches`` decided natively: ``(True, smallest)``,
+    ``(False, None)``, or ``None`` when the reference matcher must run."""
+    native = getattr(_core, 'ode_nth_order_reducible', None)
+    problem = solver.ode_problem
+    eq = problem.eq_preprocessed
+    x = _linear_args(eq, problem.func)
+    if native is None or x is None or x != problem.sym:
+        return None
+    try:
+        value = native(eq, problem.func, x)
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if value is False:
+        return False, None
+    return True, value

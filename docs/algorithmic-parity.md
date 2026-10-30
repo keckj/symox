@@ -14467,6 +14467,9 @@ Remaining gaps of item 3:
 
 ## odeclass (wave 35): native first-order `classify_ode` matches, 2026-10-30
 
+
+## odeclass (wave 35): native `classify_ode` matches, 2026-10-30
+
 Now native (`symox::ode::classify`, binding `crates/symox-py/src/ode_classify.rs`,
 admission in `python/symox/solvers/ode/_classify_native.py`):
 
@@ -14481,8 +14484,10 @@ admission in `python/symox/solvers/ode/_classify_native.py`):
 - `1st_linear` (`df + P*f - Q`) and `Bernoulli` (`df + P*f - Q*f**n`, `n`
   left unbound exactly when SymPy leaves it unbound) on
   `collect(expand(eq/eq.coeff(df)), [df, f], cancel)`.
-- `Riccati_special_minus2`: the no-match decision only (no `f**2` or no
-  `x`-free derivative coefficient); a possible match runs the reference.
+- `Riccati_special_minus2`: the no-match decision (no `f**2` or no
+  `x`-free derivative coefficient) and, since round 2, the positive match
+  of `a*df + b*f**2 + c*f/x + d/x**2` with the `RiccatiSpecial` wilds
+  (`symox::ode::reducible::riccati_special`).
 - `match_riccati` (`1st_rational_riccati`): the coefficient extraction,
   the symbol and rationality checks and the `(b0, b1, b2)` values.
 - The `classify_ode` hint list: the `_Integral` entries and the `allhints`
@@ -14497,10 +14502,42 @@ callables, so the values are those of the reference calls. Everything else
 declines and runs the Python matcher unchanged; a decline is never a
 no-match.
 
-Still in Python: `factorable`, `nth_algebraic`, the `nth_linear_*`, Euler,
-`Liouville`, `2nd_*` and power series (order two) matchers, a positive
-`Riccati_special_minus2` match, `lie_group`, `nth_order_reducible`, and the
-solvers' own `_verify`/`_get_general_solution` steps.
+Round 2 (same branch), also native:
+
+- `symox::ode::linear`: `get_linear_coefficients` with `_lin_eq2dict` (SymPy
+  1.14 has no `_nth_linear_match`; this is the coefficient extraction the
+  `nth_linear_*` matchers use), the matchers of
+  `nth_linear_constant_coeff_homogeneous`, `..._undetermined_coefficients`,
+  `..._variation_of_parameters` and of the three Euler hints, including
+  `_test_term` and the `test` entry of `_undetermined_coefficients_match`.
+  The trial set itself is computed lazily by the stock code when a solver
+  asks for it.
+- `symox::ode::second`: `match_2nd_hypergeometric` (`[A, B]`), the
+  `2nd_linear_airy` match (`b`, `m`), the `2nd_linear_bessel` rejection
+  (no linear form, zero or `x`-free leading coefficient), and the order-two
+  power series branch of `classify_ode` (`2nd_power_series_ordinary` wild
+  values, `2nd_power_series_regular` `p`, `q`, or neither).
+- `symox::ode::reducible`: `nth_order_reducible` (the smallest order and
+  the dummy-substitution test on `eq_preprocessed`) and the positive
+  `Riccati_special_minus2` match above.
+
+Floats in a value compared with `0` decline (SymPy's `Float(0) != 0` is
+true, the native zero test is not), as do non-polynomial `deq` values (the
+reference then matches the expanded numerator again), unmodelled content
+(binders such as `Integral`, `Subs`, `Sum`, `Limit`; `RootOf`, relational,
+boolean, piecewise, set and matrix content; special functions in the
+order-two power series substitution) and non-commutative input.
+
+Still in Python: `factorable` (its decision runs `collect`/`cancel`,
+`factor` twice and `solve(eq, df)` on almost every equation; porting only
+the factor branch would duplicate work on declines, and a native `solve`
+with SymPy parity is out of scope), `nth_algebraic`, `Liouville`,
+`lie_group`, the trial set generation of the undetermined-coefficients
+hints, `eq_preprocessed`/`eq_high_order_free`, `equivalence_hypergeometric`
+and `match_2nd_2F1`, the positive `2nd_linear_bessel` match (factor and
+simplify chain), the `2nd_nonlinear_autonomous_conserved` match, and the
+solvers' own `_verify`/`_get_general_solution` steps. `cancel` and
+`factor` are the public callables passed to the kernels.
 
 Classification evidence: on the 315-case ODE corpus all 12 `cls`
 mismatches are SymPy reference timeouts; run alone, SymPy 1.14's
@@ -14508,6 +14545,13 @@ mismatches are SymPy reference timeouts; run alone, SymPy 1.14's
 No `hinted`/`default` mismatch is caused by classification (triage table in
 the audit). Differential test over the corpus and 74 extra equations: 0
 disagreements with the reference matcher. No intentional correction.
+
+Round 2 evidence: differential tests against the reference matchers, 0
+disagreements (`difftest_linear.py` 9368 decisions, `difftest_second.py`
+15450, `difftest_reducible.py` 2339, `difftest.py` with the Riccati
+positive path 2730); ODE corpus unchanged case by case (classify, hinted,
+default), classify time over the corpus 27.2 s to 11.5 s; copied SymPy
+ODE tests: the same 22 failures before and after.
 
 Measured: [audit](../audits/performance/2026-10-30-odeclass/README.md).
 

@@ -35,6 +35,7 @@ from .nonhomogeneous import _get_euler_characteristic_eq_sols, _get_const_charac
     _solve_undetermined_coefficients, _solve_variation_of_parameters, _test_term, _undetermined_coefficients_match, \
         _get_simplified_sol
 from ._lie_heuristics import _ode_lie_group
+from ._classify_native import LazyTrialset as _classify_native_lazy_trialset
 
 
 class ODEMatchError(NotImplementedError):
@@ -190,6 +191,10 @@ class SingleODEProblem:
         True
 
         """
+        from ._classify_native import linear_coefficients, _MISSING
+        native = linear_coefficients(eq, func, order)
+        if native is not _MISSING:
+            return native
         f = func.func
         x = func.args[0]
         symset = {Derivative(f(x), x, i) for i in range(order+1)}
@@ -1982,6 +1987,12 @@ class NthOrderReducible(SingleODESolver):
         """
         # ODE only handles functions of 1 variable so this affirms that state
         assert len(func.args) == 1
+        from ._classify_native import nth_order_reducible
+        native = nth_order_reducible(self)
+        if native is not None:
+            if native[0]:
+                self.smallest = native[1]
+            return native[0]
         vc = [d.variable_count[0] for d in eq.atoms(Derivative)
             if d.expr == func and len(d.variable_count) == 1]
         ords = [c for v, c in vc if v == x]
@@ -2180,6 +2191,11 @@ class NthLinearConstantCoeffHomogeneous(SingleODESolver):
         func = self.ode_problem.func
         order = self.ode_problem.order
         x = self.ode_problem.sym
+        from ._classify_native import nth_linear_match
+        native = nth_linear_match(self, eq)
+        if native is not None:
+            self.r = native[1]
+            return native[0]
         self.r = self.ode_problem.get_linear_coefficients(eq, func, order)
         if order and self.r and not any(self.r[i].has(x) for i in self.r if i >= 0):
             if not self.r[-1]:
@@ -2279,6 +2295,11 @@ class NthLinearConstantCoeffVariationOfParameters(SingleODESolver):
         func = self.ode_problem.func
         order = self.ode_problem.order
         x = self.ode_problem.sym
+        from ._classify_native import nth_linear_match
+        native = nth_linear_match(self, eq)
+        if native is not None:
+            self.r = native[1]
+            return native[0]
         self.r = self.ode_problem.get_linear_coefficients(eq, func, order)
 
         if order and self.r and not any(self.r[i].has(x) for i in self.r if i >= 0):
@@ -2362,6 +2383,7 @@ class NthLinearConstantCoeffUndeterminedCoefficients(SingleODESolver):
 
     """
     hint = "nth_linear_constant_coeff_undetermined_coefficients"
+    trialset = _classify_native_lazy_trialset()
     has_integral = False
 
     def _matches(self):
@@ -2369,6 +2391,13 @@ class NthLinearConstantCoeffUndeterminedCoefficients(SingleODESolver):
         func = self.ode_problem.func
         order = self.ode_problem.order
         x = self.ode_problem.sym
+        from ._classify_native import nth_linear_match
+        native = nth_linear_match(self, eq)
+        if native is not None:
+            self.r = native[1]
+            if native[0]:
+                self._native_trial_args = (self.r[-1], x, func, Add(eq, -self.r[-1]))
+            return native[0]
         self.r = self.ode_problem.get_linear_coefficients(eq, func, order)
         does_match = False
         if order and self.r and not any(self.r[i].has(x) for i in self.r if i >= 0):
@@ -2472,6 +2501,11 @@ class NthLinearEulerEqHomogeneous(SingleODESolver):
         f = self.ode_problem.func.func
         order = self.ode_problem.order
         x = self.ode_problem.sym
+        from ._classify_native import nth_linear_match
+        native = nth_linear_match(self, eq)
+        if native is not None:
+            self.r = native[1]
+            return native[0]
         match = self.ode_problem.get_linear_coefficients(eq, f(x), order)
         self.r = None
         does_match = False
@@ -2555,6 +2589,11 @@ class NthLinearEulerEqNonhomogeneousVariationOfParameters(SingleODESolver):
         f = self.ode_problem.func.func
         order = self.ode_problem.order
         x = self.ode_problem.sym
+        from ._classify_native import nth_linear_match
+        native = nth_linear_match(self, eq)
+        if native is not None:
+            self.r = native[1]
+            return native[0]
         match = self.ode_problem.get_linear_coefficients(eq, f(x), order)
         self.r = None
         does_match = False
@@ -2636,6 +2675,11 @@ class NthLinearEulerEqNonhomogeneousUndeterminedCoefficients(SingleODESolver):
         f = self.ode_problem.func.func
         order = self.ode_problem.order
         x = self.ode_problem.sym
+        from ._classify_native import nth_linear_match
+        native = nth_linear_match(self, eq)
+        if native is not None:
+            self.r = native[1]
+            return native[0]
         match = self.ode_problem.get_linear_coefficients(eq, f(x), order)
         self.r = None
         does_match = False
@@ -2726,6 +2770,9 @@ class SecondLinearBessel(SingleODESolver):
         a3 = Wild('a3', exclude=[f, df, f.diff(x, 2)])
         b3 = Wild('b3', exclude=[f, df, f.diff(x, 2)])
         c3 = Wild('c3', exclude=[f, df, f.diff(x, 2)])
+        from ._classify_native import bessel_rejected
+        if bessel_rejected(self, eq):
+            return False
         deq = a3*(f.diff(x, 2)) + b3*df + c3*f
         r = collect(eq,
             [f.diff(x, 2), df, f]).match(deq)
@@ -2826,6 +2873,12 @@ class SecondLinearAiry(SingleODESolver):
         df = f.diff(x)
         a4 = Wild('a4', exclude=[x,f,df])
         b4 = Wild('b4', exclude=[x,f,df])
+        from ._classify_native import airy_match
+        native = airy_match(self, eq)
+        if native is not None:
+            if native[0]:
+                self.rn = native[1]
+            return native[0]
         match = self.ode_problem.get_linear_coefficients(eq, f, order)
         does_match = False
         if order == 2 and match and match[2] != 0:
