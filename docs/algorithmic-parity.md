@@ -13596,6 +13596,41 @@ Second pass on items 2-4 (measured 2026-10-30, no code change):
   normal form of nested radicals, not to the `log_to_real` kernel. Porting
   the Cardano pairs into `log_to_real` would not give SymPy's output unless
   those were fixed first. Remaining gap.
+
+  Third pass, a native EX `roots` patch (Rust, not committed; see
+  audits/performance/2026-10-30-ratintgen/roots-ex). The patch changes
+  four things:
+  - It runs the reference `preprocess_roots` over EX (`clear_denoms`, then
+    `primitive`).
+  - It uses the EX `monic` in `roots_quartic`.
+  - It calls `simplify` in `roots_linear` and `roots_quadratic` when the
+    coefficients select EX, with the reference trees `(-b)/A` and `(-c)/a`.
+  - It lists `roots(..., multiple=True)` as `ordered(result)`. HEAD sorts
+    by `sort_key`, so for example `roots(x**3-2*x, multiple=True)` gives
+    `[0, -sqrt(2), sqrt(2)]` where SymPy gives `[0, sqrt(2), -sqrt(2)]`.
+
+  Result: on 25 `roots` cases, 22 equal SymPy 1.14 (against 6 at HEAD).
+  The four printed `integrate` results above are still different, for two
+  reasons:
+  - The native `crate::simplify::simplify` lacks one step of the Python
+    wrapper (`python/symox/_general_simplify.py`): it does not rationalize a
+    denominator that is a sum of numeric radicals
+    (`radsimp(1/denom, symbolic=False, max_terms=1)`). So the Rust caller
+    gets `(2 + sqrt(5))/(50*(1 + sqrt(5)))` where SymPy gets
+    `sqrt(5)/200 + 3/200`.
+  - With the patch, `R_v` of `1/((x**2+1)*(x**3+2))` equals SymPy, but the
+    EX `Poly(a.xreplace({u: r_u, v: r_v}), x)` that follows produces other
+    denominators than SymPy's. The result then grows from at most 9057
+    characters (SymPy's length, the limit of
+    `test_cubic_log_to_real_does_not_grow`) to 17199.
+
+  Two other tests also regress: `nonlinsolve([x**3+y-2, x+y])`, and
+  `solveset(sin(x)+2*cos(x))`, which gives a trigonometric `atan` because
+  of the Gaussian quadratic tree. So the patch was not committed.
+  Remaining gaps, in order:
+  - the denominator step of the native simplify;
+  - the EX arithmetic of the substituted `A`/`B` in `log_to_real`;
+  - the patch itself, with the reference trees limited to EX.
 - Item 3, `real=False`. Public `ratint` with `real=False` (or with a
   non-real symbol) is already 8-10x faster than SymPy 1.14 (for example
   `x/(x**3-a*x+1)` 38.6 ms against 375 ms, `1/(x**4+x+a)` 39.6 ms against

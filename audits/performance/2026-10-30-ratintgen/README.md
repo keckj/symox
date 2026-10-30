@@ -49,3 +49,48 @@ on the same symox process, median of 5 calls):
   ZZ[a,b], QQ(a) and EX (10-30 percent). The resultant, sqf_list, gcd,
   invert and rem calls were already native, so the gain is the removed
   interpreter and constructor overhead.
+
+## EX `roots` (item 4): attempted, not committed
+
+The code is not in the branch. `roots-ex/roots-ex.patch` is the patch that
+was measured (native Rust only, `crates/symox-core/src/poly/roots.rs` and
+the `multiple=True` order in `crates/symox-py/src/poly.rs`). Its test file
+is kept as `roots-ex/test_native_roots_expression.py.txt`.
+
+Other files in `roots-ex/`:
+- `rootscmp.py`: 25 `roots` cases, dict and `multiple=True`.
+- Its outputs: SymPy 1.14 (`roots_sympy.txt`), symox at HEAD
+  (`roots_before.txt`) and symox with the patch (`roots_symox.txt`).
+- `bench_roots.py`: median of 5 calls, in ms. Results in `before.json`
+  (HEAD), `after.json` (patch) and `sympy.json`.
+
+On the 25 cases, dict and list both equal SymPy 1.14 in 6 cases at HEAD and
+in 22 with the patch. Three cases still differ:
+- the two `C(v)` quartics of `1/(x**5+1)`;
+- `x**4 + 2*x**2 + 3`, where SymPy gives its trigonometric form (this one
+  already differed at HEAD).
+
+| call | HEAD | patch | SymPy 1.14 |
+|---|---:|---:|---:|
+| `roots(sqrt(3)*x**2 - 2*x + sqrt(2))` | 0.37 | 1.18 | 12.58 |
+| `roots(x**4 - sqrt(3)*x**2 - 1)` | 0.23 | 0.55 | 16.14 |
+| `roots(sqrt(2)*x**4 + 3*x**2 + sqrt(5))` | 0.62 | 1.51 | 32.57 |
+| `roots(x**4 - 5*x**2 + 6)` | 0.12 | 0.11 | 1.84 |
+| `integrate(1/(x**3+x+1))` | 185.0 | 336.1 | 7234.6 (one call) |
+| `integrate(1/(x**5+1))` | 21.9 | 35.9 | 880.7 |
+| `integrate(x/(x**5+1))` | 30.1 | 49.8 | 930.7 |
+| `integrate(1/(x**3-2))` | 8.6 | 9.5 | 47.5 |
+
+The full suite with the patch gives 57991 passed and 3 failed:
+- `tests/test_native_ratint_dom.py::test_cubic_log_to_real_does_not_grow[1/((x**2+1)*(x**3+2))-9057]`:
+  the result has 17199 characters, against a limit of 9057 (SymPy).
+- `tests/test_nonlin_hang_parity.py:104`: `nonlinsolve([x**3+y-2, x+y])`
+  prints differently.
+- `tests/test_solveset_complex_wave4_parity.py:114`:
+  `solveset(sin(x)+2*cos(x), x, Complexes)` gives
+  `atan(cos(atan(4/3)/2)/sin(atan(4/3)/2))` instead of `atan(2)`. The cause
+  is the `(-c)/a` tree on Gaussian quadratics. A second version restricts
+  those trees to EX; it was not validated.
+
+The integration corpus with the patch equals the baseline. The patch was
+therefore not committed.

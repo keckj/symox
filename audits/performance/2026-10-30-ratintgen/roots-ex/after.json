@@ -1,0 +1,1 @@
+{"integrate(1/(x**3+x+1))": 336.07, "integrate(1/(x**5+1))": 35.92, "integrate(x/(x**5+1))": 49.83, "integrate(1/(x**3-2))": 9.46, "roots(sqrt(3)*x**2 - 2*x + sqrt(2))": 1.18, "roots(x**4 - sqrt(3)*x**2 - 1)": 0.55, "roots(x**4 + 2*x**2 + 3)": 0.14, "roots(x**4 - 5*x**2 + 6)": 0.11, "roots(sqrt(2)*x**4 + 3*x**2 + sqrt(5))": 1.51}
