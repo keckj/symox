@@ -191,6 +191,9 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
         // Any DE case: rational entries never involve `DE.T` (see admission).
         return constant_system_any(py, args, t, variables);
     }
+    if kind == "derivation" {
+        return crate::prde_const::derivation_poly(py, args, t, variables, derivations, level);
+    }
     if kind == "constant_system_field" {
         return crate::prde_const::constant_system_field(py, args, t, variables, derivations, level);
     }

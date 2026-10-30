@@ -25,6 +25,7 @@ from symox.polys.polyerrors import PolynomialError
 
 
 from ._risch_native import reduce as _native_polynomial_reduce
+from . import _prde_native
 from ._risch_splitfactor_native import reduce as _native_splitfactor
 
 def integrate(*args, **kwargs):
@@ -894,6 +895,10 @@ def derivation(p, DE, coefficientD=False, basic=False):
     If ``basic=True``, the returns a Basic expression.  Elements of D can still be
     instances of Poly.
     """
+    if not basic:
+        native = _prde_native.derivation(p, DE, coefficientD)
+        if native is not None:
+            return native
     if basic:
         r = 0
     else:

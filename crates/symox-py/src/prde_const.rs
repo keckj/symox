@@ -256,3 +256,78 @@ pub(crate) fn constant_system_field(py: Python<'_>, args: &Bound<'_, PyTuple>, g
     };
     Ok(Some((out(a)?, out(u)?).into_pyobject(py)?.into_any().unbind()))
 }
+
+/// `ZZ`, `QQ`, `ZZ[...]`, `QQ[...]`, `ZZ(...)` or `QQ(...)` over plain
+/// symbols: the Poly expressions have no floats, so the constructor's
+/// `_zero_float_domain` step is the identity on every term below.
+fn exact_ground(d: &ExactDomain) -> bool {
+    match d {
+        ExactDomain::ZZ | ExactDomain::QQ => true,
+        ExactDomain::Functions { parameters, .. } => parameters.iter().all(plain_symbol),
+        _ => false,
+    }
+}
+
+fn exact_poly(p: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let Ok(p) = p.downcast_exact::<PyPoly>() else { return Ok(false) };
+    Ok(exact_ground(&p.borrow().domain_descriptor()?.inner))
+}
+
+/// `derivation(p, DE, coefficientD)` with `basic=False` (risch.py): the
+/// stock loop over the active `(D, T)` pairs, with the two Poly
+/// constructions (`p.as_poly(v)` and `term.as_poly(t)`) run by the native
+/// constructor `Poly._from_normalized` that `symox._poly_constructor` calls
+/// for these arguments, and the Poly/expression `diff`, `as_expr`, `*` and
+/// `+` of the stock body. The term expressions keep the stock unexpanded
+/// form, so each term Poly has the stock domain and the sum unifies them
+/// in the stock order, starting from `Poly(0, t)` over ZZ.
+/// `Ok(None)` requests the Python body (any failure it would report).
+pub(crate) fn derivation_poly(py: Python<'_>, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>,
+    tower: &Bound<'_, PyAny>, derivations: &Bound<'_, PyAny>, level: &Bound<'_, PyAny>) -> PyResult<Option<PyObject>> {
+    if args.len() != 2 || !t.is_instance_of::<crate::PyExprNode>() {
+        return Ok(None);
+    }
+    let p = args.get_item(0)?;
+    let coefficient_d = args.get_item(1)?.is_truthy()?;
+    let (Ok(tower), Ok(derivations)) = (tower.downcast_exact::<PyList>(), derivations.downcast_exact::<PyList>()) else { return Ok(None) };
+    if !level.is_exact_instance_of::<PyInt>() || !exact_poly(&p)? {
+        return Ok(None);
+    }
+    let Ok(mut level) = level.extract::<isize>() else { return Ok(None) };
+    let gen_t = PyTuple::new(py, [t])?;
+    let zero = crate::wrap(Expr::zero()).into_pyobject(py)?.into_any();
+    let mut r = PyPoly::_from_normalized(&zero, &gen_t, None, None, None)?.into_pyobject(py)?.into_any();
+    let (nd, nt) = (derivations.len() as isize, tower.len() as isize);
+    if coefficient_d {
+        if level <= -nt {
+            return Ok(Some(r.unbind()));
+        }
+        level -= 1;
+    }
+    let (sd, st) = (nd + level + 1, nt + level + 1);
+    if sd < 0 || st < 0 || sd > nd || st > nt {
+        return Ok(None);
+    }
+    let errors = py.import("symox.polys.polyerrors")?;
+    let (poly_error, gens_needed) = (errors.getattr("PolynomialError")?, errors.getattr("GeneratorsNeeded")?);
+    for i in 0..(sd.min(st) as usize) {
+        let (d, v) = (derivations.get_item(i)?, tower.get_item(i)?);
+        if !v.is_instance_of::<crate::PyExprNode>() || !exact_poly(&d)? {
+            return Ok(None);
+        }
+        let gen_v = PyTuple::new(py, [&v])?;
+        let derivative = match PyPoly::_from_normalized(&p, &gen_v, None, None, None) {
+            Ok(pv) => pv.into_pyobject(py)?.into_any().call_method1("diff", (&v,))?.call_method0("as_expr")?,
+            Err(e) if e.is_instance(py, &poly_error) || e.is_instance(py, &gens_needed) =>
+                p.call_method0("as_expr")?.call_method1("diff", (&v,))?,
+            Err(_) => return Ok(None),
+        };
+        let term = d.call_method0("as_expr")?.mul(&derivative)?;
+        if !term.is_instance_of::<crate::PyExprNode>() {
+            return Ok(None);
+        }
+        let Ok(term) = PyPoly::_from_normalized(&term, &gen_t, None, None, None) else { return Ok(None) };
+        r = r.add(term.into_pyobject(py)?)?;
+    }
+    Ok(Some(r.unbind()))
+}

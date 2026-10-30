@@ -91,3 +91,52 @@ repeated call (median of 3 per process)
 | 7 | `exp(x)*log(x)/x` | 56.1 | 58.8 | 1.05 | 63.0 | 0.93 | yes | yes | yes | 5 |
 | 8 | `log(x)*exp(x)*x**2` | 73.5 | 72.7 | 0.99 | 70.6 | 1.03 | yes | yes | yes | 5 |
 | 9 | `log(x)/(x*(1+log(x)))` | 15.0 | 14.2 | 0.94 | 27.5 | 0.52 | yes | yes | yes | 5 |
+
+## Item 2: derivation(p, DE) with K(x)[t] Poly coefficients
+
+Computation location: Rust, `crates/symox-py/src/prde_const.rs`
+(`derivation_poly`): the stock loop over the active `(D, T)` pairs with the
+Rust Poly constructor `Poly._from_normalized` called directly for the two
+Poly constructions, and the Rust Poly/Expr `diff`, `as_expr`, `*`, `+`.
+Python, admission only: `_prde_native.derivation` (hook at the top of
+`risch.derivation`, `basic=False`).
+
+`derivation.py <symox|sympy>` times `derivation` alone (best of 5 runs of
+2000 calls). `head` = this branch at item 1 (stock Python body), `new` =
+item 2, `sympy` = SymPy 1.14. Raw: `raw-derivation.txt`.
+
+| case | coefficientD | stock us | native us | SymPy us | stock/native | SymPy/native |
+|---|---|---|---|---|---|---|
+| tower ZZ(x,t0) | False | 967 | 531 | 1880 | 1.82 | 3.54 |
+| tower ZZ(x,t0) | True | 630 | 329 | 1210 | 1.92 | 3.68 |
+| exp ZZ[x] | False | 535 | 240 | 661 | 2.23 | 2.76 |
+| exp ZZ[x] | True | 219 | 72 | 404 | 3.04 | 5.60 |
+| prim ZZ(x) | False | 656 | 341 | 1003 | 1.92 | 2.94 |
+| prim ZZ(x) | True | 327 | 161 | 582 | 2.04 | 3.62 |
+
+Public calls, `raw-item2.txt` (same harness, `before` = base e9e858e5,
+`after` = items 1 and 2, 5 interleaved rounds; run while the ODE corpus was
+running on the same machine): after/before 0.90-0.95 first call and
+0.89-0.93 repeated call, every result identical to before (srepr) and to
+SymPy (str). Repeated call after/SymPy: `x*exp(x)*log(x)` 0.98,
+`exp(x)*log(x)` 1.26, all others 0.50-0.96.
+
+## Profile of the two repeated calls slower than SymPy
+
+`profile_risch.py <module> <integrand> <function prefixes>` (cProfile over
+5 repeated calls after a warm-up; cProfile inflates Python-heavy code, the
+ratios are indicative). Before item 2, `exp(x)*log(x)`: 0.594 s profiled,
+of which `risch.splitfactor` 0.451 s (60 calls, 12 per integral) and inside
+it `_risch_splitfactor_native.reduce` 0.406 s: `_risch_native._prove_fields`
+0.222 s (`all(...)` over the `PolyMatrix` class snapshots,
+`_polymatrix_native._class_unchanged` 0.143 s, and
+`rationaltools._stock_ratint_protocol_with_metadata` 0.042 s),
+`_states_match` 0.082 s, `_str_keyed` (51660 calls) 0.078 s; the native
+kernel `_core._risch_splitfactor` itself is below the profiler resolution.
+SymPy: `splitfactor` 0.082 s of 0.551 s. `derivation`: symox 0.081 s, SymPy
+0.120 s. `x*exp(x)*log(x)` has the same profile (`splitfactor` 0.453 s of
+0.610 s; SymPy 0.083 s of 0.687 s). So the time goes into the per-call
+verification of the splitfactor protocol snapshot (Python admission), not
+into the computation: about 5.7x SymPy's whole `splitfactor` on these
+inputs. Not changed here (other wave's admission module); recorded as a gap
+in docs/algorithmic-parity.md.

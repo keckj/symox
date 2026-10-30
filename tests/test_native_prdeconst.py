@@ -152,3 +152,102 @@ def test_sympy_tower_callers():
     assert is_log_deriv_k_t_radical_in_field(Poly(-1, t), Poly(x**2, t), DE) == (1, t)
     assert is_log_deriv_k_t_radical_in_field(Poly(1, t), Poly(2*x**2, t), DE) == (2, 1/t)
     assert _prde_native.STATS['constant_system_field'] > before
+
+
+# derivation(p, DE, coefficientD) with basic=False: SymPy 1.14 reference
+# (case, p, input domain or None for the inferred one, coefficientD, srepr of
+# the result expression, result domain); the generators are always (t,).
+x_, a_ = x, Symbol('a')
+_DERIV_DE = {
+    'exp': lambda: DifferentialExtension(extension={'D': [Poly(1, x), Poly(t, t)]}),
+    'prim': lambda: DifferentialExtension(extension={'D': [Poly(1, x), Poly(1/x, t)]}),
+    'tower': lambda: DifferentialExtension(extension={'D': [Poly(1, x), Poly(1/x, t0), Poly(t, t)]}),
+    'tower2': lambda: DifferentialExtension(extension={'D': [Poly(1, x), Poly(t0, t0), Poly(1/(x + 1), t)]}),
+}
+DERIV_CASES = [
+    ('exp', 'x*t**2 + t + 1', None, False, "Add(Mul(Pow(Symbol('t'), Integer(2)), Add(Mul(Integer(2), Symbol('x')), Integer(1))), Symbol('t'))", 'ZZ[x]'),
+    ('exp', 'x*t**2 + t + 1', None, True, "Pow(Symbol('t'), Integer(2))", 'ZZ'),
+    ('exp', 't**3/x + x**2*t', 'ZZ(x)', False, "Add(Mul(Pow(Symbol('t'), Integer(3)), Pow(Symbol('x'), Integer(-2)), Add(Mul(Integer(3), Symbol('x')), Integer(-1))), Mul(Symbol('t'), Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('x')))))", 'ZZ(x)'),
+    ('exp', 't**3/x + x**2*t', 'ZZ(x)', True, "Add(Mul(Integer(-1), Pow(Symbol('t'), Integer(3)), Pow(Symbol('x'), Integer(-2))), Mul(Integer(2), Symbol('t'), Symbol('x')))", 'ZZ(x)'),
+    ('exp', '(x**2 + x)/(x + 1)*t + 1/x', 'ZZ(x)', False, "Add(Mul(Symbol('t'), Add(Symbol('x'), Integer(1))), Mul(Integer(-1), Pow(Symbol('x'), Integer(-2))))", 'ZZ(x)'),
+    ('exp', '(x**2 + x)/(x + 1)*t + 1/x', 'ZZ(x)', True, "Add(Symbol('t'), Mul(Integer(-1), Pow(Symbol('x'), Integer(-2))))", 'ZZ(x)'),
+    ('exp', 'x**2*t/2 + 3', 'QQ[x]', False, "Mul(Symbol('t'), Add(Mul(Rational(1, 2), Pow(Symbol('x'), Integer(2))), Symbol('x')))", 'QQ[x]'),
+    ('exp', 'x**2*t/2 + 3', 'QQ[x]', True, "Mul(Symbol('t'), Symbol('x'))", 'ZZ[x]'),
+    ('exp', 'a*x*t + a', None, False, "Mul(Symbol('t'), Add(Mul(Symbol('a'), Symbol('x')), Symbol('a')))", 'ZZ[x,a]'),
+    ('exp', 'a*x*t + a', None, True, "Mul(Symbol('a'), Symbol('t'))", 'ZZ[a]'),
+    ('prim', 'x*t**2 + t/x', 'ZZ(x)', False, "Add(Pow(Symbol('t'), Integer(2)), Mul(Symbol('t'), Pow(Symbol('x'), Integer(-2)), Add(Mul(Integer(2), Pow(Symbol('x'), Integer(2))), Integer(-1))), Pow(Symbol('x'), Integer(-2)))", 'ZZ(x)'),
+    ('prim', 'x*t**2 + t/x', 'ZZ(x)', True, "Add(Pow(Symbol('t'), Integer(2)), Mul(Integer(-1), Symbol('t'), Pow(Symbol('x'), Integer(-2))))", 'ZZ(x)'),
+    ('prim', 't**2 + 1', None, False, "Mul(Integer(2), Symbol('t'), Pow(Symbol('x'), Integer(-1)))", 'ZZ(x)'),
+    ('prim', 't**2 + 1', None, True, 'Integer(0)', 'ZZ'),
+    ('prim', '(x + 1)*t', 'ZZ[x]', False, "Add(Symbol('t'), Mul(Pow(Symbol('x'), Integer(-1)), Add(Symbol('x'), Integer(1))))", 'ZZ(x)'),
+    ('prim', '(x + 1)*t', 'ZZ[x]', True, "Symbol('t')", 'ZZ'),
+    ('prim', 'x**2*t/3', 'QQ(x)', False, "Add(Mul(Rational(2, 3), Symbol('t'), Symbol('x')), Mul(Rational(1, 3), Symbol('x')))", 'QQ[x]'),
+    ('prim', 'x**2*t/3', 'QQ(x)', True, "Mul(Rational(2, 3), Symbol('t'), Symbol('x'))", 'QQ[x]'),
+    ('tower', 'x*t**2 + t0*t + 1/x', 'ZZ(x,t0)', False, "Add(Mul(Pow(Symbol('t'), Integer(2)), Add(Mul(Integer(2), Symbol('x')), Integer(1))), Mul(Symbol('t'), Pow(Symbol('x'), Integer(-1)), Add(Mul(Symbol('t0'), Symbol('x')), Integer(1))), Mul(Integer(-1), Pow(Symbol('x'), Integer(-2))))", 'ZZ(x,t0)'),
+    ('tower', 'x*t**2 + t0*t + 1/x', 'ZZ(x,t0)', True, "Add(Pow(Symbol('t'), Integer(2)), Mul(Symbol('t'), Pow(Symbol('x'), Integer(-1))), Mul(Integer(-1), Pow(Symbol('x'), Integer(-2))))", 'ZZ(x)'),
+    ('tower', 't0**2*t + x', 'ZZ[x,t0]', False, "Add(Mul(Symbol('t'), Pow(Symbol('x'), Integer(-1)), Add(Mul(Pow(Symbol('t0'), Integer(2)), Symbol('x')), Mul(Integer(2), Symbol('t0')))), Integer(1))", 'ZZ(x,t0)'),
+    ('tower', 't0**2*t + x', 'ZZ[x,t0]', True, "Add(Mul(Integer(2), Symbol('t'), Symbol('t0'), Pow(Symbol('x'), Integer(-1))), Integer(1))", 'ZZ(x,t0)'),
+    ('tower', 't0*t/x', 'ZZ(x,t0)', False, "Mul(Symbol('t'), Pow(Symbol('x'), Integer(-2)), Add(Mul(Symbol('t0'), Symbol('x')), Mul(Integer(-1), Symbol('t0')), Integer(1)))", 'ZZ(x,t0)'),
+    ('tower', 't0*t/x', 'ZZ(x,t0)', True, "Mul(Symbol('t'), Pow(Symbol('x'), Integer(-2)), Add(Integer(1), Mul(Integer(-1), Symbol('t0'))))", 'ZZ(x,t0)'),
+    ('tower2', 't0*t**2 + x*t', 'ZZ[x,t0]', False, "Add(Mul(Pow(Symbol('t'), Integer(2)), Symbol('t0')), Mul(Symbol('t'), Pow(Add(Symbol('x'), Integer(1)), Integer(-1)), Add(Mul(Integer(2), Symbol('t0')), Symbol('x'), Integer(1))), Mul(Symbol('x'), Pow(Add(Symbol('x'), Integer(1)), Integer(-1))))", 'ZZ(x,t0)'),
+    ('tower2', 't0*t**2 + x*t', 'ZZ[x,t0]', True, "Add(Mul(Pow(Symbol('t'), Integer(2)), Symbol('t0')), Symbol('t'))", 'ZZ[t0]'),
+    ('tower2', 't/(x + 1) + t0', 'ZZ(x,t0)', False, "Add(Mul(Integer(-1), Symbol('t'), Pow(Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('x')), Integer(1)), Integer(-1))), Mul(Pow(Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('x')), Integer(1)), Integer(-1)), Add(Mul(Symbol('t0'), Pow(Symbol('x'), Integer(2))), Mul(Integer(2), Symbol('t0'), Symbol('x')), Symbol('t0'), Integer(1))))", 'ZZ(x,t0)'),
+    ('tower2', 't/(x + 1) + t0', 'ZZ(x,t0)', True, "Add(Mul(Integer(-1), Symbol('t'), Pow(Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('x')), Integer(1)), Integer(-1))), Symbol('t0'))", 'ZZ(x,t0)'),
+]
+
+
+def _pdom(s):
+    # Same generator-order normalisation as _dom, for rings and fields.
+    for o, c in (('(', ')'), ('[', ']')):
+        if o in s:
+            ground, rest = s[:-1].split(o)
+            return ground, o, sorted(rest.split(','))
+    return s
+
+
+def _deriv_input(case, e, dom):
+    from symox import sympify
+    DE = _DERIV_DE[case]()
+    p = sympify(e, locals={'x': x, 't': t, 't0': t0, 'a': a_})
+    return (Poly(p, DE.t, domain=dom) if dom else Poly(p, DE.t)), DE
+
+
+def test_derivation_matches_sympy_and_uses_native():
+    from symox.integrals.risch import derivation
+    before = _prde_native.STATS['derivation']
+    for case, e, dom, cd, out, odom in DERIV_CASES:
+        p, DE = _deriv_input(case, e, dom)
+        level = DE.level
+        r = derivation(p, DE, coefficientD=cd)
+        assert DE.level == level
+        assert srepr(r.as_expr()) == out, (case, e, cd)
+        assert _pdom(str(r.domain)) == _pdom(odom), (case, e, cd, r.domain)
+        assert r.gens == (t,)
+    assert _prde_native.STATS['derivation'] == before + len(DERIV_CASES)
+
+
+def test_derivation_matches_stock_body(monkeypatch):
+    from symox.integrals.risch import derivation
+    native = []
+    for case, e, dom, cd, out, odom in DERIV_CASES:
+        p, DE = _deriv_input(case, e, dom)
+        native.append(derivation(p, DE, coefficientD=cd))
+    monkeypatch.setattr(_prde_native, 'derivation', lambda p, DE, coefficientD: None)
+    for (case, e, dom, cd, out, odom), r in zip(DERIV_CASES, native):
+        p, DE = _deriv_input(case, e, dom)
+        s = derivation(p, DE, coefficientD=cd)
+        assert (srepr(r.as_expr()), r.gens, r.domain, str(r.domain)) == \
+            (srepr(s.as_expr()), s.gens, s.domain, str(s.domain))
+
+
+def test_derivation_basic_and_declined_inputs():
+    from symox import cancel, exp, log
+    from symox.integrals.risch import derivation
+    DE = _DERIV_DE['prim']()
+    before = _prde_native.STATS['derivation']
+    # basic=True stays on the stock body (an expression, canceled).
+    assert derivation(x*t**2 + 1/x, DE, basic=True) == cancel(t**2 + 2*t - 1/x**2)
+    # EX coefficients are declined: stock body.
+    p = Poly(exp(x)*t, t, domain='EX')
+    assert derivation(p, DE) == Poly(exp(x)*t + exp(x)/x, t, domain='EX')
+    assert _prde_native.STATS['derivation'] == before
