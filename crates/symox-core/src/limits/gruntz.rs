@@ -938,6 +938,14 @@ impl Gruntz {
         if !depends(e, &x) {
             return Ok((e.clone(), Expr::zero()));
         }
+        // Reference Mul.flatten gathers `exp(a)*exp(b)` into `exp(a + b)`;
+        // the canonical product here keeps one exponential per factor, so
+        // reciprocal factors such as `x**(-x - 1)*x**(x + 1)` (rewritten as
+        // `exp((-x - 1)*log(x))*exp((x + 1)*log(x))`) would stay unmerged.
+        // Products of exponentials whose expanded exponents cancel are
+        // merged first.
+        let merged = merge_cancelling_exps(e, &x);
+        let e = &merged;
         let mut omega = self.mrv(e)?;
         if omega.is_empty() {
             return Ok((e.clone(), Expr::zero()));
@@ -1404,6 +1412,35 @@ fn merge_exp_factors(e: &Expr) -> Option<Expr> {
     rest.push(fx::exp(&add(&args)));
     let m = mul(&rest);
     (m != *e).then_some(m)
+}
+
+/// Merges the exponential factors (integer powers, exponents depending on
+/// `x`) of every product of `e` into one exponential when the expanded sum of
+/// their exponents is smaller than the sum itself (terms cancel).
+fn merge_cancelling_exps(e: &Expr, x: &Expr) -> Expr {
+    crate::simptools::bottom_up(e, &mut |u| {
+        let Kind::Mul(c, facs) = u.kind() else { return u.clone() };
+        let mut args = vec![];
+        let mut rest = vec![Expr::num(c.clone())];
+        for (b, p) in facs {
+            match b.kind() {
+                Kind::Func(Func::Exp, a) if depends(&a[0], x) && p.as_number().is_some_and(|k| k.is_integer()) => {
+                    args.push(mul2(&a[0], p))
+                }
+                _ => rest.push(mul_factor(b, p)),
+            }
+        }
+        if args.len() < 2 {
+            return u.clone();
+        }
+        let s = add(&args);
+        let ex = crate::simp::expand_mul(&s);
+        if node_count(&ex) >= node_count(&s) {
+            return u.clone();
+        }
+        rest.push(fx::exp(&ex));
+        mul(&rest)
+    })
 }
 
 /// [`merge_exp_factors`] applied to every product of `e`.

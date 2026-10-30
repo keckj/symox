@@ -3172,7 +3172,28 @@ def _series_accum_call(expr, x, x0, n, dir, logx=None):
             raise ValueError("Only real AccumulationBounds are supported") from None
         if kind == 'notimplemented':
             raise NotImplementedError() from None
+        value = _series_accum_value(expr, x, x0, n, dir, False)
+        if value is not None:
+            return value
         raise
+
+
+def _series_accum_value(expr, x, x0, n, dir, nseries):
+    # frac/floor/ceiling of an argument infinite at the point: the bounds
+    # and the rest are computed natively (series/accum_value.rs), the
+    # AccumBounds host node is only built here.
+    r = _core._series_accum_value(sympify(expr), sympify(x), sympify(x0), n, dir, nseries)
+    if r is None:
+        return None
+    lo, hi, rest = r
+    if lo is None:
+        return rest
+    # the bounds absorb the terms one by one (a real one shifts them), so
+    # the sum stays flat as the reference's
+    value = AccumBounds(lo, hi)
+    for term in Add.make_args(rest):
+        value = value + term
+    return value
 
 
 class Order(metaclass=_ExprType):
@@ -3221,7 +3242,15 @@ def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
         r = _core._nseries_cdir(self, sympify(x), n, sympify(cdir))
         if r is not None:
             return r
-    return _series_call(self, x, x0, n, dir, logx)
+    try:
+        return _series_call(self, x, x0, n, dir, logx)
+    except PoleError:
+        if x is None or x0 or dir != "+" or not isinstance(n, int) or logx is not None:
+            raise
+        value = _series_accum_value(self, x, 0, n, "+", True)
+        if value is not None:
+            return value
+        raise
 
 
 def _expr_taylor_term(self, n, x, *previous_terms):

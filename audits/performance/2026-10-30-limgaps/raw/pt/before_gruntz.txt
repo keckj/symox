@@ -1,0 +1,465 @@
+.s.ss.x.FFFFFFFFFFFFFFFFF....xF..F....x.....                             [100%]
+=================================== FAILURES ===================================
+________________________________ test_compare1 _________________________________
+
+    def test_compare1():
+>       assert compare(2, x, x) == "<"
+
+test_gruntz.py:426: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (2, x, x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing compare
+
+test_gruntz.py:3: NotImplementedError
+________________________________ test_compare2 _________________________________
+
+    def test_compare2():
+>       assert compare(exp(x), x**5, x) == ">"
+
+test_gruntz.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(x), x**5, x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing compare
+
+test_gruntz.py:3: NotImplementedError
+________________________________ test_compare3 _________________________________
+
+    def test_compare3():
+>       assert compare(exp(exp(x)), exp(x + exp(-exp(x))), x) == ">"
+
+test_gruntz.py:471: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(exp(x)), exp(x + exp(-exp(x))), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing compare
+
+test_gruntz.py:3: NotImplementedError
+__________________________________ test_sign1 __________________________________
+
+    def test_sign1():
+>       assert sign(Rational(0), x) == 0
+
+test_gruntz.py:475: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/_function_heads.py:115: in __call__
+    return factory(*args, **kwargs)
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/__init__.py:401: in f
+    _contract.bind(*args)  # Raise a Python argument error before entering native code.
+/home/keckj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/inspect.py:3186: in bind
+    return self._bind(args, kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Signature (arg)>, args = (0, x), kwargs = {}, partial = False
+
+    def _bind(self, args, kwargs, *, partial=False):
+        """Private method. Don't use directly."""
+    
+        arguments = {}
+    
+        parameters = iter(self.parameters.values())
+        parameters_ex = ()
+        arg_vals = iter(args)
+    
+        while True:
+            # Let's iterate through the positional arguments and corresponding
+            # parameters
+            try:
+                arg_val = next(arg_vals)
+            except StopIteration:
+                # No more positional arguments
+                try:
+                    param = next(parameters)
+                except StopIteration:
+                    # No more parameters. That's it. Just need to check that
+                    # we have no `kwargs` after this while loop
+                    break
+                else:
+                    if param.kind == _VAR_POSITIONAL:
+                        # That's OK, just empty *args.  Let's start parsing
+                        # kwargs
+                        break
+                    elif param.name in kwargs:
+                        if param.kind == _POSITIONAL_ONLY:
+                            msg = '{arg!r} parameter is positional only, ' \
+                                  'but was passed as a keyword'
+                            msg = msg.format(arg=param.name)
+                            raise TypeError(msg) from None
+                        parameters_ex = (param,)
+                        break
+                    elif (param.kind == _VAR_KEYWORD or
+                                                param.default is not _empty):
+                        # That's fine too - we have a default value for this
+                        # parameter.  So, lets start parsing `kwargs`, starting
+                        # with the current parameter
+                        parameters_ex = (param,)
+                        break
+                    else:
+                        # No default, not VAR_KEYWORD, not VAR_POSITIONAL,
+                        # not in `kwargs`
+                        if partial:
+                            parameters_ex = (param,)
+                            break
+                        else:
+                            msg = 'missing a required argument: {arg!r}'
+                            msg = msg.format(arg=param.name)
+                            raise TypeError(msg) from None
+            else:
+                # We have a positional argument to process
+                try:
+                    param = next(parameters)
+                except StopIteration:
+>                   raise TypeError('too many positional arguments') from None
+E                   TypeError: too many positional arguments
+
+/home/keckj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/inspect.py:3107: TypeError
+__________________________________ test_sign2 __________________________________
+
+    def test_sign2():
+>       assert sign(x, x) == 1
+
+test_gruntz.py:491: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/_function_heads.py:115: in __call__
+    return factory(*args, **kwargs)
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/__init__.py:401: in f
+    _contract.bind(*args)  # Raise a Python argument error before entering native code.
+/home/keckj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/inspect.py:3186: in bind
+    return self._bind(args, kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Signature (arg)>, args = (x, x), kwargs = {}, partial = False
+
+    def _bind(self, args, kwargs, *, partial=False):
+        """Private method. Don't use directly."""
+    
+        arguments = {}
+    
+        parameters = iter(self.parameters.values())
+        parameters_ex = ()
+        arg_vals = iter(args)
+    
+        while True:
+            # Let's iterate through the positional arguments and corresponding
+            # parameters
+            try:
+                arg_val = next(arg_vals)
+            except StopIteration:
+                # No more positional arguments
+                try:
+                    param = next(parameters)
+                except StopIteration:
+                    # No more parameters. That's it. Just need to check that
+                    # we have no `kwargs` after this while loop
+                    break
+                else:
+                    if param.kind == _VAR_POSITIONAL:
+                        # That's OK, just empty *args.  Let's start parsing
+                        # kwargs
+                        break
+                    elif param.name in kwargs:
+                        if param.kind == _POSITIONAL_ONLY:
+                            msg = '{arg!r} parameter is positional only, ' \
+                                  'but was passed as a keyword'
+                            msg = msg.format(arg=param.name)
+                            raise TypeError(msg) from None
+                        parameters_ex = (param,)
+                        break
+                    elif (param.kind == _VAR_KEYWORD or
+                                                param.default is not _empty):
+                        # That's fine too - we have a default value for this
+                        # parameter.  So, lets start parsing `kwargs`, starting
+                        # with the current parameter
+                        parameters_ex = (param,)
+                        break
+                    else:
+                        # No default, not VAR_KEYWORD, not VAR_POSITIONAL,
+                        # not in `kwargs`
+                        if partial:
+                            parameters_ex = (param,)
+                            break
+                        else:
+                            msg = 'missing a required argument: {arg!r}'
+                            msg = msg.format(arg=param.name)
+                            raise TypeError(msg) from None
+            else:
+                # We have a positional argument to process
+                try:
+                    param = next(parameters)
+                except StopIteration:
+>                   raise TypeError('too many positional arguments') from None
+E                   TypeError: too many positional arguments
+
+/home/keckj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/inspect.py:3107: TypeError
+__________________________________ test_mrv1 ___________________________________
+
+    def test_mrv1():
+>       assert mmrv(x, x) == {x}
+
+test_gruntz.py:505: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_gruntz.py:501: in mmrv
+    return set(mrv(a, b)[0].keys())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (x, x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+__________________________________ test_mrv2a __________________________________
+
+    def test_mrv2a():
+>       assert mmrv(exp(x + exp(-exp(x))), x) == {exp(-exp(x))}
+
+test_gruntz.py:517: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_gruntz.py:501: in mmrv
+    return set(mrv(a, b)[0].keys())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(x + exp(-exp(x))), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+__________________________________ test_mrv2b __________________________________
+
+    def test_mrv2b():
+>       assert mmrv(exp(x + exp(-x**2)), x) == {exp(-x**2)}
+
+test_gruntz.py:525: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_gruntz.py:501: in mmrv
+    return set(mrv(a, b)[0].keys())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(x + exp(-x**2)), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+__________________________________ test_mrv2c __________________________________
+
+    def test_mrv2c():
+>       assert mmrv(
+            exp(-x + 1/x**2) - exp(x + 1/x), x) == {exp(x + 1/x), exp(1/x**2 - x)}
+
+test_gruntz.py:531: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_gruntz.py:501: in mmrv
+    return set(mrv(a, b)[0].keys())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(-x + x**(-2)) - exp(x + 1/x), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+__________________________________ test_mrv3 ___________________________________
+
+    def test_mrv3():
+>       assert mmrv(exp(x**2) + x*exp(x) + log(x)**x/x, x) == {exp(x**2)}
+
+test_gruntz.py:538: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_gruntz.py:501: in mmrv
+    return set(mrv(a, b)[0].keys())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (x*exp(x) + exp(x**2) + log(x)**x/x, x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+__________________________________ test_mrv4 ___________________________________
+
+    def test_mrv4():
+        ln = log
+>       assert mmrv((ln(ln(x) + ln(ln(x))) - ln(ln(x)))/ln(ln(x) + ln(ln(ln(x))))*ln(x),
+                x) == {x}
+
+test_gruntz.py:554: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_gruntz.py:501: in mmrv
+    return set(mrv(a, b)[0].keys())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = ((log(log(x) + log(log(x))) - log(log(x)))*log(x)/log(log(x) + log(log(log(x)))), x)
+k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+________________________________ test_rewrite1 _________________________________
+
+    def test_rewrite1():
+        e = exp(x)
+>       assert mrewrite(mrv(e, x), x, m) == (1/m, -x)
+
+test_gruntz.py:566: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(x), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+________________________________ test_rewrite2 _________________________________
+
+    def test_rewrite2():
+        e = exp(x)*log(log(exp(x)))
+>       assert mmrv(e, x) == {exp(x)}
+
+test_gruntz.py:577: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_gruntz.py:501: in mmrv
+    return set(mrv(a, b)[0].keys())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(x)*log(x), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+________________________________ test_rewrite3 _________________________________
+
+    def test_rewrite3():
+        e = exp(-x + 1/x**2) - exp(x + 1/x)
+        #both of these are correct and should be equivalent:
+>       assert mrewrite(mrv(e, x), x, m) in [(-1/m + m*exp(
+            (x**2 + x)/x**3), -x - 1/x), ((m**2 - exp((x**2 + x)/x**3))/m, x**(-2) - x)]
+
+test_gruntz.py:586: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(-x + x**(-2)) - exp(x + 1/x), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+______________________________ test_mrv_leadterm1 ______________________________
+
+    def test_mrv_leadterm1():
+>       assert mrv_leadterm(-exp(1/x), x) == (-1, 0)
+
+test_gruntz.py:591: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (-exp(1/x), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv_leadterm
+
+test_gruntz.py:3: NotImplementedError
+______________________________ test_mrv_leadterm2 ______________________________
+
+    def test_mrv_leadterm2():
+        #Gruntz: p51, 3.25
+>       assert mrv_leadterm((log(exp(x) + x) - x)/log(exp(x) + log(x))*exp(x), x) == \
+            (1, 0)
+
+test_gruntz.py:599: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = ((-x + log(x + exp(x)))*exp(x)/log(exp(x) + log(x)), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv_leadterm
+
+test_gruntz.py:3: NotImplementedError
+______________________________ test_mrv_leadterm3 ______________________________
+
+    def test_mrv_leadterm3():
+        #Gruntz: p56, 3.27
+>       assert mmrv(exp(-x + exp(-x)*exp(-x*log(x))), x) == {exp(-x - x*log(x))}
+
+test_gruntz.py:605: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_gruntz.py:501: in mmrv
+    return set(mrv(a, b)[0].keys())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (exp(-x + exp(-x)*exp(-x*log(x))), x), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing mrv
+
+test_gruntz.py:3: NotImplementedError
+________________________________ test_gruntz_I _________________________________
+
+    def test_gruntz_I():
+        y = Symbol("y")
+        assert gruntz(I*x, x, oo) == I*oo
+>       assert gruntz(y*I*x, x, oo) == y*I*oo
+E       assert oo*I*sign(y) == ((y * I) * oo)
+E        +  where oo*I*sign(y) = gruntz(((y * I) * x), x, oo)
+
+test_gruntz.py:660: AssertionError
+______________________________ test_aseries_trig _______________________________
+
+    def test_aseries_trig():
+>       assert cancel(gruntz(1/log(atan(x)), x, oo)
+               - 1/(log(pi) + log(S.Half))) == 0
+E       assert (-log(pi) + log(pi/2) + log(2))/(-log(pi/2)*log(pi) + log(2)*log(pi/2)) == 0
+E        +  where (-log(pi) + log(pi/2) + log(2))/(-log(pi/2)*log(pi) + log(2)*log(pi/2)) = cancel((1/log(pi/2) - (1 / (log(pi) + -log(2)))))
+E        +    where 1/log(pi/2) = gruntz((1 / log(atan(x))), x, oo)
+E        +      where log(atan(x)) = log(atan(x))
+E        +        where atan(x) = atan(x)
+E        +    and   log(pi) = log(pi)
+E        +    and   -log(2) = log(1/2)
+E        +      where 1/2 = S.Half
+
+test_gruntz.py:681: AssertionError
+=========================== short test summary info ============================
+FAILED test_gruntz.py::test_compare1 - NotImplementedError: missing compare
+FAILED test_gruntz.py::test_compare2 - NotImplementedError: missing compare
+FAILED test_gruntz.py::test_compare3 - NotImplementedError: missing compare
+FAILED test_gruntz.py::test_sign1 - TypeError: too many positional arguments
+FAILED test_gruntz.py::test_sign2 - TypeError: too many positional arguments
+FAILED test_gruntz.py::test_mrv1 - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_mrv2a - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_mrv2b - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_mrv2c - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_mrv3 - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_mrv4 - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_rewrite1 - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_rewrite2 - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_rewrite3 - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_mrv_leadterm1 - NotImplementedError: missing mrv_...
+FAILED test_gruntz.py::test_mrv_leadterm2 - NotImplementedError: missing mrv_...
+FAILED test_gruntz.py::test_mrv_leadterm3 - NotImplementedError: missing mrv
+FAILED test_gruntz.py::test_gruntz_I - assert oo*I*sign(y) == ((y * I) * oo)
+FAILED test_gruntz.py::test_aseries_trig - assert (-log(pi) + log(pi/2) + log...
+19 failed, 19 passed, 3 skipped, 3 xfailed in 1.52s

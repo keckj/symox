@@ -1,0 +1,19 @@
+O(x + exp(1/x)) -> O(exp(1/x)) 0.002
+O(exp(1/x)+x**-20) -> O(exp(1/x)) 0.000
+O(exp(1/x))+O(x) -> O(exp(1/x)) 0.000
+O(exp(2/x))+O(x**3) -> O(exp(2/x)) 0.000
+O(exp(2/x))+O(x**-3) -> O(exp(2/x)) 0.000
+O(exp(1/x)+1) -> O(exp(1/x)) 0.000
+O(log(x)+log(log(x))) -> O(log(x)) 0.000
+O(exp(-x)+1/x**4,(x,-oo)) -> O(exp(-x), (x, -oo)) 0.000
+O(2**x + factorial(x), (x, oo)) -> O(factorial(x), (x, oo)) 0.001
+O(2**x + x**x + factorial(x), (x, oo)) -> O(exp(x*log(x)), (x, oo)) 0.001
+O(x + factorial(x), (x, oo)) -> O(factorial(x), (x, oo)) 0.000
+O(2**x + x**x, (x, oo)) -> O(exp(x*log(x)), (x, oo)) 0.000
+O(x**2 + x**x, (x, oo)) -> O(exp(x*log(x)), (x, oo)) 0.000
+O(x**x + x**(-2), (x, oo)) -> O(exp(x*log(x)), (x, oo)) 0.000
+O(2**x + 3**x, (x, oo)) -> O(exp(x*log(3)), (x, oo)) 0.000
+O(x*log(x) + sin(x), (x, oo)) -> O(x*log(1/x), (x, oo)) 0.000
+O(x*sin(x) + 1, (x, oo)) -> O(x, (x, oo)) 0.000
+O(x**2,(x,oo)).subs(x,cos(x)) -> O(1, (x, oo*I)) 0.000
+O(x*y).subs(x,cos(x)) -> EXC NotImplementedError Multivariable orders at different points are not supported. 0.000

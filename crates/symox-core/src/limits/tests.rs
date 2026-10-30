@@ -140,3 +140,42 @@ fn limheld_order_mask_collision_is_not_an_order_term() {
     }
     assert!(found, "no Dummy mask collided with ORDER_MASK");
 }
+
+#[test]
+fn limgaps_values_from_sympy() {
+    // exp factors whose arguments cancel are merged before the mrv set is
+    // formed, as Mul.flatten does in the reference.
+    assert_eq!(lim("((x**(x + 1) + (x + 1)**x)/x**(x + 1))**x", "oo", Dir::Plus), "exp(E)");
+    assert_eq!(lim("x**(-x - 1)*(x**(x + 1) + (x + 1)**x)", "oo", Dir::Plus), "1");
+    // loggamma at -oo: the reference heuristics with loggamma(-oo) = zoo.
+    for (e, want) in [
+        ("loggamma(x)", "zoo"),
+        ("x*loggamma(x)", "zoo"),
+        ("loggamma(x) + 3", "zoo"),
+        ("loggamma(-x)", "oo"),
+        ("1/loggamma(x)", "0"),
+        ("loggamma(-x**2)", "zoo"),
+    ] {
+        assert_eq!(lim(e, "-oo", Dir::Plus), want, "{e}");
+    }
+    // Held: factorial(x)/x and gamma(x)/x at -oo oscillate through poles.
+    assert!(lim("factorial(x)/x", "-oo", Dir::Plus).starts_with("ERR"));
+}
+
+#[test]
+fn limgaps_order_forms_from_sympy() {
+    use crate::series::order::order;
+    let x = Expr::symbol("x");
+    let o = |e: &str, p: &str| order(&parse_str(e).unwrap(), &[(x.clone(), parse_str(p).unwrap())]).to_string();
+    // Order.contains by the limit of the ratio, sums whose factored form is
+    // a product, PoleError factors, bounded trigonometric factors
+    assert_eq!(o("exp(1/x) + x**(-20)", "0"), "O(exp(1/x))");
+    assert_eq!(o("x + exp(-1/x)", "0"), "O(x)");
+    assert_eq!(o("x + factorial(x)", "oo"), "O(factorial(x), (x, oo))");
+    assert_eq!(o("x*sin(x)", "oo"), "O(x, (x, oo))");
+    assert_eq!(o("tan(x)", "oo"), "O(1, (x, oo))");
+    assert_eq!(o("exp(1/x)*(x + 1)", "0"), "O(exp(1/x))");
+    assert_eq!(o("sin(x)*exp(x)", "oo"), "O(exp(x)*sin(x), (x, oo))");
+    let sum = crate::ops::add(&[parse_str("O(exp(1/x))").unwrap(), parse_str("O(x)").unwrap()]);
+    assert_eq!(sum.to_string(), "O(exp(1/x))");
+}

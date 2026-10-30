@@ -1,0 +1,8 @@
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/extra/test_jax_codegen.py::test_custom_functions_and_standalone_source
+1 failed, 366 passed, 16 skipped, 10 warnings in 171.77s (0:02:51)
+memory.used [MiB]
+8 MiB
+
+[exited with code 0]

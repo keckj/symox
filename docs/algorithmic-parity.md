@@ -14902,6 +14902,171 @@ stays held (SymPy `zoo`); with any
 `O(x**3*log(x))` (SymPy `O(x**3)`).
 
 
+## limgaps (wave 36): limit and Order gaps of limitsrest, Gruntz declines, 2026-10-30
+
+This section covers the open items of the limitsrest section above:
+`exp(E)`, `frac` series, `factorial/x` at `-oo`, `loggamma`, Order forms
+and Gruntz declines. Every value below was checked against SymPy 1.14.0.
+The measurements are in
+[audits/performance/2026-10-30-limgaps](../audits/performance/2026-10-30-limgaps/README.md).
+
+Closed limitsrest gaps (now equal to SymPy; each one differed on the base
+21068f42):
+
+- the `exp(E)` limit;
+- `frac(x).series(x, oo)`;
+- `limit(loggamma(x), x, -oo)`;
+- `O(exp(1/x) + 1)` and `O(log(x) + log(log(x)))`;
+- `O(x**2, (x, oo)).subs(x, cos(x))` and `O(x*y).subs(x, cos(x))`;
+- `floor(1/p).series(p, 0)` for a positive `p`.
+
+`limit(1 + O(1/x), x, 1)`, `O(x**2, (x, 1)).subs(x, cos(x))`,
+`O(1, x).diff(x)` and `exp(floor(x)).series(x, oo)` already matched on the
+base; the limitsrest list was stale for them.
+
+In the 37 cases of this lot (`raw/cases_*.txt` in the audit), 33 now match
+SymPy, up from 11 before. The four that still differ are the two held
+`gamma`/`factorial` quotients, `Abs(x + y)**2` and `floor(1/sin(p))`.
+
+Native now (crates/symox-core):
+
+- `limits/gruntz.rs`, `merge_cancelling_exps`: before the mrv set is
+  computed, the exponential factors of each product are merged into one
+  exponential when the expanded sum of their exponents is smaller than the
+  sum (`exp((-x - 1)*log(x))*exp((x + 1)*log(x))`). SymPy's `Mul.flatten`
+  does this merge. `limit(((x**(x+1) + (x+1)**x)/x**(x+1))**x, x, oo)` is
+  `exp(E)`.
+- `limits/gamma_heuristic.rs`, `loggamma_value`: this ports SymPy's
+  `heuristics` for `loggamma(a)` with `a -> -oo` along the reals. Gruntz
+  raises `PoleError` there. Each argument is evaluated at its limit with
+  `loggamma(-oo) = zoo`, then products, sums and powers with a constant
+  exponent are rebuilt. `loggamma(x)`, `x*loggamma(x)` and
+  `loggamma(x) + 3` give `zoo`; `1/loggamma(x)` gives 0;
+  `loggamma(-x)` and `loggamma(x**2)` give `oo`. The `nan` forms
+  `loggamma(x)/x`, `loggamma(x) + x` and `loggamma(x) + loggamma(x + 1)`
+  stay held, as in SymPy. Any other function of a `loggamma` node
+  declines.
+- `limits/mod.rs`, `bounded_affine`:
+  - An integer power `k >= 2` of a bounded `sin`/`cos` becomes its own
+    bounded parameter: `AccumBounds(0, 1)` for an even `k`,
+    `AccumBounds(-1, 1)` for an odd one. Examples: `sin(x)**2` at `oo`,
+    `sin(x)**2 - sin(x)`, `cos(x)**3 + 1`.
+  - `bounded_times_limit`: a product of bounded `sin`/`cos` factors and a
+    part `f` next to a rounding function gives `limit(f)*AccumBounds`.
+    This is the result of SymPy's term-wise heuristics:
+    `cos(x)*floor(x)/x` is `AccumBounds(-1, 1)`, and
+    `cos(x)*floor(x)/x**2` is 0. Only a real, finite, numeric
+    `limit(f)` is accepted.
+- `series/accum_value.rs`: this ports `frac._eval_nseries` and
+  `floor/ceiling._eval_nseries` for an argument that is infinite at the
+  point, after the point is moved to `0+`.
+  - It handles sums `c0 + sum(c_i*frac(a_i)) + r` with real `c_i`
+    (`frac(x).series(x, oo)` is `AccumBounds(0, 1) + O(x**(-6), (x, oo))`).
+  - It handles `floor`/`ceiling` alone of a Laurent polynomial
+    (`floor(1/p + p).series(p)` is `AccumBounds(p - 1 + 1/p, p + 1/p)`).
+  - A `frac` whose argument at 0 is `nan` gives `nan`
+    (`frac(exp(1/x)).series(x)`, `frac(x**2 + x).series(x, oo)`).
+  - The result is returned as `(bounds, rest)`, because `AccumBounds` is a
+    host node. Binding: `_core._series_accum_value`.
+- `series/order_dominant.rs`: this ports `Order.__new__`'s
+  `factor` + `extract_leading_order` for sums whose terms have no monomial
+  leading exponent.
+  - `leading_sum` keeps the terms that are not contained in another one.
+    Containment is decided by the native limit at `0+`.
+  - `leading_product` applies this to each sum factor of a factored
+    product.
+  - Examples: `O(x + exp(1/x))` is `O(exp(1/x))`;
+    `O(log(x) + log(log(x)))` is `O(log(x))`;
+    `O(2**x + factorial(x), (x, oo))` is `O(factorial(x), (x, oo))`;
+    `O(2**x + 3**x, (x, oo))` is `O(exp(x*log(3)), (x, oo))`.
+- `series/order.rs`:
+  - `drop_bounded_trig`: following `sin/cos/tan._eval_as_leading_term`,
+    a `sin`, `cos` or `tan` factor whose argument at the moved point is
+    infinite has a bounded leading term, which `as_independent` strips.
+    `O(x*sin(x), (x, oo))` is `O(x, (x, oo))`; `O(sin(1/x))` is `O(1, x)`.
+  - `pole_factors`: this ports the `PoleError` branch.
+    - A product made only of functions is kept, as in SymPy
+      (`O(sin(x)*exp(x), (x, oo))`).
+    - An argument whose value at 0 is `nan` keeps its function
+      (`O(sin(1/x - 1/x**2))`).
+    - A sum factor takes its own order (`O(exp(1/x)*(x + 1))` is
+      `O(exp(1/x))`).
+  - `limit_contains`: `Order.contains` uses `limit(self/other) != 0` where
+    the monomial test does not apply. `O(exp(1/x)) + O(x)` is
+    `O(exp(1/x))`. A limit with free symbols or `nan` is undecided, so
+    both terms are kept. That is not a proof of non-containment.
+  - `different_points`: Orders at different points with several variables
+    raise SymPy's `NotImplementedError`.
+- `series/order_point.rs` and `subs.rs`:
+  - `O(e).subs(x, F(x))` where the moved point is `+-oo*I` is
+    `O(1, (x, +-oo*I))`. Example: `O(x**2, (x, oo)).subs(x, cos(x))`.
+  - With several variables, it raises SymPy's `NotImplementedError`
+    (`O(x*y).subs(x, cos(x))`).
+- `limits/trace.rs`: this is a record of native limit declines, used by
+  the audit. Binding: `_core._limit_trace`. It has no effect on results.
+
+Python (routing and host node construction only, no algorithm):
+
+- `Expr.series` and `Expr.nseries` call `_core._series_accum_value` after
+  a native `PoleError`. They add the native bounds to the native rest with
+  the `AccumBounds` operators.
+- `oscillating_limit` tries the native `_bounded_affine` first. The
+  existing Python walker takes only what it declines.
+- `_bounded_affine` adds the native bounded terms with the `AccumBounds`
+  operators, which absorb a symbolic constant. For example,
+  `limit(atan(x) + sin(x), x, oo)` is `AccumBounds(-1 + pi/2, 1 + pi/2)`,
+  where a bare `Add` would keep `pi/2` apart.
+
+Gruntz declines on the SymPy series test files (statement-level replay,
+native `_limit` returning undecided): 92 before, 90 after. 68 of them stay
+"series in mrv variable" on `sin`, `cos`, `tan` and `floor`; SymPy's
+`gruntz` fails on these too. This is structural: the value is an
+`AccumBounds`, a host node, so these limits continue in the oscillating
+front end. Of the 90 oscillating limits on these files:
+
+| route | before | after |
+| --- | ---: | ---: |
+| native `bounded_affine` | 2 | 19 |
+| Python walker (unchanged code) | 57 | 38 |
+| held | 31 | 29 |
+
+The walker cases are not ported to Rust. They are recorded below as a gap.
+
+Intentional deviation, en attente de validation utilisateur:
+
+- `limit(factorial(x)/x, x, -oo)` and `limit(gamma(x)/x, x, -oo)` stay
+  held. SymPy 1.14 returns 0 through `0*gamma(-oo)`, but the quotient
+  passes through poles arbitrarily close to `-oo`. This is the limitsrest
+  choice, kept unchanged.
+- The deviations listed in the task are kept unchanged: the one-sided
+  `Piecewise` limit, `limit(atan(a*x)/x, x, oo) = 0`,
+  `limit(subfactorial(x)/factorial(x), x, oo)`, and the `Abs`/`sign(c)`
+  rule. Because of that rule, `limit(Abs(x + y)**2, x, 0)` is still
+  `y**2*sign(y)**2`; SymPy gives `y**2`.
+
+Remaining gaps:
+
+- `floor(1/sin(p)).series(p)` raises `PoleError`. SymPy returns the
+  unevaluated `(1/p + p/6 + ... + O(p**6)) + AccumBounds(-1, 0)`. The
+  argument's expansion is not exact, and the native path declines.
+- `floor(1/p + p**7).series(p)`: SymPy keeps `O(p**7)` beside the bounds.
+  The native path admits only exact Laurent arguments and declines here.
+- `floor(1/x**2 + x**7).series(x)` with an unsigned `x` raises
+  `ValueError`. SymPy gives `x**(-2) + AccumBounds(-1, 0) + O(x**7)`.
+  This is unchanged from before.
+- `(x*frac(1/x)).series(x)` raises `PoleError`. SymPy raises
+  `ValueError`. Products of a bounded node by a variable decline, as
+  before.
+- `O(x*frac(1/x))` stays `O(x*frac(1/x))`. SymPy gives `O(x)`.
+- `O(exp(1/x)*sin(1/x) + x)` keeps both terms. SymPy gives
+  `O(exp(1/x)*sin(1/x))`. The native containment limit is undecided
+  there. `O(x*sin(1/x)*exp(1/x))` now matches: `O(x*exp(1/x))`.
+- Order containment with a symbolic limit is undecided, so both terms are
+  kept.
+- The oscillating walker (`python/symox/calculus/_accum_limit.py`) remains
+  a Python algorithm for the forms that `bounded_affine` declines: 38
+  limits on the SymPy series test files.
+
 ## exroots (wave 36): EX roots and the simplify denominator step, 2026-10-30
 
 Native now (Rust, `crates/symox-core`):
