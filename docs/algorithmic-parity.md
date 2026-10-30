@@ -13911,3 +13911,87 @@ default), classify time over the corpus 27.2 s to 11.5 s; copied SymPy
 ODE tests: the same 22 failures before and after.
 
 Measured: [audit](../audits/performance/2026-10-30-odeclass/README.md).
+
+## odesolve (wave 35): native characteristic-equation solutions, 2026-10-30
+
+Now native (`symox::ode::constcoeff`, binding
+`crates/symox-py/src/ode_solve.rs`, admission in
+`python/symox/solvers/ode/_odesolve_native.py`, hooks at the start of the
+three reference helpers in `python/symox/solvers/ode/nonhomogeneous.py`):
+
+- `_get_const_characteristic_eq_sols`: the characteristic polynomial in a
+  fresh dummy, its roots with multiplicities in the order of
+  `roots(chareq, multiple=True)` (`ordered`: node count, then
+  `default_sort_key`), the indexed roots `rootof(chareq, k)` when the
+  radicals do not give all roots of an irreducible polynomial (the defining
+  `PurePoly` keeps the dummy generator, `all_roots_irreducible_in`), the
+  `exp`/`sin`/`cos` fundamental solutions (the `atan2` and conjugate-root
+  rules, the complex-coefficient branch) and the `collectterms` list.
+- `_get_simplified_sol`: `collect(sol, x**i*exp(reroot*x)*sin|cos(...))`
+  over the sorted `collectterms` (`exact=False`, no generator discovery, as
+  the Python default) followed by `powsimp`.
+- `_get_euler_characteristic_eq_sols`: the indicial polynomial (the
+  derivatives of `x**symbol`), the roots `rootof(chareq, k)` when they are
+  explicit numbers (linear, quadratic, binomial formulas, or rational roots
+  in increasing order), the general solution with the numbered constants
+  given by the caller and the fundamental solutions.
+
+These helpers are shared by `nth_linear_constant_coeff_homogeneous`,
+`nth_linear_euler_eq_homogeneous`, the two undetermined-coefficients hints
+and the two variation-of-parameters hints, so all six use the native
+homogeneous part. The `C1..Cn` constants are still numbered by the stock
+`get_numbered_constants` call, so their order is the reference order.
+
+Admitted domain: integer derivative orders, an `f(x)` with a symbol
+argument, coefficients that are rational numbers and symbols combined by
+sums, products and non-negative integer powers (constant coefficients), and
+for Euler a polynomial indicial equation over QQ with explicit roots. Floats,
+`I`, `sqrt(2)`, `pi`, functions of `x` and anything else decline, as do
+reducible polynomials with a `RootOf` factor, Euler roots that need
+`RootOf`, and polynomials whose root count is not the order. A decline runs
+the reference body unchanged.
+
+Still in Python: the particular solutions (the undetermined-coefficients
+trial set and its linear solve, the Wronskian integrals of variation of
+parameters), `get_numbered_constants`, and the declined inputs above.
+
+Result forms: the unsimplified (`simplify=False`) solutions now list the
+fundamental solutions in the reference order; the stock symox `roots`
+sorted the roots by `default_sort_key` only, so e.g. `C1*exp(-sqrt(2)*x) +
+C2*exp(sqrt(2)*x)` became SymPy's `C1*exp(sqrt(2)*x) + C2*exp(-sqrt(2)*x)`.
+The simplified and default solutions are unchanged on every tested input.
+
+Remaining gaps (all pre-existing, none introduced here):
+
+- `collect` partial exponent matching: SymPy matches `x*exp(2*x)` on the
+  pattern `x*exp(x)` with the remainder `exp(x)`, symox does not (repeated
+  real roots with a shifted second root, e.g.
+  `(C1 + C6*exp(x) + x*(C2 + C5*exp(x) + ...))*exp(x)`).
+- `re`/`im` of casus irreducibilis cubic radicals: SymPy rewrites them to
+  `cos`/`sin(atan(...)/3)` forms, symox keeps the radicals; on two random
+  undetermined-coefficients equations SymPy then raises
+  `NotImplementedError` ("Cannot find 3 solutions") while symox returns a
+  solution.
+- Cubic and quartic radical forms of `roots` (different but equal radical
+  expressions), and the symbolic quadratic form of test_single
+  `undet_38`/`undet_39`.
+- The stock `roots` order for declined inputs (`I`, `sqrt(2)`, Float
+  coefficients) is still `default_sort_key` only.
+- Declines: a reducible characteristic polynomial with an irreducible
+  factor of degree at least three (test_single `euler_hom_08`), Euler with
+  symbolic coefficients, a negative leading coefficient with `RootOf`
+  roots.
+- `var_of_parameters_15` and a random variation-of-parameters equation
+  exceed 6 GB inside the native integration (before and after this change;
+  SymPy times out at 30 s on the second).
+- The `RecursionError` message text of one symbolic Euler equation.
+
+Evidence: differential test (338 random and symbolic equations, hinted,
+unsimplified and default): symox equals SymPy on 967/1014 fields (905
+before), 0 regressions, the hinted and default fields are unchanged;
+variation of parameters 70/87 (69 before). SymPy 1.14 test_single examples
+of the six hints: 223/248 (216 before). Copied SymPy ODE tests: the same 22
+failures before and after. ODE corpus at baseline (303/279/274, 0 per-case
+differences), integration corpus at baseline.
+
+Measured: [audit](../audits/performance/2026-10-30-odesolve/README.md).
