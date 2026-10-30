@@ -374,6 +374,91 @@ pub fn matrix_lines_derivative(e: &Value, x: &MatrixExpr) -> Option<Value> {
     derivative(e, x).ok()
 }
 
+/// One addend of a rank-four matrix derivative (SymPy's array form).
+#[derive(Clone, Debug, PartialEq)]
+pub enum RankFourTerm {
+    /// `PermuteDims(ArrayTensorProduct(a, b), permutation)` in canonical
+    /// form; `None` when the canonical permutation is the identity (the bare
+    /// `ArrayTensorProduct(a, b)`).
+    Permuted(MatrixExpr, MatrixExpr, Option<Vec<usize>>),
+    /// `ArrayTensorProduct(higher, matrix)`: a scalar factor derived by `x`
+    /// (axes of `x`) times the matrix its two lines contract to.
+    Product(MatrixExpr, MatrixExpr),
+}
+
+fn invert(form: &[usize]) -> Vec<usize> {
+    let mut inverse = vec![0; form.len()];
+    for (i, &j) in form.iter().enumerate() { inverse[j] = i; }
+    inverse
+}
+
+/// `_permute_dims(ArrayTensorProduct(a, b), form)` for two matrices: the
+/// arguments are sorted by the positions their axes take and an identity
+/// permutation is dropped (`PermuteDims._canonicalize`).
+fn permuted_product(a: &MatrixExpr, b: &MatrixExpr, form: &[usize]) -> RankFourTerm {
+    let image = invert(form);
+    let components = [image[0..2].to_vec(), image[2..4].to_vec()];
+    let mut order = [0usize, 1];
+    let key = |i: usize| { let mut c = components[i].clone(); c.sort_unstable(); c };
+    // Python's stable sort on the sorted axis lists.
+    if key(1) < key(0) { order = [1, 0]; }
+    let args = [a, b];
+    let new_form = invert(&order.iter().flat_map(|&i| components[i].iter().copied()).collect::<Vec<_>>());
+    let (first, second) = (args[order[0]].clone(), args[order[1]].clone());
+    let identity = new_form.iter().enumerate().all(|(i, &j)| i == j);
+    RankFourTerm::Permuted(first, second, if identity { None } else { Some(new_form) })
+}
+
+fn is_zero_matrix(v: &Value) -> bool { matches!(v, Value::Matrix(m) if matches!(m.kind(), MatrixKind::Zero)) }
+
+/// `_rank_four`: SymPy's array form of a matrix derived by a matrix for
+/// plain lines (two lines, scalar factors contracted to `x`'s shape).
+fn rank_four(lines: &[Line], x: &MatrixExpr) -> R<Vec<RankFourTerm>> {
+    let mut terms = Vec::new();
+    for line in lines {
+        if line.lines.len() != 2 { return Err(Decline); }
+        if !line.higher.is_one() {
+            let Value::Matrix(higher) = &line.higher else { return Err(Decline) };
+            if higher.rows() != x.rows() || higher.cols() != x.cols() { return Err(Decline); }
+            let (first, second) = (&line.lines[line.first], &line.lines[line.second]);
+            let (Value::Matrix(f), Value::Matrix(s)) = (first, second) else { return Err(Decline) };
+            if matches!(higher.kind(), MatrixKind::Zero) || is_zero_matrix(first) || is_zero_matrix(second) { continue; }
+            let f = f.transpose(true)?;
+            let matrix = if f == MatrixExpr::identity(f.rows().clone())? {
+                s.clone()
+            } else {
+                match times(&Value::Matrix(f), &Value::Matrix(s.clone()))? { Value::Matrix(m) => m, Value::Scalar(_) => return Err(Decline) }
+            };
+            terms.push(RankFourTerm::Product(higher.clone(), matrix));
+            continue;
+        }
+        let (first, second) = (&line.lines[line.first_line], &line.lines[line.second_line]);
+        if !(first.is_matrix() && second.is_matrix()) { return Err(Decline); }
+        if is_zero_matrix(first) || is_zero_matrix(second) { continue; }
+        let (Value::Matrix(l0), Value::Matrix(l1)) = (&line.lines[0], &line.lines[1]) else { return Err(Decline) };
+        let order: [usize; 4] = if line.first_line == 0 { [0, 2, 1, 3] } else { [0, 2, 3, 1] };
+        terms.push(permuted_product(l0, l1, &order));
+    }
+    if terms.is_empty() { return Err(Decline); }
+    Ok(terms)
+}
+
+/// `expr.diff(x)` for a matrix expression or a scalar and a matrix symbol
+/// `x` when the result has rank greater than two (SymPy's array form, a
+/// sum of the returned terms); `None` when the kernel does not cover the
+/// expression (element-wise operations, results of rank at most two, and
+/// every case `_rank_four` refuses).
+pub fn matrix_lines_rank_four(e: &Value, x: &MatrixExpr) -> Option<Vec<RankFourTerm>> {
+    if !matches!(x.kind(), MatrixKind::Symbol(_)) { return None; }
+    if let Value::Scalar(s) = e { if !expression_has_matrix(s, x) { return None; } }
+    if has_elementwise(e) { return None; }
+    let lines = lines(e, x).ok()?;
+    let rank = |part: &[Value]| part.iter().flat_map(shape_of).filter(|n| !n.is_one()).count();
+    let first = lines.first()?.build();
+    if rank(&first) <= 2 { return None; }
+    rank_four(&lines, x).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -394,6 +479,29 @@ mod tests {
         // Trace(X).diff(X) = I
         let d = m(matrix_lines_derivative(&Value::Scalar(x.trace().unwrap()), &x).unwrap());
         assert_eq!(d, MatrixExpr::identity(Expr::int(3)).unwrap());
+    }
+
+    #[test]
+    fn rank_four_forms() {
+        let x = sym("X", 3, 3);
+        let a = sym("A", 3, 3);
+        let i3 = MatrixExpr::identity(Expr::int(3)).unwrap();
+        // (A*X).diff(X) = PermuteDims(ArrayTensorProduct(A.T, I), (3)(1 2))
+        let ax = MatrixExpr::mul(Expr::one(), &[a.clone(), x.clone()], true).unwrap();
+        let terms = matrix_lines_rank_four(&Value::Matrix(ax.clone()), &x).unwrap();
+        assert_eq!(terms, vec![RankFourTerm::Permuted(a.transpose(true).unwrap(), i3.clone(), Some(vec![0, 2, 1, 3]))]);
+        // X.T.diff(X) = PermuteDims(ArrayTensorProduct(I, I), (1 2 3))
+        let terms = matrix_lines_rank_four(&Value::Matrix(x.transpose(true).unwrap()), &x).unwrap();
+        assert_eq!(terms, vec![RankFourTerm::Permuted(i3.clone(), i3.clone(), Some(vec![0, 2, 3, 1]))]);
+        // (Trace(X)*A).diff(X) = ArrayTensorProduct(I, A)
+        let ta = MatrixExpr::mul(x.trace().unwrap(), &[a.clone()], true).unwrap();
+        let terms = matrix_lines_rank_four(&Value::Matrix(ta), &x).unwrap();
+        assert_eq!(terms, vec![RankFourTerm::Product(i3, a.clone())]);
+        // Rank two results are not rank four.
+        assert!(matrix_lines_rank_four(&Value::Scalar(ax.trace().unwrap()), &x).is_none());
+        // The canonical order of the tensor product follows the axes.
+        let swapped = permuted_product(&a, &x, &[2, 3, 0, 1]);
+        assert_eq!(swapped, RankFourTerm::Permuted(x.clone(), a, None));
     }
 
     #[test]

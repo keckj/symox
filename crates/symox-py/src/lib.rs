@@ -27,6 +27,7 @@ mod risch_polynomial_reduce;
 mod risch_splitfactor;
 mod solveset_steps;
 mod prde;
+mod matrix_rank_four;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -4679,6 +4680,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     risch_splitfactor::register(m)?;
     solveset_steps::register(m)?;
     prde::register(m)?;
+    matrix_rank_four::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
     logic::register(m)?;

@@ -13243,3 +13243,50 @@ domain gap of `Poly.cancel`, visible in some `param_rischDE` and
 No intentional corrections. SymPy test_prde.py (3 failed, 12 passed) and
 test_risch.py (8 failed, 28 passed) have the same failures before and
 after. Measured: [audit](../audits/performance/2026-10-29-prderust/README.md).
+
+## arrexprrust (wave 28)
+
+Native now: the rank-four branch of `matrix_derivative`, which covers
+derivatives of a matrix expression with respect to a matrix symbol whose
+result has rank 4 (`(A*X).diff(X)`, `X.T.diff(X)`, `(X*A*X).diff(X)`,
+`(Trace(X)*A).diff(X)`, `(A*X**-1*B).diff(X)`, `X**3`, ...). The
+`_core._matrix_lines_rank_four` binding (crates/symox-py/src/matrix_rank_four.rs)
+runs the native matrix lines (crates/symox-core/src/matrixexpr/lines.rs)
+followed by SymPy's `_rank_four` in Rust (`rank_four`: the `higher` term
+as a tensor product, the two-line terms as a `PermuteDims` with SymPy's
+canonical tensor-product permutation, zero lines dropped). Python only
+builds the `ArrayTensorProduct`/`PermuteDims`/`ArrayAdd` objects from the
+returned `(a, b, permutation)` triples. The rank <= 2 results keep the
+existing native kernel `_matrix_lines_derivative`, which is unchanged.
+
+Admitted domain: `x` is a `MatrixSymbol`, the expression is a native
+matrix expression or a scalar containing `x`, has no element-wise
+(Hadamard/applyfunc) node, the native lines build without declining,
+every line has exactly two lines and the `higher` factor is a matrix with
+the shape of `x`. Anything else returns None and the unchanged Python
+`_lines`/`_rank_four` path runs. Element-wise derivatives still use the
+vendored `symox._arrayexpr` path.
+
+Not ported (remaining gaps): SymPy's array-expression core
+canonicalization (`_canonicalize` of ArrayContraction/ArrayDiagonal/
+PermuteDims/ArrayTensorProduct, `_EditArrayContraction`), the converters
+`convert_matrix_to_array`, `convert_array_to_matrix` (and its passes),
+`convert_indexed_to_array`, `convert_array_to_indexed`, `array_derive`,
+and the public modules apart from
+`sympy.tensor.array.expressions.array_expressions`, which is now a
+re-export of the existing classes so that SymPy's test_derivatives.py
+collects. Known output differences to SymPy 1.14, the same on the native
+and the Python path: the term order of rank-4 results with three or more
+factors of `X` (`X**3`, `X*A*X*B*X`, `A*X**3`), scalar placement in sums
+(`(A*X - X.T*B).diff(X)`, `(3*X.T + 2*X).diff(X)`), `Trace(X)**2*A`
+(SymPy keeps two equal addends) and `Trace(X*A)` versus `Trace(A*X)` in
+printing. These come from ArrayContraction canonicalization, which is not
+ported.
+
+Intentional correction: `(X**-2).diff(X)` raises RecursionError in SymPy
+1.14. symox returns the correct rank-4 result.
+
+SymPy array-expression test files (21 files, 201 test functions): 101
+passed before, 106 passed after (test_derivatives.py now collects, 5
+passed, 7 failed; test_as_explicit.py collects and both tests still
+fail). Measured: [audit](../audits/performance/2026-10-29-arrexprrust/README.md).
