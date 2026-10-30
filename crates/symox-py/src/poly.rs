@@ -15,6 +15,8 @@ pub(crate) mod domains;
 pub(crate) mod division;
 #[path="poly_real_roots.rs"]
 mod root_analysis;
+#[path="ratint_logpart.rs"]
+pub(crate) mod ratint_logpart;
 #[path="poly_checked_factors.rs"]
 mod checked_factor_views;
 #[path="poly_structure.rs"]

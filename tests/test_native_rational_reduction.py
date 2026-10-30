@@ -43,7 +43,9 @@ def test_other_domains_decline_and_preserve_complete_host_reduction(domain):
     a = S.Symbol('a')
     numerator = 1 if domain == 'RR' else a
     f, g = S.Poly(numerator, x, domain=domain), S.Poly((x + 1)**2, x, domain=domain)
-    assert _core._ratint_ratpart(f, g, x) is None
+    # EX and QQ(a) are solved natively (test_native_ratintgen.py); RR declines.
+    if domain == 'RR':
+        assert _core._ratint_ratpart(f, g, x) is None
     rational, logarithmic = ratint_ratpart(f, g, x)
     assert S.cancel(rational.diff(x) + logarithmic - f.as_expr()/g.as_expr()) == 0
 

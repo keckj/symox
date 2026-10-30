@@ -23,6 +23,7 @@ mod expression_inspection;
 mod wildcards;
 mod host;
 mod integration_methods;
+mod ratint_general;
 mod rational_protocols;
 mod risch_polynomial_reduce;
 mod risch_splitfactor;

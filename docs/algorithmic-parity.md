@@ -13909,3 +13909,162 @@ Copied SymPy test files:
 
 Measurements are in
 [audits/performance/2026-10-30-solvegaps](../audits/performance/2026-10-30-solvegaps/README.md).
+
+
+## ratintgen (wave 32): native `ratint_ratpart` and `ratint_logpart` outside QQ/ZZ, 2026-10-30
+
+What is now native:
+- `ratint_ratpart` (Horowitz-Ostrogradsky) over QQ<a> (including ZZ_I and
+  QQ_I), QQ(a, ...) and EX, through `_core._ratint_ratpart`.
+  - `u, v` come from the stock `g.cofactors(g.diff())`.
+  - The square system for `A`, `B` is solved by an exact Gauss-Jordan
+    elimination (`ddm::field_irref`) in the coefficient field of the Poly
+    (`integrate/ratint_general.rs`). The system has a unique solution, so
+    this is the value that `solve` returns in the reference body.
+  - The identity `f = A' v - A (u' v / u) + B u` is checked again before
+    anything is returned. A pivot with an undecided zero test, a rank
+    deficiency or a system larger than 96 (QQ<a>), 48 (QQ(a)) or 16 (EX)
+    unknowns declines to the reference body.
+  - EX coefficients that are rational functions of commuting symbols are
+    solved in QQ(a, ...). Only the values of `A`, `B` enter the result.
+  - The two `cancel(A/u, x)`, `cancel(B/v, x)` calls go through the
+    `cancel` global of rationaltools, exactly as in the reference body.
+- `ratint_logpart` (Lazard-Rioboo-Trager) over ZZ_I, QQ_I, ZZ[a, ...],
+  QQ(a, ...) and EX, through `_core._ratint_logpart`, after the existing
+  stock-protocol guard of rationaltools.
+  - The orchestration is in Rust (`crates/symox-py/src/ratint_logpart.rs`).
+    It makes the reference steps on the stock native Poly methods: the
+    subresultant PRS `resultant(..., includePRS=True)`, `sqf_list`,
+    `_include_sign`, `primitive`, `gcd`, `quo`, `invert`, `rem`.
+  - The public constructor calls are replaced by the backend calls that the
+    stock constructor makes for those arguments: `_from_normalized`, the
+    `composite=False` EX selection, `to_field` and the `_from_terms` term
+    path.
+  - The Poly domains, the order of the pairs and the Dummy `t` are those of
+    the reference.
+  - Inexact or modular inputs decline. Any error of a primitive declines,
+    and the reference body then raises its own error.
+
+Admitted domains: univariate Polys in the integration variable, without
+modulus, with numerator and denominator in the same representation family.
+For ratpart that is the same number field, the same fraction field, or EX
+without a composite ground.
+
+Still Python, on native primitives:
+- The `ratint` body itself. The native rational driver still admits only
+  QQ/ZZ.
+- `log_to_atan` and `log_to_real` for parametric or algebraic auxiliary
+  polynomials (item 2 of the task).
+- The `real=False` RootSum (item 3).
+- The Cardano/cube-root pairs (item 4).
+These are recorded as remaining gaps. On the public calls of these
+families, `log_to_atan` receives EX Polys (`1/(x**4+2)`, `1/(x**3+sqrt(2))`)
+or mixed ZZ / ZZ[sqrt(p)] Polys (`1/(x**2+p)` with `p` positive), never a
+pair from one QQ<a> or QQ(a) field. The existing generic kernel
+`log_to_atan::arguments_field` could serve such a pair. A port therefore
+needs the EX path of `log_to_atan`, including its exact division by a
+constant `g`, and the unification of the two domains.
+
+Second pass on items 2-4 (measured 2026-10-30, no code change):
+- Item 4, Cardano and cube-root pairs (`1/(x**3+x+1)`, `1/(x**3+2*x-1)`,
+  `1/(x**5+1)`, `x/(x**5+1)`). symox already returns in 150-160 ms (SymPy
+  7.0-7.2 s) and in 18-26 ms (SymPy 0.9-1.1 s). The printed results differ
+  from SymPy 1.14; `1/(x**3-2)`, `1/(x**3+2)` and `x/(x**3-2)` are
+  identical. A step trace of `log_to_real` shows that the logpart pair, the
+  resultant `R(u)`, its real roots `R_u` and each `C(v)` are identical to
+  SymPy. The first difference is `roots(C, v)` on an EX `C`:
+  - `1/(x**5+1)`: biquadratic `C`. SymPy runs `preprocess_roots` (EX
+    `clear_denoms`), then `roots_quartic` with the EX `monic` (`cancel` and
+    `expand`), then `roots([1, e, g])`, which clears denominators again with
+    the EX `lcm`, then `roots_quadratic`, which calls `simplify`. The native
+    `roots` (`crates/symox-core/src/poly/roots.rs`) skips the EX
+    preprocessing and uses `factor` where the reference calls `simplify`.
+    It returns `5**(1/4)/sqrt(50 + 50*sqrt(5))` where SymPy returns
+    `sqrt(sqrt(5)/200 + 1/(25*(1 + sqrt(5))) + 3/200)`.
+  - `1/(x**3+x+1)`: the EX `C = alpha*v**2 + beta`. Already the EX
+    `clear_denoms` of `preprocess_roots` gives a different polynomial:
+    symox writes the radical `(81*sqrt(93)/15376 + 27/496)**(1/3)` with
+    `1922**(1/3)`, SymPy with `124**(1/3)`. The cause is the EX element
+    normal form (`cancel`/`as_numer_denom` of a rational power of a sum),
+    not `log_to_real`.
+  So the gap belongs to the native EX `roots` pipeline and to the EX
+  normal form of nested radicals, not to the `log_to_real` kernel. Porting
+  the Cardano pairs into `log_to_real` would not give SymPy's output unless
+  those were fixed first. Remaining gap.
+
+  Third pass, a native EX `roots` patch (Rust, not committed; see
+  audits/performance/2026-10-30-ratintgen/roots-ex). The patch changes
+  four things:
+  - It runs the reference `preprocess_roots` over EX (`clear_denoms`, then
+    `primitive`).
+  - It uses the EX `monic` in `roots_quartic`.
+  - It calls `simplify` in `roots_linear` and `roots_quadratic` when the
+    coefficients select EX, with the reference trees `(-b)/A` and `(-c)/a`.
+  - It lists `roots(..., multiple=True)` as `ordered(result)`. HEAD sorts
+    by `sort_key`, so for example `roots(x**3-2*x, multiple=True)` gives
+    `[0, -sqrt(2), sqrt(2)]` where SymPy gives `[0, sqrt(2), -sqrt(2)]`.
+
+  Result: on 25 `roots` cases, 22 equal SymPy 1.14 (against 6 at HEAD).
+  The four printed `integrate` results above are still different, for two
+  reasons:
+  - The native `crate::simplify::simplify` lacks one step of the Python
+    wrapper (`python/symox/_general_simplify.py`): it does not rationalize a
+    denominator that is a sum of numeric radicals
+    (`radsimp(1/denom, symbolic=False, max_terms=1)`). So the Rust caller
+    gets `(2 + sqrt(5))/(50*(1 + sqrt(5)))` where SymPy gets
+    `sqrt(5)/200 + 3/200`.
+  - With the patch, `R_v` of `1/((x**2+1)*(x**3+2))` equals SymPy, but the
+    EX `Poly(a.xreplace({u: r_u, v: r_v}), x)` that follows produces other
+    denominators than SymPy's. The result then grows from at most 9057
+    characters (SymPy's length, the limit of
+    `test_cubic_log_to_real_does_not_grow`) to 17199.
+
+  Two other tests also regress: `nonlinsolve([x**3+y-2, x+y])`, and
+  `solveset(sin(x)+2*cos(x))`, which gives a trigonometric `atan` because
+  of the Gaussian quadratic tree. So the patch was not committed.
+  Remaining gaps, in order:
+  - the denominator step of the native simplify;
+  - the EX arithmetic of the substituted `A`/`B` in `log_to_real`;
+  - the patch itself, with the reference trees limited to EX.
+- Item 3, `real=False`. Public `ratint` with `real=False` (or with a
+  non-real symbol) is already 8-10x faster than SymPy 1.14 (for example
+  `x/(x**3-a*x+1)` 38.6 ms against 375 ms, `1/(x**4+x+a)` 39.6 ms against
+  408 ms). Building the RootSum arguments (`h.primitive()`,
+  `Lambda(t, t*log(h.as_expr()))`) and the RootSum constructor together
+  take about 4% of the profile; the native `ratint_logpart` takes 88%.
+  Building the arguments in Rust would not change anything measurable, so
+  it was not done. The results equal SymPy except the printed order of
+  `log(x + 1)/5 + RootSum(...)` for `1/(x**5+1)`, which comes from the Add
+  printer, not from ratint.
+- Item 2, EX `log_to_atan`. On `1/(x**4+2)`, `1/(x**2+p)` and
+  `1/(x**3+sqrt(2))` it takes 0.2-0.8 ms of a 4.8-7.4 ms `ratint`. The
+  Python `log_to_real` steps around it (`collect`, `xreplace`, `roots`)
+  take 3.4-7.2 ms. Not ported.
+
+Corrections (SymPy 1.14 values that symox did not compute before):
+- `ratint_ratpart` over QQ<sqrt(2)>, for example `1/(x**2+sqrt(2))**2`, now
+  returns the SymPy 1.14 value. The reference body raised TypeError because
+  it cannot unify QQ<sqrt(2)> with the ZZ[a_i, b_j] domain of its unknowns.
+- `ratint_logpart(3, (x-I)*(x+2*I)*(x-1))` over QQ_I returns the SymPy 1.14
+  pairs. Depending on the process state, the reference body could raise
+  TypeError ("expected a polynomial").
+
+Remaining gaps:
+- `ratint_logpart` over QQ<sqrt(2)> raises TypeError in the native
+  primitives and in the reference body alike: QQ<a> cannot be unified with
+  ZZ[t]. SymPy returns EX pairs.
+- Printed forms that differ from SymPy 1.14 and were already present in the
+  base:
+  - parametric `cancel` output, expanded where SymPy collects
+    (`ratint_ratpart(x, (x-a)**2*(x-b))`);
+  - `integrate(I/(x**2+1)**2)`;
+  - `integrate((x+I)/(x**3-I))`;
+  - `integrate(x/(x**2+a*x+b)**2)`;
+  - `integrate(a/(x-a)**3)`;
+  - `integrate(1/(x-sqrt(2))**2/(x+1))`.
+  The values agree. Only the printed forms differ.
+
+Measurements are in
+[audits/performance/2026-10-30-ratintgen](../audits/performance/2026-10-30-ratintgen/README.md):
+1.06x-1.69x on the public calls that reach the new kernels, results
+unchanged.
