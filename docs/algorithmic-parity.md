@@ -14861,3 +14861,100 @@ failures before and after. ODE corpus at baseline (303/279/274, 0 per-case
 differences), integration corpus at baseline.
 
 Measured: [audit](../audits/performance/2026-10-30-odesolve/README.md).
+
+
+## checksol (public, native), 2026-10-30
+
+`symox.solvers.solvers.checksol` (and `symox.checksol`) now runs the native
+port of SymPy 1.14's `checksol` (`symox::solve::checksol::checksol_system`,
+binding `_core._checksol_public`). It reuses the native check of the
+solvegaps wave. The previous Python body is kept, unchanged, as
+`_checksol_stock` and is the fallback.
+
+Rust (`crates/symox-core/src/solve/checksol.rs`, binding in
+`crates/symox-py/src/tsolve.rs`):
+
+- Each equation gets a `Verdict`: True, False or None; unverified at the
+  end of the attempt loop (the warning); a non-Expr value (SymPy's
+  AttributeError `'<type>' object has no attribute 'is_constant'`); or
+  declined (the stock fallback). The order is the reference one:
+  - `is_number` means `is_zero`;
+  - Eq/Ne with a BooleanAtom side (the right side reversed first) is
+    substituted, and is None when the result is not `is_Boolean`. Only a
+    BooleanAtom or a BooleanFunction counts: `Eq(x, True)` at `x = y` is
+    None;
+  - other Eq is `lhs - rhs`; a Relational, a Boolean or a set reaches the
+    AttributeError;
+  - illegal values in the mapping are False;
+  - attempts 0 to 3 (`minimal`, `simplify`, `force`, `numerical`, the
+    1e-9 `nfloat` test).
+- A list of equations is `fuzzy_and` (it stops at the first False) over one
+  shared mapping. The values simplified in attempt 2 are written back to
+  the caller's dict, so the next equation and the warning text see them, as
+  in SymPy.
+- `simplify` is SymPy's public `simplify`. The binding takes it as a host
+  callback, because the public symox `simplify` has steps that the native
+  one does not (Integral and Derivative `doit`, logs, radsimp, Piecewise).
+  If the callback fails, the whole call is declined.
+- `is_constant` leaves out SymPy's random numerical evaluations. They can
+  only return False, and the derivative test that follows returns False for
+  every expression they would catch.
+- `ops.rs`: `Pow.__new__`'s "recognize base as E" rule,
+  `b**(c*num/log(b)) = E**(c*num)` (through `factor_terms`, `as_coeff_Mul`
+  and `fraction`). An exponent without a `1/log(b)` factor is rejected by a
+  mask pre-check. So `z**(log(y)/log(z))` is `y`, and
+  `checksol(z**x - y, {x: log(y)/log(z)}, minimal=True)` is True.
+- `unrad.rs`: `unrad_with_flags` returns the change-of-variable state even
+  when the recursion fails.
+
+Python (admission and wrappers only, `python/symox/_solver_checks.py`):
+
+- the sol-form ValueError;
+- "no functions to check" for an empty iterable;
+- strict `_sympify`, so a string equation raises SympifyError;
+- `Poly.as_expr`;
+- SymPy's `Dict` path: an empty Dict is True, an illegal value is False,
+  otherwise AttributeError;
+- in-place update of the mapping, and the warnings
+  (`"\n\tWarning: could not verify solution %s."`, a UserWarning);
+- unknown flags are ignored, as in SymPy (they raised TypeError before).
+
+In `python/symox/solvers/_algebraic.py`, `unrad` writes `cov[:]` before
+re-raising, as the reference does before its failing recursion. A tuple
+`cov` raises the reference's TypeError ("'tuple' object does not support
+item assignment").
+
+Differential results against SymPy 1.14:
+
+- 5304 generated cases (every flag combination, pair, dict and list forms,
+  Relational, Boolean and non-Expr inputs): 5304 agree, against 4166
+  before.
+- 1897 distinct calls logged from SymPy's test_solvers.py and
+  test_solveset.py: 1889 agree. The others are 1 decision (below) and 6
+  mapping values: 4 print-order differences of an unchanged input, and 2
+  public `simplify` results (`test_exclude`).
+- The solvegaps pair replays: one difference, the same issue 17799 call.
+
+The tests that encoded the previous behaviour
+(`tests/test_solver_checks.py`: `checksol([])` True, RuntimeWarning,
+TypeError on unknown flags) now use SymPy's values. The new tests are in
+`tests/test_native_checksol_public.py`.
+
+Remaining gaps:
+
+- Issue 17799: `-erf(x**(1/3))**pi + I` at `erfinv(I**(1/pi))**3` is None
+  (SymPy False). SymPy's `Function._eval_evalf` swallows the ValueError of
+  a nested argument conversion, which leaves `erf(erfinv(...))`
+  unevaluated, so `abs(...) < 1e-9` is not `S.true`. In symox's evalf the
+  mpmath error of the inner `erfinv` propagates instead. Fixing it needs
+  the evalf host-error scope to follow `Function._eval_evalf`.
+- `Pow.__new__`'s second E branch, `den == log(-b) + sign(im(b))*I*pi`, is
+  not ported.
+- `bivariate_type` tries its candidates in an order that depends on hashes
+  in SymPy (a set), so it is not reproducible. Its order is not matched.
+- Units: `as_independent(Unit)` on a Quantity is not reproduced natively (a
+  Quantity becomes a positive Symbol). Such calls keep the stock path.
+- The simplified mapping value can differ where symox's `simplify` differs
+  from SymPy's (`test_exclude`). The decision is the same.
+
+Measured: [audit](../audits/performance/2026-10-30-checksol/README.md).

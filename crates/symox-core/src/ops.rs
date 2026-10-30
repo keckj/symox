@@ -1530,6 +1530,40 @@ fn half_branch_power(bb: &Expr, be: &Expr, e: &Expr) -> Option<Expr> {
 }
 
 /// Canonical power `b ** e`.
+/// Pow.__new__ "recognize base as E": with `c, ex = factor_terms(e,
+/// sign=False).as_coeff_Mul()` and `num, den = fraction(ex)`,
+/// `b**e` is `E**(c*num)` when `den` is `log(b)` (`z**(log(y)/log(z))` is
+/// `y`). The reference's second form, `den == log(-b) + sign(im(b))*I*pi`
+/// for a non-real base, is not implemented. Only an exponent with a factor
+/// `1/log(b)` is examined (`fraction` cannot give that denominator
+/// otherwise).
+fn base_as_e(b: &Expr, e: &Expr) -> Option<Expr> {
+    if e.is_atom() || b.is_one() || matches!(b.kind(), Kind::Const(Constant::E) | Kind::Func(Func::ExpPolar, _)) {
+        return None;
+    }
+    fn is_log_of(x: &Expr, b: &Expr) -> bool {
+        matches!(x.kind(), Kind::Func(Func::Log, a) if a.len() == 1 && a[0] == *b)
+    }
+    fn inverse_log(e: &Expr, b: &Expr) -> bool {
+        match e.kind() {
+            Kind::Pow(base, k) => (k.is_minus_one() && is_log_of(base, b)) || inverse_log(base, b),
+            Kind::Mul(_, factors) => factors.iter().any(|(f, k)| (k.is_minus_one() && is_log_of(f, b)) || inverse_log(f, b)),
+            Kind::Add(_, terms) => terms.iter().any(|(t, _)| inverse_log(t, b)),
+            _ => false,
+        }
+    }
+    if (b.mask() & !e.mask()) != 0 || !inverse_log(e, b) {
+        return None;
+    }
+    let factored = crate::simptools::exprtools::factor_terms(e, false, false, false, false);
+    let (c, ex) = crate::simptools::as_coeff_mul(&factored, false);
+    let (num, den) = crate::simptools::radsimp::fraction(&ex, false);
+    if is_log_of(&den, b) {
+        return Some(crate::functions::exp(&mul2(&c, &num)));
+    }
+    None
+}
+
 pub fn pow(b: &Expr, e: &Expr) -> Expr {
     if b.is_deferred_numeric_power() && !e.is_zero() && !e.is_one()
         && !e.has_nonfinite() {
@@ -1572,6 +1606,9 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 None => {}
             }
         }
+    }
+    if let Some(value) = base_as_e(b, e) {
+        return value;
     }
     match b.kind() {
         Kind::Num(n) if n.is_one() => {

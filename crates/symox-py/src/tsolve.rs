@@ -211,8 +211,63 @@ fn _checksol_native(f: &Bound<'_, PyAny>, symbol: &Bound<'_, PyAny>, sol: &Bound
     Ok(symox::solve::checksol::checksol(&f, &x, &v, flags))
 }
 
+/// The public SymPy 1.14 `checksol(fs, sol, **flags)` on a list of
+/// equations and a solution mapping given as keys and values in the
+/// caller's dict order (`symox::solve::checksol::checksol_system`).
+///
+/// Returns `(code, value, warnings, values)`: `code` is "true", "false",
+/// "none", "attribute" (the reference raises AttributeError on `value`,
+/// a non-Expr substituted value) or "decline"; `warnings` has one entry per
+/// undecided equation (the simplified values at that moment, or None);
+/// `values` are the simplified mapping values when the reference replaced
+/// them, else None.
+#[pyfunction]
+#[pyo3(signature = (fs, keys, values, numerical=true, force=true, simplify=true, minimal=false, simplifier=None))]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn _checksol_public(
+    fs: Vec<Bound<'_, PyAny>>,
+    keys: Vec<Bound<'_, PyAny>>,
+    values: Vec<Bound<'_, PyAny>>,
+    numerical: bool,
+    force: bool,
+    simplify: bool,
+    minimal: bool,
+    simplifier: Option<Bound<'_, PyAny>>,
+) -> PyResult<(&'static str, Option<crate::PyExpr>, Vec<Option<Vec<crate::PyExpr>>>, Option<Vec<crate::PyExpr>>)> {
+    use symox::solve::checksol::{checksol_system_with, native_simplify, CheckFlags, Verdict};
+    if keys.len() != values.len() {
+        return Err(PyValueError::new_err("keys and values must have the same length"));
+    }
+    let fs = fs.iter().map(to_expr).collect::<PyResult<Vec<Expr>>>()?;
+    let mut sol = keys.iter().zip(values.iter()).map(|(k, v)| Ok((to_expr(k)?, to_expr(v)?))).collect::<PyResult<Vec<(Expr, Expr)>>>()?;
+    let flags = CheckFlags { numerical, force, simplify, minimal };
+    // the reference calls the public `simplify`; a failing call (an
+    // exception, or a result that is not a native expression) declines
+    let mut host = |e: &Expr| -> Option<Expr> {
+        let f = simplifier.as_ref()?;
+        let r = f.call1((wrap(e.clone()),)).ok()?;
+        to_expr(&r).ok()
+    };
+    let out = if simplifier.is_some() {
+        checksol_system_with(&fs, &mut sol, flags, &mut host)
+    } else {
+        checksol_system_with(&fs, &mut sol, flags, &mut native_simplify)
+    };
+    let (code, value) = match out.verdict {
+        Verdict::Done(Some(true)) => ("true", None),
+        Verdict::Done(Some(false)) => ("false", None),
+        Verdict::Done(None) | Verdict::Unverified => ("none", None),
+        Verdict::NoIsConstant(v) => ("attribute", Some(wrap(v))),
+        Verdict::Decline(_) => ("decline", None),
+    };
+    let warnings = out.warnings.into_iter().map(|w| w.map(|vs| vs.into_iter().map(wrap).collect())).collect();
+    let values = out.simplified.then(|| sol.into_iter().map(|(_, v)| wrap(v)).collect());
+    Ok((code, value, warnings, values))
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_checksol_native, m)?)?;
+    m.add_function(wrap_pyfunction!(_checksol_public, m)?)?;
     m.add_function(wrap_pyfunction!(_tsolve_step, m)?)?;
     m.add_function(wrap_pyfunction!(_tsolve_invert, m)?)?;
     m.add_function(wrap_pyfunction!(_bivariate_mexpand, m)?)?;

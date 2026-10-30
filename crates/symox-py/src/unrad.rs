@@ -103,7 +103,7 @@ fn _unrad_flags(
     reverse: bool,
     take: Option<Bound<'_, PyAny>>,
     solve: Option<Bound<'_, PyAny>>,
-) -> PyResult<(PyObject, Vec<crate::PyExpr>)> {
+) -> PyResult<(bool, PyObject, Vec<crate::PyExpr>)> {
     let e = to_expr(eq)?;
     let syms: Vec<Expr> = syms.iter().map(to_expr).collect::<PyResult<_>>()?;
     let cov: Vec<Expr> = cov.iter().map(to_expr).collect::<PyResult<_>>()?;
@@ -113,9 +113,10 @@ fn _unrad_flags(
     };
     let custom = take.is_some();
     let mut h = PyHost { py, solve, take };
-    match ur::unrad_with_flags(&mut h, &e, &syms, reverse, custom, cov, n, rpt) {
-        Ok((r, state)) => {
-            let state: Vec<_> = state.into_iter().map(wrap).collect();
+    let (r, state) = ur::unrad_with_flags(&mut h, &e, &syms, reverse, custom, cov, n, rpt);
+    let state: Vec<_> = state.into_iter().map(wrap).collect();
+    match r {
+        Ok(r) => {
             let r = match r {
                 None => py.None(),
                 Some((eq, cov)) => {
@@ -123,9 +124,11 @@ fn _unrad_flags(
                     (wrap(eq), cov).into_pyobject(py)?.into_any().unbind()
                 }
             };
-            Ok((r, state))
+            Ok((true, r, state))
         }
-        Err(e) => Err(to_py_err(py, e)),
+        // the error is handed back so that the caller can update its `cov`
+        // list (the reference mutates it before raising) and then raise it
+        Err(e) => Ok((false, to_py_err(py, e).into_value(py).into_any(), state)),
     }
 }
 

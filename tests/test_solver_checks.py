@@ -35,7 +35,8 @@ def test_checksol_equation_collections_and_mappings_are_not_mutated():
     assert solution=={x:1,y:2}
     assert checksol(sx.Matrix([x+y-3,2*x-y]),solution) is True
     assert checksol([x+y-3,x-2],solution) is False
-    assert checksol([],solution) is True
+    # SymPy 1.14: an empty collection is an error
+    with pytest.raises(ValueError,match='no functions to check'):checksol([],solution)
     assert checksol(sx.true,{}) is True and checksol(sx.false,{}) is False
     assert checksol(x+y,{x:y,y:0}) is True
     assert checksol(sx.sin(x)**2+sx.cos(x)**2-1,{}) is True
@@ -56,11 +57,12 @@ def test_checksol_numerical_tolerance_is_explicit_and_optional():
 def test_checksol_unknown_results_options_and_warnings():
     x,y=sx.symbols('x y');f=sx.Function('f')
     assert checksol(f(y),{x:1},minimal=True,numerical=False) is None
-    with pytest.warns(RuntimeWarning,match='Could not verify'):
+    with pytest.warns(UserWarning,match='could not verify solution'):
         assert checksol(f(y),{x:1},warn=True) is None
     assert checksol(f(x),{f(x):0}) is True
     with pytest.raises(ValueError):checksol(x,x)
-    with pytest.raises(TypeError):checksol(x,{x:0},unknown=True)
+    # SymPy 1.14 ignores unknown flags
+    assert checksol(x,{x:0},unknown=True) is True
 
 
 @pytest.mark.parametrize('source',[
