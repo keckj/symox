@@ -25,7 +25,7 @@ def _roles():
             s.LinearCoefficients._equation: ('de', (0, 1)),
             s.FirstLinear._equation: ('linear', (0, 1)),
             s.Bernoulli._equation: ('bernoulli', (0, 1, 2)),
-            s.RiccatiSpecial._equation: ('riccati_special', ()),
+            s.RiccatiSpecial._equation: ('riccati_special', (0, 1, 2, 3)),
         }
         _ROLES = {k: v + (_original_wilds(s, k),) for k, v in _ROLES.items()}
     return _ROLES
@@ -78,8 +78,6 @@ def solver_match(solver):
     value = native.get(role[0])
     if value is None or value is False:
         return value
-    if role[0] == 'riccati_special':
-        return None
     wilds = solver.wilds()
     return {wilds[i]: value[j] for i, j in enumerate(role[1]) if j < len(value)}
 
@@ -306,3 +304,23 @@ def series2_hook(matching_hints, reduced_eq, f, x, point, wilds, terms):
         return False
     matching_hints.update(native)
     return True
+
+
+def nth_order_reducible(solver):
+    """``NthOrderReducible._matches`` decided natively: ``(True, smallest)``,
+    ``(False, None)``, or ``None`` when the reference matcher must run."""
+    native = getattr(_core, 'ode_nth_order_reducible', None)
+    problem = solver.ode_problem
+    eq = problem.eq_preprocessed
+    x = _linear_args(eq, problem.func)
+    if native is None or x is None or x != problem.sym:
+        return None
+    try:
+        value = native(eq, problem.func, x)
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if value is False:
+        return False, None
+    return True, value

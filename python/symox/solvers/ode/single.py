@@ -1987,6 +1987,12 @@ class NthOrderReducible(SingleODESolver):
         """
         # ODE only handles functions of 1 variable so this affirms that state
         assert len(func.args) == 1
+        from ._classify_native import nth_order_reducible
+        native = nth_order_reducible(self)
+        if native is not None:
+            if native[0]:
+                self.smallest = native[1]
+            return native[0]
         vc = [d.variable_count[0] for d in eq.atoms(Derivative)
             if d.expr == func and len(d.variable_count) == 1]
         ords = [c for v, c in vc if v == x]

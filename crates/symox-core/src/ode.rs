@@ -9,6 +9,7 @@
 pub mod classify;
 pub mod linear;
 pub mod second;
+pub mod reducible;
 
 use rustc_hash::{FxHashMap,FxHashSet};
 

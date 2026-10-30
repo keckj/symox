@@ -7,6 +7,7 @@ use pyo3::types::{PyDict, PyList, PyTuple};
 use symox::ode::classify::{self, Hooks, Outcome};
 use symox::ode::linear;
 use symox::ode::second::{self, PowerSeries2};
+use symox::ode::reducible;
 use symox::Expr;
 
 use crate::{to_expr, wrap as w};
@@ -49,7 +50,7 @@ fn ode_first_order_matches(
     out.set_item("de", outcome(py, &r.de, |(d, e)| vec![d.clone(), e.clone()])?)?;
     out.set_item("linear", outcome(py, &r.linear, |(p, q)| vec![p.clone(), q.clone()])?)?;
     out.set_item("bernoulli", outcome(py, &r.bernoulli, |(p, q, n)| [p.clone(), q.clone()].into_iter().chain(n.clone()).collect())?)?;
-    out.set_item("riccati_special", outcome(py, &r.riccati_special, |_| Vec::new())?)?;
+    out.set_item("riccati_special", outcome(py, &r.riccati_special, |v| v.to_vec())?)?;
     Ok(out.into_any().unbind())
 }
 
@@ -164,7 +165,20 @@ fn ode_power_series2(py: Python<'_>, reduced_eq: &Bound<'_, PyAny>, fx: &Bound<'
     })
 }
 
+/// `NthOrderReducible._matches` on `eq_preprocessed`: the smallest order
+/// (a match), `False` or `None` (not decided).
+#[pyfunction]
+fn ode_nth_order_reducible(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
+    Ok(match reducible::nth_order_reducible(&eq, &fx, &x) {
+        Outcome::Match(n) => n.into_pyobject(py)?.into_any().unbind(),
+        Outcome::NoMatch => false.into_pyobject(py)?.to_owned().into_any().unbind(),
+        Outcome::Decline => py.None(),
+    })
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(ode_nth_order_reducible, m)?)?;
     m.add_function(wrap_pyfunction!(ode_match_2nd_hypergeometric, m)?)?;
     m.add_function(wrap_pyfunction!(ode_airy_match, m)?)?;
     m.add_function(wrap_pyfunction!(ode_bessel_rejected, m)?)?;
