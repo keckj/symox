@@ -251,6 +251,9 @@ fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
     if e == x {
         return Expr::one();
     }
+    if let Some(v) = crate::series::order_diff::order_derivative(e, x) {
+        return v;
+    }
     if !e.may_contain(x) && x.is_symbol() {
         return Expr::zero();
     }
