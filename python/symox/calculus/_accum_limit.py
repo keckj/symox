@@ -243,7 +243,16 @@ def _bounded_affine(e, z, z0, dir):
     # The reference leading terms combine through Mul and Add flatten:
     # x*(fresnels(x) - 1/2) is AccumBounds(-1, 1)/pi, and the floor remainder
     # AccumBounds(-1, 0) of floor(x + 1/2) - floor(x) gives 1/2 + AccumBounds(-1, 1).
-    value = Add(c0, *[Mul(c, AccumBounds(lo, hi)) for c, lo, hi in coeffs])
+    # The heuristics add the term limits with the AccumBounds operators,
+    # which absorb a symbolic constant (atan(x) + sin(x) at oo is
+    # AccumBounds(-1 + pi/2, 1 + pi/2)); a bare Add would keep it apart.
+    if not coeffs:
+        return _checked(c0)
+    value = Mul(coeffs[0][0], AccumBounds(coeffs[0][1], coeffs[0][2]))
+    for c, lo, hi in coeffs[1:]:
+        value = value + Mul(c, AccumBounds(lo, hi))
+    for term in Add.make_args(c0):
+        value = value + term
     return _checked(value)
 
 

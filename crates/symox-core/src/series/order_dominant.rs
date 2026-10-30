@@ -68,37 +68,72 @@ pub(super) fn dominant_terms(e0: &Expr, x: &Expr) -> Option<Expr> {
     }
     guarded(|| {
         let f = crate::poly::api::factor(e0).ok()?;
-        if !f.is_add() {
-            return None;
-        }
-        let zero = [(x.clone(), Expr::zero())];
-        let mut kept: Vec<Expr> = Vec::new();
-        for t in f.args() {
-            let o = super::order::order(&t, &zero);
-            let (oe, _) = super::order::order_parts(&o)?;
-            if oe.is_zero() {
-                continue;
-            }
-            let mut drop = false;
-            for k in &kept {
-                if *k != oe && contains_at_zero(k, &oe, x)? {
-                    drop = true;
-                    break;
-                }
-            }
-            if drop {
-                continue;
-            }
-            let mut next = vec![oe.clone()];
-            for k in &kept {
-                if *k != oe && contains_at_zero(&oe, k, x)? {
-                    continue;
-                }
-                next.push(k.clone());
-            }
-            kept = next;
-        }
-        let r = add(&kept);
+        let r = match f.kind() {
+            Kind::Add(..) => leading_sum(&f, x)?,
+            Kind::Mul(..) => leading_product(&f, x)?,
+            _ => return None,
+        };
         (r != *e0).then_some(r)
     })
+}
+
+/// `Add.extract_leading_order` on the terms of `f`: the order of every term,
+/// a term dropped when the order of a kept one contains it.
+fn leading_sum(f: &Expr, x: &Expr) -> Option<Expr> {
+    let zero = [(x.clone(), Expr::zero())];
+    let mut kept: Vec<Expr> = Vec::new();
+    for t in f.args() {
+        let o = super::order::order(&t, &zero);
+        let (oe, _) = super::order::order_parts(&o)?;
+        if oe.is_zero() {
+            continue;
+        }
+        let mut drop = false;
+        for k in &kept {
+            if *k != oe && contains_at_zero(k, &oe, x)? {
+                drop = true;
+                break;
+            }
+        }
+        if drop {
+            continue;
+        }
+        let mut next = vec![oe.clone()];
+        for k in &kept {
+            if *k != oe && contains_at_zero(&oe, k, x)? {
+                continue;
+            }
+            next.push(k.clone());
+        }
+        kept = next;
+    }
+    Some(add(&kept))
+}
+
+/// A factored sum that became a product (`(x**20*exp(1/x) + 1)/x**20`):
+/// the leading term of the product is the product of the leading terms of
+/// its factors (`Mul._eval_as_leading_term`). A sum factor, raised to an
+/// integer power, is replaced by its single dominant term; a sum factor
+/// with several incomparable terms declines (the reference expands it by
+/// series, not admitted here).
+fn leading_product(f: &Expr, x: &Expr) -> Option<Expr> {
+    let Kind::Mul(_, facs) = f.kind() else { return None };
+    let mut changed = false;
+    let mut out = Vec::with_capacity(facs.len());
+    for (b, k) in facs {
+        if b.is_add() && depends(b, x) && k.as_number().is_some_and(|n| n.is_integer()) {
+            let s = leading_sum(b, x)?;
+            if s.is_add() || s.is_zero() {
+                return None;
+            }
+            out.push(crate::ops::pow(&s, k));
+            changed = true;
+        } else if depends(b, x) || depends(k, x) {
+            out.push(crate::ops::mul_factor(b, k));
+        }
+    }
+    if !changed {
+        return None;
+    }
+    Some(crate::ops::mul(&out))
 }

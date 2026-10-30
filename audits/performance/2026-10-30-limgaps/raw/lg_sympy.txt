@@ -4,7 +4,7 @@ loggamma(x)/x -> Limit(loggamma(x)/x, x, -oo, dir='+')
 loggamma(x)+x -> Limit(x + loggamma(x), x, -oo, dir='+')
 2*loggamma(x) -> zoo
 loggamma(x)**2 -> zoo
-1/loggamma(x) ->
+1/loggamma(x) -> 0
 loggamma(2*x) -> zoo
 loggamma(x)+loggamma(x+1) -> Limit(loggamma(x) + loggamma(x + 1), x, -oo, dir='+')
 loggamma(-x) -> oo

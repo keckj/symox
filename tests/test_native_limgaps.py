@@ -142,3 +142,72 @@ def test_bounded_factor_times_rounding(expr, expected):
 def test_bounded_sum_with_rounding_stays_held():
     # SymPy 1.14 leaves this unevaluated (term-wise heuristics meet oo - oo)
     assert isinstance(limit(sin(x) + floor(x) - x, x, oo), Limit)
+
+
+@pytest.mark.parametrize('expr, expected', [
+    (lambda: O(exp(1/x) + x**-20), lambda: O(exp(1/x))),
+    (lambda: O(exp(1/x)) + O(x), lambda: O(exp(1/x))),
+    (lambda: O(exp(2/x)) + O(x**-3), lambda: O(exp(2/x))),
+    (lambda: O(exp(1/x)) + O(exp(2/x)), lambda: O(exp(2/x))),
+    (lambda: O(exp(-1/x)) + O(x), lambda: O(x)),
+    (lambda: O(exp(1/x)) + 1, lambda: O(exp(1/x))),
+    (lambda: O(x) + exp(-1/x), lambda: O(x)),
+    (lambda: O(x + exp(-1/x)), lambda: O(x)),
+    (lambda: O(x**2*exp(1/x) + x), lambda: O(x**2*exp(1/x))),
+    (lambda: O(exp(1/x)*(x + 1)), lambda: O(exp(1/x))),
+    (lambda: O(x + factorial(x), (x, oo)), lambda: O(factorial(x), (x, oo))),
+    (lambda: O(x*factorial(x) + x**2, (x, oo)), lambda: O(x*factorial(x), (x, oo))),
+    (lambda: O(x**2 + x**x, (x, oo)), lambda: O(exp(x*log(x)), (x, oo))),
+    (lambda: O(x*2**x, (x, oo)), lambda: O(x*exp(x*log(2)), (x, oo))),
+])
+def test_order_sums_and_containment(expr, expected):
+    assert expr() == expected()
+
+
+def test_order_containment_undecided_keeps_terms():
+    # limit(exp(1/x)/exp(2/x), x, 0+) is 0: not contained, both kept
+    assert (O(exp(1/x)) + exp(2/x)).has(exp(2/x))
+
+
+@pytest.mark.parametrize('expr, expected', [
+    (lambda: O(x*sin(x), (x, oo)), lambda: O(x, (x, oo))),
+    (lambda: O(sin(x), (x, oo)), lambda: O(1, (x, oo))),
+    (lambda: O(sin(x)**2, (x, oo)), lambda: O(1, (x, oo))),
+    (lambda: O(cos(x)/x, (x, oo)), lambda: O(1/x, (x, oo))),
+    (lambda: O(tan(x), (x, oo)), lambda: O(1, (x, oo))),
+    (lambda: O(sin(1/x)), lambda: O(1, x)),
+    (lambda: O(log(x)*sin(1/x)), lambda: O(log(x))),
+    (lambda: O(x*sin(x) + 1, (x, oo)), lambda: O(x, (x, oo))),
+    (lambda: O(x**x*sin(x), (x, oo)), lambda: O(exp(x*log(x)), (x, oo))),
+    (lambda: O(sin(x) + cos(x), (x, oo)), lambda: O(1, (x, oo))),
+])
+def test_order_bounded_trig_factors(expr, expected):
+    assert expr() == expected()
+
+
+def test_order_trig_factors_kept_like_reference():
+    # a product of functions only raising PoleError, and an argument whose
+    # value at 0 is nan, are kept by the reference too
+    assert O(sin(x)*exp(x), (x, oo)).expr == exp(x)*sin(x)
+    assert O(sin(1/x - 1/x**2)).expr == sin(1/x - 1/x**2)
+
+
+@pytest.mark.parametrize('expr', [
+    lambda: frac(x**2 + x).series(x, oo),
+    lambda: frac(exp(1/x)).series(x),
+    lambda: (frac(exp(1/x)) + x).series(x),
+    lambda: (2*frac(exp(1/x))).series(x),
+    lambda: frac(sin(1/x)).series(x),
+])
+def test_frac_series_with_nan_argument(expr):
+    assert expr() is S.NaN
+
+
+def test_floor_series_laurent_argument():
+    assert floor(1/p + p).series(p) == AccumBounds(p - 1 + 1/p, p + 1/p)
+    assert ceiling(1/p + p).series(p) == AccumBounds(p + 1/p, p + 1 + 1/p)
+
+
+def test_bounded_limit_absorbs_symbolic_constant():
+    assert limit(atan(x) + sin(x), x, oo) == AccumBounds(-1 + pi/2, 1 + pi/2)
+    assert limit(sin(x) + cos(x) + E, x, oo) == AccumBounds(-2 + E, 2 + E)

@@ -22,8 +22,11 @@
 //!   other variable is the `ValueError` of `accum_floor`) and for
 //!   `nseries` at `0+`.
 //!
-//! Everything else declines (the previous `PoleError`): `frac(x**2 + x)`
-//! at `oo`, whose `arg0` is `nan` (the reference returns `nan`), products
+//! * a sum holding `c*frac(a)` whose `a.subs(x, 0)` is `nan`
+//!   (`frac(x**2 + x)` at `oo`, `frac(exp(1/x))` at 0): `nan`, the value of
+//!   the reference, once the rest of the sum has a native expansion.
+//!
+//! Everything else declines (the previous `PoleError`): products
 //! of a bounded node by a variable, and `floor` of an argument whose
 //! expansion is not exact (the reference keeps an unevaluated sum).
 
@@ -89,6 +92,23 @@ fn scaled_frac(t: &Expr, u: &Expr) -> Option<Expr> {
     }
 }
 
+/// `c*frac(a)` with a real number `c` and `a.subs(x, 0)` equal to `nan`
+/// (`frac(x**2 + x)` at `oo`, `frac(exp(1/x))` at 0): `frac._eval_nseries`
+/// then expands `arg - nan`, and the value is `nan`.
+fn nan_frac(t: &Expr, u: &Expr) -> bool {
+    let (c, f) = match t.kind() {
+        Kind::Mul(c, facs) if facs.len() == 1 && facs[0].1.is_one() => (Some(c.clone()), facs[0].0.clone()),
+        _ => (None, t.clone()),
+    };
+    if c.is_some_and(|c| c.is_zero()) {
+        return false;
+    }
+    match step_of(&f) {
+        Some((Step::Frac, a)) => depends(&a, u) && subs1(&a, u, &Expr::zero()).is_constant(Constant::NaN),
+        _ => false,
+    }
+}
+
 /// The order term `O((x - x0)**n)` of an expansion at `x0` (`O(1)` for
 /// `n <= 0`).
 fn order_at(x: &Expr, x0: &Expr, n: i64) -> Expr {
@@ -124,7 +144,7 @@ pub fn accum_series_value(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, ns
         }
         // an exact (Laurent polynomial) expansion of the argument
         let s = crate::series::series(&a, &u, &Expr::zero(), n.max(1), false).ok()?;
-        if s.may_have_order() || crate::series::engine::degree_in(&crate::ops::mul2(&s, &pow(&u, &Expr::int(64))), &u).is_none() {
+        if s.may_have_order() || crate::series::engine::degree_in(&crate::expand::expand(&crate::ops::mul2(&s, &pow(&u, &Expr::int(64)))), &u).is_none() {
             return None;
         }
         let back_map = |e: &Expr| xreplace(e, &std::iter::once((u.clone(), back.clone())).collect());
@@ -140,9 +160,14 @@ pub fn accum_series_value(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, ns
     let (mut lo, mut hi) = (Expr::zero(), Expr::zero());
     let mut rest = Vec::new();
     let mut found = false;
+    let mut nan = false;
     for t in terms {
         if !has_step(&t, &u) {
             rest.push(t);
+            continue;
+        }
+        if nan_frac(&t, &u) {
+            nan = true;
             continue;
         }
         let c = scaled_frac(&t, &u)?;
@@ -153,13 +178,16 @@ pub fn accum_series_value(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, ns
             hi = add(&[hi, c]);
         }
     }
-    if !found {
+    if !found && !nan {
         return None;
     }
     // the rest is expanded in the original variable
     let back_map = |e: &Expr| xreplace(e, &std::iter::once((u.clone(), back.clone())).collect());
     let r = back_map(&add(&rest));
     let rs = crate::series::series(&r, x, x0, n, minus).ok()?;
+    if nan {
+        return Some((None, Expr::nan()));
+    }
     let rs = add(&[rs, order_at(x, x0, n)]);
     if n <= 0 {
         return Some((None, rs));

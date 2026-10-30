@@ -35,6 +35,18 @@ CASES = [
  "limit(sin(x)**2, x, oo)",
  "limit(cos(x)**3 + 1, x, oo)",
  "limit(sin(x)**2*cos(x), x, oo)",
+ "O(exp(1/x)) + O(x)",
+ "O(exp(1/x) + x**-20)",
+ "O(x + factorial(x), (x, oo))",
+ "O(x**2 + x**x, (x, oo))",
+ "O(x*log(x) + sin(x), (x, oo))",
+ "O(x*sin(x), (x, oo))",
+ "O(exp(1/x)*(x + 1))",
+ "frac(x**2 + x).series(x, oo)",
+ "frac(exp(1/x)).series(x)",
+ "floor(1/p + p).series(p)",
+ "floor(1/sin(p)).series(p)",
+ "limit(atan(x) + sin(x), x, oo)",
 ]
 signal.signal(signal.SIGALRM, lambda *a: (_ for _ in ()).throw(TimeoutError()))
 for c in CASES:

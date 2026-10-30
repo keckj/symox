@@ -161,3 +161,21 @@ fn limgaps_values_from_sympy() {
     // Held: factorial(x)/x and gamma(x)/x at -oo oscillate through poles.
     assert!(lim("factorial(x)/x", "-oo", Dir::Plus).starts_with("ERR"));
 }
+
+#[test]
+fn limgaps_order_forms_from_sympy() {
+    use crate::series::order::order;
+    let x = Expr::symbol("x");
+    let o = |e: &str, p: &str| order(&parse_str(e).unwrap(), &[(x.clone(), parse_str(p).unwrap())]).to_string();
+    // Order.contains by the limit of the ratio, sums whose factored form is
+    // a product, PoleError factors, bounded trigonometric factors
+    assert_eq!(o("exp(1/x) + x**(-20)", "0"), "O(exp(1/x))");
+    assert_eq!(o("x + exp(-1/x)", "0"), "O(x)");
+    assert_eq!(o("x + factorial(x)", "oo"), "O(factorial(x), (x, oo))");
+    assert_eq!(o("x*sin(x)", "oo"), "O(x, (x, oo))");
+    assert_eq!(o("tan(x)", "oo"), "O(1, (x, oo))");
+    assert_eq!(o("exp(1/x)*(x + 1)", "0"), "O(exp(1/x))");
+    assert_eq!(o("sin(x)*exp(x)", "oo"), "O(exp(x)*sin(x), (x, oo))");
+    let sum = crate::ops::add(&[parse_str("O(exp(1/x))").unwrap(), parse_str("O(x)").unwrap()]);
+    assert_eq!(sum.to_string(), "O(exp(1/x))");
+}

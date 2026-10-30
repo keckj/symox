@@ -1,0 +1,14 @@
+[
+[
+"cancellation in symbolic leading term",
+"Limit((-zeta(x) + zeta(x + exp(-x)))*exp(x*(log(2) + 1)), x, oo, dir='-')"
+],
+[
+"continuity of an undefined function is not known",
+"Limit(f(x), x, 4, dir='+')"
+],
+[
+"continuity of an undefined function is not known",
+"Limit(x*f(x)**2/(x**2 + f(x)**4), x, 0, dir='+')"
+]
+]
