@@ -1,6 +1,7 @@
 //! Exact scalar probability kernels. Unsupported inputs retain the caller's
 //! general probability model; None never denotes a zero expectation.
 use crate::{Expr, Number, ops};
+pub mod markov;
 use crate::poly::expression_domain::dict_from_expr;
 use num_bigint::BigInt;
 

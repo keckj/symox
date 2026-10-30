@@ -13714,3 +13714,91 @@ SymPy test_prde.py: 3 failed, 12 passed before, 1 failed, 14 passed after
 `test_prde_special_denom` still fails); test_risch.py: 5 failed, 31
 passed before and after (same failing tests). Measured:
 [audit](../audits/performance/2026-10-30-prdefrac/README.md).
+
+
+## markovrust (wave 33): native finite Markov chain computations, 2026-10-30
+
+Native kernels in `symox::stats::markov` (crates/symox-core/src/stats/markov.rs,
+binding crates/symox-py/src/markov.rs, admission
+python/symox/stats/_markov_native.py). Only stock `ImmutableDenseMatrix` /
+`MutableDenseMatrix` transition matrices of native expressions are admitted
+(a matrix subclass, host objects or matrix entries decline to the Python
+path, which is the SymPy statement sequence).
+
+- `communication_classes`: Tarjan's components over the structural pattern
+  `T[i, j] != 0` (a `Float(0.0)` entry is an edge, as in SymPy), the
+  recurrence test with the reference `sum(row) - 1` (native binary `+`, so
+  symbolic entries are decided exactly as in SymPy), and the reference period
+  search, including CPython's iteration order of the `set` of successors
+  (simulated table, verified against CPython on the orders SymPy produces).
+  `decompose`, `canonical_form`, `is_regular`, `is_ergodic` and
+  `is_absorbing_chain` build on it (the last three are the SymPy wrappers).
+- `stationary_distribution` / `fixed_row_vector` / `limiting_distribution`
+  of a rational chain: the reference system (`(P - I)^T` with its first row
+  replaced by ones) solved over exact rationals when the solution is unique.
+- `fundamental_matrix`, `absorbing_probabilities` (new methods, with the
+  deprecated `absorbing_probabilites` and `is_absorbing_state`): the
+  reference `(I - Q)^-1` or `(I - P + W)^-1` and `N*R` over exact
+  rationals, with SymPy's ValueError "The fundamental matrix doesn't
+  exist." on a singular matrix and the 0x0 results of the empty chain.
+- `ContinuousMarkovChain.limiting_distribution` of a rational generator: the
+  linear system `w G = 0`, `sum(w) = 1` over exact rationals.
+- The path enumeration of `P` and `E` queries on discrete and continuous
+  chains (odometer order over the state tuples, weights as products of the
+  kernel entries, indicator of the gate and event by simultaneous
+  substitution, the E term substituted by the state labels): one native
+  call per query. The random atoms are replaced by plain dummies before the
+  call; an undecided indicator declines to the Python loop.
+
+Python glue over native operations (not a new kernel):
+`ContinuousMarkovChain.transition_probabilities(gen_mat)` is now the SymPy
+method (`Lambda(t, Q*exp(t*D)*Q.inv())` for a diagonalizable generator,
+else `Lambda(t, exp(t*gen_mat))`, None without a matrix) over the native
+diagonalization, matrix exponential and inverse.
+
+Still on the Python path: symbolic or Float stationary distributions
+(`linsolve` with the free `tau` parameters), symbolic or Float fundamental
+matrices (the reference statements over native `det` / `inv`), non-unique
+stationary vectors, the CTMC limiting distribution of a symbolic generator,
+and Str-valued `E` queries (TypeError as in SymPy).
+
+Intentional corrections:
+
+- SymPy 1.14's period search never terminates on some classes: it keeps only
+  the successors of the last element of each frontier, e.g.
+  `[[0,1/2,1/2,0,0],[0,0,0,1,0],[1,0,0,0,0],[0,0,0,0,1],[1,0,0,0,0]]`
+  (SymPy loops forever in `communication_classes`). The kernel runs the
+  reference search and, when it stalls for more than n + 1 rounds, returns
+  the true period (gcd over the class edges of level(u) + 1 - level(v); 2
+  here). The Python fallback for declined inputs still follows SymPy.
+- Probabilities conditioned on several observation times follow the Markov
+  property: `P(Eq(X[3], 0), Eq(X[0], n-1) & Eq(X[1], 0))` is `(T^2)[0, 0]`
+  (SymPy 1.14 returns `(T^3)[n-1, 0]`, ignoring `X[1]`), and a conditioning
+  event of probability zero raises ValueError. This is the behaviour of the
+  path enumeration since wave 21 (spec7), kept by the native kernel.
+
+SymPy's test_stochastic_process.py (statement level, symox-substituted
+copy): 306/452 before, 331/452 after (SymPy 452/452); fixed: the
+fundamental matrix, absorbing probabilities, regularity, ergodicity and
+absorbing-chain statements of test_DiscreteMarkovChain (lines 343-381,
+458-496) and the two `transition_probabilities(A)` statements of
+test_ContinuousMarkovChain; no statement regressed.
+
+Remaining gaps (not changed by this wave):
+
+- CTMC queries: `P(Eq(C2(1), 1), Eq(C2(0), 1))` returns
+  `(1 + exp(2))*exp(-2)/2` (the final `simplify` of the query), SymPy
+  `exp(-2)/2 + 1/2`; the same form difference fails the CTMC statements
+  612, 613, 615, 619, 622, 630, 640; 621 does not raise KeyError, 629
+  (Symbol states) is refused.
+- DTMC query semantics: conditions that are not at the earliest time
+  (`P(Eq(YS[1], 1), Eq(YS[2], 2))`), symbolic transition matrices with
+  states outside `0..n-1`, `TransitionMatrixOf` / `StochasticStateSpaceOf`
+  conditions, `Probability` objects as conditions (513, 525),
+  `joint_distribution`, `index_set` (Naturals0), the state space of a
+  symbolic-size `Range`, `stationary_distribution(condition_set=True)` with
+  `subs` of a matrix, and the constructor TypeErrors of SymPy.
+
+Measured: [audit](../audits/performance/2026-10-30-markovrust/README.md)
+(0.01-0.10 times SymPy's time on the calls SymPy answers, path queries 0.03 times the
+previous Python loop).
