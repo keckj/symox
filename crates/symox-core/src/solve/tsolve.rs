@@ -764,8 +764,21 @@ fn bivariate_inner(p: &crate::poly::polyobj::Poly, x0: &Expr, y0: &Expr) -> Opti
 fn numeric_small(val: &Expr) -> Option<bool> {
     let p18 = crate::bigfloat::dps_to_prec(18);
     let p12 = crate::bigfloat::dps_to_prec(12);
-    let v = crate::evalf_mp::evalf(val, p18);
-    let v = crate::evalf_mp::evalf_chop(&v, p12, -(p12 as i128));
+    let cutoff = -(p12 as i128);
+    // `abs(val.n(18).n(12, chop=True)) < 1e-9` is an absolute test: the
+    // value is evaluated at 18 digits under the 12-digit chop cutoff
+    // directly, so that a candidate whose residual is an exact zero is not
+    // chased through the whole cancellation budget before being chopped.
+    // A chopped part is proven below the cutoff (far below 1e-9) and an
+    // unchopped one is resolved to 18 digits, so the decision is the one of
+    // the two-step evaluation, which is kept when this one gives no number.
+    let direct = crate::evalf_mp::evalf_chop(val, p18, cutoff);
+    let v = if free_symbols(&direct).is_empty() && !has_illegal(&direct) && crate::evalf::eval_c64(&direct).is_some() {
+        crate::evalf_mp::evalf_chop(&direct, p12, cutoff)
+    } else {
+        let v = crate::evalf_mp::evalf(val, p18);
+        crate::evalf_mp::evalf_chop(&v, p12, cutoff)
+    };
     if !free_symbols(&v).is_empty() || has_illegal(&v) {
         return None;
     }

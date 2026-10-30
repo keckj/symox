@@ -13121,8 +13121,13 @@ Remaining gaps:
 - The native `_invert` returns `(eq, 0)` when `eq` is free of the symbol,
   as the reference does. Before this, its loop never ended on `0`, which
   hung test_issue_24368.
-- The `checksol` filtering slows the Lambert cases to about 140 ms per
-  repeated call; they remain faster than SymPy. Measurements are in
+- The numerical test of `checksol` evaluates the residual directly under
+  the 12-digit chop cutoff. This takes the same decision as
+  `.n(18).n(12, chop=True)`, and that two-step evaluation is still used
+  when the direct one gives no number. Before this, a correct candidate's
+  exact-zero residual was chased to the 4096-bit cancellation budget,
+  which made the Lambert cases cost about 140 ms; they now take about
+  15 ms. Measurements are in
   [audits/performance/2026-10-29-tsolverust](../audits/performance/2026-10-29-tsolverust/README.md).
 - Copied `test_solvers.py`: 55 failed / 78 passed before, 54 failed / 79
   passed after.
