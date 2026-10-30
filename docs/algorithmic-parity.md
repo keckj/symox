@@ -13445,7 +13445,7 @@ Matrix expressions (crates/symox-core/src/matrixexpr.rs, Rust):
     factors (`Trace(N*M)*P` prints as in SymPy; it printed `Trace(M*N)*P`);
   - otherwise the coefficient moves out of the trace of the product.
 
-  Intentional correction, en attente de validation utilisateur: symox
+  Intentional correction, validated by the user on 2026-10-30: symox
   used to canonicalize `Trace(MatMul)` over cyclic rotations and over the
   reversed transposes, so `trace(A*B) == trace(B*A)` and
   `trace(A*B) == trace((A*B).T)` held. SymPy 1.14 gives False for both and
@@ -15032,12 +15032,14 @@ front end. Of the 90 oscillating limits on these files:
 
 The walker cases are not ported to Rust. They are recorded below as a gap.
 
-Intentional deviation, en attente de validation utilisateur:
+Intentional deviation, validated by the user on 2026-10-30:
+`limit(factorial(x)/x, x, -oo)` and `limit(gamma(x)/x, x, -oo)` stay
+held. SymPy 1.14 returns 0 through `0*gamma(-oo)`, but the quotient
+passes through poles arbitrarily close to `-oo`. This is the limitsrest
+choice, kept unchanged.
 
-- `limit(factorial(x)/x, x, -oo)` and `limit(gamma(x)/x, x, -oo)` stay
-  held. SymPy 1.14 returns 0 through `0*gamma(-oo)`, but the quotient
-  passes through poles arbitrarily close to `-oo`. This is the limitsrest
-  choice, kept unchanged.
+Still en attente de validation utilisateur:
+
 - The deviations listed in the task are kept unchanged: the one-sided
   `Piecewise` limit, `limit(atan(a*x)/x, x, oo) = 0`,
   `limit(subfactorial(x)/factorial(x), x, oo)`, and the `Abs`/`sign(c)`
@@ -15690,7 +15692,9 @@ mathematical difference from the reference): for the random `vop_013`,
 inside integration, where before it returned held integrals. SymPy 1.14
 does not finish this call in 30 s either. The hinted and default calls
 (`simplify=True`) still return the before result. The cause is in the
-integration path, which this lot does not change.
+integration path, which this lot does not change. The user accepted
+keeping the `dotprodsimp` fix on 2026-10-30; the integration cost of
+`vop_013` stays an open gap.
 
 Evidence: [audit](../audits/performance/2026-10-30-odepart/README.md).
 
