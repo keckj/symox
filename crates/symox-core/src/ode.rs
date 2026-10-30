@@ -6,6 +6,8 @@
 //! linear equations (integrating factor), separable and Bernoulli
 //! first-order equations. Initial conditions solve for the constants.
 
+pub mod classify;
+
 use rustc_hash::{FxHashMap,FxHashSet};
 
 use crate::diff::diff;

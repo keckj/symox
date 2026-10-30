@@ -1142,7 +1142,11 @@ def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta
     if order == 1:
 
         # NON-REDUCED FORM OF EQUATION matches
-        r = collect(eq, df, exact=True).match(d + e * df)
+        from ._classify_native import split_de, _MISSING
+        collected = collect(eq, df, exact=True)
+        r = split_de(collected, df, d, e, f(x).diff(x, 2))
+        if r is _MISSING:
+            r = collected.match(d + e * df)
         if r:
             r['d'] = d
             r['e'] = e
@@ -1210,7 +1214,10 @@ def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta
 
 
     # Order keys based on allhints.
-    retlist = [i for i in allhints if i in matching_hints]
+    from ._classify_native import ordered_hints
+    retlist = ordered_hints(matching_hints)
+    if retlist is None:
+        retlist = [i for i in allhints if i in matching_hints]
     if dict:
         # Dictionaries are ordered arbitrarily, so make note of which
         # hint would come first for dsolve().  Use an ordered dict in Py 3.
