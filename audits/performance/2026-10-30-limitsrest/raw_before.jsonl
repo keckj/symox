@@ -1,0 +1,12 @@
+{"call": "lim_pow4", "lib": "symox", "result": "TIMEOUT"}
+{"call": "lim_pow4b", "lib": "symox", "first": 0.10905893599556293, "median": 0.0889743469961104, "result": "Limit(1/x + 4**x/2**(2*x), x, oo, dir='-')"}
+{"call": "lim_ei", "lib": "symox", "first": 0.0017462869946029969, "median": 0.0007631430053152144, "result": "-1"}
+{"call": "lim_ugamma", "lib": "symox", "first": 0.0015079419972607866, "median": 0.0005510030023287982, "result": "1"}
+{"call": "lim_stirling", "lib": "symox", "first": 0.018222555998363532, "median": 0.0009495600024820305, "result": "0"}
+{"call": "lim_sinx", "lib": "symox", "first": 0.0008605360053479671, "median": 0.00020171199867036194, "result": "1"}
+{"call": "ser_abs_cdir", "lib": "symox", "first": 0.0003373549989191815, "median": 6.592199497390538e-05, "result": "x"}
+{"call": "ser_log_cdir", "lib": "symox", "first": 0.0002513310028007254, "median": 6.227999983821064e-05, "result": "log(x)"}
+{"call": "ser_abs_cdirI", "lib": "symox", "first": 0.00043015800474677235, "median": 6.889400538057089e-05, "result": "x"}
+{"call": "ser_nonsym", "lib": "symox", "first": 0.0005036020011175424, "median": 0.00012747900473186746, "result": "O(a**8*b**8)"}
+{"call": "ser_logx", "lib": "symox", "first": 0.0005001809986424632, "median": 0.00018822099809767678, "result": "-x"}
+{"call": "ser_sin", "lib": "symox", "first": 0.00041668800258776173, "median": 8.91050003701821e-05, "result": "x - x**3/6 + x**5/120 - x**7/5040 + x**9/362880 + O(x**10)"}

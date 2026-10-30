@@ -13802,3 +13802,56 @@ Remaining gaps (not changed by this wave):
 Measured: [audit](../audits/performance/2026-10-30-markovrust/README.md)
 (0.01-0.10 times SymPy's time on the calls SymPy answers, path queries 0.03 times the
 previous Python loop).
+
+## Limits and series front end (wave 35, limitsrest)
+
+Native now (crates/symox-core):
+
+- `series/direction.rs`: the `Expr.series` front end of SymPy 1.14. A
+  nonzero numeric `cdir` selects the side (`'+'` for a positive real part
+  or a positive imaginary part); at an infinite point a real `cdir` picks
+  `+-oo`; a nonreal `cdir` expands `e(x0 + u*t)` (or `e(u/t)` at an infinite
+  point) at `0+` in a positive dummy with `u = cdir/|cdir|` and substitutes
+  back, so `Abs(x).series(x, 0, cdir=I)` is `-I*x`. A non-symbol variable
+  (`series(exp(a*b), a*b)`) is expanded in a dummy. `logx` replaces `log(x)`
+  by a fresh symbol before and after the expansion and by `logx` once, so
+  `log(-log(x)).nseries(x, logx=-x)` is `log(x)`. Binding:
+  `_core._series(..., logx=, cdir=)` and `_core._series_direction`.
+- `limits/exact_sign.rs`: the Gruntz sign of an x-free constant first tests
+  for an exact zero after `expand_log` (perfect powers: `log(4) - 2*log(2)`
+  is 0), before any numerical evaluation. `2**(-x)*sqrt(4**(x+1)+1)` at
+  `oo` is 2 (it hung before), `4**x/2**(2*x)` is 1.
+- `limits/gruntz/abs_power.rs`: `Abs(b**p)` with `b` and `p` real on the
+  positive variable is `b**p` or `(-b)**p` by the Gruntz sign of `b`
+  (`Abs((-x/(x+1))**x)` at `oo` is `exp(-1)`).
+- `series/order.rs`: `O(1)` absorbs `O(x)` at 0, `O(1/x)` absorbs `O(1)`,
+  as SymPy's `Order.contains` with a constant.
+
+Admission in Python (no computation): the bounds walk keeps a power held
+when an oscillating base may be negative under an irrational, infinite or
+oscillating exponent (`sin(x)**log(x)`, `sin(x)**cos(x)`,
+`tan(x)**(2**sqrt(pi))`, issues 14276 and 18442, held as in SymPy; a
+rational exponent such as `sqrt(sin(1/x))` stays a bounds power); the
+lower-side branch rewrite at infinity skips arguments nonnegative on the
+real tail before evaluating them at `10**10`.
+
+Fallbacks: a symbolic or undecided `cdir` keeps the previous behaviour (the
+direction is ignored, as before this wave); `logx` with a complex `cdir`
+and `logx` with Piecewise go through the previous Python substitution.
+
+Remaining gaps: `w**(1 - 1/log(3))` (irrational exponent) in the series
+engine, so `limit((1 + x**log(3))**(1/x), x, 0)` is held (SymPy 1);
+`(Abs(x+y) - Abs(x-y))/(2*x)` at 0 (SymPy `sign(y)`); `factorial(x)` at
+`-oo` (SymPy `gamma(-oo)`); `limit(((x**(x+1)+(x+1)**x)/x**(x+1))**x, x,
+oo)` (SymPy `exp(E)`); `cos(x)*floor(x)/x` and `floor(1/w).nseries` with
+bounds; `floor(x).series(x, oo)` raises PoleError (SymPy ValueError);
+`sin(Piecewise(...)).series`; `O(x**2).subs(x, cos(x))` moving the point;
+`O(x**2).diff(x)`, `O(nan)`, `Order(log(x) + 1/log(x))`; `limit(1 + O(x**2),
+x, 1)`; `nseries(..., cdir=)` is not passed to the term expansions
+(`frac(x).nseries(x, 0, 3, cdir=-1)` is `x`, SymPy `x + 1`); `AccumBounds`
+is not exported by `from symox import *`. Kept on purpose:
+`limit(subfactorial(x)/factorial(x), x, oo)` stays held (SymPy returns 0,
+the true limit is `1/e`), and the earlier corrections (one-sided Piecewise
+limits, `limit(atan(a*x)/x, x, oo) = 0`).
+
+Measured: [audit](../audits/performance/2026-10-30-limitsrest/README.md).
