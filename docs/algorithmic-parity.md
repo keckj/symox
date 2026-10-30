@@ -13856,6 +13856,12 @@ Round 2 (same branch), also native:
   the dummy-substitution test on `eq_preprocessed`) and the positive
   `Riccati_special_minus2` match above.
 
+Round 3, also native: `symox::ode::liouville`, the order-two
+`SinglePatternODESolver` matches of `Liouville` (`d*f'' + e*f'**2 + k*f'` on
+`collect(eq, [f', f], cancel)`) and `2nd_nonlinear_autonomous_conserved`
+(`f'' + fy` on `collect(expand(eq/eq.coeff(f'')), [f', f], cancel)`); the
+solvers' `_verify` steps (`simplify`, `is_autonomous`) stay in Python.
+
 Floats in a value compared with `0` decline (SymPy's `Float(0) != 0` is
 true, the native zero test is not), as do non-polynomial `deq` values (the
 reference then matches the expanded numerator again), unmodelled content
@@ -13866,11 +13872,11 @@ order-two power series substitution) and non-commutative input.
 Still in Python: `factorable` (its decision runs `collect`/`cancel`,
 `factor` twice and `solve(eq, df)` on almost every equation; porting only
 the factor branch would duplicate work on declines, and a native `solve`
-with SymPy parity is out of scope), `nth_algebraic`, `Liouville`,
+with SymPy parity is out of scope), `nth_algebraic`,
 `lie_group`, the trial set generation of the undetermined-coefficients
 hints, `eq_preprocessed`/`eq_high_order_free`, `equivalence_hypergeometric`
 and `match_2nd_2F1`, the positive `2nd_linear_bessel` match (factor and
-simplify chain), the `2nd_nonlinear_autonomous_conserved` match, and the
+simplify chain), and the
 solvers' own `_verify`/`_get_general_solution` steps. `cancel` and
 `factor` are the public callables passed to the kernels.
 
@@ -13880,6 +13886,22 @@ mismatches are SymPy reference timeouts; run alone, SymPy 1.14's
 No `hinted`/`default` mismatch is caused by classification (triage table in
 the audit). Differential test over the corpus and 74 extra equations: 0
 disagreements with the reference matcher. No intentional correction.
+
+Not attempted in round 3 within the time budget (still Python):
+`match_2nd_2F1_hypergeometric`/`equivalence_hypergeometric` and the
+positive Bessel chain (their steps are `factor`, `simplify`, `powdenest`,
+`roots` and `sqrt` chains whose exact forms define the wild values),
+`eq_preprocessed`/`eq_high_order_free`, the `nth_algebraic` detection, and
+the solution construction of `nth_linear_constant_coeff_homogeneous` and
+`nth_linear_euler_eq_homogeneous`.
+
+Round 3 evidence: `difftest_liouville.py`, 4880 decisions (944 matches,
+3551 agreements, 385 declines), 0 disagreements. Full suite 58548
+passed (one order-dependent failure,
+`test_polymatrix_diffgeom_protocol.py::...[tensor]` after
+`test_diffgeom_completion.py` and `test_gaps_misc_parity.py`, reproduces
+on main), cargo test 806 passed, ODE corpus at baseline with 0 per-case
+differences, integration corpus at baseline.
 
 Round 2 evidence: differential tests against the reference matchers, 0
 disagreements (`difftest_linear.py` 9368 decisions, `difftest_second.py`

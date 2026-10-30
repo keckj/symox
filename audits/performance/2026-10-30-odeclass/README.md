@@ -272,6 +272,44 @@ faster than SymPy on these cases. Bessel and 2F1 gain least: their
 remaining cost is `factorable`, the Bessel factor chain and
 `match_2nd_2F1`, which stay in Python.
 
+## Round 3: Liouville and 2nd_nonlinear_autonomous_conserved
+
+| Fix | Where | Native decision |
+| --- | --- | --- |
+| `Liouville` match `d*f'' + e*f'**2 + k*f'` on `collect(eq, [f', f], cancel)` | Rust, `crates/symox-core/src/ode/liouville.rs` | match / no match / decline |
+| `2nd_nonlinear_autonomous_conserved` match `f'' + fy` on `collect(expand(eq/eq.coeff(f'')), [f', f], cancel)` | Rust, `liouville.rs` | match / no match / decline |
+| `_verify` of both (`simplify`, `is_autonomous`) | Python (solver step) | - |
+| `match_2nd_2F1_hypergeometric`, `equivalence_hypergeometric`, positive Bessel chain | Python, not attempted (time budget) | - |
+| `eq_preprocessed`, `eq_high_order_free` | Python, not attempted (time budget) | - |
+| `nth_algebraic` detection | Python, not attempted (time budget) | - |
+| solution construction of `nth_linear_constant_coeff_homogeneous`, `nth_linear_euler_eq_homogeneous` | Python, not attempted (time budget) | - |
+
+Binding `ode_second_order_patterns` (`crates/symox-py/src/ode_classify.rs`),
+admission in `_classify_native.py` (`solver_match` at order two for these two
+solvers, one kernel call per problem). Same declines as the first-order
+kernel (`I`, infinities, `nan`, Floats, piecewise, relational, binders,
+matrices, non-commutative input) and a zero `eq.coeff(f'')` for the
+conserved pattern.
+
+`difftest_liouville.py` (order-two corpus equations and 4600 generated
+three-term equations): Liouville 593 matches, 1845 agreements, 2 declines;
+conserved 351 matches, 1706 agreements, 383 declines; 0 disagreements, 0
+errors. `tests/test_native_odeliouville.py`: 23 SymPy 1.14 rows (both
+matches with `wilds_match()`, `classify_ode` tuples), native equal to
+stock, one dsolve; 51 passed. Copied SymPy ODE tests: the same 22 failures.
+
+Validation of round 3: full suite on demeter, 58548 passed. One failure,
+`test_polymatrix_diffgeom_protocol.py::test_changed_actual_geometry_function_state_declines_without_callbacks[tensor]`,
+is order dependent: it needs `test_diffgeom_completion.py` and then
+`test_gaps_misc_parity.py` to run first in the same process, which the new
+test file's shard layout produced. It reproduces with those three files on
+main, and no ODE code is involved. cargo test: 806 passed, 1 ignored; the
+doctests pass 5/5 when run serially. Clippy correctness: clean. ODE corpus:
+{'cls': 303, 'hint': 279, 'def': 274, 'n': 315}, with 0 per-case differences
+in classify/hinted/default against int-173328b9 and round 2. The classify
+time sum is 8.52 s (round 2 11.45 s, base 27.24 s). Integration corpus:
+{"COND": 20, "DIFF": 10, "EQUIV": 8, "MISSING": 1, "SAME": 1171}, the baseline.
+
 ## Reproduce
 
 ```
@@ -281,4 +319,5 @@ PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python diffte
 PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python difftest_linear.py <sspeed>/cases.json linear_eqs.py
 PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python difftest_second.py <sspeed>/cases.json 20
 PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python difftest_reducible.py <sspeed>/cases.json
+PYTHONPATH=<worktree>/python /home/keckj/Documents/symox/.venv/bin/python difftest_liouville.py <sspeed>/cases.json
 ```
