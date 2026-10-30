@@ -8,6 +8,7 @@ use symox::ode::classify::{self, Hooks, Outcome};
 use symox::ode::linear;
 use symox::ode::second::{self, PowerSeries2};
 use symox::ode::reducible;
+use symox::ode::liouville;
 use symox::Expr;
 
 use crate::{to_expr, wrap as w};
@@ -177,7 +178,34 @@ fn ode_nth_order_reducible(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_,
     })
 }
 
+/// Order-two `Liouville` and `2nd_nonlinear_autonomous_conserved` matches
+/// of `eq_expanded`: a dict whose entries are a tuple of the wild values,
+/// `False` (no match) or `None` (not decided).
+#[pyfunction]
+fn ode_second_order_patterns(
+    py: Python<'_>,
+    eq_expanded: &Bound<'_, PyAny>,
+    fx: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    cancel: &Bound<'_, PyAny>,
+    expand: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let eq = to_expr(eq_expanded)?;
+    let (fx, x) = (to_expr(fx)?, to_expr(x)?);
+    let call = |f: &Bound<'_, PyAny>, e: &Expr| -> Option<Expr> { f.call1((w(e.clone()),)).ok().and_then(|v| to_expr(&v).ok()) };
+    let mut cancel_hook = |e: &Expr| call(cancel, e);
+    let mut expand_hook = |e: &Expr| call(expand, e);
+    let mut count_hook = |_: &Expr| -> BigInt { BigInt::from(u64::MAX) };
+    let mut hooks = Hooks { cancel: &mut cancel_hook, expand: &mut expand_hook, count_ops: &mut count_hook };
+    let r = liouville::second_order_patterns(&eq, &fx, &x, &mut hooks);
+    let out = PyDict::new(py);
+    out.set_item("liouville", outcome(py, &r.liouville, |v| v.to_vec())?)?;
+    out.set_item("conserved", outcome(py, &r.conserved, |v| vec![v.clone()])?)?;
+    Ok(out.into_any().unbind())
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(ode_second_order_patterns, m)?)?;
     m.add_function(wrap_pyfunction!(ode_nth_order_reducible, m)?)?;
     m.add_function(wrap_pyfunction!(ode_match_2nd_hypergeometric, m)?)?;
     m.add_function(wrap_pyfunction!(ode_airy_match, m)?)?;

@@ -26,6 +26,8 @@ def _roles():
             s.FirstLinear._equation: ('linear', (0, 1)),
             s.Bernoulli._equation: ('bernoulli', (0, 1, 2)),
             s.RiccatiSpecial._equation: ('riccati_special', (0, 1, 2, 3)),
+            s.Liouville._equation: ('liouville', (0, 1, 2)),
+            s.SecondNonlinearAutonomousConserved._equation: ('conserved', (0,)),
         }
         _ROLES = {k: v + (_original_wilds(s, k),) for k, v in _ROLES.items()}
     return _ROLES
@@ -34,7 +36,7 @@ def _roles():
 def _original_wilds(s, equation):
     for cls in (s.Separable, s.FirstExact, s.AlmostLinear, s.HomogeneousCoeffSubsDepDivIndep,
                 s.HomogeneousCoeffSubsIndepDivDep, s.LinearCoefficients, s.FirstLinear,
-                s.Bernoulli, s.RiccatiSpecial):
+                s.Bernoulli, s.RiccatiSpecial, s.Liouville, s.SecondNonlinearAutonomousConserved):
         if cls._equation is equation:
             return cls._wilds
     return None
@@ -62,6 +64,25 @@ def _first_order(problem):
     return result
 
 
+def _second_order(problem):
+    cached = problem.__dict__.get('_native_second_order', _MISSING)
+    if cached is not _MISSING:
+        return cached
+    result = None
+    native = getattr(_core, 'ode_second_order_patterns', None)
+    if native is not None and problem.order == 2:
+        eq = problem.eq_expanded
+        if getattr(eq, 'is_commutative', False) and isinstance(eq, _core.Expr):
+            from symox.polys.polytools import cancel
+            from symox.core.function import expand
+            try:
+                result = native(eq, problem.func, problem.sym, cancel, expand)
+            except Exception:
+                result = None
+    problem.__dict__['_native_second_order'] = result
+    return result
+
+
 def solver_match(solver):
     """The native match of ``solver``: a dict over its wilds, ``False`` for no
     match, ``None`` when the reference matcher must run."""
@@ -70,9 +91,12 @@ def solver_match(solver):
     if role is None or cls._wilds is not role[2]:
         return None
     problem = solver.ode_problem
-    if problem.order != 1:
+    if problem.order == 1:
+        native = _first_order(problem)
+    elif problem.order == 2 and role[0] in ('liouville', 'conserved'):
+        native = _second_order(problem)
+    else:
         return None
-    native = _first_order(problem)
     if native is None:
         return None
     value = native.get(role[0])
