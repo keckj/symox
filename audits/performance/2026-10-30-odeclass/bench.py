@@ -4,12 +4,17 @@ classify_ode(eq, func) and dsolve(eq, func) on 12 ODE corpus cases.
 For each (case, operation) and run: a fresh process measures the first call
 (the module is imported before timing), then the median of 5 repeated calls
 in the same process. The reported value is the median over the runs.
+BENCH_CASES (comma-separated case names) and BENCH_OPS (classify,dsolve)
+override the defaults.
 """
 import json, os, subprocess, sys, statistics
 
 CASES = ['separable_01', 'separable_03', '1st_exact_06', 'linear_01', 'bernoulli_01',
          'riccati_01', '1st_homogeneous_coeff_best_01', 'almost_lin_02', 'linear_coeff_01',
          'separable_reduced_02', 'rational_riccati_02', 'fact_02']
+if os.environ.get('BENCH_CASES'):
+    CASES = os.environ['BENCH_CASES'].split(',')
+OPS = tuple(os.environ.get('BENCH_OPS', 'classify,dsolve').split(','))
 CORPUS = '/home/keckj/Documents/symox-worktrees/.tooling/sspeed/cases.json'
 
 CHILD = r'''
@@ -34,7 +39,7 @@ def main():
     py = sys.executable
     res = {}
     for name in CASES:
-        for op in ('classify', 'dsolve'):
+        for op in OPS:
             samples = []
             for _ in range(runs):
                 try:
