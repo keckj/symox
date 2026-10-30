@@ -265,8 +265,24 @@ fn order_subs(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Ex
                 if !slope.is_zero() && !crate::traverse::has(&slope, &var) && start.is_number() {
                     let intercept = subs1(new, &var, &Expr::zero());
                     point = div(&crate::ops::sub(&start, &intercept), &slope);
-                } else if let Some(p) = (vars.len() == 1).then(|| crate::series::order_point::moving_point(old, new, &var, &start)).flatten() {
-                    point = p;
+                } else if let Some(p) = crate::series::order_point::moving_point(old, new, &var, &start)
+                    .and_then(|p| {
+                        // One variable at +-oo*I: the order is built here
+                        // (O(1) for an expression of F(var)) or by the host.
+                        // With several variables the moved point differs
+                        // from the others and the caller reports the
+                        // reference's error.
+                        if vars.len() == 1 && crate::series::order_point::imaginary_infinity(&p) {
+                            crate::series::order_point::order_at_imaginary_infinity(&new_expr, &var, &p).map(Err)
+                        } else {
+                            Some(Ok(p))
+                        }
+                    })
+                {
+                    match p {
+                        Ok(p) => point = p,
+                        Err(o) => return Some(o),
+                    }
                 } else {
                     point = ORDER_POINT_HOST.get()?(old, new, &var, &start)?;
                 }

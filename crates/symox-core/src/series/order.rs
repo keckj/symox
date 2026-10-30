@@ -38,6 +38,30 @@ pub fn order_parts(e: &Expr) -> Option<(Expr, Vec<(Expr, Expr)>)> {
     }
 }
 
+/// `Order.__new__` refuses variables at different points
+/// (`O(x*y, (x, 0), (y, 1))`, also reached through `O(x*y).subs(x, x + 1)`).
+pub const DIFFERENT_POINTS: &str = "Multivariable orders at different points are not supported.";
+
+/// Whether the points of an order's variables are not all equal.
+pub fn different_points(vars: &[(Expr, Expr)]) -> bool {
+    vars.windows(2).any(|w| w[0].1 != w[1].1)
+}
+
+/// `Err(DIFFERENT_POINTS)` when `e` holds an order term whose variables
+/// sit at different points (the reference raises `NotImplementedError`
+/// when such a term would be built).
+pub fn check_order_points(e: &Expr) -> Result<(), &'static str> {
+    if !e.may_have_order() {
+        return Ok(());
+    }
+    if let Some((_, vars)) = order_parts(e) {
+        if different_points(&vars) {
+            return Err(DIFFERENT_POINTS);
+        }
+    }
+    e.args().iter().try_for_each(check_order_points)
+}
+
 fn raw(expr: Expr, vars: &[(Expr, Expr)]) -> Expr {
     let mut args = Vec::with_capacity(1 + 2 * vars.len());
     args.push(expr);
@@ -152,7 +176,13 @@ fn lead_exponents(e: &Expr, x: &Expr) -> Option<(Number, i64)> {
         return None;
     }
     let lt = super::leading_term(e, x, &Expr::zero(), false).ok()?;
-    let b = degree_in(&lt.coeff_logt, &lt.logt).unwrap_or(0);
+    // a coefficient that is not a polynomial in `log(x)` (`log(log(x))`)
+    // has no such leading behaviour
+    let b = match degree_in(&lt.coeff_logt, &lt.logt) {
+        Some(b) => b,
+        None if depends(&lt.coeff_logt, &lt.logt) => return None,
+        None => 0,
+    };
     Some((lt.exp, b))
 }
 
@@ -195,7 +225,10 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
         }
         let lead = match lead_exponents(&e0, x) {
             Some((a, b)) => build_monomial(x, &a, b),
-            None => as_coeff_mul(&e0).1,
+            None => super::order_dominant::dominant_terms(&e0, x).unwrap_or_else(|| {
+                let r = as_coeff_mul(&e0).1;
+                super::order_dominant::pole_power(&r, x).unwrap_or(r)
+            }),
         };
         return raw(from_zero(&lead, x, p), &vars);
     }

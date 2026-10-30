@@ -20,6 +20,7 @@ pub mod exact_sign;
 pub mod gruntz;
 mod gamma_heuristic;
 mod order_elsewhere;
+pub mod trace;
 
 use rustc_hash::FxHashMap;
 
@@ -253,7 +254,7 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
     let mut g = gruntz::Gruntz::new(&t);
     let r = match g.limitinf(&et) {
         Ok(r) => Ok(r),
-        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)).or_else(|| negative_base_squeeze(&et, &t)).or_else(|| gamma_heuristic::gamma_value(&et, &t)) {
+        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)).or_else(|| negative_base_squeeze(&et, &t)).or_else(|| gamma_heuristic::gamma_value(&et, &t)).or_else(|| gamma_heuristic::loggamma_value(&et, &t)) {
             Some(r) => Ok(r),
             None => Err(err),
         },
@@ -463,8 +464,11 @@ pub fn bounded_affine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<(Exp
     collect_real_oscillating(&prepared, &t, &mut g, &mut map);
     let mut rounding = Rounding::new();
     rounding.collect(&prepared, &t, &mut g);
-    if map.is_empty() && rounding.map.is_empty() || mixed_bounded(&map, &rounding) {
+    if map.is_empty() && rounding.map.is_empty() {
         return None;
+    }
+    if mixed_bounded(&map, &rounding) {
+        return bounded_times_limit(&prepared, &t, &map);
     }
     let mut pairs: Vec<(Expr, Expr)> = map.into_iter().collect();
     pairs.sort_by_key(|(_, p)| p.as_sym().map(|s| s.name().to_string()));
@@ -477,6 +481,20 @@ pub fn bounded_affine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<(Exp
     let mut back: FxHashMap<Expr, Expr> = pairs.iter().map(|(w, p)| (w.clone(), p.clone())).collect();
     back.extend(rounding.map);
     let e2 = xreplace(&prepared, &back);
+    // An integer power `k >= 2` of a bounded sine or cosine is the bounds
+    // power `AccumBounds(-1, 1)**k`: `AccumBounds(0, 1)` for an even `k`,
+    // `AccumBounds(-1, 1)` for an odd one (`sin(x)**2` at `oo`); each power
+    // is its own bounded value, as in the reference bounds arithmetic.
+    let sincos: Vec<Expr> = pairs.iter().map(|(_, p)| p.clone()).collect();
+    let mut powers: Vec<(Expr, Expr)> = Vec::new();
+    let e2 = bounded_powers(&e2, &sincos, &mut powers);
+    for (_, q) in &powers {
+        params.push(q.clone());
+    }
+    for (k, _) in &powers {
+        let even = k.as_number().is_some_and(|k| k.to_i64().is_some_and(|k| k % 2 == 0));
+        ranges.push(if even { (Expr::zero(), Expr::one()) } else { (Expr::minus_one(), Expr::one()) });
+    }
     let (a0, coeffs) = affine_parts(&e2, &params)?;
     let lim = |a: &Expr| -> Option<Expr> {
         if !depends(a, &t) {
@@ -509,6 +527,74 @@ pub fn bounded_affine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<(Exp
         return None;
     }
     Some((c0, cs))
+}
+
+/// A product of bounded `sin`/`cos` factors (integer powers `k >= 1`) and
+/// of a part `f` free of them, next to a rounding function: the
+/// reference's term-wise heuristics meet `AccumBounds*0*oo = nan` there and
+/// take `limit(f)*AccumBounds` (`cos(x)*floor(x)/x` at `oo` is
+/// `AccumBounds(-1, 1)`, `cos(x)*floor(x)/x**2` is 0). Only a real numeric
+/// `limit(f)` is accepted; anything else stays undecided.
+fn bounded_times_limit(e: &Expr, t: &Expr, osc: &FxHashMap<Expr, Expr>) -> Option<(Expr, Vec<(Expr, Expr, Expr)>)> {
+    let Kind::Mul(c, facs) = e.kind() else { return None };
+    let mut range: Option<(i64, i64)> = None;
+    let mut rest = vec![Expr::num(c.clone())];
+    let times = |a: (i64, i64), b: (i64, i64)| {
+        let v = [a.0 * b.0, a.0 * b.1, a.1 * b.0, a.1 * b.1];
+        (*v.iter().min().unwrap(), *v.iter().max().unwrap())
+    };
+    for (b, k) in facs {
+        if osc.contains_key(b) {
+            let k = k.as_number().filter(|n| n.is_integer()).and_then(|n| n.to_i64()).filter(|&k| k >= 1)?;
+            let r = if k % 2 == 0 { (0, 1) } else { (-1, 1) };
+            range = Some(range.map_or(r, |a| times(a, r)));
+        } else {
+            let f = crate::ops::mul_factor(b, k);
+            if osc.keys().any(|w| crate::traverse::has(&f, w)) {
+                return None;
+            }
+            rest.push(f);
+        }
+    }
+    let (lo, hi) = range?;
+    let f = crate::ops::mul(&rest);
+    let l = limit(&f, t, &Expr::oo(), Dir::Plus).ok()?;
+    if l.is_zero() {
+        // 0*AccumBounds is 0
+        return Some((Expr::zero(), Vec::new()));
+    }
+    let numeric = l.is_number() && crate::assumptions::is_finite(&l) == Some(true) && crate::assumptions::is_real(&l) == Some(true);
+    numeric.then(|| (Expr::zero(), vec![(l, Expr::int(lo), Expr::int(hi))]))
+}
+
+/// Replaces every `p**k` (`p` in `sincos`, `k` an integer `>= 2`) by a new
+/// parameter, recorded in `out` as `(k, parameter)`.
+fn bounded_powers(e: &Expr, sincos: &[Expr], out: &mut Vec<(Expr, Expr)>) -> Expr {
+    if !sincos.iter().any(|p| depends(e, p)) {
+        return e.clone();
+    }
+    let param = |k: &Expr, out: &mut Vec<(Expr, Expr)>| -> Expr {
+        let q = Expr::symbol(&format!("_symox_bounded_pow{}", out.len()));
+        out.push((k.clone(), q.clone()));
+        q
+    };
+    let power = |k: &Expr| k.as_number().is_some_and(|n| n.is_integer() && n.to_i64().is_some_and(|n| n >= 2));
+    match e.kind() {
+        Kind::Pow(b, k) if sincos.contains(b) && power(k) => param(k, out),
+        Kind::Mul(c, facs) => {
+            let mut v = vec![Expr::num(c.clone())];
+            for (b, k) in facs {
+                if sincos.contains(b) && power(k) {
+                    v.push(param(k, out));
+                } else {
+                    v.push(bounded_powers(&crate::ops::mul_factor(b, k), sincos, out));
+                }
+            }
+            crate::ops::mul(&v)
+        }
+        Kind::Add(..) => add(&e.args().iter().map(|a| bounded_powers(a, sincos, out)).collect::<Vec<_>>()),
+        _ => e.clone(),
+    }
 }
 
 fn has_infinity(e: &Expr) -> bool {

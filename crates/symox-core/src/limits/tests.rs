@@ -140,3 +140,24 @@ fn limheld_order_mask_collision_is_not_an_order_term() {
     }
     assert!(found, "no Dummy mask collided with ORDER_MASK");
 }
+
+#[test]
+fn limgaps_values_from_sympy() {
+    // exp factors whose arguments cancel are merged before the mrv set is
+    // formed, as Mul.flatten does in the reference.
+    assert_eq!(lim("((x**(x + 1) + (x + 1)**x)/x**(x + 1))**x", "oo", Dir::Plus), "exp(E)");
+    assert_eq!(lim("x**(-x - 1)*(x**(x + 1) + (x + 1)**x)", "oo", Dir::Plus), "1");
+    // loggamma at -oo: the reference heuristics with loggamma(-oo) = zoo.
+    for (e, want) in [
+        ("loggamma(x)", "zoo"),
+        ("x*loggamma(x)", "zoo"),
+        ("loggamma(x) + 3", "zoo"),
+        ("loggamma(-x)", "oo"),
+        ("1/loggamma(x)", "0"),
+        ("loggamma(-x**2)", "zoo"),
+    ] {
+        assert_eq!(lim(e, "-oo", Dir::Plus), want, "{e}");
+    }
+    // Held: factorial(x)/x and gamma(x)/x at -oo oscillate through poles.
+    assert!(lim("factorial(x)/x", "-oo", Dir::Plus).starts_with("ERR"));
+}

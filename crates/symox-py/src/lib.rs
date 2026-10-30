@@ -1617,6 +1617,7 @@ fn checked_subs_impl(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],simulta
     };
     let result=if simultaneous && result.has_matrix() {symox::matrixexpr::MatrixExpr::promote_operands(&result).map_err(|e|matrices::err(py,e))?} else {result};
     symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
+    symox::series::order::check_order_points(&result).map_err(PyNotImplementedError::new_err)?;
     if pairs.iter().any(|(_,new)|new.is_number()) {
         if let Some(msg)=symox::special::orthopoly_subs_error(expression,&result) { return Err(PyValueError::new_err(msg)); }
     }

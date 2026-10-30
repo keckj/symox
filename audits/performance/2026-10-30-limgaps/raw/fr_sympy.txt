@@ -1,0 +1,27 @@
+frac(x).series(x,oo) -> AccumBounds(0, 1) + O(x**(-6), (x, oo))
+frac(1/x).series(x) -> AccumBounds(0, 1) + O(x**6)
+frac(1/x).series(x,0,3) -> AccumBounds(0, 1) + O(x**3)
+frac(x).series(x,-oo) -> AccumBounds(0, 1) + O(x**(-6), (x, -oo))
+frac(-1/x).series(x) -> AccumBounds(0, 1) + O(x**6)
+frac(1/x).nseries(x,0,3) -> AccumBounds(0, 1) + O(x**3)
+frac(1/p).series(p) -> AccumBounds(0, 1) + O(p**6)
+frac(x**2+x).series(x,oo) -> nan
+frac(1/x).series(x,0,0) -> O(1)
+(2*frac(1/x)).series(x) -> AccumBounds(0, 2) + O(x**6)
+(frac(1/x)+1).series(x) -> AccumBounds(1, 2) + O(x**6)
+(frac(1/x)+x).series(x) -> AccumBounds(0, 1) + x + O(x**6)
+frac(1/x).series(x,dir='-') -> AccumBounds(0, 1) + O(x**6)
+frac(exp(1/x)).series(x) -> nan
+frac(1/x+1).series(x) -> AccumBounds(0, 1) + O(x**6)
+floor(1/p).series(p) -> AccumBounds(-1 + 1/p, 1/p)
+ceiling(1/p).series(p) -> AccumBounds(1/p, 1 + 1/p)
+floor(p).series(p,oo) -> AccumBounds(p - 1, p)
+floor(1/p+p).series(p) -> AccumBounds(p - 1 + 1/p, p + 1/p)
+floor(1/p).nseries(p,0,3) -> AccumBounds(-1 + 1/p, 1/p)
+floor(1/x).nseries(x,0,3) -> AccumBounds(-1, 0) + 1/x
+ceiling(1/x).nseries(x,0,3) -> AccumBounds(0, 1) + 1/x
+floor(1/sin(p)).series(p) -> (1/p + p/6 + 7*p**3/360 + 31*p**5/15120 + O(p**6)) + AccumBounds(-1, 0)
+floor(1/r).series(r) -> EXC ValueError Only real AccumulationBounds are supported
+floor(1/x).series(x) -> EXC ValueError Only real AccumulationBounds are supported
+floor(1/p).series(p,0,0) -> 1/p + O(1)
+floor(-1/p).series(p) -> AccumBounds(-1 - 1/p, -1/p)

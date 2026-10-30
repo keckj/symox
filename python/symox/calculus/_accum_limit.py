@@ -174,6 +174,12 @@ def oscillating_limit(e, z, z0, dir):
         return None
     if not _oscillates(e, z):
         return _bounded_affine(e, z, z0, dir)
+    # The native decomposition (affine in bounded sin/cos values, their
+    # integer powers and rounding remainders) is tried first; the walker
+    # below only takes the forms it declines.
+    native = _bounded_affine(e, z, z0, dir)
+    if native is not None:
+        return native
     if dir == '+-':
         if z0.is_infinite:
             return None
