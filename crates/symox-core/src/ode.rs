@@ -7,6 +7,7 @@
 //! first-order equations. Initial conditions solve for the constants.
 
 pub mod classify;
+pub mod linear;
 
 use rustc_hash::{FxHashMap,FxHashSet};
 

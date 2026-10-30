@@ -129,3 +129,82 @@ def riccati_match(eq, f, x):
     if value is False:
         return False, []
     return True, list(value)
+
+
+def _linear_args(eq, func):
+    if not isinstance(eq, _core.Expr) or not getattr(eq, 'is_commutative', False):
+        return None
+    if not isinstance(func, _core.Expr) or len(func.args) != 1:
+        return None
+    return func.args[0]
+
+
+def linear_coefficients(eq, func, order):
+    """``get_linear_coefficients(eq, func, order)`` decided natively: the
+    reference dict, ``None`` (not linear), or ``_MISSING`` (not decided)."""
+    native = getattr(_core, 'ode_linear_coefficients', None)
+    x = _linear_args(eq, func)
+    if native is None or x is None or not isinstance(order, int) or order < 0:
+        return _MISSING
+    try:
+        value = native(eq, func, x, order)
+    except Exception:
+        return _MISSING
+    if value is None:
+        return _MISSING
+    if value is False:
+        return None
+    terms = {i: value[i + 1] for i in range(order + 1)}
+    terms[-1] = value[0]
+    return terms
+
+
+def nth_linear_match(solver, eq):
+    """The ``nth_linear_*`` matcher of ``solver`` on ``eq`` decided natively:
+    ``(True, r)`` with the solver's ``self.r``, ``(False, None)``, or ``None``
+    when the reference matcher must run."""
+    native = getattr(_core, 'ode_nth_linear_match', None)
+    problem = solver.ode_problem
+    func = problem.func
+    order = problem.order
+    x = _linear_args(eq, func)
+    if native is None or x is None or x != problem.sym or not isinstance(order, int) or order < 0:
+        return None
+    try:
+        value = native(eq, func, x, order, solver.hint)
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if value is False:
+        return False, None
+    r = {i: value[i + 1] for i in range(order + 1)}
+    r[-1] = value[0]
+    return True, r
+
+
+class LazyTrialset:
+    """``self.trialset`` of the constant-coefficient undetermined-coefficients
+    solver after a native match: the reference
+    ``_undetermined_coefficients_match(...)['trialset']``, computed on first
+    use by the solution step. An assignment (the reference matcher) stores
+    the value as before."""
+
+    def __set_name__(self, owner, name):
+        self.name = '_' + name
+
+    def __get__(self, obj, owner=None):
+        if obj is None:
+            return self
+        d = obj.__dict__
+        if self.name not in d:
+            args = d.get('_native_trial_args')
+            if args is None:
+                raise AttributeError('trialset')
+            from .nonhomogeneous import _undetermined_coefficients_match
+            d[self.name] = _undetermined_coefficients_match(*args)['trialset']
+        return d[self.name]
+
+    def __set__(self, obj, value):
+        obj.__dict__[self.name] = value
+

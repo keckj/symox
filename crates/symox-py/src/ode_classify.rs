@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 
 use symox::ode::classify::{self, Hooks, Outcome};
+use symox::ode::linear;
 use symox::Expr;
 
 use crate::{to_expr, wrap as w};
@@ -101,7 +102,28 @@ fn ode_match_riccati(
     outcome(py, &r, |(a, b, c)| vec![a.clone(), b.clone(), c.clone()])
 }
 
+/// `get_linear_coefficients(eq, f(x), order)`: `(rhs, c_0, ..., c_order)`,
+/// `False` for the reference `None`, or `None` (not decided).
+#[pyfunction]
+fn ode_linear_coefficients(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, order: u32) -> PyResult<PyObject> {
+    let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
+    outcome(py, &linear::linear_coefficients(&eq, &fx, &x, order), |v| v.clone())
+}
+
+/// The matcher of the `nth_linear_*` hint `hint`: `(r[-1], r[0], ...,
+/// r[order])` (the solver's `self.r`), `False` (no match) or `None`.
+#[pyfunction]
+fn ode_nth_linear_match(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, order: u32, hint: &str) -> PyResult<PyObject> {
+    let Some(hint) = linear::NthLinear::from_name(hint) else {
+        return Ok(py.None());
+    };
+    let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
+    outcome(py, &linear::nth_linear(&eq, &fx, &x, order, hint), |v| v.clone())
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(ode_linear_coefficients, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_nth_linear_match, m)?)?;
     m.add_function(wrap_pyfunction!(ode_first_order_matches, m)?)?;
     m.add_function(wrap_pyfunction!(ode_split_de, m)?)?;
     m.add_function(wrap_pyfunction!(ode_ordered_hints, m)?)?;
