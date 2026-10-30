@@ -169,11 +169,12 @@ pub(crate) fn _log_to_real(h: &Bound<'_,PyAny>,q: &Bound<'_,PyAny>,x: &Bound<'_,
 /// No user protocol is called while testing the stored coefficient domains.
 #[pyfunction]
 pub(crate) fn _ratint_logpart(f: &Bound<'_,PyAny>,g: &Bound<'_,PyAny>,x: &Bound<'_,PyAny>,t: &Bound<'_,PyAny>)
-    -> PyResult<Option<Vec<(crate::poly::PyPoly,crate::poly::PyPoly)>>>
+    -> PyResult<Option<Vec<(PyObject,PyObject)>>>
 {
     use crate::poly::PyPoly;
     use symox::poly::polyobj::Domain;
     let py=f.py();py.check_signals()?;
+    let (f_object,g_object)=(f,g);
     if !f.is_exact_instance_of::<PyPoly>() || !g.is_exact_instance_of::<PyPoly>() {return Ok(None);}
     let class=f.get_type();
     let own=class.getattr("__dict__")?;
@@ -198,13 +199,25 @@ pub(crate) fn _ratint_logpart(f: &Bound<'_,PyAny>,g: &Bound<'_,PyAny>,x: &Bound<
     let plain=|p:&symox::poly::fraction::Polynomial|p.field.is_none() && p.algebraic.is_none()
         && p.expression.is_none() && !p.base.has_domain_gens() && p.base.modulus.is_none()
         && matches!(p.base.domain,Domain::ZZ|Domain::QQ) && p.base.gens.len()==1;
-    if !plain(&f.p) || !plain(&g.p) || f.p.base.gens!=g.p.base.gens {return Ok(None);}
     let canonical=|value:&Bound<'_,PyAny>|->PyResult<Option<Expr>>{
         if !value.is_instance_of::<PyExprNode>(){return Ok(None);}
         let e=to_expr(value)?;
         if !matches!(e.kind(),Kind::Sym(_)) || !crate::node_type(py,&e).is_some_and(|c|value.get_type().is(&c)) {return Ok(None);}
         Ok(Some(e))
     };
+    if !plain(&f.p) || !plain(&g.p) {
+        let (Some(xe),Some(te))=(canonical(x)?,canonical(t)?) else{return Ok(None)};
+        if f.p.base.modulus.is_some() || g.p.base.modulus.is_some() || f.p.true_gens().len()!=1
+            || f.p.true_gens()!=g.p.true_gens() || xe!=f.p.true_gens()[0] || xe==te
+            || symox::decompose::commutativity(&xe)!=Some(true)
+            || symox::decompose::commutativity(&te)!=Some(true) {return Ok(None);}
+        // A primitive error declines: the reference body then raises its own.
+        return match crate::poly::ratint_logpart::logpart(f_object,g_object,x,t) {
+            Err(e) if !e.is_instance_of::<pyo3::exceptions::PyKeyboardInterrupt>(py) => Ok(None),
+            other => other,
+        };
+    }
+    if f.p.base.gens!=g.p.base.gens {return Ok(None);}
     let (Some(x),Some(t))=(canonical(x)?,canonical(t)?) else{return Ok(None)};
     if x!=f.p.base.gens[0] || x==t
         || symox::decompose::commutativity(&x)!=Some(true)
@@ -212,7 +225,7 @@ pub(crate) fn _ratint_logpart(f: &Bound<'_,PyAny>,g: &Bound<'_,PyAny>,x: &Bound<
     let Some(pairs)=symox::integrate::logarithmic_reduction::reduce(&f.p.base,&g.p.base,&t,&mut ||py.check_signals())?
         else{return Ok(None)};
     py.check_signals()?;
-    Ok(Some(pairs.into_iter().map(|(h,q)|(PyPoly{p:h},PyPoly{p:q})).collect()))
+    pairs.into_iter().map(|(h,q)|Ok((Bound::new(py,PyPoly{p:h})?.into_any().unbind(),Bound::new(py,PyPoly{p:q})?.into_any().unbind()))).collect::<PyResult<Vec<_>>>().map(Some)
 }
 
 /// Exact stock-polynomial selection only; custom domains keep rationaltools'
@@ -221,7 +234,7 @@ pub(crate) fn _ratint_logpart(f: &Bound<'_,PyAny>,g: &Bound<'_,PyAny>,x: &Bound<
 pub(crate) fn _ratint_ratpart(
     numerator: &Bound<'_, PyAny>, denominator: &Bound<'_, PyAny>,
     variable: &Bound<'_, PyAny>,
-) -> PyResult<Option<(crate::PyExpr, crate::PyExpr)>> {
+) -> PyResult<Option<(PyObject, PyObject)>> {
     use crate::poly::PyPoly;
     use symox::poly::{dense, convert, polyobj::Domain};
     if !numerator.is_exact_instance_of::<PyPoly>()
@@ -248,7 +261,17 @@ pub(crate) fn _ratint_ratpart(
             && matches!(p.base.domain, Domain::ZZ | Domain::QQ)
             && p.base.gens.len() == 1
     };
-    if !plain(&f.p) || !plain(&g.p) || f.p.base.gens != g.p.base.gens
+    if !plain(&f.p) || !plain(&g.p) {
+        let py = numerator.py();
+        let (Some(x), Ok(rationaltools)) = (f.p.true_gens().first(), py.import("symox.integrals.rationaltools")) else { return Ok(None) };
+        let cancel = rationaltools.getattr("cancel")?;
+        if f.p.true_gens().len() != 1 || !matches!(x.kind(), Kind::Sym(_)) || !variable.is_instance_of::<PyExprNode>()
+            || !crate::node_type(py, x).is_some_and(|t| variable.get_type().is(&t)) || to_expr(variable)? != *x {
+            return Ok(None);
+        }
+        return crate::ratint_general::ratpart(py, &f, &g, x, &cancel);
+    }
+    if f.p.base.gens != g.p.base.gens
         || g.p.base.rep.degree(0) > 128 || f.p.base.rep.degree(0) > 128 {
         return Ok(None);
     }
@@ -275,7 +298,7 @@ pub(crate) fn _ratint_ratpart(
     let rational = fraction(&result.rational_numerator, &result.rational_denominator)?;
     let logarithmic = fraction(&result.logarithmic_numerator, &result.logarithmic_denominator)?;
     py.check_signals()?;
-    Ok(Some((rational, logarithmic)))
+    Ok(Some((rational.into_pyobject(py)?.into_any().unbind(), logarithmic.into_pyobject(py)?.into_any().unbind())))
 }
 
 /// Select only exact native univariate QQ/ZZ polynomials. The host adapter

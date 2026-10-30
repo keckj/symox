@@ -85,7 +85,9 @@ def test_other_domains_retain_complete_algorithm(domain,monkeypatch):
     if domain=='QQ<sqrt(2)>':a,b=sx.Poly(1,x,extension=sx.sqrt(2)),sx.Poly(x*x+1,x,extension=sx.sqrt(2))
     elif domain=='GF(5)':a,b=sx.Poly(1,x,modulus=5),sx.Poly(x*x+1,x,modulus=5)
     else:a,b=pairs(1,xp*xp+xp+1,domain)
-    assert sx._core._ratint_logpart(a,b,x,t) is None
+    # EX is computed by the native orchestration (test_native_ratintgen.py);
+    # the public result below must still equal the reference body.
+    if domain!='EX':assert sx._core._ratint_logpart(a,b,x,t) is None
     def run():
         try:return ('value',payload(rt.ratint_logpart(a,b,x,t)))
         except Exception as error:return ('error',type(error),str(error))

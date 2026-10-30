@@ -31,6 +31,7 @@ pub mod prde_limited;
 pub mod log_to_atan;
 pub mod log_to_real;
 pub mod ratint_driver;
+pub mod ratint_general;
 pub mod logarithmic_reduction;
 mod cartesian;
 pub use cartesian::numeric_coefficients as heurisch_cartesian_numeric_coefficients;

@@ -13515,3 +13515,79 @@ Remaining gaps:
   - `test_solveset.py`: 94 failed / 87 passed before and after.
 - Measurements are in
   [audits/performance/2026-10-29-radicalrust](../audits/performance/2026-10-29-radicalrust/README.md).
+
+## ratintgen (wave 32): native `ratint_ratpart` and `ratint_logpart` outside QQ/ZZ, 2026-10-30
+
+What is now native:
+- `ratint_ratpart` (Horowitz-Ostrogradsky) over QQ<a> (including ZZ_I and
+  QQ_I), QQ(a, ...) and EX, through `_core._ratint_ratpart`.
+  - `u, v` come from the stock `g.cofactors(g.diff())`.
+  - The square system for `A`, `B` is solved by an exact Gauss-Jordan
+    elimination (`ddm::field_irref`) in the coefficient field of the Poly
+    (`integrate/ratint_general.rs`). The system has a unique solution, so
+    this is the value that `solve` returns in the reference body.
+  - The identity `f = A' v - A (u' v / u) + B u` is checked again before
+    anything is returned. A pivot with an undecided zero test, a rank
+    deficiency or a system larger than 96 (QQ<a>), 48 (QQ(a)) or 16 (EX)
+    unknowns declines to the reference body.
+  - EX coefficients that are rational functions of commuting symbols are
+    solved in QQ(a, ...). Only the values of `A`, `B` enter the result.
+  - The two `cancel(A/u, x)`, `cancel(B/v, x)` calls go through the
+    `cancel` global of rationaltools, exactly as in the reference body.
+- `ratint_logpart` (Lazard-Rioboo-Trager) over ZZ_I, QQ_I, ZZ[a, ...],
+  QQ(a, ...) and EX, through `_core._ratint_logpart`, after the existing
+  stock-protocol guard of rationaltools.
+  - The orchestration is in Rust (`crates/symox-py/src/ratint_logpart.rs`).
+    It makes the reference steps on the stock native Poly methods: the
+    subresultant PRS `resultant(..., includePRS=True)`, `sqf_list`,
+    `_include_sign`, `primitive`, `gcd`, `quo`, `invert`, `rem`.
+  - The public constructor calls are replaced by the backend calls that the
+    stock constructor makes for those arguments: `_from_normalized`, the
+    `composite=False` EX selection, `to_field` and the `_from_terms` term
+    path.
+  - The Poly domains, the order of the pairs and the Dummy `t` are those of
+    the reference.
+  - Inexact or modular inputs decline. Any error of a primitive declines,
+    and the reference body then raises its own error.
+
+Admitted domains: univariate Polys in the integration variable, without
+modulus, with numerator and denominator in the same representation family.
+For ratpart that is the same number field, the same fraction field, or EX
+without a composite ground.
+
+Still Python, on native primitives:
+- The `ratint` body itself. The native rational driver still admits only
+  QQ/ZZ.
+- `log_to_atan` and `log_to_real` for parametric or algebraic auxiliary
+  polynomials (item 2 of the task).
+- The `real=False` RootSum (item 3).
+- The Cardano/cube-root pairs (item 4).
+These are recorded as remaining gaps.
+
+Corrections (SymPy 1.14 values that symox did not compute before):
+- `ratint_ratpart` over QQ<sqrt(2)>, for example `1/(x**2+sqrt(2))**2`, now
+  returns the SymPy 1.14 value. The reference body raised TypeError because
+  it cannot unify QQ<sqrt(2)> with the ZZ[a_i, b_j] domain of its unknowns.
+- `ratint_logpart(3, (x-I)*(x+2*I)*(x-1))` over QQ_I returns the SymPy 1.14
+  pairs. Depending on the process state, the reference body could raise
+  TypeError ("expected a polynomial").
+
+Remaining gaps:
+- `ratint_logpart` over QQ<sqrt(2)> raises TypeError in the native
+  primitives and in the reference body alike: QQ<a> cannot be unified with
+  ZZ[t]. SymPy returns EX pairs.
+- Printed forms that differ from SymPy 1.14 and were already present in the
+  base:
+  - parametric `cancel` output, expanded where SymPy collects
+    (`ratint_ratpart(x, (x-a)**2*(x-b))`);
+  - `integrate(I/(x**2+1)**2)`;
+  - `integrate((x+I)/(x**3-I))`;
+  - `integrate(x/(x**2+a*x+b)**2)`;
+  - `integrate(a/(x-a)**3)`;
+  - `integrate(1/(x-sqrt(2))**2/(x+1))`.
+  The values agree. Only the printed forms differ.
+
+Measurements are in
+[audits/performance/2026-10-30-ratintgen](../audits/performance/2026-10-30-ratintgen/README.md):
+1.06x-1.69x on the public calls that reach the new kernels, results
+unchanged.
