@@ -7,6 +7,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyInt, PyList, PyTuple};
 use symox::expr::{Expr, Kind};
 use symox::integrate::prde::{self as k, Mat, P, ParamRisch};
+use symox::integrate::prde_log as log;
 use symox::poly::{dense, polyobj::Domain, Rat};
 use crate::poly::PyPoly;
 
@@ -76,7 +77,15 @@ impl Ctx {
     }
     fn pairs(&self, v: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(P, P)>>> {
         let Ok(l) = v.downcast_exact::<PyList>() else { return Ok(None) };
-        if l.is_empty() || l.len() > 64 {
+        if l.is_empty() {
+            return Ok(None);
+        }
+        self.pairs_or_empty(v)
+    }
+    /// `pairs` that also admits the empty list (`limited_integrate`'s `G`).
+    fn pairs_or_empty(&self, v: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(P, P)>>> {
+        let Ok(l) = v.downcast_exact::<PyList>() else { return Ok(None) };
+        if l.len() > 64 {
             return Ok(None);
         }
         let mut out = Vec::with_capacity(l.len());
@@ -104,6 +113,18 @@ impl Ctx {
             .collect::<PyResult<Vec<_>>>()?;
         Ok(PyList::new(py, items)?.into_any().unbind())
     }
+}
+
+fn int_expr(n: symox::poly::Int) -> Expr {
+    symox::poly::convert::rat_to_expr(&Rat::from(n))
+}
+
+/// `(n, u)` of `is_log_deriv_k_t_radical_in_field`, or `None`.
+fn log_answer(py: Python<'_>, answer: Option<(symox::poly::Int, Expr)>) -> PyResult<PyObject> {
+    Ok(match answer {
+        None => py.None(),
+        Some((n, u)) => (crate::wrap(int_expr(n)), crate::wrap(u)).into_pyobject(py)?.into_any().unbind(),
+    })
 }
 
 fn mat_out(py: Python<'_>, m: &Mat) -> PyResult<PyObject> {
@@ -269,6 +290,41 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
             match symox::integrate::prde_limited::limited_integrate_reduce(&fa, &fd, &g) {
                 None => None,
                 Some(r) => Some((cx.out(py, &r.a)?, cx.out(py, &r.b)?, r.n, (cx.out(py, &r.g.0)?, cx.out(py, &r.g.1)?), cx.pair_list(py, &r.v)?).into_pyobject(py)?.into_any().unbind()),
+            }
+        }
+        ("is_log_deriv_in_field", 2) => {
+            let (Some(fa), Some(fd)) = (cx.poly(&arg(0)?)?, cx.poly(&arg(1)?)?) else { return Ok(None) };
+            match log::is_log_deriv_k_t_radical_in_field(&fa, &fd, &cx.t) {
+                None => None,
+                Some(answer) => Some((log_answer(py, answer)?,).into_pyobject(py)?.into_any().unbind()),
+            }
+        }
+        ("parametric_log_deriv_heu", 4) => {
+            let (Some(fa), Some(fd), Some(wa), Some(wd)) = (cx.poly(&arg(0)?)?, cx.poly(&arg(1)?)?, cx.poly(&arg(2)?)?, cx.poly(&arg(3)?)?) else { return Ok(None) };
+            if fd.is_zero() || wd.is_zero() {
+                return Ok(None);
+            }
+            match log::parametric_log_deriv_heu(&fa, &fd, &wa, &wd, &cx.t) {
+                None => None,
+                Some(heu) => {
+                    let answer: PyObject = match heu.answer {
+                        None => py.None(),
+                        Some((n, m, v)) => (crate::wrap(int_expr(n)), crate::wrap(int_expr(m)), crate::wrap(v)).into_pyobject(py)?.into_any().unbind(),
+                    };
+                    Some((heu.reached, answer).into_pyobject(py)?.into_any().unbind())
+                }
+            }
+        }
+        ("limited_integrate", 3) => {
+            let (Some(fa), Some(fd), Some(g)) = (cx.poly(&arg(0)?)?, cx.poly(&arg(1)?)?, cx.pairs_or_empty(&arg(2)?)?) else { return Ok(None) };
+            match log::limited_integrate(&fa, &fd, &g, &cx.t) {
+                None => None,
+                Some(None) => Some((py.None(),).into_pyobject(py)?.into_any().unbind()),
+                Some(Some(((ya, yd), cs))) => {
+                    let c = cs.into_iter().map(|v| cx.out(py, &P::new(vec![v], true))).collect::<PyResult<Vec<_>>>()?;
+                    let y = (cx.out(py, &ya)?, cx.out(py, &yd)?);
+                    Some(((y, PyList::new(py, c)?),).into_pyobject(py)?.into_any().unbind())
+                }
             }
         }
         _ => None,

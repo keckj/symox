@@ -761,7 +761,11 @@ pub fn param_rischde(fa: &P, fd: &P, g: &[(P, P)]) -> Option<ParamRisch> {
     let w = am.nullspace();
     let k = h.len();
     if k == 0 {
-        // `wl[-0:]` keeps the whole vector there; leave that to the reference.
+        // No relation left (`W` empty): `M` is `0 x m` and `C` is `eye(m)`.
+        if w.is_empty() {
+            return Some(ParamRisch::NoSolution(m));
+        }
+        // Otherwise `wl[-0:]` keeps the whole vector; leave that to the reference.
         return None;
     }
     let mut items = Vec::with_capacity(w.len() * (m + k));

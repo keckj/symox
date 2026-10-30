@@ -864,6 +864,9 @@ def limited_integrate(fa, fd, G, DE):
     """
     Solves the limited integration problem:  f = Dv + Sum(ci*wi, (i, 1, n))
     """
+    native = _prde_native.limited_integrate(fa, fd, G, DE)
+    if native is not None:
+        return native[0]
     fa, fd = fa*Poly(1/fd.LC(), DE.t), fd.monic()
     # interpreting limited integration problem as a
     # parametric Risch DE problem
@@ -909,6 +912,9 @@ def parametric_log_deriv_heu(fa, fd, wa, wd, DE, c1=None):
 
     The argument w == Dtheta/theta
     """
+    native = _prde_native.parametric_log_deriv_heu(fa, fd, wa, wd, DE, c1)
+    if native is not None:
+        return native[0]
     # TODO: finish writing this and write tests
     c1 = c1 or Dummy('c1')
 
@@ -1268,6 +1274,9 @@ def is_log_deriv_k_t_radical_in_field(fa, fd, DE, case='auto', z=None):
     is_log_deriv_k_t_radical, is_deriv_k
 
     """
+    native = _prde_native.is_log_deriv_k_t_radical_in_field(fa, fd, DE, case, z)
+    if native is not None:
+        return native[0]
     fa, fd = fa.cancel(fd, include=True)
 
     # f must be simple
