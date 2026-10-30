@@ -29,6 +29,7 @@ mod risch_splitfactor;
 mod solveset_steps;
 mod solveset_radical;
 mod prde;
+mod prde_frac;
 mod piecewise_fold;
 mod derivative_orders;
 
@@ -4685,6 +4686,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     solveset_steps::register(m)?;
     solveset_radical::register(m)?;
     prde::register(m)?;
+    prde_frac::register(m)?;
     piecewise_fold::register(m)?;
     derivative_orders::register(m)?;
     solve::register(m)?;

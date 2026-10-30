@@ -27,7 +27,12 @@ _LIST=[].__class__
 _BUILTIN=[].append.__class__
 
 
+_STR_KEYED=_core.__dict__.get('_str_keyed')
+
+
 def _plain_namespace(namespace):
+    # Exact dict whose keys are all exact str (native key scan when built).
+    if _STR_KEYED is not None:return _STR_KEYED(namespace)
     if _TYPE(namespace) is not _DICT:return False
     for key in namespace:
         if _TYPE(key) is not _STR:return False

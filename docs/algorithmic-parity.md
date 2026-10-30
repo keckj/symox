@@ -13611,3 +13611,106 @@ Remaining gaps (measured in
   Python 3.10 PyO3's `__call__` goes through `tp_call` with an argument
   tuple, whereas SymPy's generated Python function is called by
   vectorcall; closing it needs a vectorcall slot outside PyO3's API.
+
+
+## prdefrac (wave 30)
+
+Profile of the two slow public calls (cProfile + py-spy, audit README):
+`risch_integrate(log(x)*log(x + 1), x)` spent about 70 % of its Python
+time in 37103 public `Poly(e, t, domain=K)` constructions made by
+`PolyMatrix` entry reads (`_poly`, the `rref`/`nullspace` ground check,
+the `from_list` unify chain), nearly all for exact Integer/Rational
+entries over QQ or `ZZ(x)`/`QQ(x)`; native time was about 5 %.
+`risch_integrate(log(log(x)), x)` spent half of its time in the
+splitfactor admission scanning `_core.__dict__` in a Python loop. The
+kernels named for this wave (`constant_system`, `derivation`, `is_deriv_k`,
+`is_log_deriv_k_t_radical_in_field`) were each a few percent at most.
+
+Now native (Rust, `crates/symox-py/src/prde_frac.rs`), admission checks
+only:
+
+- `_core._str_keyed(d)`: "exact dict whose keys are all exact `str`" via
+  `PyDict_Next` (no hashing, equality or user callbacks), used by the
+  splitfactor and `_polymatrix_native` namespace admissions, with the
+  Python loop as fallback;
+- `_core._function_states_unchanged(records)`: identity of code, defaults,
+  kwdefaults and closure cell contents of the captured functions, read
+  through the same public CPython getters as `_ddm_function_metadata` (no
+  `object.__getattr__` audit event); returns None without those getters,
+  and the `_polymatrix_native` reader runs instead.
+
+Admission only (`python/symox/polys/_polymatrix_rational.py`, no new
+arithmetic): a `PolyMatrix` entry that is an exact Integer/Rational over QQ
+or over a fraction field `ZZ(a, ...)`/`QQ(a, ...)` of stock symbols
+disjoint from the matrix's single stock generator is built with
+`Poly._from_normalized(e, gens, domain, None, None)`, which is what stock
+`construct` reduces to for that input; the `rref`/`nullspace` ground check
+of an all-rational matrix over such a field is answered without building
+the entries; `from_list` of native `Poly` items over one QQ/ZZ domain
+object and one generator returns that domain without the `unify` chain.
+Everything else (other domains, algebraic or inexact grounds, a shared
+generator, which keeps its stock `CoercionFailed`, non-rational entries,
+several generators, any modified protocol) runs the stock code.
+
+Still Python, recorded as gaps (not ported in this wave):
+
+- `constant_system` with `ZZ(x)`/`QQ(x)` entries (its `rref` over
+  `ZZ(x)`/`QQ(x)` is already native; what stays in Python is the
+  expression-level derivation and the PolyMatrix arithmetic around it,
+  whose domains follow the expression forms);
+- `derivation` in the exp and primitive cases with rational-function
+  coefficients (`as_poly(t)` domain inference);
+- `is_deriv_k`, `is_log_deriv_k_t_radical(_in_field)`;
+- `limited_integrate_reduce` outside the base case;
+- the remaining cost of `log(x)*log(x + 1)`: `set_gens` and
+  `parallel_poly_from_expr(field=True)` per-entry construction of
+  non-constant entries.
+
+These kernels were 3-40 ms each in the two profiled calls, so the calls
+reached SymPy speed without them.
+
+Measured (release, medians of 5 fresh processes): `log(log(x))` 220 -> 115
+ms first call (SymPy 124 ms), `log(x)*log(x + 1)` 1714 -> 400 ms (SymPy
+677 ms); none of the 10 measured `risch_integrate` calls got slower; three `exp` integrands are still
+slower than SymPy on the first or the repeated call.
+
+Gap seen (not changed): symox `srepr` prints a `NonElementaryIntegral`
+inside an `Add` as `Integral` (the `str` of every measured result equals
+SymPy's).
+
+Corrections (domain inference of `constant_system`, test_prde.py
+`test_constant_system`):
+
+- Rust, `expand_mul_node` (crates/symox-core/src/expand.rs): like
+  `Mul._eval_expand_mul`, `n/d` is rebuilt from `fraction(expr)` also when
+  `d` is a single factor, so `Mul(2, x**2/2 + x + 1/2, 1/(x**2 + 2*x + 1))`
+  held unevaluated expands to `1` (the rebuilt `2*(x**2/2 + x + 1/2)`
+  distributes and cancels), as in SymPy; it was left as a fraction, whose
+  `Poly(..., t, field=True)` domain is `QQ(x)` instead of `QQ`. In
+  `constant_system` this is `Rm1 = Ri.applyfunc(D(x)/DAij)`, which is
+  now over `QQ[t]` as in SymPy, so `B` and `v` are over `QQ(x)[t]`.
+- Python plumbing, `PolyMatrix(..., ring=K[gens])`: the domain and the
+  generators are taken from the ring (`K`, `gens`), as SymPy's
+  `from_dm`; symox kept `K[gens]` as the domain with no generators.
+- Python plumbing, `PolyMatrix.__eq__` also compares the domain, as
+  SymPy's `DomainMatrix.__eq__` (`QQ[t]` and `QQ(x)[t]` matrices with
+  the same entries are not equal).
+
+The three `exp` integrands still slower than SymPy spend their extra time
+off the prde path: the lazy first import of mpmath (domains/_methods.py
+`_inexact_value`, SymPy imports it at import time) and the splitfactor
+admission (`_risch_splitfactor_native.reduce`, `_prove_fields`).
+
+Gaps seen, not changed: the `expand_mul` entry point
+(crates/symox-core/src/simp.rs `expand_mul_deep`) does not rebuild `n/d`
+and still leaves these products as fractions; `Mul(x + 1, 1/(x + 1))`
+held unevaluated still expands to `x/(x + 1) + 1/(x + 1)` (SymPy `1`);
+two denominator factors `y*(x + 2)` are not expanded into `x*y + 2*y`.
+`PolyMatrix(..., ring=K)` with a non-polynomial `K` keeps the given
+generators (SymPy takes `K.symbols`).
+
+SymPy test_prde.py: 3 failed, 12 passed before, 1 failed, 14 passed after
+(`test_constant_system` and `test_prde_no_cancel` now pass,
+`test_prde_special_denom` still fails); test_risch.py: 5 failed, 31
+passed before and after (same failing tests). Measured:
+[audit](../audits/performance/2026-10-30-prdefrac/README.md).
