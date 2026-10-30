@@ -86,7 +86,7 @@ fn tokenize(s: &str) -> Option<Vec<Tok>> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Cmp {
+pub(crate) enum Cmp {
     Lt,
     Le,
     Gt,
@@ -96,7 +96,7 @@ enum Cmp {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Bin {
+pub(crate) enum Bin {
     Add,
     Sub,
     Mul,
@@ -106,7 +106,7 @@ enum Bin {
 
 /// The functions with a known bit-exact Python result.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Fun {
+pub(crate) enum Fun {
     Sin,
     Cos,
     Tan,
@@ -132,6 +132,8 @@ enum Fun {
     Floor,
     Ceil,
     Sign,
+    // `scipy.special.gamma` (cephes)
+    ScipyGamma,
     Compare(Cmp),
     LogicalAnd,
     LogicalOr,
@@ -193,6 +195,7 @@ impl Fun {
                 _ => None,
             }),
             "builtins" if name == "abs" => Some(Abs),
+            "scipy" if name == "special.gamma" => Some(ScipyGamma),
             _ => None,
         }
     }
@@ -212,7 +215,7 @@ impl Fun {
 }
 
 #[derive(Clone, Debug)]
-enum Node {
+pub(crate) enum Node {
     Num(f64),
     Int(f64),
     Bool(bool),
@@ -480,6 +483,11 @@ impl Parsed {
     /// The global names, in the order [`Parsed::resolve`] expects their bindings.
     pub fn globals(&self) -> &[String] {
         &self.globals
+    }
+
+    /// The parsed tree (read by `crate::lambdify_vec`).
+    pub(crate) fn root(&self) -> &Node {
+        &self.root
     }
 
     /// The program once every global name is bound, or `None` when an
@@ -793,6 +801,7 @@ impl Program {
                     Fun::Floor => x.floor(),
                     Fun::Ceil => x.ceil(),
                     Fun::Sign => if x > 0.0 { 1.0 } else if x < 0.0 { -1.0 } else { 0.0 },
+                    Fun::ScipyGamma => crate::cephes_gamma::gamma(x),
                     _ => f64::NAN,
                 }
             })?,

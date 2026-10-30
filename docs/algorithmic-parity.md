@@ -13515,3 +13515,99 @@ Remaining gaps:
   - `test_solveset.py`: 94 failed / 87 passed before and after.
 - Measurements are in
   [audits/performance/2026-10-29-radicalrust](../audits/performance/2026-10-29-radicalrust/README.md).
+
+
+## lambdarr (wave 29): native float64 array calls of `lambdify`, 2026-10-30
+
+What is native (Rust, `crates/symox-core/src/lambdify_vec.rs` and the
+binding `crates/symox-py/src/lambdify_vector.rs`):
+
+- Admitted calls: every argument is a C-contiguous, native byte order
+  float64 `numpy.ndarray` of exact type with `ndim >= 1`, or a Python
+  `float`/`int` (not `bool`); at least one array; for the NumPy kernels
+  all arrays have one shape, for the compiled program all arrays have one
+  size. Python `int` arguments of an integer polynomial keep the exact
+  Python integer evaluation.
+- Elementary kernels of `lambdify(..., 'numpy')` (the `numpy_vectors`
+  class: `+ - * / **`, `sin cos exp log sqrt`, `pi`, `E`, numbers): the
+  printed NumPy text (`_numpy_vector.source`, the same text the ufunc
+  evaluator runs) is parsed once and lowered per pattern of scalar
+  arguments to a plan with NumPy's semantics: Python arithmetic on the
+  literals (declined on Python errors, complex or non-finite results),
+  NumPy float64 scalar arithmetic on scalar arguments (`**` is C `pow`),
+  the `ndarray.__pow__` fast paths (`x**2` square, `x**-1` reciprocal,
+  `x**0.5` sqrt, also for a scalar argument exponent, checked at run time)
+  and C `pow` otherwise, IEEE `+ - * /`. The arrays are read in place and
+  the result is written into a new array in chunks of 512, without the
+  NumPy temporaries; the GIL is released from 4096 elements.
+- `sin`, `cos`, `exp`, `log` and `pow` are the C library functions only when
+  NumPy's float64 loops are those functions: NumPy must report neither
+  AVX512F nor AVX512_SKX, and a probe of about 4000 values (zeros,
+  infinities, NaN, subnormals, large and small magnitudes) must agree bit
+  for bit, once per process. Otherwise only the exact operations are
+  native and the other kernels keep NumPy's evaluation.
+- Other kernels (Piecewise, special functions, default modules, several
+  outputs): the compiled program (`Compiled::call_many`) reads the array
+  buffers in place and writes the new result arrays directly, instead of
+  the `asarray`/`reshape`/`ascontiguousarray`/`to_vec` copies and the
+  final `from_vec`/`reshape`.
+- Complex arrays go straight to the NumPy object evaluator (the same one
+  as before), without the preceding generic argument checks.
+
+Values: the NumPy kernels give NumPy's result bit for bit, except the sign
+of a NaN, which depends on the operand order of the compiled loops (NumPy's
+own SIMD and scalar loops differ the same way); NaN positions are the same.
+The compiled program gives the same bits as before (same code). Shapes,
+dtype (float64), C order and fresh writable arrays are as before (the
+results now own their data instead of being reshaped views).
+
+Falls back unchanged (established path, same values and errors): other
+dtypes (float32, integers, object, byte-swapped), non-contiguous or 0-d
+arrays, NumPy subclasses and scalars (`numpy.float64`), broadcasting
+shapes, size mismatches (the compiled program's ValueError), ints beyond
+the float range (OverflowError), texts the plan declines (other functions,
+comparisons, large integers).
+
+SciPy's float64 gamma (second pass, Rust, `crates/symox-core/src/cephes_gamma.rs`
+and `crates/symox-core/src/lambdify/scipy_gamma.rs`): `cephes_gamma::gamma`
+is a port of xsf/cephes `Gamma` (SciPy 1.15): the same P/Q tables on
+[2,3], Stirling's formula above 33 with the same `pow` split above
+143.01608, the reflection for x < -33 with C's `int` conversion of the
+floor (INT_MIN beyond 2^31, hence sign -1), the small-argument branch
+`z/((1+0.5772156649015329 x) x)`, nan at the negative integers, -inf and
+nan, `copysign(inf, x)` at zero, inf on overflow, and the C library's
+`exp`, `pow` and `sin`. tests/test_native_lambdarr.py checks it bit for bit
+against `scipy.special.gamma` on more than 10^6 values (uniform on
+[-180, 180] and [-40, 40], integers, half-integers, 60 neighbours of every
+pole and branch point, subnormals, +-0, +-inf, nan, huge negative
+half-integers). It is used only where SymPy 1.14's generated function
+binds `gamma` to `scipy.special.gamma` (modules None, 'scipy',
+['scipy', 'numpy'] with SciPy installed; checked once per function by
+resolving the printed name): float64 array calls (the compiled program
+with `gamma_real` replaced) and scalar calls (the printed source's native
+evaluation now recognises `scipy.special.gamma`; poles and overflow still
+go to the generated function, which returns `numpy.float64` as SymPy
+does). 'numpy' and 'math' (where SymPy calls `math.gamma`) and the calls
+without a printed reference keep `gamma_real`.
+
+Intentional correction: complex arrays of a kernel whose NumPy object text
+names a function NumPy lacks (`numpy.gamma` for `gamma(x)` with the
+default modules) raised AttributeError; they now go to SymPy's generated
+function (SciPy's `gamma`), as SymPy does.
+
+Remaining gaps (measured in
+[audits/performance/2026-10-29-lambdarr](../audits/performance/2026-10-29-lambdarr/README.md)):
+
+- `gamma(x)` on float64 arrays with the SciPy binding is now 0.85 times
+  SymPy's time on 1000 and 100000 elements, but 10-element arrays stay
+  1.15-1.5 times slower: the fixed per-call cost of the vector path
+  (`sin` on 10 elements costs the same), not the kernel. With 'numpy'
+  (SymPy raises TypeError on arrays there) it keeps `gamma_real`.
+- Small arrays of 10 complex elements stay about 1.1-1.2 times slower
+  (the PyO3 call and the dispatch before the NumPy evaluation).
+- Scalar `gamma(0.5)` with default modules is now about 0.5 times SymPy's
+  time. The `[x, y]` polynomial scalar call stays about 1.15 times slower:
+  the prologue is two exact-type checks and the pyclass is frozen, but on
+  Python 3.10 PyO3's `__call__` goes through `tp_call` with an argument
+  tuple, whereas SymPy's generated Python function is called by
+  vectorcall; closing it needs a vectorcall slot outside PyO3's API.
