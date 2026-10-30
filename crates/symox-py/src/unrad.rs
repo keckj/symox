@@ -87,7 +87,50 @@ fn _unrad(
     }
 }
 
+/// `unrad(eq, *syms, cov=cov, n=n, rpt=rpt, ...)`: the reference recursion
+/// flags given by the caller. Returns `(result, cov_state)`, where
+/// `cov_state` is the final content of the caller's `cov` list.
+#[pyfunction]
+#[pyo3(signature = (eq, syms, cov, n, rpt, reverse=false, take=None, solve=None))]
+#[allow(clippy::too_many_arguments)]
+fn _unrad_flags(
+    py: Python<'_>,
+    eq: &Bound<'_, PyAny>,
+    syms: Vec<Bound<'_, PyAny>>,
+    cov: Vec<Bound<'_, PyAny>>,
+    n: Option<usize>,
+    rpt: usize,
+    reverse: bool,
+    take: Option<Bound<'_, PyAny>>,
+    solve: Option<Bound<'_, PyAny>>,
+) -> PyResult<(PyObject, Vec<crate::PyExpr>)> {
+    let e = to_expr(eq)?;
+    let syms: Vec<Expr> = syms.iter().map(to_expr).collect::<PyResult<_>>()?;
+    let cov: Vec<Expr> = cov.iter().map(to_expr).collect::<PyResult<_>>()?;
+    let solve = match solve {
+        Some(s) => s,
+        None => py.import("symox")?.getattr("solve")?,
+    };
+    let custom = take.is_some();
+    let mut h = PyHost { py, solve, take };
+    match ur::unrad_with_flags(&mut h, &e, &syms, reverse, custom, cov, n, rpt) {
+        Ok((r, state)) => {
+            let state: Vec<_> = state.into_iter().map(wrap).collect();
+            let r = match r {
+                None => py.None(),
+                Some((eq, cov)) => {
+                    let cov: Vec<_> = cov.into_iter().map(wrap).collect();
+                    (wrap(eq), cov).into_pyobject(py)?.into_any().unbind()
+                }
+            };
+            Ok((r, state))
+        }
+        Err(e) => Err(to_py_err(py, e)),
+    }
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_unrad, m)?)?;
+    m.add_function(wrap_pyfunction!(_unrad_flags, m)?)?;
     Ok(())
 }

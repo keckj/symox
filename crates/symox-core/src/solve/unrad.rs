@@ -475,6 +475,18 @@ pub fn unrad<H: UnradHost>(h: &mut H, eq: &Expr, syms: &[Expr], reverse: bool, c
     unrad_rec(h, eq, syms, &mut st)
 }
 
+/// `unrad(eq, *syms, cov=cov, n=n, rpt=rpt)`: the reference recursion flags
+/// given by the caller. Also returns the final content of the `cov` list,
+/// which the reference updates in place (`cov[:] = ...`).
+#[allow(clippy::too_many_arguments)]
+pub fn unrad_with_flags<H: UnradHost>(
+    h: &mut H, eq: &Expr, syms: &[Expr], reverse: bool, custom_take: bool, cov: Vec<Expr>, nwas: Option<usize>, rpt: usize,
+) -> R<(Option<Unrad>, Vec<Expr>), H::Error> {
+    let mut st = State { cov, nwas, rpt, reverse, custom_take, take_syms: None };
+    let r = unrad_rec(h, eq, syms, &mut st)?;
+    Ok((r, st.cov))
+}
+
 fn unrad_rec<H: UnradHost>(h: &mut H, eq0: &Expr, syms_in: &[Expr], st: &mut State) -> R<Option<Unrad>, H::Error> {
     let cov_in = st.cov.clone();
     let nwas = st.nwas;
