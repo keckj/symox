@@ -761,118 +761,11 @@ fn bivariate_inner(p: &crate::poly::polyobj::Poly, x0: &Expr, y0: &Expr) -> Opti
 
 // ---------------------------------------------------------------- checksol
 
-fn numeric_small(val: &Expr) -> Option<bool> {
-    let p18 = crate::bigfloat::dps_to_prec(18);
-    let p12 = crate::bigfloat::dps_to_prec(12);
-    let cutoff = -(p12 as i128);
-    // `abs(val.n(18).n(12, chop=True)) < 1e-9` is an absolute test: the
-    // value is evaluated at 18 digits under the 12-digit chop cutoff
-    // directly, so that a candidate whose residual is an exact zero is not
-    // chased through the whole cancellation budget before being chopped.
-    // A chopped part is proven below the cutoff (far below 1e-9) and an
-    // unchopped one is resolved to 18 digits, so the decision is the one of
-    // the two-step evaluation, which is kept when this one gives no number.
-    let direct = crate::evalf_mp::evalf_chop(val, p18, cutoff);
-    let v = if free_symbols(&direct).is_empty() && !has_illegal(&direct) && crate::evalf::eval_c64(&direct).is_some() {
-        crate::evalf_mp::evalf_chop(&direct, p12, cutoff)
-    } else {
-        let v = crate::evalf_mp::evalf(val, p18);
-        crate::evalf_mp::evalf_chop(&v, p12, cutoff)
-    };
-    if !free_symbols(&v).is_empty() || has_illegal(&v) {
-        return None;
-    }
-    let c = crate::evalf::eval_c64(&v)?;
-    let m = c.norm();
-    if m.is_nan() {
-        return None;
-    }
-    Some(m < 1e-9)
-}
-
 /// SymPy's `checksol(f, {sym: sol})` for one expression (`minimal=False`,
-/// `simplify=False` as after `_solve` simplified its results). Where the
-/// reference would need `is_constant` with the symbol still present, or a
-/// numerical value that does not evaluate, None (undecided) is returned.
+/// `simplify=False` as after `_solve` simplified its results); see
+/// `solve::checksol`.
 pub fn checksol(f: &Expr, sym: &Expr, sol: &Expr, numerical: bool, force: bool) -> Option<bool> {
-    if crate::symbolic_number::is_symbolic_number(f) {
-        return is_zero(f);
-    }
-    if f.is_zero() {
-        return Some(true);
-    }
-    if has_illegal(sol) {
-        return Some(false);
-    }
-    let mut val = subs1(f, sym, sol);
-    let mut reps: Vec<(Expr, Expr)> = Vec::new();
-    for attempt in 0..4 {
-        match attempt {
-            0 => {
-                if has_illegal(&val) {
-                    return Some(false);
-                }
-            }
-            1 => {
-                if !crate::symbolic_number::is_symbolic_number(&val) {
-                    if in_free(sym, &val) {
-                        return None;
-                    }
-                    if let Ok((_, prim)) = crate::decompose::as_content_primitive(&val, false, true) {
-                        val = prim;
-                    }
-                    val = mexpand(&crate::simptools::as_numer_denom(&val).0, true);
-                }
-            }
-            2 => {
-                val = crate::simplify::simplify(&subs1(f, sym, sol));
-                if force {
-                    let (v, r) = crate::simptools::misc::posify(&val);
-                    reps = r;
-                    val = v;
-                    let ex = mexpand(&val, true);
-                    if crate::symbolic_number::is_symbolic_number(&ex) {
-                        val = ex;
-                    }
-                }
-            }
-            _ => {
-                let mut saw = false;
-                walk(&crate::simp::expand_mul_deep(&val, true), &mut |p| {
-                    if saw {
-                        return;
-                    }
-                    match p.kind() {
-                        Kind::Pow(_, x) if !x.is_integer_number() => saw = true,
-                        _ if is_function(p) => saw = true,
-                        _ => {}
-                    }
-                });
-                if !saw {
-                    return Some(false);
-                }
-                if force {
-                    val = subs_dict(&val, &reps);
-                }
-                let nz = is_zero(&val).map(|z| !z);
-                if let Some(nz) = nz {
-                    let lambert = has_pred(&val, &|e: &Expr| matches!(e.kind(), Kind::Func(Func::Special(s), _) if s.name() == "LambertW"));
-                    if crate::symbolic_number::is_symbolic_number(&val) && lambert {
-                        return None;
-                    }
-                    return Some(!nz);
-                }
-                return None;
-            }
-        }
-        if val.is_rational_number() {
-            return Some(val.is_zero());
-        }
-        if numerical && crate::symbolic_number::is_symbolic_number(&val) {
-            return numeric_small(&val);
-        }
-    }
-    None
+    crate::solve::checksol::checksol(f, sym, sol, crate::solve::checksol::CheckFlags { numerical, force, simplify: false, minimal: false })
 }
 
 // ---------------------------------------------------------------- _tsolve
@@ -970,7 +863,7 @@ fn bivariate_step<H: Host>(h: &mut H, eq: &Expr, sym: &Expr) -> R<Option<Vec<Exp
         for s in sols.iter_mut() {
             let ns = h.nsimplify(s)?;
             if ns != *s && h.count_ops(&ns) <= h.count_ops(s) {
-                let ok = match checksol(&eq2, sym, &ns, true, true) {
+                let ok = match crate::solve::checksol::checksol(&eq2, sym, &ns, Default::default()) {
                     Some(v) => Some(v),
                     None => h.equals_zero(&subs1(&eq2, sym, &ns))?,
                 };

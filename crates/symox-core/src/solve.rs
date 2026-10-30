@@ -21,6 +21,7 @@ mod trig;
 pub use recast::{solve_atom,solve_atom_system};
 pub(crate) mod lambert;
 pub mod tsolve;
+pub mod checksol;
 pub mod unrad;
 
 /// `lhs - rhs` for an equation (`Eq`) or the expression itself.
