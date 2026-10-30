@@ -537,7 +537,7 @@ pub fn dotprodsimp_withsimp(e: &Expr) -> (Expr, bool) {
     let (ops, ratfunc) = count_ops_alg(&ex);
     if ops >= 6 {
         if ratfunc {
-            let c = cancel_opts(&ex, true);
+            let c = if contains_float(&ex) { float_dotprodsimp_cancel(&ex) } else { cancel_opts(&ex, true) };
             if c != ex {
                 ex = c;
                 simplified = true;
@@ -561,6 +561,53 @@ pub fn dotprodsimp_withsimp(e: &Expr) -> (Expr, bool) {
         }
     }
     (ex, true)
+}
+
+fn contains_float(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Num(n) => n.is_float(),
+        _ => e.args().iter().any(contains_float),
+    }
+}
+
+/// SymPy's `nonalg_subs_dummies`: every subexpression that is neither an
+/// atom nor an `Add`, `Mul` or `Pow` becomes a fresh dummy.
+fn nonalg_subs_dummies(e: &Expr, dummies: &mut FxHashMap<Expr, Expr>) -> Expr {
+    if e.is_atom() {
+        return e.clone();
+    }
+    match e.kind() {
+        Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => {
+            crate::traverse::map_children(e, &mut |c| nonalg_subs_dummies(c, dummies))
+        }
+        _ => dummies
+            .entry(e.clone())
+            .or_insert_with(|| Expr::dummy("Dummy", crate::symbol::Assumptions::default()))
+            .clone(),
+    }
+}
+
+/// The `ratfunc` branch of SymPy's `dotprodsimp` for float input. The
+/// polynomial conversion of [`cancel_opts`] has no inexact ground, so the
+/// reference `cancel` (domain `RR`) is used on the dummy-substituted
+/// expression, which is substituted back when it changed.
+fn float_dotprodsimp_cancel(ex: &Expr) -> Expr {
+    let mut dummies = FxHashMap::default();
+    let expr2 = nonalg_subs_dummies(ex, &mut dummies);
+    if !dummies.is_empty() && count_ops_alg(&expr2).0 < 6 {
+        return ex.clone();
+    }
+    let Ok(expr3) = crate::poly::api::reference_cancel(&expr2) else {
+        return ex.clone();
+    };
+    if expr3 == expr2 {
+        return ex.clone();
+    }
+    if dummies.is_empty() {
+        return expr3;
+    }
+    let back: FxHashMap<Expr, Expr> = dummies.into_iter().map(|(e, d)| (d, e)).collect();
+    crate::subs::xreplace(&expr3, &back)
 }
 
 /// Approximation of SymPy's `Basic.compare` class order.

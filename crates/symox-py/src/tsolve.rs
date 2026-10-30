@@ -220,9 +220,10 @@ fn _checksol_native(f: &Bound<'_, PyAny>, symbol: &Bound<'_, PyAny>, sol: &Bound
 /// a non-Expr substituted value) or "decline"; `warnings` has one entry per
 /// undecided equation (the simplified values at that moment, or None);
 /// `values` are the simplified mapping values when the reference replaced
-/// them, else None.
+/// them, else None. `units` are the atoms of the `physics.units`
+/// quantities present (the reference's `as_independent(Unit)`).
 #[pyfunction]
-#[pyo3(signature = (fs, keys, values, numerical=true, force=true, simplify=true, minimal=false, simplifier=None))]
+#[pyo3(signature = (fs, keys, values, numerical=true, force=true, simplify=true, minimal=false, simplifier=None, units=None))]
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn _checksol_public(
     fs: Vec<Bound<'_, PyAny>>,
@@ -233,6 +234,7 @@ fn _checksol_public(
     simplify: bool,
     minimal: bool,
     simplifier: Option<Bound<'_, PyAny>>,
+    units: Option<Vec<Bound<'_, PyAny>>>,
 ) -> PyResult<(&'static str, Option<crate::PyExpr>, Vec<Option<Vec<crate::PyExpr>>>, Option<Vec<crate::PyExpr>>)> {
     use symox::solve::checksol::{checksol_system_with, native_simplify, CheckFlags, Verdict};
     if keys.len() != values.len() {
@@ -241,6 +243,7 @@ fn _checksol_public(
     let fs = fs.iter().map(to_expr).collect::<PyResult<Vec<Expr>>>()?;
     let mut sol = keys.iter().zip(values.iter()).map(|(k, v)| Ok((to_expr(k)?, to_expr(v)?))).collect::<PyResult<Vec<(Expr, Expr)>>>()?;
     let flags = CheckFlags { numerical, force, simplify, minimal };
+    let units = units.unwrap_or_default().iter().map(to_expr).collect::<PyResult<Vec<Expr>>>()?;
     // the reference calls the public `simplify`; a failing call (an
     // exception, or a result that is not a native expression) declines
     let mut host = |e: &Expr| -> Option<Expr> {
@@ -249,9 +252,9 @@ fn _checksol_public(
         to_expr(&r).ok()
     };
     let out = if simplifier.is_some() {
-        checksol_system_with(&fs, &mut sol, flags, &mut host)
+        checksol_system_with(&fs, &mut sol, flags, &units, &mut host)
     } else {
-        checksol_system_with(&fs, &mut sol, flags, &mut native_simplify)
+        checksol_system_with(&fs, &mut sol, flags, &units, &mut native_simplify)
     };
     let (code, value) = match out.verdict {
         Verdict::Done(Some(true)) => ("true", None),

@@ -1,0 +1,25 @@
+checksol 17799               0.022520
+checksol units 2cmx          0.000062
+checksol units float         0.000066
+det n4_k0 None               0.000019
+det n4_k0 bareiss            0.000018
+det n4_k3 None               0.000171
+det n4_k3 bareiss            0.000169
+det n5_k0 None               0.000030
+det n5_k0 bareiss            0.000033
+det n5_k3 None               0.018603
+det n5_k3 bareiss            0.019214
+det n6_k0 None               0.000050
+det n6_k0 bareiss            0.000050
+det n6_k3 None               0.080116
+det n6_k3 bareiss            0.080965
+det n7_k0 None               0.000072
+det n7_k0 bareiss            0.000073
+det prec50 None              0.000031
+det prec50 bareiss           0.000031
+det third4 None              0.000024
+det third4 bareiss           0.000023
+pow E branch 2I              0.000102
+pow E branch none            0.000006
+pow plain                    0.000006
+solve 17799                  0.024748

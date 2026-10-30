@@ -14250,13 +14250,14 @@ Remaining gaps:
 - `_core._linsolve_matrix` (expression RREF) does not cancel
   (`a*b/(a**2 + a*b)` for SymPy's `b/(a + b)`); the Markov kernels no
   longer use it.
-- `Matrix.det` of a Float matrix is not SymPy's (explicit formulas up to
-  3x3, else Bareiss with `_find_reasonable_pivot` per strongly connected
-  block): for a Float chain whose rows sum to 0.99999999999999989, SymPy
-  sees no recurrent class, `(I - P).det()` is -2.07e-17 and
-  `fundamental_matrix` returns entries near 2e15, while symox's det is
-  exactly 0 and raises "The fundamental matrix doesn't exist.". The
-  shared det is unchanged.
+- `Matrix.det` of a Float matrix now follows SymPy's Bareiss (smallgaps
+  section below). Before, for a Float chain whose rows sum to
+  0.99999999999999989, SymPy's `(I - P).det()` was -2.07e-17 (no recurrent
+  class, `fundamental_matrix` entries near 2e15) while symox's was exactly
+  0 ("The fundamental matrix doesn't exist."). After the change the
+  chain of `audits/performance/2026-10-30-markovrust/bench_r2.py` (seed 7)
+  gives SymPy's `Float('-2.073958280700135e-17')` and the same
+  `fundamental_matrix` entries (2.04792404838000e+15 at (0, 0)).
 - Path queries over several kernels sum over the paths in odometer
   order where SymPy forms matrix powers: on the tested non-binary Float
   chains (2x2 and 3x3, gaps 2 to 4) the values agree bit for bit, but the
@@ -14942,19 +14943,140 @@ TypeError on unknown flags) now use SymPy's values. The new tests are in
 
 Remaining gaps:
 
-- Issue 17799: `-erf(x**(1/3))**pi + I` at `erfinv(I**(1/pi))**3` is None
-  (SymPy False). SymPy's `Function._eval_evalf` swallows the ValueError of
-  a nested argument conversion, which leaves `erf(erfinv(...))`
-  unevaluated, so `abs(...) < 1e-9` is not `S.true`. In symox's evalf the
-  mpmath error of the inner `erfinv` propagates instead. Fixing it needs
-  the evalf host-error scope to follow `Function._eval_evalf`.
-- `Pow.__new__`'s second E branch, `den == log(-b) + sign(im(b))*I*pi`, is
-  not ported.
+- Issue 17799 and `Pow.__new__`'s second E branch: fixed natively, see
+  the smallgaps section below.
 - `bivariate_type` tries its candidates in an order that depends on hashes
   in SymPy (a set), so it is not reproducible. Its order is not matched.
-- Units: `as_independent(Unit)` on a Quantity is not reproduced natively (a
-  Quantity becomes a positive Symbol). Such calls keep the stock path.
+- Units: `as_independent(Unit)` is now native (smallgaps section below).
+  What remains comes from the units representation (Prefix, Quantity as
+  a free symbol).
 - The simplified mapping value can differ where symox's `simplify` differs
   from SymPy's (`test_exclude`). The decision is the same.
 
 Measured: [audit](../audits/performance/2026-10-30-checksol/README.md).
+
+## smallgaps: Float Bareiss determinant, checksol issue 17799, second E branch, units, 2026-10-30
+
+All the computation is in Rust. Python only passes arguments (the unit
+atoms of checksol, see below).
+
+| Correction | Computation | Files |
+| --- | --- | --- |
+| Float Bareiss `det` (`method='bareiss'` and default) | Rust | `crates/symox-core/src/matrix/linalg.rs`, `matrix/ratfunc.rs` |
+| Issue 17799: evalf drops a ValueError raised while converting a function argument | Rust | `crates/symox-core/src/evalf_mp.rs`, `crates/symox-py/src/special.rs` (error class only) |
+| Issue 17799 in checksol (False instead of None) | Rust | `crates/symox-core/src/solve/checksol.rs` |
+| Second "recognize base as E" branch of `Pow.__new__` | Rust | `crates/symox-core/src/ops.rs` |
+| checksol attempt 0, `val.as_independent(Unit)[0]` | Rust; Python collects the Quantity atoms and passes them | `checksol.rs`, `crates/symox-py/src/tsolve.rs`, `python/symox/_solver_checks.py` |
+| lambdarr gamma/poly2 | no change: no Python on the call path (see below) | none |
+
+Float Bareiss determinant (`bareiss_expr_with`, `dotprodsimp_withsimp`):
+
+- Each entry `(pivot*a - b*c)/cumm` is now a quotient (`ops::div`): two
+  Floats give a single rounded `Float.__truediv__`, as in SymPy. Before,
+  the entry was a product with a rounded inverse `cumm**-1`, so the last
+  bits could differ. A symbolic quotient is still `Mul(ret, Pow(cumm, -1))`.
+- `dotprodsimp` on an expression that contains a Float follows SymPy:
+  `nonalg_subs_dummies`, then the reference `cancel` (domain RR) when
+  `count_ops_alg` is at least 6, then the dummies are replaced back. The
+  previous `cancel_opts` has no inexact ground and left such entries
+  unsimplified.
+- Admitted natively: every matrix that reaches the expression Bareiss
+  kernel (the default for n > 3 and `method='bareiss'`). Exact matrices
+  take the same path as before (`contains_float` is false).
+- The Float Markov chain of the markovrust gap (`(I - P).det()` exactly 0
+  before) now gives SymPy's determinant and `fundamental_matrix`.
+- Differential corpus against SymPy 1.14 (77 Float/symbolic matrices,
+  sizes 1 to 7, precisions 15 and 50, exact `srepr` comparison): default
+  and `bareiss` 77/77 identical (before: 43 identical, 33 different, 1 not
+  run because it ran out of memory). `domain-ge` went from 33 to 38
+  identical as a side effect.
+
+Issue 17799 (`evalf_mp.rs`):
+
+- SymPy's `Function._eval_evalf` catches the ValueError raised while one
+  argument is converted to mpmath and returns the call unevaluated. The
+  binding now marks a non-fatal ValueError raised by mpmath
+  (`ValueHostError`). `call_host` drops it only while it converts the
+  arguments of another function (`ArgumentConversion` depth); the
+  function's own mpmath call still raises. So `gamma(erfinv(2)).n()` stays
+  `gamma(erfinv(2))`, while `sin(erfinv(2)).n()` and
+  `erfinv(I**(1/pi)).n()` raise ValueError, as in SymPy.
+- When such an error was dropped, an Add, Mul or Pow is rebuilt from its
+  evaluated arguments, as SymPy's `_eval_evalf` fallbacks do:
+  `(gamma(erfinv(2)) + pi).n()` is `gamma(erfinv(2)) + 3.14159265358979`.
+- `checksol` returns False for such a value: `abs(val) < 1e-9` is then a
+  Relational, as in SymPy. `checksol(-erf(x**(1/3))**pi + I, x,
+  erfinv(I**(1/pi))**3)` is False and `solve(-erf(x**(1/3))**pi + I, x)` is
+  `[]`.
+
+Second E branch (`ops.rs`, `base_as_e`): `b**(c*num/den)` with an Add
+`den == log(-factor_terms(b, sign=False)) + sign(im(b))*I*pi` and a
+nonzero numeric `sign(im(b))` is `E**(c*num)`. A cheap structural pre-check
+(an Add with a log term and a term containing pi, raised to a negative
+number) keeps the cost of other powers unchanged. `(2*I)**(x/log(2*I))` is
+`exp(x)`; `(-2)**(x/(log(2) + I*pi))` stays a power, as in SymPy.
+
+Units (`checksol.rs`, attempt 0): when the value is a Mul, the factors that
+contain a unit are dropped (`as_independent(Unit)[0]`). In symox a Quantity
+is a registered positive Symbol (`physics/units/_core.py`), so the binding
+gets the unit atoms as a list: `_solver_checks._unit_atoms` gives the free
+symbols registered as quantities, only when `symox.physics.units` is loaded.
+`checksol(cm*(x - 2), x, Float('2.0000000001'))` is True, and
+`checksol(2*cm*x, x, 1)` is False, as in SymPy.
+
+checksol differential results against SymPy 1.14 (scripts of the checksol
+audit):
+
+- 1897 distinct calls logged again from SymPy's test_solvers.py and
+  test_solveset.py: 1889 agree, against 1888 before. The issue 17799 call is
+  now False, as in SymPy; no decision differs. The 7 remaining differences
+  are the mapping values written back (print order of radicals, public
+  `simplify`), the same as before; 1 call cannot be rebuilt (setup).
+- 5304 generated cases: 5304 agree (unchanged).
+
+lambdarr gamma/poly2: both are `symox._core.CompiledFunction` calls with no
+Python frame on the call path (checked with cProfile), so there is no
+Python computation to port. Measured on 2026-10-30 (median per call):
+`gamma` float64 arrays of 10 elements 0.87 us against 0.65 us for SymPy;
+1000 and 100000 elements are equal within 5%; scalar `gamma(0.5)` 0.39 us
+against 0.74 us; the `[x, y]` polynomial scalar call 0.37 us against
+0.29 us. What remains is the fixed cost of the PyO3 call (`tp_call` with
+an argument tuple against SymPy's vectorcall of a Python function), already
+recorded in the lambdarr section.
+
+Cost of the corrections (median per call, machine under load; before /
+after / SymPy):
+
+- Symbolic Float determinants `n6_k3`: 0.016 / 0.081 / 1.02 s. The RR
+  `cancel` that SymPy's `dotprodsimp` applies makes them about 5 times
+  slower than before, still about 12 times faster than SymPy. Purely
+  numeric Float determinants are unchanged (n7: 66 / 73 / 3537 us).
+- `(2*I)**(x/log(2*I))`: 19 / 102 / 7 us, because the second branch is
+  now evaluated. Powers that fail the structural pre-check are unchanged
+  (5 / 6 / 7 us).
+- `checksol` issue 17799: 51 / 23 / 1.3 ms. Units: 0.94 / 0.066 /
+  0.142 ms.
+
+Corrections awaiting user validation (« en attente de validation
+utilisateur »): none. Every change makes symox give SymPy 1.14's value,
+type or exception.
+
+Remaining gaps:
+
+- Other det methods on Float matrices still differ from SymPy in the last
+  bits or in the symbolic form (`berkowitz` 1, `lu` 2, `bird` 46,
+  `laplace` 42, `domain-ge` 39 of 77 corpus cases).
+- `(I**(1/pi))**pi` stays nested (SymPy: `I`), so its `.n()` is
+  `0.e-175 + 1.0*I` (SymPy `1.0*I`). This is a gap of `Pow._eval_power`
+  for a non-Number exponent with `|1/pi| < 1`, not of evalf or checksol.
+- Units are represented differently. A Prefix is a symbol atom, so
+  `8*kilo*newton` is not `8000*newton`, and
+  `checksol(8*kilo*newton + x + y, {x: -8000*newton - y})` is False
+  (SymPy True). A Quantity is a free symbol, so
+  `solve(1/x - 1/(2*cm))` is `[{centimeter: x/2}]` (SymPy
+  `[2*centimeter]`). Both come from the units module, not from checksol.
+- The internal checks of the native `solve` (`tsolve.rs`) do not pass the
+  unit atoms. They behave as the public checksol did before.
+- lambdarr: the small-array and scalar polynomial calls above.
+
+Measured: [audit](../audits/performance/2026-10-30-smallgaps/README.md).

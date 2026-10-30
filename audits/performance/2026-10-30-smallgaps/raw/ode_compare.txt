@@ -1,0 +1,6 @@
+base {'classify': {'equal_output': 315}, 'hint': {'equal_output': 279, 'inconclusive_resource_limit': 9, 'different_output_review_required': 24, 'equal_error_observation': 3}, 'default': {'equal_output': 263, 'inconclusive_resource_limit': 20, 'different_output_review_required': 27, 'equal_error_observation': 3, 'different_error_behavior_review_required': 2}}
+after {'classify': {'equal_output': 315}, 'hint': {'equal_output': 281, 'inconclusive_resource_limit': 7, 'different_output_review_required': 24, 'equal_error_observation': 3}, 'default': {'equal_output': 264, 'inconclusive_resource_limit': 19, 'different_output_review_required': 27, 'equal_error_observation': 3, 'different_error_behavior_review_required': 2}}
+inconclusive ('fact_06', 'default') inconclusive_resource_limit equal_output
+inconclusive ('lie_group_13', 'hint') inconclusive_resource_limit equal_output
+inconclusive ('lie_group_14', 'hint') inconclusive_resource_limit equal_output
+per-case symox differences: {} resource-limited changes: {'default': 1, 'hint': 2}

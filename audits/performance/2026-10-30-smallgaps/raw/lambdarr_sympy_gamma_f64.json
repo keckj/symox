@@ -1,0 +1,17 @@
+{
+ "gamma_f64_10": {
+  "first_median": 0.18895092501770705,
+  "repeat_median": 6.52423196724847e-07,
+  "ok": true
+ },
+ "gamma_f64_1000": {
+  "first_median": 0.1764281989308074,
+  "repeat_median": 1.1269469003171657e-05,
+  "ok": true
+ },
+ "gamma_f64_100000": {
+  "first_median": 0.1929190040100366,
+  "repeat_median": 0.0010627298516795991,
+  "ok": true
+ }
+}

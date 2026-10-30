@@ -134,8 +134,14 @@ fn decide(val: &Expr, numerical: bool) -> Option<Verdict> {
         return Some(Verdict::Done(Some(val.is_zero())));
     }
     if numerical && is_number(val) {
+        crate::evalf_mp::take_discarded_argument_error();
         return Some(match numeric_small(val) {
             Some(r) => Verdict::Done(Some(r)),
+            // A function whose argument raised a ValueError in SymPy's
+            // generic argument conversion stays unevaluated (issue 17799):
+            // `abs(val.n(18).n(12, chop=True)) < 1e-9` is then a Relational,
+            // not S.true, and the reference returns False.
+            None if crate::evalf_mp::take_discarded_argument_error() => Verdict::Done(Some(false)),
             None => Verdict::Decline("numerical value not evaluated"),
         });
     }
@@ -261,13 +267,18 @@ pub fn subs_mapping(f: &Expr, sol: &[(Expr, Expr)]) -> Expr {
 /// when it reaches attempt 2 (`sol[k] = simplify(sol[k])`); this is done in
 /// place here and `simplified` is set.
 pub fn checksol_mapping(f: &Expr, sol: &mut [(Expr, Expr)], flags: CheckFlags, simplified: &mut bool) -> Verdict {
-    checksol_mapping_with(f, sol, flags, simplified, &mut native_simplify)
+    checksol_mapping_with(f, sol, flags, simplified, &[], &mut native_simplify)
 }
 
 /// `checksol_mapping` with the simplifier `simp` (the public binding passes
 /// the public `simplify`, as the reference calls it).
+///
+/// `units` lists the atoms that stand for `sympy.physics.units` quantities
+/// (a Quantity is a positive Symbol natively). Attempt 0 drops the factors
+/// of a product that contain one, as the reference's
+/// `val.as_independent(Unit)[0]`.
 pub fn checksol_mapping_with(
-    f: &Expr, sol: &mut [(Expr, Expr)], flags: CheckFlags, simplified: &mut bool, simp: &mut Simplifier<'_>,
+    f: &Expr, sol: &mut [(Expr, Expr)], flags: CheckFlags, simplified: &mut bool, units: &[Expr], simp: &mut Simplifier<'_>,
 ) -> Verdict {
     const FAILED: Verdict = Verdict::Decline("simplify failed");
     if !is_non_expr(f) && is_number(f) {
@@ -303,6 +314,9 @@ pub fn checksol_mapping_with(
     let keys: Vec<Expr> = sol.iter().map(|(k, _)| k.clone()).collect();
     // attempt 0
     let mut val = subs_mapping(&f, sol);
+    if !units.is_empty() {
+        val = independent_of_units(&val, units);
+    }
     if has_illegal(&val) {
         return Verdict::Done(Some(false));
     }
@@ -411,21 +425,36 @@ pub struct SystemOutcome {
     pub simplified: bool,
 }
 
+/// `val.as_independent(Unit)[0]` for a Mul `val`: the coefficient times the
+/// factors that contain no quantity atom. Other values are returned as is.
+fn independent_of_units(val: &Expr, units: &[Expr]) -> Expr {
+    let Kind::Mul(c, factors) = val.kind() else { return val.clone() };
+    let has_unit = |e: &Expr| units.iter().any(|u| has(e, u));
+    if !factors.iter().any(|(b, e)| has_unit(b) || has_unit(e)) {
+        return val.clone();
+    }
+    let mut kept = vec![Expr::num(c.clone())];
+    kept.extend(factors.iter().filter(|(b, e)| !has_unit(b) && !has_unit(e)).map(|(b, e)| crate::ops::pow(b, e)));
+    crate::ops::mul(&kept)
+}
+
 /// SymPy 1.14 `checksol(fs, sol, **flags)` for an iterable of equations:
 /// `fuzzy_and(checksol(fi, sol, **flags) for fi in fs)`, which stops at the
 /// first False. The mapping is shared, so a simplification made for one
 /// equation is seen by the next ones.
 pub fn checksol_system(fs: &[Expr], sol: &mut [(Expr, Expr)], flags: CheckFlags) -> SystemOutcome {
-    checksol_system_with(fs, sol, flags, &mut native_simplify)
+    checksol_system_with(fs, sol, flags, &[], &mut native_simplify)
 }
 
 /// `checksol_system` with the simplifier `simp`.
-pub fn checksol_system_with(fs: &[Expr], sol: &mut [(Expr, Expr)], flags: CheckFlags, simp: &mut Simplifier<'_>) -> SystemOutcome {
+pub fn checksol_system_with(
+    fs: &[Expr], sol: &mut [(Expr, Expr)], flags: CheckFlags, units: &[Expr], simp: &mut Simplifier<'_>,
+) -> SystemOutcome {
     let mut simplified = false;
     let mut warnings = Vec::new();
     let mut rv = Some(true);
     for f in fs {
-        let v = checksol_mapping_with(f, sol, flags, &mut simplified, simp);
+        let v = checksol_mapping_with(f, sol, flags, &mut simplified, units, simp);
         let r = match v {
             Verdict::Done(r) => r,
             Verdict::Unverified => {
@@ -461,4 +490,27 @@ pub fn rejects_parametric(f_num: &Expr, x: &Expr, s: &Expr) -> bool {
         return false;
     }
     checksol(f_num, x, s, CheckFlags { simplify: false, ..Default::default() }) == Some(false)
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+    fn p(source: &str) -> Expr { crate::parser::parse_str(source).unwrap() }
+    #[test]
+    fn quantity_factors_are_dropped_in_attempt_zero() {
+        // SymPy 1.14: checksol(cm*(x - 2), x, Float('2.0000000001')) is True
+        // (val.as_independent(Unit)[0] is 1.0e-10) and
+        // checksol(2*cm*x, x, 1) is False.
+        let cm = Expr::symbol("cm");
+        let run = |f: &str, v: Expr| {
+            let mut sol = [(Expr::symbol("x"), v)];
+            let mut simplified = false;
+            checksol_mapping_with(&p(f), &mut sol, CheckFlags::default(), &mut simplified, std::slice::from_ref(&cm), &mut native_simplify).result()
+        };
+        assert_eq!(run("cm*(x - 2)", p("2.0000000001")), Some(true));
+        assert_eq!(run("2*cm*x", p("1")), Some(false));
+        assert_eq!(run("cm*(x - 1)", p("1")), Some(true));
+        assert_eq!(independent_of_units(&p("3*cm*y*sin(cm)"), std::slice::from_ref(&cm)), p("3*y"));
+        assert_eq!(independent_of_units(&p("cm + y"), std::slice::from_ref(&cm)), p("cm + y"));
+    }
 }

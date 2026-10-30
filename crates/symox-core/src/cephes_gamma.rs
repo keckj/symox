@@ -73,6 +73,9 @@ fn stirf(x: f64) -> f64 {
 
 /// `scipy.special.gamma` of a float64, bit for bit: `nan` at the negative
 /// integers, -inf and nan; `copysign(inf, x)` at zero; inf on overflow.
+// The small-argument branch keeps cephes' literal 0.5772156649015329 (the
+// correctly rounded Euler constant) as written in the reference source.
+#[allow(clippy::approx_constant)]
 pub fn gamma(x: f64) -> f64 {
     if !x.is_finite() {
         return if x > 0.0 { x } else { f64::NAN };

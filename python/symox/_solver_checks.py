@@ -1,6 +1,7 @@
 """Solution validation and scalar linear isolation through native arithmetic."""
 from collections.abc import Mapping
 import warnings
+import sys
 
 from . import _core
 
@@ -184,6 +185,19 @@ def _checksol_dict(f, sol):
     raise AttributeError("'Dict' object has no attribute 'is_constant'")
 
 
+def _unit_atoms(exprs):
+    """The atoms of the ``physics.units`` quantities in ``exprs`` (a
+    Quantity is a registered positive Symbol natively), passed to the
+    native ``as_independent(Unit)`` step."""
+    core=sys.modules.get(__package__+'.physics.units._core')
+    if core is None or not core._QUANTITIES:
+        return None
+    atoms=set()
+    for e in exprs:
+        atoms.update(s for s in getattr(e,"free_symbols",()) if s in core._QUANTITIES)
+    return list(atoms) or None
+
+
 def _checksol_native_call(items, sol, flags):
     from . import sympify
     keys=list(sol)
@@ -199,7 +213,8 @@ def _checksol_native_call(items, sol, flags):
     # post steps): it is handed to the native check
     code,value,warned,values=_core._checksol_public(items,native_keys,native_values,
         bool(flags.get('numerical',True)),bool(flags.get('force',True)),
-        bool(flags.get('simplify',True)),bool(flags.get('minimal',False)),simplify)
+        bool(flags.get('simplify',True)),bool(flags.get('minimal',False)),simplify,
+        _unit_atoms(items+native_values))
     if code=='decline':
         return _DECLINE
     original=[sol[key] for key in keys]

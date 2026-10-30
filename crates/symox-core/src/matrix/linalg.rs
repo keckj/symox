@@ -458,17 +458,16 @@ fn bareiss_expr_with(m:&Matrix,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>)->MR
         };
         let rows: Vec<usize> = (0..n).filter(|&i| i != pos).collect();
         let mut data = Vec::with_capacity((n - 1) * (n - 1));
-        let inv_cumm = if cumm.is_one() { None } else { Some(pow(&cumm, &Expr::minus_one())) };
         for &i in &rows {
             for j in 0..n - 1 {
                 let r = sub(
                     &mul2(&pv, mat.get(i, j + 1)),
                     &mul2(mat.get(pos, j + 1), mat.get(i, 0)),
                 );
-                let r = match &inv_cumm {
-                    Some(ic) => mul2(&r, ic),
-                    None => r,
-                };
+                // `ret / cumm` of the reference: a float quotient of two
+                // numbers is rounded once (`Float.__truediv__`), other
+                // quotients are `Mul(ret, Pow(cumm, -1))`.
+                let r = if cumm.is_one() { r } else { crate::ops::div(&r, &cumm) };
                 data.push(dotprodsimp(&r));
             }
         }
@@ -1684,5 +1683,29 @@ mod checked_rational_charpoly_tests {
         let result=matrix.charpoly_checked(&mut || {calls+=1;if calls==8 {Err(23)}else{Ok(())}});
         assert_eq!(result,Err(23)); assert_eq!(calls,8);
         assert_eq!(matrix.data,vec![r(1,2),r(7,11),r(0,1),r(2,3)]);
+    }
+}
+
+#[cfg(test)]
+mod float_bareiss_tests {
+    use super::*;
+    #[test]
+    fn float_quotients_are_rounded_once_like_the_reference() {
+        // SymPy 1.14: Matrix(third4).det(method='bareiss') is
+        // Float('-0.0033845265845265848'): each `ret/cumm` of two Floats is
+        // one `Float.__truediv__`, not a product with a rounded inverse.
+        let f=Expr::float;
+        let rows=vec![
+            vec![f(1.0/3.0),f(1.0/7.0),f(0.1),f(1.0)],
+            vec![f(0.2),f(1.0/9.0),f(1.0/11.0),f(0.0)],
+            vec![f(0.3),f(0.7),f(1.0/13.0),f(1.0)],
+            vec![f(0.0),f(1.0),f(0.0),f(0.3)],
+        ];
+        let m=Matrix::from_rows(rows).unwrap();
+        for d in [m.det_method(DetMethod::Bareiss).unwrap(),m.det().unwrap()] {
+            let Kind::Num(n)=d.kind() else { panic!("{d:?}") };
+            assert!(n.is_float());
+            assert_eq!(n.to_f64(),-0.0033845265845265848);
+        }
     }
 }

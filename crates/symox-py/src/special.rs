@@ -274,7 +274,15 @@ fn mpmath_special(name: &str, args: &[symox::evalf_mp::HostArg], prec: u32)
         // an error it raises stops the evaluation (PyErr_CheckSignals).
         py.check_signals().map_err(fatal)?;
         mpmath_evaluate(py, name, args, prec).map_err(|error| {
-            if is_fatal_error(py, &error) { fatal(error) } else { symox::evalf_mp::HostError(Box::new(error)) }
+            if is_fatal_error(py, &error) {
+                fatal(error)
+            } else if error.is_instance_of::<PyValueError>(py) {
+                // Caught by SymPy's generic argument conversion.
+                let inner = symox::evalf_mp::HostError(Box::new(error));
+                symox::evalf_mp::HostError(Box::new(symox::evalf_mp::ValueHostError(inner)))
+            } else {
+                symox::evalf_mp::HostError(Box::new(error))
+            }
         })
     })
 }
