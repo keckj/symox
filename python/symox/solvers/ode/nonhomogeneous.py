@@ -145,6 +145,13 @@ def _solve_variation_of_parameters(eq, func, roots, homogen_sol, order, match_ob
     The general solution.
 
     """
+    from ._odesolve_native import variation_of_parameters
+    native = variation_of_parameters(
+        func, roots, homogen_sol, order, match_obj, simplify_flag,
+        lambda e: trigsimp(simplify(e), deep=True, recursive=True),
+        lambda e: trigsimp(simplify(e), deep=True))
+    if native is not None:
+        return Eq(func.func(func.args[0]), native)
     f = func.func
     x = func.args[0]
     r = match_obj
@@ -321,6 +328,10 @@ def _undetermined_coefficients_match(expr, x, func=None, eq_homogeneous=S.Zero):
     {'test': False}
 
     """
+    from ._odesolve_native import undetermined_trialset
+    native = undetermined_trialset(expr, x, func, eq_homogeneous, S.Zero)
+    if native is not None:
+        return native
     a = Wild('a', exclude=[x])
     b = Wild('b', exclude=[x])
     expr = powsimp(expr, combine='exp')  # exp(x)*exp(2*x + 1) => exp(3*x + 1)
@@ -452,6 +463,10 @@ def _solve_undetermined_coefficients(eq, func, order, match, trialset):
     The general solution.
 
     """
+    from ._odesolve_native import undetermined_solution
+    native = undetermined_solution(eq, func, order, match, trialset)
+    if native is not None:
+        return Eq(func.func(func.args[0]), native)
     r = match
     coeffs = numbered_symbols('a', cls=Dummy)
     coefflist = []

@@ -537,10 +537,24 @@ pub fn dotprodsimp_withsimp(e: &Expr) -> (Expr, bool) {
     let (ops, ratfunc) = count_ops_alg(&ex);
     if ops >= 6 {
         if ratfunc {
-            let c = if contains_float(&ex) { float_dotprodsimp_cancel(&ex) } else { cancel_opts(&ex, true) };
-            if c != ex {
-                ex = c;
-                simplified = true;
+            // cancel over the algebraic skeleton: every non-Add/Mul/Pow
+            // subexpression is a Dummy, so `exp(-x)` is an opaque factor
+            // and not the denominator `1/exp(x)`
+            let mut dummies: Vec<(Expr, Expr)> = Vec::new();
+            let ex2 = nonalg_subs_dummies(&ex, &mut dummies);
+            if dummies.is_empty() || count_ops_alg(&ex2).0 >= 6 {
+                // The polynomial conversion of `cancel_opts` has no inexact
+                // ground, so float input uses the reference `cancel` (domain RR).
+                let ex3 = if contains_float(&ex) {
+                    crate::poly::api::reference_cancel(&ex2).unwrap_or_else(|_| ex2.clone())
+                } else {
+                    cancel_opts(&ex2, true)
+                };
+                if ex3 != ex2 {
+                    let back: FxHashMap<Expr, Expr> = dummies.into_iter().map(|(e, d)| (d, e)).collect();
+                    ex = crate::subs::xreplace(&ex3, &back);
+                    simplified = true;
+                }
             }
         }
         return (ex, simplified);
@@ -570,44 +584,43 @@ fn contains_float(e: &Expr) -> bool {
     }
 }
 
-/// SymPy's `nonalg_subs_dummies`: every subexpression that is neither an
-/// atom nor an `Add`, `Mul` or `Pow` becomes a fresh dummy.
-fn nonalg_subs_dummies(e: &Expr, dummies: &mut FxHashMap<Expr, Expr>) -> Expr {
-    if e.is_atom() {
+/// `nonalg_subs_dummies` of SymPy's `dotprodsimp`: each subexpression with
+/// arguments that is not an `Add`, `Mul` or `Pow` becomes a Dummy, one per
+/// distinct subexpression, recorded in `dummies` as `(expr, dummy)`.
+/// The Dummies are numbered in SymPy's first-encounter order (depth first
+/// over the args in SymPy's order), which is their generator order in
+/// `cancel` (`_sort_gens` splits the trailing index off `_Dummy_<n>`).
+fn nonalg_subs_dummies(e: &Expr, dummies: &mut Vec<(Expr, Expr)>) -> Expr {
+    fn collect(e: &Expr, dummies: &mut Vec<(Expr, Expr)>) {
+        match e.kind() {
+            Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => {}
+            Kind::Func(_, args) if args.is_empty() => {}
+            Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => {
+                for a in crate::traverse::ordered_args(e) {
+                    collect(&a, dummies);
+                }
+            }
+            _ => {
+                if !dummies.iter().any(|(k, _)| k == e) {
+                    let d = Expr::dummy(&format!("Dummy_{}", dummies.len() + 1), Default::default());
+                    dummies.push((e.clone(), d));
+                }
+            }
+        }
+    }
+    fn subst(e: &Expr, dummies: &[(Expr, Expr)]) -> Expr {
+        match e.kind() {
+            Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => e.clone(),
+            Kind::Func(_, args) if args.is_empty() => e.clone(),
+            Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => crate::traverse::map_children(e, &mut |a| subst(a, dummies)),
+            _ => dummies.iter().find(|(k, _)| k == e).map_or_else(|| e.clone(), |(_, d)| d.clone()),
+        }
+    }
+    collect(e, dummies);
+    if dummies.is_empty() {
         return e.clone();
     }
-    match e.kind() {
-        Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => {
-            crate::traverse::map_children(e, &mut |c| nonalg_subs_dummies(c, dummies))
-        }
-        _ => dummies
-            .entry(e.clone())
-            .or_insert_with(|| Expr::dummy("Dummy", crate::symbol::Assumptions::default()))
-            .clone(),
-    }
-}
-
-/// The `ratfunc` branch of SymPy's `dotprodsimp` for float input. The
-/// polynomial conversion of [`cancel_opts`] has no inexact ground, so the
-/// reference `cancel` (domain `RR`) is used on the dummy-substituted
-/// expression, which is substituted back when it changed.
-fn float_dotprodsimp_cancel(ex: &Expr) -> Expr {
-    let mut dummies = FxHashMap::default();
-    let expr2 = nonalg_subs_dummies(ex, &mut dummies);
-    if !dummies.is_empty() && count_ops_alg(&expr2).0 < 6 {
-        return ex.clone();
-    }
-    let Ok(expr3) = crate::poly::api::reference_cancel(&expr2) else {
-        return ex.clone();
-    };
-    if expr3 == expr2 {
-        return ex.clone();
-    }
-    if dummies.is_empty() {
-        return expr3;
-    }
-    let back: FxHashMap<Expr, Expr> = dummies.into_iter().map(|(e, d)| (d, e)).collect();
-    crate::subs::xreplace(&expr3, &back)
+    subst(e, dummies)
 }
 
 /// Approximation of SymPy's `Basic.compare` class order.
@@ -939,6 +952,16 @@ mod tests {
 
     fn p(s: &str) -> Expr {
         parse_str(s).unwrap()
+    }
+
+    #[test]
+    fn dotprodsimp_exp_negative_argument_is_opaque() {
+        // SymPy 1.14: nonalg_subs_dummies hides exp(-x), so cancel does not
+        // move it to a denominator (Wronskian of exp(-x)*sin(3x), exp(-x)*cos(3x))
+        let e = p("(-3*exp(-x)*sin(3*x) - exp(-x)*cos(3*x))*exp(-x)*sin(3*x) - (-exp(-x)*sin(3*x) + 3*exp(-x)*cos(3*x))*exp(-x)*cos(3*x)");
+        assert_eq!(dotprodsimp(&e).to_string(), "-3*exp(-2*x)*sin(3*x)**2 - 3*exp(-2*x)*cos(3*x)**2");
+        let e = p("-2*x*exp(4*x) + (2*x*exp(2*x) + exp(2*x))*exp(2*x)");
+        assert_eq!(dotprodsimp(&e).to_string(), "exp(4*x)");
     }
 
     #[test]
