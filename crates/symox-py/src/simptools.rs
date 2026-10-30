@@ -51,11 +51,10 @@ fn _st_radsimp(e: &Bound<'_, PyAny>, symbolic: bool, max_terms: usize) -> PyResu
     Ok(wrap(st::radsimp::radsimp(&to_expr(e)?, symbolic, max_terms)))
 }
 
-#[pyfunction]
-fn _st_radsimp_numeric_denominators(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    let py = e.py();
-    let expression = to_expr(e)?;
-    let mut fallback = |base: &Expr| -> PyResult<Option<Expr>> {
+/// The host recognition of a numeric denominator that is not a sum of
+/// square roots (`nsimplify`, kept only when it `equals` the base).
+fn numeric_denominator_fallback(py: Python<'_>) -> impl FnMut(&Expr) -> PyResult<Option<Expr>> + '_ {
+    move |base: &Expr| -> PyResult<Option<Expr>> {
         py.check_signals()?;
         let nsimplify = py.import("symox._numeric_recognition")?.getattr("nsimplify")?;
         let candidate = match nsimplify.call1((wrap(base.clone()),)) {
@@ -74,8 +73,27 @@ fn _st_radsimp_numeric_denominators(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         } else {
             Ok(None)
         }
-    };
+    }
+}
+
+#[pyfunction]
+fn _st_radsimp_numeric_denominators(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    let py = e.py();
+    let expression = to_expr(e)?;
+    let mut fallback = numeric_denominator_fallback(py);
     Ok(wrap(st::radsimp::prepare_numeric_denominators(
+        &expression, &mut || py.check_signals(), &mut fallback)?))
+}
+
+/// The denominator step of SymPy's `simplify`
+/// (`simptools::radical_denominator`), with the host recognition of
+/// `radsimp`.
+#[pyfunction]
+fn _st_simplify_rationalize_denominator(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    let py = e.py();
+    let expression = to_expr(e)?;
+    let mut fallback = numeric_denominator_fallback(py);
+    Ok(wrap(st::radical_denominator::rationalize_sum_denominator(
         &expression, &mut || py.check_signals(), &mut fallback)?))
 }
 
@@ -478,6 +496,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_st_rcollect, m)?)?;
     m.add_function(wrap_pyfunction!(_st_radsimp, m)?)?;
     m.add_function(wrap_pyfunction!(_st_radsimp_numeric_denominators, m)?)?;
+    m.add_function(wrap_pyfunction!(_st_simplify_rationalize_denominator, m)?)?;
     m.add_function(wrap_pyfunction!(_st_rad_rationalize, m)?)?;
     m.add_function(wrap_pyfunction!(_st_split_surds, m)?)?;
     m.add_function(wrap_pyfunction!(_st_signsimp, m)?)?;

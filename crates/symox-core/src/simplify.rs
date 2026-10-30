@@ -568,6 +568,12 @@ pub fn simplify(e: &Expr) -> Expr {
     if !unchanged_reference && has_exp_or_trig(&selected) {
         selected = crate::simptools::trigsimp::exptrigsimp(&selected);
     }
+    // SymPy's denominator step (radsimp of a sum denominator), before its
+    // sign step. Not in native-selection mode, which stands for callers
+    // that do not call simplify in the reference.
+    if !native_selection() {
+        selected = crate::simptools::radical_denominator::rationalize_sum_denominator_native(&selected);
+    }
     // SymPy reaches its sign through two steps. The input first passes
     // through signsimp, which negates a sum with more negative terms (else
     // the canonical order of the sum and its negation decides). Its cancel

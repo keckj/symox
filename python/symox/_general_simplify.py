@@ -178,16 +178,11 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         except (NotImplementedError,ValueError):
             pass
     # SymPy's simplify rationalizes a denominator that is a sum of numeric
-    # radicals (max_terms=1, symbolic=False) before the final ratio test.
-    numer,denom=result.as_numer_denom()
-    if denom.is_Add:
-        from . import radsimp,fraction
-        n,d=fraction(radsimp(1/denom,symbolic=False,max_terms=1))
-        # SymPy tests n is not S.One; its pipeline reaches a negated
-        # denominator there, so a denominator proven to be a Number (e.g.
-        # 3 - (-1)**(2/3) + (-1)**(1/3) == 4) is also taken.
-        if n!=1 or (d.is_Number and d!=denom):
-            result=(numer*n).expand()/d
+    # radicals (radsimp(1/denom, symbolic=False, max_terms=1)) before the
+    # final ratio test; the native step is that of the native simplify, with
+    # the host recognition of radsimp.
+    if isinstance(result,Expr):
+        result=_core._st_simplify_rationalize_denominator(result)
     if not post_piecewise and result.has(Piecewise):
         # the Piecewise block of the reference simplify: fold, simplify the
         # pieces and their conditions, then try factor_terms
