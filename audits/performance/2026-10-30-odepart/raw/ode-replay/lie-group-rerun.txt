@@ -1,0 +1,9 @@
+1 lg14 before 14.0s Eq(f(x), C1*exp(-sin(x)) + sin(x) - 1)
+1 lg14 after 16.3s Eq(f(x), C1*exp(-sin(x)) + sin(x) - 1)
+1 lg13 before 8.6s Eq(Integral((f(x)*cos(x) - exp(2*x))*exp(sin(x)), x), C1)
+1 lg13 after 8.3s Eq(Integral((f(x)*cos(x) - exp(2*x))*exp(sin(x)), x), C1)
+2 lg14 before 13.5s Eq(f(x), C1*exp(-sin(x)) + sin(x) - 1)
+2 lg14 after 13.5s Eq(f(x), C1*exp(-sin(x)) + sin(x) - 1)
+2 lg13 before 16.1s Eq(Integral((f(x)*cos(x) - exp(2*x))*exp(sin(x)), x), C1)
+2 lg13 after 10.0s Eq(Integral((f(x)*cos(x) - exp(2*x))*exp(sin(x)), x), C1)
+ 16:39:14 up 6 days, 22:24,  8 users,  load average: 20,16, 20,18, 27,40

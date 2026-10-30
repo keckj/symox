@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 
 use symox::ode::constcoeff::{self, CollectTerm};
+use symox::ode::{undetermined, variation};
 use symox::Expr;
 
 use crate::{to_expr, wrap as w};
@@ -83,7 +84,96 @@ fn ode_euler_char_sols(py: Python<'_>, coeffs: &Bound<'_, PyAny>, x: &Bound<'_, 
     })
 }
 
+/// `_undetermined_coefficients_match(forcing, x, f(x), eq_homogeneous)['trialset']`
+/// (`homogeneous` is `None` for `eq_homogeneous is S.Zero`). Returns the
+/// list of trial terms or `None`.
+#[pyfunction]
+#[pyo3(signature = (forcing, x, fx, homogeneous=None))]
+fn ode_uc_trialset(py: Python<'_>, forcing: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, homogeneous: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    let forcing = to_expr(forcing)?;
+    let x = to_expr(x)?;
+    let fx = to_expr(fx)?;
+    let homogeneous = homogeneous.map(to_expr).transpose()?;
+    Ok(match undetermined::trial_set(&forcing, &x, &fx, homogeneous.as_ref()) {
+        Some(terms) => PyList::new(py, terms.into_iter().map(w))?.into_any().unbind(),
+        None => py.None(),
+    })
+}
+
+/// `_solve_undetermined_coefficients`: the right-hand side
+/// `gsol.rhs + psol` or `None`.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn ode_uc_solve(
+    py: Python<'_>,
+    eq: &Bound<'_, PyAny>,
+    fx: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    order: usize,
+    gensols_len: usize,
+    gsol_rhs: &Bound<'_, PyAny>,
+    trialset: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let eq = to_expr(eq)?;
+    let fx = to_expr(fx)?;
+    let x = to_expr(x)?;
+    let gsol_rhs = to_expr(gsol_rhs)?;
+    let trialset = expr_list(trialset)?;
+    Ok(match undetermined::solve_undetermined(&eq, &fx, &x, order, gensols_len, &gsol_rhs, &trialset) {
+        Some(e) => w(e).into_pyobject(py)?.into_any().unbind(),
+        None => py.None(),
+    })
+}
+
+enum Callback {
+    Py(PyErr),
+    Decline,
+}
+
+fn callback<'py>(f: &Bound<'py, PyAny>) -> impl FnMut(&Expr) -> Result<Expr, Callback> + 'py {
+    let f = f.clone();
+    move |e: &Expr| {
+        let out = f.call1((w(e.clone()),)).map_err(Callback::Py)?;
+        to_expr(&out).map_err(|_| Callback::Decline)
+    }
+}
+
+/// `_solve_variation_of_parameters`: the right-hand side
+/// `homogen_sol.rhs + psol` or `None`. `simplify_wronskian` and
+/// `simplify_psol` are the reference's simplifications, called only when
+/// `simplify_flag` is set.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn ode_vop_solve(
+    py: Python<'_>,
+    roots: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    forcing: &Bound<'_, PyAny>,
+    lead: &Bound<'_, PyAny>,
+    order: usize,
+    homogen_rhs: &Bound<'_, PyAny>,
+    simplify_flag: bool,
+    simplify_wronskian: &Bound<'_, PyAny>,
+    simplify_psol: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let roots = expr_list(roots)?;
+    let x = to_expr(x)?;
+    let forcing = to_expr(forcing)?;
+    let lead = to_expr(lead)?;
+    let homogen_rhs = to_expr(homogen_rhs)?;
+    let mut sw = callback(simplify_wronskian);
+    let mut sp = callback(simplify_psol);
+    match variation::variation_of_parameters(&roots, &x, &forcing, &lead, order, &homogen_rhs, simplify_flag, &mut sw, &mut sp) {
+        Ok(Some(e)) => Ok(w(e).into_pyobject(py)?.into_any().unbind()),
+        Ok(None) | Err(Callback::Decline) => Ok(py.None()),
+        Err(Callback::Py(err)) => Err(err),
+    }
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(ode_uc_trialset, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_uc_solve, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_vop_solve, m)?)?;
     m.add_function(wrap_pyfunction!(ode_const_char_sols, m)?)?;
     m.add_function(wrap_pyfunction!(ode_const_simplified_sol, m)?)?;
     m.add_function(wrap_pyfunction!(ode_euler_char_sols, m)?)?;

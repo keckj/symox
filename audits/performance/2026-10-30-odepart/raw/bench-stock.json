@@ -1,0 +1,128 @@
+{
+ "uc_2nd/True": {
+  "result": "Eq(f(x), C2*exp(-2*x) + (C1 + x**3/3 - x**2 + 2*x)*exp(-x) - sin(2*x)/20 - 3*cos(2*x)/20)",
+  "first": 0.07387128996197134,
+  "repeat": 0.06683225801680237,
+  "trialset": 0.005761116044595838,
+  "solve": 0.003121091052889824
+ },
+ "uc_2nd/False": {
+  "result": "Eq(f(x), C1*exp(-2*x) + C2*exp(-x) + x**3*exp(-x)/3 - x**2*exp(-x) + 2*x*exp(-x) - sin(2*x)/20 - 3*cos(2*x)/20)",
+  "first": 0.0151116659399122,
+  "repeat": 0.012474657036364079,
+  "trialset": 0.005629143910482526,
+  "solve": 0.003171753021888435
+ },
+ "uc_3rd/True": {
+  "result": "Eq(f(x), C1 + C3*exp(-x) - 3*x + (C2 + x*sin(x)/10 - 3*x*cos(x)/10 + 21*sin(x)/50 + 11*cos(x)/25)*exp(x))",
+  "first": 0.07122804701793939,
+  "repeat": 0.06790633895434439,
+  "trialset": 0.0043234569020569324,
+  "solve": 0.0033367309952154756
+ },
+ "uc_3rd/False": {
+  "result": "Eq(f(x), C1*exp(-x) + C2 + C3*exp(x) + x*exp(x)*sin(x)/10 - 3*x*exp(x)*cos(x)/10 - 3*x + 21*exp(x)*sin(x)/50 + 11*exp(x)*cos(x)/25)",
+  "first": 0.012900531990453601,
+  "repeat": 0.010560196940787137,
+  "trialset": 0.004357272060588002,
+  "solve": 0.0033317069755867124
+ },
+ "uc_res4/True": {
+  "result": "Eq(f(x), (C1 + x*(C2 - x**2/12))*cos(x) + (C3 + x*(C4 - x**3/48 + 3*x/16))*sin(x))",
+  "first": 0.09095096006058156,
+  "repeat": 0.08702734694816172,
+  "trialset": 0.008657080004923046,
+  "solve": 0.005298692034557462
+ },
+ "uc_res4/False": {
+  "result": "Eq(f(x), C1*sin(x) + C2*cos(x) + C3*x*sin(x) + C4*x*cos(x) - x**4*sin(x)/48 - x**3*cos(x)/12 + 3*x**2*sin(x)/16)",
+  "first": 0.021029911004006863,
+  "repeat": 0.016983036999590695,
+  "trialset": 0.008536853943951428,
+  "solve": 0.005143722053617239
+ },
+ "uc_poly/True": {
+  "result": "Eq(f(x), C1*exp(-x) + C2*exp(x) - x**3 - 8*x + 1)",
+  "first": 0.0389418100239709,
+  "repeat": 0.030667093000374734,
+  "trialset": 0.0017367950640618801,
+  "solve": 0.0021258919732645154
+ },
+ "uc_poly/False": {
+  "result": "Eq(f(x), C1*exp(-x) + C2*exp(x) - x**3 - 8*x + 1)",
+  "first": 0.008648039074614644,
+  "repeat": 0.00631479499861598,
+  "trialset": 0.0015808789758011699,
+  "solve": 0.0020092249615117908
+ },
+ "vop_sec/True": {
+  "result": "Eq(f(x), (C1 + x)*sin(x) + (C2 + log(cos(x)))*cos(x))",
+  "first": 0.03283551800996065,
+  "repeat": 0.02911544102244079,
+  "trialset": null,
+  "solve": null
+ },
+ "vop_sec/False": {
+  "result": "Eq(f(x), C1*sin(x) + C2*cos(x) + x*sin(x) + log(cos(x))*cos(x))",
+  "first": 0.005973274004645646,
+  "repeat": 0.004075247095897794,
+  "trialset": null,
+  "solve": null
+ },
+ "vop_expx/True": {
+  "result": "Eq(f(x), (C1 + x*(C2 + log(x)))*exp(x))",
+  "first": 0.030168375000357628,
+  "repeat": 0.02671493007801473,
+  "trialset": null,
+  "solve": null
+ },
+ "vop_expx/False": {
+  "result": "Eq(f(x), C1*exp(x) + C2*x*exp(x) + x*exp(x)*log(x) - x*exp(x))",
+  "first": 0.005034409114159644,
+  "repeat": 0.003062948933802545,
+  "trialset": null,
+  "solve": null
+ },
+ "vop_3rd/True": {
+  "result": "Eq(f(x), C1 + C2*exp(-x) + C3*exp(x) + exp(2*x)/6)",
+  "first": 0.043456497020088136,
+  "repeat": 0.03973404096905142,
+  "trialset": null,
+  "solve": null
+ },
+ "vop_3rd/False": {
+  "result": "Eq(f(x), C1*exp(-x) + C2 + C3*exp(x) + exp(2*x)/6)",
+  "first": 0.004977820906788111,
+  "repeat": 0.003016620990820229,
+  "trialset": null,
+  "solve": null
+ },
+ "euler_uc/True": {
+  "result": "Eq(f(x), C1*x + C2*x**2 + log(x)/2 + 3/4)",
+  "first": 0.03545564704108983,
+  "repeat": 0.03244706604164094,
+  "trialset": null,
+  "solve": null
+ },
+ "euler_uc/False": {
+  "result": "Eq(f(x), C1*x + C2*x**2 + log(x)/2 + 3/4)",
+  "first": 0.009866795968264341,
+  "repeat": 0.007441448979079723,
+  "trialset": null,
+  "solve": null
+ },
+ "euler_vop/True": {
+  "result": "Eq(f(x), x*(C1 + C2*x + x**3/6))",
+  "first": 0.031567555968649685,
+  "repeat": 0.02825841400772333,
+  "trialset": null,
+  "solve": null
+ },
+ "euler_vop/False": {
+  "result": "Eq(f(x), C1*x + C2*x**2 + x**4/6)",
+  "first": 0.005626023048534989,
+  "repeat": 0.0036561719607561827,
+  "trialset": null,
+  "solve": null
+ }
+}

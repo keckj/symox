@@ -14958,3 +14958,138 @@ Remaining gaps:
   from SymPy's (`test_exclude`). The decision is the same.
 
 Measured: [audit](../audits/performance/2026-10-30-checksol/README.md).
+
+
+## odepart: native particular solutions of the linear ODE hints, 2026-10-30
+
+Now native (`symox::ode::undetermined`, `symox::ode::variation`, bindings
+`ode_uc_trialset`, `ode_uc_solve`, `ode_vop_solve` in
+`crates/symox-py/src/ode_solve.rs`, admission in
+`python/symox/solvers/ode/_odesolve_native.py`, hooks at the start of the
+three reference helpers in `python/symox/solvers/ode/nonhomogeneous.py`).
+The reference body follows each hook unchanged and runs whenever the
+kernel declines.
+
+- `_undetermined_coefficients_match` (both branches: with
+  `eq_homogeneous`, as the constant-coefficient hint calls it, and without,
+  as the Euler hint calls it): the `test` entry and the trial set. On the
+  native domain `powsimp(expr, combine='exp')` is the identity, `_test_term`
+  is true, `_get_trial_set` of `q*x**k*exp(a*x)*T(b*x)` is
+  `{x**j*exp(a*x)*T'(b*x) : j <= k}` with `T'` in `{sin, cos}` (absent when
+  `b = 0`), and the `is_homogeneous_solution` loop multiplies it by
+  `x**m`, `m` the multiplicity of `a + i*b` as a root of the characteristic
+  polynomial (exact Gaussian-rational evaluation of the polynomial and its
+  derivatives).
+- `_solve_undetermined_coefficients`: the trial function substituted in
+  the equation, the linear system of the coefficients of the independent
+  terms, solved exactly over QQ (Gauss-Jordan), and
+  `gsol.rhs + Σ v_i*t_i`, which is `trialfunc.subs(coeffvals)` added to the
+  homogeneous solution in the reference.
+- `_solve_variation_of_parameters`: the Wronskians (`matrix::wronskian`),
+  the integrands `W_i*r[-1]/wr`, the held integrals
+  (`binders::held(Func::Integral, ...)`, as the reference's
+  `Integral(body, x)`) and `psol`, built with the reference's binary
+  operations in the reference's order (`0 + t`, `psol + t`, alternating
+  `(-1)**order` sign), then `homogen_sol.rhs + psol`.
+
+Native domain of undetermined coefficients: forcing terms that are sums of
+monomials `q*x**k*exp(a*x)*T(b*x)` (`q`, `a`, `b` rational, `k` a
+non-negative integer, at most one `exp` and one `sin`/`cos` factor), an
+equation `Σ c_n*Derivative(f(x), (x, n))` plus such monomials with
+rational `c_n`, an `f(x)` with a symbol argument, no user (host) class in
+the inputs. The solve kernel also requires as many homogeneous solutions
+as the order and a unique solution of the coefficient system. Everything
+else declines: `log(x)`, `1/x`, `sqrt(x)`, `exp(x**2)`, `sin(x)**2`,
+`sin(x)*cos(x)`, unexpanded products such as `x*(x + 1)` (the case where
+the reference's mutable default `exprs=set()` would carry terms across
+calls), Floats, `sqrt(2)`, symbolic coefficients or frequencies, and
+inconsistent or underdetermined systems (the reference then raises
+`NotImplementedError` or returns its own form; the decline keeps both).
+
+Native domain of variation of parameters: as many fundamental solutions as
+the order, a symbol variable, a Wronskian that `matrix::wronskian`
+computes, integrands without `Piecewise` (the reference `Integral`
+constructor folds it), `nan` or a bare applied function, no host class.
+A zero Wronskian declines, so the reference raises its
+`NotImplementedError` with its own message.
+
+Parity fix in a shared Rust kernel (`matrix::ratfunc::dotprodsimp`, used by
+the 2x2 and 3x3 determinants, hence by `wronskian`): SymPy's `dotprodsimp`
+replaces every subexpression that is not an `Add`, `Mul` or `Pow` by a
+Dummy (`nonalg_subs_dummies`) before `cancel`, and keeps the expanded form
+when `cancel` changes nothing. The native version cancelled the expression
+itself, so `exp(-2*x)` became the denominator `exp(2*x)`:
+`wronskian([exp(-x)*sin(3*x), exp(-x)*cos(3*x)], x)` gave
+`(-3*sin(3*x)**2 - 3*cos(3*x)**2)*exp(-2*x)` where SymPy gives
+`-3*exp(-2*x)*sin(3*x)**2 - 3*exp(-2*x)*cos(3*x)**2`, and the held
+variation-of-parameters integrals of such equations differed (random case
+`vop_023`). The native `dotprodsimp` now substitutes the Dummies, numbered
+in SymPy's first-encounter order (their generator order in `cancel`),
+cancels and substitutes back. This is a move towards the reference, not a
+deviation from it.
+
+Still in Python (each is a gap of this lot, not ported):
+
+- the `simplify` + `trigsimp(deep=True[, recursive=True])` of the Wronskian
+  and of `psol` when `simplify=True`: the kernel calls the public symox
+  functions as callbacks (`simplify` has non-native steps). An exception
+  of a callback propagates, as in the reference;
+- the evaluation of the held integrals (dsolve's `_handle_Integral`,
+  `integrate`), on the existing integration path;
+- the Euler wrappers in `single.py` (indicial equation, `posify`,
+  `subs(x, exp(x))`, `subs(x, log(x))`, `expand`, the
+  `homogen_sol.rhs + (sol.rhs - homogen_sol.rhs)*r[order]` envelope);
+- `get_numbered_constants`, `_get_simplified_sol` callers and the
+  `odesimp`/`constantsimp` steps of `dsolve`;
+- the declined inputs above.
+
+Differences from the reference, none visible in results:
+
+- The native path does not create the `numbered_symbols('a', cls=Dummy)`
+  coefficients, so the global Dummy counter advances less. Dummy names
+  never appear in the results.
+- The trial set is a Python `set` built from the native list; its
+  iteration order (hash order) can differ from SymPy's, as for any set of
+  symox expressions. The docstring example of
+  `_undetermined_coefficients_match` prints the set in another order before
+  and after this lot (it is not collected by `tests/`).
+
+No intentional correction: every native result is meant to be the
+reference's expression. Nothing here awaits user validation.
+
+Remaining gaps observed (all identical before this lot and with the
+kernels removed):
+
+- the forms of evaluated variation-of-parameters integrals: e.g. for
+  `f'' + f = 1/cos(x)` with `simplify=False` the held integrals are
+  SymPy's, but symox integrates `-sin(x)/((-sin(x)**2 - cos(x)**2)*cos(x))`
+  to `-log(cos(x))` where SymPy gives
+  `-log(tan(x/2) - 1) - log(tan(x/2) + 1) + log(tan(x/2)**2 + 1)`
+  (strict xfail in `tests/test_native_odepart.py`); the test_single
+  `var_of_parameters_01/02/06/08/13/14` and `euler_var_05` unsimplified
+  forms;
+- `simplify` results of `euler_undet_03`/`euler_undet_06` and of
+  `var_of_parameters_13`;
+- the symbolic quadratic characteristic roots of `undet_38`/`undet_39`
+  (symbolic coefficients, declined);
+- `var_of_parameters_15` and the random `vop_016` exceed 6 GB inside
+  integration before and after;
+- `Ei(-3*x)` where SymPy's `integrate` gives `Ei(3*x*exp_polar(I*pi))`
+  (random `vop_001`, `vop_026`), and other evaluated-integral forms with
+  `sqrt` roots (`vop_000`, `vop_014`, `vop_025`);
+- the random `vop_023` with `simplify=False`: the held integrals built by
+  the kernel are SymPy's, but `Integral.doit` of the unevaluable integral
+  returns the denominator `x*(sin(3*x)**2 + cos(3*x)**2)` where SymPy
+  returns `x*sin(3*x)**2 + x*cos(3*x)**2` (integration path).
+
+Resource change caused by the `dotprodsimp` fix (frank note, not a
+mathematical difference from the reference): for the random `vop_013`,
+`f'' + 6*f' + 16*f = log(x)` with the variation-of-parameters hint and
+`simplify=False`, the integrands handed to `integrate` are now SymPy's
+(`exp(-6*x)` stays a factor of the Wronskian), and symox exceeds 6 GB
+inside integration, where before it returned held integrals. SymPy 1.14
+does not finish this call in 30 s either. The hinted and default calls
+(`simplify=True`) still return the before result. The cause is in the
+integration path, which this lot does not change.
+
+Evidence: [audit](../audits/performance/2026-10-30-odepart/README.md).
