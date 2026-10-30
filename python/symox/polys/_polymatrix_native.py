@@ -2,6 +2,7 @@
 from types import FunctionType,CodeType,ModuleType
 from sys import modules as _MODULES
 from marshal import dumps as _CODE
+from .._code_key import code_key as _CODE_KEY
 from .._native_dispatch import strip_slot_cache as _strip_slot_cache
 from .. import _core
 
@@ -97,9 +98,11 @@ def _lookup_unchanged(module,name,value,_metadata=None):
     if (_metadata_field(current,1,_metadata) is not module or _metadata_field(current,2,_metadata) is not defaults
             or _metadata_field(current,3,_metadata) is not keywords):return False
     # A stock module reload creates new function identities. Authenticate its
-    # executable code, without calling equality/reduce on user constants.
+    # executable code, without calling equality/reduce on user constants. The
+    # key is hash-seed independent: the reload may read a .pyc written by
+    # another process, whose frozenset constants iterate in another order.
     try:
-        return (_CODE(_metadata_field(current,0,_metadata),0)==code
+        return (_CODE_KEY(_metadata_field(current,0,_metadata),_CODE)==code
                 and _LEN(_metadata_field(current,4,_metadata) or ())==_LEN(closure)
                 and _ALL(cell.cell_contents is old for cell,old in zip(_metadata_field(current,4,_metadata) or (),closure)))
     except (ValueError,TypeError):return False
@@ -261,7 +264,7 @@ def register_root(namespace):
         seen.add(id(function));functions.append(_function(function))
         if function.__globals__ is rationaltools.__dict__:
             state=functions[-1]
-            _RELOADABLE[function]=(_CODE(function.__code__,0),state[2],state[3],state[4])
+            _RELOADABLE[function]=(_CODE_KEY(function.__code__,_CODE),state[2],state[3],state[4])
         for cell in function.__closure__ or ():
             value=cell.cell_contents
             if _TYPE(value) is FunctionType:visit(value)

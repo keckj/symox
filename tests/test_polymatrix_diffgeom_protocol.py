@@ -89,7 +89,10 @@ def test_foreign_public_scalar_wrappers_keep_full_callback_log(monkeypatch,name,
 
 @pytest.mark.parametrize('mode',['code','defaults','kwdefaults','delegate','tensor','name','empty_cell'])
 def test_changed_actual_geometry_function_state_declines_without_callbacks(monkeypatch,mode):
-    adapter=geometry();a=matrix('RF');events=[];operation=s._core.Expr.__mul__
+    adapter=geometry();a=matrix('RF');events=[]
+    # The geometry forwarder itself, not Expr.__mul__: a vector import after
+    # the geometry one puts its own certified forwarder on top of it.
+    operation=next(p[0] for p in adapter._SCALAR_DISPATCH_PROOFS if p[-1]=='__mul__')
     def foreign(*args):events.append('foreign');raise RuntimeError('foreign callback')
     if mode=='defaults':monkeypatch.setattr(operation,'__defaults__',(foreign,))
     elif mode=='kwdefaults':monkeypatch.setattr(operation,'__kwdefaults__',{'foreign':foreign})
@@ -299,3 +302,116 @@ def test_legitimate_rationaltools_reload_keeps_native_forwarding_and_exact_domai
     assert actual==expected
     values=actual if operation=='nullspace'else[actual[0]]
     assert all(v.domain is a.domain and v.gens==a.gens for v in values)
+
+
+def test_geometry_state_checks_hold_when_a_later_vector_import_wraps_the_forwarder():
+    # Regression: test_diffgeom_completion.py then test_gaps_misc_parity.py
+    # import diffgeom and then vector, in one process. The certified vector
+    # forwarder then wraps the geometry one, so Expr.__mul__ is no longer the
+    # geometry forwarder that the state checks above mutate.
+    source='''
+import importlib,sys
+import pytest
+import symox as s
+from symox.polys import polymatrix as p
+importlib.import_module('symox.diffgeom')
+importlib.import_module('symox.vector')
+adapter=importlib.import_module('symox.diffgeom._adapters')
+operation=next(row[0] for row in adapter._SCALAR_DISPATCH_PROOFS if row[-1]=='__mul__')
+top=s._core.Expr.__mul__
+assert top is not operation and '_Tensor' not in top.__code__.co_freevars
+y,z=s.symbols('dg_y dg_z')
+a=p.PolyMatrix([[y/(z+1),1,2],[2*y/(z+1),3,5]],s.Symbol('dg_x'),ring=s.QQ.frac_field(y,z))
+assert p._native_ground(a) is not None
+sys.exit(pytest.main(['-q','-p','no:cacheprovider',
+    sys.argv[1]+'::test_changed_actual_geometry_function_state_declines_without_callbacks']))
+'''
+    subprocess.run([sys.executable,'-c',source,os.path.abspath(__file__)],check=True,
+                   env=os.environ.copy(),timeout=300)
+
+
+def _insertion_ordered_frozensets():
+    # Two equal frozensets whose iteration orders differ. Stock CPython 3.10
+    # marshal writes them differently (some distribution builds sort them).
+    names=['k%d'%i for i in range(64)]
+    for a,b in itertools.combinations(names,2):
+        if list(frozenset((a,b)))!=list(frozenset((b,a))):return frozenset((a,b)),frozenset((b,a))
+    raise AssertionError('no colliding pair of names')
+
+
+def test_code_key_ignores_frozenset_iteration_order_only():
+    from marshal import dumps
+    from symox._code_key import code_key as key
+    code_key=lambda value:key(value,dumps)
+    first,second=_insertion_ordered_frozensets()
+    code=compile('def f(x):\n    return x in {0}\n','m','exec').co_consts[0]
+    index=code.co_consts.index(frozenset({0}))
+    def with_constant(value):
+        return code.replace(co_consts=code.co_consts[:index]+(value,)+code.co_consts[index+1:])
+    a,b=with_constant(first),with_constant(second)
+    assert list(a.co_consts[index])!=list(b.co_consts[index])
+    assert code_key(a)==code_key(b)
+    assert code_key(a)!=code_key(with_constant(first|{'k_other'}))
+    outer=compile('def g():\n    def f(x):\n        return x in {0}\n    return f\n','m','exec').co_consts[0]
+    position=next(i for i,c in enumerate(outer.co_consts) if type(c) is type(code))
+    nested=lambda inner:outer.replace(co_consts=outer.co_consts[:position]+(inner,)+outer.co_consts[position+1:])
+    assert code_key(nested(a))==code_key(nested(b))!=code_key(outer)
+    events=[]
+    class Foreign:
+        def __eq__(self,other):events.append('eq');return True
+        def __hash__(self):events.append('hash');return 0
+        def __reduce_ex__(self,protocol):events.append('reduce');return (Foreign,())
+    with pytest.raises(ValueError):code_key(code.replace(co_consts=code.co_consts+((Foreign(),),)))
+    assert events==[]
+
+
+def test_reload_reading_a_pyc_of_another_hash_seed_keeps_native_forwarding():
+    # Regression: under the parallel suite, rationaltools was compiled from
+    # source at import and reloaded from a .pyc written by another process.
+    # The frozenset constant of _atan_vector_proof_with_metadata then
+    # iterates, and on stock CPython 3.10 marshals, in another order, and the
+    # reload authentication declined.
+    names=('original','name','_BasisDependent')
+    probe=('import itertools,sys\n'
+           'n=sys.argv[1:];print(len({tuple(frozenset(p)) for p in itertools.permutations(n)}))')
+    env=os.environ.copy()
+    for seed in range(200):
+        env['PYTHONHASHSEED']=str(seed)
+        orders=subprocess.run([sys.executable,'-c',probe,*names],check=True,env=env,
+                              capture_output=True,text=True,timeout=60).stdout
+        if int(orders)>1:break
+    else:pytest.skip('no hash seed reorders the frozenset constant')
+    source='''
+import importlib,itertools,types
+import symox as s
+from symox.polys import polymatrix as p
+rt=importlib.import_module('symox.integrals.rationaltools')
+importlib.reload(rt)
+name='_atan_vector_proof_with_metadata';f=rt.__dict__[name];code=f.__code__
+index=next(i for i,c in enumerate(code.co_consts) if type(c) is frozenset)
+assert set(code.co_consts[index])==set(%r)
+reordered=None
+for order in itertools.permutations(code.co_consts[index]):
+    candidate=code.replace(co_consts=code.co_consts[:index]+(frozenset(order),)+code.co_consts[index+1:])
+    if tuple(candidate.co_consts[index])!=tuple(code.co_consts[index]):reordered=candidate;break
+assert reordered is not None
+# The same reloaded function, as read from a .pyc of another hash seed.
+g=types.FunctionType(reordered,f.__globals__,f.__name__,f.__defaults__,f.__closure__)
+g.__kwdefaults__=f.__kwdefaults__;g.__qualname__=f.__qualname__
+rt.__dict__[name]=g
+x,y,z=s.symbols('dg_x dg_y dg_z')
+native=s._core._polymatrix_ground;calls=[]
+def spy(*args):
+    result=native(*args);calls.append(result is not None);return result
+s._core._polymatrix_ground=spy
+for a in (p.PolyMatrix([[1,2,3],[3,7,8]],x,ring=s.QQ),
+          p.PolyMatrix([[y/(z+1),1,2],[2*y/(z+1),3,5]],x,ring=s.QQ.frac_field(y,z))):
+    for operation in ('rref','nullspace'):
+        calls.clear();actual=getattr(a,operation)()
+        assert calls and all(calls),(operation,calls)
+        saved=p._native_ground;p._native_ground=lambda *args:None
+        try:expected=getattr(a,operation)()
+        finally:p._native_ground=saved
+        assert actual==expected
+'''%(names,)
+    subprocess.run([sys.executable,'-c',source],check=True,env=env,timeout=300)
