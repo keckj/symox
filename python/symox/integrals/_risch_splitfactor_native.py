@@ -17,7 +17,13 @@ _STR=''.__class__
 _ROOT=None
 
 
+_STR_KEYED=_core.__dict__.get('_str_keyed')
+
+
 def _plain(namespace):
+    # Exact dict whose keys are all exact str; the native check reads the keys
+    # without hashing, equality or other Python callbacks.
+    if _STR_KEYED is not None:return _STR_KEYED(namespace)
     if _TYPE(namespace) is not _DICT:return False
     for key in namespace:
         if _TYPE(key) is not _STR:return False
@@ -245,16 +251,13 @@ def reduce(p,de,one,coefficientD,z):
     owner,reader=root['reader']
     # Exact owner/key checks precede consumed lookups, including hash collisions.
     if _TYPE(owner) is not ModuleType or _core is not owner:return None
-    for key in owner.__dict__:
-        if _TYPE(key) is not _STR:return None
+    if not _plain(owner.__dict__):return None
     if (owner.__dict__.get('_ddm_function_metadata') is not reader
             or owner.__dict__.get('_risch_splitfactor') is not root['kernel']):return None
     for module,scope in root['modules']:
         if _TYPE(module) is not ModuleType or module.__dict__ is not scope:return None
     for scope in root['scopes']:
-        if _TYPE(scope) is not _DICT:return None
-        for key in scope:
-            if _TYPE(key) is not _STR:return None
+        if not _plain(scope):return None
     builtins=root['builtins']
     for name,value in root['builtin_aliases']:
         if builtins.get(name) is not value:return None
