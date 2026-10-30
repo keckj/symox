@@ -13562,7 +13562,13 @@ Still Python, on native primitives:
   polynomials (item 2 of the task).
 - The `real=False` RootSum (item 3).
 - The Cardano/cube-root pairs (item 4).
-These are recorded as remaining gaps.
+These are recorded as remaining gaps. On the public calls of these
+families, `log_to_atan` receives EX Polys (`1/(x**4+2)`, `1/(x**3+sqrt(2))`)
+or mixed ZZ / ZZ[sqrt(p)] Polys (`1/(x**2+p)` with `p` positive), never a
+pair from one QQ<a> or QQ(a) field. The existing generic kernel
+`log_to_atan::arguments_field` could serve such a pair. A port therefore
+needs the EX path of `log_to_atan`, including its exact division by a
+constant `g`, and the unification of the two domains.
 
 Corrections (SymPy 1.14 values that symox did not compute before):
 - `ratint_ratpart` over QQ<sqrt(2)>, for example `1/(x**2+sqrt(2))**2`, now
