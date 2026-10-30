@@ -10,7 +10,7 @@ DifferentialExtension class dictionaries are the ones captured at import.
 Each entry point returns ``None`` to request the unchanged Python body.
 """
 import builtins as _builtins
-from types import FunctionType, BuiltinFunctionType
+from types import FunctionType, BuiltinFunctionType, ModuleType
 from .. import _core
 
 _TYPE = type
@@ -22,10 +22,11 @@ _LIST = list
 _MISSING = object()
 _ROOT = None
 # Number of constant_system calls answered by the fraction-field kernel.
-STATS = {'constant_system_field': 0, 'derivation': 0}
+STATS = {'constant_system_field': 0, 'derivation': 0, 'is_deriv_k': 0}
 _POLY = _core.Poly
 _EXPR = _core.Expr
 _AS_POLY = None
+_DERIV_K = None
 
 
 def _state(f):
@@ -105,6 +106,51 @@ def register_root(namespace):
                 _poly_constructor.__dict__.get('construct'), _core.Expr.__dict__.get('as_poly'),
                 risch.__dict__, risch.derivation, risch.derivation.__code__, reader,
                 _poly_constructor.__dict__)
+    global _DERIV_K
+    from .. import _compat, _public_core
+    import symox
+    try:
+        ext_slots = (cls.__dict__['exts'], cls.__dict__['extargs'])
+    except KeyError:
+        return
+    if any(_TYPE(s).__name__ != 'member_descriptor' for s in ext_slots):
+        return
+    # Once an AccumBounds exists, Add and Mul consult the stock coefficient
+    # fold, which returns None unless an argument is (or directly holds) an
+    # AccumulationBounds. The kernel only builds host-free expressions, so the
+    # fold is admitted when it is the stock function with its stock globals.
+    from importlib import import_module
+    bounds = import_module('symox.calculus.accumulationbounds')
+    fold = bounds.__dict__.get('_fold_coefficient')
+    if _TYPE(fold) is not FunctionType or fold.__globals__ is not bounds.__dict__:
+        return
+    folding = (fold, reader(fold), bounds.__dict__, bounds.__dict__.get('AccumulationBounds'),
+               tuple((name, _builtins.__dict__[name]) for name in ('type', 'getattr', 'any')))
+    if folding[1] is None or folding[3] is None:
+        return
+    _DERIV_K = (_public_core.__dict__.get('_evaluation'), _compat.__dict__.get('_accum_fold'),
+                prde.__dict__.get('Dummy'), ext_slots, symox.__dict__, symox.__dict__.get('cancel'),
+                prde.__dict__.get('cancel'), folding, _compat.__dict__)
+
+
+def _stock_fold(fold, folding):
+    """``fold`` (the installed ``_compat._accum_fold[0]``) is the stock
+    ``_fold_coefficient`` with its captured code, defaults, closure, globals
+    and the builtins it reads."""
+    function, record, ns, bounds, names = folding
+    if fold is not function:
+        return False
+    values = _AS_POLY[9](function)
+    if (values is None or _LEN(values) != _LEN(record)
+            or any(a is not b for a, b in _ZIP(values, record))
+            or ns.get('AccumulationBounds') is not bounds):
+        return False
+    b = ns.get('__builtins__')
+    if _TYPE(b) is ModuleType:
+        b = b.__dict__
+    if _TYPE(b) is not dict:
+        return False
+    return all(name not in ns and b.get(name) is value for name, value in names)
 
 
 def _verified():
@@ -129,6 +175,79 @@ def _verified():
     return root
 
 
+def _derivation_protocol():
+    """The Poly methods, the constructor and ``risch.derivation`` (code,
+    globals, builtins) are the ones captured at import."""
+    c = _POLY.__dict__
+    captured = _AS_POLY
+    if (captured is None or c.get('as_poly') is not captured[0] or c.get('diff') is not captured[1]
+            or c.get('as_expr') is not captured[2] or c.get('__add__') is not captured[3]
+            or captured[10].get('construct') is not captured[4]
+            or _EXPR.__dict__.get('as_poly') is not captured[5]):
+        return False
+    # The stock body reads Poly, len and zip: a module global or a builtin
+    # replaced for risch.derivation keeps the stock body (and its calls).
+    ns, f = captured[6], captured[6].get('derivation')
+    if f is not captured[7] or ns.get('Poly') is not _POLY or 'len' in ns or 'zip' in ns:
+        return False
+    # The code object is read by the native metadata reader (no audit event).
+    values = captured[9](f)
+    if values is None or values[0] is not captured[8]:
+        return False
+    b = f.__builtins__
+    return b.get('len') is _LEN and b.get('zip') is _ZIP
+
+
+def is_deriv_k(fa, fd, DE):
+    """``is_deriv_k(fa, fd, DE)`` for stock Polys over ZZ, QQ, ZZ[...],
+    QQ[...], ZZ(...) or QQ(...) whose tower is elementary (``len(DE.exts)
+    == len(DE.D)``; otherwise the stock body raises). The native kernel
+    reproduces the whole body (``Df/f``, the PolyMatrix row, the
+    fraction-field ``constant_system``, the constant and rational checks and
+    the answer). It is used only while the stock prde protocol, the
+    ``derivation`` protocol and the global evaluation state are the ones
+    captured at import, and the Dummy generator is created here exactly as
+    the stock body does.
+
+    Returns ``None`` (stock body, which creates its own Dummy),
+    ``(True, result)``, or ``(False, dum)`` (stock body with the Dummy
+    already created).
+    """
+    root = _ROOT
+    if root is None or _TYPE(fa) is not _POLY or _TYPE(fd) is not _POLY or _TYPE(DE) is not root[1]:
+        return None
+    captured = _DERIV_K
+    if captured is None or not _derivation_protocol() or _verified() is None:
+        return None
+    evaluation, accum, dummy, (exts_slot, extargs_slot), public, cancel, prde_cancel, folding, compat = captured
+    if (evaluation.get() is not True or public.get('cancel') is not cancel
+            or cancel is not prde_cancel or compat.get('_accum_fold') is not accum
+            or _TYPE(accum) is not _LIST or _LEN(accum) != 1):
+        return None
+    fold = accum[0]
+    if fold is not None and not _stock_fold(fold, folding):
+        return None
+    slots, cls = root[2], root[1]
+    try:
+        t = slots[1][1].__get__(DE, cls)
+        T = slots[3][1].__get__(DE, cls)
+        D = slots[4][1].__get__(DE, cls)
+        level = slots[5][1].__get__(DE, cls)
+        exts = exts_slot.__get__(DE, cls)
+        extargs = extargs_slot.__get__(DE, cls)
+    except AttributeError:
+        return None
+    if (_TYPE(T) is not _LIST or _TYPE(D) is not _LIST or _TYPE(level) is not _INT
+            or _TYPE(exts) is not _LIST or _TYPE(extargs) is not _LIST or _LEN(exts) != _LEN(D)):
+        return None
+    dum = dummy()
+    r = root[0]('is_deriv_k', (fa, fd, dum, exts, extargs), t, None, T, D, level)
+    if r is None:
+        return (False, dum)
+    STATS['is_deriv_k'] += 1
+    return (True, r[0])
+
+
 def derivation(p, DE, coefficientD):
     """``derivation(p, DE, coefficientD, basic=False)`` for a stock Poly
     ``p`` over ZZ, QQ, ZZ[...], QQ[...], ZZ(...) or QQ(...) (exp, primitive,
@@ -141,24 +260,7 @@ def derivation(p, DE, coefficientD):
     root = _ROOT
     if root is None or _TYPE(p) is not _POLY or _TYPE(DE) is not root[1]:
         return None
-    c = _POLY.__dict__
-    captured = _AS_POLY
-    if (captured is None or c.get('as_poly') is not captured[0] or c.get('diff') is not captured[1]
-            or c.get('as_expr') is not captured[2] or c.get('__add__') is not captured[3]
-            or captured[10].get('construct') is not captured[4]
-            or _EXPR.__dict__.get('as_poly') is not captured[5]):
-        return None
-    # The stock body reads Poly, len and zip: a module global or a builtin
-    # replaced for risch.derivation keeps the stock body (and its calls).
-    ns, f = captured[6], captured[6].get('derivation')
-    if f is not captured[7] or ns.get('Poly') is not _POLY or 'len' in ns or 'zip' in ns:
-        return None
-    # The code object is read by the native metadata reader (no audit event).
-    values = captured[9](f)
-    if values is None or values[0] is not captured[8]:
-        return None
-    b = f.__builtins__
-    if b.get('len') is not _LEN or b.get('zip') is not _ZIP:
+    if not _derivation_protocol():
         return None
     slots, cls = root[2], root[1]
     try:
