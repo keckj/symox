@@ -13515,3 +13515,109 @@ Remaining gaps:
   - `test_solveset.py`: 94 failed / 87 passed before and after.
 - Measurements are in
   [audits/performance/2026-10-29-radicalrust](../audits/performance/2026-10-29-radicalrust/README.md).
+
+## solvegaps (wave 31): native checksol with the reference flags, radical step, unrad flags, symbolic-power generators, 2026-10-30
+
+Now native (Rust):
+- `crates/symox-core/src/solve/checksol.rs` ports SymPy 1.14 `checksol`
+  for one expression and one symbol, with the flags `numerical`, `force`,
+  `simplify` and `minimal`. It follows the reference attempt loop:
+  substitution, content and numerator expansion, simplify with posify,
+  then the non-integer-power/function test and `is_zero`, with the
+  LambertW exception. A Rational value is decided exactly; a number is
+  decided by `abs(val.n(18).n(12, chop=True)) < 1e-9`.
+  - The `_tsolve` candidate filter and the radical step call it. The
+    filter keeps its flags (`simplify=False`). The radical step and the
+    `nsimplify` check of the Lambert roots use the reference defaults
+    (`force=True`, `simplify=True`).
+  - The binding `_core._checksol_native` is for the differential tests.
+    The public `checksol` is unchanged.
+- Root cause of test_issue_11534: the native `checksol` was not wrong.
+  SymPy 1.14's `checksol` also returns False for `-y/sqrt(y**2 + 1)`:
+  simplify gives `-2*y`, which has neither a non-integer power nor a
+  function. What matters is the use of the result. `_solve_radical`'s
+  `check_finiteset` puts only a True candidate in the FiniteSet. Every
+  other candidate, False included, goes to `ConditionSet(x, Eq(f, 0),
+  FiniteSet(...))`, and the ConditionSet constructor removes the elements
+  that are provably invalid. The native `radical_step` now does exactly
+  this, with the reference flags. `solveset(eq1, x, S.Reals)` of
+  test_issue_11534 gives SymPy's set.
+- Audit of the native False: the old native `checksol` ignored `minimal`.
+  It returned False on 34 of the 1414 pairs logged from SymPy's tests
+  where SymPy returns None. No in-tree caller passes `minimal`. The new
+  one returns 0 false Falses:
+  - on the 1414 distinct (expression, candidate, flags) triples logged
+    from test_solvers.py and test_solveset.py;
+  - on the 1363 further triples logged from the ODE corpus.
+  `tests/test_native_solvegaps.py` replays 326 of them with SymPy's values.
+- `unrad` accepts the recursion flags `cov`, `n` and `rpt`
+  (`unrad_with_flags` in `crates/symox-core/src/solve/unrad.rs`, binding
+  `_unrad_flags`).
+  - The caller's `cov` list is updated in place, as SymPy does
+    (`cov[:] = ...`). Unknown flags are ignored, as in SymPy.
+  - The Python wrapper only checks the arguments and passes them on.
+- `crates/symox-core/src/solve/symbolic_power.rs` ports the
+  single-generator branch of `_solve` for a generator `x**e` whose
+  exponent `e` is symbolic and free of `x`. The equation is solved as a
+  polynomial in `t = x**e` (degree >= 2). Every root, the negative and
+  complex ones included, is inverted with `t**(1/e)`.
+  - `solve(x**(2*y) - 3, x)` gives `[3**(1/(2*y)), (-sqrt(3))**(1/y)]`,
+    and `dict=True` works. `x**(3*y) - 3`, `x**(2*y) + 3` and
+    `x**(2*y) - 3*x**y + 2` give SymPy's lists, in SymPy's order.
+- Candidate check with the reference flags. SymPy's `_solve` keeps a
+  candidate only when `checksol(f_num, {x: r}, simplify=False)` is not
+  False. Two places now apply this with the native port:
+  - the native solve check (`checksol::rejects_parametric` in
+    `solve_checked`), for candidates that still contain free symbols;
+  - the Python unrad fallback `_unrad_solution`, which calls
+    `_core._checksol_native` next to the public `checksol`.
+  With the new symbolic-power solver, `solve(x**(y/2) + x**y - 6, x)`
+  reaches the unrad fallback (`x**(2*y) - 13*x**y + 36`). The public
+  `checksol` returns None for `3**(2/y)`, SymPy and the native port return
+  False, so the result is SymPy's `[2**(2/y)]`. The base raised
+  NotImplementedError.
+
+Admitted domains and fallbacks:
+- `checksol`: one Expr and one symbol. Where the reference would need
+  `is_constant` with the symbol still present, or where a numerical value
+  does not evaluate to a number, None (undecided) is returned. SymPy may
+  return False there. The callers keep an undecided candidate (the
+  radical step puts it in the ConditionSet).
+- `unrad` flags: `cov` must be a list or tuple of length 0 or 2, and `n`
+  and `rpt` must be non-negative integers. Anything else raises
+  NotImplementedError. A tuple `cov` cannot be updated in place: TypeError,
+  as in SymPy.
+- `symbolic_power`: exactly one Poly generator contains `x`, and it is
+  `x**e` with a symbolic `e`. Otherwise the earlier native paths apply.
+
+Remaining gaps:
+- On the pairs from SymPy's tests, 6 native results are None where SymPy
+  decides:
+  - 5 True: `z**x` with `simplify=False` and Lambert bivariate
+    candidates; the native simplify does not reach the reference form.
+  - 1 False: test_issue_17799, `erf` at a symbolic point.
+  On the ODE pairs the native result always equals SymPy's (146 pairs
+  with applied undefined functions were not replayed by the harness).
+- The `cov` list is not updated when `unrad` raises.
+- The public `checksol` is still the Python implementation. It returns
+  None in cases where SymPy returns False (`x**(y/2) + x**y - 6` at
+  `3**(2/y)`). The solve paths above use the native port; other callers
+  of the public function are unchanged.
+- The order of the `bivariate_type` results (`list({...})` in `_tsolve`)
+  is the order of a Python set in SymPy, which depends on hashes. There
+  is no deterministic reference order to match. The public `solve` lists
+  are sorted the same way in both, and they were identical under
+  PYTHONHASHSEED 1, 2 and 3. Not changed.
+- These lines of the radicalrust section are superseded: "The `unrad`
+  flags ... not supported", "The native `checksol` runs with
+  `force=False`", and the 11534 note. Also the tsolverust line on
+  `x**(2*y) - 3`.
+
+Copied SymPy test files:
+- `test_solvers.py`: 53 failed / 80 passed before, 52 failed / 81 passed
+  after (test_PR1964).
+- `test_solveset.py`: 94 failed / 87 passed before and after;
+  test_issue_11534 passes before and after.
+
+Measurements are in
+[audits/performance/2026-10-30-solvegaps](../audits/performance/2026-10-30-solvegaps/README.md).

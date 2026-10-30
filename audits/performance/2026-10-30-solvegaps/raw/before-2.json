@@ -1,0 +1,62 @@
+[
+ {
+  "name": "solveset 11534",
+  "result": "Union(Complement(ConditionSet(x, Eq(x/sqrt(1 - x**2) - y, 0), {-y/sqrt(y**2 + 1)}), {-1, 1}), Complement({y/sqrt(y**2 + 1)}, {-1, 1}))",
+  "cold": 0.014304178002930712,
+  "warm": 0.013457662997097941
+ },
+ {
+  "name": "solve x**(2*y)-3",
+  "result": "[3**(1/(2*y))]",
+  "cold": 0.006613550998736173,
+  "warm": 0.0058389530022395775
+ },
+ {
+  "name": "solve x**(2*y)-3*x**y+2",
+  "result": "error: NotImplementedError: could not solve (x**y - 2)*(x**y - 1) for x",
+  "cold": 0.00222090000170283,
+  "warm": 0.0021235229978628922
+ },
+ {
+  "name": "solve x**(3*y)-3",
+  "result": "[3**(1/(3*y))]",
+  "cold": 0.004769253999256762,
+  "warm": 0.004935085999022704
+ },
+ {
+  "name": "solve sqrt(x)+sqrt(x+1)-3",
+  "result": "[16/9]",
+  "cold": 0.004421867000928614,
+  "warm": 0.003984523998951772
+ },
+ {
+  "name": "solveset sqrt(x)+sqrt(x+1)-3",
+  "result": "{16/9}",
+  "cold": 0.0009170470002572984,
+  "warm": 0.0008131739996315446
+ },
+ {
+  "name": "solveset sqrt(x-1)-x+3",
+  "result": "{5}",
+  "cold": 0.0008094559998426121,
+  "warm": 0.0007899930023995694
+ },
+ {
+  "name": "solve x**(1/3)+sqrt(x)-1",
+  "result": "[(-1/3 + 1/(9*(sqrt(69)/18 + 25/54)**(1/3)) + (sqrt(69)/18 + 25/54)**(1/3))**6]",
+  "cold": 0.03858480900089489,
+  "warm": 0.03166348399827257
+ },
+ {
+  "name": "unrad cov",
+  "result": "error: NotImplementedError: unrad flags ['cov'] are not supported",
+  "cold": 8.957699901657179e-05,
+  "warm": 2.2625998099101707e-05
+ },
+ {
+  "name": "solve x*exp(x)-1",
+  "result": "[LambertW(1)]",
+  "cold": 0.005200440002226969,
+  "warm": 0.004118567998375511
+ }
+]
