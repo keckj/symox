@@ -131,9 +131,10 @@ pub(crate) fn to_python_error(error: WildcardError) -> PyErr {
 /// Mirror Python hash errors for predicate tuples, including nested Wild atoms.
 pub(crate) fn check_hashable(py: Python<'_>, expression: &Expr) -> PyResult<()> {
     let mut pending = vec![expression.clone()];
-    let mut seen = rustc_hash::FxHashSet::default();
+    let mut seen = rustc_hash::FxHashMap::default();
     while let Some(node) = pending.pop() {
-        if !node.has_wild_properties() || !seen.insert(node.dag_id()) {
+        // Visited nodes stay alive (see `Expr::dag_id`).
+        if !node.has_wild_properties() || seen.insert(node.dag_id(), node.clone()).is_some() {
             continue;
         }
         if let Some(symbol) = node.as_sym() {

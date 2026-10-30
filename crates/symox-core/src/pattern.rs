@@ -604,9 +604,10 @@ pub fn replace(e: &Expr, pattern: &Expr, template: &Expr) -> Result<Expr,MatchEr
 pub fn find(e: &Expr, pattern: &Expr) -> Result<Vec<Expr>,MatchError> {
     let mut out: Vec<Expr> = Vec::new();
     let mut pending=vec![e.clone()];
-    let mut seen=rustc_hash::FxHashSet::default();
+    // Visited nodes stay alive (see `Expr::dag_id`).
+    let mut seen=rustc_hash::FxHashMap::default();
     while let Some(node)=pending.pop(){
-        if !seen.insert(node.dag_id()){continue;}
+        if seen.insert(node.dag_id(),node.clone()).is_some(){continue;}
         if pattern_match(&node,pattern)?.is_some()&&!out.contains(&node){out.push(node.clone());}
         pending.extend(node.args().into_iter().rev());
     }

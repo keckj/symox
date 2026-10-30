@@ -159,13 +159,59 @@ def test_logpart_matches_sympy(p, q, domain, expected, monkeypatch):
     assert shown(rt.ratint_logpart(f, g, x, t)) == expected
 
 
+GAUSSIAN_THREE_POLES = [
+    ("Poly(x + _t**2*(2858/1105 - 94*I/1105) + _t*(-2097/1105 - 279*I/1105) - 1141/1105 + 1233*I/1105,"
+     " x, domain='QQ_I[_t]')", 'QQ_I[_t]', "Poly((-8 - 6*I)*_t**3 + (6 - I)*_t + 3, _t, domain='ZZ_I')", 'ZZ_I')]
+
+
 def test_logpart_gaussian_three_poles():
-    # The reference body can raise a TypeError here depending on the
-    # process state; the native orchestration returns the SymPy 1.14 pairs.
     f, g = poly('3', 'QQ_I'), poly('(x-I)*(x+2*I)*(x-1)', 'QQ_I')
-    assert shown(rt.ratint_logpart(f, g, x, sx.Dummy('t'))) == [
-        ("Poly(x + _t**2*(2858/1105 - 94*I/1105) + _t*(-2097/1105 - 279*I/1105) - 1141/1105 + 1233*I/1105,"
-         " x, domain='QQ_I[_t]')", 'QQ_I[_t]', "Poly((-8 - 6*I)*_t**3 + (6 - I)*_t + 3, _t, domain='ZZ_I')", 'ZZ_I')]
+    assert shown(rt.ratint_logpart(f, g, x, sx.Dummy('t'))) == GAUSSIAN_THREE_POLES
+
+
+def test_logpart_gaussian_three_poles_reference_body(monkeypatch):
+    no_native(monkeypatch)
+    f, g = poly('3', 'QQ_I'), poly('(x-I)*(x+2*I)*(x-1)', 'QQ_I')
+    assert shown(rt.ratint_logpart(f, g, x, sx.Dummy('t'))) == GAUSSIAN_THREE_POLES
+
+
+@pytest.mark.parametrize('name', ['a', 'b', 'h', 'i', 'l', 'm', 'o', 'p', 't', 'w', 'y'])
+def test_unexpanded_gaussian_coefficient_selects_gaussian_domain(name):
+    # SymPy 1.14 reads 12 - 2*I as one Gaussian coefficient for every
+    # generator. The I detection used to depend on allocation addresses, so
+    # some names (and Dummy indices) gave ZZ[I] and, with field=True, ZZ(I).
+    t = sx.Symbol(name)
+    for s in (t, sx.Dummy(name)):
+        e = s**2*(12 - 2*sx.I) + 9*s
+        assert str(sx.Poly(e, s).domain) == 'ZZ_I'
+        assert str(sx.Poly(e, s, field=True).domain) == 'QQ_I'
+        assert str(sx.Poly(s**2*(12 - 2*sx.I) + 9*s**3, s).domain) == 'ZZ_I'
+
+
+@pytest.mark.parametrize('native', [True, False])
+def test_logpart_gaussian_three_poles_after_optics_import(native):
+    # A fresh process, so test order cannot hide a state change made by the
+    # import: importing symox.physics.optics used to make this case raise
+    # "TypeError: expected a polynomial" in the reference body.
+    import os, subprocess, sys
+    source = r'''
+import importlib
+import symox as sx
+import symox.physics.optics
+rt = importlib.import_module('symox.integrals.rationaltools')
+core = importlib.import_module('symox._core')
+if not NATIVE:
+    core._ratint_ratpart = lambda *args: None
+    core._ratint_logpart = lambda *args: None
+x = sx.Symbol('x')
+f = sx.Poly(3, x, domain='QQ_I')
+g = sx.Poly(sx.expand((x - sx.I)*(x + 2*sx.I)*(x - 1)), x, domain='QQ_I')
+print(repr([(str(h), str(h.domain), str(q), str(q.domain)) for h, q in rt.ratint_logpart(f, g, x, sx.Dummy('t'))]))
+'''.replace('NATIVE', repr(native))
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join(
+        [os.path.dirname(os.path.dirname(sx.__file__))] + [p for p in os.environ.get('PYTHONPATH', '').split(os.pathsep) if p]))
+    done = subprocess.run([sys.executable, '-c', source], check=True, timeout=120, capture_output=True, text=True, env=env)
+    assert done.stdout.strip() == repr(GAUSSIAN_THREE_POLES)
 
 
 @pytest.mark.parametrize('p,q,domain', [('1', 'x**2+I', 'QQ_I'), ('1', 'x**2+a', 'ZZ[a]'), ('a', 'x**2-a*x+1', 'QQ(a)')])

@@ -44,13 +44,14 @@ pub fn admitted(expr: &Expr) -> bool {
 
 /// `expr.has(Piecewise)` / `_has_piecewise(expr)`.
 pub fn contains_piecewise(expr: &Expr) -> bool {
-    let mut seen = rustc_hash::FxHashSet::default();
+    // Visited nodes stay alive (see `Expr::dag_id`).
+    let mut seen = rustc_hash::FxHashMap::default();
     let mut pending = vec![expr.clone()];
     while let Some(node) = pending.pop() {
         if matches!(node.kind(), Kind::Piecewise(_)) {
             return true;
         }
-        if !seen.insert(node.dag_id()) {
+        if seen.insert(node.dag_id(), node.clone()).is_some() {
             continue;
         }
         pending.extend(crate::inspection::scalar_children(&node));

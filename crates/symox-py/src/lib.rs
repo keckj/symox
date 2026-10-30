@@ -1574,8 +1574,9 @@ pub(crate) fn substitution_options(kwargs:Option<&Bound<'_,PyDict>>)->PyResult<b
 /// got [x, x]".
 fn check_order_variables(e:&Expr,old:&Expr,new:&Expr)->Result<(),String> {
     if !new.is_symbol() || old==new || !old.is_symbol() { return Ok(()); }
-    fn walk(e:&Expr,old:&Expr,new:&Expr,seen:&mut FxHashSet<usize>)->Result<(),String> {
-        if matches!(e.kind(),Kind::Num(_)|Kind::Sym(_)|Kind::Const(_)|Kind::Bool(_)) || !seen.insert(e.dag_id()) { return Ok(()); }
+    // `seen` keeps the visited nodes alive (see `Expr::dag_id`).
+    fn walk(e:&Expr,old:&Expr,new:&Expr,seen:&mut rustc_hash::FxHashMap<usize,Expr>)->Result<(),String> {
+        if matches!(e.kind(),Kind::Num(_)|Kind::Sym(_)|Kind::Const(_)|Kind::Bool(_)) || seen.insert(e.dag_id(),e.clone()).is_some() { return Ok(()); }
         if let Some((_,vars))=symox::series::order::order_parts(e) {
             if vars.iter().any(|(v,_)|v==old) && vars.iter().any(|(v,_)|v==new) {
                 let names=vars.iter().map(|(v,_)|if v==old {new.to_string()} else {v.to_string()}).collect::<Vec<_>>().join(", ");
@@ -1586,7 +1587,7 @@ fn check_order_variables(e:&Expr,old:&Expr,new:&Expr)->Result<(),String> {
         for arg in symox::inspection::scalar_children(e) { walk(&arg,old,new,seen)?; }
         Ok(())
     }
-    walk(e,old,new,&mut FxHashSet::default())
+    walk(e,old,new,&mut Default::default())
 }
 
 pub(crate) fn checked_subs(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->PyResult<Expr> {
