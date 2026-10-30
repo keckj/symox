@@ -148,7 +148,7 @@ impl IndexConv<'_> {
             Node::Leaf(i) => self.unknown[*i],
             Node::Zero(_) => false,
             Node::Tensor(a) | Node::Add(a) => a.iter().any(|x| self.has_unknown(x)),
-            Node::Permute(e, _) | Node::Contract(e, _) | Node::Diagonal(e, _) | Node::Reshape(e, _) | Node::PowApply(e, _) => self.has_unknown(e),
+            Node::Permute(e, _) | Node::Contract(e, _) | Node::Diagonal(e, _) | Node::Reshape(e, _) | Node::PowApply(e, _) | Node::Apply(e, _) => self.has_unknown(e),
         }
     }
 
@@ -578,7 +578,7 @@ impl IndexPlan<'_> {
                 for a in args { out.push(self.convert(a, indices)?); }
                 Ok(Plan::Add(out))
             },
-            Node::PowApply(e, f) => Ok(Plan::Apply(*f, Box::new(self.convert(e, indices)?))),
+            Node::PowApply(e, f) | Node::Apply(e, f) => Ok(Plan::Apply(*f, Box::new(self.convert(e, indices)?))),
             Node::Reshape(e, up) => {
                 let down = self.ctx_shape(e).ok_or_else(Self::missing_shape)?;
                 // cumul = accumulate([1] + reversed(shape_up), mul)
