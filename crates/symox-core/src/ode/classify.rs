@@ -82,7 +82,7 @@ fn coeff_isneg(e: &Expr) -> bool {
 /// infinities (the `oo` dummy of `_add_inverse`), `I` (the dummy swap of
 /// `_mul_inverse`), `nan`, floats (whose `cancel` entry rewrites logs),
 /// piecewise and relational content.
-fn blocked(e: &Expr) -> bool {
+pub(crate) fn blocked(e: &Expr) -> bool {
     let mut found = false;
     preorder(e, &mut |x| {
         if found {
@@ -241,7 +241,7 @@ pub fn split_de(c: &Expr, df: &Expr, d_exclude: &[Expr], hooks: &mut Hooks<'_>) 
 
 /// The reference `Expr.coeff(target)` for a commutative `target`: the sum of
 /// the cofactors of the terms having `target` as a factor.
-fn coeff(e: &Expr, target: &Expr) -> Expr {
+pub(crate) fn coeff(e: &Expr, target: &Expr) -> Expr {
     if e == target {
         return Expr::one();
     }
@@ -306,7 +306,7 @@ fn pieces(r: &Expr, fx: &Expr, df: &Expr, hooks: &mut Hooks<'_>) -> Option<Resul
 }
 
 /// `collect(e, [df, f], func=cancel)`.
-fn collected(e: &Expr, df: &Expr, fx: &Expr, hooks: &mut Hooks<'_>) -> Option<Expr> {
+pub(crate) fn collected(e: &Expr, df: &Expr, fx: &Expr, hooks: &mut Hooks<'_>) -> Option<Expr> {
     let cancel = &mut hooks.cancel;
     let mut callback = |value: &Expr| -> Result<Expr, ()> { cancel(value).ok_or(()) };
     let options = Options { exact: false, discover: false, distribute_order_term: true };
