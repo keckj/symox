@@ -37,19 +37,16 @@ class _ArrayExpr:
         return set().union(*(getattr(arg,'free_symbols',set()) for arg in self.args))
     def rank(self):return len(self.shape)
     def __getitem__(self,index):
-        indices=index if isinstance(index,tuple) else (index,)
-        if len(indices)!=len(self.shape):raise IndexError('wrong number of array indices')
-        normalized=[]
-        for i,n in zip(indices,self.shape):
-            i=S.sympify(i)
-            if i.is_integer is False:raise IndexError('array indices must be integers')
-            n=S.sympify(n)
-            if i.is_number and n.is_number:
-                if i<0:i+=n
-                if not 0<=i<n:raise IndexError('array index out of range')
-            normalized.append(i)
-        return self._entry(tuple(normalized))
+        indices=tuple(index) if isinstance(index,(tuple,list)) else (index,)
+        indices=tuple(S.sympify(i) for i in indices)
+        _check_shape(self,indices)
+        return self._entry(indices)
+    @property
+    def subranks(self):return _subranks(self)
+    def subrank(self):return sum(self.subranks)
     def as_explicit(self):
+        if not all(getattr(S.sympify(n),'is_Integer',False) for n in self.shape):
+            raise ValueError('cannot express explicit array with symbolic shape')
         shape=tuple(operator.index(n) for n in self.shape)
         if prod(shape)>100000:raise ValueError('explicit array exceeds 100000 entries')
         return Array([self[index] for index in product(*(range(n) for n in shape))],shape)
@@ -66,13 +63,18 @@ class _ArrayExpr:
     def dummy_eq(self,other,symbol=None):
         def eq(a,b):
             if isinstance(a,tuple):return isinstance(b,tuple) and len(a)==len(b) and all(eq(u,v) for u,v in zip(a,b))
-            if hasattr(a,'dummy_eq'):
+            if hasattr(a,'dummy_eq') and not isinstance(a,type):
                 try:return a.dummy_eq(b) if isinstance(a,_ArrayExpr) else a.dummy_eq(b,symbol)
                 except (TypeError,AttributeError):return False
             return a==b
         return type(self) is type(other) and eq(self.args,other.args)
     def __repr__(self):return type(self).__name__+'('+', '.join(map(str,self.args))+')'
     def doit(self,**hints):return self
+    def _canonicalize(self):
+        # SymPy's _canonicalize: the canonical form of this node (its
+        # arguments as they are)
+        from ._canon import _STRUCTURAL,_doit
+        return _doit(self,False) if isinstance(self,_STRUCTURAL) else self
     def subs(self,*args,**kwargs):
         mapping=args[0] if len(args)==1 and isinstance(args[0],dict) else {args[0]:args[1]}
         if self in mapping:return mapping[self]
@@ -80,6 +82,22 @@ class _ArrayExpr:
             if isinstance(value,tuple):return tuple(replace(v) for v in value)
             return value.subs(mapping,**kwargs) if hasattr(value,'subs') else value
         return type(self)(*(replace(arg) for arg in self.args))
+
+
+def _check_shape(name,indices):
+    # SymPy's ArrayElement._check_shape (a bound decides only when it is
+    # decidably violated)
+    if hasattr(name,'shape'):
+        if len(indices)!=len(name.shape):raise IndexError('number of indices does not match shape of the array')
+        if any((i>=s)==True for i,s in zip(indices,name.shape)):raise ValueError('shape is out of bounds')
+    if any((i<0)==True for i in indices):raise ValueError('shape contains negative values')
+
+
+def _subranks(expr):
+    # SymPy's _get_subranks
+    if isinstance(expr,ArrayTensorProduct):return [len(_shape(a)) for a in expr.args]
+    if isinstance(expr,(ArrayContraction,ArrayDiagonal,ArrayElementwiseApplyFunc)):return _subranks(expr.expr)
+    return [len(_shape(expr))]
 
 
 class ArraySymbol(_ArrayExpr):
@@ -96,7 +114,7 @@ class ArrayElement(_IndexedArithmetic):
     def __init__(self,name,indices):
         if not hasattr(name,'shape'):raise TypeError('an array element requires a shaped parent')
         self.name,self.indices=name,tuple(S.sympify(i) for i in indices)
-        if len(self.indices)!=len(name.shape):raise IndexError('wrong number of array indices')
+        _check_shape(name,self.indices)
     args=property(lambda self:(self.name,self.indices))
     @property
     def free_symbols(self):return {self.name}|set().union(*(i.free_symbols for i in self.indices))
@@ -127,6 +145,11 @@ def _array_element_node():
 
 class _ConstantArray(_ArrayExpr):
     value=None
+    def __new__(cls,*shape):
+        # SymPy: ZeroArray() is S.Zero and OneArray() is S.One
+        if len(shape)==1 and isinstance(shape[0],(list,tuple)):shape=shape[0]
+        if len(shape)==0 and cls.value is not None:return S.Integer(cls.value)
+        return super().__new__(cls)
     def __init__(self,*shape):
         if len(shape)==1 and isinstance(shape[0],(list,tuple)):shape=shape[0]
         self.shape=_dimensions(shape);self.args=self.shape
@@ -139,9 +162,9 @@ class OneArray(_ConstantArray):value=1
 
 class ArrayTensorProduct(_ArrayExpr):
     def __init__(self,*args):
-        flattened=[]
-        for arg in args:flattened.extend(arg.args if isinstance(arg,ArrayTensorProduct) else [arg])
-        self.args=tuple(flattened);self.shape=tuple(n for a in self.args for n in _shape(a))
+        # SymPy's constructor keeps nested products (canonicalize=False);
+        # _array_tensor_product and doit() flatten them.
+        self.args=tuple(args);self.shape=tuple(n for a in self.args for n in _shape(a))
     def doit(self,**hints):
         from ._canon import _doit
         return _doit(self,hints.get('deep',True))
@@ -220,6 +243,12 @@ def _permute_dims(expr,permutation):
 def _sort_key(value):
     if isinstance(value,ArraySymbol):
         return ((5,0,'ArraySymbol'),(1,(value.name,)+tuple(str(n) for n in value.shape)))
+    if isinstance(value,_ArrayExpr):
+        # Basic.sort_key of SymPy's array classes (class key, then the
+        # arguments, tuples as Tuple); default_sort_key would otherwise
+        # iterate over the expression, which never ends for symbolic shapes.
+        args=tuple(_sort_key(S.Tuple(*a) if isinstance(a,(tuple,list)) else a) for a in value.args)
+        return ((5,0,type(value).__name__),(len(args),args),S.S.One.sort_key(),S.S.One)
     try:return S.default_sort_key(value)
     except Exception:return (str(type(value).__name__),str(value))
 
@@ -265,6 +294,23 @@ class _AxisOperation(_ArrayExpr):
         self.groups=tuple(normalized);self.remaining=tuple(i for i in range(len(shape)) if i not in used)
         self.args=(expr,*self.groups);self.shape=tuple(shape[i] for i in self.remaining)
 
+def _push_indices(kind,groups,indices,rank=0):
+    # SymPy's _apply_recursively_over_nested_lists: the nesting is rebuilt
+    # here, the axis map runs in Rust (_arrayexpr_push_indices).
+    groups=[[operator.index(j) for j in g] for g in groups]
+    if kind=='c_down' and not any(groups):raise IndexError('list index out of range')
+    flat=[]
+    def collect(a):
+        if isinstance(a,(tuple,list)) or type(a).__name__=='Tuple':
+            for i in a:collect(i)
+        else:flat.append(operator.index(a))
+    collect(indices)
+    out=iter(_core._arrayexpr_push_indices(kind,groups,flat,rank))
+    def rebuild(a):
+        if isinstance(a,(tuple,list)) or type(a).__name__=='Tuple':return tuple(rebuild(i) for i in a)
+        return next(out)
+    return rebuild(indices)
+
 class ArrayContraction(_AxisOperation):
     def __init__(self,expr,*groups):
         # SymPy sorts each contraction and the contractions by first axis
@@ -275,6 +321,20 @@ class ArrayContraction(_AxisOperation):
         return _doit(self,hints.get('deep',True))
     @property
     def contraction_indices(self):return self.groups
+    @staticmethod
+    def _push_indices_down(contraction_indices,indices):return _push_indices('c_down',contraction_indices,indices)
+    @staticmethod
+    def _push_indices_up(contraction_indices,indices):return _push_indices('c_up',contraction_indices,indices)
+    def as_explicit(self):
+        # SymPy's tensorcontraction: a full contraction is a scalar
+        if not self.shape:return self._entry(())
+        return super().as_explicit()
+    def split_multiple_contractions(self):
+        from .from_array_to_matrix import _split_multiple_contractions
+        return _split_multiple_contractions(self)
+    def flatten_contraction_of_diagonal(self):
+        from .from_array_to_matrix import _flatten_contraction_of_diagonal
+        return _flatten_contraction_of_diagonal(self)
     def sort_args_by_name(self):
         # SymPy's ArrayContraction.sort_args_by_name
         expr=self.expr
@@ -318,6 +378,10 @@ class ArrayDiagonal(_AxisOperation):
         return _doit(self,hints.get('deep',True))
     @property
     def diagonal_indices(self):return self.groups
+    @classmethod
+    def _push_indices_down(cls,diagonal_indices,indices,rank):return _push_indices('d_down',diagonal_indices,indices,rank)
+    @classmethod
+    def _push_indices_up(cls,diagonal_indices,indices,rank):return _push_indices('d_up',diagonal_indices,indices,rank)
     def _entry(self,indices):
         original=[None]*len(_shape(self.expr))
         for axis,index in zip(self.remaining,indices):original[axis]=index
@@ -329,7 +393,13 @@ class ArrayDiagonal(_AxisOperation):
 class Reshape(_ArrayExpr):
     def __init__(self,expr,shape):
         self.expr=expr;self.shape=_dimensions(shape);self.args=(expr,self.shape)
-        if S.simplify(prod(_shape(expr))-prod(self.shape))!=0:raise ValueError('reshape must preserve the number of entries')
+        # SymPy raises only when the sizes are decidably different
+        if S.Eq(prod(_shape(expr)),prod(self.shape))==False:raise ValueError('shape mismatch')
+    def doit(self,**hints):
+        # SymPy's Reshape.doit: an explicit matrix or array is reshaped
+        expr=self.expr.doit(**hints) if hints.get('deep',True) and hasattr(self.expr,'doit') else self.expr
+        if isinstance(expr,(NDimArray,S.MatrixBase)):return expr.reshape(*self.shape)
+        return Reshape(expr,self.shape)
     def _entry(self,indices):
         linear=S.Integer(0)
         for index,n in zip(indices,self.shape):linear=linear*n+index
@@ -370,7 +440,7 @@ def convert_matrix_to_array(expr):
 
 
 def _as_matrix_factor(value):
-    if isinstance(value,_ArrayExpr):value=convert_array_to_matrix(value)
+    if isinstance(value,_ArrayExpr):value=_chain_array_to_matrix(value)
     if isinstance(value,_ArrayExpr) or len(_shape(value))!=2 or not hasattr(value,'T'):return None
     if isinstance(value,NDimArray):return None
     return value
@@ -431,18 +501,21 @@ def _matrix_chains(expr):
     return _permute_dims(result,form)
 
 
-def convert_array_to_matrix(expr):
+def _chain_array_to_matrix(expr):
+    """Matrix form of an array expression for the matrix-derivative chains
+    (not SymPy's ``convert_array_to_matrix``, ported in
+    ``from_array_to_matrix``)."""
     if isinstance(expr,(ArrayContraction,ArrayTensorProduct)):
         chained=_matrix_chains(expr)
         if chained is not None:return chained
     if len(_shape(expr))!=2:return expr
     if isinstance(expr,ArraySymbol):return S.MatrixSymbol(expr.name,*expr.shape)
-    if isinstance(expr,ArrayAdd):return S.MatAdd(*(convert_array_to_matrix(a) for a in expr.args))
-    if isinstance(expr,PermuteDims) and expr.permutation.array_form==[1,0]:return convert_array_to_matrix(expr.expr).T
+    if isinstance(expr,ArrayAdd):return S.MatAdd(*(_chain_array_to_matrix(a) for a in expr.args))
+    if isinstance(expr,PermuteDims) and expr.permutation.array_form==[1,0]:return _chain_array_to_matrix(expr.expr).T
     if isinstance(expr,ArrayContraction) and isinstance(expr.expr,ArrayTensorProduct):
         factors=expr.expr.args;matrices=[a for a in factors if len(_shape(a))==2]
         if expr.groups==tuple((2*i+1,2*i+2) for i in range(len(matrices)-1)):
-            return S.MatMul(*(convert_array_to_matrix(a) if _shape(a) else a for a in factors))
+            return S.MatMul(*(_chain_array_to_matrix(a) if _shape(a) else a for a in factors))
     if isinstance(expr,_ArrayExpr):
         i,j=S.symbols('_i _j',integer=True)
         return S.FunctionMatrix(*expr.shape,S.Lambda((i,j),expr[i,j]))
@@ -578,3 +651,6 @@ def convert_indexed_to_array(expr,first_indices=None):
 __all__=['ArrayAdd','ArrayContraction','ArrayDiagonal','ArrayElement','ArrayElementwiseApplyFunc','ArraySymbol',
  'ArrayTensorProduct','OneArray','PermuteDims','Reshape','ZeroArray','array_derive','convert_array_to_indexed',
  'convert_array_to_matrix','convert_indexed_to_array','convert_matrix_to_array']
+
+
+from .from_array_to_matrix import convert_array_to_matrix  # noqa: E402

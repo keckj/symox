@@ -359,8 +359,8 @@ def _contract_one_dims(parts):
 
 
 def _to_matrix(value):
-    from .tensor.array.expressions import convert_array_to_matrix, _ArrayExpr
-    result = convert_array_to_matrix(value) if isinstance(value, _ArrayExpr) else value
+    from .tensor.array.expressions import _chain_array_to_matrix, _ArrayExpr
+    result = _chain_array_to_matrix(value) if isinstance(value, _ArrayExpr) else value
     if isinstance(result, _ArrayExpr):
         raise _Unsupported
     return result

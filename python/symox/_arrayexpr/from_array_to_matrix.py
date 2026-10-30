@@ -26,6 +26,15 @@ from symox._arrayexpr.array_expressions import PermuteDims, ArrayDiagonal, \
 from symox._arrayexpr.utils import _get_mapping_from_subranks
 
 
+def _trace_normalize(element):
+    # SymPy's Trace(element)._normalize(); the native Trace has no
+    # _normalize, the rule runs in Rust (_matrix_trace_normalize).
+    from symox import _core
+    if isinstance(element, _core._MatrixExpr):
+        return _core._matrix_trace_normalize(element)
+    return Trace(element)._normalize()
+
+
 def _ask_diagonal(element):
     # ask(Q.diagonal(e)) is None in SymPy for array-expression Basics, which
     # symox predicates do not accept.
@@ -111,7 +120,7 @@ def _support_function_tp1_recognize(contraction_indices, args):
 
             if first_index is not None and first_frequency == 1 and first_index == second_index:
                 flag_stop = False
-                arg_with_ind.element = Trace(arg_with_ind.element)._normalize()
+                arg_with_ind.element = _trace_normalize(arg_with_ind.element)
                 arg_with_ind.indices = []
                 break
 
@@ -134,7 +143,7 @@ def _support_function_tp1_recognize(contraction_indices, args):
                 set_indices = set(new_arge.indices)
                 if len(set_indices) == 1 and set_indices != {None}:
                     # This is a trace:
-                    new_arge.element = Trace(new_arge.element)._normalize()
+                    new_arge.element = _trace_normalize(new_arge.element)
                     new_arge.indices = []
                 editor.args_with_ind[i] = new_arge
                 # TODO: is this break necessary?
@@ -813,7 +822,7 @@ def identify_hadamard_products(expr: ArrayContraction | ArrayDiagonal):
         if not check_transpose(hadamard_factors[0].indices):
             hp_indices = list(reversed(hp_indices))
         if make_trace:
-            hp = Trace(_mul(first_element, hp.T))._normalize()
+            hp = _trace_normalize(_mul(first_element, hp.T))
             hp_indices = []
         editor.insert_after(v[0], _ArgE(hp, hp_indices))
         for i in v:

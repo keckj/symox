@@ -185,7 +185,9 @@ def test_physical_dag_memo_preserves_alpha_equal_binder_presentations():
     assert result[0, 0].args == left.args
     assert result[0, 1].args == right.args
     A, B = sx.MatrixSymbol('A', 2, 2), sx.MatrixSymbol('B', 2, 2)
-    held = sx.HadamardProduct(left*A, right*B, evaluate=False)
+    # SymPy's MatrixExpr operators return a deep doit (which evaluates the
+    # Subs); the held products are built unevaluated.
+    held = sx.HadamardProduct(sx.MatMul(left, A), sx.MatMul(right, B), evaluate=False)
     expanded = held.expand()
     assert expanded.args[0].args[0].args == left.args
     assert expanded.args[1].args[0].args == right.args

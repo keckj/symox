@@ -26,6 +26,9 @@ pub enum Node {
     /// `ArrayElementwiseApplyFunc(Lambda(d, d**e), expr)`, `e` the leaf index
     /// of the exponent (opaque to the canonical forms).
     PowApply(Box<Node>, usize),
+    /// `ArrayElementwiseApplyFunc(function, expr)`, the function an opaque
+    /// leaf-table entry (used by the array-to-matrix recognition).
+    Apply(Box<Node>, usize),
 }
 
 #[derive(Clone, Debug)]
@@ -47,6 +50,17 @@ pub enum AErr {
     Memory(String),
     /// The sort-key callback failed (the caller holds the error).
     Callback,
+    Key(String),
+    Assertion(String),
+    /// A matrix-expression constructor failed.
+    Matrix(crate::matrix::MatrixError),
+    /// An input the native port does not model: the caller runs the stock
+    /// SymPy algorithm instead (never a mathematical answer).
+    Unsupported(String),
+}
+
+impl From<crate::matrix::MatrixError> for AErr {
+    fn from(e: crate::matrix::MatrixError) -> Self { AErr::Matrix(e) }
 }
 
 pub type R<T> = Result<T, AErr>;
@@ -180,7 +194,7 @@ impl Ctx<'_> {
             Node::Contract(e, g) => self.rank(e).saturating_sub(g.iter().map(Vec::len).sum::<usize>()),
             Node::Diagonal(e, g) => (self.rank(e) + g.len()).saturating_sub(g.iter().map(Vec::len).sum::<usize>()),
             Node::Reshape(_, s) => s.len(),
-            Node::PowApply(e, _) => self.rank(e),
+            Node::PowApply(e, _) | Node::Apply(e, _) => self.rank(e),
         }
     }
 
@@ -209,7 +223,7 @@ impl Ctx<'_> {
                 Some(out)
             },
             Node::Reshape(_, s) => Some(s.clone()),
-            Node::PowApply(e, _) => self.shape(e),
+            Node::PowApply(e, _) | Node::Apply(e, _) => self.shape(e),
         }
     }
 
@@ -217,19 +231,19 @@ impl Ctx<'_> {
     pub fn subranks(&self, n: &Node) -> Vec<usize> {
         match n {
             Node::Tensor(a) => a.iter().map(|x| self.rank(x)).collect(),
-            Node::Contract(e, _) | Node::Diagonal(e, _) => self.subranks(e),
+            Node::Contract(e, _) | Node::Diagonal(e, _) | Node::Apply(e, _) => self.subranks(e),
             Node::Permute(e, _) => vec![self.rank(e)],
             _ => vec![self.rank(n)],
         }
     }
 
-    fn subrank(&self, n: &Node) -> usize { self.subranks(n).iter().sum() }
+    pub fn subrank(&self, n: &Node) -> usize { self.subranks(n).iter().sum() }
 
     fn is_zero(&self, n: &Node) -> bool {
         match n { Node::Zero(_) => true, Node::Leaf(i) => self.leaves[*i].zero, _ => false }
     }
 
-    fn is_zero_array(n: &Node) -> bool { matches!(n, Node::Zero(_)) }
+    // SymPy tests `isinstance(expr, (ZeroArray, ZeroMatrix))`: a zero-matrix leaf counts (`is_zero`).
 
     fn zero_shape(&self, n: &Node) -> R<Vec<usize>> {
         self.shape(n).ok_or_else(|| AErr::NotImplemented("cannot handle addition of ZeroMatrix/ZeroArray and undefined shape object".into()))
@@ -349,7 +363,7 @@ impl Ctx<'_> {
         if let Node::Tensor(args) = expr {
             (expr, perm) = self.permute_denest_tensor(args, perm)?;
         }
-        if Self::is_zero_array(&expr) {
+        if self.is_zero(&expr) {
             let s = self.zero_shape(&expr)?;
             return Ok(Node::Zero(perm.iter().map(|&i| s[i]).collect()));
         }
@@ -521,7 +535,7 @@ impl Ctx<'_> {
                 for g in &groups { all.push(g.iter().map(|&j| shifted(&shifts, j)).collect::<R<Vec<_>>>()?); }
                 return self.contract(*inner, all);
             },
-            ref e if Self::is_zero_array(e) => {
+            ref e if self.is_zero(e) => {
                 let s = self.zero_shape(e)?;
                 let flat: Vec<usize> = groups.iter().flatten().copied().collect();
                 return Ok(Node::Zero(s.iter().enumerate().filter(|(i, _)| !flat.contains(i)).map(|(_, d)| *d).collect()));
@@ -660,6 +674,7 @@ impl Ctx<'_> {
             Node::Diagonal(e, g) => Node::Diagonal(Box::new(self.doit(*e, true)?), g),
             Node::Reshape(e, s) => Node::Reshape(Box::new(self.doit(*e, true)?), s),
             Node::PowApply(e, x) => Node::PowApply(Box::new(self.doit(*e, true)?), x),
+            Node::Apply(e, x) => Node::Apply(Box::new(self.doit(*e, true)?), x),
             o => o,
         };
         self.canonicalize(n, false)

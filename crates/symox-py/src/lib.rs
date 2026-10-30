@@ -32,6 +32,7 @@ mod solveset_radical;
 mod prde;
 mod matrix_rank_four;
 mod arrayexpr_canon;
+mod arrayexpr_a2m;
 mod prde_frac;
 mod prde_const;
 mod prde_deriv;

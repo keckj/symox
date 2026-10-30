@@ -40,6 +40,7 @@ pub mod matrixcontraction;
 pub mod matrixexpr;
 pub mod arrayexpr;
 pub mod arrayexpr_matrix;
+pub mod arrayexpr_a2m;
 pub mod logic;
 pub mod ntheory;
 pub mod nsolve_mp;

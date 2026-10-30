@@ -1,0 +1,36 @@
+{"mode": "symox", "case": "ca(cm(M*N))", "first_ms": 0.059399986639618874, "median_ms": 0.019569008145481348, "result": "M*N"}
+{"mode": "symox", "case": "ca(cm((M*N).T))", "first_ms": 0.034352997317910194, "median_ms": 0.01998303923755884, "result": "N.T*M.T"}
+{"mode": "symox", "case": "ca(cm(M*N*P))", "first_ms": 0.0367090106010437, "median_ms": 0.024499488063156605, "result": "M*N*P"}
+{"mode": "symox", "case": "ca(cm(a.T*M*b))", "first_ms": 0.037553953006863594, "median_ms": 0.025688030291348696, "result": "a.T*M*b"}
+{"mode": "symox", "case": "ca(cm(Trace(M*N)))", "first_ms": 0.24688802659511566, "median_ms": 0.0936805154196918, "result": "Trace(M*N)"}
+{"mode": "symox", "case": "ca(cm(hadamard(M,N)))", "first_ms": 0.5045930156484246, "median_ms": 0.14571449719369411, "result": "FunctionMatrix(k, k, Lambda((_i, _j), M[_i, _j]*N[_i, _j]))"}
+{"mode": "symox", "case": "ca(cm(M*N + N.T*P))", "first_ms": 0.1389270182698965, "median_ms": 0.0438435235992074, "result": "M*N + N.T*P"}
+{"mode": "symox", "case": "ca(tp(a,b))", "first_ms": 0.12265308760106564, "median_ms": 0.043683452531695366, "result": "ArrayTensorProduct(a, b)"}
+{"mode": "symox", "case": "ca(dia(tp(M,a),(1,2)))", "first_ms": 0.007409951649606228, "median_ms": 0.000985921360552311, "result": "ArrayDiagonal(ArrayTensorProduct(M, a), (1, 2))"}
+{"mode": "symox", "case": "ca(con(tp(M,I,N),(1,2),(3,4)))", "first_ms": 0.04529708530753851, "median_ms": 0.024049950297921896, "result": "M*N"}
+{"mode": "symox", "case": "ca(con(tp(M,N,P),(0,2),(1,5)))", "first_ms": 0.046746921725571156, "median_ms": 0.02504803705960512, "result": "N.T*M*P.T"}
+{"mode": "symox", "case": "editor(con(tp(M,N,P),(1,2),(3,4)))", "first_ms": null, "median_ms": null, "result": "EXC:NotImplementedError"}
+{"mode": "symox", "case": "ca(cm(M*N))", "first_ms": 0.08773908484727144, "median_ms": 0.018934952095150948, "result": "M*N"}
+{"mode": "symox", "case": "ca(cm((M*N).T))", "first_ms": 0.03639806527644396, "median_ms": 0.019574014004319906, "result": "N.T*M.T"}
+{"mode": "symox", "case": "ca(cm(M*N*P))", "first_ms": 0.03677094355225563, "median_ms": 0.024056935217231512, "result": "M*N*P"}
+{"mode": "symox", "case": "ca(cm(a.T*M*b))", "first_ms": 0.03837002441287041, "median_ms": 0.024860550183802843, "result": "a.T*M*b"}
+{"mode": "symox", "case": "ca(cm(Trace(M*N)))", "first_ms": 0.4788149381056428, "median_ms": 0.09047798812389374, "result": "Trace(M*N)"}
+{"mode": "symox", "case": "ca(cm(hadamard(M,N)))", "first_ms": 0.5684689385816455, "median_ms": 0.14467048458755016, "result": "FunctionMatrix(k, k, Lambda((_i, _j), M[_i, _j]*N[_i, _j]))"}
+{"mode": "symox", "case": "ca(cm(M*N + N.T*P))", "first_ms": 0.19488600082695484, "median_ms": 0.04313152749091387, "result": "M*N + N.T*P"}
+{"mode": "symox", "case": "ca(tp(a,b))", "first_ms": 0.12991996482014656, "median_ms": 0.04348647780716419, "result": "ArrayTensorProduct(a, b)"}
+{"mode": "symox", "case": "ca(dia(tp(M,a),(1,2)))", "first_ms": 0.003772089257836342, "median_ms": 0.0009905197657644749, "result": "ArrayDiagonal(ArrayTensorProduct(M, a), (1, 2))"}
+{"mode": "symox", "case": "ca(con(tp(M,I,N),(1,2),(3,4)))", "first_ms": 0.04504597745835781, "median_ms": 0.023478991352021694, "result": "M*N"}
+{"mode": "symox", "case": "ca(con(tp(M,N,P),(0,2),(1,5)))", "first_ms": 0.03699702210724354, "median_ms": 0.024652050342410803, "result": "N.T*M*P.T"}
+{"mode": "symox", "case": "editor(con(tp(M,N,P),(1,2),(3,4)))", "first_ms": null, "median_ms": null, "result": "EXC:NotImplementedError"}
+{"mode": "symox", "case": "ca(cm(M*N))", "first_ms": 0.07581303361803293, "median_ms": 0.019158469513058662, "result": "M*N"}
+{"mode": "symox", "case": "ca(cm((M*N).T))", "first_ms": 0.04798907320946455, "median_ms": 0.019639497622847557, "result": "N.T*M.T"}
+{"mode": "symox", "case": "ca(cm(M*N*P))", "first_ms": 0.03546103835105896, "median_ms": 0.02438994124531746, "result": "M*N*P"}
+{"mode": "symox", "case": "ca(cm(a.T*M*b))", "first_ms": 0.03992707934230566, "median_ms": 0.025018933229148388, "result": "a.T*M*b"}
+{"mode": "symox", "case": "ca(cm(Trace(M*N)))", "first_ms": 0.5647160578519106, "median_ms": 0.09420746937394142, "result": "Trace(M*N)"}
+{"mode": "symox", "case": "ca(cm(hadamard(M,N)))", "first_ms": 0.9578100871294737, "median_ms": 0.14622200978919864, "result": "FunctionMatrix(k, k, Lambda((_i, _j), M[_i, _j]*N[_i, _j]))"}
+{"mode": "symox", "case": "ca(cm(M*N + N.T*P))", "first_ms": 0.16200507525354624, "median_ms": 0.04337396239861846, "result": "M*N + N.T*P"}
+{"mode": "symox", "case": "ca(tp(a,b))", "first_ms": 0.1162099651992321, "median_ms": 0.04337902646511793, "result": "ArrayTensorProduct(a, b)"}
+{"mode": "symox", "case": "ca(dia(tp(M,a),(1,2)))", "first_ms": 0.0037549762055277824, "median_ms": 0.0010020448826253414, "result": "ArrayDiagonal(ArrayTensorProduct(M, a), (1, 2))"}
+{"mode": "symox", "case": "ca(con(tp(M,I,N),(1,2),(3,4)))", "first_ms": 0.061484985053539276, "median_ms": 0.023854547180235386, "result": "M*N"}
+{"mode": "symox", "case": "ca(con(tp(M,N,P),(0,2),(1,5)))", "first_ms": 0.036337063647806644, "median_ms": 0.024713517632335424, "result": "N.T*M*P.T"}
+{"mode": "symox", "case": "editor(con(tp(M,N,P),(1,2),(3,4)))", "first_ms": null, "median_ms": null, "result": "EXC:NotImplementedError"}
