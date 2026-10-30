@@ -1,0 +1,11 @@
+{"call": "lim_xlog3", "lib": "symox", "first": 0.0021335720011848025, "median": 0.0010558630019659176, "result": "1"}
+{"call": "lim_expsqrt3", "lib": "symox", "first": 0.0014231089953682385, "median": 0.0005566210020333529, "result": "0"}
+{"call": "ns_floor_cdir", "lib": "symox", "first": 0.0006887229974381626, "median": 0.00011132499639643356, "result": "-x + O(x**3)"}
+{"call": "ns_log_cdir", "lib": "symox", "first": 0.0007695799940847792, "median": 0.00020817400218220428, "result": "-2*I*pi + 2*log(x) - x - x**2/2 + O(x**3)"}
+{"call": "lim_absxy", "lib": "symox", "first": 0.0012345180002739653, "median": 0.00042752199806272984, "result": "sign(a)"}
+{"call": "lim_fact_neg", "lib": "symox", "first": 0.0009721969981910661, "median": 0.0002544390008552, "result": "gamma(-oo)"}
+{"call": "lim_order_1", "lib": "symox", "first": 0.0009205539972754195, "median": 0.00022127099509816617, "result": "1"}
+{"call": "ord_subs_cos", "lib": "symox", "first": 0.00032988499879138544, "median": 6.300899985944852e-05, "result": "O((x - pi/2)**2, (x, pi/2))"}
+{"call": "ord_diff", "lib": "symox", "first": 0.00023244899784913287, "median": 2.4615997972432524e-05, "result": "O(x)"}
+{"call": "ord_loglog", "lib": "symox", "first": 0.00042341499647591263, "median": 6.582000060006976e-05, "result": "O((log(x)**2 + 1)/log(x))"}
+{"call": "ser_floor_oo", "lib": "symox", "first": 0.0003257849966757931, "median": 9.757699444890022e-05, "result": "ERR:ValueError:Only real AccumulationBounds are supported"}

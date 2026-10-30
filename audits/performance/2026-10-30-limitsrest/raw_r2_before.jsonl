@@ -1,0 +1,11 @@
+{"call": "lim_xlog3", "lib": "symox", "first": 0.002308642004209105, "median": 0.0012608690012712032, "result": "Limit((x**log(3) + 1)**(1/x), x, 0, dir='+')"}
+{"call": "lim_expsqrt3", "lib": "symox", "first": 0.0017955949952010997, "median": 0.0008557120017940179, "result": "Limit((exp(x**(sqrt(3))) - 1)/x, x, 0, dir='+')"}
+{"call": "ns_floor_cdir", "lib": "symox", "first": 0.00029221300064818934, "median": 0.0001392740014125593, "result": "0"}
+{"call": "ns_log_cdir", "lib": "symox", "first": 0.0004969700021320023, "median": 0.00020470400340855122, "result": "2*log(x) - x - x**2/2 + O(x**3)"}
+{"call": "lim_absxy", "lib": "symox", "first": 0.002022706001298502, "median": 0.000985701997706201, "result": "Limit((-Abs(a - x) + Abs(a + x))/(2*x), x, 0, dir='+')"}
+{"call": "lim_fact_neg", "lib": "symox", "first": 0.0013498260013875552, "median": 0.00047003499639686197, "result": "Limit(factorial(x), x, -oo, dir='+')"}
+{"call": "lim_order_1", "lib": "symox", "first": 0.001375842999550514, "median": 0.0005138050037203357, "result": "Limit(1 + O(x**2), x, 1, dir='+')"}
+{"call": "ord_subs_cos", "lib": "symox", "first": 0.0010618430023896508, "median": 0.00038409399712691084, "result": "O(cos(x)**2)"}
+{"call": "ord_diff", "lib": "symox", "first": 0.0001710819997242652, "median": 1.9098995835520327e-05, "result": "Derivative(O(x**2), x)"}
+{"call": "ord_loglog", "lib": "symox", "first": 0.00017963199934456497, "median": 1.8079001165460795e-05, "result": "O(1)"}
+{"call": "ser_floor_oo", "lib": "symox", "first": 0.00018441499560140073, "median": 6.199999916134402e-05, "result": "ERR:PoleError:floor(x)"}

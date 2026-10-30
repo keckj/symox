@@ -13855,3 +13855,91 @@ the true limit is `1/e`), and the earlier corrections (one-sided Piecewise
 limits, `limit(atan(a*x)/x, x, oo) = 0`).
 
 Measured: [audit](../audits/performance/2026-10-30-limitsrest/README.md).
+
+### Round 2 (limitsrest): symbolic powers, cdir, heuristics, Order forms
+
+Native now (crates/symox-core):
+
+- `limits/gruntz/symbolic_lt.rs`: leading terms with irrational powers of
+  the mrv variable, where the integer-exponent series engine does not
+  apply. `log(a)` with `a -> 1` is the leading term of `a - 1`; `F(g)` with
+  `g -> 0` and `F` analytic with `F(0) = 0` is `F^(m)(0)/m!*g**m`; a sum
+  whose leading terms cancel replaces each such node by its Taylor
+  polynomial of order `k` plus `rho*g**(k + 1)` and accepts the leading
+  term only when it is free of `rho` (`k <= 4`, two nesting levels). So
+  `limit((1 + x**log(3))**(1/x), x, 0)` is 1, `(1 + x**log(2))**(1/x)` is
+  `oo`, `(exp(x**sqrt(3)) - 1)/x` is 0, as SymPy.
+- `series/nseries_cdir.rs`: `nseries(x, 0, n, cdir=c)` for a negative or
+  nonreal `c` passes the direction to `floor`, `ceiling`, `frac`, `sign`,
+  `atan` (at `zoo`), `acot` (at 0) through `Expr.dir`, and to `log(g)`
+  (`log(g(c*t))` at `t -> 0+`, with `log(t) = log(x) - log(c)`), with the
+  `Mul._eval_nseries` Order bookkeeping (`x*floor(x)` with `cdir=-1` is
+  `-x + O(x**3)`, `x*(floor(x) + 1)` is exactly 0, `floor(x)` with
+  `cdir=I` raises `NotImplementedError`). Binding `_core._nseries_cdir`.
+- `series/abs_symbolic.rs`: `Abs(g)` and `sign(g)` whose leading
+  coefficient `c` has no decided numeric sign expand as `sign(c)*g` and
+  `sign(c)` (`Abs._eval_nseries`), with `sign(c)` folded to `+-1` by the
+  assumptions: `Abs(x + y).series(x)` is `x*sign(y) + y*sign(y)`,
+  `limit((Abs(x+y) - Abs(x-y))/(2*x), x, 0)` is `sign(y)`. As in the
+  reference (which expands on a positive dummy), `Abs(x**k*r)` and
+  `sign(x**k*r)` with `r` free of `x` are `x**k*Abs(r)` and `sign(r)`
+  first (`limit(Abs(x*y)/x, x, 0)` is `Abs(y)`). A provably nonreal
+  coefficient is declined (SymPy evaluates `Abs` through real and
+  imaginary parts there, `Abs(x + I*p).series(x)` is `p + x**2/(2*p)`).
+  The `sign(c)` rule is the reference's and is exact only for a real `c`;
+  for a symbol of unknown sign both libraries return it.
+- `limits/gamma_heuristic.rs`: `gamma`/`factorial` of an argument tending
+  to `-oo`, where Gruntz fails, take the `heuristics` value `gamma(-oo)`,
+  also as `c0 + c1*gamma(-oo)**k` (`1 + gamma(-oo)`, `1/gamma(-oo)`).
+- `limits/order_elsewhere.rs`: an order term `O(g, (x, p))` at a finite
+  point `p` with `g -> 0` there drops out of a limit at another point
+  (`limit(1 + O(x**2), x, 1)` is 1, also at `oo` and at a symbolic point).
+- `series/order_point.rs`: `O(e).subs(x, a*F(x) + b)` with `F` in `cos`,
+  `sin`, `tan` moves the point to `limit(F^-1((x - b)/a), x, point)`, the
+  first `solveset` solution: `O(x**2).subs(x, cos(x))` is
+  `O((x - pi/2)**2, (x, pi/2))` (single variable, finite point and
+  finite moved point only).
+- `series/order_diff.rs`: `Order(e).diff(x)` is `Order(e.diff(x), *vars)`
+  (0 when `x` is in neither); `series/order_log.rs`: an order term whose
+  leading coefficient is a rational function of `log(x)` keeps its
+  factored `log(x)` part (`Order(log(x) + 1/log(x))` is
+  `O((log(x)**2 + 1)/log(x))`, `O(x + 1/log(x))` is `O(1/log(x))`; a
+  sum that stays a sum once factored keeps its dominant term,
+  `O(log(x) + 1)` is `O(log(x))`);
+  `O(nan)` is `nan`.
+- `series/accum_floor.rs`: `Expr.series` of `floor`/`ceiling` of an
+  argument diverging at the point (reached through sums and products)
+  raises `ValueError("Only real AccumulationBounds are supported")`, an
+  integer power of it `NotImplementedError`, as SymPy (`floor(x).series(x,
+  oo)`). Binding `_core._series_accum_error`.
+
+Admission in Python (no computation): `Expr.nseries` calls
+`_nseries_cdir` for a negative or nonreal `cdir` at 0 from the right;
+`Expr.series` and `series` call `_series_accum_error` when the native
+expansion raises `PoleError` or `NotImplementedError` and raise the
+decided exception (the original one otherwise).
+
+Fallbacks: a product holding a `log` along `cdir` keeps the previous
+path; `Abs` of a provably nonreal coefficient stays unsupported; `O(e).subs`
+with other replacements goes to the Python `solveset` host as before.
+
+Remaining gaps: `limit(((x**(x+1) + (x+1)**x)/x**(x+1))**x, x, oo)` (SymPy
+`exp(E)`; Gruntz fails on `x**(-x-1)*(x**x + x**(x+1))`, whose same-base
+powers the canonical product does not merge); `floor(1/x).series(x, 0)` for
+a positive `x` (SymPy an `AccumBounds` value) and `exp(floor(x)).series(x,
+oo)` (SymPy returns it unexpanded);
+`factorial(x)/x` at `-oo` (SymPy 0 through `0*gamma(-oo)`, kept held);
+`limit(1 + O(1/x), x, 1)` (SymPy `O(1)`); `O(exp(1/x) + 1)` (SymPy
+`O(exp(1/x))`), `O(log(x) + log(log(x)))` (SymPy `O(log(x))`);
+`O(x**2, (x, oo)).subs(x, cos(x))`, `O(x**2, (x, 1)).subs(x, cos(x))` and
+`O(x*y).subs(x, cos(x))` (SymPy `O(1, (x, oo*I))`, `O(1)`,
+`NotImplementedError`); `O(1, x).diff(x)` is 0 (SymPy `O(0)`); `limit(Abs(x + y)**2, x, 0)` is
+`y**2*sign(y)**2` (SymPy `y**2`); `Abs(x + I*p).series(x)` stays
+unsupported; `frac(x).series(x, oo)` raises `PoleError` (SymPy
+`AccumBounds(0, 1) + O(x**(-6), (x, oo))`); `limit(loggamma(x), x, -oo)`
+stays held (SymPy `zoo`); with any
+`cdir`, `asin(x + 1)` is written with `I*sqrt(x)` (SymPy `sqrt(-x)`),
+`atanh(x + 1)` raises `PoleError`, `Heaviside(x)` is 1 (SymPy
+`1/2 + x*DiracDelta(0) + ...`) and `log(sin(x))` carries
+`O(x**3*log(x))` (SymPy `O(x**3)`).
+
