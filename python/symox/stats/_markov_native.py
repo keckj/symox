@@ -44,7 +44,9 @@ def absorbing_probabilities(T):
 
 
 def path_sums(kernels, initial, coded, labels, atoms, gate, event, expectation):
-    """``(numerator, denominator)`` of the path enumeration of a query."""
+    """``(numerator, denominator, value)`` of the path enumeration of a query
+    (``value`` is the native assembly, ``None`` when the quotient must be
+    simplified)."""
     if not all(_stock(k) for k in kernels):
         return None
     # The random atoms are host Symbol subclasses: the kernel sees plain

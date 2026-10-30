@@ -1,10 +1,10 @@
 //! Finite Markov chain adapters: the kernels live in symox::stats::markov.
 //! Every function returns None when the kernel declines; the caller then
 //! keeps its general path.
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use symox::matrix::Matrix;
-use symox::stats::markov::{self, Classes, Fundamental, PathQuery};
+use symox::stats::markov::{self, Classes, Fundamental, Linear, PathQuery};
 use symox::Expr;
 
 use crate::matrices::{wrapm_immutable, PyMatrix};
@@ -54,14 +54,37 @@ fn _markov_canonical_form(py: Python<'_>, t: PyRef<'_, PyMatrix>) -> PyResult<Op
     Ok(Some((states, wrapm_immutable(markov::canonical(&a, &b, &cc)))))
 }
 
-#[pyfunction]
-fn _markov_stationary(t: PyRef<'_, PyMatrix>) -> Option<PyMatrix> {
-    markov::stationary_rational(&t.m).map(wrapm_immutable)
+/// The float (RR) and symbolic (fraction field) reference linsolve of a
+/// stationary or limiting system; IndexError where `list(EmptySet)[0]`.
+fn linear_result(py: Python<'_>, rows: &[Vec<Expr>]) -> PyResult<Option<PyMatrix>> {
+    let mut check = || py.check_signals();
+    match markov::solve_system(rows, &mut check)? {
+        None => Ok(None),
+        Some(Linear::Unique(values)) => Ok(Some(wrapm_immutable(Matrix::row_vector(values)))),
+        Some(Linear::Inconsistent) => Err(PyIndexError::new_err("list index out of range")),
+    }
 }
 
 #[pyfunction]
-fn _markov_ctmc_limiting(g: PyRef<'_, PyMatrix>) -> Option<PyMatrix> {
-    markov::limiting_rational(&g.m).map(wrapm_immutable)
+fn _markov_stationary(py: Python<'_>, t: PyRef<'_, PyMatrix>) -> PyResult<Option<PyMatrix>> {
+    if let Some(m) = markov::stationary_rational(&t.m) {
+        return Ok(Some(wrapm_immutable(m)));
+    }
+    if !t.m.is_square() || t.m.rows() == 0 {
+        return Ok(None);
+    }
+    linear_result(py, &markov::stationary_system(&t.m))
+}
+
+#[pyfunction]
+fn _markov_ctmc_limiting(py: Python<'_>, g: PyRef<'_, PyMatrix>) -> PyResult<Option<PyMatrix>> {
+    if let Some(m) = markov::limiting_rational(&g.m) {
+        return Ok(Some(wrapm_immutable(m)));
+    }
+    if !g.m.is_square() || g.m.rows() == 0 {
+        return Ok(None);
+    }
+    linear_result(py, &markov::limiting_system(&g.m))
 }
 
 fn fundamental_result(r: Option<Fundamental>) -> PyResult<Option<PyMatrix>> {
@@ -104,7 +127,7 @@ fn _markov_path_sums(
     gate: Option<Bound<'_, PyAny>>,
     event: Bound<'_, PyAny>,
     expectation: bool,
-) -> PyResult<Option<(PyExpr, PyExpr)>> {
+) -> PyResult<Option<(PyExpr, PyExpr, Option<PyExpr>)>> {
     let kernels: Vec<Matrix> = kernels.iter().map(|k| k.m.clone()).collect();
     if kernels.iter().any(|k| !markov::admitted(k)) {
         return Ok(None);
@@ -122,7 +145,10 @@ fn _markov_path_sums(
     let q = PathQuery { kernels: &kernels, initial, coded: &coded, labels: &labels, atoms: &atoms, gate: gate.as_ref(), event: &event, expectation };
     let mut subs = |e: &Expr, pairs: &[(Expr, Expr)]| crate::checked_subs(py, e, pairs, true);
     let mut check = || py.check_signals();
-    Ok(markov::enumerate_paths(&q, &mut subs, &mut check)?.map(|(n, d)| (wrap(n), wrap(d))))
+    Ok(markov::enumerate_paths(&q, &mut subs, &mut check)?.map(|(n, d, certain)| {
+        let value = markov::assemble(&n, certain).map(wrap);
+        (wrap(n), wrap(d), value)
+    }))
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
