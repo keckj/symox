@@ -20,6 +20,8 @@ _INT = int
 _LIST = list
 _MISSING = object()
 _ROOT = None
+# Number of constant_system calls answered by the fraction-field kernel.
+STATS = {'constant_system_field': 0}
 
 
 def _state(f):
@@ -253,23 +255,62 @@ def constant_system(A, u, DE):
     root = _ROOT
     if root is None or _TYPE(A) is not root[6] or _TYPE(u) is not root[6]:
         return None
-    if not (A._rows * A._cols) or A.domain is not root[8] or u.domain is not root[8]:
+    if not (A._rows * A._cols):
         return None
     gens = A.gens
     if _TYPE(gens) is not tuple or _LEN(gens) != 1 or _TYPE(DE) is not root[1]:
         return None
+    if A.domain is root[8] and u.domain is root[8]:
+        try:
+            T = root[2][3][1].__get__(DE, root[1])
+        except AttributeError:
+            return None
+        if _TYPE(T) is not _LIST or _verified() is None:
+            return None
+        r = _call('constant_system', (A._rows, A._cols, _LIST(A._items), u._rows, u._cols, _LIST(u._items)),
+                  (gens[0], None, T, None, None))
+        if r is None:
+            return None
+        a, v = r
+        return _matrix(a, gens), _matrix(v, gens)
+    return _constant_system_field(A, u, DE, gens)
+
+
+def _constant_system_field(A, u, DE, gens):
+    """Fraction-field systems (ZZ(x), QQ(x, t0), ...) in any DE state: the
+    rref, the derivation loop and the PolyMatrix domains are computed by the
+    native kernel, which calls the Poly constructor for the domain inference
+    of ``PolyMatrix(items, gens)``. As in the stock body, the result uses the
+    generators of ``A`` (``A.row_join(u)``).
+    """
+    root = _ROOT
+    domain_type = _TYPE(root[8])
+    if _TYPE(A.domain) is not domain_type or _TYPE(u.domain) is not domain_type:
+        return None
+    if _TYPE(A._items) is not _LIST or _TYPE(u._items) is not _LIST:
+        return None
+    cls = root[1]
     try:
-        T = root[2][3][1].__get__(DE, root[1])
+        T = root[2][3][1].__get__(DE, cls)
+        D = root[2][4][1].__get__(DE, cls)
+        level = root[2][5][1].__get__(DE, cls)
     except AttributeError:
         return None
-    if _TYPE(T) is not _LIST or _verified() is None:
+    if _TYPE(T) is not _LIST or _TYPE(D) is not _LIST or _TYPE(level) is not _INT or _verified() is None:
         return None
-    r = _call('constant_system', (A._rows, A._cols, _LIST(A._items), u._rows, u._cols, _LIST(u._items)),
-              (gens[0], None, T, None, None))
+    r = root[0]('constant_system_field',
+                (A._rows, A._cols, _LIST(A._items), A.domain, u._rows, u._cols, _LIST(u._items), u.domain),
+                gens[0], None, T, D, level)
     if r is None:
         return None
-    a, v = r
-    return _matrix(a, gens), _matrix(v, gens)
+    (ar, ac, ai, ad), (ur, uc, ui, ud) = r
+    if ad == root[8]:
+        ad = root[8]
+    if ud == root[8]:
+        ud = root[8]
+    new, matrix = root[7], root[6]
+    STATS['constant_system_field'] += 1
+    return new(matrix, ar, ac, ai, gens, ad), new(matrix, ur, uc, ui, gens, ud)
 
 
 def limited_integrate_reduce(fa, fd, G, DE):

@@ -13714,3 +13714,55 @@ SymPy test_prde.py: 3 failed, 12 passed before, 1 failed, 14 passed after
 `test_prde_special_denom` still fails); test_risch.py: 5 failed, 31
 passed before and after (same failing tests). Measured:
 [audit](../audits/performance/2026-10-30-prdefrac/README.md).
+
+## prdeconst (wave 34): constant_system over rational function fields in Rust
+
+Now native (Rust, `crates/symox-core/src/integrate/prde_const.rs`, binding
+`crates/symox-py/src/prde_const.rs`, admission
+`python/symox/integrals/_prde_native.py::_constant_system_field`): the
+whole of `constant_system(A, u, DE)` (sympy/integrals/prde.py) when `A` or
+`u` is not over `QQ`: the reduced row echelon form of `A.row_join(u)` over
+the fraction field (`ddm::field_irref` on `poly::ratfunc::RF` values), the
+loop over the entries that involve `DE.T` with the exact derivation
+`D(f) = sum_k DE.D[k] * df/dDE.T[k]` over the active levels (base, `exp`
+and `primitive` towers, any `DE.level`), the building of the constant
+system (`A - Aj*Rm1`, `u - Aj*um1`, `col_join`), and the output
+PolyMatrix pair. The items are rebuilt with the stock operations (the
+`a - b` differences stay uncancelled, products and quotients are
+cancelled with the Rust `cancel`), and the PolyMatrix domains are those of
+the stock body: `parallel_poly_from_expr(field=True)` inference through
+the Rust Poly constructor (`PyPoly::_from_normalized(...).to_field()`,
+then the `_field_joint` rule over the `EX` coefficients when the item
+domains differ), `unify_native` for `_unified`, and membership by
+conversion into the domain. The generators are those of `A`.
+
+Admitted: `A` and `u` stock PolyMatrix objects with one plain symbol
+generator, at least one row and one column, domains `QQ`, `ZZ(...)` or
+`QQ(...)` over plain commutative symbols, entries without floats, at most
+32 symbols in the variable set (generator, `DE.T`, symbols of `DE.D`,
+domain parameters), the active `DE.D` stock Poly objects over plain
+symbols, an unmodified `DifferentialExtension` (slot descriptors, as the
+wave-27/28 kernels). `QQ`/`QQ` systems keep the existing rational kernel.
+
+Still falls back to the Python body: domains whose parameters are not plain
+symbols (`ZZ(log(a))`, `ZZ(x, _t0, log(5))`, `QQ_I`, algebraic fields), an
+`A` with zero columns (SymPy and the stock body keep `u` unreduced there),
+a zero `D(A[i, j])`, entries that depend on the generator, any step whose
+domain or item the kernel cannot reproduce. Not ported (gaps): the public
+`derivation(p, DE)` with `K(x)[t]` Poly coefficients (item 2 of the task),
+`is_deriv_k` and `is_log_deriv_k_t_radical_in_field` (item 3): their
+Python bodies still run, and only their constant systems are native.
+
+Gap seen, not changed (pre-existing, shared by the stock body): an
+inferred fraction field orders its generators by `default_sort_key`
+(`ZZ(t0,x)`), SymPy's `construct_domain` by `_sort_gens` (`ZZ(x,t0)`);
+the entries are equal. tests/test_native_prdeconst.py compares these
+domains up to the order of their generators, and the native results with
+the stock body exactly (domain object, string, generators, items).
+
+Validation: every call reached by SymPy's test_prde.py and test_risch.py
+that the kernel answers (48 calls over `ZZ(x)`, `QQ(x)`, `ZZ(x, t0)`,
+`ZZ(y)`, ...) equals the stock body (shape, generators, domain, srepr of the
+items). SymPy test_prde.py: 1 failed, 14 passed, test_risch.py: 5 failed,
+31 passed, before and after (same failing tests). Measured:
+[audit](../audits/performance/2026-10-30-prdeconst/README.md).

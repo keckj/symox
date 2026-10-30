@@ -240,8 +240,12 @@ def test_prde_constant_system_uses_selected_integer_rational_function_field(monk
     def spy(*args):
         result=native(*args);calls.append((str(args[3]),result is not None));return result
     monkeypatch.setattr(sx._core,'_polymatrix_ground',spy)
+    from symox.integrals import _prde_native
+    before=_prde_native.STATS['constant_system_field']
     actual=constant_system(a,b,de)
-    assert ('ZZ(y)',True) in calls
+    # Since prdeconst the whole system is computed by the native
+    # fraction-field kernel, which does not go through PolyMatrix.rref.
+    assert ('ZZ(y)',True) in calls or _prde_native.STATS['constant_system_field']==before+1
     expected=reference(ar,br,dre)
     for value,want in zip(actual,expected):same(value,want)
     monkeypatch.setattr(pm,'_native_ground',lambda *args:None)
