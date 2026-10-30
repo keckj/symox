@@ -1,0 +1,11 @@
+{"call": "lim_xlog3", "lib": "sympy", "first": 0.032956257004116196, "median": 0.00017634699906921014, "result": "1"}
+{"call": "lim_expsqrt3", "lib": "sympy", "first": 0.05477398799848743, "median": 0.00024947999918367714, "result": "0"}
+{"call": "ns_floor_cdir", "lib": "sympy", "first": 0.02588825099519454, "median": 0.00039036699308780953, "result": "-x + O(x**3)"}
+{"call": "ns_log_cdir", "lib": "sympy", "first": 0.053909381000266876, "median": 0.0046275689965114, "result": "-2*I*pi + 2*log(x) - x - x**2/2 + O(x**3)"}
+{"call": "lim_absxy", "lib": "sympy", "first": 0.25038258700078586, "median": 0.0019535350002115592, "result": "sign(a)"}
+{"call": "lim_fact_neg", "lib": "sympy", "first": 0.0900051069984329, "median": 0.05859638399851974, "result": "gamma(-oo)"}
+{"call": "lim_order_1", "lib": "sympy", "first": 0.0355185239968705, "median": 0.0001412330020684749, "result": "1"}
+{"call": "ord_subs_cos", "lib": "sympy", "first": 0.0388069649998215, "median": 1.3327000488061458e-05, "result": "O((x - pi/2)**2, (x, pi/2))"}
+{"call": "ord_diff", "lib": "sympy", "first": 0.02455951800220646, "median": 0.00017620700236875564, "result": "O(x)"}
+{"call": "ord_loglog", "lib": "sympy", "first": 0.03033682599925669, "median": 3.6429992178454995e-06, "result": "O((log(x)**2 + 1)/log(x))"}
+{"call": "ser_floor_oo", "lib": "sympy", "first": 0.032502012996701524, "median": 0.005384632000641432, "result": "ERR:ValueError:Only real AccumulationBounds are supported"}

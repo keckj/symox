@@ -27,6 +27,7 @@ use crate::traverse::node_count;
 const MAX_DEPTH: u32 = 48;
 
 mod abs_power;
+mod symbolic_lt;
 
 pub struct Gruntz {
     x: Expr,
@@ -1252,16 +1253,16 @@ impl Gruntz {
                     }
                 }
                 let c0 = add(&best.iter().map(|b| b.0.clone()).collect::<Vec<_>>());
-                if best.len() > 1 && crate::series::engine::hidden_zero(&c0) != Some(false) {
-                    return unknown("cancellation in symbolic leading term");
-                }
-                if c0.is_zero() {
-                    return unknown("cancellation in symbolic leading term");
+                if (best.len() > 1 && crate::series::engine::hidden_zero(&c0) != Some(false)) || c0.is_zero() {
+                    return self.cancelled_sum(f, w, logw);
                 }
                 Ok((c0, best[0].1.clone()))
             }
             Kind::Func(Func::Log, a) => {
                 let (c1, e1) = self.lt_fallback(&a[0], w, logw)?;
+                if c1 == Expr::one() && e1.is_zero() {
+                    return self.log_near_one(&a[0], w, logw);
+                }
                 let r = add(&[fx::log(&c1), mul2(&e1, logw)]);
                 if r.is_zero() {
                     return unknown("cancellation in log leading term");
@@ -1309,13 +1310,17 @@ impl Gruntz {
             }
             Kind::Func(f0, a) if a.len() == 1 => {
                 let (c1, e1) = self.lt_fallback(&a[0], w, logw)?;
-                let v = match self.sign(&e1)? {
+                let s1 = self.sign(&e1)?;
+                let v = match s1 {
                     1 => Expr::zero(),
-                    0 => c1,
+                    0 => c1.clone(),
                     _ => return unknown("pole in symbolic leading term"),
                 };
                 let r = crate::functions::func(f0.clone(), vec![v]);
                 if r.is_zero() {
+                    if s1 == 1 {
+                        return self.func_at_zero(f0, &c1, &e1);
+                    }
                     return unknown("zero of a function in symbolic leading term");
                 }
                 // A singular value (Ei(0) = -oo, Ci(0) = -oo) is not a

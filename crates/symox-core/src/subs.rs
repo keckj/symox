@@ -265,6 +265,8 @@ fn order_subs(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Ex
                 if !slope.is_zero() && !crate::traverse::has(&slope, &var) && start.is_number() {
                     let intercept = subs1(new, &var, &Expr::zero());
                     point = div(&crate::ops::sub(&start, &intercept), &slope);
+                } else if let Some(p) = (vars.len() == 1).then(|| crate::series::order_point::moving_point(old, new, &var, &start)).flatten() {
+                    point = p;
                 } else {
                     point = ORDER_POINT_HOST.get()?(old, new, &var, &start)?;
                 }

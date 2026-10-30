@@ -91,6 +91,32 @@ fn _series_direction(cdir: &Bound<'_, PyAny>) -> PyResult<Option<&'static str>> 
     })
 }
 
+/// The reference exception of `expr.series(x, x0, dir=dir)` raised by a
+/// `floor`/`ceiling` of a diverging argument: `'value'` for
+/// `ValueError("Only real AccumulationBounds are supported")`,
+/// `'notimplemented'` for `NotImplementedError`, `None` when not decided.
+#[pyfunction]
+fn _series_accum_error(expr: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: &Bound<'_, PyAny>, dir: &str) -> PyResult<Option<&'static str>> {
+    use sr::accum_floor::{accum_series_error, AccumError};
+    let (e, x, x0) = (to_expr(expr)?, to_expr(x)?, to_expr(x0)?);
+    Ok(accum_series_error(&e, &x, &x0, dir == "-").map(|k| match k {
+        AccumError::Value => "value",
+        AccumError::NotImplemented => "notimplemented",
+    }))
+}
+
+/// `expr.nseries(x, 0, n, cdir=cdir)` for a negative or nonreal `cdir`
+/// passed down to the step functions (`floor`, `ceiling`, `frac`, `sign`,
+/// `atan`, `acot`); `None` when the native path declines.
+#[pyfunction]
+fn _nseries_cdir(expr: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, n: i64, cdir: &Bound<'_, PyAny>) -> PyResult<Option<PyExpr>> {
+    let (e, x, c) = (to_expr(expr)?, to_expr(x)?, to_expr(cdir)?);
+    match sr::nseries_cdir::nseries_cdir(&e, &x, n, &c) {
+        Ok(r) => Ok(r.map(w)),
+        Err(msg) => Err(PyNotImplementedError::new_err(msg)),
+    }
+}
+
 /// `Order(expr, *args)`; args are symbols or `(symbol, point)` tuples.
 #[pyfunction]
 #[pyo3(signature = (expr, *args))]
@@ -229,6 +255,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_limit_bounded_affine, m)?)?;
     m.add_function(wrap_pyfunction!(_series, m)?)?;
     m.add_function(wrap_pyfunction!(_series_direction, m)?)?;
+    m.add_function(wrap_pyfunction!(_series_accum_error, m)?)?;
+    m.add_function(wrap_pyfunction!(_nseries_cdir, m)?)?;
     m.add_function(wrap_pyfunction!(_order, m)?)?;
     m.add_function(wrap_pyfunction!(_remove_o, m)?)?;
     m.add_function(wrap_pyfunction!(_get_o, m)?)?;

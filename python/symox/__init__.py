@@ -3156,7 +3156,23 @@ def _is_symbolic_power(expr, x, x0):
 
 def series(expr, x=None, x0=0, n=6, dir="+"):
     """Series expansion of ``expr`` around ``x = x0`` up to ``O((x - x0)**n)``."""
-    return _series_call(expr, x, x0, n, dir)
+    return _series_accum_call(expr, x, x0, n, dir)
+
+
+def _series_accum_call(expr, x, x0, n, dir, logx=None):
+    # Expr.series of floor/ceiling at a diverging argument: the reference
+    # AccumBounds error, decided natively (series/accum_floor.rs).
+    try:
+        return _series_call(expr, x, x0, n, dir, logx)
+    except (PoleError, NotImplementedError):
+        if n is None or x is None or logx is not None or dir not in ('+', '-'):
+            raise
+        kind = _core._series_accum_error(sympify(expr), sympify(x), sympify(x0), dir)
+        if kind == 'value':
+            raise ValueError("Only real AccumulationBounds are supported") from None
+        if kind == 'notimplemented':
+            raise NotImplementedError() from None
+        raise
 
 
 class Order(metaclass=_ExprType):
@@ -3186,7 +3202,7 @@ def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
                 dir = side
         elif side == 'I' and n is not None and x is not None:
             return _series_native(self, x, x0, _series_terms(n), dir, logx=logx, cdir=sympify(cdir))
-    return _series_call(self, x, x0, n, dir, logx)
+    return _series_accum_call(self, x, x0, n, dir, logx)
 
 
 def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
@@ -3199,6 +3215,12 @@ def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
             return self
         if _has_pw(self, x):
             return eval_nseries(self, x, n)
+    if (x is not None and not x0 and dir == "+" and isinstance(n, int) and logx is None
+            and cdir is not None and not (isinstance(cdir, int) and cdir >= 0)):
+        # _eval_nseries(cdir): the step functions take the side of cdir
+        r = _core._nseries_cdir(self, sympify(x), n, sympify(cdir))
+        if r is not None:
+            return r
     return _series_call(self, x, x0, n, dir, logx)
 
 

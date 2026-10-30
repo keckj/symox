@@ -986,14 +986,26 @@ impl Engine {
                 match sign_of(a.lead().unwrap()) {
                     Some(1) => Ok(a),
                     Some(-1) => Ok(a.neg()),
-                    _ => Err(SErr::Unsupported(format!("Abs({arg})"))),
+                    _ => match super::abs_symbolic::lead_sign(a.lead().unwrap(), &self.x, &self.logt) {
+                        Some(s) => match super::abs_symbolic::split_positive(Func::Abs, arg, &self.x, self.xser.lead().and_then(sign_of)) {
+                            Some(e) => self.ser(&e, n),
+                            None => Ok(a.scale(&C::from_expr(s))),
+                        },
+                        None => Err(SErr::Unsupported(format!("Abs({arg})"))),
+                    },
                 }
             }
             Func::Sign => {
                 let a = self.ser_nonzero(arg, n)?;
                 match sign_of(a.lead().unwrap()) {
                     Some(s) => Ok(Ser::constant(C::int(s as i64))),
-                    _ => Err(SErr::Unsupported(format!("sign({arg})"))),
+                    _ => match super::abs_symbolic::lead_sign(a.lead().unwrap(), &self.x, &self.logt) {
+                        Some(s) => match super::abs_symbolic::split_positive(Func::Sign, arg, &self.x, self.xser.lead().and_then(sign_of)) {
+                            Some(e) => self.ser(&e, n),
+                            None => Ok(Ser::constant(C::from_expr(s))),
+                        },
+                        None => Err(SErr::Unsupported(format!("sign({arg})"))),
+                    },
                 }
             }
             _ => Err(SErr::Unsupported(format!("{}({arg})", f.name()))),

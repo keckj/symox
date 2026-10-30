@@ -14,11 +14,17 @@
 //! (`exp`, `log`, powers, `sin`/`cos`, `tan`, inverse functions through
 //! `F(a) = F(a0) + ∫ F'(a) a'`), never by repeated differentiation.
 
+pub mod abs_symbolic;
+pub mod accum_floor;
 pub mod asym;
 pub mod coeff;
 pub mod direction;
 pub mod engine;
+pub mod nseries_cdir;
 pub mod order;
+pub mod order_diff;
+pub mod order_log;
+pub mod order_point;
 pub mod print;
 pub mod ser;
 

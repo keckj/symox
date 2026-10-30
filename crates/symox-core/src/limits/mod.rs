@@ -18,6 +18,8 @@
 
 pub mod exact_sign;
 pub mod gruntz;
+mod gamma_heuristic;
+mod order_elsewhere;
 
 use rustc_hash::FxHashMap;
 
@@ -165,7 +167,14 @@ pub fn limit(e: &Expr, x: &Expr, x0: &Expr, dir: Dir) -> LRes<Expr> {
             }
         }
         if !orders.is_empty() {
+            let mut kept = Vec::new();
             for (g, vars) in &orders {
+                if order_elsewhere::drops_out(g, vars, x, x0) {
+                    continue;
+                }
+                kept.push((g, vars));
+            }
+            for (g, vars) in kept {
                 if vars.len() != 1 || vars[0].0 != *x || vars[0].1 != *x0 {
                     return unknown("order term at another point");
                 }
@@ -244,7 +253,7 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
     let mut g = gruntz::Gruntz::new(&t);
     let r = match g.limitinf(&et) {
         Ok(r) => Ok(r),
-        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)).or_else(|| negative_base_squeeze(&et, &t)) {
+        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)).or_else(|| negative_base_squeeze(&et, &t)).or_else(|| gamma_heuristic::gamma_value(&et, &t)) {
             Some(r) => Ok(r),
             None => Err(err),
         },

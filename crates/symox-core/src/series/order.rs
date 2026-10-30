@@ -177,6 +177,10 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
     if vars.iter().any(|(v, _)| !v.is_symbol()) {
         return raw(expr, &vars);
     }
+    if expr.is_constant(Constant::NaN) {
+        // Order.__new__: `O(nan)` is `nan`
+        return Expr::nan();
+    }
     if expr.is_zero() {
         return raw(expr, &vars);
     }
@@ -186,6 +190,9 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
     if vars.len() == 1 {
         let (x, p) = &vars[0];
         let e0 = to_zero(&expr, x, p);
+        if let Some(lead) = super::order_log::log_coefficient_order(&e0, x) {
+            return raw(from_zero(&lead, x, p), &vars);
+        }
         let lead = match lead_exponents(&e0, x) {
             Some((a, b)) => build_monomial(x, &a, b),
             None => as_coeff_mul(&e0).1,

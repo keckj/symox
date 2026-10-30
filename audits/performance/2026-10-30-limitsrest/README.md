@@ -47,3 +47,34 @@ statement regressed. Fixed: test_issue_14276 (2), 18442, 19766, 21227 (3),
 test_simple_6 (2). Most remaining failures in test_gruntz, test_order and
 test_formal are internal APIs (`mrv`, `rewrite`, `Order.contains`
 details, `FormalPowerSeries` internals) that the copies cannot import.
+
+## Round 2: symbolic powers, cdir, heuristic limits, Order forms
+
+Same protocol (`bench.sh LIB PYTHONPATH OUT "CALLS"`, first call and
+median of 5 warm calls, every process under the 6G cap). "before" is the
+branch base (main before this task), "after" the round-2 branch build.
+Raw lines: raw_r2_before.jsonl, raw_r2_after.jsonl, raw_r2_sympy.jsonl.
+
+| call | before (first / warm) | after (first / warm) | SymPy 1.14 (first / warm) |
+|---|---|---|---|
+| `limit((1 + x**log(3))**(1/x), x, 0)` | `Limit((x**log(3) + 1)**(1/x), x, 0, dir='+')`, 2.31 ms / 1.26 ms | `1`, 2.13 ms / 1.06 ms | `1`, 33 ms / 0.176 ms |
+| `limit((exp(x**sqrt(3)) - 1)/x, x, 0)` | `Limit((exp(x**(sqrt(3))) - 1)/x, x, 0, dir='+')`, 1.8 ms / 0.856 ms | `0`, 1.42 ms / 0.557 ms | `0`, 54.8 ms / 0.249 ms |
+| `(x*floor(x)).nseries(x, 0, 3, cdir=-1)` | `0`, 0.292 ms / 0.139 ms | `-x + O(x**3)`, 0.689 ms / 0.111 ms | `-x + O(x**3)`, 25.9 ms / 0.39 ms |
+| `log(x**2 - x**3).nseries(x, 0, 3, cdir=-1)` | `2*log(x) - x - x**2/2 + O(x**3)`, 0.497 ms / 0.205 ms | `-2*I*pi + 2*log(x) - x - x**2/2 + O(x**3)`, 0.77 ms / 0.208 ms | `-2*I*pi + 2*log(x) - x - x**2/2 + O(x**3)`, 53.9 ms / 4.63 ms |
+| `limit((Abs(x + a) - Abs(x - a))/(2*x), x, 0)` | `Limit((-Abs(a - x) + Abs(a + x))/(2*x), x, 0, dir='+')`, 2.02 ms / 0.986 ms | `sign(a)`, 1.23 ms / 0.428 ms | `sign(a)`, 250 ms / 1.95 ms |
+| `limit(factorial(x), x, -oo)` | `Limit(factorial(x), x, -oo, dir='+')`, 1.35 ms / 0.47 ms | `gamma(-oo)`, 0.972 ms / 0.254 ms | `gamma(-oo)`, 90 ms / 58.6 ms |
+| `limit(1 + O(x**2), x, 1)` | `Limit(1 + O(x**2), x, 1, dir='+')`, 1.38 ms / 0.514 ms | `1`, 0.921 ms / 0.221 ms | `1`, 35.5 ms / 0.141 ms |
+| `O(x**2).subs(x, cos(x))` | `O(cos(x)**2)`, 1.06 ms / 0.384 ms | `O((x - pi/2)**2, (x, pi/2))`, 0.33 ms / 0.063 ms | `O((x - pi/2)**2, (x, pi/2))`, 38.8 ms / 0.0133 ms |
+| `O(x**2).diff(x)` | `Derivative(O(x**2), x)`, 0.171 ms / 0.0191 ms | `O(x)`, 0.232 ms / 0.0246 ms | `O(x)`, 24.6 ms / 0.176 ms |
+| `Order(log(x) + 1/log(x))` | `O(1)`, 0.18 ms / 0.0181 ms | `O((log(x)**2 + 1)/log(x))`, 0.423 ms / 0.0658 ms | `O((log(x)**2 + 1)/log(x))`, 30.3 ms / 0.00364 ms |
+| `floor(x).series(x, oo)` | `PoleError`, 0.184 ms / 0.062 ms | `ValueError`, 0.326 ms / 0.0976 ms | `ValueError`, 32.5 ms / 5.38 ms |
+
+Every "after" value is the SymPy value. SymPy's warm medians come from its
+result cache; the symox warm calls recompute.
+
+Statement level (tl.py, the SymPy test-file statements): 1160/1562 after
+round 1, 1170/1562 after round 2, no statement regressed. Fixed:
+test_limits test_factorial:573, test_issue_14811:984, test_issue_3934:505,
+test_set_signs:288; test_nseries test_issue_5183:533; test_order
+test_add_1:166, test_diff:280, test_leading_term:295, test_nan:261,
+test_order_at_infinity:366.
