@@ -13781,3 +13781,10 @@ Remaining gaps:
   order where SymPy forms matrix powers: on the tested non-binary Float
   chains (2x2 and 3x3, gaps 2 to 4) the values agree bit for bit, but the
   operation order is not the same in general.
+- Item (4) of round 2 was not done (API surface, no computation to port):
+  `joint_distribution` is missing (SymPy returns an unevaluated
+  `JointDistribution(Y[1], Y[2])` for both the key and the indexed-symbol
+  forms); `index_set` is `Range(0, oo, 1)` for discrete chains and
+  `Interval(0, oo)` for CTMCs, where SymPy gives `Naturals0` and `Reals`;
+  a symbolic-size `Range(n)` state space raises "Cannot iterate over
+  symbolic Range" where SymPy keeps `Range(0, n, 1)`.
