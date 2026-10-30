@@ -967,6 +967,23 @@ def _complete_real_roots(f, rs):
     return True
 
 
+def _substituted_poly(p, subs, x):
+    """``Poly(p.xreplace(subs), x)`` with the terms expanded one at a time.
+
+    SymPy's ``expand`` of a sum is the sum of the expanded terms. The native
+    expand of the whole sum can distribute a term's rational coefficient over
+    an already expanded radical base before the like terms combine, which
+    leaves unreduced ``2**(1/3)`` denominators (ratint of
+    ``1/((x**2 + 1)*(x**3 + 2))``); expanding each term keeps SymPy's form.
+    """
+    from symox.core.add import Add
+    from symox.core.function import expand
+    e = p.xreplace(subs)
+    if e.is_Add:
+        e = Add(*[expand(t) for t in e.args])
+    return Poly(e, x)
+
+
 def _get_real_roots(f, x):
     """get real roots of f if possible"""
     rs = roots(f, filter='R')
@@ -1123,8 +1140,8 @@ def log_to_real(h, q, x, t):
                 if split is not None:
                     return split
 
-            A = Poly(a.xreplace({u: r_u, v: r_v}), x)
-            B = Poly(b.xreplace({u: r_u, v: r_v}), x)
+            A = _substituted_poly(a, {u: r_u, v: r_v}, x)
+            B = _substituted_poly(b, {u: r_u, v: r_v}, x)
 
             AB = (A**2 + B**2).as_expr()
 

@@ -13831,7 +13831,10 @@ Native now (Rust, `crates/symox-core`):
   output.
 
 Still Python: the `log_to_atan` choice between the native quotient and the
-plain coefficient quotient (the shorter is kept), the rest of `log_to_real`.
+plain coefficient quotient (the shorter is kept), the rest of `log_to_real`,
+and the order of the substituted `A`/`B` expansion (`_substituted_poly`: each
+term of `a(r_u, r_v)` and `b(r_u, r_v)` is expanded natively on its own, as
+SymPy's `expand` of a sum does, before `Poly`).
 
 Intentional deviations and remaining gaps:
 
@@ -13841,9 +13844,19 @@ Intentional deviations and remaining gaps:
 - `integrate(1/(x**3 + x + 1))` and `integrate(1/(x**3 + 2*x - 1))` are exact
   but not SymPy's form (9543 and 9987 characters, SymPy 16653 and 17352):
   the native EX `cancel`/`expand` of the Cardano radicals does not reach
-  SymPy's normal form, so neither `log_to_atan` quotient matches. For the
-  same reason `ratint(1/((x**2 + 1)*(x**3 + 2)))` is 9261 characters, SymPy
-  9057 (its `r_v` is now SymPy's, its `log(A**2 + B**2)` term is 1549
-  characters, SymPy 1424); tests/test_native_ratint_dom.py records 9261.
+  SymPy's normal form, so neither `log_to_atan` quotient matches.
+- Native `expand` of a sum is not always the sum of the expanded terms. SymPy
+  applies the multinomial hint to the whole tree before the mul hint, so in
+  `k*(p/d + ...)**(3/2)` the rational `k` meets the unexpanded numerator `p`
+  and `fraction` puts its denominator into `d` (`51/(180000*2**(1/3) + ...)`);
+  the native expand distributes `k` over the already expanded base and
+  reduces it first (`17/(60000*2**(1/3) + ...)`), so like terms no longer
+  combine. Native `expand` also leaves `b**(-3/2)` for a sum `b`, where SymPy's
+  multinomial hint gives `1/(b*sqrt(b))` expanded. With the whole sum expanded
+  at once, `ratint(1/((x**2 + 1)*(x**3 + 2)))` was 9261 characters (SymPy
+  9057, `log(A**2 + B**2)` 1549 characters, SymPy 1424); `log_to_real` now
+  expands the substituted `A`/`B` term by term (SymPy's order), which gives
+  SymPy's output exactly (9057 characters), and tests/test_native_ratint_dom.py
+  keeps the SymPy bound 9057. The native expand order itself is not fixed.
 
 Measured: [audit](../audits/performance/2026-10-30-exroots/README.md).

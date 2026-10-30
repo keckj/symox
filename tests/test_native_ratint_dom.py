@@ -84,13 +84,8 @@ def test_gaussian_against_composite_ground_unifies(expr, expected):
 
 # SymPy 1.14 `len(str(ratint(f, x)))`; symox was 82704 for the first case
 # before the EX `simplify` applied the reference `signsimp`/`factor_terms`.
-# The third case is 9261 since the EX quadratic roots of `log_to_real` are
-# simplified as in SymPy: its r_v now has SymPy's form, but the native EX
-# cancel of A**2 + B**2 does not reach SymPy's normal form of the 2**(1/3)
-# denominators (log term 1549 characters, SymPy 1424). Tracked in
-# docs/algorithmic-parity.md (exroots).
 GROWTH = [('1/(x**3+x+1)', 16653), ('1/(x**3-x+1)', 16611),
-          ('1/((x**2+1)*(x**3+2))', 9261)]
+          ('1/((x**2+1)*(x**3+2))', 9057)]
 
 
 @pytest.mark.parametrize('source,reference_length', GROWTH)
