@@ -13802,3 +13802,49 @@ Remaining gaps (not changed by this wave):
 Measured: [audit](../audits/performance/2026-10-30-markovrust/README.md)
 (0.01-0.10 times SymPy's time on the calls SymPy answers, path queries 0.03 times the
 previous Python loop).
+
+## odeclass (wave 35): native first-order `classify_ode` matches, 2026-10-30
+
+Now native (`symox::ode::classify`, binding `crates/symox-py/src/ode_classify.rs`,
+admission in `python/symox/solvers/ode/_classify_native.py`):
+
+- The `d + e*df` decomposition of `collect(eq, [df, f], cancel)` used by
+  `separable`, `1st_exact`, `almost_linear`, `1st_homogeneous_coeff_*`,
+  `linear_coefficients` and `separable_reduced`, and the order-one
+  `1st_power_series` match on `collect(eq, df, exact=True)`. The kernel
+  reproduces the reference matcher steps (`_add_inverse`, `_mul_inverse`, the
+  `count_ops` guard, the rebuilt `pattern.xreplace(...)` that must give the
+  matched term), so the solver `_verify` steps and the substitutions keep
+  running on the same wild values.
+- `1st_linear` (`df + P*f - Q`) and `Bernoulli` (`df + P*f - Q*f**n`, `n`
+  left unbound exactly when SymPy leaves it unbound) on
+  `collect(expand(eq/eq.coeff(df)), [df, f], cancel)`.
+- `Riccati_special_minus2`: the no-match decision only (no `f**2` or no
+  `x`-free derivative coefficient); a possible match runs the reference.
+- `match_riccati` (`1st_rational_riccati`): the coefficient extraction,
+  the symbol and rationality checks and the `(b0, b1, b2)` values.
+- The `classify_ode` hint list: the `_Integral` entries and the `allhints`
+  order (`ode_ordered_hints`).
+
+Admitted domain: commutative order-one equations in `f(x)` without `I`,
+infinities, `nan`, Floats, `Piecewise` or relationals, and products whose
+`as_powers_dict` rebuild cannot merge factors differently (a repeated base,
+`exp(a)` counting as base `E`, a number next to a power of a number). The
+public `cancel`, `expand` and `count_ops` are passed to the kernel as
+callables, so the values are those of the reference calls. Everything else
+declines and runs the Python matcher unchanged; a decline is never a
+no-match.
+
+Still in Python: `factorable`, `nth_algebraic`, the `nth_linear_*`, Euler,
+`Liouville`, `2nd_*` and power series (order two) matchers, a positive
+`Riccati_special_minus2` match, `lie_group`, `nth_order_reducible`, and the
+solvers' own `_verify`/`_get_general_solution` steps.
+
+Classification evidence: on the 315-case ODE corpus all 12 `cls`
+mismatches are SymPy reference timeouts; run alone, SymPy 1.14's
+`classify_ode` finishes in 0.16-3.35 s and gives exactly the symox lists.
+No `hinted`/`default` mismatch is caused by classification (triage table in
+the audit). Differential test over the corpus and 74 extra equations: 0
+disagreements with the reference matcher. No intentional correction.
+
+Measured: [audit](../audits/performance/2026-10-30-odeclass/README.md).
