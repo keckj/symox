@@ -3032,9 +3032,11 @@ def _piecewise_nseries(expr, x, n):
     return piecewise_nseries(expr, x, n)
 
 
-def _series_native(expr, x, x0, n, dir):
+def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
     try:
-        return _core._series(expr, x, x0, n, dir)
+        if logx is None and cdir is None:
+            return _core._series(expr, x, x0, n, dir)
+        return _core._series(expr, x, x0, n, dir, logx, cdir)
     except ValueError as e:
         msg = str(e)
         if msg.startswith("PoleError: "):
@@ -3083,6 +3085,13 @@ def _series_call(expr, x, x0, n, dir, logx=None):
             if n is not None and _is_symbolic_power(expr, x, x0):
                 # Pow._eval_nseries: x**e with e free of x is exp(e*logx)
                 return exp(expr.exp*logx)
+            if n is not None and not expr.has(Piecewise):
+                # The native front end substitutes logx once, after the
+                # expansion (a logx holding x is not expanded again).
+                try:
+                    return _series_native(expr, x, x0, n, dir, logx=logx)
+                except NotImplementedError:
+                    pass
             lx = log(x)
             expr = expr.xreplace({lx: logx})
             if n is None:
@@ -3162,6 +3171,21 @@ O = Order
 
 
 def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    if cdir is not None and not (isinstance(cdir, int) and cdir == 0):
+        # Expr.series(cdir=...): a nonzero direction decides the side; a
+        # nonreal one is expanded natively along x0 + cdir/|cdir|*x.
+        try:
+            side = _core._series_direction(sympify(cdir))
+        except NotImplementedError:
+            side = None
+        if side in ('+', '-'):
+            sx0 = sympify(x0)
+            if sx0.is_infinite:
+                x0, dir = (S.Infinity if side == '+' else S.NegativeInfinity), '+'
+            else:
+                dir = side
+        elif side == 'I' and n is not None and x is not None:
+            return _series_native(self, x, x0, _series_terms(n), dir, logx=logx, cdir=sympify(cdir))
     return _series_call(self, x, x0, n, dir, logx)
 
 

@@ -1,0 +1,12 @@
+{"call": "lim_pow4", "lib": "sympy", "first": 0.12132229999406263, "median": 0.005568387998209801, "result": "2"}
+{"call": "lim_pow4b", "lib": "sympy", "first": 0.04039161899709143, "median": 0.009270991999073885, "result": "1"}
+{"call": "lim_ei", "lib": "sympy", "first": 0.40083547200629255, "median": 0.056655977001355495, "result": "-1"}
+{"call": "lim_ugamma", "lib": "sympy", "first": 0.26226575399778085, "median": 0.004888613002549391, "result": "1"}
+{"call": "lim_stirling", "lib": "sympy", "first": 0.4348819749939139, "median": 0.010338161002437118, "result": "0"}
+{"call": "lim_sinx", "lib": "sympy", "first": 0.02475737500208197, "median": 0.00016667899762978777, "result": "1"}
+{"call": "ser_abs_cdir", "lib": "sympy", "first": 0.026750580997031648, "median": 0.0019395480048842728, "result": "-x"}
+{"call": "ser_log_cdir", "lib": "sympy", "first": 0.05003007499908563, "median": 0.022323304998280946, "result": "log(-x) + I*pi"}
+{"call": "ser_abs_cdirI", "lib": "sympy", "first": 0.026041683995572384, "median": 0.001904395998280961, "result": "-I*x"}
+{"call": "ser_nonsym", "lib": "sympy", "first": 0.11630012700334191, "median": 0.030971745996794198, "result": "1 + a*b + a**2*b**2/2 + a**3*b**3/6 + a**4*b**4/24 + a**5*b**5/120 + a**6*b**6/720 + a**7*b**7/5040 + O(a**8*b**8, a, b)"}
+{"call": "ser_logx", "lib": "sympy", "first": 0.040087032997689676, "median": 0.00949453900102526, "result": "log(x)"}
+{"call": "ser_sin", "lib": "sympy", "first": 0.046965271001681685, "median": 0.01093521300208522, "result": "x - x**3/6 + x**5/120 - x**7/5040 + x**9/362880 + O(x**10)"}

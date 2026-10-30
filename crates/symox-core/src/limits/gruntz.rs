@@ -26,6 +26,8 @@ use crate::traverse::node_count;
 
 const MAX_DEPTH: u32 = 48;
 
+mod abs_power;
+
 pub struct Gruntz {
     x: Expr,
     cache: FxHashMap<Expr, Expr>,
@@ -178,6 +180,9 @@ impl Gruntz {
     /// Sign of `e` for large `x`.
     pub fn sign(&mut self, e: &Expr) -> LRes<i32> {
         if !depends(e, &self.x) {
+            if super::exact_sign::vanishes_after_log_expansion(e) {
+                return Ok(0);
+            }
             return match sign_of(&C::from_expr(e.clone())) {
                 Some(s) if s != 0 => Ok(s),
                 Some(_) => Ok(0),
@@ -200,6 +205,9 @@ impl Gruntz {
                         if crate::assumptions::is_negative(&t) == Some(true) {
                             return Ok(-1);
                         }
+                    }
+                    if let Some(s) = super::exact_sign::sign_after_log_expansion(e) {
+                        return Ok(s);
                     }
                     unknown(format!("sign of {e}"))
                 }
@@ -290,6 +298,11 @@ impl Gruntz {
                 }
             }
             return unknown("no Piecewise branch holds near the limit point");
+        }
+        if let Some(r) = self.abs_of_real_power(e) {
+            let r = self.prepare(&r)?;
+            self.prep.insert(e.clone(), r.clone());
+            return Ok(r);
         }
         if let Kind::Mul(c, facs) = e.kind() {
             // factors (not bases and exponents separately) must be prepared
