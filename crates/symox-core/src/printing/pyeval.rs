@@ -86,7 +86,7 @@ fn tokenize(s: &str) -> Option<Vec<Tok>> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Cmp {
+pub(crate) enum Cmp {
     Lt,
     Le,
     Gt,
@@ -96,7 +96,7 @@ enum Cmp {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Bin {
+pub(crate) enum Bin {
     Add,
     Sub,
     Mul,
@@ -106,7 +106,7 @@ enum Bin {
 
 /// The functions with a known bit-exact Python result.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Fun {
+pub(crate) enum Fun {
     Sin,
     Cos,
     Tan,
@@ -212,7 +212,7 @@ impl Fun {
 }
 
 #[derive(Clone, Debug)]
-enum Node {
+pub(crate) enum Node {
     Num(f64),
     Int(f64),
     Bool(bool),
@@ -480,6 +480,11 @@ impl Parsed {
     /// The global names, in the order [`Parsed::resolve`] expects their bindings.
     pub fn globals(&self) -> &[String] {
         &self.globals
+    }
+
+    /// The parsed tree (read by `crate::lambdify_vec`).
+    pub(crate) fn root(&self) -> &Node {
+        &self.root
     }
 
     /// The program once every global name is bound, or `None` when an

@@ -13313,3 +13313,72 @@ Remaining gaps:
     `sqrt(-12*exp(3) + exp(6))`, where SymPy writes
     `sqrt(-12 + exp(3))*exp(3/2)`. This comes from SymPy's simplification of
     the results and is a gap.
+
+## lambdarr (wave 29): native float64 array calls of `lambdify`, 2026-10-30
+
+What is native (Rust, `crates/symox-core/src/lambdify_vec.rs` and the
+binding `crates/symox-py/src/lambdify_vector.rs`):
+
+- Admitted calls: every argument is a C-contiguous, native byte order
+  float64 `numpy.ndarray` of exact type with `ndim >= 1`, or a Python
+  `float`/`int` (not `bool`); at least one array; for the NumPy kernels
+  all arrays have one shape, for the compiled program all arrays have one
+  size. Python `int` arguments of an integer polynomial keep the exact
+  Python integer evaluation.
+- Elementary kernels of `lambdify(..., 'numpy')` (the `numpy_vectors`
+  class: `+ - * / **`, `sin cos exp log sqrt`, `pi`, `E`, numbers): the
+  printed NumPy text (`_numpy_vector.source`, the same text the ufunc
+  evaluator runs) is parsed once and lowered per pattern of scalar
+  arguments to a plan with NumPy's semantics: Python arithmetic on the
+  literals (declined on Python errors, complex or non-finite results),
+  NumPy float64 scalar arithmetic on scalar arguments (`**` is C `pow`),
+  the `ndarray.__pow__` fast paths (`x**2` square, `x**-1` reciprocal,
+  `x**0.5` sqrt, also for a scalar argument exponent, checked at run time)
+  and C `pow` otherwise, IEEE `+ - * /`. The arrays are read in place and
+  the result is written into a new array in chunks of 512, without the
+  NumPy temporaries; the GIL is released from 4096 elements.
+- `sin`, `cos`, `exp`, `log` and `pow` are the C library functions only when
+  NumPy's float64 loops are those functions: NumPy must report neither
+  AVX512F nor AVX512_SKX, and a probe of about 4000 values (zeros,
+  infinities, NaN, subnormals, large and small magnitudes) must agree bit
+  for bit, once per process. Otherwise only the exact operations are
+  native and the other kernels keep NumPy's evaluation.
+- Other kernels (Piecewise, special functions, default modules, several
+  outputs): the compiled program (`Compiled::call_many`) reads the array
+  buffers in place and writes the new result arrays directly, instead of
+  the `asarray`/`reshape`/`ascontiguousarray`/`to_vec` copies and the
+  final `from_vec`/`reshape`.
+- Complex arrays go straight to the NumPy object evaluator (the same one
+  as before), without the preceding generic argument checks.
+
+Values: the NumPy kernels give NumPy's result bit for bit, except the sign
+of a NaN, which depends on the operand order of the compiled loops (NumPy's
+own SIMD and scalar loops differ the same way); NaN positions are the same.
+The compiled program gives the same bits as before (same code). Shapes,
+dtype (float64), C order and fresh writable arrays are as before (the
+results now own their data instead of being reshaped views).
+
+Falls back unchanged (established path, same values and errors): other
+dtypes (float32, integers, object, byte-swapped), non-contiguous or 0-d
+arrays, NumPy subclasses and scalars (`numpy.float64`), broadcasting
+shapes, size mismatches (the compiled program's ValueError), ints beyond
+the float range (OverflowError), texts the plan declines (other functions,
+comparisons, large integers).
+
+Intentional correction: complex arrays of a kernel whose NumPy object text
+names a function NumPy lacks (`numpy.gamma` for `gamma(x)` with the
+default modules) raised AttributeError; they now go to SymPy's generated
+function (SciPy's `gamma`), as SymPy does.
+
+Remaining gaps (measured in
+[audits/performance/2026-10-29-lambdarr](../audits/performance/2026-10-29-lambdarr/README.md)):
+
+- `gamma(x)` on float64 arrays: the compiled program uses the
+  double-double `gamma_real` (about 1.9 us per element) where SymPy calls
+  SciPy's `gamma` (about 8 ns); keeping its values bit for bit rules out a
+  cheaper algorithm, so it stays about 200 times slower on large arrays.
+- Small arrays of 10 complex elements stay about 1.1-1.2 times slower
+  (the PyO3 call and the dispatch before the NumPy evaluation).
+- Scalar calls (`gamma(0.5)` with default modules, the `[x, y]`
+  polynomial) stay 1.15-1.27 times slower: the PyO3 `__call__` with an
+  argument tuple costs more than the generated Python function.

@@ -17,6 +17,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 mod series;
 mod python_hash;
 mod numpy_vector;
+mod lambdify_vector;
 mod add_memo;
 mod expression_inspection;
 mod wildcards;
@@ -4130,6 +4131,8 @@ pub struct PyCompiled {
     object_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
     numpy_vectors: bool,
     numpy_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
+    // native float64 array evaluation (`lambdify_vector`)
+    vector: lambdify_vector::VectorCache,
     // SymPy's generated function exposes the namespace it was executed in;
     // it is assembled on first access from the requested modules.
     modules: Option<Py<PyAny>>,
@@ -4380,6 +4383,9 @@ fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
 impl PyCompiled {
     #[pyo3(signature = (*args))]
     fn __call__(&self, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
+        if let Some(result) = lambdify_vector::call(py, self, args)? {
+            return Ok(result);
+        }
         if let Some(exact) = self.exact.get(py) {
             if self.exact_integers(py, args)? {
                 return Ok(exact.bind(py).call(args, None)?.unbind());
@@ -4414,14 +4420,7 @@ impl PyCompiled {
         // NumPy subclasses, complex/object arrays and external scalars own
         // arithmetic protocols that a float64 buffer would erase.
         if args.iter().map(|value| needs_object_evaluation(&value)).collect::<PyResult<Vec<_>>>()?.into_iter().any(|value| value) {
-            let evaluator = self.object_evaluator.get_or_try_init(py, || {
-                let arguments = PyList::new(py, self.arguments.iter().cloned().map(wrap))?;
-                let expressions = PyList::new(py, self.exprs.iter().cloned().map(wrap))?;
-                let expression = if self.scalar_out { expressions.get_item(0)? } else { expressions.into_any() };
-                Ok::<_, PyErr>(py.import("symox.utilities.lambdify")?
-                    .getattr("_compile_object")?.call1((arguments, expression))?.unbind())
-            })?;
-            return Ok(evaluator.bind(py).call(args, None)?.unbind());
+            return Ok(self.object_evaluator(py)?.bind(py).call(args, None)?.unbind());
         }
         if self.numpy_vectors {
             let evaluator=self.numpy_evaluator.get_or_try_init(py,||
@@ -4594,7 +4593,7 @@ fn py_lambdify(
     }
     Ok(PyCompiled { c, scalar_out, exprs, arguments: arg_list,
         object_evaluator: pyo3::sync::GILOnceCell::new(),numpy_vectors,
-        numpy_evaluator, modules: modules.map(|m| m.clone().unbind()),
+        numpy_evaluator, vector: Default::default(), modules: modules.map(|m| m.clone().unbind()),
         globals: pyo3::sync::GILOnceCell::new(),
         reference: pyo3::sync::GILOnceCell::new(),
         reference_function: pyo3::sync::GILOnceCell::new(),
