@@ -97,6 +97,8 @@ def _lower_side_at_infinity(e, z, z0):
     principal ``log(x) + I*pi`` a substitution of the leading term gives."""
     sgn = 1 if z0 == oo else -1
     pts = [sgn*S(10)**k for k in (10, 20, 30)]
+    from .. import Dummy
+    tail = Dummy('t', positive=True) if sgn == 1 else Dummy('t', negative=True)
     mapping = {}
     for f in preorder_traversal(e):
         if isinstance(f, log):
@@ -109,6 +111,11 @@ def _lower_side_at_infinity(e, z, z0):
                 continue
             a = f.base
         else:
+            continue
+        if a.subs(z, tail).is_extended_nonnegative is True:
+            # Admission only: an argument nonnegative on the whole real tail
+            # is off the cut, decided before substituting the far points
+            # (9**x + 3**x would be evaluated as 9**(10**10)).
             continue
         ok = True
         for pt in pts:
