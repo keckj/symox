@@ -319,6 +319,229 @@ pub fn limiting_rational(g: &Matrix) -> Option<Matrix> {
     unique_solution(&RatMat { rows: n + 1, cols: n, data }, &rhs).map(row_matrix)
 }
 
+/// Outcome of the reference `list(linsolve(...))[0]` on a stationary or
+/// limiting system.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Linear {
+    /// The unique solution, one value per unknown.
+    Unique(Vec<Expr>),
+    /// `linsolve` is the EmptySet: the reference raises IndexError.
+    Inconsistent,
+}
+
+/// The augmented reference system of `stationary_distribution`: the
+/// equations of `(P - I)^T` with the first row replaced by ones, `b = e_0`.
+pub fn stationary_system(t: &Matrix) -> Vec<Vec<Expr>> {
+    let n = t.rows();
+    let one = Expr::one();
+    (0..n)
+        .map(|i| {
+            let mut row: Vec<Expr> = if i == 0 {
+                vec![one.clone(); n]
+            } else {
+                (0..n).map(|j| if i == j { ops::sub(t.get(j, i), &one) } else { t.get(j, i).clone() }).collect()
+            };
+            row.push(if i == 0 { one.clone() } else { Expr::zero() });
+            row
+        })
+        .collect()
+}
+
+/// The augmented reference system of the CTMC `limiting_distribution`: the
+/// entries of `Matrix([w]) * G` (coefficient of `w_k` in equation `j` is
+/// `G[k, j]`) followed by `sum(w) - 1`.
+pub fn limiting_system(g: &Matrix) -> Vec<Vec<Expr>> {
+    let n = g.rows();
+    let mut rows: Vec<Vec<Expr>> = (0..n)
+        .map(|j| {
+            let mut row: Vec<Expr> = (0..n).map(|k| g.get(k, j).clone()).collect();
+            row.push(Expr::zero());
+            row
+        })
+        .collect();
+    let mut last = vec![Expr::one(); n];
+    last.push(Expr::one());
+    rows.push(last);
+    rows
+}
+
+use crate::bigfloat::BigFloat;
+use crate::number::Number;
+
+/// The precision of `RR` when every entry is a number and one is a float
+/// (SymPy's `construct_domain`: the largest float precision).
+fn real_precision(rows: &[Vec<Expr>]) -> Option<u32> {
+    let mut precision = None;
+    for e in rows.iter().flatten() {
+        let n = e.as_number()?;
+        if let Some(p) = n.float_precision() {
+            precision = Some(precision.map_or(p, |q: u32| q.max(p)));
+        }
+    }
+    precision
+}
+
+/// `solve_lin_sys` over `RR` (SymPy 1.14): equations without coefficients
+/// are dropped (inconsistent when their constant is nonzero), then the dense
+/// Gauss-Jordan elimination of `ddm_irref` with partial pivoting
+/// (`max(range(i, m), key=abs)`, the first maximal row), with the row
+/// normalised by the reciprocal of its pivot and the elimination
+/// `ak[l] -= akj * ai[l]`, all in mpmath arithmetic at the domain precision.
+/// `None` when the solution is not unique (free parameters).
+pub fn real_solve(rows: &[Vec<Expr>]) -> Option<Linear> {
+    let prec = real_precision(rows)?;
+    let width = rows.first()?.len();
+    let n = width - 1;
+    let convert = |e: &Expr| -> BigFloat {
+        match e.as_number().expect("number") {
+            Number::Float(f) => BigFloat::from_f64(*f),
+            Number::MpFloat(v, _) => v.clone(),
+            other => other.to_bigfloat(prec),
+        }
+    };
+    let mut a: Vec<Vec<BigFloat>> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let values: Vec<BigFloat> = row.iter().map(convert).collect();
+        if values[..n].iter().all(BigFloat::is_zero) {
+            if values[n].is_zero() {
+                continue;
+            }
+            return Some(Linear::Inconsistent);
+        }
+        a.push(values);
+    }
+    let m = a.len();
+    let mut pivots = Vec::new();
+    let mut i = 0;
+    for j in 0..width {
+        let mut ip = i;
+        for r in i + 1..m {
+            if a[r][j].abs().cmp(&a[ip][j].abs()) == std::cmp::Ordering::Greater {
+                ip = r;
+            }
+        }
+        a.swap(i, ip);
+        if a[i][j].is_zero() {
+            continue;
+        }
+        let inverse = BigFloat::one().div(&a[i][j], prec)?;
+        for l in j..width {
+            a[i][l] = a[i][l].mul(&inverse, prec);
+        }
+        let pivot_row = a[i].clone();
+        for (k, ak) in a.iter_mut().enumerate() {
+            if k == i || ak[j].is_zero() {
+                continue;
+            }
+            let akj = ak[j].clone();
+            ak[j] = BigFloat::zero();
+            for l in j + 1..width {
+                ak[l] = ak[l].sub(&akj.mul(&pivot_row[l], prec), prec);
+            }
+        }
+        pivots.push(j);
+        i += 1;
+        if i >= m {
+            break;
+        }
+    }
+    if pivots.last() == Some(&n) {
+        return Some(Linear::Inconsistent);
+    }
+    if pivots.len() != n {
+        return None;
+    }
+    // `solve_lin_sys(_raw=False)` gives an exact zero as the integer 0.
+    Some(Linear::Unique(
+        (0..n).map(|r| if a[r][n].is_zero() { Expr::zero() } else { Expr::num(Number::mp_float(a[r][n].clone(), prec)) }).collect(),
+    ))
+}
+
+use crate::matrix::mpoly::MPoly;
+use crate::matrix::ratfunc::{as_numer_denom, cancel_polys, cancel_qpolys, PolyCtx};
+
+type Frac = (MPoly, MPoly);
+
+fn frac_add(x: &Frac, y: &Frac) -> Frac {
+    cancel_polys(&x.0.mul(&y.1).add(&y.0.mul(&x.1)), &x.1.mul(&y.1))
+}
+
+fn frac_mul(x: &Frac, y: &Frac) -> Frac {
+    cancel_polys(&x.0.mul(&y.0), &x.1.mul(&y.1))
+}
+
+/// `solve_lin_sys` over the fraction field `QQ(a, b, ...)` of the symbols
+/// of the coefficients: every element is kept as SymPy's `FracElement`
+/// (`PolyElement.cancel`: gcd removed, positive leading coefficient of the
+/// denominator in the sorted generators) and the unique reduced row echelon
+/// form gives the values, converted by `numer.as_expr()/denom.as_expr()`.
+/// `None` outside rational functions of symbols, for floats, and when the
+/// solution is not unique.
+pub fn fraction_solve<E>(rows: &[Vec<Expr>], check: &mut dyn FnMut() -> Result<(), E>) -> Result<Option<Linear>, E> {
+    let Some(width) = rows.first().map(Vec::len) else { return Ok(None) };
+    let n = width - 1;
+    let parts: Vec<(Expr, Expr)> = rows.iter().flatten().map(as_numer_denom).collect();
+    let exprs: Vec<Expr> = parts.iter().flat_map(|(p, q)| [p.clone(), q.clone()]).collect();
+    let Some((ctx, polys)) = PolyCtx::from_exprs(&exprs, false) else { return Ok(None) };
+    if !ctx.gens.iter().all(Expr::is_symbol) {
+        return Ok(None);
+    }
+    let mut values = Vec::with_capacity(parts.len());
+    for pair in polys.chunks(2) {
+        if pair[1].p.is_zero() {
+            return Ok(None);
+        }
+        values.push(cancel_qpolys(&pair[0], &pair[1]));
+    }
+    let mut a: Vec<Vec<Frac>> = values.chunks(width).map(<[Frac]>::to_vec).collect();
+    let m = a.len();
+    let mut pivots = Vec::new();
+    let mut r = 0;
+    for j in 0..width {
+        check()?;
+        let Some(p) = (r..m).find(|&k| !a[k][j].0.is_zero()) else { continue };
+        a.swap(r, p);
+        let inverse = cancel_polys(&a[r][j].1, &a[r][j].0);
+        let pivot_row: Vec<Frac> = a[r].iter().map(|v| frac_mul(v, &inverse)).collect();
+        a[r] = pivot_row.clone();
+        for (k, ak) in a.iter_mut().enumerate() {
+            if k == r || ak[j].0.is_zero() {
+                continue;
+            }
+            let factor = ak[j].clone();
+            let negated = (factor.0.neg(), factor.1.clone());
+            for l in j..width {
+                ak[l] = frac_add(&ak[l], &frac_mul(&negated, &pivot_row[l]));
+            }
+        }
+        pivots.push(j);
+        r += 1;
+        if r >= m {
+            break;
+        }
+    }
+    if pivots.last() == Some(&n) {
+        return Ok(Some(Linear::Inconsistent));
+    }
+    if pivots.len() != n {
+        return Ok(None);
+    }
+    Ok(Some(Linear::Unique((0..n).map(|k| ops::div(&ctx.to_expr(&a[k][n].0), &ctx.to_expr(&a[k][n].1))).collect())))
+}
+
+/// The reference `list(linsolve(system))[0]` of a stationary or limiting
+/// system with float or symbolic entries; `None` when the kernel declines.
+pub fn solve_system<E>(rows: &[Vec<Expr>], check: &mut dyn FnMut() -> Result<(), E>) -> Result<Option<Linear>, E> {
+    if rows.iter().flatten().any(|e| e.has_host() || e.has_matrix()) {
+        return Ok(None);
+    }
+    if real_precision(rows).is_some() {
+        return Ok(real_solve(rows));
+    }
+    // Floats inside symbolic entries (RR(a, b)) are declined by PolyCtx.
+    fraction_solve(rows, check)
+}
+
 /// Outcome of the exact fundamental matrix.
 pub enum Fundamental {
     Matrix(Matrix),
@@ -422,7 +645,7 @@ pub fn enumerate_paths<E>(
     q: &PathQuery<'_>,
     subs: &mut dyn FnMut(&Expr, &[(Expr, Expr)]) -> Result<Expr, E>,
     check: &mut dyn FnMut() -> Result<(), E>,
-) -> Result<Option<(Expr, Expr)>, E> {
+) -> Result<Option<(Expr, Expr, bool)>, E> {
     let n = q.coded.len();
     let k = q.kernels.len();
     if n == 0 || q.labels.len() != n || q.initial >= n || q.kernels.iter().any(|m| m.shape() != (n, n)) || q.atoms.iter().any(|(_, s)| *s > k) {
@@ -436,6 +659,7 @@ pub fn enumerate_paths<E>(
         *slot = 0;
     }
     let mut count = 0usize;
+    let mut certain = true;
     loop {
         count += 1;
         if count % 256 == 0 {
@@ -449,7 +673,10 @@ pub fn enumerate_paths<E>(
         let indicator = match q.gate {
             None => one.clone(),
             Some(gate) => match truth(&subs(gate, &coded)?) {
-                Some(b) => Expr::int(b as i64),
+                Some(b) => {
+                    certain &= b;
+                    Expr::int(b as i64)
+                }
                 None => return Ok(None),
             },
         };
@@ -469,7 +696,7 @@ pub fn enumerate_paths<E>(
         let mut pos = k;
         loop {
             if pos == 0 {
-                return Ok(Some((numerator, denominator)));
+                return Ok(Some((numerator, denominator, certain)));
             }
             path[pos] += 1;
             if path[pos] < n {
@@ -479,6 +706,17 @@ pub fn enumerate_paths<E>(
             pos -= 1;
         }
     }
+}
+
+/// The value of a query from its path sums, as SymPy assembles it. When the
+/// gate holds on every path (the condition is the initial observation, of
+/// probability one by construction) SymPy returns `gprob * sum(K[gstate, s]
+/// for s in states)` (or the weighted sum of an expectation) without
+/// normalising or simplifying, which is the numerator, whatever the row sums
+/// are (Float rows summing to 1.0000000000000002, unnormalised symbolic
+/// rows). `None` when the caller must form the simplified quotient.
+pub fn assemble(numerator: &Expr, certain: bool) -> Option<Expr> {
+    certain.then(|| numerator.clone())
 }
 
 #[cfg(test)]
@@ -562,8 +800,60 @@ mod tests {
         let states = [Expr::int(0), Expr::int(1)];
         let q = PathQuery { kernels: &kernels, initial: 0, coded: &states, labels: &states, atoms: &[(x.clone(), 1)], gate: None, event: &gate, expectation: false };
         let mut subs = |e: &Expr, p: &[(Expr, Expr)]| -> Result<Expr, ()> { Ok(crate::subs::simultaneous(e, p)) };
-        let (num, den) = enumerate_paths(&q, &mut subs, &mut || Ok(())).unwrap().unwrap();
+        let (num, den, _) = enumerate_paths(&q, &mut subs, &mut || Ok(())).unwrap().unwrap();
         assert_eq!((num, den), (Expr::int(-1), Expr::zero()));
         assert_eq!(limiting_rational(&g).unwrap().data(), &[rat(1, 2), rat(1, 2)]);
+    }
+
+    fn floats(v: &[Expr]) -> Vec<f64> {
+        v.iter().map(|e| e.as_number().map_or(f64::NAN, |n| n.to_f64())).collect()
+    }
+
+    #[test]
+    fn float_systems_follow_the_partial_pivot_rref() {
+        let t = Matrix::from_rows(vec![vec![Expr::float(0.3), Expr::float(0.7)], vec![Expr::float(0.9), Expr::float(0.1)]]).unwrap();
+        let Ok(Some(Linear::Unique(w))) = solve_system::<()>(&stationary_system(&t), &mut || Ok(())) else { panic!() };
+        assert_eq!(floats(&w), vec![0.5625, 0.4375]);
+        let g = Matrix::from_rows(vec![vec![Expr::float(-0.75), Expr::float(0.75)], vec![Expr::float(0.125), Expr::float(-0.125)]]).unwrap();
+        let Ok(Some(Linear::Unique(w))) = solve_system::<()>(&limiting_system(&g), &mut || Ok(())) else { panic!() };
+        assert_eq!(floats(&w), vec![0.1428571428571429, 0.8571428571428571]);
+        // A pivot in the right-hand side column: SymPy's EmptySet.
+        let rows = vec![vec![Expr::float(1.0), Expr::float(1.0)], vec![Expr::float(0.0), Expr::float(2.0)]];
+        assert_eq!(real_solve(&rows), Some(Linear::Inconsistent));
+        // Non-unique: declined to the parametric fallback.
+        let rows = vec![vec![Expr::float(1.0), Expr::float(1.0), Expr::float(1.0)]];
+        assert_eq!(real_solve(&rows), None);
+    }
+
+    #[test]
+    fn symbolic_systems_give_cancelled_quotients() {
+        let (a, b) = (Expr::symbol("a"), Expr::symbol("b"));
+        let g = Matrix::from_rows(vec![vec![ops::neg(&a), a.clone()], vec![b.clone(), ops::neg(&b)]]).unwrap();
+        let Ok(Some(Linear::Unique(w))) = solve_system::<()>(&limiting_system(&g), &mut || Ok(())) else { panic!() };
+        let s = ops::add2(&a, &b);
+        assert_eq!(w, vec![ops::div(&b, &s), ops::div(&a, &s)]);
+    }
+
+    #[test]
+    fn certain_gates_keep_the_unnormalised_sum() {
+        let x = Expr::symbol("x");
+        let y = Expr::symbol("y");
+        let k = Matrix::from_rows(vec![vec![Expr::float(0.3), Expr::float(0.7)], vec![Expr::float(0.9), Expr::float(0.1)]]).unwrap();
+        let kernels = [k.clone()];
+        let states = [Expr::int(0), Expr::int(1)];
+        let gate = crate::relational::eq(&x, &Expr::int(0));
+        let event = crate::relational::eq(&y, &Expr::int(1));
+        let atoms = [(x.clone(), 0), (y.clone(), 1)];
+        let q = PathQuery { kernels: &kernels, initial: 0, coded: &states, labels: &states, atoms: &atoms, gate: Some(&gate), event: &event, expectation: false };
+        let mut subs = |e: &Expr, p: &[(Expr, Expr)]| -> Result<Expr, ()> { Ok(crate::subs::simultaneous(e, p)) };
+        let (num, _, certain) = enumerate_paths(&q, &mut subs, &mut || Ok(())).unwrap().unwrap();
+        assert!(certain);
+        assert_eq!(assemble(&num, certain), Some(num.clone()));
+        assert_eq!(floats(&[num]), vec![0.7]);
+        let gate = crate::relational::eq(&y, &Expr::int(0));
+        let q = PathQuery { gate: Some(&gate), ..q };
+        let (num, _, certain) = enumerate_paths(&q, &mut subs, &mut || Ok(())).unwrap().unwrap();
+        assert!(!certain);
+        assert_eq!(assemble(&num, certain), None);
     }
 }

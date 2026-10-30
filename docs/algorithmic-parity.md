@@ -14068,3 +14068,94 @@ Measurements are in
 [audits/performance/2026-10-30-ratintgen](../audits/performance/2026-10-30-ratintgen/README.md):
 1.06x-1.69x on the public calls that reach the new kernels, results
 unchanged.
+
+
+#### markovrust round 2: Float and symbolic linear systems, query assembly
+
+Native (Rust, crates/symox-core/src/stats/markov.rs):
+
+- `stationary_distribution` / `fixed_row_vector` / `limiting_distribution`
+  and the CTMC `limiting_distribution` when an entry is a Float or a
+  symbol: the reference system (`[1, ..., 1 | 1]` then
+  `(T^T - I)` rows for a DTMC, `w G = 0` then `sum(w) = 1` for a CTMC) is
+  solved as SymPy's `linsolve` does it. Float entries: the RR
+  Gauss-Jordan of `ddm_irref` with partial pivoting (first maximal |a| in
+  the column, `aij**-1` scaling, the same elimination order) in BigFloat
+  at the maximal input precision, the rows without coefficients dropped
+  first, zero solutions as `Integer(0)` and an rhs pivot as SymPy's
+  EmptySet (IndexError of `list(...)[0]`). Symbolic entries: Gauss-Jordan
+  over the fraction field of the symbols (canonical cancelled quotients,
+  positive leading denominator coefficient), whose unique RREF gives
+  SymPy's values and forms, e.g. `(2*a + 2*b)/(2*a + 3*b + 2)`.
+  `fundamental_matrix` / `absorbing_probabilities` of Float or symbolic
+  chains use that stationary vector for `W` and then the SymPy
+  statements over the native `det` / `inv` (the orchestration of those
+  two calls stays in Python).
+- Query assembly: when the condition holds on every enumerated path (the
+  initial observation), the value is SymPy's unnormalised, unsimplified
+  sum `gprob * sum(K[gstate, s] for s in states)` (or the weighted sum
+  of an expectation); before, the path sums were divided and simplified
+  whenever the row sums were not exactly 1 (Float rows), giving
+  `Float(0.75)` for SymPy's `3/4` and one ulp differences.
+- The CTMC query form `P(Eq(C(1), 1), Eq(C(0), 1))`: SymPy returns
+  `exp(-2)/2 + 1/2`; both SymPy's and symox's `simplify` turn that sum
+  into `(1 + exp(2))*exp(-2)/2`, so the difference came from symox's
+  query assembly (the final `simplify(numerator/denominator)`), not from
+  a simplify rule; the native assembly now returns the unsimplified sum,
+  as SymPy does (statements 612-640 of test_ContinuousMarkovChain).
+
+Python glue (SymPy statements over native calls, no new kernel):
+
+- `variance` of a process expression is SymPy's `cmoment(X, 2)`, the
+  unsimplified `E((X - E(X))**2)` evaluated by the native path sums
+  (statement 619); before, `simplify(E(X**2) - E(X)**2)`.
+- Transition matrices given as a Matrix are checked as SymPy does: only
+  the dimensions at construction, and in P/E queries `(sum(row) - 1) != 0`
+  (0 for a generator) structurally, with SymPy's ValueError. Float rows
+  summing to 0.99999999999999989 and negative entries are accepted by
+  the other methods, as in SymPy (statement 290); before, the rows were
+  checked (nonnegative, sum simplified to 1) at construction. Lists stay
+  a symox extension (SymPy: TypeError) with the construction checks.
+
+Still on the Python path: non-unique stationary vectors and CTMC limiting
+distributions (the existing `linsolve` fallback, same tau parameters as
+SymPy), Float entries mixed with symbols (`RR(a, b)`), and the
+`condition_set=True` form.
+
+SymPy's test_stochastic_process.py (statement level): 331/452 after
+round 1, 335/452 now (612, 619, 630 and 290 fixed; no statement
+regressed). Measured (ms, symox / SymPy): Float 6x6 stationary 0.45 /
+19.3, Float 4x4 fundamental 0.59 / 12.8, symbolic 3x3 stationary 0.28 /
+7.7, CTMC symbolic limiting 0.19 / 2.5, CTMC P query 1.9 / 16.7, CTMC
+variance 3.6 / 41.8.
+
+Remaining gaps:
+
+- A non-unique CTMC limiting distribution prints its parameters as
+  `Symbol('w[3]')` (SymPy `Indexed(IndexedBase(w), 3)`).
+- symox's shared RR `linsolve` (`_solve_inexact`) pivots on the first
+  nonzero entry, not on the maximal one: Float systems solved outside the
+  Markov kernels can differ from SymPy in the last bits, and an
+  ill-conditioned system can get a solution where SymPy finds none. The
+  Markov kernels no longer use it; the shared solver is unchanged.
+- `_core._linsolve_matrix` (expression RREF) does not cancel
+  (`a*b/(a**2 + a*b)` for SymPy's `b/(a + b)`); the Markov kernels no
+  longer use it.
+- `Matrix.det` of a Float matrix is not SymPy's (explicit formulas up to
+  3x3, else Bareiss with `_find_reasonable_pivot` per strongly connected
+  block): for a Float chain whose rows sum to 0.99999999999999989, SymPy
+  sees no recurrent class, `(I - P).det()` is -2.07e-17 and
+  `fundamental_matrix` returns entries near 2e15, while symox's det is
+  exactly 0 and raises "The fundamental matrix doesn't exist.". The
+  shared det is unchanged.
+- Path queries over several kernels sum over the paths in odometer
+  order where SymPy forms matrix powers: on the tested non-binary Float
+  chains (2x2 and 3x3, gaps 2 to 4) the values agree bit for bit, but the
+  operation order is not the same in general.
+- Item (4) of round 2 was not done (API surface, no computation to port):
+  `joint_distribution` is missing (SymPy returns an unevaluated
+  `JointDistribution(Y[1], Y[2])` for both the key and the indexed-symbol
+  forms); `index_set` is `Range(0, oo, 1)` for discrete chains and
+  `Interval(0, oo)` for CTMCs, where SymPy gives `Naturals0` and `Reals`;
+  a symbolic-size `Range(n)` state space raises "Cannot iterate over
+  symbolic Range" where SymPy keeps `Range(0, n, 1)`.

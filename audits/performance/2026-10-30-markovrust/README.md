@@ -61,3 +61,26 @@ rational generator.
   enumeration gives the same value. The SymPy column is the time of its
   refusal, so no ratio is given.
 - No slowdown was measured.
+
+## Round 2: Float and symbolic systems, query assembly
+
+`bench_r2.py sympy|symox` (same machine, mean over at least 0.5 s, from
+/tmp under a 6G memory cap):
+
+| call | symox | SymPy 1.14 |
+|---|---|---|
+| Float 6x6 `stationary_distribution` | 0.446 ms | 19.321 ms |
+| Float 6x6 `fundamental_matrix` | ValueError (see parity gap: shared Float `det`) | 6.806 ms |
+| Float 4x4 `fundamental_matrix` (binary-exact rows) | 0.593 ms | 12.838 ms |
+| symbolic 3x3 `stationary_distribution` | 0.279 ms | 7.683 ms |
+| CTMC symbolic 3x3 `limiting_distribution` | 0.188 ms | 2.477 ms |
+| CTMC Float 4x4 `limiting_distribution` | IndexError | IndexError |
+| CTMC `P(Eq(C(1), 1), Eq(C(0), 1))` | 1.929 ms | 16.672 ms |
+| CTMC `variance(C(3/2), Eq(C(0), 1))` | 3.597 ms | 41.799 ms |
+
+Before round 2 these went through the Python `linsolve` (the Float and
+symbolic stationary vectors, with different last bits and uncancelled
+forms) and `simplify` (the queries), so the values differed from SymPy's;
+no before/after ratio is given. Values: the 260 round-2 probe results
+(tests/test_native_markovrust_r2.py) are SymPy's srepr except the known
+`Indexed` parameter form of a non-unique CTMC limiting distribution.

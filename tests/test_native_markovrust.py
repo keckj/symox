@@ -1287,13 +1287,22 @@ def test_two_time_conditions_follow_the_markov_property(name):
 
 @pytest.mark.parametrize('name', sorted(CASES))
 def test_native_kernels_answer_rational_chains(name):
+    # Rational, Float (RR partial pivoting) and symbolic (fraction field)
+    # chains are solved natively when the stationary vector is unique; the
+    # non-unique ones (tau parameters) decline to the linsolve fallback.
     X, T = _chain(CASES[name]['rows'])
     T = X.transition_probabilities
     assert _markov_native.communication_classes(T) is not None
     assert _markov_native.decompose(T) is not None
-    rational = all(e.is_Rational for e in T)
-    unique = 'tau' not in CASES[name]['stationary']
-    assert (_markov_native.stationary_distribution(T) is not None) == (rational and unique)
+    expected = CASES[name]['stationary']
+    unique = 'tau' not in expected
+    got = _call(lambda: _markov_native.stationary_distribution(T))
+    if expected.startswith('ERR:'):
+        assert isinstance(got, str) and got.split(':')[:2] == expected.split(':')[:2], (got, expected)
+        return
+    assert (got is not None) == unique
+    if unique:
+        assert _same(got, _value(expected)), (got, expected)
 
 
 def test_reference_test_file_cases():

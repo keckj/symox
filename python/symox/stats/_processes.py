@@ -76,6 +76,9 @@ class _Markov:
         self.continuous = continuous
         self.index_set = S.Interval(0,S.oo) if continuous else S.Range(0,S.oo)
         self._transition = None if transition is None else matrix(transition)
+        # Lists are a symox extension (SymPy: TypeError) and keep the
+        # construction-time row checks; Matrix inputs are checked in queries.
+        self._listed = transition is not None and not isinstance(transition,(S.MatrixBase,S.MatrixSymbol))
         self._symbolic = self._transition is not None and not isinstance(self._transition,S.DenseMatrix)
         if self._transition is not None:check(self._transition.rows == self._transition.cols,'transition matrix must be square')
         if self._symbolic and not self._transition.rows.is_Integer:
@@ -99,14 +102,24 @@ class _Markov:
         self.state_space = S.FiniteSet(*self._states)
         if self._transition is not None:self._validate(self._transition,self._states)
         else:self._default_transition = S.MatrixSymbol('_T',len(self._states),len(self._states))
-    def _validate(self,T,states):
+    def _validate(self,T,states,query=False):
+        # SymPy checks the dimensions at construction and, only in P/E
+        # queries (_check_trans_probs), that (sum(row) - row_sum) != 0 is
+        # False, structurally: Float rows summing to 1.0000000000000002 and
+        # negative entries are accepted elsewhere (stationary_distribution,
+        # fundamental_matrix, ...).
         check(T.rows == T.cols == len(states),'matrix and state-space dimensions differ')
-        if isinstance(T,S.DenseMatrix):
+        if getattr(self,'_listed',False) and not query and isinstance(T,S.DenseMatrix):
             for i in range(T.rows):
                 for j in range(T.cols):
                     if not self.continuous or i != j:check(T[i,j] >= 0,'transition rates/probabilities must be nonnegative')
                 gap = sum(T[i,j] for j in range(T.cols))-(0 if self.continuous else 1)
                 check(gap == 0 or S.simplify(gap) == 0,'transition rows must sum to zero (generator) or one')
+        if query and isinstance(T,S.DenseMatrix):
+            row_sum = 0 if self.continuous else 1
+            for i in range(T.rows):
+                if (sum(T[i,j] for j in range(T.cols))-row_sum) != 0:
+                    raise ValueError('Values in a row must sum to %s. If you are using Float or floats then please use Rational.'%row_sum)
     @property
     def transition_probabilities(self):
         if self.continuous:return None
@@ -136,7 +149,7 @@ class _Markov:
             if not states:states = tuple(S.Integer(i) for i in range(T.rows))
             check(T.rows == len(states),'matrix and state-space dimensions differ')
             T = T.as_explicit();self._stochastic_symbol = True
-        elif T is not None:self._validate(T,states);self._stochastic_symbol = False
+        elif T is not None:self._validate(T,states,True);self._stochastic_symbol = False
         if T is None or not states:raise ValueError('a transition/generator matrix and a finite state space are required')
         return states,T,S.And(*ordinary) if ordinary else None
     def _transition_at(self,T,elapsed):
@@ -241,7 +254,8 @@ class _Markov:
                 list(states) if operation == 'E' else coded_states,
                 [(v._atom,times.index(v.time)) for v in variables],coded_gate,
                 event if operation == 'P' else scalar(expr),operation == 'E')
-        if native is not None:numerator,denominator = native
+        value = None
+        if native is not None:numerator,denominator,value = native
         for tail in (() if native is not None else product(states,repeat=len(times)-1)):
             path = (initial,)+tail;weight = S.Integer(1)
             for kernel,a,b in zip(kernels,path,path[1:]):weight *= kernel[states.index(a),states.index(b)]
@@ -259,7 +273,10 @@ class _Markov:
             # Rows of a transition MatrixSymbol sum to one, so conditioning on
             # the initial state alone has probability one (as in SymPy).
             rest = [item for item in _parts(gate) if not (getattr(item,'class_name','') in ('Eq','Equality') and any(v._atom in item.free_symbols and v.time == earliest for v in variables) and len(random_symbols(item)) == 1)]
-            if not rest:denominator = S.Integer(1)
+            if not rest:denominator,value = S.Integer(1),None
+        # The native assembly: SymPy's unsimplified sum when the condition
+        # has probability one, else the simplified quotient.
+        if value is not None:return value
         check(denominator != 0,'conditioning event has zero probability')
         return S.simplify(numerator/denominator)
     def stationary_distribution(self,condition_set=False):
