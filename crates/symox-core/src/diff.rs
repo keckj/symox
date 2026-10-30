@@ -2,6 +2,7 @@
 
 pub mod symbolic;
 mod integer_orders;
+pub mod order_plan;
 
 use rustc_hash::FxHashMap;
 

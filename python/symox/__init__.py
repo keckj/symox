@@ -696,8 +696,9 @@ def _fold_piecewise_function(function, limits):
     keeping the Piecewise atoms free of the limit variables intact."""
     if not isinstance(function, _core.Expr):
         return function
-    from ._public_calculus import _has_piecewise, piecewise_fold
-    if not _has_piecewise(function):
+    from ._public_calculus import _has_piecewise, piecewise_fold, _native_fold_admitted
+    has = _core._has_piecewise(function)
+    if not (_has_piecewise(function) if has is None else has):
         return function
     piecewise = _node_types.node_class('Piecewise')
     variables = []
@@ -711,6 +712,10 @@ def _fold_piecewise_function(function, limits):
         variables = list(function.free_symbols)
     if not all(isinstance(v, _core.Expr) for v in variables):
         return function
+    if _native_fold_admitted():
+        folded = _core._fold_piecewise_function(function, variables)
+        if folded is not None:
+            return folded
     reps = {}
     for p in function.atoms(piecewise):
         if not p.has(*variables):
@@ -4668,3 +4673,7 @@ del _register_risch_splitfactor_root
 from .integrals._prde_native import register_root as _register_prde_root
 _register_prde_root(globals())
 del _register_prde_root
+
+from ._public_calculus import _snapshot_stock as _pf_snapshot_stock
+_pf_snapshot_stock()
+del _pf_snapshot_stock

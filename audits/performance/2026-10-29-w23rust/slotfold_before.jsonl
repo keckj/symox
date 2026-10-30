@@ -1,0 +1,10 @@
+{"case": "fold_mul", "first_us": 625.9019992285175, "median_us": 365.57866500515956, "result": "Piecewise((n*x, x > 0), (0, True))"}
+{"case": "sum_free", "first_us": 188.686999536003, "median_us": 95.8296749922738, "result": "Sum(n*Piecewise((x, x > 0), (0, True)), (n, 1, 3))"}
+{"case": "sum_bound", "first_us": 538.5139993450139, "median_us": 417.75308000069344, "result": "Sum(Piecewise((n*x, n > 2), (0, True)), (n, 1, k))"}
+{"case": "integral_add", "first_us": 1205.40100033395, "median_us": 758.1271900016873, "result": "Integral(Piecewise((x*y + 1, x < 1), (x**2*y + 1, True)), (x, 0, 2))"}
+{"case": "product_two", "first_us": 1136.6729995643254, "median_us": 811.8112000011024, "result": "Product(Piecewise((2*n, (n > 1) & (n < 3)), (n**2, n > 1), (2, n < 3), (n, True)), (n, 1, 4))"}
+{"case": "fold_common", "first_us": 498.62699961522594, "median_us": 450.5200950006838, "result": "Piecewise((x**2 + x, x < 0), (3, True))"}
+{"case": "fold_nested", "first_us": 282.9059994837735, "median_us": 254.00320000699136, "result": "Piecewise((x, (y > 0) & (x < 1)), (1, x < 1), (0, True))"}
+{"case": "fold_func", "first_us": 412.7020001760684, "median_us": 340.35837500596244, "result": "Piecewise((sin(x), x > 0), (0, True))"}
+{"case": "fold_noeval", "first_us": 441.3459992065327, "median_us": 387.5729350056645, "result": "Piecewise((x, x > 0), (0, True))"}
+{"case": "integral_two", "first_us": 922.2799999406561, "median_us": 816.3761349987908, "result": "Integral(Piecewise((x, (x > y) & (y > 0)), (0, True)), (x, 0, 1))"}

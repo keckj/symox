@@ -13313,3 +13313,77 @@ Remaining gaps:
     `sqrt(-12*exp(3) + exp(6))`, where SymPy writes
     `sqrt(-12 + exp(3))*exp(3/2)`. This comes from SymPy's simplification of
     the results and is a gap.
+
+
+## w23rust (wave 28): native piecewise_fold and symbolic-order derivative plans
+
+Now native (Rust):
+
+- `piecewise_fold(expr, evaluate)` for `evaluate` in None, True and False
+  (`crates/symox-core/src/simptools/piecewise_fold_public.rs`, binding
+  `_core._piecewise_fold`). It covers:
+  - the cartesian product of the branches;
+  - the dedupe for `evaluate=None`;
+  - the grouping of common conditions (common prefix, ordered keys);
+  - the bound Integral/Sum/Product case;
+  - the commutative `Mul` check;
+  - the refold of nested Piecewise values.
+- The `piecewise_fold` step of the `Sum`, `Product` and `Integral`
+  constructors (`_core._fold_piecewise_function`, with the Dummy
+  substitution of Piecewise atoms that hold no limit variable) and its
+  `has(Piecewise)` test (`_core._has_piecewise`).
+- The variable/order parsing (`_parse`) and the evaluation plan
+  (`_evaluate`) of symbolic-order derivatives of matrix symbols, explicit
+  matrices and arrays (`crates/symox-core/src/diff/order_plan.rs`, bindings
+  `_core._derivative_orders` and `_core._derivative_order_plan`). The plan
+  covers:
+  - the merged `(Symbol, count)` pairs and the ValueError of a negative
+    order;
+  - the zero exit;
+  - the `_sort_variable_count` order and the split at the first symbolic
+    order.
+
+  The integer prefix is then derived with the ordinary `diff`, and the
+  rest is held.
+
+Admission (Python):
+
+- The fold is admitted for a native Expr that is not an ExprCondPair, with
+  global evaluation on. The stock `Piecewise`, `And`, `ITE`, `Dummy`,
+  `sympify`, `simplify_logic`, `Add`, `Mul`, `Pow` and `ordered` must be
+  the ones captured at `import symox`.
+- The kernel declines and the unchanged Python code runs when:
+  - an expression holds host objects or matrices;
+  - a Piecewise condition holds a Piecewise;
+  - a condition is not settled (`is_settled_condition`);
+  - an `And` takes a non-boolean operand;
+  - a rebuilt head returns a non-native object.
+- Other heads are rebuilt through their Python `func`. ITE conditions go
+  through the Python `simplify_logic(..., form='cnf')`.
+- The derivative kernels decline (NotImplemented) on non-native variables
+  or counts; `_parse` returns None for non-Symbol, matrix or non-integer
+  numeric orders as before.
+
+Unchanged: nested trace derivatives (`Trace(A*Trace(B*X)*X).diff(X)`) run
+through `_matrix_derivatives.py` and `tensor/array/expressions/`, which
+this wave does not touch. Wave 23 added no trace algorithm of its own.
+
+Intentional corrections kept (they come from the base and are unchanged by
+this wave):
+
+- `Derivative(Array([x, x**2]), x).doit()` is `[1, 2*x]`.
+- `Derivative(Array([x*y, x**2]), (x, 2), (y, m), x).doit()` is
+  `Derivative([0, 0], (y, m))`.
+- `piecewise_fold` of a `Sum` whose Piecewise condition holds the summation
+  variable keeps the `Sum` outside
+  (`Sum(Piecewise((n*x, n > 2), (0, True)), (n, 1, k))`). SymPy pulls the
+  bound condition out of the sum
+  (`Piecewise((Sum(n*x, (n, 1, k)), n > 2), ...)`).
+
+`tests/test_native_w23rust.py` checks:
+
+- the outputs against hard-coded SymPy 1.14 values;
+- that the native and Python paths agree;
+- the admission rules.
+
+Measured: [audit](../audits/performance/2026-10-29-w23rust/README.md).
