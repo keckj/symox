@@ -645,7 +645,7 @@ def _unrad_solution(solve,equation,symbol,flags):
     equation provably nonzero, and kept when the check is undecidable.
     Returns None when this does not apply."""
     from . import Expr, Symbol, checksol, default_sort_key, simplify, sympify, together
-    from .solvers._algebraic import denoms, unrad
+    from .solvers._algebraic import _unrad_resultant, denoms, unrad
     if set(flags)-{'dict','check','simplify','force','rational','warn'}:
         return None
     try:
@@ -659,7 +659,12 @@ def _unrad_solution(solve,equation,symbol,flags):
         return None
     try:
         numerator=together(equation).as_numer_denom()[0]
-        reduced=unrad(numerator,symbol)
+        try:
+            reduced=unrad(numerator,symbol)
+        except NotImplementedError:
+            # SymPy's elimination stops here; the established resultant
+            # elimination still gives a superset of the roots to check.
+            reduced=_unrad_resultant(numerator,symbol)
     except (ValueError,NotImplementedError,TypeError):
         return None
     if not reduced:
