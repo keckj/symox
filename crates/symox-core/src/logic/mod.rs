@@ -635,10 +635,11 @@ pub fn is_boolean_category(expression: &Expr) -> bool {
 /// Whether a Piecewise node occurs anywhere in `expression` (shared DAG
 /// nodes are visited once).
 pub fn contains_piecewise(expression: &Expr) -> bool {
-    let mut seen = rustc_hash::FxHashSet::default();
+    // Visited nodes stay alive (see `Expr::dag_id`).
+    let mut seen = rustc_hash::FxHashMap::default();
     let mut pending = vec![expression.clone()];
     while let Some(node) = pending.pop() {
-        if !seen.insert(node.dag_id()) { continue; }
+        if seen.insert(node.dag_id(), node.clone()).is_some() { continue; }
         if matches!(node.kind(), Kind::Piecewise(_)) { return true; }
         pending.extend(node.args());
     }

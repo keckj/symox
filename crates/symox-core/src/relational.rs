@@ -319,7 +319,7 @@ fn piecewise_depth(pieces: Vec<(Expr, Expr)>, depth: usize) -> Expr {
     for (e, c) in pieces {
         // `ExprCondPair`: a condition containing a Piecewise is folded and
         // the folded Piecewise of booleans becomes an ITE
-        let c = if !matches!(c.kind(), Kind::Piecewise(_)) && condition_has_piecewise(&c, &mut rustc_hash::FxHashSet::default()) {
+        let c = if !matches!(c.kind(), Kind::Piecewise(_)) && condition_has_piecewise(&c, &mut rustc_hash::FxHashMap::default()) {
             crate::integrate::piecewise::piecewise_fold(&c, Some(true))
         } else {
             c
@@ -350,8 +350,9 @@ fn piecewise_depth(pieces: Vec<(Expr, Expr)>, depth: usize) -> Expr {
     Expr::from_kind(Kind::Piecewise(out))
 }
 
-fn condition_has_piecewise(e: &Expr, seen: &mut rustc_hash::FxHashSet<usize>) -> bool {
-    if !seen.insert(e.dag_id()) {
+/// `seen` keeps the visited nodes alive (see `Expr::dag_id`).
+fn condition_has_piecewise(e: &Expr, seen: &mut rustc_hash::FxHashMap<usize, Expr>) -> bool {
+    if seen.insert(e.dag_id(), e.clone()).is_some() {
         return false;
     }
     matches!(e.kind(), Kind::Piecewise(_)) || e.args().iter().any(|a| condition_has_piecewise(a, seen))

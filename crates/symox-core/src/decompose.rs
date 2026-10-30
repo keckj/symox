@@ -97,8 +97,9 @@ pub fn commutes(e:&Expr)->bool{!e.has_noncommutative_host()||commutativity(e)==S
 /// undefined function application.  The host flag keeps commutative
 /// expressions on a constant-time path.
 pub fn has_noncommutative_atoms(e:&Expr)->bool{
-    fn visit(e:&Expr,seen:&mut rustc_hash::FxHashSet<usize>)->bool{
-        if !e.has_noncommutative_host()||!seen.insert(e.dag_id()){return false;}
+    // `seen` keeps the visited nodes alive (see `Expr::dag_id`).
+    fn visit(e:&Expr,seen:&mut FxHashMap<usize,Expr>)->bool{
+        if !e.has_noncommutative_host()||seen.insert(e.dag_id(),e.clone()).is_some(){return false;}
         match e.kind(){
             Kind::Sym(symbol) if symbol.facts().get("commutative")==Some(false)=>true,
             Kind::Func(crate::expr::Func::Undefined(head),_) if !head.internal&&head.facts().get("commutative")==Some(false)=>true,

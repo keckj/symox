@@ -332,9 +332,11 @@ impl Matrix {
                 .chain(d.iter().flat_map(|m| m.data()))
                 .cloned()
                 .collect::<Vec<_>>();
-            let mut visited = rustc_hash::FxHashSet::default();
+            // Visited entries stay alive: `args()` builds sum terms and
+            // product factors afresh, and a reused address would be skipped.
+            let mut visited = rustc_hash::FxHashMap::default();
             while let Some(entry) = pending.pop() {
-                if !visited.insert(entry.dag_id()) {
+                if visited.insert(entry.dag_id(), entry.clone()).is_some() {
                     continue;
                 }
                 valid &= !entry.is_constant(crate::expr::Constant::NaN)

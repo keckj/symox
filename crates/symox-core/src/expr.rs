@@ -779,6 +779,9 @@ impl Expr {
     }
 
     /// Identity of this live immutable allocation, for graph codecs/memoization.
+    /// Keep a clone alive while the identifier is in use: `args()` and
+    /// `inspection::scalar_children` build sum terms and product factors
+    /// afresh, and a freed node's address can be reused by a later node.
     pub fn dag_id(&self) -> usize { Arc::as_ptr(&self.0) as usize }
     /// A non-owning reference to this node.
     pub fn downgrade(&self) -> WeakExpr { WeakExpr(Arc::downgrade(&self.0)) }

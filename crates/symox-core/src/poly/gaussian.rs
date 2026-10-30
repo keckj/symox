@@ -513,19 +513,22 @@ pub struct DefaultSelection {
 }
 
 /// Whether the atom `I` occurs in `e`, visiting each shared node once so that
-/// deeply shared expression graphs stay linear.
+/// deeply shared expression graphs stay linear. `args()` builds the terms of
+/// a sum and the factors of a product afresh, so each visited node is kept
+/// alive in `seen`: a freed node's address could otherwise be reused by a
+/// later node, which would then be skipped (`I` missed in `12 - 2*I`).
 fn contains_imaginary_unit(e: &Expr) -> bool {
     let i = Expr::i();
     if e.has_matrix() {
         return crate::traverse::has(e, &i);
     }
-    let mut seen = rustc_hash::FxHashSet::default();
+    let mut seen = rustc_hash::FxHashMap::default();
     let mut pending = vec![e.clone()];
     while let Some(node) = pending.pop() {
         if node == i {
             return true;
         }
-        if !seen.insert(node.dag_id()) || super::rootof::is_rootof(&node) {
+        if seen.insert(node.dag_id(), node.clone()).is_some() || super::rootof::is_rootof(&node) {
             continue;
         }
         pending.extend(node.args());
@@ -607,6 +610,19 @@ pub fn expr_cancel(f: &MPoly<AN>, g: &MPoly<AN>) -> PResult<(MPoly<AN>, MPoly<AN
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_selection_finds_i_inside_an_unexpanded_coefficient() {
+        // `args()` builds `9*t` and `-2*I` afresh; with the visited set keyed
+        // by addresses only, a reused address hid `I` for some names.
+        for name in ["a", "b", "h", "i", "l", "m", "o", "p", "t", "w", "y"] {
+            let e = crate::parser::parse_str(&format!("{name}**2*(12 - 2*I) + 9*{name}")).unwrap();
+            let t = Expr::symbol(name);
+            assert!(contains_imaginary_unit(&e), "{name}");
+            let selected = default_selection(std::slice::from_ref(&e), std::slice::from_ref(&t));
+            assert_eq!(selected, Some(DefaultSelection { integral: true, gens: vec![t] }), "{name}");
+        }
+    }
 
     #[test]
     fn expression_cancel_normalizes_the_denominator() {

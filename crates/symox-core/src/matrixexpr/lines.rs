@@ -316,7 +316,8 @@ fn has_elementwise(v: &Value) -> bool {
     enum Node { M(MatrixExpr), S(Expr) }
     let mut pending = vec![match v { Value::Matrix(m) => Node::M(m.clone()), Value::Scalar(e) => Node::S(e.clone()) }];
     let mut seen_m = FxHashSet::default();
-    let mut seen_s = FxHashSet::default();
+    // Visited scalars stay alive (see `Expr::dag_id`).
+    let mut seen_s = rustc_hash::FxHashMap::default();
     while let Some(node) = pending.pop() {
         match node {
             Node::M(m) => {
@@ -334,7 +335,7 @@ fn has_elementwise(v: &Value) -> bool {
                 pending.extend(m.children().into_iter().map(Node::M));
             },
             Node::S(e) => {
-                if !seen_s.insert(e.dag_id()) { continue; }
+                if seen_s.insert(e.dag_id(), e.clone()).is_some() { continue; }
                 if let Kind::Func(f, _) = e.kind() {
                     match f {
                         Func::MatrixElement(p) | Func::MatrixProxy(p) | Func::MatrixTrace(p) | Func::MatrixDeterminant(p) => pending.push(Node::M(p.as_ref().clone())),

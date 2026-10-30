@@ -507,9 +507,10 @@ fn zero_add_infinity(e: &Expr) -> bool {
 /// product spine: functions, powers and nested sums remain boundaries.
 fn product_has_infinite_addend(args: &[Expr]) -> bool {
     let mut pending=args.to_vec();
-    let mut seen=rustc_hash::FxHashSet::default();
+    // Visited nodes stay alive (see `Expr::dag_id`).
+    let mut seen=rustc_hash::FxHashMap::default();
     while let Some(argument)=pending.pop() {
-        if !(argument.is_add()||argument.is_mul()) || !seen.insert(argument.dag_id()) {continue;}
+        if !(argument.is_add()||argument.is_mul()) || seen.insert(argument.dag_id(),argument.clone()).is_some() {continue;}
         if zero_add_infinity(&argument) {return true;}
         if argument.is_mul() {pending.extend(crate::inspection::scalar_children(&argument));}
     }
