@@ -286,12 +286,17 @@ pub fn poly_expr(f: &[Int], gen: &Expr) -> Expr {
 /// whose roots are not given by radicals: in the generator `x`, after
 /// scaling by the integer basis.
 pub fn all_roots_irreducible(f: &[Int]) -> Option<Vec<Expr>> {
-    let x = Expr::symbol("x");
+    all_roots_irreducible_in(f, &Expr::symbol("x"))
+}
+
+/// [`all_roots_irreducible`] with the defining polynomial written in the
+/// generator `x` (the reference keeps the generator of a `PurePoly`).
+pub fn all_roots_irreducible_in(f: &[Int], x: &Expr) -> Option<Vec<Expr>> {
     let (coeff, g) = match integer_basis(f) {
         Some(basis) => (Some(basis.clone()), scale_by_basis(f, &basis)),
         None => (None, f.to_vec()),
     };
-    let expr = poly_expr(&g, &x);
+    let expr = poly_expr(&g, x);
     let degree = g.len() - 1;
     let (reals, _) = iso::isolate_real_roots_sqf(&g, None, None, None, false).ok()?;
     let nreal = reals.len();

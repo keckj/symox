@@ -58,6 +58,7 @@ mod stats;
 mod markov;
 mod ode;
 mod ode_classify;
+mod ode_solve;
 mod solve;
 mod tsolve;
 mod unrad;
@@ -4705,6 +4706,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     unrad::register(m)?;
     ode::register(m)?;
     ode_classify::register(m)?;
+    ode_solve::register(m)?;
     logic::register(m)?;
     special::register(m)?;
     matrices::register_pivot_host();

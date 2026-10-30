@@ -66,6 +66,10 @@ def _get_euler_characteristic_eq_sols(eq, func, match_obj):
     of the derivative on each term, and coeff is the coefficient of that derivative.
 
     """
+    from ._odesolve_native import euler_characteristic_sols
+    native = euler_characteristic_sols(eq, func, match_obj, get_numbered_constants)
+    if native is not None:
+        return Eq(func, native[0]), native[1]
     x = func.args[0]
     f = func.func
 
@@ -184,6 +188,10 @@ def _get_const_characteristic_eq_sols(r, func, order):
     derivative on each term, and coeff is the coefficient of that derivative.
 
     """
+    from ._odesolve_native import const_characteristic_sols
+    native = const_characteristic_sols(r, func, order)
+    if native is not None:
+        return native
     x = func.args[0]
     # First, set up characteristic equation.
     chareq, symbol = S.Zero, Dummy('x')
@@ -257,6 +265,10 @@ def _get_simplified_sol(sol, func, collectterms):
     the multiplicity of the root, reroot is real part and imroot being the imaginary part.
 
     """
+    from ._odesolve_native import simplified_sol
+    native = simplified_sol(sol, func, collectterms)
+    if native is not None:
+        return Eq(func, native)
     f = func.func
     x = func.args[0]
     collectterms.sort(key=default_sort_key)
