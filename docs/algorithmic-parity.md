@@ -13802,3 +13802,48 @@ Remaining gaps (not changed by this wave):
 Measured: [audit](../audits/performance/2026-10-30-markovrust/README.md)
 (0.01-0.10 times SymPy's time on the calls SymPy answers, path queries 0.03 times the
 previous Python loop).
+
+## exroots (wave 36): EX roots and the simplify denominator step, 2026-10-30
+
+Native now (Rust, `crates/symox-core`):
+
+- `simptools/radical_denominator.rs`: SymPy 1.14's `simplify` step
+  `n, d = fraction(radsimp(1/denom, symbolic=False, max_terms=1))` for a sum
+  denominator, then `(numer*n).expand()/d`. Sums of square roots are decided
+  natively; another numeric denominator goes to the host fallback
+  (`nsimplify`) through `_core._st_simplify_rationalize_denominator`, and
+  declines without a host. `(2 + sqrt(5))/(50*(1 + sqrt(5)))` simplifies to
+  `sqrt(5)/200 + 3/200`. Not applied in native-selection mode (the internal
+  solvers' simplify, which the reference does not call there).
+- `poly/roots.rs` over EX (coefficients that construct EX): monic and
+  preprocess steps, the `(-b)/A` trees of `roots_linear` and
+  `roots_quadratic` and their `simplify`, and SymPy's `ordered` for
+  `multiple=True`. 24 of the 25 audited `roots` cases are SymPy's output
+  (6 before). Under the native system solvers the roots keep their previous
+  raw form, whose `nonlinsolve` output already matches SymPy.
+- `expand/fixpoint.rs`: SymPy's `expand` repeats the `mul` and
+  `multinomial` hints until nothing changes, e.g.
+  `expand((x + y)**(2/3)*(1 + (x + y)**(2/3)))` is
+  `x*(x + y)**(1/3) + y*(x + y)**(1/3) + (x + y)**(2/3)` (the previous single
+  pass left `(x + y)**(4/3)`).
+- `integrate/log_to_atan_ex.rs`: the EX field quotient of `log_to_atan` by a
+  constant (`_core._log_to_atan_ex_constant`); `1/(x**5 + 1)` is now SymPy's
+  output.
+
+Still Python: the `log_to_atan` choice between the native quotient and the
+plain coefficient quotient (the shorter is kept), the rest of `log_to_real`.
+
+Intentional deviations and remaining gaps:
+
+- `roots(x**4 + 2*x**2 + 3)` keeps the quadratic-in-x**2 form
+  `sqrt(-1 + sqrt(2)*I)`; SymPy gives its binomial form (`try_decompose`
+  uses `roots_quadratic`; unchanged since before the wave).
+- `integrate(1/(x**3 + x + 1))` and `integrate(1/(x**3 + 2*x - 1))` are exact
+  but not SymPy's form (9543 and 9987 characters, SymPy 16653 and 17352):
+  the native EX `cancel`/`expand` of the Cardano radicals does not reach
+  SymPy's normal form, so neither `log_to_atan` quotient matches. For the
+  same reason `ratint(1/((x**2 + 1)*(x**3 + 2)))` is 9261 characters, SymPy
+  9057 (its `r_v` is now SymPy's, its `log(A**2 + B**2)` term is 1549
+  characters, SymPy 1424); tests/test_native_ratint_dom.py records 9261.
+
+Measured: [audit](../audits/performance/2026-10-30-exroots/README.md).
