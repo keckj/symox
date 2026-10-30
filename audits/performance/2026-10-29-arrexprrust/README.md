@@ -80,3 +80,14 @@ Final validation on cbe35bbf: rshards suite 57819 passed, 0 failed
 correctness clean; integration corpus {"COND": 20, "DIFF": 10,
 "EQUIV": 8, "MISSING": 1, "SAME": 1171} and ODE corpus {'cls': 303,
 'hint': 279, 'def': 274, 'n': 315}, both equal to the baselines.
+
+Large powers (ec26a711) and merge of main 2ea88aaf (243c9885), validated
+on the merged build: `M**5000`, `Trace(M)**5000` and
+`HadamardPower(M, 5000)` give SymPy 1.14's groups in 188, 203 and 62 ms
+(SymPy: 39.4 s, 41.8 s, 9.4 s), `x**5000` in 3.3 ms (SymPy 28.3 ms).
+rshards suite 58501 passed, no failed shard (main: 58363);
+`cargo test -p symox --release` 822 + 1 passed, doctests 5 passed with
+`--test-threads=1` (the parallel doctest run fails with "Couldn't
+compile"); clippy correctness clean; integration corpus {"COND": 20,
+"DIFF": 10, "EQUIV": 8, "MISSING": 1, "SAME": 1171}; ODE corpus
+{'cls': 303, 'hint': 279, 'def': 274, 'n': 315}.
