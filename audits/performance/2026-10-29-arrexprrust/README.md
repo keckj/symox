@@ -39,3 +39,38 @@ per-call cost after the change is mostly the Python construction of the
 Correctness probes (scratch, not committed): 60 rank-four cases
 give identical output on the base and on this branch; 51 equal SymPy
 1.14 exactly and are pinned in tests/test_native_arrexprrust.py.
+
+## Second part (2026-10-30): native canonical forms and convert_matrix_to_array
+
+Harness: `bench_canon.py <sympy|symox> <reps>` (median ms per call after a
+first call), 3 fresh processes per mode under the 6G cap, from /tmp;
+SymPy 1.14 does 50 reps, symox 200. "before" is the base tree, where
+`_array_tensor_product`/`_array_diagonal` do not exist (TypeError on the
+call) and `convert_matrix_to_array` was the old Python conversion, which
+returned different results (ArraySymbols, unconverted Trace and Hadamard
+products). Raw output: `raw/canon/`. The table gives the median of the 3
+per-process medians, in ms; M, N, P, Q are k x k MatrixSymbols, a is k x 1.
+
+| # | call | SymPy 1.14 | before | after | SymPy/after | result vs SymPy |
+|---|---|---|---|---|---|---|
+| 0 | `con(con(tp(M,N,P),(1,2)),(0,1))` | 0.2708 | TypeError | 0.1143 | 2.4x | same |
+| 1 | `pd(con(tp(M,N,P),(1,2)),[3,2,1,0])` | 0.3249 | TypeError | 0.0968 | 3.4x | same |
+| 2 | `tp(Q,con(tp(M,N),(1,2)))` | 0.1997 | TypeError | 0.0720 | 2.8x | same |
+| 3 | `dia(pd(tp(M,N),[1,2,3,0]),(0,1))` | 0.1772 | TypeError | 0.0782 | 2.3x | same |
+| 4 | `cm(M*N*P)` | 0.3888 | 0.2585 | 0.0252 | 15.4x | same |
+| 5 | `cm((M*N).T)` | 0.7788 | 0.2145 | 0.0255 | 30.5x | same |
+| 6 | `cm(Trace(M*N))` | 0.3355 | 0.0027 | 0.0542 | 6.2x | same |
+| 7 | `cm(a.T*M*a)` | 0.9408 | 0.2779 | 0.0329 | 28.6x | same |
+| 8 | `cm(hadamard(M,N,P))` | 0.1741 | 0.0023 | 0.0266 | 6.5x | same |
+
+Before, cases 6 and 8 returned the input unchanged (`Trace(M*N)`,
+`HadamardProduct(M, N, P)`), and 4, 5, 7 returned ArraySymbol-based or
+unsorted results, so the "before" times there are not comparable. In the
+canonical-form calls the Rust call is a small part of the time; most of
+it is encoding and rebuilding the Python objects. A first profile showed
+`_shape` re-sympifying every dimension (11 us per dimension); `_shape` now
+keeps native expressions as they are (sympify returned them unchanged),
+which halved these calls and also speeds up the rank-four matrix
+derivatives (same harness as above, after: case 0 0.0488 ms, case 6
+0.0476 ms, case 9 0.0846 ms). The controls are unchanged:
+`(x.T*x).diff(x)` 0.0215 ms, `Trace(A*X*B).diff(X)` 0.0281 ms.

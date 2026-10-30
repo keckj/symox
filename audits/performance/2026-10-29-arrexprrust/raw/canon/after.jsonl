@@ -1,0 +1,27 @@
+{"case": 0, "name": "con(con(tp(M,N,P),(1,2)),(0,1))", "first_ms": 0.31140899955062196, "median_ms": 0.11546149835339747, "result": "ArrayContraction(ArrayTensorProduct(M, N, P), (0, 3), (1, 2))"}
+{"case": 1, "name": "pd(con(tp(M,N,P),(1,2)),[3,2,1,0])", "first_ms": 0.15172200073720887, "median_ms": 0.09852050425251946, "result": "PermuteDims(ArrayContraction(ArrayTensorProduct(P, N, M), (2, 5)), (3)(0 1))"}
+{"case": 2, "name": "tp(Q,con(tp(M,N),(1,2)))", "first_ms": 0.11011500464519486, "median_ms": 0.07405549695249647, "result": "ArrayContraction(ArrayTensorProduct(Q, M, N), (3, 4))"}
+{"case": 3, "name": "dia(pd(tp(M,N),[1,2,3,0]),(0,1))", "first_ms": 0.12608699762495235, "median_ms": 0.078239001595648, "result": "PermuteDims(ArrayDiagonal(ArrayTensorProduct(M, N), (1, 2)), (2)(0 1))"}
+{"case": 4, "name": "cm(M*N*P)", "first_ms": 0.0842039953568019, "median_ms": 0.025171495508402586, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": 5, "name": "cm((M*N).T)", "first_ms": 0.07201900007203221, "median_ms": 0.025200002710334957, "result": "ArrayContraction(ArrayTensorProduct(N, M), (0, 3))"}
+{"case": 6, "name": "cm(Trace(M*N))", "first_ms": 0.12547900405479595, "median_ms": 0.053108502470422536, "result": "ArrayContraction(ArrayTensorProduct(M, N), (0, 3), (1, 2))"}
+{"case": 7, "name": "cm(a.T*M*a)", "first_ms": 0.0630430004093796, "median_ms": 0.03285300044808537, "result": "ArrayContraction(ArrayTensorProduct(M, a, a), (0, 2), (1, 4))"}
+{"case": 8, "name": "cm(hadamard(M,N,P))", "first_ms": 0.07800100138410926, "median_ms": 0.02748849874478765, "result": "ArrayDiagonal(ArrayTensorProduct(M, N, P), (0, 2, 4), (1, 3, 5))"}
+{"case": 0, "name": "con(con(tp(M,N,P),(1,2)),(0,1))", "first_ms": 0.26549299946054816, "median_ms": 0.11430499944253825, "result": "ArrayContraction(ArrayTensorProduct(M, N, P), (0, 3), (1, 2))"}
+{"case": 1, "name": "pd(con(tp(M,N,P),(1,2)),[3,2,1,0])", "first_ms": 0.1457800026400946, "median_ms": 0.09680449875304475, "result": "PermuteDims(ArrayContraction(ArrayTensorProduct(P, N, M), (2, 5)), (3)(0 1))"}
+{"case": 2, "name": "tp(Q,con(tp(M,N),(1,2)))", "first_ms": 0.09851099457591772, "median_ms": 0.07201999687822536, "result": "ArrayContraction(ArrayTensorProduct(Q, M, N), (3, 4))"}
+{"case": 3, "name": "dia(pd(tp(M,N),[1,2,3,0]),(0,1))", "first_ms": 0.12917300045955926, "median_ms": 0.07875200026319362, "result": "PermuteDims(ArrayDiagonal(ArrayTensorProduct(M, N), (1, 2)), (2)(0 1))"}
+{"case": 4, "name": "cm(M*N*P)", "first_ms": 0.07316700066439807, "median_ms": 0.025565503165125847, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": 5, "name": "cm((M*N).T)", "first_ms": 0.06426899926736951, "median_ms": 0.025577504857210442, "result": "ArrayContraction(ArrayTensorProduct(N, M), (0, 3))"}
+{"case": 6, "name": "cm(Trace(M*N))", "first_ms": 0.128191000840161, "median_ms": 0.05419650187832303, "result": "ArrayContraction(ArrayTensorProduct(M, N), (0, 3), (1, 2))"}
+{"case": 7, "name": "cm(a.T*M*a)", "first_ms": 0.05930699990130961, "median_ms": 0.033298500056844205, "result": "ArrayContraction(ArrayTensorProduct(M, a, a), (0, 2), (1, 4))"}
+{"case": 8, "name": "cm(hadamard(M,N,P))", "first_ms": 0.08216699643526226, "median_ms": 0.026552501367405057, "result": "ArrayDiagonal(ArrayTensorProduct(M, N, P), (0, 2, 4), (1, 3, 5))"}
+{"case": 0, "name": "con(con(tp(M,N,P),(1,2)),(0,1))", "first_ms": 0.2418750009383075, "median_ms": 0.11314649600535631, "result": "ArrayContraction(ArrayTensorProduct(M, N, P), (0, 3), (1, 2))"}
+{"case": 1, "name": "pd(con(tp(M,N,P),(1,2)),[3,2,1,0])", "first_ms": 0.14462199760600924, "median_ms": 0.09506200149189681, "result": "PermuteDims(ArrayContraction(ArrayTensorProduct(P, N, M), (2, 5)), (3)(0 1))"}
+{"case": 2, "name": "tp(Q,con(tp(M,N),(1,2)))", "first_ms": 0.09888800559565425, "median_ms": 0.07137449938454665, "result": "ArrayContraction(ArrayTensorProduct(Q, M, N), (3, 4))"}
+{"case": 3, "name": "dia(pd(tp(M,N),[1,2,3,0]),(0,1))", "first_ms": 0.12426000466803089, "median_ms": 0.07642899799975567, "result": "PermuteDims(ArrayDiagonal(ArrayTensorProduct(M, N), (1, 2)), (2)(0 1))"}
+{"case": 4, "name": "cm(M*N*P)", "first_ms": 0.07944900426082313, "median_ms": 0.02523749935789965, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": 5, "name": "cm((M*N).T)", "first_ms": 0.06046699854778126, "median_ms": 0.025507499231025577, "result": "ArrayContraction(ArrayTensorProduct(N, M), (0, 3))"}
+{"case": 6, "name": "cm(Trace(M*N))", "first_ms": 0.1273789966944605, "median_ms": 0.054267002269625664, "result": "ArrayContraction(ArrayTensorProduct(M, N), (0, 3), (1, 2))"}
+{"case": 7, "name": "cm(a.T*M*a)", "first_ms": 0.06098800076870248, "median_ms": 0.03266400017309934, "result": "ArrayContraction(ArrayTensorProduct(M, a, a), (0, 2), (1, 4))"}
+{"case": 8, "name": "cm(hadamard(M,N,P))", "first_ms": 0.07496900070691481, "median_ms": 0.026599496777635068, "result": "ArrayDiagonal(ArrayTensorProduct(M, N, P), (0, 2, 4), (1, 3, 5))"}

@@ -13290,3 +13290,62 @@ SymPy array-expression test files (21 files, 201 test functions): 101
 passed before, 106 passed after (test_derivatives.py now collects, 5
 passed, 7 failed; test_as_explicit.py collects and both tests still
 fail). Measured: [audit](../audits/performance/2026-10-29-arrexprrust/README.md).
+
+### arrexprrust, second part: native array-expression canonical forms and convert_matrix_to_array (2026-10-30)
+
+Native now (crates/symox-core/src/arrayexpr.rs, binding
+`_core._arrayexpr_canon` in crates/symox-py/src/arrayexpr_canon.rs):
+SymPy 1.14's canonicalizing constructors `_array_tensor_product`,
+`_array_add`, `_permute_dims`, `_array_contraction`, `_array_diagonal`,
+`nest_permutation` and the `doit()` of ArrayTensorProduct, ArrayAdd,
+PermuteDims, ArrayContraction and ArrayDiagonal. The Rust side works on an
+index tree whose leaves are opaque (rank, shape as dimension ids, ZeroMatrix
+flag): flattening, PermuteDims lifting and composition, the contraction and
+diagonal index bookkeeping (push up/down, nested contractions and diagonals,
+denesting through PermuteDims, ArrayAdd and ArrayDiagonal, dimension-1
+single-axis groups, zero arrays, trivial diagonals with
+`allow_trivial_diags`), the sorting of fully contracted tensor factors and
+`nest_permutation` (closed cycles, contractions, sums). The only callback
+is the `default_sort_key` order of the fully contracted factors, which
+Python computes from the objects. Python
+(python/symox/tensor/array/expressions/_canon.py) encodes the objects into
+the tree and rebuilds them from the result; the error types (ValueError for
+invalid groups or permutations, IndexError, TypeError) are those of SymPy.
+
+`convert_matrix_to_array` (crates/symox-core/src/arrayexpr_matrix.rs,
+binding `_core._arrayexpr_from_matrix`) builds SymPy's constructor tree in
+Rust from the native matrix expression (MatMul chains with the scalar
+coefficient, MatAdd, Transpose, Trace, scalar Mul and Pow, MatPow,
+HadamardProduct, HadamardPower, KroneckerProduct) and evaluates it
+bottom-up with the canonical forms above, in SymPy's order. Matrix symbols
+stay MatrixSymbols (the previous Python conversion turned them into
+ArraySymbols and kept `Trace`, Hadamard products and transposes of
+products unconverted). Errors follow SymPy: a non-integer positive power of
+a scalar is a TypeError, a positive integer MatPow of a non-leaf base is an
+AttributeError naming the array class. Positive integer powers above 4096
+raise NotImplementedError instead of building the product (SymPy builds
+it). `_ArrayExpr.dummy_eq` was added (structural comparison, Python).
+
+Checks: 34 canonical-form cases and 30 conversion cases give the same
+output as SymPy 1.14 (tests/test_native_arrexprcanon.py). The matrix
+derivative paths do not use the new code; `_shape` no longer re-sympifies
+native dimensions, which makes the rank-four derivatives about 2x faster
+and leaves the controls unchanged (`(x.T*x).diff(x)` 0.0215 ms). The
+canonical-form calls are 2.3x to 3.4x faster than SymPy 1.14 and
+`convert_matrix_to_array` 6x to 30x faster
+([audit](../audits/performance/2026-10-29-arrexprrust/README.md)).
+
+SymPy array-expression test files: 120 of 201 passed (106 before):
+test_array_expressions.py collects (13 passed, 12 failed) and
+test_convert_matrix_to_array.py passes.
+
+Remaining gaps (not ported): `_EditArrayContraction` and `_ArgE`
+(array_expressions exposes stubs that raise NotImplementedError),
+`convert_array_to_matrix` and its passes, `convert_indexed_to_array`,
+`convert_array_to_indexed`, `array_derive` and the public modules built on
+them. The failing tests of test_array_expressions.py need these, and also
+ZeroArray/OneArray comparisons with scalars, `ArraySymbol` indexing errors
+and `Reshape` of non-array arguments. The matrix derivative code keeps
+using its own Python `_array_contraction`/`_permute_dims` in
+`symox.tensor.array.expressions`, so the term-order differences listed
+above are unchanged.

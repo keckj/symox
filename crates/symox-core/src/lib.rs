@@ -36,6 +36,8 @@ pub mod linear;
 pub mod matrix;
 pub mod matrixcontraction;
 pub mod matrixexpr;
+pub mod arrayexpr;
+pub mod arrayexpr_matrix;
 pub mod logic;
 pub mod ntheory;
 pub mod nsolve_mp;
