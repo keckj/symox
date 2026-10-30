@@ -182,9 +182,10 @@ def test_unrad_equality_and_non_expr():
     assert unrad([sqrt(x)]) is None
 
 
-def test_unrad_unsupported_flags():
-    with pytest.raises(NotImplementedError):
-        unrad(sqrt(x) + 1, x, cov=[])
+def test_unrad_recursion_flags():
+    # SymPy 1.14 accepts the recursion flags cov, n and rpt
+    c = []
+    assert str(unrad(sqrt(x) + 1, x, cov=c)) == '(x - 1, [])' and c == []
 
 
 def test_unrad_take():

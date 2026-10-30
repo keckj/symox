@@ -201,7 +201,18 @@ fn _bivariate_type(f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, y: &Bound<'_, PyA
     Ok(r.map(|(g, p, u)| (wrap(g), wrap(p), wrap(u))))
 }
 
+/// SymPy's `checksol(f, {symbol: sol}, **flags)` for one Expr and one
+/// symbol (`symox::solve::checksol`).
+#[pyfunction]
+#[pyo3(signature = (f, symbol, sol, numerical=true, force=true, simplify=true, minimal=false))]
+fn _checksol_native(f: &Bound<'_, PyAny>, symbol: &Bound<'_, PyAny>, sol: &Bound<'_, PyAny>, numerical: bool, force: bool, simplify: bool, minimal: bool) -> PyResult<Option<bool>> {
+    let (f, x, v) = (to_expr(f)?, to_expr(symbol)?, to_expr(sol)?);
+    let flags = symox::solve::checksol::CheckFlags { numerical, force, simplify, minimal };
+    Ok(symox::solve::checksol::checksol(&f, &x, &v, flags))
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(_checksol_native, m)?)?;
     m.add_function(wrap_pyfunction!(_tsolve_step, m)?)?;
     m.add_function(wrap_pyfunction!(_tsolve_invert, m)?)?;
     m.add_function(wrap_pyfunction!(_bivariate_mexpand, m)?)?;

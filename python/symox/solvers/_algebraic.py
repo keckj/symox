@@ -289,11 +289,24 @@ def unrad(eq, *syms, **flags):
         eq = eq.lhs - eq.rhs  # XXX legacy Eq as Eqn support
     elif not isinstance(eq, Expr):
         return None
-    unknown = set(flags) - {'_reverse', '_take'}
-    if unknown:
-        raise NotImplementedError('unrad flags %s are not supported' % sorted(unknown))
-    return _unrad(eq, [sympify(s) for s in syms], bool(flags.get('_reverse', False)),
-                  flags.get('_take'))
+    reverse, take = bool(flags.get('_reverse', False)), flags.get('_take')
+    syms = [sympify(s) for s in syms]
+    if not any(k in flags for k in ('cov', 'n', 'rpt')):
+        return _unrad(eq, syms, reverse, take)
+    # the reference recursion flags (other flags are ignored, as there):
+    # ``cov`` is the caller's list, updated in place
+    from .._core import _unrad_flags
+    cov, n, rpt = flags.get('cov', []), flags.get('n'), flags.get('rpt', 0)
+    if not isinstance(cov, (list, tuple)) or len(cov) not in (0, 2) or \
+            not (n is None or isinstance(n, int)) or not isinstance(rpt, int) or \
+            isinstance(n, bool) or isinstance(rpt, bool) or (n is not None and n < 0) or rpt < 0:
+        raise NotImplementedError('unrad flags cov=%r, n=%r, rpt=%r are not supported' % (cov, n, rpt))
+    result, state = _unrad_flags(eq, syms, [sympify(c) for c in cov], n, rpt, reverse, take)
+    if list(state) != list(cov):
+        if not isinstance(cov, list):
+            raise TypeError("'%s' object does not support item assignment" % type(cov).__name__)
+        cov[:] = state
+    return result
 
 
 

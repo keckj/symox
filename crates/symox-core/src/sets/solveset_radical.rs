@@ -171,15 +171,16 @@ fn invert_real_radical<H: StepHost>(h: &mut H, indep: &Expr, dep: &Expr, x: &Exp
 fn check_finiteset(f: &Expr, x: &Expr, sols: &[Expr]) -> Expr {
     let (mut yes, mut undecided) = (Vec::new(), Vec::new());
     for s in sols {
-        // the reference keeps a CRootOf unchecked. Only a candidate that
-        // `checksol` proves is kept outright; the others go to the
-        // ConditionSet, whose constructor removes those where the equation
-        // is provably nonzero. A `False` of the native check is not trusted
-        // to drop a candidate: with a parameter it can be valid for some
-        // values (test_issue_11534's `-y/sqrt(y**2 + 1)` at y = 0, where the
-        // reference keeps a ConditionSet).
+        // the reference keeps a CRootOf unchecked. As in the reference
+        // `check_finiteset`, a candidate that `checksol` (with its default
+        // flags) proves is kept outright and every other one (False or
+        // undecided) goes to the ConditionSet, whose constructor removes
+        // those where the equation is provably nonzero: a False of
+        // `checksol` does not drop a candidate that is valid for some
+        // values of a parameter (test_issue_11534's `-y/sqrt(y**2 + 1)`,
+        // valid at y = 0).
         let rootof = matches!(s.kind(), Kind::Func(Func::Undefined(n), a) if crate::poly::rootof::is_rootof_head(n, a.len()));
-        if rootof || crate::solve::tsolve::checksol(f, x, s, true, false) == Some(true) {
+        if rootof || crate::solve::checksol::checksol(f, x, s, Default::default()) == Some(true) {
             yes.push(s.clone());
         } else {
             undecided.push(s.clone());
