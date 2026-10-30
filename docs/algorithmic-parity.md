@@ -13570,6 +13570,47 @@ pair from one QQ<a> or QQ(a) field. The existing generic kernel
 needs the EX path of `log_to_atan`, including its exact division by a
 constant `g`, and the unification of the two domains.
 
+Second pass on items 2-4 (measured 2026-10-30, no code change):
+- Item 4, Cardano and cube-root pairs (`1/(x**3+x+1)`, `1/(x**3+2*x-1)`,
+  `1/(x**5+1)`, `x/(x**5+1)`). symox already returns in 150-160 ms (SymPy
+  7.0-7.2 s) and in 18-26 ms (SymPy 0.9-1.1 s). The printed results differ
+  from SymPy 1.14; `1/(x**3-2)`, `1/(x**3+2)` and `x/(x**3-2)` are
+  identical. A step trace of `log_to_real` shows that the logpart pair, the
+  resultant `R(u)`, its real roots `R_u` and each `C(v)` are identical to
+  SymPy. The first difference is `roots(C, v)` on an EX `C`:
+  - `1/(x**5+1)`: biquadratic `C`. SymPy runs `preprocess_roots` (EX
+    `clear_denoms`), then `roots_quartic` with the EX `monic` (`cancel` and
+    `expand`), then `roots([1, e, g])`, which clears denominators again with
+    the EX `lcm`, then `roots_quadratic`, which calls `simplify`. The native
+    `roots` (`crates/symox-core/src/poly/roots.rs`) skips the EX
+    preprocessing and uses `factor` where the reference calls `simplify`.
+    It returns `5**(1/4)/sqrt(50 + 50*sqrt(5))` where SymPy returns
+    `sqrt(sqrt(5)/200 + 1/(25*(1 + sqrt(5))) + 3/200)`.
+  - `1/(x**3+x+1)`: the EX `C = alpha*v**2 + beta`. Already the EX
+    `clear_denoms` of `preprocess_roots` gives a different polynomial:
+    symox writes the radical `(81*sqrt(93)/15376 + 27/496)**(1/3)` with
+    `1922**(1/3)`, SymPy with `124**(1/3)`. The cause is the EX element
+    normal form (`cancel`/`as_numer_denom` of a rational power of a sum),
+    not `log_to_real`.
+  So the gap belongs to the native EX `roots` pipeline and to the EX
+  normal form of nested radicals, not to the `log_to_real` kernel. Porting
+  the Cardano pairs into `log_to_real` would not give SymPy's output unless
+  those were fixed first. Remaining gap.
+- Item 3, `real=False`. Public `ratint` with `real=False` (or with a
+  non-real symbol) is already 8-10x faster than SymPy 1.14 (for example
+  `x/(x**3-a*x+1)` 38.6 ms against 375 ms, `1/(x**4+x+a)` 39.6 ms against
+  408 ms). Building the RootSum arguments (`h.primitive()`,
+  `Lambda(t, t*log(h.as_expr()))`) and the RootSum constructor together
+  take about 4% of the profile; the native `ratint_logpart` takes 88%.
+  Building the arguments in Rust would not change anything measurable, so
+  it was not done. The results equal SymPy except the printed order of
+  `log(x + 1)/5 + RootSum(...)` for `1/(x**5+1)`, which comes from the Add
+  printer, not from ratint.
+- Item 2, EX `log_to_atan`. On `1/(x**4+2)`, `1/(x**2+p)` and
+  `1/(x**3+sqrt(2))` it takes 0.2-0.8 ms of a 4.8-7.4 ms `ratint`. The
+  Python `log_to_real` steps around it (`collect`, `xreplace`, `roots`)
+  take 3.4-7.2 ms. Not ported.
+
 Corrections (SymPy 1.14 values that symox did not compute before):
 - `ratint_ratpart` over QQ<sqrt(2)>, for example `1/(x**2+sqrt(2))**2`, now
   returns the SymPy 1.14 value. The reference body raised TypeError because
