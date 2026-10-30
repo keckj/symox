@@ -2,7 +2,8 @@
 
 The kernels in ``symox._core._prde_kernel`` reproduce the stock bodies of
 ``symox.integrals.prde`` for ``DE.case == 'base'`` (``D = [Poly(1, x)]``)
-with plain ZZ/QQ polynomials. They are used only while every Python
+with plain ZZ/QQ polynomials, and ``constant_system`` for rational QQ
+matrices in any DE state. They are used only while every Python
 function those bodies reach (prde, rde, risch, PolyMatrix), every global
 or builtin name they read, and the Poly, PolyMatrix and
 DifferentialExtension class dictionaries are the ones captured at import.
@@ -243,17 +244,42 @@ def poly_linear_constraints(p, d):
 
 
 def constant_system(A, u, DE):
+    """Rational QQ systems in any DE state (base, exp, primitive, or a tower
+    still being built): the derivation loop of the stock body only runs for
+    entries that involve ``DE.T``, which rational entries never do. The kernel
+    also requires the matrix generator and every ``DE.T`` element to be plain
+    stock symbols, so ``rref``'s ground check and ``has(*DE.T)`` cannot raise.
+    """
     root = _ROOT
     if root is None or _TYPE(A) is not root[6] or _TYPE(u) is not root[6]:
         return None
     if not (A._rows * A._cols) or A.domain is not root[8] or u.domain is not root[8]:
         return None
     gens = A.gens
-    fields = _fields(DE)
-    if fields is None or gens != (fields[0],):
+    if _TYPE(gens) is not tuple or _LEN(gens) != 1 or _TYPE(DE) is not root[1]:
         return None
-    r = _call('constant_system', (A._rows, A._cols, _LIST(A._items), u._rows, u._cols, _LIST(u._items)), fields)
+    try:
+        T = root[2][3][1].__get__(DE, root[1])
+    except AttributeError:
+        return None
+    if _TYPE(T) is not _LIST or _verified() is None:
+        return None
+    r = _call('constant_system', (A._rows, A._cols, _LIST(A._items), u._rows, u._cols, _LIST(u._items)),
+              (gens[0], None, T, None, None))
     if r is None:
         return None
     a, v = r
     return _matrix(a, gens), _matrix(v, gens)
+
+
+def limited_integrate_reduce(fa, fd, G, DE):
+    if _TYPE(G) is not _LIST:
+        return None
+    fields = _fields(DE)
+    if fields is None:
+        return None
+    r = _call('limited_integrate_reduce', (fa, fd, G), fields)
+    if r is None:
+        return None
+    a, b, N, g, V = r
+    return (a, b, a, N, g, V)

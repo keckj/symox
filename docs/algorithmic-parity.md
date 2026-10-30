@@ -13243,3 +13243,58 @@ domain gap of `Poly.cancel`, visible in some `param_rischDE` and
 No intentional corrections. SymPy test_prde.py (3 failed, 12 passed) and
 test_risch.py (8 failed, 28 passed) have the same failures before and
 after. Measured: [audit](../audits/performance/2026-10-29-prderust/README.md).
+
+## prderust2 (wave 28)
+
+Now native (Rust in `crates/symox-core/src/integrate/prde_limited.rs` and
+`prde.rs`, binding `crates/symox-py/src/prde.rs`, admission
+`python/symox/integrals/_prde_native.py`):
+
+- `limited_integrate_reduce` in the base case (`D = [Poly(1, x)]`, plain
+  ZZ/QQ `Poly` arguments in `x`, nonempty exact list `G`, nonzero
+  denominators). It returns the same `(a, b, a, N, g, V)` as the stock
+  body, with the same object for both `a`, the coefficient-inferred
+  domains of `cancel(include=True)` and the `oo` handling of
+  `order_at_oo`.
+- `constant_system` for QQ PolyMatrix systems with rational entries in any
+  DE state: base, exp, primitive, and towers still under construction
+  (`DE.case` unset). The derivation step of the stock body only runs for
+  an entry that involves `DE.T`, which a rational entry never does.
+  Admission requires the matrix generator and every `DE.T` element to be
+  plain stock symbols (so the `rref` ground check and `has(*DE.T)` cannot
+  raise), a nonempty `A`, and the same captured protocol as wave 27.
+  Outputs keep `A.gens` and QQ.
+
+Python fix (wrapper level, no new arithmetic): `parallel_poly_from_expr`
+with `field=True` now builds one domain from the union of the
+coefficients when the separately inferred domains differ, as SymPy does
+(`[0, x]` and `[1/2, x]` in `t` are both over `ZZ(x)`). This removes the
+`CoercionFailed` of `risch_integrate(log(log(x)), x)` (now
+`x*log(log(x)) + NonElementaryIntegral(-1/log(x), x)`, as SymPy) and fixes
+SymPy test_risch.py `test_DifferentialExtension_symlog`,
+`test_risch_integrate` and `test_issue_23948`.
+
+Still Python, with reasons:
+
+- non-base cases (exp, primitive, tan) of the wave-27 kernels: there
+  `derivation` goes through expressions (`as_poly(t)` domain inference over
+  `ZZ[x]`, `ZZ(x)`, ...), so a port needs multivariate rational-function
+  coefficients with the same domain inference;
+- `constant_system` when `u` (or `A`) has rational-function entries, which
+  is the common case in `is_deriv_k` and `is_log_deriv_k_t_radical`
+  (`ZZ(x)` right-hand sides);
+- `limited_integrate` (its expression assembly through
+  `as_numer_denom`), `limited_integrate_reduce` outside the base case;
+- `is_deriv_k`, `is_log_deriv_k_t_radical(_in_field)` (sqf_list, cancel and
+  expression arithmetic), `parametric_log_deriv(_heu)` (`solve`),
+  `prde_cancel_liouvillian` (recursive `rischDE` over `ZZ(x)`).
+- The wave-27 import capture (now about 1.4 ms of `import symox`) stays
+  eager: a lazy capture could not prove the consumed modules unchanged
+  between `import symox` and the first call.
+
+Gaps seen (not changed): symox `srepr` prints a `NonElementaryIntegral`
+inside an `Add` as `Integral`.
+
+No intentional corrections. SymPy test_prde.py: 3 failed, 12 passed before
+and after. test_risch.py: 8 failed, 28 passed before, 5 failed, 31 passed
+after. Measured: [audit](../audits/performance/2026-10-29-prderust2/README.md).

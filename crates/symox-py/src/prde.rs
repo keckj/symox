@@ -187,6 +187,10 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
     variables: &Bound<'_, PyAny>, derivations: &Bound<'_, PyAny>, level: &Bound<'_, PyAny>,
     py: Python<'_>) -> PyResult<Option<PyObject>> {
     py.check_signals()?;
+    if kind == "constant_system" {
+        // Any DE case: rational entries never involve `DE.T` (see admission).
+        return constant_system_any(py, args, t, variables);
+    }
     let Some(cx) = context(t, d, variables, derivations, level)? else { return Ok(None) };
     let arg = |i: usize| args.get_item(i);
     let result: Option<PyObject> = match (kind, args.len()) {
@@ -251,17 +255,43 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
                 Some((q, m)) => Some((PyTuple::new(py, cx.outs(py, &q)?)?, mat_out(py, &m)?).into_pyobject(py)?.into_any().unbind()),
             }
         }
-        ("constant_system", 6) => {
-            let (Some(a), Some(u)) = (mat_in(&arg(0)?, &arg(1)?, &arg(2)?)?, mat_in(&arg(3)?, &arg(4)?, &arg(5)?)?) else { return Ok(None) };
-            match k::constant_system(&a, &u) {
+        ("limited_integrate_reduce", 3) => {
+            let (Some(fa), Some(fd), Some(g)) = (cx.poly(&arg(0)?)?, cx.poly(&arg(1)?)?, cx.pairs(&arg(2)?)?) else { return Ok(None) };
+            match symox::integrate::prde_limited::limited_integrate_reduce(&fa, &fd, &g) {
                 None => None,
-                Some((a, u)) => Some((mat_out(py, &a)?, mat_out(py, &u)?).into_pyobject(py)?.into_any().unbind()),
+                Some(r) => Some((cx.out(py, &r.a)?, cx.out(py, &r.b)?, r.n, (cx.out(py, &r.g.0)?, cx.out(py, &r.g.1)?), cx.pair_list(py, &r.v)?).into_pyobject(py)?.into_any().unbind()),
             }
         }
         _ => None,
     };
     py.check_signals()?;
     Ok(result)
+}
+
+/// `constant_system(A, u, DE)` for QQ matrices with rational entries in any
+/// DE state: `t` is the matrix generator and `variables` is `DE.T`; both must
+/// be plain stock symbols so `rref`'s ground check and `has(*DE.T)` behave
+/// as proved (ground entries, no derivation step).
+fn constant_system_any(py: Python<'_>, args: &Bound<'_, PyTuple>, gen: &Bound<'_, PyAny>,
+    tower: &Bound<'_, PyAny>) -> PyResult<Option<PyObject>> {
+    if args.len() != 6 || symbol(gen)?.is_none() {
+        return Ok(None);
+    }
+    let Ok(tower) = tower.downcast_exact::<PyList>() else { return Ok(None) };
+    for v in tower.iter() {
+        if symbol(&v)?.is_none() {
+            return Ok(None);
+        }
+    }
+    let arg = |i: usize| args.get_item(i);
+    let (Some(a), Some(u)) = (mat_in(&arg(0)?, &arg(1)?, &arg(2)?)?, mat_in(&arg(3)?, &arg(4)?, &arg(5)?)?) else { return Ok(None) };
+    if a.rows * a.cols == 0 {
+        return Ok(None);
+    }
+    let Some((a, u)) = k::constant_system(&a, &u) else { return Ok(None) };
+    let out = (mat_out(py, &a)?, mat_out(py, &u)?).into_pyobject(py)?.into_any().unbind();
+    py.check_signals()?;
+    Ok(Some(out))
 }
 
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {

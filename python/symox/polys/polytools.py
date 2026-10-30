@@ -239,6 +239,24 @@ def _separate_domains_joint(polys, exprs, gens):
         return None
 
 
+def _domains_differ(polys):
+    try:
+        return len({str(p.domain) for p in polys}) > 1
+    except NotImplementedError:
+        return False
+
+
+def _field_joint(polys, exprs, gens, kwargs):
+    from .constructor import construct_domain
+    rest = {k: v for k, v in kwargs.items() if k != 'field'}
+    try:
+        coefficients = [c for e in exprs for c in Poly(e, *gens, domain='EX', **rest).coeffs()]
+        domain, _ = construct_domain(coefficients, field=True)
+        return [Poly(e, *gens, domain=domain, **rest) for e in exprs]
+    except Exception:  # any failure keeps the separately inferred domains
+        return polys
+
+
 def parallel_poly_from_expr(exprs, *gens, **args):
     """Construct polynomials over common generators and a common domain."""
     from .. import sympify
@@ -270,6 +288,12 @@ def parallel_poly_from_expr(exprs, *gens, **args):
             raise PolificationFailed(opt, origs, converted, True)
         all_gens = _ordered_gens(found)
     polys = [Poly(e, *all_gens, **kwargs) for e in converted]
+    if len(polys) > 1 and kwargs.get('extension') is not True and kwargs.get('field') is True \
+            and _domains_differ(polys):
+        # With ``field=True`` the reference also builds one domain from the
+        # union of the coefficients: ``[0, x]`` in ``t`` is over ``ZZ(x)``,
+        # ``[1/2, x]`` too, where separate domains give ``QQ`` and ``QQ(x)``.
+        polys = _field_joint(polys, converted, all_gens, kwargs)
     if kwargs.get('extension') is True and len(polys) > 1:
         # The reference infers one domain from the union of all
         # coefficients; separately inferred domains may not unify to it
