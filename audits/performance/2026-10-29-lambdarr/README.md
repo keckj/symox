@@ -21,9 +21,27 @@ Notes:
   `poly2_float`) did not change in code: an interleaved isolated
   microbenchmark gave before/after equal within noise (poly2 2.05-2.25e-7 s vs
   2.23-2.32e-7 s, gamma 6.05-6.37e-7 s vs 6.10-6.58e-7 s).
-- gamma float64 stays about 200x slower than SciPy per element: the
-  double-double `gamma_real` kernel (~1.9 us/element) is kept to preserve the
-  established values bit for bit. It is a recorded gap, not a regression.
+- gamma float64 (second pass): where SymPy 1.14's generated function binds
+  gamma to `scipy.special.gamma` (modules None / 'scipy' / ['scipy','numpy']
+  with SciPy installed), array and scalar calls now use
+  `symox::cephes_gamma`, a Rust port of xsf/cephes `Gamma` (same tables,
+  branches and libm calls). It equals `scipy.special.gamma` bit for bit on
+  more than 10^6 values (tests/test_native_lambdarr.py). 'numpy' and 'math'
+  (SymPy: `math.gamma`) keep `gamma_real`. gamma_f64 1000/100000 are now
+  0.85x SymPy; gamma_float 0.49x.
+- Remaining gap, gamma_f64_10 (1.15-1.5x): the kernel is not the cost. An
+  isolated probe gives symox gamma(a10) 5.9e-7 s, symox sin(a10) 5.9e-7 s,
+  `scipy.special.gamma(a10)` 4.0e-7 s, a Python wrapper around it 4.4e-7 s.
+  It is the fixed per-call cost of the vector path (tp_call argument tuple,
+  array extraction, output allocation), shared by every 10-element case.
+- Remaining gap, poly2_float (about 1.15x, 2.9e-7 vs 2.5e-7 s): the scalar
+  prologue is two exact-type checks; the pyclass is already frozen. On
+  Python 3.10, PyO3 `__call__` is reached through `tp_call`, which builds an
+  argument tuple, whereas SymPy's generated Python function is called by
+  vectorcall. Closing it needs a vectorcall slot on the pyclass (unsafe type
+  slot manipulation outside PyO3's API), not done here.
+- `after.json` gamma and poly2 rows were remeasured after the second pass,
+  with `cargo test` running on one core of the same machine.
 - complex128 calls go through the established NumPy object evaluator (the
   computation stays NumPy). Overhead on 10-element arrays is 1.1-1.2x SymPy.
 - complex gamma used to raise AttributeError (no `numpy.gamma`); it now calls

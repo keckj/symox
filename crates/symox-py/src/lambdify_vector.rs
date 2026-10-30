@@ -33,6 +33,8 @@ pub(crate) struct VectorCache {
     // the NumPy object evaluation lacks a function: complex arrays go to
     // SymPy's generated function
     complex_reference: std::sync::atomic::AtomicBool,
+    // the program of array calls with `scipy.special.gamma` for gamma
+    scipy_gamma: GILOnceCell<Option<symox::lambdify::Compiled>>,
 }
 
 /// Arrays at least this long are evaluated without the GIL.
@@ -265,9 +267,10 @@ pub(crate) fn call(py: Python<'_>, f: &PyCompiled, args: &Bound<'_, PyTuple>) ->
     {
         let mut dsts: Vec<&mut [f64]> = outs.iter().map(|o| unsafe { o.as_slice_mut() }.expect("new C-contiguous array")).collect();
         if n >= RELEASE {
-            py.allow_threads(|| f.c.call_many(&inputs, &mut dsts));
+            let program = f.array_program(py);
+            py.allow_threads(|| program.call_many(&inputs, &mut dsts));
         } else {
-            f.c.call_many(&inputs, &mut dsts);
+            f.array_program(py).call_many(&inputs, &mut dsts);
         }
     }
     if f.scalar_out {
@@ -278,6 +281,25 @@ pub(crate) fn call(py: Python<'_>, f: &PyCompiled, args: &Bound<'_, PyTuple>) ->
 }
 
 impl PyCompiled {
+    /// The compiled program of float64 array calls: where SymPy's generated
+    /// function binds gamma to `scipy.special.gamma` (the 'scipy' printer,
+    /// the default modules with SciPy installed), gamma is SciPy's cephes
+    /// gamma (`symox::cephes_gamma`), bit for bit; elsewhere `gamma_real`.
+    pub(crate) fn array_program(&self, py: Python<'_>) -> &symox::lambdify::Compiled {
+        self.vector.scipy_gamma.get_or_init(py, || {
+            let (_, _, flavor) = self.reference.get(py)?;
+            if *flavor != 2 {
+                return None;
+            }
+            let program = self.c.with_scipy_gamma()?;
+            let (_, _, resolve) = self.printed.get(py)?;
+            let bound = resolve.bind(py).call1((vec!["gamma"],)).ok()?;
+            let gamma = bound.get_item(0).ok()?;
+            let scipy = py.import("sys").ok()?.getattr("modules").ok()?.get_item("scipy.special").ok()?;
+            gamma.is(&scipy.getattr("gamma").ok()?).then_some(program)
+        }).as_ref().unwrap_or(&self.c)
+    }
+
     /// The NumPy evaluation of the expressions on Python objects (complex
     /// and object arrays, NumPy subclasses, external scalars).
     pub(crate) fn object_evaluator<'py>(&'py self, py: Python<'py>) -> PyResult<&'py Py<PyAny>> {

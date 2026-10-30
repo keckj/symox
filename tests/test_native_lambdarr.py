@@ -157,3 +157,59 @@ def test_complex_gamma_uses_the_generated_function():
     f = lambdify(x, gamma(x))
     for _ in range(2):
         assert f(np.array([0.5 + 0.25j])).tolist() == [(1.3851135919886668-0.6731815357596996j)]
+
+
+def gamma_samples():
+    # random over [-180, 180] and [-40, 40], integers, half-integers, the
+    # neighbours of the poles and of the branch points, tiny and huge values
+    rng = np.random.default_rng(20261030)
+    parts = [rng.uniform(-180, 180, 700000), rng.uniform(-40, 40, 200000),
+             rng.uniform(-1e-8, 1e-8, 20000), rng.uniform(-1e6, 1e6, 20000),
+             np.exp(rng.uniform(-745, 5.2, 50000)) * rng.choice([-1, 1], 50000),
+             -(rng.uniform(2**31, 2**52, 10000).round() + 0.5),
+             np.arange(-200, 201.0), np.arange(-200, 201) + 0.5]
+    for points in (np.arange(-200, 1.0), np.array([33.0, -33.0, 3.0, 2.0, 1e-9, -1e-9, 143.01608,
+                                                   171.624376956302725, -171.624376956302725])):
+        up = down = points
+        for _ in range(60):
+            up, down = np.nextafter(up, np.inf), np.nextafter(down, -np.inf)
+            parts += [up, down]
+    parts.append(np.array([0.0, -0.0, np.inf, -np.inf, np.nan, -np.nan, 5e-324, -5e-324, 1e-310, -1e-310,
+                           1e300, -1e300, 2.0**31 + 0.5, -(2.0**31 + 0.5), -(2.0**52), 1.7976931348623157e308]))
+    return np.concatenate(parts)
+
+
+@pytest.mark.parametrize('modules', [None, 'scipy', ['scipy', 'numpy']])
+def test_gamma_arrays_are_scipy_gamma_bitwise(modules):
+    special = pytest.importorskip('scipy.special')
+    s = gamma_samples()
+    assert s.size >= 10**6
+    f = lambdify(x, gamma(x), modules)
+    expected = special.gamma(s).view(np.uint64)
+    assert np.array_equal(f(s).view(np.uint64), expected)
+    # the copying path (non-contiguous) and other shapes agree
+    assert np.array_equal(f(strided(s[:5000])).view(np.uint64), expected[:5000])
+    assert np.array_equal(f(s[:5000].reshape(50, 100)).view(np.uint64).reshape(-1), expected[:5000])
+    g = lambdify((x, y), gamma(x) + y, modules)
+    assert np.array_equal(g(s[:5000], 0.0), special.gamma(s[:5000]) + 0.0)
+
+
+def test_gamma_scalars_follow_the_generated_function():
+    special = pytest.importorskip('scipy.special')
+    f = lambdify(x, gamma(x))
+    for v in np.concatenate([gamma_samples()[::997], [0.0, -0.0, -3.0, 200.0, np.nan]]).tolist():
+        r = f(v)
+        assert type(r) is np.float64
+        assert np.float64(r).view(np.uint64) == special.gamma(v).view(np.uint64)
+
+
+def test_gamma_without_scipy_printer_keeps_the_float_gamma():
+    import math
+    f = lambdify(x, gamma(x), 'math')
+    assert f(4.5) == math.gamma(4.5)
+    # SymPy's 'numpy' function calls math.gamma (TypeError on arrays): the
+    # arrays keep the float gamma of the compiled program
+    g = lambdify(x, gamma(x), 'numpy')
+    a = np.array([0.5, 4.5, -2.5])
+    assert bits(g(a)) == bits(g(strided(a)))
+    assert np.allclose(g(a), [float(gamma(v).evalf()) for v in (S.Half, Rational(9, 2), Rational(-5, 2))], rtol=1e-15)

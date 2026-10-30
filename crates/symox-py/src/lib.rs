@@ -4203,7 +4203,7 @@ impl PyCompiled {
                 }
                 // a module function is identified by identity
                 let name: Option<String> = obj.getattr("__name__").ok().and_then(|n| n.extract().ok());
-                let key = name.and_then(|name| ["math", "numpy", "builtins"].iter().find_map(|m| {
+                let key = name.and_then(|name| ["math", "numpy", "builtins", "scipy.special"].iter().find_map(|m| {
                     let module = modules.get_item(*m).ok()?;
                     module.getattr(name.as_str()).ok()?.is(obj).then(|| format!("{m}.{name}"))
                 }));
@@ -4469,7 +4469,8 @@ impl PyCompiled {
         {
             let arg_slices: Vec<&[f64]> = arrays.iter().map(|v| v.as_slice()).collect();
             let mut out_slices: Vec<&mut [f64]> = outs.iter_mut().map(|v| v.as_mut_slice()).collect();
-            py.allow_threads(|| self.c.call_many(&arg_slices, &mut out_slices));
+            let program = self.array_program(py);
+            py.allow_threads(|| program.call_many(&arg_slices, &mut out_slices));
         }
         let Some(shape) = shape else {
             return if self.scalar_out {

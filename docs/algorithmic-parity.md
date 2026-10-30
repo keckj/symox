@@ -13365,6 +13365,28 @@ shapes, size mismatches (the compiled program's ValueError), ints beyond
 the float range (OverflowError), texts the plan declines (other functions,
 comparisons, large integers).
 
+SciPy's float64 gamma (second pass, Rust, `crates/symox-core/src/cephes_gamma.rs`
+and `crates/symox-core/src/lambdify/scipy_gamma.rs`): `cephes_gamma::gamma`
+is a port of xsf/cephes `Gamma` (SciPy 1.15): the same P/Q tables on
+[2,3], Stirling's formula above 33 with the same `pow` split above
+143.01608, the reflection for x < -33 with C's `int` conversion of the
+floor (INT_MIN beyond 2^31, hence sign -1), the small-argument branch
+`z/((1+0.5772156649015329 x) x)`, nan at the negative integers, -inf and
+nan, `copysign(inf, x)` at zero, inf on overflow, and the C library's
+`exp`, `pow` and `sin`. tests/test_native_lambdarr.py checks it bit for bit
+against `scipy.special.gamma` on more than 10^6 values (uniform on
+[-180, 180] and [-40, 40], integers, half-integers, 60 neighbours of every
+pole and branch point, subnormals, +-0, +-inf, nan, huge negative
+half-integers). It is used only where SymPy 1.14's generated function
+binds `gamma` to `scipy.special.gamma` (modules None, 'scipy',
+['scipy', 'numpy'] with SciPy installed; checked once per function by
+resolving the printed name): float64 array calls (the compiled program
+with `gamma_real` replaced) and scalar calls (the printed source's native
+evaluation now recognises `scipy.special.gamma`; poles and overflow still
+go to the generated function, which returns `numpy.float64` as SymPy
+does). 'numpy' and 'math' (where SymPy calls `math.gamma`) and the calls
+without a printed reference keep `gamma_real`.
+
 Intentional correction: complex arrays of a kernel whose NumPy object text
 names a function NumPy lacks (`numpy.gamma` for `gamma(x)` with the
 default modules) raised AttributeError; they now go to SymPy's generated
@@ -13373,12 +13395,16 @@ function (SciPy's `gamma`), as SymPy does.
 Remaining gaps (measured in
 [audits/performance/2026-10-29-lambdarr](../audits/performance/2026-10-29-lambdarr/README.md)):
 
-- `gamma(x)` on float64 arrays: the compiled program uses the
-  double-double `gamma_real` (about 1.9 us per element) where SymPy calls
-  SciPy's `gamma` (about 8 ns); keeping its values bit for bit rules out a
-  cheaper algorithm, so it stays about 200 times slower on large arrays.
+- `gamma(x)` on float64 arrays with the SciPy binding is now 0.85 times
+  SymPy's time on 1000 and 100000 elements, but 10-element arrays stay
+  1.15-1.5 times slower: the fixed per-call cost of the vector path
+  (`sin` on 10 elements costs the same), not the kernel. With 'numpy'
+  (SymPy raises TypeError on arrays there) it keeps `gamma_real`.
 - Small arrays of 10 complex elements stay about 1.1-1.2 times slower
   (the PyO3 call and the dispatch before the NumPy evaluation).
-- Scalar calls (`gamma(0.5)` with default modules, the `[x, y]`
-  polynomial) stay 1.15-1.27 times slower: the PyO3 `__call__` with an
-  argument tuple costs more than the generated Python function.
+- Scalar `gamma(0.5)` with default modules is now about 0.5 times SymPy's
+  time. The `[x, y]` polynomial scalar call stays about 1.15 times slower:
+  the prologue is two exact-type checks and the pyclass is frozen, but on
+  Python 3.10 PyO3's `__call__` goes through `tp_call` with an argument
+  tuple, whereas SymPy's generated Python function is called by
+  vectorcall; closing it needs a vectorcall slot outside PyO3's API.

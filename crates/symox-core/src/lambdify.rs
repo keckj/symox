@@ -484,6 +484,8 @@ fn select(it: impl Iterator<Item = (f64, f64)>) -> f64 {
     f64::NAN
 }
 
+mod scipy_gamma;
+
 #[cfg(test)]
 mod tests {
     use super::*;

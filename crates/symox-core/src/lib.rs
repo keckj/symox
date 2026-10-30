@@ -33,6 +33,7 @@ pub mod integrate;
 pub mod inspection;
 pub mod lambdify;
 pub mod lambdify_vec;
+pub mod cephes_gamma;
 pub mod linear;
 pub mod matrix;
 pub mod matrixcontraction;

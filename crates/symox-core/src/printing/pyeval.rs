@@ -132,6 +132,8 @@ pub(crate) enum Fun {
     Floor,
     Ceil,
     Sign,
+    // `scipy.special.gamma` (cephes)
+    ScipyGamma,
     Compare(Cmp),
     LogicalAnd,
     LogicalOr,
@@ -193,6 +195,7 @@ impl Fun {
                 _ => None,
             }),
             "builtins" if name == "abs" => Some(Abs),
+            "scipy" if name == "special.gamma" => Some(ScipyGamma),
             _ => None,
         }
     }
@@ -798,6 +801,7 @@ impl Program {
                     Fun::Floor => x.floor(),
                     Fun::Ceil => x.ceil(),
                     Fun::Sign => if x > 0.0 { 1.0 } else if x < 0.0 { -1.0 } else { 0.0 },
+                    Fun::ScipyGamma => crate::cephes_gamma::gamma(x),
                     _ => f64::NAN,
                 }
             })?,
