@@ -301,11 +301,14 @@ def unrad(eq, *syms, **flags):
             not (n is None or isinstance(n, int)) or not isinstance(rpt, int) or \
             isinstance(n, bool) or isinstance(rpt, bool) or (n is not None and n < 0) or rpt < 0:
         raise NotImplementedError('unrad flags cov=%r, n=%r, rpt=%r are not supported' % (cov, n, rpt))
-    result, state = _unrad_flags(eq, syms, [sympify(c) for c in cov], n, rpt, reverse, take)
+    ok, result, state = _unrad_flags(eq, syms, [sympify(c) for c in cov], n, rpt, reverse, take)
     if list(state) != list(cov):
         if not isinstance(cov, list):
             raise TypeError("'%s' object does not support item assignment" % type(cov).__name__)
         cov[:] = state
+    if not ok:
+        # the reference updates ``cov`` before the recursion that raises
+        raise result
     return result
 
 

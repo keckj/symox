@@ -28,7 +28,7 @@ def _illegal(value):
     return value.has(S.NaN,S.ComplexInfinity,oo,-oo)
 
 
-def checksol(f, symbol, sol=None, **flags):
+def _checksol_stock(f, symbol, sol=None, **flags):
     """Check equations by substitution, returning True, False or None.
 
     With numerical=True, scalar numerical residuals use an absolute 1e-9
@@ -89,6 +89,130 @@ def checksol(f, symbol, sol=None, **flags):
     if flags.get('warn',False):
         warnings.warn('Could not verify solution %s' % substitutions,RuntimeWarning,stacklevel=2)
     return None
+
+
+_CHECKSOL_FLAGS=('numerical','minimal','warn','simplify','force')
+
+
+def _checksol_item(value):
+    """The native form of one equation, or None when it is not admitted
+    (nested iterables, non-sympifiable or non-native objects)."""
+    from .core.sympify import _sympify
+    from .utilities.iterables import iterable
+    from . import Poly
+    if iterable(value):
+        return None
+    try:
+        value=_sympify(value)
+    except Exception:
+        return None
+    if isinstance(value,Poly):
+        value=value.as_expr()
+    return value if isinstance(value,_core.Expr) else None
+
+
+def checksol(f, symbol, sol=None, **flags):
+    """
+    Checks whether sol is a solution of equation f == 0.
+
+    Input can be either a single symbol and corresponding value
+    or a dictionary of symbols and values. When given as a dictionary
+    and flag ``simplify=True``, the values in the dictionary will be
+    simplified. *f* can be a single equation or an iterable of equations.
+    A solution must satisfy all equations in *f* to be considered valid;
+    if a solution does not satisfy any equation, False is returned; if one or
+    more checks are inconclusive (and none are False) then None is returned.
+
+    flags: ``numerical=True``, ``minimal=False``, ``warn=False``,
+    ``simplify=True``, ``force=True`` (SymPy 1.14's reading; other flags
+    are ignored).
+
+    The computation is the native port of SymPy 1.14's ``checksol``
+    (``symox::solve::checksol::checksol_system``); arguments it does not
+    admit go to the previous implementation.
+    """
+    from .core.logic import fuzzy_and
+    from .utilities.iterables import iterable
+    if sol is not None:
+        sol={symbol: sol}
+    elif isinstance(symbol,dict):
+        sol=symbol
+    else:
+        msg='Expecting (sym, val) or ({sym: val}, None) but got (%s, %s)'
+        raise ValueError(msg % (symbol, sol))
+    if iterable(f):
+        if not f:
+            raise ValueError('no functions to check')
+        f=list(f)
+        items=[_checksol_item(fi) for fi in f]
+        if any(item is None for item in items):
+            return fuzzy_and(checksol(fi,sol,**flags) for fi in f)
+        result=_checksol_native_call(items,sol,flags)
+        if result is _DECLINE:
+            return fuzzy_and(checksol(fi,sol,**flags) for fi in f)
+        return result
+    from .core.sympify import _sympify
+    from . import Poly, Dict
+    item=_sympify(f)
+    if isinstance(item,Poly):
+        item=item.as_expr()
+    if isinstance(item,Dict):
+        return _checksol_dict(item,sol)
+    if isinstance(item,_core.Expr):
+        result=_checksol_native_call([item],sol,flags)
+        if result is not _DECLINE:
+            return result
+    known={name:bool(flags[name]) for name in _CHECKSOL_FLAGS if name in flags}
+    return _checksol_stock(f,sol,**known)
+
+
+_DECLINE=object()
+
+
+def _checksol_dict(f, sol):
+    """SymPy 1.14's path for a ``Dict`` equation: it is not an expression,
+    so after the empty and illegal-value checks the reference fails on the
+    missing ``is_constant`` method."""
+    from . import S, sympify
+    if not f:
+        return True
+    illegal={S.NaN,S.Infinity,S.NegativeInfinity,S.ComplexInfinity}
+    if any(sympify(v).atoms()&illegal for v in sol.values()):
+        return False
+    if f.subs(sol).atoms()&illegal:
+        return False
+    raise AttributeError("'Dict' object has no attribute 'is_constant'")
+
+
+def _checksol_native_call(items, sol, flags):
+    from . import sympify
+    keys=list(sol)
+    try:
+        native_keys=[sympify(key) for key in keys]
+        native_values=[sympify(sol[key]) for key in keys]
+    except Exception:
+        return _DECLINE
+    if not all(isinstance(v,_core.Expr) for v in native_keys+native_values):
+        return _DECLINE
+    from . import simplify
+    # the reference calls the public simplify (its candidate search and
+    # post steps): it is handed to the native check
+    code,value,warned,values=_core._checksol_public(items,native_keys,native_values,
+        bool(flags.get('numerical',True)),bool(flags.get('force',True)),
+        bool(flags.get('simplify',True)),bool(flags.get('minimal',False)),simplify)
+    if code=='decline':
+        return _DECLINE
+    original=[sol[key] for key in keys]
+    if values is not None:
+        for key,new in zip(keys,values):
+            sol[key]=new
+    if flags.get('warn',False):
+        for snapshot in warned:
+            shown=dict(zip(keys,original if snapshot is None else snapshot))
+            warnings.warn("\n\tWarning: could not verify solution %s." % shown)
+    if code=='attribute':
+        raise AttributeError("'%s' object has no attribute 'is_constant'" % type(value).__name__)
+    return {'true':True,'false':False,'none':None}[code]
 
 
 def solve_linear(lhs, rhs=0, symbols=(), exclude=()):
