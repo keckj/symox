@@ -74,3 +74,9 @@ which halved these calls and also speeds up the rank-four matrix
 derivatives (same harness as above, after: case 0 0.0488 ms, case 6
 0.0476 ms, case 9 0.0846 ms). The controls are unchanged:
 `(x.T*x).diff(x)` 0.0215 ms, `Trace(A*X*B).diff(X)` 0.0281 ms.
+
+Final validation on cbe35bbf: rshards suite 57819 passed, 0 failed
+(57752 before); `cargo test -p symox --release --lib` 797 passed, clippy
+correctness clean; integration corpus {"COND": 20, "DIFF": 10,
+"EQUIV": 8, "MISSING": 1, "SAME": 1171} and ODE corpus {'cls': 303,
+'hint': 279, 'def': 274, 'n': 315}, both equal to the baselines.
