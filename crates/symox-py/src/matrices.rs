@@ -226,6 +226,10 @@ pub(crate) fn wrapm(m: Matrix) -> PyMatrix {
     PyMatrix { m, immutable: false }
 }
 
+pub(crate) fn wrapm_immutable(m: Matrix) -> PyMatrix {
+    PyMatrix { m, immutable: true }
+}
+
 pub(crate) fn matrix_value_hash(rows: usize, cols: usize, mut entries: Vec<((usize, usize), Expr)>) -> isize {
     use std::hash::{Hash, Hasher};
     entries.sort_unstable_by_key(|(index, _)| *index);

@@ -49,6 +49,7 @@ mod simp;
 mod simptools;
 mod simplex;
 mod stats;
+mod markov;
 mod ode;
 mod solve;
 mod tsolve;
@@ -4677,6 +4678,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     simptools::register(m)?;
     simplex::register(m)?;
     stats::register(m)?;
+    markov::register(m)?;
     m.add_function(wrap_pyfunction!(integration_methods::_heurisch_cartesian_numeric_coefficients, m)?)?;
     integration_methods::register_rational_reduction(m)?;
     rational_protocols::register(m)?;
