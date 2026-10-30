@@ -208,3 +208,101 @@ class LazyTrialset:
     def __set__(self, obj, value):
         obj.__dict__[self.name] = value
 
+
+def _second_args(eq, func):
+    x = _linear_args(eq, func)
+    if x is None or not isinstance(x, _core.Expr):
+        return None
+    return x
+
+
+def match_2nd_hypergeometric(eq, func):
+    """``match_2nd_hypergeometric(eq, func)`` decided natively: ``[A, B]``,
+    ``[]``, or ``_MISSING`` (not decided)."""
+    from symox.polys.polytools import cancel
+    native = getattr(_core, 'ode_match_2nd_hypergeometric', None)
+    x = _second_args(eq, func)
+    if native is None or x is None:
+        return _MISSING
+    try:
+        value = native(eq, func, x, cancel)
+    except Exception:
+        return _MISSING
+    if value is None:
+        return _MISSING
+    if value is False:
+        return []
+    return list(value)
+
+
+def airy_match(solver, eq):
+    """The ``2nd_linear_airy`` matcher decided natively: ``(True, rn)``,
+    ``(False, None)``, or ``None`` when the reference matcher must run."""
+    from symox.polys.polytools import cancel
+    native = getattr(_core, 'ode_airy_match', None)
+    problem = solver.ode_problem
+    order = problem.order
+    x = _second_args(eq, problem.func)
+    if native is None or x is None or x != problem.sym or not isinstance(order, int) or order < 0:
+        return None
+    try:
+        value = native(eq, problem.func, x, order, cancel)
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if value is False:
+        return False, None
+    return True, {'b': value[0], 'm': value[1]}
+
+
+def bessel_rejected(solver, eq):
+    """``True`` when the ``2nd_linear_bessel`` matcher provably returns
+    ``False``; otherwise the reference matcher must run."""
+    native = getattr(_core, 'ode_bessel_rejected', None)
+    problem = solver.ode_problem
+    x = _second_args(eq, problem.func)
+    if native is None or x is None or x != problem.sym:
+        return False
+    try:
+        return native(eq, problem.func, x) is False
+    except Exception:
+        return False
+
+
+def power_series2(reduced_eq, f, x, point, wilds, terms):
+    """The order-two power series hints of ``classify_ode`` decided
+    natively: a dict of the matching hints (possibly empty), or ``_MISSING``."""
+    from symox.core.sympify import sympify
+    from symox.polys.polytools import cancel
+    native = getattr(_core, 'ode_power_series2', None)
+    func = f(x)
+    if native is None or _second_args(reduced_eq, func) is None or not isinstance(x, _core.Expr):
+        return _MISSING
+    try:
+        at = sympify(point)
+        if not isinstance(at, _core.Expr):
+            return _MISSING
+        value = native(reduced_eq, func, x, at, cancel)
+    except Exception:
+        return _MISSING
+    if value is None:
+        return _MISSING
+    a3, b3, c3 = wilds
+    if value[0] == 'ordinary':
+        r = {a3: value[1], b3: value[2], c3: value[3]}
+        r.update({'a3': a3, 'b3': b3, 'c3': c3, 'x0': point, 'terms': terms})
+        return {"2nd_power_series_ordinary": r}
+    if value[0] == 'regular':
+        return {"2nd_power_series_regular": {'p': value[1], 'q': value[2], 'x0': point, 'terms': terms}}
+    return {}
+
+
+def series2_hook(matching_hints, reduced_eq, f, x, point, wilds, terms):
+    """``classify_ode`` hook: ``True`` when the order-two power series hints
+    were decided natively (and added to ``matching_hints``)."""
+    native = power_series2(reduced_eq, f, x, point, wilds, terms)
+    if native is _MISSING:
+        return False
+    matching_hints.update(native)
+    return True

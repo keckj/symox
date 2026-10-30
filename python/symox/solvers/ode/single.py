@@ -2764,6 +2764,9 @@ class SecondLinearBessel(SingleODESolver):
         a3 = Wild('a3', exclude=[f, df, f.diff(x, 2)])
         b3 = Wild('b3', exclude=[f, df, f.diff(x, 2)])
         c3 = Wild('c3', exclude=[f, df, f.diff(x, 2)])
+        from ._classify_native import bessel_rejected
+        if bessel_rejected(self, eq):
+            return False
         deq = a3*(f.diff(x, 2)) + b3*df + c3*f
         r = collect(eq,
             [f.diff(x, 2), df, f]).match(deq)
@@ -2864,6 +2867,12 @@ class SecondLinearAiry(SingleODESolver):
         df = f.diff(x)
         a4 = Wild('a4', exclude=[x,f,df])
         b4 = Wild('b4', exclude=[x,f,df])
+        from ._classify_native import airy_match
+        native = airy_match(self, eq)
+        if native is not None:
+            if native[0]:
+                self.rn = native[1]
+            return native[0]
         match = self.ode_problem.get_linear_coefficients(eq, f, order)
         does_match = False
         if order == 2 and match and match[2] != 0:

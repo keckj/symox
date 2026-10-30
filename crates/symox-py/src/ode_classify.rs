@@ -6,6 +6,7 @@ use pyo3::types::{PyDict, PyList, PyTuple};
 
 use symox::ode::classify::{self, Hooks, Outcome};
 use symox::ode::linear;
+use symox::ode::second::{self, PowerSeries2};
 use symox::Expr;
 
 use crate::{to_expr, wrap as w};
@@ -121,7 +122,53 @@ fn ode_nth_linear_match(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_, Py
     outcome(py, &linear::nth_linear(&eq, &fx, &x, order, hint), |v| v.clone())
 }
 
+fn call1(f: &Bound<'_, PyAny>, e: &Expr) -> Option<Expr> {
+    f.call1((w(e.clone()),)).ok().and_then(|v| to_expr(&v).ok())
+}
+
+/// `match_2nd_hypergeometric(eq, f(x))`: `(A, B)`, `False` for its `[]`, or
+/// `None` (not decided). `cancel` is the public callable.
+#[pyfunction]
+fn ode_match_2nd_hypergeometric(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, cancel: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
+    let mut hook = |e: &Expr| call1(cancel, e);
+    outcome(py, &second::hypergeometric_ab(&eq, &fx, &x, &mut hook), |(a, b)| vec![a.clone(), b.clone()])
+}
+
+/// The `2nd_linear_airy` match: `(b, m)`, `False` or `None`.
+#[pyfunction]
+fn ode_airy_match(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, order: u32, cancel: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
+    let mut hook = |e: &Expr| call1(cancel, e);
+    outcome(py, &second::airy(&eq, &fx, &x, order, &mut hook), |(b, m)| vec![b.clone(), m.clone()])
+}
+
+/// The `2nd_linear_bessel` rejection: `False` (no match) or `None`.
+#[pyfunction]
+fn ode_bessel_rejected(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
+    outcome(py, &second::bessel_rejected(&eq, &fx, &x), |_| Vec::new())
+}
+
+/// The order-two power series hints of `classify_ode` at `point`:
+/// `("ordinary", a3, b3, c3)`, `("regular", p, q)`, `("neither",)` or `None`.
+#[pyfunction]
+fn ode_power_series2(py: Python<'_>, reduced_eq: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, point: &Bound<'_, PyAny>, cancel: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let (eq, fx, x, point) = (to_expr(reduced_eq)?, to_expr(fx)?, to_expr(x)?, to_expr(point)?);
+    let mut hook = |e: &Expr| call1(cancel, e);
+    Ok(match second::power_series2(&eq, &fx, &x, &point, &mut hook) {
+        None => py.None(),
+        Some(PowerSeries2::Ordinary([a, b, c])) => ("ordinary", w(a), w(b), w(c)).into_pyobject(py)?.into_any().unbind(),
+        Some(PowerSeries2::Regular(p, q)) => ("regular", w(p), w(q)).into_pyobject(py)?.into_any().unbind(),
+        Some(PowerSeries2::Neither) => ("neither",).into_pyobject(py)?.into_any().unbind(),
+    })
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(ode_match_2nd_hypergeometric, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_airy_match, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_bessel_rejected, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_power_series2, m)?)?;
     m.add_function(wrap_pyfunction!(ode_linear_coefficients, m)?)?;
     m.add_function(wrap_pyfunction!(ode_nth_linear_match, m)?)?;
     m.add_function(wrap_pyfunction!(ode_first_order_matches, m)?)?;

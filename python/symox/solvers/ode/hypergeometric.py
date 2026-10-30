@@ -38,6 +38,10 @@ from .ode import get_numbered_constants
 
 
 def match_2nd_hypergeometric(eq, func):
+    from ._classify_native import match_2nd_hypergeometric as _native_match, _MISSING
+    native = _native_match(eq, func)
+    if native is not _MISSING:
+        return native
     x = func.args[0]
     df = func.diff(x)
     a3 = Wild('a3', exclude=[func, func.diff(x), func.diff(x, 2)])
