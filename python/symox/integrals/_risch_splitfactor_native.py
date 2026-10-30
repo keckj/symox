@@ -157,6 +157,9 @@ def register_root(namespace):
             or reader.__name__!='_ddm_function_metadata'
             or _TYPE(kernel) is not _BUILTIN or kernel.__self__ is not _core
             or kernel.__name__!='_risch_splitfactor'):return
+    precheck=_core.__dict__.get('_risch_splitfactor_precheck')
+    if (_TYPE(precheck) is not _BUILTIN or precheck.__self__ is not _core
+            or precheck.__name__!='_risch_splitfactor_precheck'):precheck=None
     from importlib import import_module
     risch=import_module('symox.integrals.risch')
     from .. import _poly_constructor as constructor
@@ -235,7 +238,7 @@ def register_root(namespace):
     aliases=tuple((m,m.__dict__)for m in modules)
     builtin_names=_ground._ROOT[5]+('globals','bytes','int','bool','float','complex','frozenset')
     builtin_aliases=tuple((name,builtins[name])for name in builtin_names)
-    _ROOT={'reader':(_core,reader),'kernel':kernel,'shared':_shared,
+    _ROOT={'reader':(_core,reader),'kernel':kernel,'precheck':precheck,'shared':_shared,
            'shared_root':_shared._ROOT,'ground_root':_ground._ROOT,
            'prove':prove,'verify':verify,'states':tuple(states),
            'lookups':tuple(lookups),'scopes':tuple(scopes),'modules':aliases,
@@ -254,6 +257,11 @@ def reduce(p,de,one,coefficientD,z):
     if not _plain(owner.__dict__):return None
     if (owner.__dict__.get('_ddm_function_metadata') is not reader
             or owner.__dict__.get('_risch_splitfactor') is not root['kernel']):return None
+    # The kernel's own input conditions on p and One, read natively before the
+    # authentication below: when they fail the kernel returns None anyway.
+    precheck=root['precheck']
+    if precheck is not None and (owner.__dict__.get('_risch_splitfactor_precheck') is not precheck
+            or not precheck(p,one)):return None
     for module,scope in root['modules']:
         if _TYPE(module) is not ModuleType or module.__dict__ is not scope:return None
     for scope in root['scopes']:

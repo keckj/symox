@@ -1,0 +1,7 @@
+kind           part        n   eq SymPy   eq stock   None   exc    SymPy s   native s    stock s
+heu            random    300        300        300    216     0      5.673      1.333      5.561
+is_log_deriv   corpus     10         10         10      8     0      0.037      0.021      0.028
+is_log_deriv   random    300        300        300    167     0      7.948      0.889      7.300
+limited        corpus     28         28         28      8     0      0.647      0.087      0.093
+limited        random    300        300        300    254     0      3.643      0.766      1.145
+differences: 0

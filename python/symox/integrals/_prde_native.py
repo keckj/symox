@@ -21,8 +21,10 @@ _INT = int
 _LIST = list
 _MISSING = object()
 _ROOT = None
-# Number of constant_system calls answered by the fraction-field kernel.
-STATS = {'constant_system_field': 0, 'derivation': 0, 'is_deriv_k': 0}
+# Number of calls answered by the native kernels (per entry point).
+STATS = {'constant_system_field': 0, 'derivation': 0, 'is_deriv_k': 0,
+         'is_log_deriv_k_t_radical_in_field': 0, 'parametric_log_deriv_heu': 0,
+         'limited_integrate': 0}
 _POLY = _core.Poly
 _EXPR = _core.Expr
 _AS_POLY = None
@@ -198,6 +200,22 @@ def _derivation_protocol():
     return b.get('len') is _LEN and b.get('zip') is _ZIP
 
 
+def _expr_state():
+    """The kernels that build expressions (``Add``, ``Mul``, ``Pow``,
+    ``cancel``) need the stock ``derivation`` protocol, global evaluation
+    switched on, the stock ``cancel`` and the stock AccumBounds fold."""
+    captured = _DERIV_K
+    if captured is None or not _derivation_protocol():
+        return False
+    evaluation, accum, _, _, public, cancel, prde_cancel, folding, compat = captured
+    if (evaluation.get() is not True or public.get('cancel') is not cancel
+            or cancel is not prde_cancel or compat.get('_accum_fold') is not accum
+            or _TYPE(accum) is not _LIST or _LEN(accum) != 1):
+        return False
+    fold = accum[0]
+    return fold is None or _stock_fold(fold, folding)
+
+
 def is_deriv_k(fa, fd, DE):
     """``is_deriv_k(fa, fd, DE)`` for stock Polys over ZZ, QQ, ZZ[...],
     QQ[...], ZZ(...) or QQ(...) whose tower is elementary (``len(DE.exts)
@@ -216,17 +234,9 @@ def is_deriv_k(fa, fd, DE):
     root = _ROOT
     if root is None or _TYPE(fa) is not _POLY or _TYPE(fd) is not _POLY or _TYPE(DE) is not root[1]:
         return None
-    captured = _DERIV_K
-    if captured is None or not _derivation_protocol() or _verified() is None:
+    if not _expr_state() or _verified() is None:
         return None
-    evaluation, accum, dummy, (exts_slot, extargs_slot), public, cancel, prde_cancel, folding, compat = captured
-    if (evaluation.get() is not True or public.get('cancel') is not cancel
-            or cancel is not prde_cancel or compat.get('_accum_fold') is not accum
-            or _TYPE(accum) is not _LIST or _LEN(accum) != 1):
-        return None
-    fold = accum[0]
-    if fold is not None and not _stock_fold(fold, folding):
-        return None
+    dummy, (exts_slot, extargs_slot) = _DERIV_K[2], _DERIV_K[3]
     slots, cls = root[2], root[1]
     try:
         t = slots[1][1].__get__(DE, cls)
@@ -487,3 +497,79 @@ def limited_integrate_reduce(fa, fd, G, DE):
         return None
     a, b, N, g, V = r
     return (a, b, a, N, g, V)
+
+
+def _log_fields(fa, fd, DE):
+    """Base-case fields for the expression-building kernels, or ``None``."""
+    if _TYPE(fa) is not _POLY or _TYPE(fd) is not _POLY:
+        return None
+    fields = _fields(DE)
+    if fields is None or not _expr_state():
+        return None
+    return fields
+
+
+def is_log_deriv_k_t_radical_in_field(fa, fd, DE, case, z):
+    """Base-case ``is_log_deriv_k_t_radical_in_field(fa, fd, DE, case, z)``
+    for ``z=None`` and ``case`` 'auto' or 'base'. The kernel reproduces
+    ``cancel``, ``residue_reduce`` (subresultant PRS, square-free resultant,
+    the ``invert`` normalization), the rational root check, ``p in k`` and
+    the base branch. The Dummy ``z`` is created as the stock body does.
+
+    Returns ``None`` (stock body) or ``(answer,)`` with ``answer`` the stock
+    result (``None`` or ``(n, u)``).
+    """
+    if z is not None or _TYPE(case) is not _STR or case not in ('auto', 'base'):
+        return None
+    fields = _log_fields(fa, fd, DE)
+    if fields is None:
+        return None
+    r = _call('is_log_deriv_in_field', (fa, fd), fields)
+    if r is None:
+        return None
+    _DERIV_K[2]('z')
+    STATS['is_log_deriv_k_t_radical_in_field'] += 1
+    return r
+
+
+def parametric_log_deriv_heu(fa, fd, wa, wd, DE, c1):
+    """Base-case ``parametric_log_deriv_heu(fa, fd, wa, wd, DE, c1=None)``
+    (``B = 0``): the linear equations in ``c1``, ``solve`` for one unknown
+    and the base-case ``is_log_deriv_k_t_radical_in_field``. The Dummies
+    ``c1`` and (when that call is reached) ``z`` are created as the stock
+    body does. Returns ``None`` (stock body) or ``(answer,)``.
+    """
+    if c1 is not None or _TYPE(wa) is not _POLY or _TYPE(wd) is not _POLY:
+        return None
+    fields = _log_fields(fa, fd, DE)
+    if fields is None:
+        return None
+    r = _call('parametric_log_deriv_heu', (fa, fd, wa, wd), fields)
+    if r is None:
+        return None
+    reached, answer = r
+    dummy = _DERIV_K[2]
+    dummy('c1')
+    if reached:
+        dummy('z')
+    STATS['parametric_log_deriv_heu'] += 1
+    return (answer,)
+
+
+def limited_integrate(fa, fd, G, DE):
+    """Base-case ``limited_integrate(fa, fd, G, DE)``: the native
+    ``param_rischDE``, the nullspace, ``y`` built with ``Add``/``Mul`` and
+    ``as_numer_denom`` and the normalized ``(Ya, Yd)``; ``C`` holds
+    ``Poly(c, x, domain=QQ)``. Returns ``None`` (stock body) or
+    ``(answer,)``.
+    """
+    if _TYPE(G) is not _LIST:
+        return None
+    fields = _log_fields(fa, fd, DE)
+    if fields is None:
+        return None
+    r = _call('limited_integrate', (fa, fd, G), fields)
+    if r is None:
+        return None
+    STATS['limited_integrate'] += 1
+    return r

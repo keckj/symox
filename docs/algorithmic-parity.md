@@ -13230,6 +13230,10 @@ vector), `prde_cancel_liouvillian`, `limited_integrate_reduce`,
 `parametric_log_deriv(_heu)`, `is_deriv_k`, `is_log_deriv_k_t_radical`
 and `is_log_deriv_k_t_radical_in_field`, inexact (RR/CC) and algebraic or
 rational-function coefficient domains.
+Update (prdelog, 2026-10-30): base-case `limited_integrate`,
+`parametric_log_deriv(_heu)` and `is_log_deriv_k_t_radical_in_field`, and
+`param_rischDE` with `v == 0` and an empty `W`, are native; see the prdelog
+section.
 
 Parity note (not changed here): symox `Poly.cancel(g, include=True)`
 over ZZ/QQ returns its results in the domain inferred from the two inputs
@@ -14631,12 +14635,17 @@ Remaining gaps of item 3:
   `real_roots`), `residue_reduce_derivation`, `parametric_log_deriv` and the
   recursion down the tower, with per-case `ValueError`/
   `NotImplementedError` behavior. It stays on the stock Python body.
+  Update: the base case is native since prdelog (below); the other cases
+  remain on the Python body.
 - The splitfactor admission overhead (`_risch_native._prove_fields`,
   `_states_match`, `_str_keyed`) is unchanged. No registration generation or
   change notification exists for the class dictionaries and function
   records it compares: Python 3.10 has no dict or type watchers, and the
   abi3 build cannot read `tp_version_tag`. A cache keyed on anything else
   would miss a class or method mutation and weaken the protocol checks.
+  Update: since prdelog a native precheck of the kernel's input conditions
+  skips the authentication for non-QQ inputs (all splitfactor calls of the
+  integration corpus); QQ inputs are still fully authenticated.
 
 
 ## odeclass (wave 35): native first-order `classify_ode` matches, 2026-10-30
@@ -15519,3 +15528,142 @@ does not finish this call in 30 s either. The hinted and default calls
 integration path, which this lot does not change.
 
 Evidence: [audit](../audits/performance/2026-10-30-odepart/README.md).
+
+## prdelog: base-case is_log_deriv_k_t_radical_in_field, parametric_log_deriv_heu and limited_integrate in Rust, 2026-10-30
+
+Three functions of `sympy/integrals/prde.py` are computed in Rust in the base
+case (`DE.case == 'base'`, the derivation `d/dx` over `QQ(x)`):
+- `is_log_deriv_k_t_radical_in_field(fa, fd, DE)` with `case` `'auto'` or
+  `'base'` and `z=None`;
+- `parametric_log_deriv_heu(fa, fd, wa, wd, DE)` with `c1=None`
+  (`parametric_log_deriv` calls it);
+- `limited_integrate(fa, fd, G, DE)` with `G` a list.
+
+The logic is in `crates/symox-core/src/integrate/prde_log.rs`; the PyO3
+kinds `is_log_deriv_in_field`, `parametric_log_deriv_heu` and
+`limited_integrate` of `_core._prde_kernel` are in
+`crates/symox-py/src/prde.rs`. Python (`_prde_native.py`, hooks at the top
+of the three bodies of `prde.py`) only checks admission and passes the
+arguments.
+
+Steps reproduced in Rust:
+- `is_log_deriv_k_t_radical_in_field`: `fa.cancel(fd, include=True)`;
+  `residue_reduce` with the subresultant PRS of `d` and `a - z*d'`, the
+  square-free decomposition of the resultant, ground factors skipped, the
+  last PRS entry of degree `i`, the `invert` normalization (`h` is the
+  monic `S_i(x, rho)`); the rational-root check of each `s`; the square-free
+  test of `fd` and `deg fa < deg fd`; `p = f - sum(rho*Dh/h)` and the test
+  `p in k`; the answer `(n, u)` with `n` the lcm of the root denominators
+  and `u = Mul(*[h**(rho*n)])`, built with the native `Mul`/`Pow`.
+- `parametric_log_deriv_heu`: the three branches on `deg q` and `deg p`,
+  the linear equations in `c1` and their `solve` (one unknown: `[]` when
+  the system is empty, all zero or inconsistent), `lcm` of the leading
+  coefficients and of the monic denominators, `gcd(l, l')`, the remainders,
+  and the final `is_log_deriv_k_t_radical_in_field` call with the
+  `Q.is_zero or v.is_zero` test.
+- `limited_integrate`: `fa*Poly(1/fd.LC())`, `fd.monic()`, the native
+  `param_rischDE(0, 1, [(fa, fd)] + G)`, the nullspace, the first vector
+  with `v[0] != 0`, `y = -Add(v_i*h_i)` and `as_numer_denom`, the normalized
+  `(Ya, Yd)`; `C` holds `Poly(c, x, domain='QQ')`.
+
+`param_rischDE` (Rust, `prde.rs`) now also answers the case where
+`param_poly_rischDE` returns no polynomial (`h == []`) and the combined
+relation matrix has no nullspace (`W == []`): `C` is `eye(m)`, as in SymPy.
+It declined before. When `h == []` and `W != []`, the stock `wl[-0:]`
+slice keeps the whole vector and the call still declines (see the
+PolyMatrix gap below).
+
+Admission (`_prde_native.is_log_deriv_k_t_radical_in_field`,
+`parametric_log_deriv_heu`, `limited_integrate`):
+- the base-case fields of the earlier prde waves (`_fields`: case 'base',
+  captured prde protocol); the binding takes only exact stock Polys over
+  ZZ or QQ in the single generator `DE.t`;
+- `_expr_state()` (factored out of `is_deriv_k`): stock `derivation`
+  protocol, evaluation on, stock `cancel`, stock AccumBounds fold;
+- `z is None` / `c1 is None`, `case` in `('auto', 'base')`, exact Poly or
+  list arguments.
+
+The kernel returns None, and the unchanged Python body runs, when:
+- the PRS of `residue_reduce` exceeds its budget;
+- a subresultant leading coefficient is not invertible modulo `s` (the
+  stock body raises `NotInvertible`);
+- `param_rischDE` declines (non-ground `weak_normalizer` denominator, the
+  `h == []`, `W != []` case);
+- `limited_integrate` would compute `-sum([])` with no `h` (the stock body
+  raises AttributeError on the int 0);
+- `fd` or `wd` is zero.
+
+Dummies: on success the native path creates the Dummies the stock body
+creates at the top level (`z` for `is_log_deriv_k_t_radical_in_field`;
+`c1`, then `z` when the final call is reached, for
+`parametric_log_deriv_heu`). The Dummies created inside the stock helpers
+(`residue_reduce_derivation`'s `i`, `RootSum` internals) are not created.
+This only shifts later Dummy counter values, which are not part of any
+result; the symox stock body already creates a different number of internal
+Dummies than SymPy (3 against 2 for `5/(2x)`).
+
+Splitfactor admission precheck. `_risch_splitfactor_native.reduce` ran the
+whole protocol authentication (416 function states, 3176 lookups,
+`_prove_fields`) before the kernel checked its own input conditions. On the
+integration corpus no splitfactor call has a QQ Poly (the domains are
+`ZZ`, `ZZ[x]`, `ZZ(x)`, `ZZ[_t0]`, `ZZ(_t0, x)`, ...), so the kernel never
+admitted and the authentication was spent for nothing. The new
+`_core._risch_splitfactor_precheck(p, one)` (Rust,
+`crates/symox-py/src/risch_splitfactor.rs`) checks those input conditions
+first: stock `Poly` constructor slot, exact `Poly` instances, plain
+generators, QQ domain for `p` and `one`, `one == 1`, same generators. When
+it fails, `reduce` returns None before authenticating; the kernel would
+have returned None on the same inputs, and the authentication has no side
+effect, so results are unchanged. The precheck itself is captured at
+registration and compared by identity in `_core.__dict__`.
+
+Validation:
+- 938 base-case calls (38 recorded from `risch_integrate` on the 114
+  integrands of the audit corpus, 900 seeded random calls): all equal SymPy
+  1.14 (srepr of every value, Poly domains, None, exceptions) and equal the
+  stock symox body. 937 are answered natively; 1 is declined
+  (`ZZ[log(2)]` coefficients).
+- tests/test_native_prdelog.py: 110 of these cases with SymPy outputs
+  hard-coded and the native counters checked, the two SymPy
+  `test_limited_integrate` examples, the SymPy `test_parametric_log_deriv`
+  primitive case (stock path), explicit `z`/`c1` (stock path), the
+  `h == []` case and the splitfactor precheck.
+- tests/test_native_prderust.py: the risch_integrate comparison now also
+  checks the three new entries against the stock body; the first-wave
+  reachability test routes `limited_integrate` to the stock body so the
+  `param_rischDE` kernels are still reached.
+- SymPy test_prde.py: 1 failed (test_prde_special_denom), 14 passed.
+  test_risch.py: 5 failed (test_gcdex_diophantine, test_laurent_series,
+  test_recognize_derivative, test_residue_reduce,
+  test_risch_integrate_float), 31 passed. Both unchanged.
+- Full suite: no failure caused by this lot (load-induced timeouts rerun
+  and passing; 4 order-dependent LLL classifier failures reproduced on the
+  base). cargo test 836 + 1 + 5; clippy correctness clean apart from a
+  pre-existing `approx_constant` error; integration corpus at baseline; ODE
+  corpus with no output differences against the base build.
+- Times (audit): replay of the 938 calls 17.95 s SymPy, 14.13 s stock,
+  3.10 s native; `risch.splitfactor` on non-QQ inputs 3.9 ms to 0.45 ms
+  per call; `risch_integrate` on the 114 integrands 3.55 s before, 2.33 s
+  after, 6.49 s SymPy.
+
+Remaining gaps (still Python, recorded as gaps):
+- Every non-base case of the three functions (`exp`, `primitive`, `tan`):
+  55 of the 89 `limited_integrate` calls in the corpus profile, with most of
+  the `limited_integrate` time, and all `residue_reduce` calls. This needs
+  the K(t) parametric Risch DE (`prde_cancel_liouvillian`, the non-base
+  `param_rischDE`) in Rust.
+- Coefficients outside ZZ/QQ (`ZZ[log(2)]`, `EX`, RR/CC, algebraic).
+- Explicit `z` or `c1` Dummies, `case` other than 'auto'/'base'.
+- The declines listed above (`NotInvertible`, PRS budget, AttributeError
+  path, `param_rischDE` declines).
+- `PolyMatrix(rows, cols, items)` raises ValueError when `items` has more
+  than `rows*cols` entries, where SymPy 1.14 keeps the first `rows*cols`.
+  `param_rischDE` builds such a matrix when `h == []` and `W != []`
+  (`wl[:m] + wl[-0:]`). This case was not reached in the base case
+  (`bound_degree` is at least 0, and `h == []` there only follows an empty
+  nullspace, which gives `W == []`); it may be reachable in non-base cases.
+  The fix is in the Python PolyMatrix constructor and is not made here.
+- The splitfactor authentication itself is unchanged for QQ inputs, where
+  it still runs in full (see prdeconst item 3).
+
+Measured: [audit](../audits/performance/2026-10-30-prdelog/README.md).

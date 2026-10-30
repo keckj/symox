@@ -1,0 +1,4 @@
+symox: 114 integrands, 1 timed out (excluded): 2.333 s
+symox-noprecheck: 114 integrands, 1 timed out (excluded): 3.377 s
+symox-stock: 114 integrands, 1 timed out (excluded): 3.551 s
+sympy: 114 integrands, 1 timed out (excluded): 6.494 s
