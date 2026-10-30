@@ -48,6 +48,58 @@ Les preuves, sondes et corrections intentionnelles sont dans le
 [contrat de parité](docs/algorithmic-parity.md). Les extensions et sous-classes
 Python restent un chantier distinct, hors de ce TODO mathématique.
 
+## Reprise sur Demeter (état au 30 octobre)
+
+Main est à 691ac5a7 (vagues 18 à 37 intégrées). Dernière validation : suite
+complète **59 068 réussis, 0 échec** ("SUITE CLEAN"), cargo 833 + 1 + 5
+doctests, corpus ODE {'cls': 303, 'hint': 279, 'def': 274, 'n': 315} et
+intégration {"COND": 20, "DIFF": 10, "EQUIV": 8, "MISSING": 1, "SAME": 1171}.
+
+Dernières intégrations : ODE homogène (coefficients constants et Euler) en
+Rust (`ode/constcoeff.rs`), `checksol` public en Rust (`solve/checksol.rs`,
+5304/5304 cas identiques à SymPy), ordre des clés de code indépendant du
+hash seed (`_code_key.py`), correction use-after-free des ensembles visités
+par `dag_id` (logpart gaussien).
+
+Interrompu, à reprendre : branche `feat-arrexprrust-20261030a` (736acf4c,
+non intégrée au-delà de r2) pour `_EditArrayContraction`,
+`convert_array_to_matrix`, conversions indexées et `array_derive`.
+
+Écarts volontaires en attente de validation utilisateur : Markov spec7 1/6,
+conditionnement multi-temps markovrust (22/28 cas où SymPy se trompe) et
+recherche de période ; radicalrust réseaux/ConditionSet ; holonomic y0 ;
+derivsym ; seriesrest ; Derivative(Array) dans tracearr et arrayrust ;
+ratint 1/(x**8+16) ; limite unilatérale Piecewise ; limit(atan(a*x)/x, x, oo)
+= 0 ; x**(n*y+3) à n=0 ; Mod dans solveset ; décalage Laplace ;
+piecewise_fold w23rust ; limit(subfactorial(x)/factorial(x), x, oo) laissé
+non évalué (SymPy donne 0, valeur vraie 1/e) ; règle Abs/sign(c) de
+limitsrest r2 identique à SymPy même pour y complexe ; trois asserts de
+`tests/test_solver_checks.py` alignés sur SymPy (liste vide True,
+UserWarning, flags inconnus ignorés).
+
+Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
+- ODE : solutions particulières (coefficients indéterminés, variation des
+  paramètres) encore en Python ; collect à exposants partiels ; parité
+  d'erreur du casus irreducibilis ; factorable, 2F1, Bessel, nth_algebraic,
+  lie_group.
+- checksol : issue 17799 (erreur evalf d'`erfinv` imbriqué propagée) ;
+  seconde branche de la règle puissance-de-E ; unités.
+- prde : is_log_deriv_k_t_radical_in_field, parametric_log_deriv,
+  limited_integrate ; surcoût d'admission de splitfactor.
+- ratint : forme log_to_atan sur EX, RootSum real=False, TypeError
+  QQ<sqrt(2)> ; exroots : ordre des étapes d'expand, formes cubiques,
+  roots cas 20.
+- Limites : exp(E), séries frac, factorial/x en -oo, loggamma, formes
+  Order ; déclins Gruntz.
+- Matrices : déterminant Bareiss Float ; perf lambdarr gamma/poly2.
+
+Procédure de validation (leçons du 30 octobre) : n'accepter que "SUITE
+CLEAN" (le compte de lots "passed" incluait des lots en échec) ; le build
+doit sortir en succès avant de copier `lib_core.so` (un build tué en
+silence laissait l'ancien `.so`) ; doctests parallèles à relancer en
+mono-thread ("Couldn't compile") ; tests Python en worktree avec
+`PYTHONPATH=python` ; jamais de `pkill` large.
+
 ## État des preuves et prochaine étape
 
 Le critère de clôture du tri de l'audit, décidé le 22 octobre, reste : ne
