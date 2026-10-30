@@ -73,7 +73,11 @@ class MutablePolyDenseMatrix:
             if isinstance(ring, str):
                 from symox import Dummy
                 ring = Poly(0, Dummy(), domain=ring).domain
-            domain, gens = ring, tuple(gens)
+            if getattr(ring, 'is_PolynomialRing', False):
+                # the reference keeps a K[gens] ring as its domain and gens
+                domain, gens = ring.domain, tuple(ring.symbols)
+            else:
+                domain, gens = ring, tuple(gens)
         elif items and all(isinstance(item, Poly) for item in items):
             ring = _rational.common_ring(items)
             if ring is not None:
@@ -186,7 +190,9 @@ class MutablePolyDenseMatrix:
     def __eq__(self, other):
         if not isinstance(self, type(other)):
             return NotImplemented
+        # the reference compares DomainMatrix objects, whose domain is K[gens]
         return (self.shape == other.shape and self.gens == other.gens
+                and self.domain == other.domain
                 and all(_cancel(a - b) == 0 for a, b in zip(self._items, other._items)))
 
     def __add__(self, other):

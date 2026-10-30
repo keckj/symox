@@ -13485,10 +13485,10 @@ several generators, any modified protocol) runs the stock code.
 
 Still Python, recorded as gaps (not ported in this wave):
 
-- `constant_system` with `ZZ(x)`/`QQ(x)` entries; symox also already
-  differs from SymPy there in test_prde.py `test_constant_system`
-  (`ZZ(x)[t]` vs `QQ(x)[t]`), so a port first needs that domain inference
-  fixed;
+- `constant_system` with `ZZ(x)`/`QQ(x)` entries (its `rref` over
+  `ZZ(x)`/`QQ(x)` is already native; what stays in Python is the
+  expression-level derivation and the PolyMatrix arithmetic around it,
+  whose domains follow the expression forms);
 - `derivation` in the exp and primitive cases with rational-function
   coefficients (`as_poly(t)` domain inference);
 - `is_deriv_k`, `is_log_deriv_k_t_radical(_in_field)`;
@@ -13509,6 +13509,39 @@ Gap seen (not changed): symox `srepr` prints a `NonElementaryIntegral`
 inside an `Add` as `Integral` (the `str` of every measured result equals
 SymPy's).
 
-No intentional corrections. SymPy test_prde.py: 3 failed, 12 passed before
-and after; test_risch.py: 5 failed, 31 passed before and after (same
-failing tests). Measured: [audit](../audits/performance/2026-10-30-prdefrac/README.md).
+Corrections (domain inference of `constant_system`, test_prde.py
+`test_constant_system`):
+
+- Rust, `expand_mul_node` (crates/symox-core/src/expand.rs): like
+  `Mul._eval_expand_mul`, `n/d` is rebuilt from `fraction(expr)` also when
+  `d` is a single factor, so `Mul(2, x**2/2 + x + 1/2, 1/(x**2 + 2*x + 1))`
+  held unevaluated expands to `1` (the rebuilt `2*(x**2/2 + x + 1/2)`
+  distributes and cancels), as in SymPy; it was left as a fraction, whose
+  `Poly(..., t, field=True)` domain is `QQ(x)` instead of `QQ`. In
+  `constant_system` this is `Rm1 = Ri.applyfunc(D(x)/DAij)`, which is
+  now over `QQ[t]` as in SymPy, so `B` and `v` are over `QQ(x)[t]`.
+- Python plumbing, `PolyMatrix(..., ring=K[gens])`: the domain and the
+  generators are taken from the ring (`K`, `gens`), as SymPy's
+  `from_dm`; symox kept `K[gens]` as the domain with no generators.
+- Python plumbing, `PolyMatrix.__eq__` also compares the domain, as
+  SymPy's `DomainMatrix.__eq__` (`QQ[t]` and `QQ(x)[t]` matrices with
+  the same entries are not equal).
+
+The three `exp` integrands still slower than SymPy spend their extra time
+off the prde path: the lazy first import of mpmath (domains/_methods.py
+`_inexact_value`, SymPy imports it at import time) and the splitfactor
+admission (`_risch_splitfactor_native.reduce`, `_prove_fields`).
+
+Gaps seen, not changed: the `expand_mul` entry point
+(crates/symox-core/src/simp.rs `expand_mul_deep`) does not rebuild `n/d`
+and still leaves these products as fractions; `Mul(x + 1, 1/(x + 1))`
+held unevaluated still expands to `x/(x + 1) + 1/(x + 1)` (SymPy `1`);
+two denominator factors `y*(x + 2)` are not expanded into `x*y + 2*y`.
+`PolyMatrix(..., ring=K)` with a non-polynomial `K` keeps the given
+generators (SymPy takes `K.symbols`).
+
+SymPy test_prde.py: 3 failed, 12 passed before, 1 failed, 14 passed after
+(`test_constant_system` and `test_prde_no_cancel` now pass,
+`test_prde_special_denom` still fails); test_risch.py: 5 failed, 31
+passed before and after (same failing tests). Measured:
+[audit](../audits/performance/2026-10-30-prdefrac/README.md).

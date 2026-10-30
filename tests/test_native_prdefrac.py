@@ -206,3 +206,49 @@ assert r.ground_items(m) and r.ground_poly(m,s.S.One) is not None
 assert events==[],events
 '''
     subprocess.run([sys.executable, '-c', source], check=True, env=os.environ.copy())
+
+
+def test_constant_system_domain_is_sympy():
+    # SymPy 1.14 test_prde.py::test_constant_system: the derivation step
+    # builds ``D(e)/DAij`` = ``2*(x**2/2 + x + 1/2)/(x**2 + 2*x + 1)``, whose
+    # ``expand`` is 1, so that row is over QQ and the result over QQ(x)[t].
+    from symox.integrals.prde import constant_system
+    from symox.integrals.risch import DifferentialExtension
+    T = s.Symbol('t')
+    A = pm.PolyMatrix([[-(x + 3)/(x - 1), (x + 1)/(x - 1), 1],
+                       [-x - 3, x + 1, x - 1],
+                       [2*(x + 3)/(x - 1), 0, 0]], T)
+    u = pm.PolyMatrix([[(x + 1)/(x - 1)], [x + 1], [0]], T)
+    DE = DifferentialExtension(extension={'D': [s.Poly(1, x)]})
+    R = QQ.frac_field(x)[T]
+    B, v = constant_system(A, u, DE)
+    assert (B, v) == (pm.PolyMatrix([[1, 0, 0], [0, 1, 0], [0, 0, 0], [0, 0, 1]], ring=R),
+                      pm.PolyMatrix([0, 1, 0, 0], ring=R))
+    assert B.ring == R and v.ring == R
+
+
+# SymPy 1.14 ``expand``/``expand_mul`` of products with one denominator
+# factor: ``Mul._eval_expand_mul`` rebuilds ``n/d`` from ``fraction``, and the
+# rebuilt numerator distributes a number over a sum.
+_B = x**2 + 2*x + 1
+SINGLE_DENOMINATOR = [
+    (s.Mul(2, x**2/2 + x + s.Rational(1, 2), s.Pow(_B, -1), evaluate=False), s.S.One),
+    (s.Mul(2, x/2 + 1, s.Pow(x + 2, -1), evaluate=False), s.S.One),
+    (s.Mul(3, x/3 + y/3, s.Pow(x + y, -1), evaluate=False), s.S.One),
+    ((2/_B)*s.Pow(2/_B, -1), s.S.One),
+]
+
+
+@pytest.mark.parametrize('e,expected', SINGLE_DENOMINATOR)
+def test_expand_rebuilds_single_denominator_fraction(e, expected):
+    assert s.srepr(s.expand(e)) == s.srepr(expected)
+    assert s.Poly(e, t).domain == ZZ and s.Poly(e, t, field=True).domain == QQ
+
+
+def test_polymatrix_polynomial_ring_argument_splits_domain_and_gens():
+    R = QQ.frac_field(x)[t]
+    m = pm.PolyMatrix([[1, 0], [0, 1]], ring=R)
+    assert m.gens == (t,) and m.domain == QQ.frac_field(x) and m.ring == R
+    assert m != pm.PolyMatrix([[1, 0], [0, 1]], t)  # QQ[t] is another ring
+    q = pm.PolyMatrix([[1, 0], [0, (x - 1)/(x + 1)]], t)
+    assert q.domain == ZZ.frac_field(x)

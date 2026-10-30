@@ -122,8 +122,9 @@ SymPy's (`str`); the two "NO" in "same srepr as SymPy" are the existing
 
 ## SymPy test files (run on symox through the SymPy test sources)
 
-test_prde.py: 3 failed, 12 passed before and after (test_prde_special_denom,
-test_constant_system, test_prde_no_cancel). test_risch.py: 5 failed, 31
+test_prde.py: 3 failed, 12 passed before and after the first three commits
+(test_prde_special_denom, test_constant_system, test_prde_no_cancel); 1
+failed, 14 passed after the follow-up (4) (test_prde_special_denom). test_risch.py: 5 failed, 31
 passed before and after (test_gcdex_diophantine, test_laurent_series,
 test_recognize_derivative, test_residue_reduce, test_risch_integrate_float).
 
@@ -140,3 +141,70 @@ two load-dependent flakes: `test_dirac_affine_integration.py` (a 5 s
 subprocess timeout at load 34) and `test_matrix_inexact_native_inverse.py`
 (a 1 ms SIGALRM that fired before the `pytest.raises` block and aborted
 the shard; the shard rerun passed 3826 of 3826).
+
+## (4) Follow-up: domain inference of constant_system, remaining gaps
+
+SymPy test_prde.py `test_constant_system` expects `B` and `v` over
+`QQ(x)[t]`; symox gave `ZZ(x)[t]`. Causes and fixes:
+
+- Rust, crates/symox-core/src/expand.rs `expand_mul_node`: SymPy's
+  `Mul._eval_expand_mul` rebuilds `n/d` from `fraction(expr)` whatever `d`
+  is; symox did so only for several denominator factors. In
+  `constant_system`, `Rm1 = Ri.applyfunc(D(x)/DAij)` holds
+  `2*(x**2/2 + x + 1/2)/(x**2 + 2*x + 1)` unevaluated; SymPy expands it to
+  `1` (domain `QQ`), symox left it as a fraction (domain `QQ(x)`), so the
+  matrix ring and then `B`, `v` differed. Now `QQ[t]` as in SymPy.
+- Python plumbing, polymatrix.py: `PolyMatrix(..., ring=K[gens])` now
+  takes `K` and `gens` from the ring (SymPy `from_dm`), and `__eq__` also
+  compares the domain (SymPy `DomainMatrix.__eq__`).
+
+Effect: test_constant_system and test_prde_no_cancel pass.
+
+Gaps found, not changed: the `expand_mul` entry point (simp.rs
+`expand_mul_deep`) does not rebuild `n/d`; `Mul(x + 1, 1/(x + 1))` held
+unevaluated expands to `x/(x + 1) + 1/(x + 1)` (SymPy `1`); two
+denominator factors such as `y*(x + 2)` are not expanded.
+
+Not ported (gaps), with the reasons found:
+
+- `constant_system`: its `rref`/`nullspace` over `QQ`, `ZZ(x)`, `QQ(x)`
+  already run natively (`_polymatrix_ground`); the Python left is the
+  expression-level `derivation` of each entry and the PolyMatrix
+  `applyfunc`/subtraction, whose domains are inferred from the expression
+  forms (as the bug above shows). A Rust port with identical domains needs
+  `expand`/`cancel` parity of every intermediate first.
+- `derivation` (exp/primitive), `is_deriv_k`,
+  `is_log_deriv_k_t_radical(_in_field)`, `limited_integrate_reduce`
+  outside the base case: not attempted in the remaining time (each item
+  needs a release build of about 10 minutes plus the full validation).
+- `parallel_poly_from_expr(field=True)` / `set_gens` in `log(x)*log(x + 1)`:
+  the per-entry `Poly` construction is already native; the cost left is the
+  Python option handling around it (`_poly_constructor._options`, 3242
+  calls, 0.12 s of 0.82 s profiled) spread over many small calls, not one
+  kernel.
+- the three `exp` integrands still slower than SymPy: the profile of
+  `exp(x)/(1 + exp(x))**2` (66 ms first call) shows 22 ms for the lazy
+  first import of mpmath (domains/_methods.py `_inexact_value`, reached
+  from `mul_ground`; SymPy imports mpmath at import time) and 26 ms in the
+  splitfactor admission (`_risch_splitfactor_native.reduce`, with
+  `_risch_native._prove_fields` 14 ms); `exp(x)*x` repeated is also
+  dominated by that admission. Neither is on the prde path ported here.
+  Skipping the mpmath import in `_inexact_value` for exact elements was
+  tried and reverted: the native LLL/SDM cold-start proofs fingerprint that
+  function (tests/test_native_sdm_berkowitz.py failed).
+
+Measured after (4) (raw-followup.txt, 3 interleaved fresh processes,
+medians, while a one-job cargo build ran, so both sides are slower than in
+(3)): `log(log(x))` 140/110 ms first/repeated (SymPy 141/127),
+`log(x)*log(x + 1)` 452/425 ms (SymPy 783/742), `exp(x)*x` 44/24 ms (SymPy
+62/16), `x*exp(x)*log(x)` 89/71 ms (SymPy 117/65), `exp(x)/(1 + exp(x))**2`
+30/10 ms (SymPy 12/9). The result hashes (srepr and str) equal those of (3).
+
+Validation of (4): 48 shards on demeter, all exit 0, 57818 passed, plus 72
+local = 57890 passed, no failure; integration corpus `{"COND": 20, "DIFF":
+10, "EQUIV": 8, "MISSING": 1, "SAME": 1171}` and ODE corpus `{'cls': 303,
+'hint': 279, 'def': 274, 'n': 315}`, both equal to the baselines.
+`cargo test -p symox --release`: 793 + 1 unit tests pass, the 5 doctests
+pass with `--test-threads=1` (2 fail to compile in parallel under the 6G
+cap, as before); clippy correctness clean. SymPy test_risch.py: 5 failed,
+31 passed, same tests as before.
