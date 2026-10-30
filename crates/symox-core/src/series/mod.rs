@@ -15,6 +15,7 @@
 //! `F(a) = F(a0) + ∫ F'(a) a'`), never by repeated differentiation.
 
 pub mod abs_symbolic;
+pub mod accum_floor;
 pub mod asym;
 pub mod coeff;
 pub mod direction;
