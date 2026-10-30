@@ -1,0 +1,36 @@
+{"mode": "sympy", "case": "ca(cm(M*N))", "first_ms": 57.44793894700706, "median_ms": 3.848730935715139, "result": "M*N"}
+{"mode": "sympy", "case": "ca(cm((M*N).T))", "first_ms": 3.9515740936622024, "median_ms": 3.867006045766175, "result": "N.T*M.T"}
+{"mode": "sympy", "case": "ca(cm(M*N*P))", "first_ms": 5.93522796407342, "median_ms": 5.819119513034821, "result": "M*N*P"}
+{"mode": "sympy", "case": "ca(cm(a.T*M*b))", "first_ms": 7.230026996694505, "median_ms": 5.90303196804598, "result": "a.T*M*b"}
+{"mode": "sympy", "case": "ca(cm(Trace(M*N)))", "first_ms": 3.811619011685252, "median_ms": 3.427218005526811, "result": "Trace(M*N)"}
+{"mode": "sympy", "case": "ca(cm(hadamard(M,N)))", "first_ms": 0.792781007476151, "median_ms": 0.30354049522429705, "result": "HadamardProduct(M, N)"}
+{"mode": "sympy", "case": "ca(cm(M*N + N.T*P))", "first_ms": 9.289200999774039, "median_ms": 7.910955464467406, "result": "M*N + N.T*P"}
+{"mode": "sympy", "case": "ca(tp(a,b))", "first_ms": 0.23818796034902334, "median_ms": 0.14948798343539238, "result": "a*b.T"}
+{"mode": "sympy", "case": "ca(dia(tp(M,a),(1,2)))", "first_ms": 9.02524497359991, "median_ms": 6.118817022070289, "result": "M*DiagMatrix(a)"}
+{"mode": "sympy", "case": "ca(con(tp(M,I,N),(1,2),(3,4)))", "first_ms": 4.723262041807175, "median_ms": 4.45559696527198, "result": "M*N"}
+{"mode": "sympy", "case": "ca(con(tp(M,N,P),(0,2),(1,5)))", "first_ms": 5.869137006811798, "median_ms": 5.798469006549567, "result": "N.T*M*P.T"}
+{"mode": "sympy", "case": "editor(con(tp(M,N,P),(1,2),(3,4)))", "first_ms": 0.5483599379658699, "median_ms": 0.4958320059813559, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"mode": "sympy", "case": "ca(cm(M*N))", "first_ms": 59.543459909036756, "median_ms": 3.877885523252189, "result": "M*N"}
+{"mode": "sympy", "case": "ca(cm((M*N).T))", "first_ms": 4.1539029916748405, "median_ms": 3.9227584493346512, "result": "N.T*M.T"}
+{"mode": "sympy", "case": "ca(cm(M*N*P))", "first_ms": 6.060592015273869, "median_ms": 5.904763471335173, "result": "M*N*P"}
+{"mode": "sympy", "case": "ca(cm(a.T*M*b))", "first_ms": 5.945264012552798, "median_ms": 5.979170557111502, "result": "a.T*M*b"}
+{"mode": "sympy", "case": "ca(cm(Trace(M*N)))", "first_ms": 3.5186889581382275, "median_ms": 3.4183970419690013, "result": "Trace(M*N)"}
+{"mode": "sympy", "case": "ca(cm(hadamard(M,N)))", "first_ms": 0.5506540182977915, "median_ms": 0.30212552519515157, "result": "HadamardProduct(M, N)"}
+{"mode": "sympy", "case": "ca(cm(M*N + N.T*P))", "first_ms": 8.484267047606409, "median_ms": 8.022738969884813, "result": "M*N + N.T*P"}
+{"mode": "sympy", "case": "ca(tp(a,b))", "first_ms": 0.19568903371691704, "median_ms": 0.1507444540038705, "result": "a*b.T"}
+{"mode": "sympy", "case": "ca(dia(tp(M,a),(1,2)))", "first_ms": 7.242177031002939, "median_ms": 6.19453308172524, "result": "M*DiagMatrix(a)"}
+{"mode": "sympy", "case": "ca(con(tp(M,I,N),(1,2),(3,4)))", "first_ms": 4.642468993552029, "median_ms": 4.539825953543186, "result": "M*N"}
+{"mode": "sympy", "case": "ca(con(tp(M,N,P),(0,2),(1,5)))", "first_ms": 6.09255104791373, "median_ms": 5.791484436485916, "result": "N.T*M*P.T"}
+{"mode": "sympy", "case": "editor(con(tp(M,N,P),(1,2),(3,4)))", "first_ms": 0.5501830019056797, "median_ms": 0.500950962305069, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"mode": "sympy", "case": "ca(cm(M*N))", "first_ms": 58.25787200592458, "median_ms": 3.910041006747633, "result": "M*N"}
+{"mode": "sympy", "case": "ca(cm((M*N).T))", "first_ms": 3.998368978500366, "median_ms": 3.892298962455243, "result": "N.T*M.T"}
+{"mode": "sympy", "case": "ca(cm(M*N*P))", "first_ms": 6.138425902463496, "median_ms": 5.771830503363162, "result": "M*N*P"}
+{"mode": "sympy", "case": "ca(cm(a.T*M*b))", "first_ms": 6.110875983722508, "median_ms": 5.802514962852001, "result": "a.T*M*b"}
+{"mode": "sympy", "case": "ca(cm(Trace(M*N)))", "first_ms": 3.571269102394581, "median_ms": 3.3741674851626158, "result": "Trace(M*N)"}
+{"mode": "sympy", "case": "ca(cm(hadamard(M,N)))", "first_ms": 0.8147259941324592, "median_ms": 0.3050430095754564, "result": "HadamardProduct(M, N)"}
+{"mode": "sympy", "case": "ca(cm(M*N + N.T*P))", "first_ms": 9.43734694737941, "median_ms": 7.86227552453056, "result": "M*N + N.T*P"}
+{"mode": "sympy", "case": "ca(tp(a,b))", "first_ms": 0.17885002307593822, "median_ms": 0.14339451445266604, "result": "a*b.T"}
+{"mode": "sympy", "case": "ca(dia(tp(M,a),(1,2)))", "first_ms": 7.109035039320588, "median_ms": 6.174622452817857, "result": "M*DiagMatrix(a)"}
+{"mode": "sympy", "case": "ca(con(tp(M,I,N),(1,2),(3,4)))", "first_ms": 4.600330954417586, "median_ms": 4.518564499448985, "result": "M*N"}
+{"mode": "sympy", "case": "ca(con(tp(M,N,P),(0,2),(1,5)))", "first_ms": 6.034467951394618, "median_ms": 5.848164553754032, "result": "N.T*M*P.T"}
+{"mode": "sympy", "case": "editor(con(tp(M,N,P),(1,2),(3,4)))", "first_ms": 0.5396159831434488, "median_ms": 0.49467902863398194, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}

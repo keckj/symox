@@ -13354,6 +13354,179 @@ using its own Python `_array_contraction`/`_permute_dims` in
 `symox.tensor.array.expressions`, so the term-order differences listed
 above are unchanged.
 
+
+### arr2mat (wave 28, third part): native `convert_array_to_matrix`, its passes and `_EditArrayContraction`, 2026-10-30
+
+Native now (crates/symox-core/src/arrayexpr_a2m.rs, binding
+`_core._arrayexpr_a2m` in crates/symox-py/src/arrayexpr_a2m.rs):
+
+- SymPy 1.14's `convert_array_to_matrix` and every pass it calls:
+  - `_array2matrix`, `_remove_trivial_dims`;
+  - `identify_hadamard_products`, `identify_removable_identity_matrices`,
+    `remove_identity_matrices`;
+  - `_array_contraction_to_diagonal_multiple_identity`,
+    `_array_diag2contr_diagmatrix`;
+  - `_support_function_tp1_recognize`, `_a2m_tensor_product`/`_a2m_add`
+    and the matrix multiplications they perform;
+  - `ArrayContraction.split_multiple_contractions` and
+    `flatten_contraction_of_diagonal`;
+  - `_find_trivial_matrices_rewrite`, `_find_trivial_kronecker_products_broadcast`,
+    `_remove_diagonalized_identity_matrices`;
+  - `_combine_removed`, and the index pushes `_push_indices_up/down` of
+    ArrayContraction and ArrayDiagonal.
+- `_EditArrayContraction` and `_ArgE`, with every method SymPy's passes
+  use. The public class keeps the editor state (the `_ArgE` list, the
+  contraction indices, the diagonal count) in Python objects, and each
+  method calls Rust (`ed_*` operations) on the encoded state.
+- `Trace(...)._normalize()` of the passes (`_matrix_trace_normalize`) and
+  the 1x1 element-wise case of `_remove_trivial_dims`
+  (`expr.function(subexpr)`, removed axes `[0, 1]`).
+
+The Rust side works on the index tree of the canonical forms
+(arrayexpr.rs). The leaves are native matrix expressions, scalars,
+`OneArray` (with dimension ids), opaque array leaves (`ArraySymbol`), and
+the `Lambda` of an `ArrayElementwiseApplyFunc`. The matrix operations
+(`MatMul(...).doit()`, `MatAdd`, `Transpose`, `Trace`, `DiagMatrix`,
+`DiagonalOf`, `HadamardProduct`, `KroneckerProduct`, Identity
+recognition) use the native `MatrixExpr`. The only callback is
+`default_sort_key`, as for the canonical forms.
+
+Python only encodes the objects (`python/symox/tensor/array/expressions/_a2m.py`)
+and rebuilds them. The error types and messages are SymPy's: ValueError,
+IndexError, TypeError, AttributeError (with the class name), and
+NotImplementedError (including "noncommutative scalars in MatMul are not
+supported.").
+
+Fallback (Python, a remaining gap): the native port declines
+(`_core.ArrayExprUnsupported`) inputs where SymPy puts an array object
+inside a matrix operation. Examples are `MatMul(OneArray(1, k), M)`,
+`MatAdd` of an `ArraySymbol`, `Transpose(OneArray(1, k))`,
+`DiagMatrix(OneArray(1, k))`, a Hadamard product with a `OneArray`, and a
+scalar times a `OneArray`.
+
+- Native matrix expressions cannot hold array objects, and SymPy's result
+  in these cases is either an object of that kind or an error raised later.
+- The input is then translated structurally into the vendored SymPy 1.14
+  classes (`symox._arrayexpr`, unmodified SymPy Python), SymPy's algorithm
+  runs, and the result is translated back
+  (`python/symox/tensor/array/expressions/_stock.py`).
+- The same holds for an editor whose `merge_scalars` or
+  `to_array_contraction` meets such a product.
+- In SymPy's own array-expression tests, no test needs this fallback: with
+  the fallback disabled, test_convert_array_to_matrix.py passes 16/16,
+  test_array_expressions.py 24/25 and test_as_explicit.py 2/2.
+
+Python changes, each an admission, API or argument fix (no algorithm):
+
+- `ArrayElement._check_shape`, `subranks`/`subrank`, ZeroArray()/OneArray()
+  with no shape return `0`/`1`, ArrayTensorProduct keeps nested products
+  (SymPy's `canonicalize=False`), `as_explicit` of a symbolic shape raises
+  ValueError, `Reshape` checks only a decidably different size and its
+  `doit` reshapes explicit arrays, and `_canonicalize`.
+- `_sort_key` gives the `Basic.sort_key` of the array classes (class key,
+  then the arguments). `default_sort_key` otherwise iterates over a
+  symbolic-shape expression forever.
+- `tensorcontraction`, `tensordiagonal` and `permutedims` of symbolic
+  arrays use the canonicalizing constructors, as in SymPy.
+- `_matrixexpr._normalize_matrix_function` accepts `sqrt` and `cbrt` heads.
+- The vendored `from_array_to_matrix` calls the native trace
+  normalization.
+
+Matrix expressions (crates/symox-core/src/matrixexpr.rs, Rust):
+
+- The MatrixExpr operators (`*`, `+`, `-`, `**`, `.T`) return a deep `doit`,
+  as SymPy's `MatrixExpr.__mul__` etc.
+- `Trace(MatMul)` follows `MatMul._eval_trace`:
+  - a unit coefficient keeps the unevaluated trace without rotating the
+    factors (`Trace(N*M)*P` prints as in SymPy; it printed `Trace(M*N)*P`);
+  - otherwise the coefficient moves out of the trace of the product.
+
+  Intentional correction, en attente de validation utilisateur: symox
+  used to canonicalize `Trace(MatMul)` over cyclic rotations and over the
+  reversed transposes, so `trace(A*B) == trace(B*A)` and
+  `trace(A*B) == trace((A*B).T)` held. SymPy 1.14 gives False for both and
+  prints `trace((A*B).T)` as `Trace(B.T*A.T)`. That canonicalization was
+  removed. tests/test_matrix_calculus.py now pins SymPy's result. The
+  test was named `test_trace_cycles_rectangular_products_and_explicit_lowering`;
+  it is now `test_trace_of_rectangular_products_keeps_sympy_order_and_explicit_lowering`.
+
+Checks:
+
+- tests/test_native_arr2mat.py pins the following against SymPy 1.14, and
+  asserts that the stock fallback is not used:
+  - 53 corpus cases;
+  - 28 curated calls;
+  - the AttributeError messages of `_array_diag2contr_diagmatrix`;
+  - the 1x1 element-wise case.
+- Differential corpus (600 generated inputs, 527 constructible; the 73
+  others raise the same error at construction in both): the table below.
+  "Native" counts results computed in Rust; "stock" counts results computed
+  by the fallback.
+
+| pass | agree / total | native (agree) | stock (agree) |
+|---|---|---|---|
+| convert_array_to_matrix | 517/527 | 441 (440) | 86 (77) |
+| _array2matrix | 517/527 | 441 (440) | 86 (77) |
+| _remove_trivial_dims | 526/527 | 500 (500) | 27 (26) |
+| identify_hadamard_products | 521/527 | 481 (481) | 46 (40) |
+| identify_removable_identity_matrices | 527/527 | 508 (508) | 19 (19) |
+| remove_identity_matrices | 527/527 | 508 (508) | 19 (19) |
+| _array_contraction_to_diagonal_multiple_identity | 527/527 | 508 (508) | 19 (19) |
+| _array_diag2contr_diagmatrix | 524/527 | 524 (524) | 3 (0) |
+| _EditArrayContraction (state and round trip) | 312/312 | 299 (299) | 13 (13) |
+
+Full suite: 59153 passed in shards 0-22 and 367 in tests/extra, 0
+failures after the trace test update. The three tests of
+test_downstream_audit.py need `symox` installed in the interpreter: they
+fail on the base as well in the CI venv, and pass with a private overlay
+venv. `cargo test -p symox --release`: 833 + 1 + 5. Details in
+audits/performance/2026-10-30-arr2mat/README.md.
+
+Remaining differences to SymPy 1.14 (gaps):
+
+- Scalar placement in an unevaluated MatMul. Native matrix expressions
+  keep the scalar coefficient in front, while SymPy's held MatMul keeps it
+  where it was built.
+  - `Trace(I*Trace(a*c))*Trace(I)` in SymPy is
+    `Trace(Trace(a*c)*I)*Trace(I)` in symox (the one native disagreement of
+    the corpus).
+  - The trace rotation of `_support_function_tp1_recognize` keeps the
+    coefficient in front for the same reason.
+- Array objects inside matrix operations, on the stock path:
+  - `Transpose(OneArray(1, k))`, `DiagMatrix(OneArray(1, k))`, and Hadamard
+    products with array objects (corpus arr15, arr34, arr127, arr145,
+    arr249, arr308, arr336). SymPy builds the object or raises
+    NotImplementedError/ValueError. symox's stock path raises TypeError,
+    because the native `Transpose`/`DiagMatrix`/`HadamardProduct` reject a
+    non-matrix argument.
+  - A MatMul with an `ArraySymbol` (arr12, arr158, arr300). SymPy computes
+    `Trace(MatMul(A, M))` and raises NotImplementedError when printing it.
+    symox returns a trace whose MatMul contains the vendored ArraySymbol.
+- `ArrayElementwiseApplyFunc(sin, x)` keeps `sin` as its function. SymPy
+  stores `Lambda(_d, sin(_d))`, so printed results differ
+  (`ArrayElementwiseApplyFunc(sin, ...)` against
+  `ArrayElementwiseApplyFunc(Lambda(_d, sin(_d)), ...)`). This predates
+  this lot (class constructor) and is not changed here.
+- The matrix derivatives (`_matrix_derivatives.py`) still use their own
+  Python chain-to-matrix conversion (`_chain_array_to_matrix`, the former
+  symox `convert_array_to_matrix`). The element-wise derivatives still use
+  the vendored `symox._arrayexpr` conversion.
+- Not in this lot: `convert_indexed_to_array`, `convert_array_to_indexed`,
+  `array_derive` and `_get_contraction_tuples`. The remaining failure of
+  test_array_expressions.py (`test_arrayexpr_contraction_construction`)
+  needs the last one.
+
+SymPy array-expression test files (21 files, 201 test functions): 120
+passed before, 151 after.
+
+- test_array_expressions.py: 24/25 (13 before).
+- test_as_explicit.py: 2/2 (0 before).
+- test_convert_array_to_matrix.py: 16/16 (collection error before).
+- matrices test_applyfunc.py: 4/5 (`test_applyfunc_shape_11_matrices`).
+- matrices test_derivatives.py: 6/12 (`test_mixed_deriv_mixed_expressions`).
+
+Measured in [the audit](../audits/performance/2026-10-30-arr2mat/README.md).
+
 ## tsolverust (wave 27): native `_tsolve` steps and `sympy.solvers.bivariate`, 2026-10-29
 
 Native (`crates/symox-core/src/solve/tsolve.rs`, binding

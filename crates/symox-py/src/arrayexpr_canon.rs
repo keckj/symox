@@ -8,10 +8,12 @@
 //! `leaves[i] = (rank, shape | None, is_zero_matrix)`, dimensions are ids and
 //! `ones[d]` says whether dimension `d` is 1. `order(nodes)` returns the
 //! stable `default_sort_key` order of the given encoded nodes.
-use pyo3::exceptions::{PyAttributeError, PyIndexError, PyMemoryError, PyNotImplementedError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyAssertionError, PyAttributeError, PyException, PyIndexError, PyKeyError, PyMemoryError, PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 use symox::arrayexpr::{AErr, Ctx, LeafInfo, Node};
+
+pyo3::create_exception!(symox, ArrayExprUnsupported, PyException);
 
 pub(crate) fn decode(o: &Bound<'_, PyAny>) -> PyResult<Node> {
     let t = o.downcast::<PyTuple>()?;
@@ -28,6 +30,7 @@ pub(crate) fn decode(o: &Bound<'_, PyAny>) -> PyResult<Node> {
         "D" => Node::Diagonal(Box::new(decode(&b)?), groups(2)?),
         "R" => Node::Reshape(Box::new(decode(&b)?), t.get_item(2)?.extract()?),
         "E" => Node::PowApply(Box::new(decode(&b)?), t.get_item(2)?.extract()?),
+        "F" => Node::Apply(Box::new(decode(&b)?), t.get_item(2)?.extract()?),
         _ => return Err(PyValueError::new_err("unknown array-expression node")),
     })
 }
@@ -49,6 +52,7 @@ pub(crate) fn encode<'py>(py: Python<'py>, n: &Node) -> PyResult<Bound<'py, PyAn
         Node::Diagonal(e, g) => PyTuple::new(py, ["D".into_pyobject(py)?.into_any(), encode(py, e)?, groups(g)?])?,
         Node::Reshape(e, s) => PyTuple::new(py, ["R".into_pyobject(py)?.into_any(), encode(py, e)?, PyList::new(py, s)?.into_any()])?,
         Node::PowApply(e, x) => PyTuple::new(py, ["E".into_pyobject(py)?.into_any(), encode(py, e)?, x.into_pyobject(py)?.into_any()])?,
+        Node::Apply(e, x) => PyTuple::new(py, ["F".into_pyobject(py)?.into_any(), encode(py, e)?, x.into_pyobject(py)?.into_any()])?,
     };
     Ok(t.into_any())
 }
@@ -56,12 +60,18 @@ pub(crate) fn encode<'py>(py: Python<'py>, n: &Node) -> PyResult<Bound<'py, PyAn
 pub(crate) fn to_pyerr(e: AErr, failure: Option<PyErr>) -> PyErr {
     match e {
         AErr::Value(m) => PyValueError::new_err(m),
+        AErr::NotImplemented(m) if m.is_empty() => PyNotImplementedError::new_err(()),
         AErr::NotImplemented(m) => PyNotImplementedError::new_err(m),
         AErr::Type(m) => PyTypeError::new_err(m),
         AErr::Index(m) => PyIndexError::new_err(m),
         AErr::Attribute(m) => PyAttributeError::new_err(m),
         AErr::Memory(m) => PyMemoryError::new_err(m),
         AErr::Callback => failure.unwrap_or_else(|| PyValueError::new_err("sort key failed")),
+        AErr::Key(m) => PyKeyError::new_err(m),
+        AErr::Assertion(m) if m.is_empty() => PyAssertionError::new_err(()),
+        AErr::Assertion(m) => PyAssertionError::new_err(m),
+        AErr::Matrix(e) => Python::with_gil(|py| crate::matrices::err(py, e)),
+        AErr::Unsupported(m) => ArrayExprUnsupported::new_err(m),
     }
 }
 
@@ -135,6 +145,8 @@ fn _arrayexpr_from_matrix(py: Python<'_>, expr: &Bound<'_, PyAny>, order: &Bound
 }
 
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("ArrayExprUnsupported", m.py().get_type::<ArrayExprUnsupported>())?;
+    crate::arrayexpr_a2m::register(m)?;
     m.add_function(wrap_pyfunction!(_arrayexpr_canon, m)?)?;
     m.add_function(wrap_pyfunction!(_arrayexpr_from_matrix, m)?)?;
     Ok(())

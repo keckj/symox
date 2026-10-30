@@ -130,7 +130,7 @@ impl Conversion {
                                 Node::Add(..) => "ArrayAdd",
                                 Node::Diagonal(..) => "ArrayDiagonal",
                                 Node::Reshape(..) => "Reshape",
-                                Node::PowApply(..) => "ArrayElementwiseApplyFunc",
+                                Node::PowApply(..) | Node::Apply(..) => "ArrayElementwiseApplyFunc",
                                 Node::Zero(..) => "ZeroArray",
                                 Node::Leaf(_) => "MatrixExpr",
                             };

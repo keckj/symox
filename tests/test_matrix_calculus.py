@@ -128,10 +128,13 @@ def test_scalar_matrix_invariants_and_exact_rules():
         with pytest.raises(sx.NonSquareMatrixError): constructor(sx.MatrixSymbol('Rect',2,3))
 
 
-def test_trace_cycles_rectangular_products_and_explicit_lowering():
+def test_trace_of_rectangular_products_keeps_sympy_order_and_explicit_lowering():
     A=sx.MatrixSymbol('A',2,3);B=sx.MatrixSymbol('B',3,2)
-    assert sx.trace(A*B)==sx.trace(B*A)
-    assert sx.trace(A*B)==sx.trace((A*B).T)
+    # SymPy 1.14 MatMul._eval_trace does not canonicalize cycles or transposes.
+    assert sx.trace(A*B)!=sx.trace(B*A)
+    assert str(sx.trace(A*B))=='Trace(A*B)' and str(sx.trace(B*A))=='Trace(B*A)'
+    assert str(sx.trace((A*B).T))=='Trace(B.T*A.T)'
+    assert str(sx.trace(2*A*B))=='2*Trace(A*B)'
     square=sx.MatrixSymbol('Square',2,2)
     assert square.trace_explicit()==square[0,0]+square[1,1]
     assert square.determinant_explicit()==square[0,0]*square[1,1]-square[0,1]*square[1,0]
