@@ -138,14 +138,23 @@ def test_shared_radical_coordinate_retains_its_covariant_relation():
     assert polynomial.subs(p,1)==0 and relation.subs({p:1,x:1})==0
     assert solvers.unrad(x*x+1) is None
     assert solvers.unrad(sx.sqrt(x)+1,sx.Symbol('y')) is None
-    with pytest.raises(NotImplementedError):solvers.unrad(x**sx.Rational(1,65)+1)
-    with pytest.raises(NotImplementedError):solvers.unrad(sx.sin(sx.sqrt(x)))
+    # SymPy 1.14 values
+    assert solvers.unrad(x**sx.Rational(1,65)+1)==(x+1,[])
+    assert solvers.unrad(sx.sin(sx.sqrt(x))) is None
 
 
 def test_four_distinct_radicals_eliminate_even_when_reference_search_stops():
     x=sx.Symbol('x')
     expression=sx.sqrt(x)+sx.sqrt(x+1)+sx.sqrt(x+4)+sx.sqrt(x+9)-6
-    polynomial,cov=solvers.unrad(expression)
+    # The public unrad is SymPy's, which stops here; solve and solveset use
+    # the established resultant elimination and keep the root.
+    import pytest
+    from symox.solvers._algebraic import _unrad_resultant
+    with pytest.raises(NotImplementedError, match='Cannot remove all radicals'):
+        solvers.unrad(expression)
+    assert sx.solve(expression,x)==[0]
+    assert sx.solveset(expression,x)==sx.FiniteSet(0)
+    polynomial,cov=_unrad_resultant(expression)
     assert not cov and sx.Poly(polynomial,x).degree()>0
     assert expression.subs(x,0)==0 and polynomial.subs(x,0)==0
     assert all(not(node.is_Pow and node.exp.is_Rational and node.exp.q!=1)

@@ -1,0 +1,50 @@
+{"case": 0, "expr": "unrad(sqrt(x) + sqrt(x + 1) + sqrt(1 - x))", "first_s": 0.040600290998554556, "import_s": 0.20042626500071492, "result": "(x*(5*x - 4), [])"}
+{"case": 1, "expr": "unrad(root(x, 3) - root(x + 1, 4)/2 + root(x + 2, 3))", "first_s": 0.10349001500071608, "import_s": 0.19971107200035476, "result": "(_p*(4096*_p**9 + 960*_p**8 + 48*_p**7 - _p**6 - 1728), [_p, _p**4 - x - 1])"}
+{"case": 2, "expr": "unrad(sqrt(x) + root(x, 3) + y)", "first_s": 0.027650629002891947, "import_s": 0.19728615200074273, "result": "(_p**3 + _p**2 + y, [_p, _p**6 - x])"}
+{"case": 3, "expr": "solve(sqrt(x) + sqrt(x + 1) - 3, x)", "first_s": 0.13554536599986022, "import_s": 0.20379143500031205, "result": "[16/9]"}
+{"case": 4, "expr": "solve(sqrt(x) + root(x, 3) - 2, x)", "first_s": 0.1482738819977385, "import_s": 0.19392274799974984, "result": "[1]"}
+{"case": 5, "expr": "solve(root(x + 1, 3) + root(x, 3) - 1, x)", "first_s": 0.19381002099908073, "import_s": 0.1971779660016182, "result": "[0]"}
+{"case": 6, "expr": "solveset(sqrt(2*x - 1) - sqrt(x - 4) - 2, x, S.Reals)", "first_s": 0.14356260400018073, "import_s": 0.2015982580014679, "result": "{5, 13}"}
+{"case": 7, "expr": "solveset(-8*x**2/(9*(x**2 - 1)**(S(4)/3)) + 4/(3*(x**2 - 1)**(S(1)/3)), x, S.Complexes)", "first_s": 0.06301332599832676, "import_s": 0.20099314300023252, "result": "{-sqrt(3), sqrt(3)}"}
+{"case": 8, "expr": "solveset((-2)**x + 8, x, S.Reals)", "first_s": 0.027979918999335496, "import_s": 0.20333812399985618, "result": "{3}"}
+{"case": 9, "expr": "solveset(3*(-2)**x - 12, x, S.Reals)", "first_s": 0.027674681001371937, "import_s": 0.1982800320001843, "result": "{2}"}
+{"case": 0, "expr": "unrad(sqrt(x) + sqrt(x + 1) + sqrt(1 - x))", "first_s": 0.04065709900169168, "import_s": 0.1960741680013598, "result": "(x*(5*x - 4), [])"}
+{"case": 1, "expr": "unrad(root(x, 3) - root(x + 1, 4)/2 + root(x + 2, 3))", "first_s": 0.12635035399944172, "import_s": 0.20203516499896068, "result": "(_p*(4096*_p**9 + 960*_p**8 + 48*_p**7 - _p**6 - 1728), [_p, _p**4 - x - 1])"}
+{"case": 2, "expr": "unrad(sqrt(x) + root(x, 3) + y)", "first_s": 0.028935194997757208, "import_s": 0.20610487600060878, "result": "(_p**3 + _p**2 + y, [_p, _p**6 - x])"}
+{"case": 3, "expr": "solve(sqrt(x) + sqrt(x + 1) - 3, x)", "first_s": 0.13884440299807466, "import_s": 0.20452335699883406, "result": "[16/9]"}
+{"case": 4, "expr": "solve(sqrt(x) + root(x, 3) - 2, x)", "first_s": 0.1470421259982686, "import_s": 0.1929671230027452, "result": "[1]"}
+{"case": 5, "expr": "solve(root(x + 1, 3) + root(x, 3) - 1, x)", "first_s": 0.19022374099949957, "import_s": 0.19241571900056442, "result": "[0]"}
+{"case": 6, "expr": "solveset(sqrt(2*x - 1) - sqrt(x - 4) - 2, x, S.Reals)", "first_s": 0.1381090659997426, "import_s": 0.1922749509976711, "result": "{5, 13}"}
+{"case": 7, "expr": "solveset(-8*x**2/(9*(x**2 - 1)**(S(4)/3)) + 4/(3*(x**2 - 1)**(S(1)/3)), x, S.Complexes)", "first_s": 0.06049256199912634, "import_s": 0.19676119900032063, "result": "{-sqrt(3), sqrt(3)}"}
+{"case": 8, "expr": "solveset((-2)**x + 8, x, S.Reals)", "first_s": 0.027214044999709586, "import_s": 0.19126919100017403, "result": "{3}"}
+{"case": 9, "expr": "solveset(3*(-2)**x - 12, x, S.Reals)", "first_s": 0.027514303001225926, "import_s": 0.19361477599886712, "result": "{2}"}
+{"case": 0, "expr": "unrad(sqrt(x) + sqrt(x + 1) + sqrt(1 - x))", "first_s": 0.03968720000193571, "import_s": 0.19439757099826238, "result": "(x*(5*x - 4), [])"}
+{"case": 1, "expr": "unrad(root(x, 3) - root(x + 1, 4)/2 + root(x + 2, 3))", "first_s": 0.10100026799773332, "import_s": 0.19099537000147393, "result": "(_p*(4096*_p**9 + 960*_p**8 + 48*_p**7 - _p**6 - 1728), [_p, _p**4 - x - 1])"}
+{"case": 2, "expr": "unrad(sqrt(x) + root(x, 3) + y)", "first_s": 0.027133455998409772, "import_s": 0.1975372540000535, "result": "(_p**3 + _p**2 + y, [_p, _p**6 - x])"}
+{"case": 3, "expr": "solve(sqrt(x) + sqrt(x + 1) - 3, x)", "first_s": 0.1324136160001217, "import_s": 0.18951751500208047, "result": "[16/9]"}
+{"case": 4, "expr": "solve(sqrt(x) + root(x, 3) - 2, x)", "first_s": 0.14784854100071243, "import_s": 0.19138284099972225, "result": "[1]"}
+{"case": 5, "expr": "solve(root(x + 1, 3) + root(x, 3) - 1, x)", "first_s": 0.18416884299949743, "import_s": 0.18737079600032303, "result": "[0]"}
+{"case": 6, "expr": "solveset(sqrt(2*x - 1) - sqrt(x - 4) - 2, x, S.Reals)", "first_s": 0.13748944799954188, "import_s": 0.19322665400250116, "result": "{5, 13}"}
+{"case": 7, "expr": "solveset(-8*x**2/(9*(x**2 - 1)**(S(4)/3)) + 4/(3*(x**2 - 1)**(S(1)/3)), x, S.Complexes)", "first_s": 0.0608813580001879, "import_s": 0.18942531700304244, "result": "{-sqrt(3), sqrt(3)}"}
+{"case": 8, "expr": "solveset((-2)**x + 8, x, S.Reals)", "first_s": 0.02707339799962938, "import_s": 0.19801936599833425, "result": "{3}"}
+{"case": 9, "expr": "solveset(3*(-2)**x - 12, x, S.Reals)", "first_s": 0.027382088999729604, "import_s": 0.19451189800020074, "result": "{2}"}
+{"case": 0, "expr": "unrad(sqrt(x) + sqrt(x + 1) + sqrt(1 - x))", "first_s": 0.04004382099810755, "import_s": 0.19972238600166747, "result": "(x*(5*x - 4), [])"}
+{"case": 1, "expr": "unrad(root(x, 3) - root(x + 1, 4)/2 + root(x + 2, 3))", "first_s": 0.10598532800213434, "import_s": 0.1963095829996746, "result": "(_p*(4096*_p**9 + 960*_p**8 + 48*_p**7 - _p**6 - 1728), [_p, _p**4 - x - 1])"}
+{"case": 2, "expr": "unrad(sqrt(x) + root(x, 3) + y)", "first_s": 0.027896977997443173, "import_s": 0.20925085099952412, "result": "(_p**3 + _p**2 + y, [_p, _p**6 - x])"}
+{"case": 3, "expr": "solve(sqrt(x) + sqrt(x + 1) - 3, x)", "first_s": 0.13737033099823748, "import_s": 0.1962645989988232, "result": "[16/9]"}
+{"case": 4, "expr": "solve(sqrt(x) + root(x, 3) - 2, x)", "first_s": 0.15261120200011646, "import_s": 0.19812833199830493, "result": "[1]"}
+{"case": 5, "expr": "solve(root(x + 1, 3) + root(x, 3) - 1, x)", "first_s": 0.18989901099848794, "import_s": 0.19400446800136706, "result": "[0]"}
+{"case": 6, "expr": "solveset(sqrt(2*x - 1) - sqrt(x - 4) - 2, x, S.Reals)", "first_s": 0.14215679300104966, "import_s": 0.20089143899895134, "result": "{5, 13}"}
+{"case": 7, "expr": "solveset(-8*x**2/(9*(x**2 - 1)**(S(4)/3)) + 4/(3*(x**2 - 1)**(S(1)/3)), x, S.Complexes)", "first_s": 0.06178165299934335, "import_s": 0.19725662400014699, "result": "{-sqrt(3), sqrt(3)}"}
+{"case": 8, "expr": "solveset((-2)**x + 8, x, S.Reals)", "first_s": 0.02726244700170355, "import_s": 0.19620380900232703, "result": "{3}"}
+{"case": 9, "expr": "solveset(3*(-2)**x - 12, x, S.Reals)", "first_s": 0.027544115000637248, "import_s": 0.19363788299961016, "result": "{2}"}
+{"case": 0, "expr": "unrad(sqrt(x) + sqrt(x + 1) + sqrt(1 - x))", "first_s": 0.04027515900088474, "import_s": 0.19469317000039155, "result": "(x*(5*x - 4), [])"}
+{"case": 1, "expr": "unrad(root(x, 3) - root(x + 1, 4)/2 + root(x + 2, 3))", "first_s": 0.10204656800124212, "import_s": 0.1952696599983028, "result": "(_p*(4096*_p**9 + 960*_p**8 + 48*_p**7 - _p**6 - 1728), [_p, _p**4 - x - 1])"}
+{"case": 2, "expr": "unrad(sqrt(x) + root(x, 3) + y)", "first_s": 0.02690486699793837, "import_s": 0.19267576600032044, "result": "(_p**3 + _p**2 + y, [_p, _p**6 - x])"}
+{"case": 3, "expr": "solve(sqrt(x) + sqrt(x + 1) - 3, x)", "first_s": 0.13500082500104327, "import_s": 0.19283509200249682, "result": "[16/9]"}
+{"case": 4, "expr": "solve(sqrt(x) + root(x, 3) - 2, x)", "first_s": 0.15639294300126494, "import_s": 0.1921223600002122, "result": "[1]"}
+{"case": 5, "expr": "solve(root(x + 1, 3) + root(x, 3) - 1, x)", "first_s": 0.18917781699929037, "import_s": 0.1917803059986909, "result": "[0]"}
+{"case": 6, "expr": "solveset(sqrt(2*x - 1) - sqrt(x - 4) - 2, x, S.Reals)", "first_s": 0.13822670900117373, "import_s": 0.19438728900058777, "result": "{5, 13}"}
+{"case": 7, "expr": "solveset(-8*x**2/(9*(x**2 - 1)**(S(4)/3)) + 4/(3*(x**2 - 1)**(S(1)/3)), x, S.Complexes)", "first_s": 0.06078982100007124, "import_s": 0.1943979899988335, "result": "{-sqrt(3), sqrt(3)}"}
+{"case": 8, "expr": "solveset((-2)**x + 8, x, S.Reals)", "first_s": 0.026827424997463822, "import_s": 0.19057428700034507, "result": "{3}"}
+{"case": 9, "expr": "solveset(3*(-2)**x - 12, x, S.Reals)", "first_s": 0.026911917000688845, "import_s": 0.1919701939987135, "result": "{2}"}

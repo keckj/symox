@@ -13443,3 +13443,75 @@ inside an `Add` as `Integral`.
 No intentional corrections. SymPy test_prde.py: 3 failed, 12 passed before
 and after. test_risch.py: 8 failed, 28 passed before, 5 failed, 31 passed
 after. Measured: [audit](../audits/performance/2026-10-29-prderust2/README.md).
+
+
+## radicalrust (wave 29): native `unrad`, `_solve_radical` and the negative-base steps, 2026-10-30
+
+What is native now:
+- `unrad` (SymPy 1.14 `sympy.solvers.solvers.unrad`) is
+  `crates/symox-core/src/solve/unrad.rs`. The public
+  `symox.solvers.solvers.unrad` is a thin wrapper around it.
+  - It returns SymPy's `(eq, cov)` or None, and raises SymPy's
+    NotImplementedError ("Cannot remove all radicals", ...), PolynomialError,
+    IndexError or AttributeError. All 69 cases of test_unrad1 and
+    test_unrad_slow agree with SymPy, which includes a `_take` that rejects a
+    generator that is not a power.
+  - The `_vsolve` calls and a caller's `_take` predicate are Python
+    callbacks.
+- `solveset`'s radical step (SymPy `_solve_radical`) is `radical_step` in
+  `crates/symox-core/src/sets/solveset_radical.rs`.
+  - Candidates are checked with the native `checksol` of `tsolve.rs` (see the gaps). A
+    CRootOf is kept unchecked, as in SymPy.
+  - An undecided candidate is kept in a ConditionSet, where SymPy drops it.
+  - When `unrad` gives no result, the step takes SymPy's `_solve_as_rational`
+    branch: the numerator's solutions minus the denominator's. This fixes
+    test_issue_17882.
+- The negative-base steps `negative_base_step` and `negative_base_guard` are
+  native. These are the `_invert_real` of `b**g(x)` with a constant base that
+  is not known to be positive, together with SymPy's
+  `_is_finite_with_finite_vars`.
+- Python only admits the arguments and supplies the recursive `solveset`,
+  `imageset`, `intersect` and `solve` callbacks
+  (`python/symox/solvers/_solveset_steps.py`).
+
+Established fallback (Python):
+- SymPy's `unrad` raises NotImplementedError for
+  `sqrt(x) + sqrt(x + 1) + sqrt(x + 4) + sqrt(x + 9) - 6`. Symox already
+  solved it (`[0]`, `{0}`) with the resultant elimination, so that
+  elimination is kept as the private `_unrad_resultant` in
+  `python/symox/solvers/_algebraic.py`.
+- Only `solve`'s `_unrad_solution` and the native `radical_step` (through a
+  host callback) call it, and only after the native `unrad` raises.
+- Its candidates are checked, so roots are not lost and no wrong root is
+  added. The public `unrad` still raises like SymPy.
+
+Intentional corrections (kept from the base):
+- `solveset((-1)**x - 1, x, S.Reals)` and `solveset((-1)**x + 1, x, S.Reals)`
+  give the even and odd integer lattices. SymPy raises ValueError.
+- `solveset((-S(1)/2)**x - 4, x, S.Reals)` gives `{-2}`. SymPy raises
+  ValueError.
+- `solveset((-3)**x - 2**x, x, S.Reals)` stays a ConditionSet. SymPy's
+  EmptySet is wrong, because `x = 0` is a solution.
+
+Remaining gaps:
+- `_unrad_solution` (the `solve` side) and `_unrad_resultant` are still
+  Python.
+- The `unrad` flags `cov`, `n` and `rpt` are not supported. They raise
+  NotImplementedError instead of being ignored.
+- A change of variable whose inverse set `g_y_s` is not finite makes
+  `radical_step` decline: the native solver's result is kept.
+- After `_solve_as_rational` returns a ConditionSet, SymPy's `_transolve` is
+  not repeated. The native solver has already tried it.
+- The native `checksol` runs with `force=False`; SymPy defaults to
+  `force=True`. Only a proven candidate is kept outright. The others go to
+  the ConditionSet, whose constructor removes the provably invalid ones.
+  - A `False` from the native check is not trusted to drop a candidate: it
+    rejects test_issue_11534's parametric `-y/sqrt(y**2 + 1)`, which is valid
+    at `y = 0`. SymPy keeps that candidate in a ConditionSet.
+  - This is a gap of the native `checksol` with parameters.
+- Copied SymPy test files:
+  - `test_solvers.py`: 54 failed / 79 passed before, 53 failed / 80 passed
+    after (test_issue_17882);
+  - `test_solveset.py`: 94 failed / 87 passed before and after.
+- Measurements are in
+  [audits/performance/2026-10-29-radicalrust](../audits/performance/2026-10-29-radicalrust/README.md).

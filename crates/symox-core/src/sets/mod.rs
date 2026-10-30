@@ -14,6 +14,8 @@ mod solveset;
 mod solveset_steps;
 mod solveset_modular;
 pub use solveset_modular::{solveset_modular, ModularError};
+mod solveset_radical;
+pub use solveset_radical::{negative_base_guard, negative_base_step, radical_step, StepHost};
 mod lambda;
 pub use lambda::{identity_function,lambda_checked,lambda_signature,lambda_arity,lambda_parts,lambda_apply,validate_lambda,validate_lambda_tree};
 
