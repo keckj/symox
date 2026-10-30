@@ -15253,3 +15253,134 @@ Remaining gaps:
 - lambdarr: the small-array and scalar polynomial calls above.
 
 Measured: [audit](../audits/performance/2026-10-30-smallgaps/README.md).
+
+## arrindex (arrexprrust, third part): native array_derive, convert_indexed_to_array and convert_array_to_indexed, 2026-10-30
+
+Native now (crates/symox-core, bindings in crates/symox-py/src/arrayexpr_index.rs):
+
+- `array_derive` (crates/symox-core/src/arrayexpr_derive.rs, binding
+  `_core._arrayexpr_derive`): every dispatch rule of SymPy 1.14
+  `arrayexpr_derivatives.py` (ArrayTensorProduct, ArrayAdd, PermuteDims,
+  ArrayContraction, ArrayDiagonal, Reshape, ArrayElementwiseApplyFunc,
+  ArraySymbol, MatrixSymbol, Identity/OneMatrix, Transpose, Inverse,
+  ElementwiseApplyFunction, HadamardProduct, scalar `Expr`, other matrix
+  expressions through `convert_matrix_to_array`), with the index arithmetic
+  and the `_array_tensor_product`/`_permute_dims`/`_array_contraction`/
+  `_array_diagonal`/`_array_add` calls on the canonical forms of
+  arrayexpr.rs.
+- `convert_indexed_to_array` and `_convert_indexed_to_array`
+  (crates/symox-core/src/arrayexpr_index.rs, binding
+  `_core._arrayexpr_from_indexed`): Sum (limit checks, contraction of the
+  summed indices), Mul (diagonals of repeated indices, Kronecker delta
+  merging into index sets, `first_indices`), Add (broadcasting with
+  OneArray factors, permutation to a common index order, the mismatch
+  ValueError), Pow (diagonal of a square, ArrayElementwiseApplyFunc
+  otherwise), functions of an element, KroneckerDelta, MatrixElement,
+  ArrayElement, Indexed and IndexedBase, with SymPy's error types and
+  messages (IndexError "... not found in ...", ValueError "summation index
+  and array dimension mismatch", TypeError on unshaped bases where SymPy
+  raises one).
+- `convert_array_to_indexed` (same module, binding
+  `_core._arrayexpr_to_indexed`): the index plan (dummy numbering, the
+  index expressions of PermuteDims, ArrayContraction, ArrayDiagonal,
+  Reshape, the products and sums, the Sum limits).
+
+Python (python/symox/tensor/array/expressions/_native.py) encodes the
+objects into the Rust trees and rebuilds the results: interning of index
+atoms, the leaf table (rank, shape ids, zero flag), the `default_sort_key`
+order of fully contracted factors (the callback of the canonical forms,
+as in the second part of arrexprrust), the objects the rules build
+beforehand (`Identity(i)`, `-expr` as `MatMul(-1, expr).doit()`,
+`ElementwiseApplyFunction(fdiff, expr)`), the Dummy objects `d0, d1, ...`
+and `ArrayElement`/`Sum` objects of the index plan. The previous Python
+algorithms (`_ArrayDerivative`, `_indexed_to_array`, `_diagonal_indices`,
+`_canonical_permute`) are removed.
+
+API envelope changes (Python, constructors only):
+`ArrayElement` accepts a str name and a single index and checks its shape
+with SymPy's messages (`_check_shape`); `ArrayTensorProduct`,
+`ArrayContraction`, `ArrayDiagonal`, `PermuteDims` and
+`ArrayElementwiseApplyFunc` have shape None when an argument has no shape
+(IndexedBase without shape); `ArrayElementwiseApplyFunc` wraps a function
+class in a Lambda and gives `_get_function_fdiff` as SymPy does. The
+native scalar form of an `ArrayElement` is an applied function whose class
+is one per parent array: elements of distinct arrays sharing a name are
+distinct (SymPy compares `ArrayElement.name`, the array), their
+derivative with respect to each other is 0, and `convert_indexed_to_array`
+recovers the parent from the class.
+
+Core fix (Rust, crates/symox-core/src/matrixexpr.rs `validate_index`):
+SymPy's `MatrixExpr.valid_index` evaluates `i < n` and `i >= -n` as
+relations; for a dimension without real assumptions (a plain symbol `k`)
+`k < k` stays unevaluated and `M[i, k]` is a valid entry. symox tested
+`is_nonnegative(i - n)`, which rejected `M[i, k]` of a k x k matrix. The
+check now uses the relations as SymPy does. Errors for real dimensions
+(`n` integer positive, `M[n, 0]`) are unchanged; their message stays
+"Matrix index out of range" where SymPy says "Invalid indices (n, 0)"
+(preexisting, not changed here).
+
+Admitted domain and fallbacks: all inputs of the three functions go to
+Rust; there is no Python fallback algorithm. Inputs the reference rejects
+from Python objects (missing `shape`, failing `fdiff`, unsupported types)
+are captured during encoding and raised by Rust at the point where SymPy
+raises them.
+
+Checks: a differential corpus of 168 cases (57 array_derive, 86
+convert_indexed_to_array, 25 convert_array_to_indexed) gives SymPy 1.14's
+structure for 162 (57, 82, 23); the base tree matched 30 (its array_derive
+returned an unevaluated `_ArrayDerivative`). tests/test_native_arrindex.py
+pins the corpus. SymPy 1.14's array-expression test files (copied with
+the imports renamed): 120 passed, 56 failed, 3 collection errors before;
+127 passed, 56 failed, 1 collection error after.
+test_arrayexpr_derivatives.py and test_convert_indexed_to_array.py now
+collect; every test of them passes except the last assertion of
+`test_arrayexpr_convert_indexed_to_array_and_back_to_matrix`, where
+`_convert_indexed_to_array` gives SymPy's array and
+`convert_array_to_matrix` (not part of this work) does not reduce it to
+`M*P*N + M*P.T*N + N*P*M + N*P.T*M`. `test_convert_array_to_indexed_main`
+passes. Full `tests/` (24 shards): 59583 passed, 20 failed; 14 of the
+failures pass when rerun alone (load-dependent timeouts and memory caps),
+the 6 others (test_downstream_audit.py, test_sympy_parity_audit.py) fail
+identically on the base tree and on main in the same environment.
+
+Intentional deviations: none.
+
+Remaining gaps (outside these functions unless stated):
+
+- Order of commutative factors in symox's core Mul/Add. Six corpus cases
+  differ from SymPy only in it: `(M[i, 0]*N[0, j]).args` is `(N, M)` in
+  symox and `(M, N)` in SymPy, the same for `M[i, j] + v[i, 0]`,
+  `IA[i, 0]*IB[i]` (Indexed products are Symbols in symox and sort by
+  name), and `C[2]*B[0, 1]`, `C[l]*B[i, j]` from convert_array_to_indexed
+  (the native ArrayElement node sorts by its argument count). The
+  conversion consumes the arguments in the order the core gives; with
+  SymPy's order (`evaluate=False`) the native result equals SymPy's. The
+  same holds for `Sum(IA[i, j]*IB[j], ...)`: SymPy orders `IB[j]` first.
+- The term order of rank-4 matrix derivatives with three or more factors
+  of `X` (`X**3`, `X*A*X*B*X`, `A*X**3`) is not changed by this work.
+  `array_derive(convert_matrix_to_array(e), X)` now gives SymPy's array
+  exactly for these cases; the difference comes from the matrix lines
+  kernel and from `convert_array_to_matrix`, which another branch ports.
+  `matrix_derive` (new module `arrayexpr_derivatives`) chains
+  `convert_matrix_to_array`, the native `array_derive` and the current
+  `convert_array_to_matrix`, whose results are not yet SymPy's
+  (unsimplified contractions); `MatrixExpr.diff` does not use it.
+- The element-wise matrix derivatives keep the vendored Python copy of
+  SymPy's array expressions (`symox._arrayexpr`, 3409 lines), a
+  preexisting Python path not touched here.
+- `fdiff` of an element-wise function is evaluated when the tree is
+  encoded, not lazily; an `fdiff` that raises is stored and raised by Rust
+  only on the branch where SymPy calls it, so the error is the same.
+- `x` without `shape`: SymPy raises AttributeError at its first use of
+  `x.shape`; symox raises the same AttributeError message, from the
+  encoding step when the shape is needed.
+- The RecursionError of SymPy on an unconvertible matrix expression
+  (`convert_matrix_to_array` returning the same object) is raised directly
+  with SymPy's message, without recursing.
+- `Reshape` constructor errors are raised when the result is rebuilt.
+- `ZeroArray()`/`OneArray()` with an empty shape are leaves; corpus cases
+  with them match SymPy, other uses are not verified.
+- The class name in the NotImplementedError "not implemented for type"
+  message is the symox class.
+
+Measured: [audit](../audits/performance/2026-10-30-arrindex/README.md).

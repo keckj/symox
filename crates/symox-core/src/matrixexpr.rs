@@ -1241,11 +1241,11 @@ impl MatrixExpr {
     }
     pub fn validate_index(index:&Expr,dim:&Expr)->MResult<()> {
         if crate::assumptions::is_integer(index)==Some(false){return Err(MatrixError::Index("Matrix indices must be integers".into()));}
-        // SymPy's `valid_index`: `i < rows` and `i >= -rows` only decide
-        // when both sides are real (`k < k` stays unevaluated for a plain
-        // symbol `k`, so `MatrixSymbol("N", k, k)[k, l]` is an element).
-        if crate::assumptions::is_real(index)!=Some(true)||crate::assumptions::is_real(dim)!=Some(true){return Ok(());}
-        if crate::assumptions::is_nonnegative(&sub(index,dim))==Some(true)||crate::assumptions::is_negative(&crate::ops::add2(index,dim))==Some(true){return Err(MatrixError::Index("Matrix index out of range".into()));}
+        // SymPy's MatrixExpr.valid_index: `(i >= -n) != False and (i < n) != False`,
+        // the relations evaluated as SymPy does (a non-real dimension such as a
+        // plain symbol `k` leaves `k < k` unevaluated, so `M[i, k]` is valid).
+        let fals=Expr::boolean(false);
+        if crate::relational::lt(index,dim)==fals||crate::relational::ge(index,&crate::ops::neg(dim))==fals{return Err(MatrixError::Index("Matrix index out of range".into()));}
         Ok(())
     }
     fn kronecker_element(&self,factors:&[Self],i:&Expr,j:&Expr)->MResult<Expr>{

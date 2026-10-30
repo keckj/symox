@@ -33,6 +33,7 @@ mod prde;
 mod matrix_rank_four;
 mod arrayexpr_canon;
 mod arrayexpr_a2m;
+mod arrayexpr_index;
 mod prde_frac;
 mod prde_const;
 mod prde_deriv;
@@ -4699,6 +4700,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     prde::register(m)?;
     matrix_rank_four::register(m)?;
     arrayexpr_canon::register(m)?;
+    arrayexpr_index::register(m)?;
     prde_frac::register(m)?;
     piecewise_fold::register(m)?;
     derivative_orders::register(m)?;
