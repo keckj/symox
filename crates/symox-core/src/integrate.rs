@@ -29,6 +29,7 @@ pub mod risch_splitfactor;
 pub mod prde;
 pub mod prde_limited;
 pub mod log_to_atan;
+pub mod log_to_atan_ex;
 pub mod log_to_real;
 pub mod ratint_driver;
 pub mod logarithmic_reduction;

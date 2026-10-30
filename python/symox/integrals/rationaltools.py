@@ -917,10 +917,19 @@ def log_to_atan(f, g):
         # Division by a nonzero constant is exact. SymPy's EX elements are
         # canonicalised by cancel, so its f.div(g) leaves a zero remainder;
         # symox's EX arithmetic does not always recognise (a/c)*c - a as 0
-        # for nested radicals, so divide by the constant directly.
+        # for nested radicals. The native quotient is that of the reference
+        # (the EX field quotient of each coefficient by the constant, the
+        # remainder pass skipped). The native EX simplify does not reach
+        # SymPy's normal form of the Cardano radicals, so the shorter of that
+        # quotient and the plain coefficient quotient is kept.
         c = g.LC()
         p = Poly([coeff/c for coeff in f.all_coeffs()], *f.gens, domain=f.domain)
-        return 2*atan(p.as_expr())
+        plain = 2*atan(p.as_expr())
+        if len(f.gens) == 1:
+            native = _rational_core._log_to_atan_ex_constant(f.all_coeffs(), c, f.gen)
+            if len(str(native)) < len(str(plain)):
+                return native
+        return plain
 
     p, q = f.div(g)
 
