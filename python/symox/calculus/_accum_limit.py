@@ -111,6 +111,15 @@ def _walk(e, z, z0, dir, used):
                     for v in (base.min, base.max)]
             from .accumulationbounds import AccumBounds
             return _bounded_value(AccumBounds(min(ends), max(ends)))
+        if _is_bounds(exp) or (_is_bounds(base) and exp.is_rational is not True
+                               and base.min.is_nonnegative is not True):
+            # Admission only: a base that may be negative under an
+            # irrational, infinite or oscillating exponent is not real, and
+            # the reference keeps such limits unevaluated (issues 14276,
+            # 18442: sin(x)**log(x), sin(x)**cos(x), tan(x)**(2**sqrt(pi))).
+            # A rational exponent stays a bounds power (sqrt(AccumBounds(-1,
+            # 1)), whose product with a vanishing factor is 0).
+            raise _Fail
         return _bounded_value(base**exp)
     if e.is_Function and len(e.args) == 1:
         name = e.func.__name__
