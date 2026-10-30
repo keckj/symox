@@ -37,9 +37,47 @@ def _has_piecewise(expr):
         return expr.has(Piecewise)
 
 
+# The stock constructors the native fold (``_core._piecewise_fold``)
+# reproduces, captured once symox is loaded; a replaced one runs the Python
+# algorithm below.
+_STOCK = []
+
+
+def _stock_constructors():
+    import sys
+    symox = sys.modules['symox']
+    from . import _compat
+    sorting = sys.modules.get('symox.core.sorting')
+    return (symox.Piecewise, symox.And, symox.ITE, symox.Dummy, symox.sympify,
+            symox.simplify_logic, _compat.Add, _compat.Mul, _compat.Pow,
+            getattr(sorting, 'ordered', None))
+
+
+def _snapshot_stock():
+    _STOCK[:] = [_stock_constructors()]
+
+
+def _native_fold_admitted():
+    """The native fold applies: stock constructors and global evaluation."""
+    from ._public_core import _evaluation
+    if not _STOCK or _evaluation.get() is not True:
+        return False
+    return all(a is b for a, b in zip(_STOCK[0], _stock_constructors()))
+
+
 def piecewise_fold(expr, evaluate=True):
     """SymPy's ``piecewise_fold``: move Piecewise outward through the
     surrounding function, collecting branches with identical conditions."""
+    from ._core import Expr, _piecewise_fold
+    if (isinstance(expr, Expr) and (evaluate is None or evaluate is True or evaluate is False)
+            and type(expr).__name__ != 'ExprCondPair' and _native_fold_admitted()):
+        folded = _piecewise_fold(expr, evaluate)
+        if folded is not None:
+            return folded
+    return _piecewise_fold_python(expr, evaluate)
+
+
+def _piecewise_fold_python(expr, evaluate=True):
     from . import Piecewise, And, ITE, sympify, true, simplify_logic
     from ._core import Expr
     from .core.sorting import ordered

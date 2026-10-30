@@ -27,6 +27,8 @@ mod risch_polynomial_reduce;
 mod risch_splitfactor;
 mod solveset_steps;
 mod prde;
+mod piecewise_fold;
+mod derivative_orders;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -4679,6 +4681,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     risch_splitfactor::register(m)?;
     solveset_steps::register(m)?;
     prde::register(m)?;
+    piecewise_fold::register(m)?;
+    derivative_orders::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
     logic::register(m)?;
