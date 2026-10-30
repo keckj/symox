@@ -22,12 +22,16 @@ class ArrayDerivative:
     __slots__ = ('_expr', '_variable_count')
 
     def __init__(self, expr, *variables):
+        from ... import _core
         S = _symox()
         counts = []
         for v in variables:
             if isinstance(v, tuple) or (hasattr(v, 'is_Tuple') and getattr(v, 'is_Tuple', False)):
                 var, count = v
-                count = S.sympify(count)
+                if type(count) is int:
+                    count = S.Integer(count)
+                elif not isinstance(count, _core.Expr):
+                    count = S.sympify(count)
             else:
                 var, count = v, S.Integer(1)
             if counts and counts[-1][0] == var:
@@ -35,7 +39,11 @@ class ArrayDerivative:
             else:
                 counts.append((var, count))
         self._expr = expr
-        self._variable_count = tuple(S.Tuple(v, c) for v, c in counts)
+        Tuple, native = S.Tuple, _core.Expr
+        self._variable_count = tuple(
+            Tuple._from_native(_core._apply("Tuple", v, c))
+            if isinstance(v, native) and isinstance(c, native) else Tuple(v, c)
+            for v, c in counts)
 
     @property
     def expr(self):
@@ -253,7 +261,17 @@ def _is_mutable_matrix(expr):
 
 
 def _parse(variables):
-    """Merged ``(Symbol, count)`` pairs of scalar Symbol variables, or None."""
+    """Merged ``(Symbol, count)`` pairs of scalar Symbol variables, or None
+    (native: ``_core._derivative_orders``; NotImplemented runs the Python
+    code)."""
+    from ... import _core
+    pairs = _core._derivative_orders(tuple(variables))
+    if pairs is not NotImplemented:
+        return pairs
+    return _parse_python(variables)
+
+
+def _parse_python(variables):
     S = _symox()
     from ... import _core
     pairs = []
@@ -307,10 +325,19 @@ def _evaluate(expr, pairs, cls):
     Symbol variables: the zero exit, the canonical order, the integer
     orders evaluated, then the held rest from the first symbolic order."""
     S = _symox()
+    from ... import _core
     pairs = [(S.sympify(v), S.sympify(c)) for v, c in pairs]
     if not pairs:
         return expr
     free = expr.free_symbols
+    plan = _core._derivative_order_plan(pairs, free)
+    if plan is True:
+        return _zero_like(expr, cls)
+    if plan is not NotImplemented:
+        ordered, split = plan
+        for v, c in ordered[:split]:
+            expr = expr.diff((v, c))
+        return cls(expr, *ordered[split:]) if split < len(ordered) else expr
     if any(c.is_positive and v not in free for v, c in pairs):
         return _zero_like(expr, cls)
     # Derivative._sort_variable_count: commuting symbols in canonical order,

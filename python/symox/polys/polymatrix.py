@@ -14,6 +14,7 @@ from symox.core.sympify import _sympify
 from symox.polys.polyerrors import CoercionFailed
 from symox.polys.polytools import Poly, parallel_poly_from_expr
 from symox.polys.domains import QQ
+from symox.polys import _polymatrix_rational as _rational
 
 
 def _cancel(e):
@@ -72,12 +73,20 @@ class MutablePolyDenseMatrix:
             if isinstance(ring, str):
                 from symox import Dummy
                 ring = Poly(0, Dummy(), domain=ring).domain
-            domain, gens = ring, tuple(gens)
+            if getattr(ring, 'is_PolynomialRing', False):
+                # the reference keeps a K[gens] ring as its domain and gens
+                domain, gens = ring.domain, tuple(ring.symbols)
+            else:
+                domain, gens = ring, tuple(gens)
         elif items and all(isinstance(item, Poly) for item in items):
-            p = items[0]
-            for p2 in items[1:]:
-                p, _ = p.unify(p2)
-            domain, gens = p.domain, tuple(p.gens)
+            ring = _rational.common_ring(items)
+            if ring is not None:
+                domain, gens = ring
+            else:
+                p = items[0]
+                for p2 in items[1:]:
+                    p, _ = p.unify(p2)
+                domain, gens = p.domain, tuple(p.gens)
         else:
             polys, info = parallel_poly_from_expr(items, gens, field=True)
             domain, gens = info['domain'], tuple(info['gens'])
@@ -148,6 +157,9 @@ class MutablePolyDenseMatrix:
         return list(self._items)
 
     def _poly(self, e):
+        p = _rational.ground_poly(self, e)
+        if p is not None:
+            return p
         return Poly(e, *self.gens, domain=self.domain)
 
     def _entry(self, i, j):
@@ -178,7 +190,9 @@ class MutablePolyDenseMatrix:
     def __eq__(self, other):
         if not isinstance(self, type(other)):
             return NotImplemented
+        # the reference compares DomainMatrix objects, whose domain is K[gens]
         return (self.shape == other.shape and self.gens == other.gens
+                and self.domain == other.domain
                 and all(_cancel(a - b) == 0 for a, b in zip(self._items, other._items)))
 
     def __add__(self, other):
@@ -278,6 +292,8 @@ class MutablePolyDenseMatrix:
         return cls._new(m, n, [_sympify(0)]*(m*n), gens, QQ)
 
     def _ground_check(self, name):
+        if _rational.ground_items(self):
+            return
         if not (self.domain.is_Field and all(p.is_ground for p in self)):
             raise ValueError("PolyMatrix %s is only for ground field elements" % name)
 
@@ -344,3 +360,4 @@ MutablePolyMatrix = PolyMatrix = MutablePolyDenseMatrix
 from ._polymatrix_native import register as _register_native_ground
 _native_ground = _register_native_ground(MutablePolyDenseMatrix, globals())
 del _register_native_ground
+_rational.register(MutablePolyDenseMatrix, globals())

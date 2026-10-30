@@ -1,0 +1,12 @@
+{"name": "fact_11", "classify": ["factorable"], "t": 0.19}
+{"name": "1st_exact_05", "classify": ["factorable", "1st_exact", "1st_homogeneous_coeff_best", "1st_homogeneous_coeff_subs_indep_div_dep", "1st_homogeneous_coeff_subs_dep_div_indep", "1st_power_series", "lie_group", "1st_exact_Integral", "1st_homogeneous_coeff_subs_indep_div_dep_Integral", "1st_homogeneous_coeff_subs_dep_div_indep_Integral"], "t": 0.47}
+{"name": "1st_exact_07", "classify": ["factorable", "1st_exact", "1st_homogeneous_coeff_best", "1st_homogeneous_coeff_subs_indep_div_dep", "1st_homogeneous_coeff_subs_dep_div_indep", "lie_group", "1st_exact_Integral", "1st_homogeneous_coeff_subs_indep_div_dep_Integral", "1st_homogeneous_coeff_subs_dep_div_indep_Integral"], "t": 1.47}
+{"name": "2nd_nonlinear_autonomous_conserved_01", "classify": ["2nd_nonlinear_autonomous_conserved", "2nd_nonlinear_autonomous_conserved_Integral"], "t": 0.16}
+{"name": "2nd_nonlinear_autonomous_conserved_02", "classify": ["2nd_nonlinear_autonomous_conserved", "2nd_nonlinear_autonomous_conserved_Integral"], "t": 0.37}
+{"name": "2nd_nonlinear_autonomous_conserved_03", "classify": ["2nd_nonlinear_autonomous_conserved", "2nd_nonlinear_autonomous_conserved_Integral"], "t": 0.84}
+{"name": "2nd_nonlinear_autonomous_conserved_04", "classify": ["2nd_nonlinear_autonomous_conserved", "2nd_nonlinear_autonomous_conserved_Integral"], "t": 0.18}
+{"name": "2nd_nonlinear_autonomous_conserved_05", "classify": ["2nd_nonlinear_autonomous_conserved", "2nd_nonlinear_autonomous_conserved_Integral"], "t": 0.17}
+{"name": "separable_reduced_01", "classify": ["factorable", "separable_reduced", "lie_group", "separable_reduced_Integral"], "t": 0.54}
+{"name": "separable_reduced_04", "classify": ["factorable", "Bernoulli", "separable_reduced", "lie_group", "Bernoulli_Integral", "separable_reduced_Integral"], "t": 0.51}
+{"name": "separable_reduced_08", "classify": ["factorable", "separable", "1st_exact", "separable_reduced", "lie_group", "separable_Integral", "1st_exact_Integral", "separable_reduced_Integral"], "t": 0.76}
+{"name": "dep_div_indep_03", "classify": ["factorable", "1st_homogeneous_coeff_best", "1st_homogeneous_coeff_subs_indep_div_dep", "1st_homogeneous_coeff_subs_dep_div_indep", "lie_group", "1st_homogeneous_coeff_subs_indep_div_dep_Integral", "1st_homogeneous_coeff_subs_dep_div_indep_Integral"], "t": 3.35}

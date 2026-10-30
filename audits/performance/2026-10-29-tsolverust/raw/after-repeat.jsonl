@@ -1,0 +1,30 @@
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.005604888001471409, "import_s": 0.15882524200060288, "result": "[2**(1/y)]", "repeat_median_s": 0.004470264500014309, "repeats": 20}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.003132570998786832, "import_s": 0.15882524200060288, "result": "[exp(a/2)]", "repeat_median_s": 0.0029794385000059265, "repeats": 20}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.005081246999907307, "import_s": 0.15882524200060288, "result": "[3**(1/(2*y))]", "repeat_median_s": 0.004967414000930148, "repeats": 20}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.00936765100050252, "import_s": 0.15882524200060288, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]", "repeat_median_s": 0.009510456498901476, "repeats": 20}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.03281470399997488, "import_s": 0.15882524200060288, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.016279629000564455, "repeats": 20}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.014972828001191374, "import_s": 0.15882524200060288, "result": "[exp(-2*LambertW(1))]", "repeat_median_s": 0.01480191350037785, "repeats": 20}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.016679524998835404, "import_s": 0.15882524200060288, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.016422433001025638, "repeats": 20}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.004008805000921711, "import_s": 0.15882524200060288, "result": "[a*LambertW(1/a)]", "repeat_median_s": 0.0038715320006303955, "repeats": 20}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.007536621998951887, "import_s": 0.15882524200060288, "result": "[-a*LambertW(-1/a)]", "repeat_median_s": 0.0071185950000653975, "repeats": 20}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.014910881000105292, "import_s": 0.15882524200060288, "result": "[exp(-2*LambertW(1/2))]", "repeat_median_s": 0.014418290000321576, "repeats": 20}
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.005341537998901913, "import_s": 0.1657948980009678, "result": "[2**(1/y)]", "repeat_median_s": 0.004455596499610692, "repeats": 20}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.003125115999864647, "import_s": 0.1657948980009678, "result": "[exp(a/2)]", "repeat_median_s": 0.002982259499731299, "repeats": 20}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.005045056999733788, "import_s": 0.1657948980009678, "result": "[3**(1/(2*y))]", "repeat_median_s": 0.004938416499498999, "repeats": 20}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.009279848000005586, "import_s": 0.1657948980009678, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]", "repeat_median_s": 0.009153920000244398, "repeats": 20}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.031056355001055636, "import_s": 0.1657948980009678, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.01626458049940993, "repeats": 20}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.015828159001102904, "import_s": 0.1657948980009678, "result": "[exp(-2*LambertW(1))]", "repeat_median_s": 0.016278580499601958, "repeats": 20}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.017381452998961322, "import_s": 0.1657948980009678, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.016359718000785506, "repeats": 20}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.003933441999834031, "import_s": 0.1657948980009678, "result": "[a*LambertW(1/a)]", "repeat_median_s": 0.003870834499139164, "repeats": 20}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.007225675000881893, "import_s": 0.1657948980009678, "result": "[-a*LambertW(-1/a)]", "repeat_median_s": 0.007089235999956145, "repeats": 20}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.014986973999839392, "import_s": 0.1657948980009678, "result": "[exp(-2*LambertW(1/2))]", "repeat_median_s": 0.014209187499545806, "repeats": 20}
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.005306836999807274, "import_s": 0.1672872599992843, "result": "[2**(1/y)]", "repeat_median_s": 0.004414397499203915, "repeats": 20}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.0030632529997092206, "import_s": 0.1672872599992843, "result": "[exp(a/2)]", "repeat_median_s": 0.0029356694994930876, "repeats": 20}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.005057754000517889, "import_s": 0.1672872599992843, "result": "[3**(1/(2*y))]", "repeat_median_s": 0.004885865000687772, "repeats": 20}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.009186520001094323, "import_s": 0.1672872599992843, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]", "repeat_median_s": 0.009028107500853366, "repeats": 20}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.03077576600117027, "import_s": 0.1672872599992843, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.01615194399983011, "repeats": 20}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.015457614999832003, "import_s": 0.1672872599992843, "result": "[exp(-2*LambertW(1))]", "repeat_median_s": 0.014973440000176197, "repeats": 20}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.01621025600070425, "import_s": 0.1672872599992843, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.01621335050003836, "repeats": 20}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.003884521000145469, "import_s": 0.1672872599992843, "result": "[a*LambertW(1/a)]", "repeat_median_s": 0.003821946500465856, "repeats": 20}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.007024108001132845, "import_s": 0.1672872599992843, "result": "[-a*LambertW(-1/a)]", "repeat_median_s": 0.007039617999907932, "repeats": 20}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.014981709000494448, "import_s": 0.1672872599992843, "result": "[exp(-2*LambertW(1/2))]", "repeat_median_s": 0.014192231999913929, "repeats": 20}

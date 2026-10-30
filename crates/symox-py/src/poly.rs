@@ -15,6 +15,8 @@ pub(crate) mod domains;
 pub(crate) mod division;
 #[path="poly_real_roots.rs"]
 mod root_analysis;
+#[path="ratint_logpart.rs"]
+pub(crate) mod ratint_logpart;
 #[path="poly_checked_factors.rs"]
 mod checked_factor_views;
 #[path="poly_structure.rs"]
@@ -1452,7 +1454,7 @@ impl PyPoly {
     /// Backend constructor used after public option/input normalization.
     #[staticmethod]
     #[pyo3(signature=(rep,gens,domain=None,modulus=None,extension=None))]
-    fn _from_normalized(rep:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,domain:Option<&Bound<'_,PyAny>>,modulus:Option<u64>,extension:Option<&Bound<'_,PyAny>>)->PyResult<Self>{
+    pub(crate) fn _from_normalized(rep:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,domain:Option<&Bound<'_,PyAny>>,modulus:Option<u64>,extension:Option<&Bound<'_,PyAny>>)->PyResult<Self>{
         let expr=rep;
         if modulus.is_none() && extension.is_none(){if let Ok(source)=expr.downcast::<PyPoly>(){
             let source=source.get();let wanted=gens_of(gens)?;
@@ -1572,7 +1574,7 @@ impl PyPoly {
     #[getter]
     fn domain(&self,py:Python<'_>)->PyResult<PyObject>{self.domain_descriptor()?.object(py)}
 
-    fn domain_descriptor(&self) -> PyResult<domains::PyDomain> { domains::PyDomain::of(&self.p) }
+    pub(crate) fn domain_descriptor(&self) -> PyResult<domains::PyDomain> { domains::PyDomain::of(&self.p) }
 
     fn set_domain(&self,domain:&Bound<'_,PyAny>)->PyResult<Self>{
         let selected=domains::Selection::new(Some(domain),None,None)?;
@@ -1644,7 +1646,7 @@ impl PyPoly {
         let expr=w(self.p.as_expr()).into_pyobject(py)?.into_any();
         Self::_from_normalized(&expr,&gens,Some(domain),None,None)
     }
-    fn to_field(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_field();Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
+    pub(crate) fn to_field(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_field();Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
     fn to_ring(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_ring()?;Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
 
     #[getter]
@@ -2734,7 +2736,7 @@ fn factor_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: 
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
-fn sqf_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+pub(crate) fn sqf_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
     if let Some(p)=gaussian_poly_argument(f,gens,modulus,_kwargs){return Ok(p.sqf_list(f.py(),false)?.into_any().unbind());}
     checked_factor_views::global_list(f,gens,modulus,_kwargs,true)
 }
@@ -3024,7 +3026,7 @@ fn cofactors<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, g
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, **_kwargs))]
-fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+pub(crate) fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let py=f.py();
     let stripped=if f.downcast::<PyTuple>().is_err(){inapplicable_extension(py,f,None,gens,_kwargs)?}else{None};let _kwargs=stripped.as_ref().or(_kwargs);
     if f.downcast::<PyPoly>().is_err()&&f.downcast::<PyTuple>().is_err()&&domains::selects_expression(_kwargs.map(|k|k.get_item("domain")).transpose()?.flatten().as_ref())&&_kwargs.is_some_and(|k|k.len()==1){

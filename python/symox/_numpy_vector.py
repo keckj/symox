@@ -9,6 +9,18 @@ def _evaluator(arguments,expression):
     return _compile_object(arguments,expression)
 
 
+def source(arguments,expression):
+    """The NumPy text that the evaluator of ``compile`` runs, or None when
+    it is not built (the native array evaluation in ``_core`` reads it)."""
+    try:
+        _evaluator(tuple(arguments),expression)
+        from .utilities.lambdify import lambdastr
+        from .printing.numpy import NumPyPrinter
+        return lambdastr(tuple(arguments),expression,printer=NumPyPrinter,dummify=True)
+    except (NotImplementedError,TypeError,ValueError,SyntaxError,AttributeError,RecursionError):
+        return None
+
+
 def compile(arguments,expression):
     try:
         evaluator = _evaluator(tuple(arguments),expression)

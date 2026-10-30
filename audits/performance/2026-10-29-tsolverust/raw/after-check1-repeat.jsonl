@@ -1,0 +1,30 @@
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.007141246000173851, "import_s": 0.20784771800026647, "result": "[2**(1/y)]", "repeat_median_s": 0.005627241999718535, "repeats": 20}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.0038707679996150546, "import_s": 0.20784771800026647, "result": "[exp(a/2)]", "repeat_median_s": 0.003668243500214885, "repeats": 20}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.006516224000733928, "import_s": 0.20784771800026647, "result": "[3**(1/(2*y))]", "repeat_median_s": 0.006321676499283058, "repeats": 20}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.011644462998447125, "import_s": 0.20784771800026647, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]", "repeat_median_s": 0.011226476999581791, "repeats": 20}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.23115722999864374, "import_s": 0.20784771800026647, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.14376212200022565, "repeats": 20}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.15354117599963502, "import_s": 0.20784771800026647, "result": "[exp(-2*LambertW(1))]", "repeat_median_s": 0.08927758749905479, "repeats": 20}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.14221106500008318, "import_s": 0.20784771800026647, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.1532088299991301, "repeats": 20}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.005270043999189511, "import_s": 0.20784771800026647, "result": "[a*LambertW(1/a)]", "repeat_median_s": 0.005008165499930328, "repeats": 20}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.012921927998831961, "import_s": 0.20784771800026647, "result": "[-a*LambertW(-1/a)]", "repeat_median_s": 0.008740826499888499, "repeats": 20}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.0697093019989552, "import_s": 0.20784771800026647, "result": "[exp(-2*LambertW(1/2))]", "repeat_median_s": 0.049985642999672564, "repeats": 20}
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.0066703180000331486, "import_s": 0.21839379100129008, "result": "[2**(1/y)]", "repeat_median_s": 0.005660450499817671, "repeats": 20}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.003885833999447641, "import_s": 0.21839379100129008, "result": "[exp(a/2)]", "repeat_median_s": 0.003750148000108311, "repeats": 20}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.006228233000001637, "import_s": 0.21839379100129008, "result": "[3**(1/(2*y))]", "repeat_median_s": 0.006185007000567566, "repeats": 20}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.011372040999049204, "import_s": 0.21839379100129008, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]", "repeat_median_s": 0.011166096998749708, "repeats": 20}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.2837134809997224, "import_s": 0.21839379100129008, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.14776381950105133, "repeats": 20}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.14558305900027335, "import_s": 0.21839379100129008, "result": "[exp(-2*LambertW(1))]", "repeat_median_s": 0.08990988149980694, "repeats": 20}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.14143854999929317, "import_s": 0.21839379100129008, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.14313576449967513, "repeats": 20}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.004916452999168541, "import_s": 0.21839379100129008, "result": "[a*LambertW(1/a)]", "repeat_median_s": 0.004929744500259403, "repeats": 20}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.008787675000348827, "import_s": 0.21839379100129008, "result": "[-a*LambertW(-1/a)]", "repeat_median_s": 0.02474190350039862, "repeats": 20}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.13428055599979416, "import_s": 0.21839379100129008, "result": "[exp(-2*LambertW(1/2))]", "repeat_median_s": 0.05009685099867056, "repeats": 20}
+{"case": 0, "expr": "solve(x**y - 2, x)", "first_s": 0.007180655999036389, "import_s": 0.2164430770008039, "result": "[2**(1/y)]", "repeat_median_s": 0.005765378999058157, "repeats": 20}
+{"case": 1, "expr": "solve(-a*x + 2*x*log(x), x)", "first_s": 0.004031342001326266, "import_s": 0.2164430770008039, "result": "[exp(a/2)]", "repeat_median_s": 0.0037507565002670162, "repeats": 20}
+{"case": 2, "expr": "solve(x**(2*y) - 3, x)", "first_s": 0.006312593999609817, "import_s": 0.2164430770008039, "result": "[3**(1/(2*y))]", "repeat_median_s": 0.006125189999693248, "repeats": 20}
+{"case": 3, "expr": "solve((x**2 - 1)**y - 4, x)", "first_s": 0.011276713001279859, "import_s": 0.2164430770008039, "result": "[-sqrt(2**(2/y) + 1), sqrt(2**(2/y) + 1)]", "repeat_median_s": 0.011230945499846712, "repeats": 20}
+{"case": 4, "expr": "solve(x*exp(x**2) - 1, x)", "first_s": 0.26429161700070836, "import_s": 0.2164430770008039, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.1433393605002493, "repeats": 20}
+{"case": 5, "expr": "solve(sqrt(x)*exp(sqrt(x)) - 1, x)", "first_s": 0.11364178700023331, "import_s": 0.2164430770008039, "result": "[exp(-2*LambertW(1))]", "repeat_median_s": 0.08922175950010569, "repeats": 20}
+{"case": 6, "expr": "solve(x - exp(-x**2), x)", "first_s": 0.14200745100060885, "import_s": 0.2164430770008039, "result": "[exp(-LambertW(2)/2)]", "repeat_median_s": 0.14223376599966286, "repeats": 20}
+{"case": 7, "expr": "solve(x**a*exp(x) - 1, x)", "first_s": 0.0047951540000212844, "import_s": 0.2164430770008039, "result": "[a*LambertW(1/a)]", "repeat_median_s": 0.004692087500188791, "repeats": 20}
+{"case": 8, "expr": "solve(x**a - exp(x), x)", "first_s": 0.008378417000130867, "import_s": 0.2164430770008039, "result": "[-a*LambertW(-1/a)]", "repeat_median_s": 0.008389004499804287, "repeats": 20}
+{"case": 9, "expr": "solve(sqrt(x) + log(x), x)", "first_s": 0.0693909599995095, "import_s": 0.2164430770008039, "result": "[exp(-2*LambertW(1/2))]", "repeat_median_s": 0.04910915849995945, "repeats": 20}

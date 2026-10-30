@@ -17,18 +17,26 @@ use rustc_hash::{FxHashMap, FxHashSet};
 mod series;
 mod python_hash;
 mod numpy_vector;
+mod lambdify_vector;
 mod add_memo;
 mod expression_inspection;
 mod wildcards;
 mod host;
 mod integration_methods;
+mod ratint_general;
 mod rational_protocols;
 mod risch_polynomial_reduce;
 mod risch_splitfactor;
 mod solveset_steps;
+mod solveset_radical;
 mod prde;
 mod matrix_rank_four;
 mod arrayexpr_canon;
+mod prde_frac;
+mod prde_const;
+mod prde_deriv;
+mod piecewise_fold;
+mod derivative_orders;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -47,8 +55,12 @@ mod simp;
 mod simptools;
 mod simplex;
 mod stats;
+mod markov;
 mod ode;
+mod ode_classify;
 mod solve;
+mod tsolve;
+mod unrad;
 mod logic;
 mod special;
 mod calculus;
@@ -1240,7 +1252,7 @@ fn python_args(e: &Expr) -> Vec<Expr> {
     traverse::ordered_args(e)
 }
 
-fn operation_count(e: &Expr) -> BigInt {
+pub(crate) fn operation_count(e: &Expr) -> BigInt {
     fn matrix_count(matrix:&symox::matrixexpr::MatrixExpr,scalars:&mut FxHashMap<usize,(Expr,BigInt)>,matrices:&mut FxHashMap<usize,(symox::matrixexpr::MatrixExpr,BigInt)>)->BigInt{
         use symox::matrixexpr::{MatrixKind as M,MatrixOperand};
         if let Some((_,n))=matrices.get(&matrix.dag_id()){return n.clone();}
@@ -4131,6 +4143,8 @@ pub struct PyCompiled {
     object_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
     numpy_vectors: bool,
     numpy_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
+    // native float64 array evaluation (`lambdify_vector`)
+    vector: lambdify_vector::VectorCache,
     // SymPy's generated function exposes the namespace it was executed in;
     // it is assembled on first access from the requested modules.
     modules: Option<Py<PyAny>>,
@@ -4201,7 +4215,7 @@ impl PyCompiled {
                 }
                 // a module function is identified by identity
                 let name: Option<String> = obj.getattr("__name__").ok().and_then(|n| n.extract().ok());
-                let key = name.and_then(|name| ["math", "numpy", "builtins"].iter().find_map(|m| {
+                let key = name.and_then(|name| ["math", "numpy", "builtins", "scipy.special"].iter().find_map(|m| {
                     let module = modules.get_item(*m).ok()?;
                     module.getattr(name.as_str()).ok()?.is(obj).then(|| format!("{m}.{name}"))
                 }));
@@ -4381,6 +4395,9 @@ fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
 impl PyCompiled {
     #[pyo3(signature = (*args))]
     fn __call__(&self, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
+        if let Some(result) = lambdify_vector::call(py, self, args)? {
+            return Ok(result);
+        }
         if let Some(exact) = self.exact.get(py) {
             if self.exact_integers(py, args)? {
                 return Ok(exact.bind(py).call(args, None)?.unbind());
@@ -4415,14 +4432,7 @@ impl PyCompiled {
         // NumPy subclasses, complex/object arrays and external scalars own
         // arithmetic protocols that a float64 buffer would erase.
         if args.iter().map(|value| needs_object_evaluation(&value)).collect::<PyResult<Vec<_>>>()?.into_iter().any(|value| value) {
-            let evaluator = self.object_evaluator.get_or_try_init(py, || {
-                let arguments = PyList::new(py, self.arguments.iter().cloned().map(wrap))?;
-                let expressions = PyList::new(py, self.exprs.iter().cloned().map(wrap))?;
-                let expression = if self.scalar_out { expressions.get_item(0)? } else { expressions.into_any() };
-                Ok::<_, PyErr>(py.import("symox.utilities.lambdify")?
-                    .getattr("_compile_object")?.call1((arguments, expression))?.unbind())
-            })?;
-            return Ok(evaluator.bind(py).call(args, None)?.unbind());
+            return Ok(self.object_evaluator(py)?.bind(py).call(args, None)?.unbind());
         }
         if self.numpy_vectors {
             let evaluator=self.numpy_evaluator.get_or_try_init(py,||
@@ -4471,7 +4481,8 @@ impl PyCompiled {
         {
             let arg_slices: Vec<&[f64]> = arrays.iter().map(|v| v.as_slice()).collect();
             let mut out_slices: Vec<&mut [f64]> = outs.iter_mut().map(|v| v.as_mut_slice()).collect();
-            py.allow_threads(|| self.c.call_many(&arg_slices, &mut out_slices));
+            let program = self.array_program(py);
+            py.allow_threads(|| program.call_many(&arg_slices, &mut out_slices));
         }
         let Some(shape) = shape else {
             return if self.scalar_out {
@@ -4595,7 +4606,7 @@ fn py_lambdify(
     }
     Ok(PyCompiled { c, scalar_out, exprs, arguments: arg_list,
         object_evaluator: pyo3::sync::GILOnceCell::new(),numpy_vectors,
-        numpy_evaluator, modules: modules.map(|m| m.clone().unbind()),
+        numpy_evaluator, vector: Default::default(), modules: modules.map(|m| m.clone().unbind()),
         globals: pyo3::sync::GILOnceCell::new(),
         reference: pyo3::sync::GILOnceCell::new(),
         reference_function: pyo3::sync::GILOnceCell::new(),
@@ -4674,17 +4685,25 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     simptools::register(m)?;
     simplex::register(m)?;
     stats::register(m)?;
+    markov::register(m)?;
     m.add_function(wrap_pyfunction!(integration_methods::_heurisch_cartesian_numeric_coefficients, m)?)?;
     integration_methods::register_rational_reduction(m)?;
     rational_protocols::register(m)?;
     risch_polynomial_reduce::register(m)?;
     risch_splitfactor::register(m)?;
     solveset_steps::register(m)?;
+    solveset_radical::register(m)?;
     prde::register(m)?;
     matrix_rank_four::register(m)?;
     arrayexpr_canon::register(m)?;
+    prde_frac::register(m)?;
+    piecewise_fold::register(m)?;
+    derivative_orders::register(m)?;
     solve::register(m)?;
+    tsolve::register(m)?;
+    unrad::register(m)?;
     ode::register(m)?;
+    ode_classify::register(m)?;
     logic::register(m)?;
     special::register(m)?;
     matrices::register_pivot_host();

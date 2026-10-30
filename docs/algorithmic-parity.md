@@ -13353,3 +13353,1214 @@ and `Reshape` of non-array arguments. The matrix derivative code keeps
 using its own Python `_array_contraction`/`_permute_dims` in
 `symox.tensor.array.expressions`, so the term-order differences listed
 above are unchanged.
+
+## tsolverust (wave 27): native `_tsolve` steps and `sympy.solvers.bivariate`, 2026-10-29
+
+Native (`crates/symox-core/src/solve/tsolve.rs`, binding
+`crates/symox-py/src/tsolve.rs`): the `_tsolve` steps that `solve` takes
+after the native solver raised NotImplementedError, for one equation in
+one Symbol: `_invert` (`integer_power=False`, with the reference inverse
+table and `atan2`), the factor step, the `logcombine` step, the
+`f(x)**e = rhs` step, the bivariate block (`x**spow` change of variable,
+`_solve_lambert` with `_lambert`, `_linab`, `_mostfunc`, `_filtered_gens`,
+the `nsimplify` replacement of Lambert roots, `bivariate_type`) and the
+closing `posify` retry (inner solves with `force=False`). The public
+`sympy.solvers.bivariate` names (`_mexpand`, `_filtered_gens`,
+`_mostfunc`, `_linab`, `_lambert`, `_solve_lambert`, `bivariate_type`)
+and `_tsolve_steps._invert` are thin wrappers over the native functions.
+
+Admitted: a single Expr equation (Eq is moved to one side) with a symbol,
+one Symbol, no `dict`/`set` flag; the flags `force`, `bivariate`, `check`
+and `numerical` are read (defaults True). Python keeps the admission, the
+recursion guard (the reference `tsolve_saw`), and the callbacks: the
+recursive `solve` calls (so the full public entry, with its own
+fallbacks, is used as by the reference), `nsimplify`, `equals(0)` when
+`checksol` is undecided, and `inverse()` of host function classes.
+
+Corrections: SymPy's `_solve` check of the `_tsolve` candidates
+(`checksol(f_num, r) is not False`, after removal of duplicates) is now
+applied, in Rust (a port of `checksol` for one symbol, `minimal=False`):
+`solve(-a*x + 2*x*log(x), x)` is `[exp(a/2)]` (test_issue_4463; `x = 0`
+was kept). The native solver's own check now also rejects a substituted
+value that holds `nan`, `zoo`, `oo` or `-oo` (`checksol` attempt 0): the
+`x = 0` of test_uselogcombine's `force=True` equation is gone. A
+polynomial error inside the steps makes them decline (the reference
+`_solve` catches PolynomialError around `_tsolve`) instead of
+propagating.
+
+Remaining gaps:
+- `checksol` is conservative where it would need `is_constant` with the
+  symbol still present after substitution, or when a numerical value
+  does not evaluate: it returns None (candidate kept), where SymPy may
+  return False.
+- SymPy simplifies the `_tsolve` results before the check
+  (`simplify=True`); they are returned as computed here.
+- `checkdens` (rejection of zeros of the denominators) is not applied to
+  the `_tsolve` candidates.
+- `solve(x**(2*y) - 3, x)` gives `[3**(1/(2*y))]`; SymPy also gives
+  `(-sqrt(3))**(1/y)` (unchanged by this port).
+- The order of the `bivariate_type` results follows the native
+  iteration (the reference uses a Python set).
+- The native `_invert` returns `(eq, 0)` when `eq` is free of the symbol,
+  as the reference does. Before this, its loop never ended on `0`, which
+  hung test_issue_24368.
+- The numerical test of `checksol` evaluates the residual directly under
+  the 12-digit chop cutoff. This takes the same decision as
+  `.n(18).n(12, chop=True)`, and that two-step evaluation is still used
+  when the direct one gives no number. Before this, a correct candidate's
+  exact-zero residual was chased to the 4096-bit cancellation budget,
+  which made the Lambert cases cost about 140 ms; they now take about
+  15 ms. Measurements are in
+  [audits/performance/2026-10-29-tsolverust](../audits/performance/2026-10-29-tsolverust/README.md).
+- Copied `test_solvers.py`: 55 failed / 78 passed before, 54 failed / 79
+  passed after.
+  - test_issue_4463 now passes.
+  - test_uselogcombine now passes its `force=True` assertion; the spurious
+    `0` is gone.
+  - Its next assertion still fails, and the cause is the form of the result,
+    not checksol: `solve(log(x + 3) + log(1 + 3/x) - 3)` gives
+    `sqrt(-12*exp(3) + exp(6))`, where SymPy writes
+    `sqrt(-12 + exp(3))*exp(3/2)`. This comes from SymPy's simplification of
+    the results and is a gap.
+
+
+## w23rust (wave 28): native piecewise_fold and symbolic-order derivative plans
+
+Now native (Rust):
+
+- `piecewise_fold(expr, evaluate)` for `evaluate` in None, True and False
+  (`crates/symox-core/src/simptools/piecewise_fold_public.rs`, binding
+  `_core._piecewise_fold`). It covers:
+  - the cartesian product of the branches;
+  - the dedupe for `evaluate=None`;
+  - the grouping of common conditions (common prefix, ordered keys);
+  - the bound Integral/Sum/Product case;
+  - the commutative `Mul` check;
+  - the refold of nested Piecewise values.
+- The `piecewise_fold` step of the `Sum`, `Product` and `Integral`
+  constructors (`_core._fold_piecewise_function`, with the Dummy
+  substitution of Piecewise atoms that hold no limit variable) and its
+  `has(Piecewise)` test (`_core._has_piecewise`).
+- The variable/order parsing (`_parse`) and the evaluation plan
+  (`_evaluate`) of symbolic-order derivatives of matrix symbols, explicit
+  matrices and arrays (`crates/symox-core/src/diff/order_plan.rs`, bindings
+  `_core._derivative_orders` and `_core._derivative_order_plan`). The plan
+  covers:
+  - the merged `(Symbol, count)` pairs and the ValueError of a negative
+    order;
+  - the zero exit;
+  - the `_sort_variable_count` order and the split at the first symbolic
+    order.
+
+  The integer prefix is then derived with the ordinary `diff`, and the
+  rest is held.
+
+Admission (Python):
+
+- The fold is admitted for a native Expr that is not an ExprCondPair, with
+  global evaluation on. The stock `Piecewise`, `And`, `ITE`, `Dummy`,
+  `sympify`, `simplify_logic`, `Add`, `Mul`, `Pow` and `ordered` must be
+  the ones captured at `import symox`.
+- The kernel declines and the unchanged Python code runs when:
+  - an expression holds host objects or matrices;
+  - a Piecewise condition holds a Piecewise;
+  - a condition is not settled (`is_settled_condition`);
+  - an `And` takes a non-boolean operand;
+  - a rebuilt head returns a non-native object.
+- Other heads are rebuilt through their Python `func`. ITE conditions go
+  through the Python `simplify_logic(..., form='cnf')`.
+- The derivative kernels decline (NotImplemented) on non-native variables
+  or counts; `_parse` returns None for non-Symbol, matrix or non-integer
+  numeric orders as before.
+
+Unchanged: nested trace derivatives (`Trace(A*Trace(B*X)*X).diff(X)`) run
+through `_matrix_derivatives.py` and `tensor/array/expressions/`, which
+this wave does not touch. Wave 23 added no trace algorithm of its own.
+
+Intentional corrections kept (they come from the base and are unchanged by
+this wave):
+
+- `Derivative(Array([x, x**2]), x).doit()` is `[1, 2*x]`.
+- `Derivative(Array([x*y, x**2]), (x, 2), (y, m), x).doit()` is
+  `Derivative([0, 0], (y, m))`.
+- `piecewise_fold` of a `Sum` whose Piecewise condition holds the summation
+  variable keeps the `Sum` outside
+  (`Sum(Piecewise((n*x, n > 2), (0, True)), (n, 1, k))`). SymPy pulls the
+  bound condition out of the sum
+  (`Piecewise((Sum(n*x, (n, 1, k)), n > 2), ...)`).
+
+`tests/test_native_w23rust.py` checks:
+
+- the outputs against hard-coded SymPy 1.14 values;
+- that the native and Python paths agree;
+- the admission rules.
+
+Measured: [audit](../audits/performance/2026-10-29-w23rust/README.md).
+
+
+## prderust2 (wave 28)
+
+Now native (Rust in `crates/symox-core/src/integrate/prde_limited.rs` and
+`prde.rs`, binding `crates/symox-py/src/prde.rs`, admission
+`python/symox/integrals/_prde_native.py`):
+
+- `limited_integrate_reduce` in the base case (`D = [Poly(1, x)]`, plain
+  ZZ/QQ `Poly` arguments in `x`, nonempty exact list `G`, nonzero
+  denominators). It returns the same `(a, b, a, N, g, V)` as the stock
+  body, with the same object for both `a`, the coefficient-inferred
+  domains of `cancel(include=True)` and the `oo` handling of
+  `order_at_oo`.
+- `constant_system` for QQ PolyMatrix systems with rational entries in any
+  DE state: base, exp, primitive, and towers still under construction
+  (`DE.case` unset). The derivation step of the stock body only runs for
+  an entry that involves `DE.T`, which a rational entry never does.
+  Admission requires the matrix generator and every `DE.T` element to be
+  plain stock symbols (so the `rref` ground check and `has(*DE.T)` cannot
+  raise), a nonempty `A`, and the same captured protocol as wave 27.
+  Outputs keep `A.gens` and QQ.
+
+Python fix (wrapper level, no new arithmetic): `parallel_poly_from_expr`
+with `field=True` now builds one domain from the union of the
+coefficients when the separately inferred domains differ, as SymPy does
+(`[0, x]` and `[1/2, x]` in `t` are both over `ZZ(x)`). This removes the
+`CoercionFailed` of `risch_integrate(log(log(x)), x)` (now
+`x*log(log(x)) + NonElementaryIntegral(-1/log(x), x)`, as SymPy) and fixes
+SymPy test_risch.py `test_DifferentialExtension_symlog`,
+`test_risch_integrate` and `test_issue_23948`.
+
+Still Python, with reasons:
+
+- non-base cases (exp, primitive, tan) of the wave-27 kernels: there
+  `derivation` goes through expressions (`as_poly(t)` domain inference over
+  `ZZ[x]`, `ZZ(x)`, ...), so a port needs multivariate rational-function
+  coefficients with the same domain inference;
+- `constant_system` when `u` (or `A`) has rational-function entries, which
+  is the common case in `is_deriv_k` and `is_log_deriv_k_t_radical`
+  (`ZZ(x)` right-hand sides);
+- `limited_integrate` (its expression assembly through
+  `as_numer_denom`), `limited_integrate_reduce` outside the base case;
+- `is_deriv_k`, `is_log_deriv_k_t_radical(_in_field)` (sqf_list, cancel and
+  expression arithmetic), `parametric_log_deriv(_heu)` (`solve`),
+  `prde_cancel_liouvillian` (recursive `rischDE` over `ZZ(x)`).
+- The wave-27 import capture (now about 1.4 ms of `import symox`) stays
+  eager: a lazy capture could not prove the consumed modules unchanged
+  between `import symox` and the first call.
+
+Gaps seen (not changed): symox `srepr` prints a `NonElementaryIntegral`
+inside an `Add` as `Integral`.
+
+No intentional corrections. SymPy test_prde.py: 3 failed, 12 passed before
+and after. test_risch.py: 8 failed, 28 passed before, 5 failed, 31 passed
+after. Measured: [audit](../audits/performance/2026-10-29-prderust2/README.md).
+
+
+## radicalrust (wave 29): native `unrad`, `_solve_radical` and the negative-base steps, 2026-10-30
+
+What is native now:
+- `unrad` (SymPy 1.14 `sympy.solvers.solvers.unrad`) is
+  `crates/symox-core/src/solve/unrad.rs`. The public
+  `symox.solvers.solvers.unrad` is a thin wrapper around it.
+  - It returns SymPy's `(eq, cov)` or None, and raises SymPy's
+    NotImplementedError ("Cannot remove all radicals", ...), PolynomialError,
+    IndexError or AttributeError. All 69 cases of test_unrad1 and
+    test_unrad_slow agree with SymPy, which includes a `_take` that rejects a
+    generator that is not a power.
+  - The `_vsolve` calls and a caller's `_take` predicate are Python
+    callbacks.
+- `solveset`'s radical step (SymPy `_solve_radical`) is `radical_step` in
+  `crates/symox-core/src/sets/solveset_radical.rs`.
+  - Candidates are checked with the native `checksol` of `tsolve.rs` (see the gaps). A
+    CRootOf is kept unchecked, as in SymPy.
+  - An undecided candidate is kept in a ConditionSet, where SymPy drops it.
+  - When `unrad` gives no result, the step takes SymPy's `_solve_as_rational`
+    branch: the numerator's solutions minus the denominator's. This fixes
+    test_issue_17882.
+- The negative-base steps `negative_base_step` and `negative_base_guard` are
+  native. These are the `_invert_real` of `b**g(x)` with a constant base that
+  is not known to be positive, together with SymPy's
+  `_is_finite_with_finite_vars`.
+- Python only admits the arguments and supplies the recursive `solveset`,
+  `imageset`, `intersect` and `solve` callbacks
+  (`python/symox/solvers/_solveset_steps.py`).
+
+Established fallback (Python):
+- SymPy's `unrad` raises NotImplementedError for
+  `sqrt(x) + sqrt(x + 1) + sqrt(x + 4) + sqrt(x + 9) - 6`. Symox already
+  solved it (`[0]`, `{0}`) with the resultant elimination, so that
+  elimination is kept as the private `_unrad_resultant` in
+  `python/symox/solvers/_algebraic.py`.
+- Only `solve`'s `_unrad_solution` and the native `radical_step` (through a
+  host callback) call it, and only after the native `unrad` raises.
+- Its candidates are checked, so roots are not lost and no wrong root is
+  added. The public `unrad` still raises like SymPy.
+
+Intentional corrections (kept from the base):
+- `solveset((-1)**x - 1, x, S.Reals)` and `solveset((-1)**x + 1, x, S.Reals)`
+  give the even and odd integer lattices. SymPy raises ValueError.
+- `solveset((-S(1)/2)**x - 4, x, S.Reals)` gives `{-2}`. SymPy raises
+  ValueError.
+- `solveset((-3)**x - 2**x, x, S.Reals)` stays a ConditionSet. SymPy's
+  EmptySet is wrong, because `x = 0` is a solution.
+
+Remaining gaps:
+- `_unrad_solution` (the `solve` side) and `_unrad_resultant` are still
+  Python.
+- The `unrad` flags `cov`, `n` and `rpt` are not supported. They raise
+  NotImplementedError instead of being ignored.
+- A change of variable whose inverse set `g_y_s` is not finite makes
+  `radical_step` decline: the native solver's result is kept.
+- After `_solve_as_rational` returns a ConditionSet, SymPy's `_transolve` is
+  not repeated. The native solver has already tried it.
+- The native `checksol` runs with `force=False`; SymPy defaults to
+  `force=True`. Only a proven candidate is kept outright. The others go to
+  the ConditionSet, whose constructor removes the provably invalid ones.
+  - A `False` from the native check is not trusted to drop a candidate: it
+    rejects test_issue_11534's parametric `-y/sqrt(y**2 + 1)`, which is valid
+    at `y = 0`. SymPy keeps that candidate in a ConditionSet.
+  - This is a gap of the native `checksol` with parameters.
+- Copied SymPy test files:
+  - `test_solvers.py`: 54 failed / 79 passed before, 53 failed / 80 passed
+    after (test_issue_17882);
+  - `test_solveset.py`: 94 failed / 87 passed before and after.
+- Measurements are in
+  [audits/performance/2026-10-29-radicalrust](../audits/performance/2026-10-29-radicalrust/README.md).
+
+
+## lambdarr (wave 29): native float64 array calls of `lambdify`, 2026-10-30
+
+What is native (Rust, `crates/symox-core/src/lambdify_vec.rs` and the
+binding `crates/symox-py/src/lambdify_vector.rs`):
+
+- Admitted calls: every argument is a C-contiguous, native byte order
+  float64 `numpy.ndarray` of exact type with `ndim >= 1`, or a Python
+  `float`/`int` (not `bool`); at least one array; for the NumPy kernels
+  all arrays have one shape, for the compiled program all arrays have one
+  size. Python `int` arguments of an integer polynomial keep the exact
+  Python integer evaluation.
+- Elementary kernels of `lambdify(..., 'numpy')` (the `numpy_vectors`
+  class: `+ - * / **`, `sin cos exp log sqrt`, `pi`, `E`, numbers): the
+  printed NumPy text (`_numpy_vector.source`, the same text the ufunc
+  evaluator runs) is parsed once and lowered per pattern of scalar
+  arguments to a plan with NumPy's semantics: Python arithmetic on the
+  literals (declined on Python errors, complex or non-finite results),
+  NumPy float64 scalar arithmetic on scalar arguments (`**` is C `pow`),
+  the `ndarray.__pow__` fast paths (`x**2` square, `x**-1` reciprocal,
+  `x**0.5` sqrt, also for a scalar argument exponent, checked at run time)
+  and C `pow` otherwise, IEEE `+ - * /`. The arrays are read in place and
+  the result is written into a new array in chunks of 512, without the
+  NumPy temporaries; the GIL is released from 4096 elements.
+- `sin`, `cos`, `exp`, `log` and `pow` are the C library functions only when
+  NumPy's float64 loops are those functions: NumPy must report neither
+  AVX512F nor AVX512_SKX, and a probe of about 4000 values (zeros,
+  infinities, NaN, subnormals, large and small magnitudes) must agree bit
+  for bit, once per process. Otherwise only the exact operations are
+  native and the other kernels keep NumPy's evaluation.
+- Other kernels (Piecewise, special functions, default modules, several
+  outputs): the compiled program (`Compiled::call_many`) reads the array
+  buffers in place and writes the new result arrays directly, instead of
+  the `asarray`/`reshape`/`ascontiguousarray`/`to_vec` copies and the
+  final `from_vec`/`reshape`.
+- Complex arrays go straight to the NumPy object evaluator (the same one
+  as before), without the preceding generic argument checks.
+
+Values: the NumPy kernels give NumPy's result bit for bit, except the sign
+of a NaN, which depends on the operand order of the compiled loops (NumPy's
+own SIMD and scalar loops differ the same way); NaN positions are the same.
+The compiled program gives the same bits as before (same code). Shapes,
+dtype (float64), C order and fresh writable arrays are as before (the
+results now own their data instead of being reshaped views).
+
+Falls back unchanged (established path, same values and errors): other
+dtypes (float32, integers, object, byte-swapped), non-contiguous or 0-d
+arrays, NumPy subclasses and scalars (`numpy.float64`), broadcasting
+shapes, size mismatches (the compiled program's ValueError), ints beyond
+the float range (OverflowError), texts the plan declines (other functions,
+comparisons, large integers).
+
+SciPy's float64 gamma (second pass, Rust, `crates/symox-core/src/cephes_gamma.rs`
+and `crates/symox-core/src/lambdify/scipy_gamma.rs`): `cephes_gamma::gamma`
+is a port of xsf/cephes `Gamma` (SciPy 1.15): the same P/Q tables on
+[2,3], Stirling's formula above 33 with the same `pow` split above
+143.01608, the reflection for x < -33 with C's `int` conversion of the
+floor (INT_MIN beyond 2^31, hence sign -1), the small-argument branch
+`z/((1+0.5772156649015329 x) x)`, nan at the negative integers, -inf and
+nan, `copysign(inf, x)` at zero, inf on overflow, and the C library's
+`exp`, `pow` and `sin`. tests/test_native_lambdarr.py checks it bit for bit
+against `scipy.special.gamma` on more than 10^6 values (uniform on
+[-180, 180] and [-40, 40], integers, half-integers, 60 neighbours of every
+pole and branch point, subnormals, +-0, +-inf, nan, huge negative
+half-integers). It is used only where SymPy 1.14's generated function
+binds `gamma` to `scipy.special.gamma` (modules None, 'scipy',
+['scipy', 'numpy'] with SciPy installed; checked once per function by
+resolving the printed name): float64 array calls (the compiled program
+with `gamma_real` replaced) and scalar calls (the printed source's native
+evaluation now recognises `scipy.special.gamma`; poles and overflow still
+go to the generated function, which returns `numpy.float64` as SymPy
+does). 'numpy' and 'math' (where SymPy calls `math.gamma`) and the calls
+without a printed reference keep `gamma_real`.
+
+Intentional correction: complex arrays of a kernel whose NumPy object text
+names a function NumPy lacks (`numpy.gamma` for `gamma(x)` with the
+default modules) raised AttributeError; they now go to SymPy's generated
+function (SciPy's `gamma`), as SymPy does.
+
+Remaining gaps (measured in
+[audits/performance/2026-10-29-lambdarr](../audits/performance/2026-10-29-lambdarr/README.md)):
+
+- `gamma(x)` on float64 arrays with the SciPy binding is now 0.85 times
+  SymPy's time on 1000 and 100000 elements, but 10-element arrays stay
+  1.15-1.5 times slower: the fixed per-call cost of the vector path
+  (`sin` on 10 elements costs the same), not the kernel. With 'numpy'
+  (SymPy raises TypeError on arrays there) it keeps `gamma_real`.
+- Small arrays of 10 complex elements stay about 1.1-1.2 times slower
+  (the PyO3 call and the dispatch before the NumPy evaluation).
+- Scalar `gamma(0.5)` with default modules is now about 0.5 times SymPy's
+  time. The `[x, y]` polynomial scalar call stays about 1.15 times slower:
+  the prologue is two exact-type checks and the pyclass is frozen, but on
+  Python 3.10 PyO3's `__call__` goes through `tp_call` with an argument
+  tuple, whereas SymPy's generated Python function is called by
+  vectorcall; closing it needs a vectorcall slot outside PyO3's API.
+
+
+## prdefrac (wave 30)
+
+Profile of the two slow public calls (cProfile + py-spy, audit README):
+`risch_integrate(log(x)*log(x + 1), x)` spent about 70 % of its Python
+time in 37103 public `Poly(e, t, domain=K)` constructions made by
+`PolyMatrix` entry reads (`_poly`, the `rref`/`nullspace` ground check,
+the `from_list` unify chain), nearly all for exact Integer/Rational
+entries over QQ or `ZZ(x)`/`QQ(x)`; native time was about 5 %.
+`risch_integrate(log(log(x)), x)` spent half of its time in the
+splitfactor admission scanning `_core.__dict__` in a Python loop. The
+kernels named for this wave (`constant_system`, `derivation`, `is_deriv_k`,
+`is_log_deriv_k_t_radical_in_field`) were each a few percent at most.
+
+Now native (Rust, `crates/symox-py/src/prde_frac.rs`), admission checks
+only:
+
+- `_core._str_keyed(d)`: "exact dict whose keys are all exact `str`" via
+  `PyDict_Next` (no hashing, equality or user callbacks), used by the
+  splitfactor and `_polymatrix_native` namespace admissions, with the
+  Python loop as fallback;
+- `_core._function_states_unchanged(records)`: identity of code, defaults,
+  kwdefaults and closure cell contents of the captured functions, read
+  through the same public CPython getters as `_ddm_function_metadata` (no
+  `object.__getattr__` audit event); returns None without those getters,
+  and the `_polymatrix_native` reader runs instead.
+
+Admission only (`python/symox/polys/_polymatrix_rational.py`, no new
+arithmetic): a `PolyMatrix` entry that is an exact Integer/Rational over QQ
+or over a fraction field `ZZ(a, ...)`/`QQ(a, ...)` of stock symbols
+disjoint from the matrix's single stock generator is built with
+`Poly._from_normalized(e, gens, domain, None, None)`, which is what stock
+`construct` reduces to for that input; the `rref`/`nullspace` ground check
+of an all-rational matrix over such a field is answered without building
+the entries; `from_list` of native `Poly` items over one QQ/ZZ domain
+object and one generator returns that domain without the `unify` chain.
+Everything else (other domains, algebraic or inexact grounds, a shared
+generator, which keeps its stock `CoercionFailed`, non-rational entries,
+several generators, any modified protocol) runs the stock code.
+
+Still Python, recorded as gaps (not ported in this wave):
+
+- `constant_system` with `ZZ(x)`/`QQ(x)` entries (its `rref` over
+  `ZZ(x)`/`QQ(x)` is already native; what stays in Python is the
+  expression-level derivation and the PolyMatrix arithmetic around it,
+  whose domains follow the expression forms);
+- `derivation` in the exp and primitive cases with rational-function
+  coefficients (`as_poly(t)` domain inference);
+- `is_deriv_k`, `is_log_deriv_k_t_radical(_in_field)`;
+- `limited_integrate_reduce` outside the base case;
+- the remaining cost of `log(x)*log(x + 1)`: `set_gens` and
+  `parallel_poly_from_expr(field=True)` per-entry construction of
+  non-constant entries.
+
+These kernels were 3-40 ms each in the two profiled calls, so the calls
+reached SymPy speed without them.
+
+Measured (release, medians of 5 fresh processes): `log(log(x))` 220 -> 115
+ms first call (SymPy 124 ms), `log(x)*log(x + 1)` 1714 -> 400 ms (SymPy
+677 ms); none of the 10 measured `risch_integrate` calls got slower; three `exp` integrands are still
+slower than SymPy on the first or the repeated call.
+
+Gap seen (not changed): symox `srepr` prints a `NonElementaryIntegral`
+inside an `Add` as `Integral` (the `str` of every measured result equals
+SymPy's).
+
+Corrections (domain inference of `constant_system`, test_prde.py
+`test_constant_system`):
+
+- Rust, `expand_mul_node` (crates/symox-core/src/expand.rs): like
+  `Mul._eval_expand_mul`, `n/d` is rebuilt from `fraction(expr)` also when
+  `d` is a single factor, so `Mul(2, x**2/2 + x + 1/2, 1/(x**2 + 2*x + 1))`
+  held unevaluated expands to `1` (the rebuilt `2*(x**2/2 + x + 1/2)`
+  distributes and cancels), as in SymPy; it was left as a fraction, whose
+  `Poly(..., t, field=True)` domain is `QQ(x)` instead of `QQ`. In
+  `constant_system` this is `Rm1 = Ri.applyfunc(D(x)/DAij)`, which is
+  now over `QQ[t]` as in SymPy, so `B` and `v` are over `QQ(x)[t]`.
+- Python plumbing, `PolyMatrix(..., ring=K[gens])`: the domain and the
+  generators are taken from the ring (`K`, `gens`), as SymPy's
+  `from_dm`; symox kept `K[gens]` as the domain with no generators.
+- Python plumbing, `PolyMatrix.__eq__` also compares the domain, as
+  SymPy's `DomainMatrix.__eq__` (`QQ[t]` and `QQ(x)[t]` matrices with
+  the same entries are not equal).
+
+The three `exp` integrands still slower than SymPy spend their extra time
+off the prde path: the lazy first import of mpmath (domains/_methods.py
+`_inexact_value`, SymPy imports it at import time) and the splitfactor
+admission (`_risch_splitfactor_native.reduce`, `_prove_fields`).
+
+Gaps seen, not changed: the `expand_mul` entry point
+(crates/symox-core/src/simp.rs `expand_mul_deep`) does not rebuild `n/d`
+and still leaves these products as fractions; `Mul(x + 1, 1/(x + 1))`
+held unevaluated still expands to `x/(x + 1) + 1/(x + 1)` (SymPy `1`);
+two denominator factors `y*(x + 2)` are not expanded into `x*y + 2*y`.
+`PolyMatrix(..., ring=K)` with a non-polynomial `K` keeps the given
+generators (SymPy takes `K.symbols`).
+
+SymPy test_prde.py: 3 failed, 12 passed before, 1 failed, 14 passed after
+(`test_constant_system` and `test_prde_no_cancel` now pass,
+`test_prde_special_denom` still fails); test_risch.py: 5 failed, 31
+passed before and after (same failing tests). Measured:
+[audit](../audits/performance/2026-10-30-prdefrac/README.md).
+
+
+## markovrust (wave 33): native finite Markov chain computations, 2026-10-30
+
+Native kernels in `symox::stats::markov` (crates/symox-core/src/stats/markov.rs,
+binding crates/symox-py/src/markov.rs, admission
+python/symox/stats/_markov_native.py). Only stock `ImmutableDenseMatrix` /
+`MutableDenseMatrix` transition matrices of native expressions are admitted
+(a matrix subclass, host objects or matrix entries decline to the Python
+path, which is the SymPy statement sequence).
+
+- `communication_classes`: Tarjan's components over the structural pattern
+  `T[i, j] != 0` (a `Float(0.0)` entry is an edge, as in SymPy), the
+  recurrence test with the reference `sum(row) - 1` (native binary `+`, so
+  symbolic entries are decided exactly as in SymPy), and the reference period
+  search, including CPython's iteration order of the `set` of successors
+  (simulated table, verified against CPython on the orders SymPy produces).
+  `decompose`, `canonical_form`, `is_regular`, `is_ergodic` and
+  `is_absorbing_chain` build on it (the last three are the SymPy wrappers).
+- `stationary_distribution` / `fixed_row_vector` / `limiting_distribution`
+  of a rational chain: the reference system (`(P - I)^T` with its first row
+  replaced by ones) solved over exact rationals when the solution is unique.
+- `fundamental_matrix`, `absorbing_probabilities` (new methods, with the
+  deprecated `absorbing_probabilites` and `is_absorbing_state`): the
+  reference `(I - Q)^-1` or `(I - P + W)^-1` and `N*R` over exact
+  rationals, with SymPy's ValueError "The fundamental matrix doesn't
+  exist." on a singular matrix and the 0x0 results of the empty chain.
+- `ContinuousMarkovChain.limiting_distribution` of a rational generator: the
+  linear system `w G = 0`, `sum(w) = 1` over exact rationals.
+- The path enumeration of `P` and `E` queries on discrete and continuous
+  chains (odometer order over the state tuples, weights as products of the
+  kernel entries, indicator of the gate and event by simultaneous
+  substitution, the E term substituted by the state labels): one native
+  call per query. The random atoms are replaced by plain dummies before the
+  call; an undecided indicator declines to the Python loop.
+
+Python glue over native operations (not a new kernel):
+`ContinuousMarkovChain.transition_probabilities(gen_mat)` is now the SymPy
+method (`Lambda(t, Q*exp(t*D)*Q.inv())` for a diagonalizable generator,
+else `Lambda(t, exp(t*gen_mat))`, None without a matrix) over the native
+diagonalization, matrix exponential and inverse.
+
+Still on the Python path: symbolic or Float stationary distributions
+(`linsolve` with the free `tau` parameters), symbolic or Float fundamental
+matrices (the reference statements over native `det` / `inv`), non-unique
+stationary vectors, the CTMC limiting distribution of a symbolic generator,
+and Str-valued `E` queries (TypeError as in SymPy).
+
+Intentional corrections:
+
+- SymPy 1.14's period search never terminates on some classes: it keeps only
+  the successors of the last element of each frontier, e.g.
+  `[[0,1/2,1/2,0,0],[0,0,0,1,0],[1,0,0,0,0],[0,0,0,0,1],[1,0,0,0,0]]`
+  (SymPy loops forever in `communication_classes`). The kernel runs the
+  reference search and, when it stalls for more than n + 1 rounds, returns
+  the true period (gcd over the class edges of level(u) + 1 - level(v); 2
+  here). The Python fallback for declined inputs still follows SymPy.
+- Probabilities conditioned on several observation times follow the Markov
+  property: `P(Eq(X[3], 0), Eq(X[0], n-1) & Eq(X[1], 0))` is `(T^2)[0, 0]`
+  (SymPy 1.14 returns `(T^3)[n-1, 0]`, ignoring `X[1]`), and a conditioning
+  event of probability zero raises ValueError. This is the behaviour of the
+  path enumeration since wave 21 (spec7), kept by the native kernel.
+
+SymPy's test_stochastic_process.py (statement level, symox-substituted
+copy): 306/452 before, 331/452 after (SymPy 452/452); fixed: the
+fundamental matrix, absorbing probabilities, regularity, ergodicity and
+absorbing-chain statements of test_DiscreteMarkovChain (lines 343-381,
+458-496) and the two `transition_probabilities(A)` statements of
+test_ContinuousMarkovChain; no statement regressed.
+
+Remaining gaps (not changed by this wave):
+
+- CTMC queries: `P(Eq(C2(1), 1), Eq(C2(0), 1))` returns
+  `(1 + exp(2))*exp(-2)/2` (the final `simplify` of the query), SymPy
+  `exp(-2)/2 + 1/2`; the same form difference fails the CTMC statements
+  612, 613, 615, 619, 622, 630, 640; 621 does not raise KeyError, 629
+  (Symbol states) is refused.
+- DTMC query semantics: conditions that are not at the earliest time
+  (`P(Eq(YS[1], 1), Eq(YS[2], 2))`), symbolic transition matrices with
+  states outside `0..n-1`, `TransitionMatrixOf` / `StochasticStateSpaceOf`
+  conditions, `Probability` objects as conditions (513, 525),
+  `joint_distribution`, `index_set` (Naturals0), the state space of a
+  symbolic-size `Range`, `stationary_distribution(condition_set=True)` with
+  `subs` of a matrix, and the constructor TypeErrors of SymPy.
+
+Measured: [audit](../audits/performance/2026-10-30-markovrust/README.md)
+(0.01-0.10 times SymPy's time on the calls SymPy answers, path queries 0.03 times the
+previous Python loop).
+
+
+## solvegaps (wave 31): native checksol with the reference flags, radical step, unrad flags, symbolic-power generators, 2026-10-30
+
+Now native (Rust):
+- `crates/symox-core/src/solve/checksol.rs` ports SymPy 1.14 `checksol`
+  for one expression and one symbol, with the flags `numerical`, `force`,
+  `simplify` and `minimal`. It follows the reference attempt loop:
+  substitution, content and numerator expansion, simplify with posify,
+  then the non-integer-power/function test and `is_zero`, with the
+  LambertW exception. A Rational value is decided exactly; a number is
+  decided by `abs(val.n(18).n(12, chop=True)) < 1e-9`.
+  - The `_tsolve` candidate filter and the radical step call it. The
+    filter keeps its flags (`simplify=False`). The radical step and the
+    `nsimplify` check of the Lambert roots use the reference defaults
+    (`force=True`, `simplify=True`).
+  - The binding `_core._checksol_native` is for the differential tests.
+    The public `checksol` is unchanged.
+- Root cause of test_issue_11534: the native `checksol` was not wrong.
+  SymPy 1.14's `checksol` also returns False for `-y/sqrt(y**2 + 1)`:
+  simplify gives `-2*y`, which has neither a non-integer power nor a
+  function. What matters is the use of the result. `_solve_radical`'s
+  `check_finiteset` puts only a True candidate in the FiniteSet. Every
+  other candidate, False included, goes to `ConditionSet(x, Eq(f, 0),
+  FiniteSet(...))`, and the ConditionSet constructor removes the elements
+  that are provably invalid. The native `radical_step` now does exactly
+  this, with the reference flags. `solveset(eq1, x, S.Reals)` of
+  test_issue_11534 gives SymPy's set.
+- Audit of the native False: the old native `checksol` ignored `minimal`.
+  It returned False on 34 of the 1414 pairs logged from SymPy's tests
+  where SymPy returns None. No in-tree caller passes `minimal`. The new
+  one returns 0 false Falses:
+  - on the 1414 distinct (expression, candidate, flags) triples logged
+    from test_solvers.py and test_solveset.py;
+  - on the 1363 further triples logged from the ODE corpus.
+  `tests/test_native_solvegaps.py` replays 326 of them with SymPy's values.
+- `unrad` accepts the recursion flags `cov`, `n` and `rpt`
+  (`unrad_with_flags` in `crates/symox-core/src/solve/unrad.rs`, binding
+  `_unrad_flags`).
+  - The caller's `cov` list is updated in place, as SymPy does
+    (`cov[:] = ...`). Unknown flags are ignored, as in SymPy.
+  - The Python wrapper only checks the arguments and passes them on.
+- `crates/symox-core/src/solve/symbolic_power.rs` ports the
+  single-generator branch of `_solve` for a generator `x**e` whose
+  exponent `e` is symbolic and free of `x`. The equation is solved as a
+  polynomial in `t = x**e` (degree >= 2). Every root, the negative and
+  complex ones included, is inverted with `t**(1/e)`.
+  - `solve(x**(2*y) - 3, x)` gives `[3**(1/(2*y)), (-sqrt(3))**(1/y)]`,
+    and `dict=True` works. `x**(3*y) - 3`, `x**(2*y) + 3` and
+    `x**(2*y) - 3*x**y + 2` give SymPy's lists, in SymPy's order.
+- Candidate check with the reference flags. SymPy's `_solve` keeps a
+  candidate only when `checksol(f_num, {x: r}, simplify=False)` is not
+  False. Two places now apply this with the native port:
+  - the native solve check (`checksol::rejects_parametric` in
+    `solve_checked`), for candidates that still contain free symbols;
+  - the Python unrad fallback `_unrad_solution`, which calls
+    `_core._checksol_native` next to the public `checksol`.
+  With the new symbolic-power solver, `solve(x**(y/2) + x**y - 6, x)`
+  reaches the unrad fallback (`x**(2*y) - 13*x**y + 36`). The public
+  `checksol` returns None for `3**(2/y)`, SymPy and the native port return
+  False, so the result is SymPy's `[2**(2/y)]`. The base raised
+  NotImplementedError.
+
+Admitted domains and fallbacks:
+- `checksol`: one Expr and one symbol. Where the reference would need
+  `is_constant` with the symbol still present, or where a numerical value
+  does not evaluate to a number, None (undecided) is returned. SymPy may
+  return False there. The callers keep an undecided candidate (the
+  radical step puts it in the ConditionSet).
+- `unrad` flags: `cov` must be a list or tuple of length 0 or 2, and `n`
+  and `rpt` must be non-negative integers. Anything else raises
+  NotImplementedError. A tuple `cov` cannot be updated in place: TypeError,
+  as in SymPy.
+- `symbolic_power`: exactly one Poly generator contains `x`, and it is
+  `x**e` with a symbolic `e`. Otherwise the earlier native paths apply.
+
+Remaining gaps:
+- On the pairs from SymPy's tests, 6 native results are None where SymPy
+  decides:
+  - 5 True: `z**x` with `simplify=False` and Lambert bivariate
+    candidates; the native simplify does not reach the reference form.
+  - 1 False: test_issue_17799, `erf` at a symbolic point.
+  On the ODE pairs the native result always equals SymPy's (146 pairs
+  with applied undefined functions were not replayed by the harness).
+- The `cov` list is not updated when `unrad` raises.
+- The public `checksol` is still the Python implementation. It returns
+  None in cases where SymPy returns False (`x**(y/2) + x**y - 6` at
+  `3**(2/y)`). The solve paths above use the native port; other callers
+  of the public function are unchanged.
+- The order of the `bivariate_type` results (`list({...})` in `_tsolve`)
+  is the order of a Python set in SymPy, which depends on hashes. There
+  is no deterministic reference order to match. The public `solve` lists
+  are sorted the same way in both, and they were identical under
+  PYTHONHASHSEED 1, 2 and 3. Not changed.
+- These lines of the radicalrust section are superseded: "The `unrad`
+  flags ... not supported", "The native `checksol` runs with
+  `force=False`", and the 11534 note. Also the tsolverust line on
+  `x**(2*y) - 3`.
+
+Copied SymPy test files:
+- `test_solvers.py`: 53 failed / 80 passed before, 52 failed / 81 passed
+  after (test_PR1964).
+- `test_solveset.py`: 94 failed / 87 passed before and after;
+  test_issue_11534 passes before and after.
+
+Measurements are in
+[audits/performance/2026-10-30-solvegaps](../audits/performance/2026-10-30-solvegaps/README.md).
+
+
+## ratintgen (wave 32): native `ratint_ratpart` and `ratint_logpart` outside QQ/ZZ, 2026-10-30
+
+What is now native:
+- `ratint_ratpart` (Horowitz-Ostrogradsky) over QQ<a> (including ZZ_I and
+  QQ_I), QQ(a, ...) and EX, through `_core._ratint_ratpart`.
+  - `u, v` come from the stock `g.cofactors(g.diff())`.
+  - The square system for `A`, `B` is solved by an exact Gauss-Jordan
+    elimination (`ddm::field_irref`) in the coefficient field of the Poly
+    (`integrate/ratint_general.rs`). The system has a unique solution, so
+    this is the value that `solve` returns in the reference body.
+  - The identity `f = A' v - A (u' v / u) + B u` is checked again before
+    anything is returned. A pivot with an undecided zero test, a rank
+    deficiency or a system larger than 96 (QQ<a>), 48 (QQ(a)) or 16 (EX)
+    unknowns declines to the reference body.
+  - EX coefficients that are rational functions of commuting symbols are
+    solved in QQ(a, ...). Only the values of `A`, `B` enter the result.
+  - The two `cancel(A/u, x)`, `cancel(B/v, x)` calls go through the
+    `cancel` global of rationaltools, exactly as in the reference body.
+- `ratint_logpart` (Lazard-Rioboo-Trager) over ZZ_I, QQ_I, ZZ[a, ...],
+  QQ(a, ...) and EX, through `_core._ratint_logpart`, after the existing
+  stock-protocol guard of rationaltools.
+  - The orchestration is in Rust (`crates/symox-py/src/ratint_logpart.rs`).
+    It makes the reference steps on the stock native Poly methods: the
+    subresultant PRS `resultant(..., includePRS=True)`, `sqf_list`,
+    `_include_sign`, `primitive`, `gcd`, `quo`, `invert`, `rem`.
+  - The public constructor calls are replaced by the backend calls that the
+    stock constructor makes for those arguments: `_from_normalized`, the
+    `composite=False` EX selection, `to_field` and the `_from_terms` term
+    path.
+  - The Poly domains, the order of the pairs and the Dummy `t` are those of
+    the reference.
+  - Inexact or modular inputs decline. Any error of a primitive declines,
+    and the reference body then raises its own error.
+
+Admitted domains: univariate Polys in the integration variable, without
+modulus, with numerator and denominator in the same representation family.
+For ratpart that is the same number field, the same fraction field, or EX
+without a composite ground.
+
+Still Python, on native primitives:
+- The `ratint` body itself. The native rational driver still admits only
+  QQ/ZZ.
+- `log_to_atan` and `log_to_real` for parametric or algebraic auxiliary
+  polynomials (item 2 of the task).
+- The `real=False` RootSum (item 3).
+- The Cardano/cube-root pairs (item 4).
+These are recorded as remaining gaps. On the public calls of these
+families, `log_to_atan` receives EX Polys (`1/(x**4+2)`, `1/(x**3+sqrt(2))`)
+or mixed ZZ / ZZ[sqrt(p)] Polys (`1/(x**2+p)` with `p` positive), never a
+pair from one QQ<a> or QQ(a) field. The existing generic kernel
+`log_to_atan::arguments_field` could serve such a pair. A port therefore
+needs the EX path of `log_to_atan`, including its exact division by a
+constant `g`, and the unification of the two domains.
+
+Second pass on items 2-4 (measured 2026-10-30, no code change):
+- Item 4, Cardano and cube-root pairs (`1/(x**3+x+1)`, `1/(x**3+2*x-1)`,
+  `1/(x**5+1)`, `x/(x**5+1)`). symox already returns in 150-160 ms (SymPy
+  7.0-7.2 s) and in 18-26 ms (SymPy 0.9-1.1 s). The printed results differ
+  from SymPy 1.14; `1/(x**3-2)`, `1/(x**3+2)` and `x/(x**3-2)` are
+  identical. A step trace of `log_to_real` shows that the logpart pair, the
+  resultant `R(u)`, its real roots `R_u` and each `C(v)` are identical to
+  SymPy. The first difference is `roots(C, v)` on an EX `C`:
+  - `1/(x**5+1)`: biquadratic `C`. SymPy runs `preprocess_roots` (EX
+    `clear_denoms`), then `roots_quartic` with the EX `monic` (`cancel` and
+    `expand`), then `roots([1, e, g])`, which clears denominators again with
+    the EX `lcm`, then `roots_quadratic`, which calls `simplify`. The native
+    `roots` (`crates/symox-core/src/poly/roots.rs`) skips the EX
+    preprocessing and uses `factor` where the reference calls `simplify`.
+    It returns `5**(1/4)/sqrt(50 + 50*sqrt(5))` where SymPy returns
+    `sqrt(sqrt(5)/200 + 1/(25*(1 + sqrt(5))) + 3/200)`.
+  - `1/(x**3+x+1)`: the EX `C = alpha*v**2 + beta`. Already the EX
+    `clear_denoms` of `preprocess_roots` gives a different polynomial:
+    symox writes the radical `(81*sqrt(93)/15376 + 27/496)**(1/3)` with
+    `1922**(1/3)`, SymPy with `124**(1/3)`. The cause is the EX element
+    normal form (`cancel`/`as_numer_denom` of a rational power of a sum),
+    not `log_to_real`.
+  So the gap belongs to the native EX `roots` pipeline and to the EX
+  normal form of nested radicals, not to the `log_to_real` kernel. Porting
+  the Cardano pairs into `log_to_real` would not give SymPy's output unless
+  those were fixed first. Remaining gap.
+
+  Third pass, a native EX `roots` patch (Rust, not committed; see
+  audits/performance/2026-10-30-ratintgen/roots-ex). The patch changes
+  four things:
+  - It runs the reference `preprocess_roots` over EX (`clear_denoms`, then
+    `primitive`).
+  - It uses the EX `monic` in `roots_quartic`.
+  - It calls `simplify` in `roots_linear` and `roots_quadratic` when the
+    coefficients select EX, with the reference trees `(-b)/A` and `(-c)/a`.
+  - It lists `roots(..., multiple=True)` as `ordered(result)`. HEAD sorts
+    by `sort_key`, so for example `roots(x**3-2*x, multiple=True)` gives
+    `[0, -sqrt(2), sqrt(2)]` where SymPy gives `[0, sqrt(2), -sqrt(2)]`.
+
+  Result: on 25 `roots` cases, 22 equal SymPy 1.14 (against 6 at HEAD).
+  The four printed `integrate` results above are still different, for two
+  reasons:
+  - The native `crate::simplify::simplify` lacks one step of the Python
+    wrapper (`python/symox/_general_simplify.py`): it does not rationalize a
+    denominator that is a sum of numeric radicals
+    (`radsimp(1/denom, symbolic=False, max_terms=1)`). So the Rust caller
+    gets `(2 + sqrt(5))/(50*(1 + sqrt(5)))` where SymPy gets
+    `sqrt(5)/200 + 3/200`.
+  - With the patch, `R_v` of `1/((x**2+1)*(x**3+2))` equals SymPy, but the
+    EX `Poly(a.xreplace({u: r_u, v: r_v}), x)` that follows produces other
+    denominators than SymPy's. The result then grows from at most 9057
+    characters (SymPy's length, the limit of
+    `test_cubic_log_to_real_does_not_grow`) to 17199.
+
+  Two other tests also regress: `nonlinsolve([x**3+y-2, x+y])`, and
+  `solveset(sin(x)+2*cos(x))`, which gives a trigonometric `atan` because
+  of the Gaussian quadratic tree. So the patch was not committed.
+  Remaining gaps, in order:
+  - the denominator step of the native simplify;
+  - the EX arithmetic of the substituted `A`/`B` in `log_to_real`;
+  - the patch itself, with the reference trees limited to EX.
+- Item 3, `real=False`. Public `ratint` with `real=False` (or with a
+  non-real symbol) is already 8-10x faster than SymPy 1.14 (for example
+  `x/(x**3-a*x+1)` 38.6 ms against 375 ms, `1/(x**4+x+a)` 39.6 ms against
+  408 ms). Building the RootSum arguments (`h.primitive()`,
+  `Lambda(t, t*log(h.as_expr()))`) and the RootSum constructor together
+  take about 4% of the profile; the native `ratint_logpart` takes 88%.
+  Building the arguments in Rust would not change anything measurable, so
+  it was not done. The results equal SymPy except the printed order of
+  `log(x + 1)/5 + RootSum(...)` for `1/(x**5+1)`, which comes from the Add
+  printer, not from ratint.
+- Item 2, EX `log_to_atan`. On `1/(x**4+2)`, `1/(x**2+p)` and
+  `1/(x**3+sqrt(2))` it takes 0.2-0.8 ms of a 4.8-7.4 ms `ratint`. The
+  Python `log_to_real` steps around it (`collect`, `xreplace`, `roots`)
+  take 3.4-7.2 ms. Not ported.
+
+Corrections (SymPy 1.14 values that symox did not compute before):
+- `ratint_ratpart` over QQ<sqrt(2)>, for example `1/(x**2+sqrt(2))**2`, now
+  returns the SymPy 1.14 value. The reference body raised TypeError because
+  it cannot unify QQ<sqrt(2)> with the ZZ[a_i, b_j] domain of its unknowns.
+- `ratint_logpart(3, (x-I)*(x+2*I)*(x-1))` over QQ_I returns the SymPy 1.14
+  pairs. Depending on the process state, the reference body could raise
+  TypeError ("expected a polynomial").
+
+Remaining gaps:
+- `ratint_logpart` over QQ<sqrt(2)> raises TypeError in the native
+  primitives and in the reference body alike: QQ<a> cannot be unified with
+  ZZ[t]. SymPy returns EX pairs.
+- Printed forms that differ from SymPy 1.14 and were already present in the
+  base:
+  - parametric `cancel` output, expanded where SymPy collects
+    (`ratint_ratpart(x, (x-a)**2*(x-b))`);
+  - `integrate(I/(x**2+1)**2)`;
+  - `integrate((x+I)/(x**3-I))`;
+  - `integrate(x/(x**2+a*x+b)**2)`;
+  - `integrate(a/(x-a)**3)`;
+  - `integrate(1/(x-sqrt(2))**2/(x+1))`.
+  The values agree. Only the printed forms differ.
+
+Measurements are in
+[audits/performance/2026-10-30-ratintgen](../audits/performance/2026-10-30-ratintgen/README.md):
+1.06x-1.69x on the public calls that reach the new kernels, results
+unchanged.
+
+
+#### markovrust round 2: Float and symbolic linear systems, query assembly
+
+Native (Rust, crates/symox-core/src/stats/markov.rs):
+
+- `stationary_distribution` / `fixed_row_vector` / `limiting_distribution`
+  and the CTMC `limiting_distribution` when an entry is a Float or a
+  symbol: the reference system (`[1, ..., 1 | 1]` then
+  `(T^T - I)` rows for a DTMC, `w G = 0` then `sum(w) = 1` for a CTMC) is
+  solved as SymPy's `linsolve` does it. Float entries: the RR
+  Gauss-Jordan of `ddm_irref` with partial pivoting (first maximal |a| in
+  the column, `aij**-1` scaling, the same elimination order) in BigFloat
+  at the maximal input precision, the rows without coefficients dropped
+  first, zero solutions as `Integer(0)` and an rhs pivot as SymPy's
+  EmptySet (IndexError of `list(...)[0]`). Symbolic entries: Gauss-Jordan
+  over the fraction field of the symbols (canonical cancelled quotients,
+  positive leading denominator coefficient), whose unique RREF gives
+  SymPy's values and forms, e.g. `(2*a + 2*b)/(2*a + 3*b + 2)`.
+  `fundamental_matrix` / `absorbing_probabilities` of Float or symbolic
+  chains use that stationary vector for `W` and then the SymPy
+  statements over the native `det` / `inv` (the orchestration of those
+  two calls stays in Python).
+- Query assembly: when the condition holds on every enumerated path (the
+  initial observation), the value is SymPy's unnormalised, unsimplified
+  sum `gprob * sum(K[gstate, s] for s in states)` (or the weighted sum
+  of an expectation); before, the path sums were divided and simplified
+  whenever the row sums were not exactly 1 (Float rows), giving
+  `Float(0.75)` for SymPy's `3/4` and one ulp differences.
+- The CTMC query form `P(Eq(C(1), 1), Eq(C(0), 1))`: SymPy returns
+  `exp(-2)/2 + 1/2`; both SymPy's and symox's `simplify` turn that sum
+  into `(1 + exp(2))*exp(-2)/2`, so the difference came from symox's
+  query assembly (the final `simplify(numerator/denominator)`), not from
+  a simplify rule; the native assembly now returns the unsimplified sum,
+  as SymPy does (statements 612-640 of test_ContinuousMarkovChain).
+
+Python glue (SymPy statements over native calls, no new kernel):
+
+- `variance` of a process expression is SymPy's `cmoment(X, 2)`, the
+  unsimplified `E((X - E(X))**2)` evaluated by the native path sums
+  (statement 619); before, `simplify(E(X**2) - E(X)**2)`.
+- Transition matrices given as a Matrix are checked as SymPy does: only
+  the dimensions at construction, and in P/E queries `(sum(row) - 1) != 0`
+  (0 for a generator) structurally, with SymPy's ValueError. Float rows
+  summing to 0.99999999999999989 and negative entries are accepted by
+  the other methods, as in SymPy (statement 290); before, the rows were
+  checked (nonnegative, sum simplified to 1) at construction. Lists stay
+  a symox extension (SymPy: TypeError) with the construction checks.
+
+Still on the Python path: non-unique stationary vectors and CTMC limiting
+distributions (the existing `linsolve` fallback, same tau parameters as
+SymPy), Float entries mixed with symbols (`RR(a, b)`), and the
+`condition_set=True` form.
+
+SymPy's test_stochastic_process.py (statement level): 331/452 after
+round 1, 335/452 now (612, 619, 630 and 290 fixed; no statement
+regressed). Measured (ms, symox / SymPy): Float 6x6 stationary 0.45 /
+19.3, Float 4x4 fundamental 0.59 / 12.8, symbolic 3x3 stationary 0.28 /
+7.7, CTMC symbolic limiting 0.19 / 2.5, CTMC P query 1.9 / 16.7, CTMC
+variance 3.6 / 41.8.
+
+Remaining gaps:
+
+- A non-unique CTMC limiting distribution prints its parameters as
+  `Symbol('w[3]')` (SymPy `Indexed(IndexedBase(w), 3)`).
+- symox's shared RR `linsolve` (`_solve_inexact`) pivots on the first
+  nonzero entry, not on the maximal one: Float systems solved outside the
+  Markov kernels can differ from SymPy in the last bits, and an
+  ill-conditioned system can get a solution where SymPy finds none. The
+  Markov kernels no longer use it; the shared solver is unchanged.
+- `_core._linsolve_matrix` (expression RREF) does not cancel
+  (`a*b/(a**2 + a*b)` for SymPy's `b/(a + b)`); the Markov kernels no
+  longer use it.
+- `Matrix.det` of a Float matrix is not SymPy's (explicit formulas up to
+  3x3, else Bareiss with `_find_reasonable_pivot` per strongly connected
+  block): for a Float chain whose rows sum to 0.99999999999999989, SymPy
+  sees no recurrent class, `(I - P).det()` is -2.07e-17 and
+  `fundamental_matrix` returns entries near 2e15, while symox's det is
+  exactly 0 and raises "The fundamental matrix doesn't exist.". The
+  shared det is unchanged.
+- Path queries over several kernels sum over the paths in odometer
+  order where SymPy forms matrix powers: on the tested non-binary Float
+  chains (2x2 and 3x3, gaps 2 to 4) the values agree bit for bit, but the
+  operation order is not the same in general.
+- Item (4) of round 2 was not done (API surface, no computation to port):
+  `joint_distribution` is missing (SymPy returns an unevaluated
+  `JointDistribution(Y[1], Y[2])` for both the key and the indexed-symbol
+  forms); `index_set` is `Range(0, oo, 1)` for discrete chains and
+  `Interval(0, oo)` for CTMCs, where SymPy gives `Naturals0` and `Reals`;
+  a symbolic-size `Range(n)` state space raises "Cannot iterate over
+  symbolic Range" where SymPy keeps `Range(0, n, 1)`.
+
+
+## prdeconst (wave 34): constant_system over rational function fields in Rust
+
+Now native (Rust, `crates/symox-core/src/integrate/prde_const.rs`, binding
+`crates/symox-py/src/prde_const.rs`, admission
+`python/symox/integrals/_prde_native.py::_constant_system_field`): the
+whole of `constant_system(A, u, DE)` (sympy/integrals/prde.py) when `A` or
+`u` is not over `QQ`: the reduced row echelon form of `A.row_join(u)` over
+the fraction field (`ddm::field_irref` on `poly::ratfunc::RF` values), the
+loop over the entries that involve `DE.T` with the exact derivation
+`D(f) = sum_k DE.D[k] * df/dDE.T[k]` over the active levels (base, `exp`
+and `primitive` towers, any `DE.level`), the building of the constant
+system (`A - Aj*Rm1`, `u - Aj*um1`, `col_join`), and the output
+PolyMatrix pair. The items are rebuilt with the stock operations (the
+`a - b` differences stay uncancelled, products and quotients are
+cancelled with the Rust `cancel`), and the PolyMatrix domains are those of
+the stock body: `parallel_poly_from_expr(field=True)` inference through
+the Rust Poly constructor (`PyPoly::_from_normalized(...).to_field()`,
+then the `_field_joint` rule over the `EX` coefficients when the item
+domains differ), `unify_native` for `_unified`, and membership by
+conversion into the domain. The generators are those of `A`.
+
+Admitted: `A` and `u` stock PolyMatrix objects with one plain symbol
+generator, at least one row and one column, domains `QQ`, `ZZ(...)` or
+`QQ(...)` over plain commutative symbols, entries without floats, at most
+32 symbols in the variable set (generator, `DE.T`, symbols of `DE.D`,
+domain parameters), the active `DE.D` stock Poly objects over plain
+symbols, an unmodified `DifferentialExtension` (slot descriptors, as the
+wave-27/28 kernels). `QQ`/`QQ` systems keep the existing rational kernel.
+
+Still falls back to the Python body: domains whose parameters are not plain
+symbols (`ZZ(log(a))`, `ZZ(x, _t0, log(5))`, `QQ_I`, algebraic fields), an
+`A` with zero columns (SymPy and the stock body keep `u` unreduced there),
+a zero `D(A[i, j])`, entries that depend on the generator, any step whose
+domain or item the kernel cannot reproduce. Not ported (gaps): the public
+`derivation(p, DE)` with `K(x)[t]` Poly coefficients (item 2 of the task),
+`is_deriv_k` and `is_log_deriv_k_t_radical_in_field` (item 3): their
+Python bodies still run, and only their constant systems are native.
+
+Gap seen, not changed (pre-existing, shared by the stock body): an
+inferred fraction field orders its generators by `default_sort_key`
+(`ZZ(t0,x)`), SymPy's `construct_domain` by `_sort_gens` (`ZZ(x,t0)`);
+the entries are equal. tests/test_native_prdeconst.py compares these
+domains up to the order of their generators, and the native results with
+the stock body exactly (domain object, string, generators, items).
+
+Validation: every call reached by SymPy's test_prde.py and test_risch.py
+that the kernel answers (48 calls over `ZZ(x)`, `QQ(x)`, `ZZ(x, t0)`,
+`ZZ(y)`, ...) equals the stock body (shape, generators, domain, srepr of the
+items). SymPy test_prde.py: 1 failed, 14 passed, test_risch.py: 5 failed,
+31 passed, before and after (same failing tests). Measured:
+[audit](../audits/performance/2026-10-30-prdeconst/README.md).
+
+## prdeconst item 2: derivation(p, DE) with K(x)[t] Poly coefficients in Rust
+
+`risch.derivation(p, DE, coefficientD)` with `basic=False` and a stock Poly
+`p` over `ZZ`, `QQ`, `ZZ[...]`, `QQ[...]`, `ZZ(...)` or `QQ(...)` of plain
+symbols, in any DE case (exp, primitive, base, tan, ...: the stock body does
+not depend on the case), is answered by `_core._prde_kernel('derivation')`
+(crates/symox-py/src/prde_const.rs, `derivation_poly`). The kernel runs the
+stock loop over the active `(D, T)` pairs (`coefficientD=True` uses the
+levels below the top one and returns `Poly(0, t)` at the base level) and
+keeps the stock term expressions `d.as_expr()*pv.diff(v).as_expr()`
+(`pv = p.as_poly(v)`, or the expression derivative when that raises
+`PolynomialError`), so each term Poly has the stock domain and the sum
+unifies them in the stock order from `Poly(0, t)` over ZZ: the result
+domain is not the domain of `p` (for example `ZZ[x]` -> `ZZ(x)` in a
+primitive extension, `QQ[x]` -> `ZZ[x]` with `coefficientD=True`). The two
+Poly constructions call the Rust constructor `Poly._from_normalized`
+directly (the call `symox._poly_constructor.construct` makes for these
+arguments; its `_zero_float_domain` step is the identity on exact
+domains), instead of going through the Python option handling. The
+`diff`, `as_expr`, `*` and `+` steps are the existing Rust Poly/Expr
+methods. The constant-system kernel's own `RF` derivation is not reused
+here: the stock result domain depends on the unexpanded form of each term
+(a cancelled `RF` value can give `ZZ[x]` where the stock term gives
+`ZZ(x)`), so the value is built from the stock terms.
+
+Admission (`_prde_native.derivation`): a `_core.Poly` `p`, an unmodified
+`DifferentialExtension` (slot descriptors), the Poly `as_poly`, `diff`,
+`as_expr`, `__add__`, `Expr.as_poly` and `_poly_constructor.construct`
+captured at import, `risch.derivation` itself with its captured code (read
+by the native metadata reader, no audit event), no module-level `len`/`zip`
+in `risch` and the real `len`/`zip` in its builtins (the stock body's
+observable calls are kept when they are replaced), exact `D` entries,
+plain-symbol `T` entries. Counter: `_prde_native.STATS['derivation']`.
+
+Still falls back to the Python body: `basic=True` (an expression and a
+`cancel`), `p` an expression, domains whose parameters are not plain
+symbols (`ZZ(log(a))`, `QQ(x, _t0, log(5))`, `ZZ(x, E)`), `EX`, `RR`,
+`QQ_I`, a `D` entry over such a domain, any term the constructor rejects.
+
+Validation: every call reached by SymPy's test_prde.py and test_risch.py
+that the kernel answers (893 calls, `coefficientD` both ways, cases base,
+exp, primitive, tan, other_nonlinear and `DE.case` unset) equals the stock
+body (generators, domain object and string, srepr); 87 calls declined.
+28 generated calls (tests/test_native_prdeconst.py) equal SymPy 1.14 up to
+the known generator order of inferred domains. SymPy test_prde.py: 1
+failed, 14 passed, test_risch.py: 5 failed, 31 passed (unchanged).
+`derivation` alone: 1.8x to 3.0x faster than the stock body and 2.1x to
+5.6x faster than SymPy; the ten public `risch_integrate` calls of the audit
+take 0.89x to 0.95x of the base e9e858e5 time (items 1 and 2, first and
+repeated calls), with identical results.
+
+Profile of the two repeated `risch_integrate` calls slower than SymPy
+(`exp(x)*log(x)` 1.34x, `x*exp(x)*log(x)` 1.09x before item 2; 1.26x and
+0.98x after it): about 70% of the time
+is `splitfactor`, 12 calls per integral, and within it the Python
+admission of the native splitfactor kernel
+(`_risch_splitfactor_native.reduce`: `_risch_native._prove_fields`, the
+`PolyMatrix`/`ratint` protocol snapshots `_polymatrix_native._class_unchanged`
+and `_stock_ratint_protocol_with_metadata`, `_states_match`), not the
+kernel (`_core._risch_splitfactor` is below the profiler resolution).
+Under cProfile, `splitfactor` takes 94 ms per symox call against 16 ms in
+SymPy, while `derivation` was already faster than SymPy. Gap (not changed
+here, shared file): the per-call verification of the splitfactor protocol
+snapshot costs more than the stock computation it replaces on these
+inputs.
+
+## prdeconst item 3: is_deriv_k(fa, fd, DE) in Rust
+
+`prde.is_deriv_k(fa, fd, DE)` with stock Polys over `ZZ`, `QQ`, `ZZ[...]`,
+`QQ[...]`, `ZZ(...)` or `QQ(...)` of plain symbols, and an elementary tower
+(`len(DE.exts) == len(DE.D)`, exts `None`, `'exp'` or `'log'`), is answered by
+`_core._prde_kernel('is_deriv_k')` (crates/symox-py/src/prde_deriv.rs). The
+kernel follows the stock body step by step:
+- `Df/f` uses the native `derivation` and the Rust Poly `cancel(include=True)`;
+- `E_part` (`D[i].quo(Poly(T[i], T[i]))`) and `L_part` over every
+  extension use the stock `DE.indices`;
+- the PolyMatrix domains of the row and of `Df/f` are inferred over the
+  Dummy;
+- the fraction-field `constant_system` (item 1);
+- `not A` gives None: an empty row, i.e. no exp/log extension, gives None as
+  the stock `constant_system`, which returns `(A, u)` unchanged;
+- `derivation(u_i, basic=True) != 0` gives None, decided exactly on the `RF`
+  values over the active levels;
+- a non-Rational `u_i` raises the stock `NotImplementedError("Cannot work
+  with non-rational coefficients in this case.")`;
+- `(ans, result, const)` is built with the stock term order, the native
+  `Add`/`Mul`/`Pow`, `as_numer_denom`, `sqf_list` and `cancel`.
+
+Admission (`_prde_native.is_deriv_k`):
+- the item 1 prde protocol and the item 2 `derivation` protocol;
+- an evaluating context;
+- `symox.cancel` and `prde.cancel` as captured;
+- the `exts`/`extargs` slot descriptors;
+- no AccumBounds coefficient fold, or the stock `_fold_coefficient` (code,
+  globals, `AccumulationBounds` and the builtins it reads as captured). The
+  fold list itself must be the one captured. That fold is installed for the
+  rest of the process once any AccumBounds exists; the kernel only builds
+  host-free expressions, for which it returns None.
+
+The Dummy is created once in the admission, and a kernel decline reuses it
+in the stock body, so the Dummy counter matches the stock path. Counter:
+`_prde_native.STATS['is_deriv_k']`.
+
+Still falls back to the Python body:
+- domain parameters that are not plain symbols (`ZZ[x, _t0, log(5)]` in
+  test_risch);
+- `EX` or inexact coefficients;
+- host or wild terms in `T`/`extargs`;
+- exts other than `None`/`'exp'`/`'log'`;
+- any other fold or a rebound fold list.
+
+Validation:
+- Every call reached by SymPy's test_prde.py and test_risch.py that the
+  kernel answers (42 calls: 10 returning a result, 32 None) equals the
+  stock body (srepr of `ans`, `u` and `const`, exceptions included). 1 call
+  is declined.
+- 28 direct cases (SymPy test_is_deriv_k plus generated log, exp, mixed,
+  `None`, rational-power and non-rational cases) and 13
+  `DifferentialExtension(expr, x)` tower constructions equal SymPy 1.14
+  (tests/test_native_prdeconst.py).
+- SymPy test_prde.py: 1 failed, 14 passed. test_risch.py: 5 failed, 31
+  passed. Both unchanged.
+
+Speed:
+- `is_deriv_k` alone is 1.3x to 3.4x faster than the stock body and 2.9x to
+  8.5x faster than SymPy.
+- The ten public `risch_integrate` calls of the audit are within noise of
+  item 2 (0.95x to 1.02x), with identical results.
+
+Remaining gaps of item 3:
+- `is_log_deriv_k_t_radical_in_field` is not ported. It needs
+  `splitfactor`, `residue_reduce` (`RootSum` residue terms and their
+  `real_roots`), `residue_reduce_derivation`, `parametric_log_deriv` and the
+  recursion down the tower, with per-case `ValueError`/
+  `NotImplementedError` behavior. It stays on the stock Python body.
+- The splitfactor admission overhead (`_risch_native._prove_fields`,
+  `_states_match`, `_str_keyed`) is unchanged. No registration generation or
+  change notification exists for the class dictionaries and function
+  records it compares: Python 3.10 has no dict or type watchers, and the
+  abi3 build cannot read `tp_version_tag`. A cache keyed on anything else
+  would miss a class or method mutation and weaken the protocol checks.
+
+
+## odeclass (wave 35): native first-order `classify_ode` matches, 2026-10-30
+
+Now native (`symox::ode::classify`, binding `crates/symox-py/src/ode_classify.rs`,
+admission in `python/symox/solvers/ode/_classify_native.py`):
+
+- The `d + e*df` decomposition of `collect(eq, [df, f], cancel)` used by
+  `separable`, `1st_exact`, `almost_linear`, `1st_homogeneous_coeff_*`,
+  `linear_coefficients` and `separable_reduced`, and the order-one
+  `1st_power_series` match on `collect(eq, df, exact=True)`. The kernel
+  reproduces the reference matcher steps (`_add_inverse`, `_mul_inverse`, the
+  `count_ops` guard, the rebuilt `pattern.xreplace(...)` that must give the
+  matched term), so the solver `_verify` steps and the substitutions keep
+  running on the same wild values.
+- `1st_linear` (`df + P*f - Q`) and `Bernoulli` (`df + P*f - Q*f**n`, `n`
+  left unbound exactly when SymPy leaves it unbound) on
+  `collect(expand(eq/eq.coeff(df)), [df, f], cancel)`.
+- `Riccati_special_minus2`: the no-match decision only (no `f**2` or no
+  `x`-free derivative coefficient); a possible match runs the reference.
+- `match_riccati` (`1st_rational_riccati`): the coefficient extraction,
+  the symbol and rationality checks and the `(b0, b1, b2)` values.
+- The `classify_ode` hint list: the `_Integral` entries and the `allhints`
+  order (`ode_ordered_hints`).
+
+Admitted domain: commutative order-one equations in `f(x)` without `I`,
+infinities, `nan`, Floats, `Piecewise` or relationals, and products whose
+`as_powers_dict` rebuild cannot merge factors differently (a repeated base,
+`exp(a)` counting as base `E`, a number next to a power of a number). The
+public `cancel`, `expand` and `count_ops` are passed to the kernel as
+callables, so the values are those of the reference calls. Everything else
+declines and runs the Python matcher unchanged; a decline is never a
+no-match.
+
+Still in Python: `factorable`, `nth_algebraic`, the `nth_linear_*`, Euler,
+`Liouville`, `2nd_*` and power series (order two) matchers, a positive
+`Riccati_special_minus2` match, `lie_group`, `nth_order_reducible`, and the
+solvers' own `_verify`/`_get_general_solution` steps.
+
+Classification evidence: on the 315-case ODE corpus all 12 `cls`
+mismatches are SymPy reference timeouts; run alone, SymPy 1.14's
+`classify_ode` finishes in 0.16-3.35 s and gives exactly the symox lists.
+No `hinted`/`default` mismatch is caused by classification (triage table in
+the audit). Differential test over the corpus and 74 extra equations: 0
+disagreements with the reference matcher. No intentional correction.
+
+Measured: [audit](../audits/performance/2026-10-30-odeclass/README.md).
+
+
+## Limits and series front end (wave 35, limitsrest)
+
+Native now (crates/symox-core):
+
+- `series/direction.rs`: the `Expr.series` front end of SymPy 1.14. A
+  nonzero numeric `cdir` selects the side (`'+'` for a positive real part
+  or a positive imaginary part); at an infinite point a real `cdir` picks
+  `+-oo`; a nonreal `cdir` expands `e(x0 + u*t)` (or `e(u/t)` at an infinite
+  point) at `0+` in a positive dummy with `u = cdir/|cdir|` and substitutes
+  back, so `Abs(x).series(x, 0, cdir=I)` is `-I*x`. A non-symbol variable
+  (`series(exp(a*b), a*b)`) is expanded in a dummy. `logx` replaces `log(x)`
+  by a fresh symbol before and after the expansion and by `logx` once, so
+  `log(-log(x)).nseries(x, logx=-x)` is `log(x)`. Binding:
+  `_core._series(..., logx=, cdir=)` and `_core._series_direction`.
+- `limits/exact_sign.rs`: the Gruntz sign of an x-free constant first tests
+  for an exact zero after `expand_log` (perfect powers: `log(4) - 2*log(2)`
+  is 0), before any numerical evaluation. `2**(-x)*sqrt(4**(x+1)+1)` at
+  `oo` is 2 (it hung before), `4**x/2**(2*x)` is 1.
+- `limits/gruntz/abs_power.rs`: `Abs(b**p)` with `b` and `p` real on the
+  positive variable is `b**p` or `(-b)**p` by the Gruntz sign of `b`
+  (`Abs((-x/(x+1))**x)` at `oo` is `exp(-1)`).
+- `series/order.rs`: `O(1)` absorbs `O(x)` at 0, `O(1/x)` absorbs `O(1)`,
+  as SymPy's `Order.contains` with a constant.
+
+Admission in Python (no computation): the bounds walk keeps a power held
+when an oscillating base may be negative under an irrational, infinite or
+oscillating exponent (`sin(x)**log(x)`, `sin(x)**cos(x)`,
+`tan(x)**(2**sqrt(pi))`, issues 14276 and 18442, held as in SymPy; a
+rational exponent such as `sqrt(sin(1/x))` stays a bounds power); the
+lower-side branch rewrite at infinity skips arguments nonnegative on the
+real tail before evaluating them at `10**10`.
+
+Fallbacks: a symbolic or undecided `cdir` keeps the previous behaviour (the
+direction is ignored, as before this wave); `logx` with a complex `cdir`
+and `logx` with Piecewise go through the previous Python substitution.
+
+Remaining gaps: `w**(1 - 1/log(3))` (irrational exponent) in the series
+engine, so `limit((1 + x**log(3))**(1/x), x, 0)` is held (SymPy 1);
+`(Abs(x+y) - Abs(x-y))/(2*x)` at 0 (SymPy `sign(y)`); `factorial(x)` at
+`-oo` (SymPy `gamma(-oo)`); `limit(((x**(x+1)+(x+1)**x)/x**(x+1))**x, x,
+oo)` (SymPy `exp(E)`); `cos(x)*floor(x)/x` and `floor(1/w).nseries` with
+bounds; `floor(x).series(x, oo)` raises PoleError (SymPy ValueError);
+`sin(Piecewise(...)).series`; `O(x**2).subs(x, cos(x))` moving the point;
+`O(x**2).diff(x)`, `O(nan)`, `Order(log(x) + 1/log(x))`; `limit(1 + O(x**2),
+x, 1)`; `nseries(..., cdir=)` is not passed to the term expansions
+(`frac(x).nseries(x, 0, 3, cdir=-1)` is `x`, SymPy `x + 1`); `AccumBounds`
+is not exported by `from symox import *`. Kept on purpose:
+`limit(subfactorial(x)/factorial(x), x, oo)` stays held (SymPy returns 0,
+the true limit is `1/e`), and the earlier corrections (one-sided Piecewise
+limits, `limit(atan(a*x)/x, x, oo) = 0`).
+
+Measured: [audit](../audits/performance/2026-10-30-limitsrest/README.md).

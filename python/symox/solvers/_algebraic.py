@@ -1,6 +1,5 @@
 """Native denominator inspection, small determinants and radical elimination."""
 import itertools
-import math
 
 
 def denoms(eq,*symbols):
@@ -202,8 +201,12 @@ def _radical_normalize(expression):
     return expression
 
 
-def unrad(eq,*syms,**flags):
+def _unrad_resultant(eq,*syms,**flags):
     """Eliminate rational-power radicals with exact polynomial resultants.
+
+    The established fallback of ``solve``/``solveset`` for the equations
+    where SymPy's ``unrad`` raises NotImplementedError (it is not the public
+    ``unrad``, whose results are SymPy's).
 
     The returned equation has a superset of the original roots. A shared-base
     change of variable retains a low-degree polynomial when possible. Root
@@ -230,7 +233,7 @@ def unrad(eq,*syms,**flags):
     # independent algebraic roots, which can lose useful information.
     bases={node.base for node in radicals}
     if len(radicals)>1 and len(bases)==1:
-        base=next(iter(bases));degree=math.lcm(*(int(node.exp.q) for node in radicals))
+        base=next(iter(bases));degree=__import__('math').lcm(*(int(node.exp.q) for node in radicals))
         if degree>64:raise NotImplementedError('Shared radical degree exceeds 64')
         coordinate=Dummy('p')
         replacement={node:coordinate**int(node.exp*degree) for node in radicals}
@@ -246,7 +249,7 @@ def unrad(eq,*syms,**flags):
             except (ValueError,TypeError,NotImplementedError) as error:
                 raise NotImplementedError('The radical coordinate does not give a polynomial') from error
             return _radical_normalize(transformed),[coordinate,coordinate**degree-base]
-    if math.prod(int(node.exp.q) for node in radicals)>256:
+    if __import__('math').prod(int(node.exp.q) for node in radicals)>256:
         raise NotImplementedError('Combined radical elimination degree exceeds 256')
     # Build definitions from inner radicals outward, then eliminate in reverse
     # dependency order. Resultants remove every algebraic root coordinate.
@@ -272,6 +275,39 @@ def unrad(eq,*syms,**flags):
            for node in nodes(transformed)):
         raise NotImplementedError('The result still contains radicals in the requested variables')
     return _radical_normalize(transformed),[]
+
+
+def unrad(eq, *syms, **flags):
+    """SymPy's ``unrad``: remove the radicals with symbolic arguments of an
+    equation, returning ``None`` or ``(eq, cov)`` where ``cov`` is empty or
+    ``[p, relation]`` for a change of variable. The algorithm is native
+    (``symox::solve::unrad``); the ``_vsolve`` calls and a ``_take``
+    predicate are Python callbacks."""
+    from .. import Equality, sympify
+    from .._core import Expr, _unrad
+    if isinstance(eq, Equality):
+        eq = eq.lhs - eq.rhs  # XXX legacy Eq as Eqn support
+    elif not isinstance(eq, Expr):
+        return None
+    reverse, take = bool(flags.get('_reverse', False)), flags.get('_take')
+    syms = [sympify(s) for s in syms]
+    if not any(k in flags for k in ('cov', 'n', 'rpt')):
+        return _unrad(eq, syms, reverse, take)
+    # the reference recursion flags (other flags are ignored, as there):
+    # ``cov`` is the caller's list, updated in place
+    from .._core import _unrad_flags
+    cov, n, rpt = flags.get('cov', []), flags.get('n'), flags.get('rpt', 0)
+    if not isinstance(cov, (list, tuple)) or len(cov) not in (0, 2) or \
+            not (n is None or isinstance(n, int)) or not isinstance(rpt, int) or \
+            isinstance(n, bool) or isinstance(rpt, bool) or (n is not None and n < 0) or rpt < 0:
+        raise NotImplementedError('unrad flags cov=%r, n=%r, rpt=%r are not supported' % (cov, n, rpt))
+    result, state = _unrad_flags(eq, syms, [sympify(c) for c in cov], n, rpt, reverse, take)
+    if list(state) != list(cov):
+        if not isinstance(cov, list):
+            raise TypeError("'%s' object does not support item assignment" % type(cov).__name__)
+        cov[:] = state
+    return result
+
 
 
 __all__=['denoms','recast_to_symbols','det_perm','det_minor','det_quick','inv_quick',

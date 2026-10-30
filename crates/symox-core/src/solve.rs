@@ -20,6 +20,10 @@ pub use rational_coverage::complete_rational_roots;
 mod trig;
 pub use recast::{solve_atom,solve_atom_system};
 pub(crate) mod lambert;
+pub mod tsolve;
+pub mod checksol;
+mod symbolic_power;
+pub mod unrad;
 
 /// `lhs - rhs` for an equation (`Eq`) or the expression itself.
 pub fn as_expr(eq: &Expr) -> Expr {
@@ -128,7 +132,7 @@ fn solve_checked(f: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
         // large radical roots chases an exact zero through every precision.
         let (numerator, _) = numer_denom(&together(&f));
         if poly_coeffs(&numerator, x).is_none() {
-            sols.retain(|s| verify(&f, x, s));
+            sols.retain(|s| verify(&f, x, s) && !checksol::rejects_parametric(&numerator, x, s));
         }
     }
     sort_solutions(&mut sols);
@@ -363,6 +367,8 @@ fn verify_equation(f: &Expr, assignments: &[(Expr, Expr)]) -> bool {
     let v = subs(f, assignments);
     if v.is_zero() { return true; }
     if matches!(v.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)) { return false; }
+    // the reference `checksol` rejects a value holding nan, zoo or +-oo
+    if tsolve::has_illegal(&v) { return false; }
     let precision = assignments.iter().filter_map(|(_, value)| crate::evalf_mp::max_precision(value))
         .chain(crate::evalf_mp::max_precision(f)).max();
     let Some(precision) = precision else {
@@ -475,6 +481,9 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         if let Some(newf) = trig::tan_rewrite(&num, x, &gens) {
             return solve_rec(&newf, x, depth + 1).map(|r| r.iter().map(tabulated_atan).collect());
         }
+    }
+    if let Some(r) = symbolic_power::solve(&num, x, depth) {
+        return Some(r);
     }
     // polynomial in a single generator g(x)
     if let Some(r) = solve_by_generator(&num, x, depth) {

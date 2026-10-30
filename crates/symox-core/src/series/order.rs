@@ -236,6 +236,15 @@ pub fn contains(o: &Expr, t: &Expr) -> bool {
     };
     if let Some((te, tvars)) = order_parts(t) {
         if tvars.len() != vars.len() || tvars.iter().zip(&vars).any(|(a, b)| a != b) {
+            // The reference `Order.contains` takes the variables of the
+            // order that has some when the other has none (`O(1)`): `O(1)`
+            // holds `O(x)` (bounded at its point), `O(1/x)` holds `O(1)`.
+            if vars.is_empty() && !tvars.is_empty() {
+                return !oe.is_zero() && contains_expr(&Expr::one(), &tvars, &te);
+            }
+            if tvars.is_empty() && !vars.is_empty() {
+                return contains_expr(&oe, &vars, &Expr::one());
+            }
             return tvars.is_empty() && vars.is_empty();
         }
         return contains_expr(&oe, &vars, &te);

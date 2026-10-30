@@ -636,6 +636,17 @@ def _implicit_solution(solve,prepared,f,symbols,flags,sequences):
     return restore(result)
 
 
+def _native_check(numerator,symbol,value,flags):
+    """SymPy's _solve check of a candidate, checksol(f_num, {symbol: value},
+    simplify=False) is not False, computed by the native checksol port."""
+    try:
+        from . import _core
+        return _core._checksol_native(numerator,symbol,value,True,
+                                      bool(flags.get('force',True)),False,False)
+    except Exception:
+        return None
+
+
 def _unrad_solution(solve,equation,symbol,flags):
     """SymPy's unrad fallback of _solve for one equation in one symbol.
 
@@ -645,7 +656,7 @@ def _unrad_solution(solve,equation,symbol,flags):
     equation provably nonzero, and kept when the check is undecidable.
     Returns None when this does not apply."""
     from . import Expr, Symbol, checksol, default_sort_key, simplify, sympify, together
-    from .solvers._algebraic import denoms, unrad
+    from .solvers._algebraic import _unrad_resultant, denoms, unrad
     if set(flags)-{'dict','check','simplify','force','rational','warn'}:
         return None
     try:
@@ -659,7 +670,12 @@ def _unrad_solution(solve,equation,symbol,flags):
         return None
     try:
         numerator=together(equation).as_numer_denom()[0]
-        reduced=unrad(numerator,symbol)
+        try:
+            reduced=unrad(numerator,symbol)
+        except NotImplementedError:
+            # SymPy's elimination stops here; the established resultant
+            # elimination still gives a superset of the roots to check.
+            reduced=_unrad_resultant(numerator,symbol)
     except (ValueError,NotImplementedError,TypeError):
         return None
     if not reduced:
@@ -701,7 +717,8 @@ def _unrad_solution(solve,equation,symbol,flags):
             dens=denoms(equation,symbol)
             found=[v for v in found
                    if not any(checksol(d,{symbol:v},**options) is True for d in dens)
-                   and checksol(equation,{symbol:v},**options) is not False]
+                   and checksol(equation,{symbol:v},**options) is not False
+                   and _native_check(numerator,symbol,v,flags) is not False]
         except NotImplementedError:
             pass
     found=sorted(found,key=default_sort_key)

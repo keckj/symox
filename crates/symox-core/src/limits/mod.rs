@@ -16,6 +16,7 @@
 //! bounded oscillating factors (`sin(x)/x` at `oo`) are handled by treating
 //! the oscillating parts as bounded parameters.
 
+pub mod exact_sign;
 pub mod gruntz;
 
 use rustc_hash::FxHashMap;

@@ -1,0 +1,300 @@
+before 0 0.045363 3185272874 x*log(x)
+before 1 0.046725 9b7d5e154c log(x)**2
+before 2 0.045427 9d3baa89f9 log(x)**3/x
+Traceback (most recent call last):
+  File "/home/keckj/Documents/symox-worktrees/prderust2-20261030a/audits/performance/2026-10-29-prderust2/bench.py", line 17, in <module>
+    r = risch.risch_integrate(f, x)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1842, in risch_integrate
+    ans, i, b = integrate_primitive(fa, fd, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1458, in integrate_primitive
+    q, i, b = integrate_primitive_polynomial(p, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1407, in integrate_primitive_polynomial
+    rv = limited_integrate(aa, ad, [(Dta, Dtb)], DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 870, in limited_integrate
+    h, A = param_rischDE(Fa, Fd, G, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 724, in param_rischDE
+    M, _ = constant_system(M, zeros(M.rows, 1, DE.t), DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 268, in constant_system
+    Au, _ = Au.rref()
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 315, in rref
+    self._ground_check('rref')
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 281, in _ground_check
+    if not (self.domain.is_Field and all(p.is_ground for p in self)):
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 176, in __iter__
+    return iter(self[:])
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in __getitem__
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in <listcomp>
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 151, in _poly
+    return Poly(e, *self.gens, domain=self.domain)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/_poly_constructor.py", line 330, in construct
+    else:result=Poly._from_normalized(rep,gens,domain,modulus,extension)
+symox.CoercionFailed: coefficient contains undeclared generators
+before 
+before 4 0.083407 46711aeb0f exp(x)*x
+before 5 0.205073 3edbac1de0 x*exp(x)*log(x)
+before 6 0.041329 939d601467 1/(x*log(x))
+before 7 0.047854 318a840a6d log(x)**2/x**2
+before 8 0.041121 f0cb0149dc exp(x)/(1+exp(x))**2
+before 9 1.887572 1ee8851e2d log(x)*log(x+1)
+after 0 0.045261 3185272874 x*log(x)
+after 1 0.044846 9b7d5e154c log(x)**2
+after 2 0.044189 9d3baa89f9 log(x)**3/x
+after 3 0.253810 81d77d364f log(log(x))
+after 4 0.081652 46711aeb0f exp(x)*x
+after 5 0.196496 3edbac1de0 x*exp(x)*log(x)
+after 6 0.043192 939d601467 1/(x*log(x))
+after 7 0.049360 318a840a6d log(x)**2/x**2
+after 8 0.042733 f0cb0149dc exp(x)/(1+exp(x))**2
+after 9 1.865154 1ee8851e2d log(x)*log(x+1)
+sympy 0 0.067133 3185272874 x*log(x)
+sympy 1 0.071859 9b7d5e154c log(x)**2
+sympy 2 0.048272 9d3baa89f9 log(x)**3/x
+sympy 3 0.132591 f8c8378c8b log(log(x))
+sympy 4 0.057431 46711aeb0f exp(x)*x
+sympy 5 0.107434 3edbac1de0 x*exp(x)*log(x)
+sympy 6 0.047949 939d601467 1/(x*log(x))
+sympy 7 0.090962 318a840a6d log(x)**2/x**2
+sympy 8 0.011289 f0cb0149dc exp(x)/(1+exp(x))**2
+sympy 9 0.703901 5ac3989ea2 log(x)*log(x+1)
+before 0 0.038926 3185272874 x*log(x)
+before 1 0.040892 9b7d5e154c log(x)**2
+before 2 0.037861 9d3baa89f9 log(x)**3/x
+Traceback (most recent call last):
+  File "/home/keckj/Documents/symox-worktrees/prderust2-20261030a/audits/performance/2026-10-29-prderust2/bench.py", line 17, in <module>
+    r = risch.risch_integrate(f, x)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1842, in risch_integrate
+    ans, i, b = integrate_primitive(fa, fd, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1458, in integrate_primitive
+    q, i, b = integrate_primitive_polynomial(p, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1407, in integrate_primitive_polynomial
+    rv = limited_integrate(aa, ad, [(Dta, Dtb)], DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 870, in limited_integrate
+    h, A = param_rischDE(Fa, Fd, G, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 724, in param_rischDE
+    M, _ = constant_system(M, zeros(M.rows, 1, DE.t), DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 268, in constant_system
+    Au, _ = Au.rref()
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 315, in rref
+    self._ground_check('rref')
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 281, in _ground_check
+    if not (self.domain.is_Field and all(p.is_ground for p in self)):
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 176, in __iter__
+    return iter(self[:])
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in __getitem__
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in <listcomp>
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 151, in _poly
+    return Poly(e, *self.gens, domain=self.domain)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/_poly_constructor.py", line 330, in construct
+    else:result=Poly._from_normalized(rep,gens,domain,modulus,extension)
+symox.CoercionFailed: coefficient contains undeclared generators
+before 
+before 4 0.075063 46711aeb0f exp(x)*x
+before 5 0.178560 3edbac1de0 x*exp(x)*log(x)
+before 6 0.038782 939d601467 1/(x*log(x))
+before 7 0.043721 318a840a6d log(x)**2/x**2
+before 8 0.037341 f0cb0149dc exp(x)/(1+exp(x))**2
+before 9 1.738962 1ee8851e2d log(x)*log(x+1)
+after 0 0.040197 3185272874 x*log(x)
+after 1 0.043188 9b7d5e154c log(x)**2
+after 2 0.044647 9d3baa89f9 log(x)**3/x
+after 3 0.243075 81d77d364f log(log(x))
+after 4 0.075854 46711aeb0f exp(x)*x
+after 5 0.181553 3edbac1de0 x*exp(x)*log(x)
+after 6 0.040650 939d601467 1/(x*log(x))
+after 7 0.043899 318a840a6d log(x)**2/x**2
+after 8 0.037207 f0cb0149dc exp(x)/(1+exp(x))**2
+after 9 1.775637 1ee8851e2d log(x)*log(x+1)
+sympy 0 0.068563 3185272874 x*log(x)
+sympy 1 0.074232 9b7d5e154c log(x)**2
+sympy 2 0.053954 9d3baa89f9 log(x)**3/x
+sympy 3 0.137903 f8c8378c8b log(log(x))
+sympy 4 0.058881 46711aeb0f exp(x)*x
+sympy 5 0.114128 3edbac1de0 x*exp(x)*log(x)
+sympy 6 0.049258 939d601467 1/(x*log(x))
+sympy 7 0.094758 318a840a6d log(x)**2/x**2
+sympy 8 0.011807 f0cb0149dc exp(x)/(1+exp(x))**2
+sympy 9 0.722340 5ac3989ea2 log(x)*log(x+1)
+before 0 0.040141 3185272874 x*log(x)
+before 1 0.041854 9b7d5e154c log(x)**2
+before 2 0.039469 9d3baa89f9 log(x)**3/x
+Traceback (most recent call last):
+  File "/home/keckj/Documents/symox-worktrees/prderust2-20261030a/audits/performance/2026-10-29-prderust2/bench.py", line 17, in <module>
+    r = risch.risch_integrate(f, x)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1842, in risch_integrate
+    ans, i, b = integrate_primitive(fa, fd, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1458, in integrate_primitive
+    q, i, b = integrate_primitive_polynomial(p, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1407, in integrate_primitive_polynomial
+    rv = limited_integrate(aa, ad, [(Dta, Dtb)], DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 870, in limited_integrate
+    h, A = param_rischDE(Fa, Fd, G, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 724, in param_rischDE
+    M, _ = constant_system(M, zeros(M.rows, 1, DE.t), DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 268, in constant_system
+    Au, _ = Au.rref()
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 315, in rref
+    self._ground_check('rref')
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 281, in _ground_check
+    if not (self.domain.is_Field and all(p.is_ground for p in self)):
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 176, in __iter__
+    return iter(self[:])
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in __getitem__
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in <listcomp>
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 151, in _poly
+    return Poly(e, *self.gens, domain=self.domain)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/_poly_constructor.py", line 330, in construct
+    else:result=Poly._from_normalized(rep,gens,domain,modulus,extension)
+symox.CoercionFailed: coefficient contains undeclared generators
+before 
+before 4 0.074204 46711aeb0f exp(x)*x
+before 5 0.179764 3edbac1de0 x*exp(x)*log(x)
+before 6 0.039250 939d601467 1/(x*log(x))
+before 7 0.043788 318a840a6d log(x)**2/x**2
+before 8 0.036753 f0cb0149dc exp(x)/(1+exp(x))**2
+before 9 1.733263 1ee8851e2d log(x)*log(x+1)
+after 0 0.040189 3185272874 x*log(x)
+after 1 0.041753 9b7d5e154c log(x)**2
+after 2 0.039387 9d3baa89f9 log(x)**3/x
+after 3 0.234397 81d77d364f log(log(x))
+after 4 0.074758 46711aeb0f exp(x)*x
+after 5 0.180273 3edbac1de0 x*exp(x)*log(x)
+after 6 0.040475 939d601467 1/(x*log(x))
+after 7 0.044053 318a840a6d log(x)**2/x**2
+after 8 0.036528 f0cb0149dc exp(x)/(1+exp(x))**2
+after 9 1.733316 1ee8851e2d log(x)*log(x+1)
+sympy 0 0.069533 3185272874 x*log(x)
+sympy 1 0.074854 9b7d5e154c log(x)**2
+sympy 2 0.048924 9d3baa89f9 log(x)**3/x
+sympy 3 0.138350 f8c8378c8b log(log(x))
+sympy 4 0.058209 46711aeb0f exp(x)*x
+sympy 5 0.107098 3edbac1de0 x*exp(x)*log(x)
+sympy 6 0.047556 939d601467 1/(x*log(x))
+sympy 7 0.089087 318a840a6d log(x)**2/x**2
+sympy 8 0.011393 f0cb0149dc exp(x)/(1+exp(x))**2
+sympy 9 0.702938 5ac3989ea2 log(x)*log(x+1)
+before 0 0.038364 3185272874 x*log(x)
+before 1 0.039989 9b7d5e154c log(x)**2
+before 2 0.038985 9d3baa89f9 log(x)**3/x
+Traceback (most recent call last):
+  File "/home/keckj/Documents/symox-worktrees/prderust2-20261030a/audits/performance/2026-10-29-prderust2/bench.py", line 17, in <module>
+    r = risch.risch_integrate(f, x)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1842, in risch_integrate
+    ans, i, b = integrate_primitive(fa, fd, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1458, in integrate_primitive
+    q, i, b = integrate_primitive_polynomial(p, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1407, in integrate_primitive_polynomial
+    rv = limited_integrate(aa, ad, [(Dta, Dtb)], DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 870, in limited_integrate
+    h, A = param_rischDE(Fa, Fd, G, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 724, in param_rischDE
+    M, _ = constant_system(M, zeros(M.rows, 1, DE.t), DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 268, in constant_system
+    Au, _ = Au.rref()
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 315, in rref
+    self._ground_check('rref')
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 281, in _ground_check
+    if not (self.domain.is_Field and all(p.is_ground for p in self)):
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 176, in __iter__
+    return iter(self[:])
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in __getitem__
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in <listcomp>
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 151, in _poly
+    return Poly(e, *self.gens, domain=self.domain)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/_poly_constructor.py", line 330, in construct
+    else:result=Poly._from_normalized(rep,gens,domain,modulus,extension)
+symox.CoercionFailed: coefficient contains undeclared generators
+before 
+before 4 0.072541 46711aeb0f exp(x)*x
+before 5 0.175727 3edbac1de0 x*exp(x)*log(x)
+before 6 0.038324 939d601467 1/(x*log(x))
+before 7 0.043271 318a840a6d log(x)**2/x**2
+before 8 0.036245 f0cb0149dc exp(x)/(1+exp(x))**2
+before 9 1.718981 1ee8851e2d log(x)*log(x+1)
+after 0 0.038147 3185272874 x*log(x)
+after 1 0.039994 9b7d5e154c log(x)**2
+after 2 0.037934 9d3baa89f9 log(x)**3/x
+after 3 0.226422 81d77d364f log(log(x))
+after 4 0.072338 46711aeb0f exp(x)*x
+after 5 0.175843 3edbac1de0 x*exp(x)*log(x)
+after 6 0.038079 939d601467 1/(x*log(x))
+after 7 0.042825 318a840a6d log(x)**2/x**2
+after 8 0.035752 f0cb0149dc exp(x)/(1+exp(x))**2
+after 9 1.737853 1ee8851e2d log(x)*log(x+1)
+sympy 0 0.066426 3185272874 x*log(x)
+sympy 1 0.071710 9b7d5e154c log(x)**2
+sympy 2 0.054027 9d3baa89f9 log(x)**3/x
+sympy 3 0.138518 f8c8378c8b log(log(x))
+sympy 4 0.056586 46711aeb0f exp(x)*x
+sympy 5 0.105387 3edbac1de0 x*exp(x)*log(x)
+sympy 6 0.047477 939d601467 1/(x*log(x))
+sympy 7 0.087097 318a840a6d log(x)**2/x**2
+sympy 8 0.011258 f0cb0149dc exp(x)/(1+exp(x))**2
+sympy 9 0.729417 5ac3989ea2 log(x)*log(x+1)
+before 0 0.039215 3185272874 x*log(x)
+before 1 0.042488 9b7d5e154c log(x)**2
+before 2 0.038510 9d3baa89f9 log(x)**3/x
+Traceback (most recent call last):
+  File "/home/keckj/Documents/symox-worktrees/prderust2-20261030a/audits/performance/2026-10-29-prderust2/bench.py", line 17, in <module>
+    r = risch.risch_integrate(f, x)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1842, in risch_integrate
+    ans, i, b = integrate_primitive(fa, fd, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1458, in integrate_primitive
+    q, i, b = integrate_primitive_polynomial(p, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/risch.py", line 1407, in integrate_primitive_polynomial
+    rv = limited_integrate(aa, ad, [(Dta, Dtb)], DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 870, in limited_integrate
+    h, A = param_rischDE(Fa, Fd, G, DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 724, in param_rischDE
+    M, _ = constant_system(M, zeros(M.rows, 1, DE.t), DE)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/integrals/prde.py", line 268, in constant_system
+    Au, _ = Au.rref()
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 315, in rref
+    self._ground_check('rref')
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 281, in _ground_check
+    if not (self.domain.is_Field and all(p.is_ground for p in self)):
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 176, in __iter__
+    return iter(self[:])
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in __getitem__
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 158, in <listcomp>
+    return [self._poly(item) for item in self._items[key]]
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/polys/polymatrix.py", line 151, in _poly
+    return Poly(e, *self.gens, domain=self.domain)
+  File "/home/keckj/Documents/symox-worktrees/.tooling/scratch/prderust2/before/python/symox/_poly_constructor.py", line 330, in construct
+    else:result=Poly._from_normalized(rep,gens,domain,modulus,extension)
+symox.CoercionFailed: coefficient contains undeclared generators
+before 
+before 4 0.074438 46711aeb0f exp(x)*x
+before 5 0.178393 3edbac1de0 x*exp(x)*log(x)
+before 6 0.039307 939d601467 1/(x*log(x))
+before 7 0.045723 318a840a6d log(x)**2/x**2
+before 8 0.036502 f0cb0149dc exp(x)/(1+exp(x))**2
+before 9 1.747208 1ee8851e2d log(x)*log(x+1)
+after 0 0.037448 3185272874 x*log(x)
+after 1 0.039703 9b7d5e154c log(x)**2
+after 2 0.036861 9d3baa89f9 log(x)**3/x
+after 3 0.230209 81d77d364f log(log(x))
+after 4 0.070899 46711aeb0f exp(x)*x
+after 5 0.173941 3edbac1de0 x*exp(x)*log(x)
+after 6 0.037583 939d601467 1/(x*log(x))
+after 7 0.041601 318a840a6d log(x)**2/x**2
+after 8 0.035113 f0cb0149dc exp(x)/(1+exp(x))**2
+after 9 1.747218 1ee8851e2d log(x)*log(x+1)
+sympy 0 0.065733 3185272874 x*log(x)
+sympy 1 0.069777 9b7d5e154c log(x)**2
+sympy 2 0.047117 9d3baa89f9 log(x)**3/x
+sympy 3 0.132025 f8c8378c8b log(log(x))
+sympy 4 0.057188 46711aeb0f exp(x)*x
+sympy 5 0.107396 3edbac1de0 x*exp(x)*log(x)
+sympy 6 0.048111 939d601467 1/(x*log(x))
+sympy 7 0.088681 318a840a6d log(x)**2/x**2
+sympy 8 0.012425 f0cb0149dc exp(x)/(1+exp(x))**2
+sympy 9 0.738676 5ac3989ea2 log(x)*log(x+1)

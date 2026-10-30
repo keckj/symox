@@ -1,0 +1,95 @@
+{
+ "sympy_tests_legacy": {
+  "pairs": 1414,
+  "counts": {
+   "False/False": 425,
+   "False/None": 1,
+   "False/harness-parse": 1,
+   "None/False": 34,
+   "None/None": 158,
+   "True/None": 5,
+   "True/True": 786,
+   "True/harness-parse": 4
+  },
+  "native_false_sympy_not_false": 34,
+  "mismatch": 40,
+  "native_seconds": 2.82
+ },
+ "sympy_tests_new": {
+  "pairs": 1414,
+  "counts": {
+   "False/False": 425,
+   "False/None": 1,
+   "False/harness-parse": 1,
+   "None/None": 192,
+   "True/None": 5,
+   "True/True": 786,
+   "True/harness-parse": 4
+  },
+  "native_false_sympy_not_false": 0,
+  "mismatch": [
+   {
+    "test": "test_solvers.py::test_solve_transcendental",
+    "flags": {
+     "simplify": false
+    },
+    "sympy": true,
+    "native": null
+   },
+   {
+    "test": "test_solvers.py::test_solve_transcendental",
+    "flags": {
+     "simplify": false
+    },
+    "sympy": true,
+    "native": null
+   },
+   {
+    "test": "test_solvers.py::test_lambert_bivariate",
+    "flags": {
+     "simplify": false
+    },
+    "sympy": true,
+    "native": null
+   },
+   {
+    "test": "test_solvers.py::test_lambert_bivariate",
+    "flags": {
+     "simplify": false
+    },
+    "sympy": true,
+    "native": null
+   },
+   {
+    "test": "test_solvers.py::test_lambert_bivariate",
+    "flags": {
+     "simplify": false
+    },
+    "sympy": true,
+    "native": null
+   },
+   {
+    "test": "test_solvers.py::test_issue_17799",
+    "flags": {
+     "simplify": false
+    },
+    "sympy": false,
+    "native": null
+   }
+  ],
+  "native_seconds": 2.588
+ },
+ "ode_corpus_new": {
+  "pairs": 1363,
+  "counts": {
+   "False/False": 148,
+   "None/None": 558,
+   "None/harness-parse": 142,
+   "True/True": 511,
+   "True/harness-parse": 4
+  },
+  "native_false_sympy_not_false": 0,
+  "mismatch": [],
+  "native_seconds": 8.899
+ }
+}

@@ -16,6 +16,7 @@ pub mod ratsimp;
 pub mod fu;
 pub mod trigsimp;
 pub mod methods;
+pub mod piecewise_fold_public;
 
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;

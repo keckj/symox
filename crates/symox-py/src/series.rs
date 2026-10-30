@@ -43,13 +43,15 @@ fn the_symbol(e: &Expr, x: Option<&Bound<'_, PyAny>>) -> PyResult<Expr> {
 
 /// `series(expr, x=None, x0=0, n=6, dir='+')`
 #[pyfunction]
-#[pyo3(signature = (expr, x=None, x0=None, n=None, dir="+"))]
+#[pyo3(signature = (expr, x=None, x0=None, n=None, dir="+", logx=None, cdir=None))]
 fn _series(
     expr: &Bound<'_, PyAny>,
     x: Option<&Bound<'_, PyAny>>,
     x0: Option<&Bound<'_, PyAny>>,
     n: Option<i64>,
     dir: &str,
+    logx: Option<&Bound<'_, PyAny>>,
+    cdir: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyExpr> {
     let e = to_expr(expr)?;
     let x = the_symbol(&e, x)?;
@@ -62,7 +64,31 @@ fn _series(
         "-" => true,
         _ => return Err(PyValueError::new_err("Dir must be '+' or '-'")),
     };
-    sr::series(&e, &x, &x0, n.unwrap_or(6), minus).map(w).map_err(serr)
+    let opt = |v: Option<&Bound<'_, PyAny>>| -> PyResult<Option<Expr>> {
+        match v {
+            Some(v) if !v.is_none() => Ok(Some(to_expr(v)?)),
+            _ => Ok(None),
+        }
+    };
+    let (logx, cdir) = (opt(logx)?, opt(cdir)?);
+    if logx.is_none() && cdir.is_none() && x.is_symbol() {
+        return sr::series(&e, &x, &x0, n.unwrap_or(6), minus).map(w).map_err(serr);
+    }
+    sr::direction::series_front(&e, &x, &x0, n.unwrap_or(6), minus, logx.as_ref(), cdir.as_ref()).map(w).map_err(serr)
+}
+
+/// The side chosen by a nonzero `cdir` in `Expr.series`: `None` for a zero
+/// `cdir`, `'+'` or `'-'` for a real one, and `'I'` for a nonreal one (the
+/// expansion then goes through `_series(..., cdir=cdir)`).
+#[pyfunction]
+fn _series_direction(cdir: &Bound<'_, PyAny>) -> PyResult<Option<&'static str>> {
+    use sr::direction::{direction, Direction};
+    Ok(match direction(&to_expr(cdir)?).map_err(serr)? {
+        None => None,
+        Some(Direction::Real(true)) => Some("-"),
+        Some(Direction::Real(false)) => Some("+"),
+        Some(Direction::Complex(_)) => Some("I"),
+    })
 }
 
 /// `Order(expr, *args)`; args are symbols or `(symbol, point)` tuples.
@@ -202,6 +228,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_held_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_limit_bounded_affine, m)?)?;
     m.add_function(wrap_pyfunction!(_series, m)?)?;
+    m.add_function(wrap_pyfunction!(_series_direction, m)?)?;
     m.add_function(wrap_pyfunction!(_order, m)?)?;
     m.add_function(wrap_pyfunction!(_remove_o, m)?)?;
     m.add_function(wrap_pyfunction!(_get_o, m)?)?;

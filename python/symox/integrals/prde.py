@@ -828,6 +828,9 @@ def limited_integrate_reduce(fa, fd, G, DE):
     t is linear and non-Liouvillian, which for the transcendental case, implies
     that Dt == a*t + b with for some a, b in k*.
     """
+    native = _prde_native.limited_integrate_reduce(fa, fd, G, DE)
+    if native is not None:
+        return native
     dn, ds = splitfactor(fd, DE)
     E = [splitfactor(gd, DE) for _, gd in G]
     En, Es = list(zip(*E))
@@ -1051,6 +1054,9 @@ def is_deriv_k(fa, fd, DE):
     is_log_deriv_k_t_radical_in_field, is_log_deriv_k_t_radical
 
     """
+    native = _prde_native.is_deriv_k(fa, fd, DE)
+    if native is not None and native[0]:
+        return native[1]
     # Compute Df/f
     dfa, dfd = (fd*derivation(fa, DE) - fa*derivation(fd, DE)), fd*fa
     dfa, dfd = dfa.cancel(dfd, include=True)
@@ -1072,7 +1078,7 @@ def is_deriv_k(fa, fd, DE):
 
     # The expression dfa/dfd might not be polynomial in any of its symbols so we
     # use a Dummy as the generator for PolyMatrix.
-    dum = Dummy()
+    dum = Dummy() if native is None else native[1]
     lhs = Matrix([E_part + L_part], dum)
     rhs = Matrix([dfa.as_expr()/dfd.as_expr()], dum)
 

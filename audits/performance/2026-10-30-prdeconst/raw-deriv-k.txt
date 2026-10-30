@@ -1,0 +1,21 @@
+== symox
+two logs (SymPy sym1)       1985.4 us
+log+exp (SymPy sym2)        1688.1 us
+two logs, rational          2504.2 us
+log, None                    529.0 us
+log, x**3                    953.6 us
+no extension                 276.9 us
+== symox stock
+two logs (SymPy sym1)       3909.3 us
+log+exp (SymPy sym2)        4109.4 us
+two logs, rational          4592.6 us
+log, None                   1817.4 us
+log, x**3                   1758.2 us
+no extension                 358.5 us
+== sympy
+two logs (SymPy sym1)      16793.4 us
+log+exp (SymPy sym2)       11528.8 us
+two logs, rational         18100.3 us
+log, None                   4220.4 us
+log, x**3                   2800.5 us
+no extension                 928.9 us

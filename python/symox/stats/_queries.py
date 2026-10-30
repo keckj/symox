@@ -528,6 +528,10 @@ def variance(X,condition=None,**kwargs):
         expression = scalar(X)
         native = _native_polynomial_query(expression,random_symbols(expression),True)
         if native is not None:return native
+    if any(getattr(v,'process',None) is not None for v in random_symbols(scalar(X))):
+        # SymPy: cmoment(X, 2), the unsimplified E((X - E(X))**2) of the
+        # process query (native path sums for Markov chains).
+        return cmoment(X,2,condition,**kwargs)
     mean = E(X,condition,**kwargs)
     return S.simplify(E(scalar(X)**2,condition,**kwargs)-mean**2)
 

@@ -1,0 +1,3486 @@
+[
+{
+"f": "Dummy('Dummy_6071', dummy_index=2695439)",
+"x": "Dummy('Dummy_6071', dummy_index=2695439)",
+"v": "Add(Mul(Integer(-1), Pow(Symbol('2'), Integer(2)), Pow(Symbol('3'), Integer(2))), Mul(Integer(9), Pow(Symbol('2'), Integer(2))), Pow(Symbol('3'), Integer(2)))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_14721"
+},
+{
+"f": "Add(Mul(Symbol('a'), Symbol('x')), Integer(1))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Symbol('a'), Integer(-1)), Pow(Symbol('y'), Integer(-1)), Add(Mul(Integer(-1), Symbol('b')), Symbol('y')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Dummy('Dummy_8062', dummy_index=2697430)",
+"x": "Dummy('Dummy_8062', dummy_index=2697430)",
+"v": "Add(Mul(Integer(16), Pow(Symbol('a3'), Integer(2))), Mul(Integer(4), Pow(Symbol('a4'), Integer(2))), Mul(Integer(16), Symbol('a5')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_27001"
+},
+{
+"f": "Dummy('Dummy_8069', dummy_index=2697437)",
+"x": "Dummy('Dummy_8069', dummy_index=2697437)",
+"v": "Add(Mul(Integer(4), Pow(Symbol('a1'), Integer(2)), Symbol('a2')), Pow(Symbol('a2'), Integer(3)), Mul(Integer(-1), Integer(2), Symbol('a2'), Symbol('a4')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_27001"
+},
+{
+"f": "Dummy('Dummy_8069', dummy_index=2697437)",
+"x": "Dummy('Dummy_8069', dummy_index=2697437)",
+"v": "Add(Mul(Symbol('a2'), Pow(Symbol('a3'), Integer(2))), Mul(Symbol('a2'), Symbol('a5')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_27001"
+},
+{
+"f": "Dummy('Dummy_2308', dummy_index=2691676)",
+"x": "Dummy('Dummy_2308', dummy_index=2691676)",
+"v": "Add(Rational(24, 25), Mul(Integer(-1), Symbol('y')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Dummy('Dummy_3515', dummy_index=2692883)",
+"x": "Dummy('Dummy_3515', dummy_index=2692883)",
+"v": "Add(Mul(Integer(-1), Integer(36), Symbol('d'), Symbol('k'), Add(Symbol('k'), Integer(-1))), Mul(Integer(48), Symbol('d'), Add(Symbol('k'), Integer(-1))), Mul(Integer(3), Symbol('d')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_21882"
+},
+{
+"f": "Dummy('Dummy_8069', dummy_index=2697437)",
+"x": "Dummy('Dummy_8069', dummy_index=2697437)",
+"v": "Add(Mul(Integer(4), Pow(Symbol('a3'), Integer(4))), Mul(Pow(Symbol('a3'), Integer(2)), Pow(Symbol('a4'), Integer(2))), Mul(Integer(8), Pow(Symbol('a3'), Integer(2)), Symbol('a5')), Mul(Pow(Symbol('a4'), Integer(2)), Symbol('a5')), Mul(Integer(4), Pow(Symbol('a5'), Integer(2))))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_27001"
+},
+{
+"f": "Dummy('Dummy_3510', dummy_index=2692878)",
+"x": "Dummy('Dummy_3510', dummy_index=2692878)",
+"v": "Add(Symbol('I3'), Mul(Integer(-1), Integer(3), Symbol('I5')), Mul(Integer(2), Symbol('Q4')), Symbol('dI4'))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_5849"
+},
+{
+"f": "Dummy('Dummy_2305', dummy_index=2691673)",
+"x": "Dummy('Dummy_2305', dummy_index=2691673)",
+"v": "Add(Mul(Integer(-1), Symbol('y')), Rational(-7, 25))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Dummy('Dummy_3507', dummy_index=2692875)",
+"x": "Dummy('Dummy_3507', dummy_index=2692875)",
+"v": "Add(Mul(Integer(-1), Integer(4), Symbol('I2')), Mul(Integer(-1), Integer(8), Symbol('I3')), Mul(Integer(-1), Integer(4), Symbol('I5')), Mul(Integer(-1), Integer(6), Symbol('I6')), Mul(Integer(-1), Symbol('dI1')), Integer(24))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_5849"
+},
+{
+"f": "Dummy('X0', dummy_index=2691985)",
+"x": "Dummy('X0', dummy_index=2691985)",
+"v": "Mul(Rational(5, 3), Symbol('x'))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Dummy('Dummy_2308', dummy_index=2691676)",
+"x": "Dummy('Dummy_2308', dummy_index=2691676)",
+"v": "Add(Mul(Integer(-1), Symbol('y')), Rational(-24, 25))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Dummy('Dummy_3510', dummy_index=2692878)",
+"x": "Dummy('Dummy_3510', dummy_index=2692878)",
+"v": "Add(Symbol('I3'), Mul(Integer(-1), Symbol('I6')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_5849"
+},
+{
+"f": "Symbol('y')",
+"x": "Symbol('y')",
+"v": "Pow(Symbol('x'), Integer(2))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_linear"
+},
+{
+"f": "Dummy('Dummy_3510', dummy_index=2692878)",
+"x": "Dummy('Dummy_3510', dummy_index=2692878)",
+"v": "Add(Mul(Integer(-1), Symbol('I3')), Symbol('I5'), Symbol('dQ4'))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_5849"
+},
+{
+"f": "Dummy('Dummy_3515', dummy_index=2692883)",
+"x": "Dummy('Dummy_3515', dummy_index=2692883)",
+"v": "Mul(Integer(-1), Integer(14), Symbol('c'))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_21882"
+},
+{
+"f": "Dummy('Dummy_8062', dummy_index=2697430)",
+"x": "Dummy('Dummy_8062', dummy_index=2697430)",
+"v": "Add(Mul(Integer(-1), Integer(2), Pow(Symbol('a2'), Integer(3))), Mul(Integer(4), Symbol('a2'), Symbol('a4')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_27001"
+},
+{
+"f": "Dummy('Dummy_2842', dummy_index=2692210)",
+"x": "Dummy('Dummy_2842', dummy_index=2692210)",
+"v": "Add(Mul(Integer(100000000000000), Symbol('a0'), Add(Symbol('conc'), Mul(Integer(-1), Symbol('y'))), Add(Mul(Integer(-1), Symbol('conc')), Symbol('y'), Integer(2))), Mul(Integer(-1), Integer(348687340183346), Symbol('y')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_5335"
+},
+{
+"f": "Add(Symbol('a'), Symbol('x'))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Symbol('a'), Symbol('y'), Pow(Add(Mul(Integer(-1), Symbol('b')), Symbol('y')), Integer(-1)))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Dummy('Dummy_3515', dummy_index=2692883)",
+"x": "Dummy('Dummy_3515', dummy_index=2692883)",
+"v": "Add(Mul(Integer(-1), Integer(6), Symbol('d'), Symbol('k')), Mul(Integer(6), Symbol('d')), Symbol('f'))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_21882"
+},
+{
+"f": "Dummy('Dummy_8069', dummy_index=2697437)",
+"x": "Dummy('Dummy_8069', dummy_index=2697437)",
+"v": "Mul(Integer(-1), Integer(2), Pow(Symbol('a4'), Integer(2)))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_27001"
+},
+{
+"f": "Dummy('Dummy_3515', dummy_index=2692883)",
+"x": "Dummy('Dummy_3515', dummy_index=2692883)",
+"v": "Mul(Integer(-1), Integer(2), Symbol('c'))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_21882"
+},
+{
+"f": "Dummy('Dummy_6071', dummy_index=2695439)",
+"x": "Dummy('Dummy_6071', dummy_index=2695439)",
+"v": "Add(Symbol('0'), Integer(2))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_14721"
+},
+{
+"f": "Dummy('Dummy_3515', dummy_index=2692883)",
+"x": "Dummy('Dummy_3515', dummy_index=2692883)",
+"v": "Mul(Integer(60), Symbol('d'))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_21882"
+},
+{
+"f": "Dummy('Dummy_8069', dummy_index=2697437)",
+"x": "Dummy('Dummy_8069', dummy_index=2697437)",
+"v": "Add(Mul(Integer(4), Pow(Symbol('a1'), Integer(3))), Mul(Integer(-1), Integer(2), Symbol('a1'), Symbol('a4')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_27001"
+},
+{
+"f": "Dummy('Dummy_6110', dummy_index=2695478)",
+"x": "Dummy('Dummy_6110', dummy_index=2695478)",
+"v": "Add(Integer(2), Mul(Integer(-1), Integer(4), Pow(Symbol('3'), Integer(2))))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_14721"
+},
+{
+"f": "Dummy('Dummy_3515', dummy_index=2692883)",
+"x": "Dummy('Dummy_3515', dummy_index=2692883)",
+"v": "Add(Mul(Integer(-1), Rational(14, 3), Symbol('b')), Mul(Rational(14, 3), Symbol('c')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_21882"
+},
+{
+"f": "Dummy('Dummy_3507', dummy_index=2692875)",
+"x": "Dummy('Dummy_3507', dummy_index=2692875)",
+"v": "Add(Symbol('I3'), Mul(Integer(-1), Symbol('I6')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_5849"
+},
+{
+"f": "Dummy('Dummy_3515', dummy_index=2692883)",
+"x": "Dummy('Dummy_3515', dummy_index=2692883)",
+"v": "Add(Mul(Integer(-1), Integer(18), Symbol('c'), Symbol('k')), Mul(Integer(13), Symbol('c')))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_21882"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(Add(Integer(3), Mul(Integer(-1), Symbol('x', real=True))), Rational(1, 2))), Pow(Add(Symbol('x', real=True), Integer(7)), Rational(1, 2)), Integer(2))",
+"x": "Symbol('x', real=True)",
+"v": "Integer(-6)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solveset.py::test_solveset_sqrt_2"
+},
+{
+"f": "Dummy('Dummy_8069', dummy_index=2697437)",
+"x": "Dummy('Dummy_8069', dummy_index=2697437)",
+"v": "Add(Mul(Integer(4), Pow(Symbol('a1'), Integer(3))), Mul(Symbol('a1'), Pow(Symbol('a2'), Integer(2))), Mul(Integer(-1), Integer(2), Symbol('a1'), Add(Mul(Integer(2), Pow(Symbol('a1'), Integer(2))), Mul(Rational(1, 2), Pow(Symbol('a2'), Integer(2))))))",
+"flags": {
+"minimal": true
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_27001"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2692142)), Pow(Add(Pow(Symbol('x'), Integer(2)), Integer(-1)), Rational(1, 2)))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Add(Pow(Dummy('t', dummy_index=2692142), Integer(2)), Integer(1)), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4671_4463_4467"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2689470)), cos(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "acos(Dummy('t', dummy_index=2689470))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_guess_transcendental"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('rhs', dummy_index=2694214)), log(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "exp(Dummy('rhs', dummy_index=2694214))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2691283)), sin(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "asin(Dummy('t', dummy_index=2691283))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Symbol('x'), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Integer(1)",
+"flags": {
+"minimal": true
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "cos(Symbol('x'))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 2), pi)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Mul(Symbol('x'), log(Symbol('x'))), Mul(Integer(-1), log(Mul(Rational(1, 285311670611), Pow(pi, Integer(11))))), Mul(Integer(-1), I, pi))",
+"x": "Symbol('x')",
+"v": "exp(LambertW(Add(log(Mul(Rational(1, 285311670611), Pow(pi, Integer(11)))), Mul(I, pi))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_17452"
+},
+{
+"f": "Add(Pow(Dummy('x', positive=True, commutative=True, dummy_index=2693453), Integer(3)), Mul(Integer(-1), exp(Mul(Dummy('x', positive=True, commutative=True, dummy_index=2693453), log(Integer(3))))))",
+"x": "Dummy('x', positive=True, commutative=True, dummy_index=2693453)",
+"v": "Integer(3)",
+"flags": {
+"force": false,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_multivariate"
+},
+{
+"f": "Add(Dummy('bivariate-cov', dummy_index=2694282), Mul(Integer(-1), log(Add(Dummy('bivariate-cov', dummy_index=2694282), Integer(2)))))",
+"x": "Dummy('bivariate-cov', dummy_index=2694282)",
+"v": "Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(sin(Symbol('x')), sec(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(2), atan(Add(Rational(1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I), Mul(Rational(1, 2), Pow(Integer(2), Rational(1, 2)), Pow(Add(Integer(1), Mul(Integer(-1), Pow(Integer(3), Rational(1, 2)), I)), Rational(1, 2))))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_rewrite_trig"
+},
+{
+"f": "Add(Pow(Symbol('a'), Integer(2)), Integer(-4))",
+"x": "Symbol('a')",
+"v": "Integer(2)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_undetermined_coeffs"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2691646)), cos(Mul(pi, Symbol('b', real=True, negative=False))))",
+"x": "Symbol('b', real=True, negative=False)",
+"v": "Add(Mul(Integer(-1), Pow(pi, Integer(-1)), acos(Dummy('t', dummy_index=2691646))), Integer(2))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(sin(Symbol('x')), acos(Dummy('t', dummy_index=2691279)), Mul(Integer(-1), Integer(2), pi))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), asin(Add(acos(Dummy('t', dummy_index=2691279)), Mul(Integer(-1), Integer(2), pi))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Symbol('x'), Rational(1, 5)), Pow(Symbol('x'), Rational(1, 3)), Integer(-2))",
+"x": "Symbol('x')",
+"v": "Integer(1)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_unrad1"
+},
+{
+"f": "Add(Mul(exp(Mul(Symbol('z'), log(Symbol('x')))), exp(Mul(Symbol('z'), log(Symbol('y'))))), Integer(-2))",
+"x": "Symbol('z')",
+"v": "Mul(Pow(Add(log(Symbol('x')), log(Symbol('y'))), Integer(-1)), log(Integer(2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Add(Pow(Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), Integer(7), Symbol('x')), Integer(11)), Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), Integer(13), Symbol('x')), Integer(42))), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Integer(4)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(4), Pow(Integer(3), Add(Mul(Integer(5), Symbol('x')), Integer(2)))), Integer(-7))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 5), Add(log(Rational(7, 36)), Mul(Integer(-1), Integer(2), I, pi)), Pow(log(Integer(3)), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "Mul(Add(Symbol('x'), Integer(-2)), Add(Symbol('x'), Integer(3)))",
+"x": "Symbol('x')",
+"v": "Integer(2)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15307"
+},
+{
+"f": "Add(Mul(Integer(-1), Integer(2), Pow(Add(Mul(Integer(3), Symbol('x')), log(Symbol('x'))), Integer(2))), Pow(Add(Pow(Add(Mul(Integer(3), Symbol('x')), log(Symbol('x'))), Integer(2)), Integer(-1)), Integer(2)), Integer(3))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 3), LambertW(Mul(Integer(3), exp(Mul(Integer(-1), Pow(Integer(2), Rational(1, 2)))))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_multivariate"
+},
+{
+"f": "Add(Pow(I, Symbol('x')), Integer(1))",
+"x": "Symbol('x')",
+"v": "Integer(2)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "sin(Pow(Symbol('x'), Rational(1, 2)))",
+"x": "Symbol('x')",
+"v": "Pow(pi, Integer(2))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(2)), Integer(1))",
+"x": "Symbol('x')",
+"v": "I",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_21004"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(Add(Symbol('x', real=True), Integer(-4)), Rational(1, 2))), Pow(Add(Mul(Integer(2), Symbol('x', real=True)), Integer(-1)), Rational(1, 2)), Integer(-2))",
+"x": "Symbol('x', real=True)",
+"v": "Integer(13)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solveset.py::test_solveset_sqrt_2"
+},
+{
+"f": "Add(Pow(Dummy('x', positive=True, commutative=True, dummy_index=2693965), Integer(2)), Mul(Integer(-1), exp(Mul(Dummy('x', positive=True, commutative=True, dummy_index=2693965), log(Integer(2))))))",
+"x": "Dummy('x', positive=True, commutative=True, dummy_index=2693965)",
+"v": "Integer(4)",
+"flags": {
+"force": false,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(Dummy('x', positive=True, commutative=True, dummy_index=2696122), Integer(4))), Mul(Integer(16), exp(Mul(Dummy('x', positive=True, commutative=True, dummy_index=2696122), log(Integer(2))))))",
+"x": "Dummy('x', positive=True, commutative=True, dummy_index=2696122)",
+"v": "Integer(4)",
+"flags": {
+"force": false,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Symbol('a'), Pow(Symbol('x'), Symbol('b'))), Mul(Integer(-1), Symbol('y')))",
+"x": "Symbol('x')",
+"v": "Pow(Mul(Pow(Symbol('a'), Integer(-1)), Symbol('y')), Pow(Symbol('b'), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_guess_transcendental"
+},
+{
+"f": "Add(Dummy('bivariate-cov', dummy_index=2694251), Mul(Integer(-1), log(Add(Dummy('bivariate-cov', dummy_index=2694251), Integer(2)))))",
+"x": "Dummy('bivariate-cov', dummy_index=2694251)",
+"v": "Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(Symbol('x'), Integer(4))), Mul(Integer(16), exp(Mul(Symbol('x'), log(Integer(2))))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Integer(4), Pow(log(Integer(2)), Integer(-1)), LambertW(Mul(Rational(1, 2), log(Integer(2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('rhs', dummy_index=2694053)), exp(Mul(Integer(3), Symbol('x'), log(Symbol('a')))))",
+"x": "Symbol('x')",
+"v": "Mul(Pow(log(Symbol('a')), Integer(-1)), log(Add(Mul(Integer(-1), Rational(1, 2), Pow(Dummy('rhs', dummy_index=2694053), Rational(1, 3))), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), Pow(Dummy('rhs', dummy_index=2694053), Rational(1, 3)), I))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Symbol('x'), log(Pow(Integer(7), Symbol('x')))), Mul(Integer(-1), log(pi)), Mul(Integer(-1), I, pi))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Add(log(pi), Mul(I, pi)), Rational(1, 2)), Pow(log(Integer(7)), Rational(-1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_17452"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2691684)), cos(Mul(Integer(1000), Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 1000), acos(Dummy('t', dummy_index=2691684)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Mul(Integer(11), Pow(Symbol('x'), Mul(Rational(1, 11), Symbol('x')))), pi)",
+"x": "Symbol('x')",
+"v": "exp(LambertW(Add(Mul(Integer(-1), Integer(11), log(Integer(11))), Mul(Integer(11), log(pi)), Mul(Integer(11), I, pi))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_17452"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2692182)), log(Add(Mul(Integer(-1), Pow(Symbol('x'), Integer(2))), Pow(Symbol('a'), Integer(-3)))))",
+"x": "Symbol('x')",
+"v": "Pow(Add(Mul(Integer(-1), exp(Dummy('t', dummy_index=2692182))), Pow(Symbol('a'), Integer(-3))), Rational(1, 2))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4671_4463_4467"
+},
+{
+"f": "Add(Dummy('R', real=True, dummy_index=5124571), Pow(Add(Pow(Dummy('R', real=True, dummy_index=5124571), Integer(2)), Integer(-5)), Rational(1, 2)), Mul(Integer(-1), Pow(Integer(5), Rational(1, 2))))",
+"x": "Dummy('R', real=True, dummy_index=5124571)",
+"v": "Pow(Integer(5), Rational(1, 2))",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solveset.py::test_issue_11064"
+},
+{
+"f": "Add(exp(Mul(Symbol('w', integer=True), log(Mul(Symbol('x'), Pow(Symbol('y', real=True), Integer(-1)))))), Integer(-2))",
+"x": "Symbol('w', integer=True)",
+"v": "Mul(log(Integer(2)), Pow(log(Mul(Symbol('x'), Pow(Symbol('y', real=True), Integer(-1)))), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issues_6819_6820_6821_6248_8692_25777_25779"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), exp(Mul(Symbol('x'), log(Integer(2))))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Integer(2), Pow(log(Integer(2)), Integer(-1)), LambertW(Mul(Rational(1, 2), log(Integer(2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2694216)), log(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "exp(Dummy('t', dummy_index=2694216))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2691080)), Pow(Symbol('x'), Rational(1, 2)))",
+"x": "Symbol('x')",
+"v": "Pow(Dummy('t', dummy_index=2691080), Integer(2))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_polynomial_cv_1b"
+},
+{
+"f": "Add(Mul(Integer(4), Pow(Integer(3), Add(Mul(Integer(5), Symbol('x')), Integer(2)))), Integer(-7))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 5), Add(log(Rational(7, 36)), Mul(Integer(2), I, pi)), Pow(log(Integer(3)), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "Add(Mul(Integer(-1), Integer(6), Symbol('x')), Pow(Add(Mul(Integer(3), Symbol('x')), log(Symbol('x'))), Integer(2)), Mul(Integer(-1), Integer(2), log(Symbol('x'))), Integer(-2))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 3), LambertW(Mul(Integer(3), exp(Add(Integer(1), Mul(Integer(-1), Pow(Integer(3), Rational(1, 2))))))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_multivariate"
+},
+{
+"f": "Add(sin(Mul(Symbol('a'), Symbol('x'))), cos(Mul(Symbol('a'), Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Rational(1, 4), pi, Pow(Symbol('a'), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4671_4463_4467"
+},
+{
+"f": "Add(Symbol('x'), Pow(Add(Symbol('x'), Integer(-4)), Rational(1, 2)), Integer(-4))",
+"x": "Symbol('x')",
+"v": "Integer(4)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_unrad1"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2697518)), log(Pow(Symbol('x'), Integer(-1))))",
+"x": "Symbol('x')",
+"v": "exp(Mul(Integer(-1), Dummy('t', dummy_index=2697518)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_22717"
+},
+{
+"f": "Add(exp(Mul(Rational(1, 2), I, pi, Symbol('x'))), Integer(1))",
+"x": "Symbol('x')",
+"v": "Integer(2)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('rhs', dummy_index=2694072)), exp(Mul(Integer(3), Symbol('x'), log(Symbol('a')))))",
+"x": "Symbol('x')",
+"v": "Mul(log(Pow(Dummy('rhs', dummy_index=2694072), Rational(1, 3))), Pow(log(Symbol('a')), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(2)), log(Add(Pow(Symbol('x'), Integer(2)), Integer(1))), Integer(1))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), I, Pow(Add(Integer(1), Mul(Integer(-1), LambertW(Integer(1)))), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2694504)), erfc(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "erfcinv(Dummy('t', dummy_index=2694504))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_errorinverses"
+},
+{
+"f": "Add(exp(Symbol('x')), Integer(8))",
+"x": "Symbol('x')",
+"v": "Add(log(Integer(8)), Mul(I, pi))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Add(Symbol('x'), Symbol('y')), Integer(2)), Integer(-4))",
+"x": "Symbol('x')",
+"v": "Add(Integer(2), Mul(Integer(-1), Symbol('y')))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_args"
+},
+{
+"f": "Add(exp(Mul(exp(Mul(Pow(Symbol('x'), Integer(-1)), Pow(Symbol('y'), Integer(2)))), log(Integer(2)))), Integer(2))",
+"x": "Symbol('y')",
+"v": "Mul(Integer(-1), Pow(Mul(Symbol('x'), log(Add(Integer(1), Mul(I, pi, Pow(log(Integer(2)), Integer(-1)))))), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4671_4463_4467"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('C', complex=True, dummy_index=5116066)), Pow(Add(Mul(Integer(5), Dummy('C', complex=True, dummy_index=5116066)), Integer(6)), Rational(1, 2)), Integer(-2))",
+"x": "Dummy('C', complex=True, dummy_index=5116066)",
+"v": "Integer(2)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solveset.py::test_solve_complex_sqrt"
+},
+{
+"f": "Add(exp(Mul(Integer(3), Symbol('x'))), Mul(Integer(-1), exp(Integer(3))))",
+"x": "Symbol('x')",
+"v": "Integer(1)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(sin(Symbol('x')), Integer(5))), Pow(cos(Symbol('x')), Integer(5)))",
+"x": "Symbol('x')",
+"v": "atan(Add(Rational(-1, 4), Mul(Rational(1, 4), Pow(Integer(5), Rational(1, 2))), Mul(Rational(1, 4), Pow(Add(Integer(-10), Mul(Integer(-1), Integer(2), Pow(Integer(5), Rational(1, 2)))), Rational(1, 2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_19113_19102"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2691249)), exp(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "log(Dummy('t', dummy_index=2691249))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), Integer(7), Symbol('x')), Integer(11)), Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), Integer(13), Symbol('x')), Integer(42))), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Integer(2)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Dummy('Dummy_6071', dummy_index=2695439)",
+"x": "Dummy('Dummy_6071', dummy_index=2695439)",
+"v": "Add(Mul(Integer(-1), Pow(Symbol('3'), Integer(4)), Pow(Add(Pow(Symbol('3'), Integer(2)), Integer(-9)), Integer(-1))), Pow(Symbol('3'), Integer(2)), Mul(Integer(9), Pow(Symbol('3'), Integer(2)), Pow(Add(Pow(Symbol('3'), Integer(2)), Integer(-9)), Integer(-1))))",
+"flags": {
+"minimal": true
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_14721"
+},
+{
+"f": "Add(Mul(Pow(Symbol('x'), Integer(3)), exp(Mul(Rational(1, 2), Symbol('x')))), Integer(8))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(6), LambertW(Rational(-1, 3)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), log(Add(Pow(Symbol('x'), Integer(2)), Integer(2)))))",
+"x": "Symbol('x')",
+"v": "Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)))), Rational(1, 2))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Add(Mul(Integer(-1), Symbol('y')), exp(Symbol('x'))), exp(Symbol('x'))), Integer(1))",
+"x": "Symbol('x')",
+"v": "log(Add(Mul(Rational(1, 2), Symbol('y')), Mul(Rational(1, 2), Pow(Add(Pow(Symbol('y'), Integer(2)), Integer(-4)), Rational(1, 2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Integer(2), Symbol('x')), Symbol('x'))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(log(Integer(2)), Integer(-1)), LambertW(log(Integer(2))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Symbol('r', real=True), Rational(1, 2)), Integer(-2))",
+"x": "Symbol('r', real=True)",
+"v": "Integer(4)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_7895"
+},
+{
+"f": "Add(exp(Mul(Rational(2, 3), Symbol('x'), log(Integer(2)))), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(3), I, pi, Pow(log(Integer(2)), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_6605"
+},
+{
+"f": "Mul(Integer(-1), Dummy('Dummy_3663', dummy_index=2693031))",
+"x": "Dummy('Dummy_3663', dummy_index=2693031)",
+"v": "Integer(0)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_6605"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), log(Add(Pow(Symbol('x'), Integer(2)), Integer(2)))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)))), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Pow(Symbol('x', real=True), Rational(1, 2)), Pow(Add(Symbol('x', real=True), Integer(-7)), Rational(1, 2))), Integer(-12))",
+"x": "Symbol('x', real=True)",
+"v": "Integer(16)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solveset.py::test_solveset_sqrt_2"
+},
+{
+"f": "Add(exp(Mul(Symbol('x'), Add(log(Pow(Integer(2), Rational(1, 2))), Mul(I, pi)))), Mul(Integer(2), Pow(Integer(2), Rational(1, 2))))",
+"x": "Symbol('x')",
+"v": "Mul(Pow(Add(Pow(log(Integer(2)), Integer(2)), Mul(Integer(4), Pow(pi, Integer(2)))), Integer(-1)), Add(Mul(Integer(3), Pow(log(Integer(2)), Integer(2))), Mul(Integer(4), Pow(pi, Integer(2))), Mul(Integer(-1), Integer(4), I, pi, log(Integer(2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(16), Pow(Integer(2), Symbol('x'))), Mul(Integer(-1), Pow(Symbol('x'), Integer(4))))",
+"x": "Symbol('x')",
+"v": "Integer(8)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2691053)), Pow(Symbol('x'), Rational(1, 2)))",
+"x": "Symbol('x')",
+"v": "Pow(Dummy('t', dummy_index=2691053), Integer(2))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_polynomial_cv_1a"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('x'), log(Integer(2))), Mul(Integer(2), log(Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "Integer(4)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Pow(Symbol('x'), Integer(3)), exp(Mul(Rational(1, 2), Symbol('x')))), Integer(8))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(6), LambertW(Rational(-1, 3), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(4), Pow(Integer(3), Add(Mul(Integer(5), Symbol('x')), Integer(2)))), Integer(-7))",
+"x": "Symbol('x')",
+"v": "Add(Rational(-2, 5), Mul(Rational(1, 5), log(Mul(Pow(Integer(4), Mul(Integer(-1), Pow(log(Integer(3)), Integer(-1)))), Pow(Integer(7), Pow(log(Integer(3)), Integer(-1)))))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('x'), Add(Pow(Add(Mul(Integer(2), Pow(Add(Integer(1), Mul(Integer(-1), Integer(4), Pow(Symbol('x'), Integer(2)))), Rational(1, 2))), Integer(1)), Rational(1, 2)), Integer(1))), Pow(Add(Pow(Add(Integer(1), Mul(Integer(-1), Integer(4), Pow(Symbol('x'), Integer(2)))), Rational(1, 2)), Integer(1)), Rational(1, 2)))",
+"x": "Symbol('x')",
+"v": "Rational(1, 2)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_unrad_slow"
+},
+{
+"f": "Add(Mul(Integer(2), Symbol('I3')), Mul(Integer(2), Symbol('I5')), Mul(Integer(3), Symbol('I6')), Mul(Integer(-1), Symbol('Q2')))",
+"x": "Symbol('Q2')",
+"v": "Add(Mul(Integer(2), Symbol('I3')), Mul(Integer(2), Symbol('I5')), Mul(Integer(3), Symbol('I6')))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_5849"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2691281)), sin(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "Add(pi, Mul(Integer(-1), asin(Dummy('t', dummy_index=2691281))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Mul(Integer(-1), Function('f')(Integer(0))), Function('f')(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "Integer(0)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(2)), log(Add(Pow(Symbol('x'), Integer(2)), Integer(1))), Integer(1))",
+"x": "Symbol('x')",
+"v": "Pow(Add(Integer(-1), LambertW(Integer(1))), Rational(1, 2))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2694119)), log(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "exp(Dummy('t', dummy_index=2694119))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2691166)), exp(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "log(Dummy('t', dummy_index=2691166))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(Integer(2), Mul(Integer(3), Pow(Symbol('x', real=True), Integer(-1))))), Pow(Integer(5), Mul(Rational(1, 2), Symbol('x', real=True))))",
+"x": "Symbol('x', real=True)",
+"v": "Mul(Pow(Integer(6), Rational(1, 2)), Pow(log(Integer(2)), Rational(1, 2)), Pow(log(Integer(5)), Rational(-1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_6605"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('Dummy_7034', dummy_index=2696402)), Integer(-1))",
+"x": "Dummy('Dummy_7034', dummy_index=2696402)",
+"v": "Integer(-1)",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('z')), exp(Mul(Pow(Symbol('x'), Integer(-1)), log(Symbol('y')))))",
+"x": "Symbol('x')",
+"v": "Mul(log(Symbol('y')), Pow(log(Symbol('z')), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2692248)), Pow(Symbol('x', real=True, positive=True), Rational(1, 3)))",
+"x": "Symbol('x', real=True, positive=True)",
+"v": "Pow(Dummy('t', dummy_index=2692248), Integer(3))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_24609"
+},
+{
+"f": "sin(Pow(Symbol('x'), Rational(1, 2)))",
+"x": "Symbol('x')",
+"v": "Integer(0)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Symbol('a'), Mul(Integer(-1), Integer(2), log(Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "exp(Mul(Rational(1, 2), Symbol('a')))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_4463"
+},
+{
+"f": "Add(Dummy('bivariate-cov', dummy_index=2694331), log(Add(Dummy('bivariate-cov', dummy_index=2694331), Integer(2))))",
+"x": "Dummy('bivariate-cov', dummy_index=2694331)",
+"v": "Add(Integer(-2), LambertW(exp(Integer(2))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Pow(Symbol('x'), Symbol('y')), Integer(-1))",
+"x": "Symbol('y')",
+"v": "Integer(0)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), Integer(7), Symbol('x')), Integer(11)), Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), Integer(13), Symbol('x')), Integer(42))), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Integer(7)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(5), Pow(Symbol('x'), Rational(1, 2))), Mul(Integer(5), Pow(Add(Integer(1), Mul(Integer(-1), Symbol('x'))), Rational(1, 2))), Mul(Integer(5), Pow(Add(Symbol('x'), Integer(1)), Rational(1, 2))), Mul(Integer(-1), Integer(6), Pow(Integer(5), Rational(1, 2))))",
+"x": "Symbol('x')",
+"v": "Rational(4, 5)",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "test_solvers.py::test_unrad1"
+},
+{
+"f": "exp(Mul(Pow(Symbol('x'), Integer(-1)), log(Integer(4))))",
+"x": "Symbol('x')",
+"v": "Integer(8)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(2), sin(Mul(Integer(3), Symbol('x'))), cos(Mul(Integer(3), Symbol('x')))), sin(Mul(Integer(3), Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "Mul(oo, I)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_2840_8155"
+},
+{
+"f": "Add(Pow(Add(Pow(Symbol('x'), Integer(2)), Integer(-6)), Add(Pow(Symbol('x'), Integer(2)), Integer(-2))), Integer(-4))",
+"x": "Symbol('x')",
+"v": "Pow(Integer(2), Rational(1, 2))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Dummy('u', dummy_index=5113848)",
+"x": "Dummy('u', dummy_index=5113848)",
+"v": "nan",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_issue_17479"
+},
+{
+"f": "Add(Mul(Add(Integer(1), Mul(Integer(-1), Integer(2), Pow(Integer(2), Rational(1, 2)))), Pow(Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), Integer(2), Symbol('x')), Integer(-1)), Add(Pow(Symbol('x'), Integer(2)), Integer(-3)))), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Add(Integer(2), Mul(Integer(-1), Pow(Integer(2), Rational(1, 2))))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "exp(Mul(Pow(Symbol('x', real=True), Integer(-1)), log(Integer(8))))",
+"x": "Symbol('x', real=True)",
+"v": "Mul(Pow(Integer(6), Rational(1, 2)), Pow(log(Integer(2)), Rational(1, 2)), Pow(log(Integer(5)), Rational(-1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6605"
+},
+{
+"f": "Add(Pow(Dummy('t', dummy_index=2691995), Rational(1, 2)), Pow(Pow(Dummy('t', dummy_index=2691995), Integer(-1)), Rational(1, 2)), Integer(-4))",
+"x": "Dummy('t', dummy_index=2691995)",
+"v": "Add(Mul(Integer(4), Pow(Integer(5), Rational(1, 2))), Integer(9))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Add(Pow(Add(Pow(Symbol('x'), Integer(2)), Integer(-6)), Add(Pow(Symbol('x'), Integer(2)), Integer(-2))), Integer(-4))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Integer(10), Rational(1, 2)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Dummy('t', dummy_index=2691995)",
+"x": "Dummy('t', dummy_index=2691995)",
+"v": "Add(Mul(Integer(4), Pow(Integer(5), Rational(1, 2))), Integer(9))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Add(exp(Add(Integer(1), Mul(Integer(-1), Symbol('x')))), exp(Add(Symbol('x'), Integer(-1))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Rational(3, 4), I, pi)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6056"
+},
+{
+"f": "Add(Symbol('x', real=True), Integer(1))",
+"x": "Symbol('x', real=True)",
+"v": "Add(Rational(1, 2), Mul(Rational(1, 2), Pow(Integer(7), Rational(1, 2)), I))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issues_6819_6820_6821_6248_8692_25777_25779"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('x'), Pow(log(Add(Integer(2), Pow(Symbol('x'), Rational(-1, 2)))), Integer(2))), Integer(1))",
+"x": "Symbol('x')",
+"v": "Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2)))), Integer(2)), Integer(-2))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(17), Symbol('x', real=True)), Mul(Integer(-1), Pow(Add(Pow(Symbol('x', real=True), Integer(2)), Integer(-5)), Rational(1, 2))), Integer(-49))",
+"x": "Symbol('x', real=True)",
+"v": "Rational(401, 144)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_solveset_sqrt_2"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(Add(Symbol('x', real=True), Integer(1)), Rational(1, 2))), Mul(Integer(-1), Pow(Add(Symbol('x', real=True), Integer(4)), Rational(1, 2))), Pow(Add(Mul(Integer(2), Symbol('x', real=True)), Integer(9)), Rational(1, 2)))",
+"x": "Symbol('x', real=True)",
+"v": "Integer(-5)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_solveset_sqrt_2"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('Dummy_6868', dummy_index=2696236)), Mul(Pow(Add(Pow(log(Integer(2)), Integer(2)), Mul(Integer(4), Pow(pi, Integer(2)))), Integer(-1)), Add(Mul(Integer(3), Pow(log(Integer(2)), Integer(2))), Mul(Integer(4), Pow(pi, Integer(2))), Mul(Integer(-1), Integer(4), I, pi, log(Integer(2))))))",
+"x": "Dummy('Dummy_6868', dummy_index=2696236)",
+"v": "Integer(3)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Pow(Integer(2), Mul(Integer(2), Pow(Symbol('x'), Integer(-1))))",
+"x": "Symbol('x')",
+"v": "Integer(4)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Symbol('x', real=True)",
+"x": "Symbol('x', real=True)",
+"v": "Mul(Integer(-1), Pow(Integer(6), Rational(1, 2)), Pow(log(Integer(2)), Rational(1, 2)), Pow(log(Integer(5)), Rational(-1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6605"
+},
+{
+"f": "exp(Symbol('x', real=True))",
+"x": "Symbol('y', real=True)",
+"v": "Mul(Integer(-1), exp(Mul(Rational(1, 2), Symbol('x', real=True))), Abs(Symbol('x', real=True)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_solve_nonlinear_trans"
+},
+{
+"f": "Add(Pow(Dummy('t', dummy_index=2691995), Rational(1, 2)), Pow(Pow(Dummy('t', dummy_index=2691995), Integer(-1)), Rational(1, 2)), Integer(-4))",
+"x": "Dummy('t', dummy_index=2691995)",
+"v": "Add(Integer(9), Mul(Integer(-1), Integer(4), Pow(Integer(5), Rational(1, 2))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "log(Add(Pow(Symbol('x'), Integer(2)), Integer(2)))",
+"x": "Symbol('x')",
+"v": "Pow(Add(Integer(-2), LambertW(exp(Integer(2)))), Rational(1, 2))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Integer(4), LambertW(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(1, 2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Pow(Add(Pow(Symbol('x'), Integer(2)), Integer(1)), Symbol('x')), Integer(-25))",
+"x": "Symbol('x')",
+"v": "Mul(Pow(Integer(6), Rational(1, 2)), I)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Symbol('x'), Integer(-5))",
+"x": "Symbol('x')",
+"v": "Add(Integer(5), Mul(Rational(1, 3), Pow(Integer(3), Rational(7, 8)), Pow(Mul(Integer(-1), I), Rational(1, 2))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_25176"
+},
+{
+"f": "log(Add(Pow(Symbol('x'), Rational(1, 2)), Integer(2)))",
+"x": "Symbol('x')",
+"v": "Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2)))), Integer(2)), Integer(2))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Add(Rational(1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_solve_polynomial_cv_2"
+},
+{
+"f": "Dummy('u', dummy_index=5122550)",
+"x": "Dummy('u', dummy_index=5122550)",
+"v": "Integer(2)",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_substitution_incorrect"
+},
+{
+"f": "Add(Integer(1), Pow(Add(Symbol('x'), Integer(-1)), Integer(-1)))",
+"x": "Symbol('x')",
+"v": "Integer(1)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "Add(Mul(Integer(20), Pow(Add(Pow(Symbol('y', real=True), Integer(2)), Pow(Add(Pow(Mul(Integer(-1), Add(Symbol('y', real=True), Integer(-10)), Add(Symbol('y', real=True), Integer(10))), Rational(1, 2)), Integer(10)), Integer(2))), Rational(1, 2))), Integer(-60))",
+"x": "Symbol('y', real=True)",
+"v": "Mul(Rational(3, 20), Pow(Integer(391), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_2777"
+},
+{
+"f": "Symbol('x')",
+"x": "Dummy('bivariate-cov', dummy_index=2694282)",
+"v": "Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1))))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(4), Pow(Symbol('x'), Add(Symbol('x'), Rational(1, 2)))), Integer(-9))",
+"x": "Symbol('x')",
+"v": "Rational(-9, 4)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('u', positive=True, dummy_index=2694422), Add(Pow(Add(Pow(Dummy('x', positive=True, commutative=True, dummy_index=2694423), Integer(2)), Integer(4)), Rational(1, 2)), Integer(2))), Dummy('x', positive=True, commutative=True, dummy_index=2694423))",
+"x": "Dummy('x', positive=True, commutative=True, dummy_index=2694423)",
+"v": "Integer(0)",
+"flags": {
+"force": false,
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_atan2"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)))), Rational(1, 2))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Symbol('x', real=True)",
+"x": "Symbol('x', real=True)",
+"v": "Mul(Integer(-1), Pow(Integer(130), Rational(1, 2)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_14779"
+},
+{
+"f": "Add(Pow(Symbol('x'), Add(Symbol('x'), Rational(1, 2))), Mul(Integer(-1), Integer(4), Pow(Integer(2), Rational(1, 2))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(4), Pow(Integer(2), Rational(1, 2)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "exp(Symbol('x'))",
+"x": "Symbol('x')",
+"v": "Add(log(Pow(Add(Integer(2), Pow(Integer(5), Rational(1, 2))), Rational(1, 2))), Mul(Integer(-1), Rational(1, 2), I, pi))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_rewrite_trigh"
+},
+{
+"f": "Dummy('u', dummy_index=5114491)",
+"x": "Dummy('u', dummy_index=5114491)",
+"v": "nan",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_issue_18449"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Integer(4), LambertW(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(1, 2))), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('x')), Pow(Add(Symbol('x'), Integer(-1)), Rational(1, 2)), Integer(7))",
+"x": "Symbol('x')",
+"v": "Integer(5)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_unrad1"
+},
+{
+"f": "Add(Mul(Symbol('x', real=True), Pow(Add(Integer(1), Mul(Integer(-1), Pow(Symbol('x', real=True), Integer(2)))), Rational(-1, 2))), Mul(Integer(-1), Symbol('y', real=True)))",
+"x": "Symbol('x', real=True)",
+"v": "Mul(Integer(-1), Symbol('y', real=True), Pow(Add(Pow(Symbol('y', real=True), Integer(2)), Integer(1)), Rational(-1, 2)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_issue_11534"
+},
+{
+"f": "Symbol('x', real=True)",
+"x": "Symbol('x', real=True)",
+"v": "Pow(Integer(130), Rational(1, 2))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_14779"
+},
+{
+"f": "exp(Mul(Symbol('a'), Symbol('x')))",
+"x": "Symbol('x')",
+"v": "Mul(Pow(Symbol('a'), Integer(-1)), log(Add(Integer(1), Pow(Integer(2), Rational(1, 2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_4671_4463_4467"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Integer(5)",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "exp(Symbol('x'))",
+"x": "Symbol('x')",
+"v": "Integer(0)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_rewrite_trig"
+},
+{
+"f": "exp(Symbol('y'))",
+"x": "Symbol('y')",
+"v": "Mul(Integer(-1), log(Integer(3)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_issue_5132_1"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(2)), Integer(1))",
+"x": "Symbol('x')",
+"v": "Integer(0)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "Add(Pow(Symbol('x'), Rational(1, 4)), Pow(Symbol('x'), Rational(1, 2)), Mul(Integer(-1), Pow(Add(Symbol('x'), Integer(-1)), Rational(1, 2))))",
+"x": "Symbol('x')",
+"v": "Integer(1)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_unrad1"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(5)), Mul(Integer(-1), Symbol('x')), Integer(1))",
+"x": "Symbol('x')",
+"v": "ComplexRootOf(Add(Pow(Symbol('x'), Integer(5)), Mul(Integer(-1), Symbol('x')), Integer(2)), Integer(1))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_high_order_multivariate"
+},
+{
+"f": "Dummy('u', dummy_index=5122562)",
+"x": "Dummy('u', dummy_index=5122562)",
+"v": "Integer(2)",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_substitution_incorrect"
+},
+{
+"f": "Dummy('u', dummy_index=5114472)",
+"x": "Dummy('u', dummy_index=5114472)",
+"v": "nan",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_issue_18449"
+},
+{
+"f": "Add(Pow(Mul(Integer(-1), Symbol('x')), Add(Integer(4), Mul(Integer(-1), Symbol('x')))), Integer(-4))",
+"x": "Symbol('x')",
+"v": "Integer(-4)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Symbol('x'), Integer(-5))",
+"x": "Symbol('x')",
+"v": "Add(Integer(5), Mul(Rational(1, 3), Pow(Integer(3), Rational(7, 8)), Pow(I, Rational(1, 2))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_25176"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2)))), Integer(2)), Integer(2))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Integer(1), Pow(Add(Symbol('x'), Integer(-1)), Integer(-1)))",
+"x": "Symbol('x')",
+"v": "Integer(1)",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "Add(Mul(Integer(4), Add(Integer(6), Mul(Integer(-1), exp(Mul(Symbol('a'), Symbol('x'))))), exp(Mul(Integer(3), Symbol('a'), Symbol('x')))), Mul(Integer(-1), Integer(2), Pow(Add(exp(Mul(Integer(2), Symbol('a'), Symbol('x'))), Integer(1)), Integer(2)), exp(Mul(Symbol('a'), Symbol('x')))), Mul(Integer(4), exp(Mul(Integer(2), Symbol('a'), Symbol('x')))))",
+"x": "Symbol('x')",
+"v": "Mul(zoo, Pow(Symbol('a'), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_4671_4463_4467"
+},
+{
+"f": "Add(Symbol('x'), Mul(Integer(-1), Pow(log(Add(Pow(Symbol('x'), Rational(1, 2)), Integer(2))), Integer(2))))",
+"x": "Symbol('x')",
+"v": "Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2)))), Integer(2)), Integer(2))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Pow(Add(Integer(2), Mul(Integer(-1), LambertW(exp(Integer(2))))), Integer(-2))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(exp(Symbol('x')), exp(Mul(Integer(-1), Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "Integer(0)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_rewrite_trig"
+},
+{
+"f": "Add(Pow(Symbol('x'), Rational(1, 2)), Integer(1))",
+"x": "Symbol('x')",
+"v": "Integer(1)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_guess_rational_cv"
+},
+{
+"f": "Add(Pow(Symbol('x'), Rational(1, 4)), Pow(Symbol('x'), Rational(1, 2)), Mul(Integer(-1), Pow(Add(Symbol('x'), Integer(-1)), Rational(1, 2))))",
+"x": "Symbol('x')",
+"v": "Add(Rational(1, 32), Mul(Integer(-1), Rational(3, 32), Pow(Integer(7), Rational(1, 2)), I))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_unrad1"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Add(Rational(1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_solve_polynomial_cv_2"
+},
+{
+"f": "Add(Mul(Integer(2), Pow(Pow(Symbol('x'), Integer(3)), Mul(Rational(1, 2), Symbol('x')))), pi)",
+"x": "Symbol('x')",
+"v": "exp(LambertW(log(Mul(Rational(1, 4), Pow(pi, Integer(2))))))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Integer(4), sin(Symbol('x')), cos(Symbol('x'))), Mul(Integer(2), sin(Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "Mul(oo, I)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_2840_8155"
+},
+{
+"f": "Add(exp(Add(Integer(1), Mul(Integer(-1), Symbol('x')))), exp(Add(Symbol('x'), Integer(-1))))",
+"x": "Symbol('x')",
+"v": "zoo",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6056"
+},
+{
+"f": "Add(Pow(Add(Pow(Symbol('x'), Integer(2)), Integer(-6)), Add(Pow(Symbol('x'), Integer(2)), Integer(-2))), Integer(-4))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(2), Pow(Integer(2), Rational(1, 2)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('Dummy_3654', dummy_index=2693022)), Mul(Integer(2), I, pi, Pow(log(Integer(2)), Integer(-1))))",
+"x": "Dummy('Dummy_3654', dummy_index=2693022)",
+"v": "Integer(0)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6605"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Add(Integer(-3), Mul(Rational(1, 2), Pow(Add(Integer(-12), exp(Integer(3))), Rational(1, 2)), exp(Rational(3, 2))), Mul(Rational(1, 2), exp(Integer(3))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_uselogcombine"
+},
+{
+"f": "Add(Pow(Symbol('x'), Symbol('x')), Integer(-2))",
+"x": "Symbol('x')",
+"v": "Integer(1)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_4463"
+},
+{
+"f": "Add(Pow(Symbol('x'), Integer(5)), Mul(Integer(-1), Symbol('x')), Integer(1))",
+"x": "Symbol('x')",
+"v": "ComplexRootOf(Add(Pow(Symbol('x'), Integer(5)), Mul(Integer(-1), Symbol('x')), Integer(2)), Integer(1))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_high_order_multivariate"
+},
+{
+"f": "Add(Pow(Symbol('x'), Add(Mul(Integer(2), Symbol('x')), Integer(1))), Integer(-32))",
+"x": "Symbol('x')",
+"v": "Integer(32)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(exp(Add(Mul(Integer(-1), Symbol('x')), Integer(-3))), exp(Add(Symbol('x'), Integer(3))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Rational(3, 4), I, pi)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6056"
+},
+{
+"f": "Add(exp(Add(Integer(3), Mul(Integer(-1), Symbol('x')))), exp(Add(Symbol('x'), Integer(-3))))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(3, 4), I, pi)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6056"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Integer(4), Pow(log(Integer(2)), Integer(-1)), LambertW(Mul(Rational(1, 2), log(Integer(2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "log(Add(Pow(Symbol('x'), Integer(2)), Integer(2)))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)))), Rational(1, 2)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Pow(Add(Pow(Symbol('x'), Integer(2)), Integer(1)), Symbol('x')), Integer(-25))",
+"x": "Symbol('x')",
+"v": "Integer(-2)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "exp(Symbol('x', real=True))",
+"x": "Symbol('y', real=True)",
+"v": "Mul(exp(Mul(Rational(1, 2), Symbol('x', real=True))), Abs(Symbol('x', real=True)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_solve_nonlinear_trans"
+},
+{
+"f": "exp(Symbol('x', real=True))",
+"x": "Symbol('y', real=True)",
+"v": "Mul(Symbol('x', real=True), exp(Mul(Rational(1, 2), Symbol('x', real=True))))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_solve_nonlinear_trans"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2)))), Integer(2)), Integer(-2))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Symbol('x'), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Add(Mul(Rational(1, 4), Pow(Integer(5), Rational(1, 2))), Rational(3, 4), Pow(Add(Rational(-5, 8), Mul(Integer(-1), Rational(1, 8), Pow(Integer(5), Rational(1, 2)))), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_19509"
+},
+{
+"f": "exp(Mul(Pow(Symbol('x', real=True), Integer(-1)), log(Integer(8))))",
+"x": "Symbol('x', real=True)",
+"v": "Mul(Integer(-1), Pow(Integer(6), Rational(1, 2)), Pow(log(Integer(2)), Rational(1, 2)), Pow(log(Integer(5)), Rational(-1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6605"
+},
+{
+"f": "Dummy('Dummy_3649', dummy_index=2693017)",
+"x": "Dummy('Dummy_3649', dummy_index=2693017)",
+"v": "Integer(20)",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_overdetermined"
+},
+{
+"f": "Add(Mul(Integer(4), Pow(Symbol('x'), Add(Symbol('x'), Rational(1, 2)))), Integer(-9))",
+"x": "Symbol('x')",
+"v": "Rational(-3, 2)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Pow(Symbol('x'), Mul(Integer(2), Pow(Symbol('x'), Integer(-1)))), Integer(-2))",
+"x": "Symbol('x')",
+"v": "Integer(-2)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_15731"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('Dummy_2466', dummy_index=2691834)), Integer(2), Mul(Integer(5), Add(log(Mul(Rational(1, 6), Pow(Integer(6), Rational(3, 5)), Pow(Integer(7), Rational(1, 5)))), Mul(Rational(2, 5), I, pi)), Pow(log(Integer(3)), Integer(-1))))",
+"x": "Dummy('Dummy_2466', dummy_index=2691834)",
+"v": "log(Pow(Rational(7, 4), Pow(log(Integer(3)), Integer(-1))))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_4793"
+},
+{
+"f": "Add(Integer(7), Mul(Integer(-1), Symbol('x')))",
+"x": "Symbol('x')",
+"v": "Integer(0)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "exp(Mul(Integer(-1), Dummy('t', dummy_index=2697518)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_22717"
+},
+{
+"f": "exp(Mul(Integer(2), pi, Symbol('k')))",
+"x": "Symbol('k')",
+"v": "Mul(Integer(-1), Symbol('m'))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solveset.py::test_issue_14565"
+},
+{
+"f": "Add(exp(Add(Integer(3), Mul(Integer(-1), Symbol('x')))), exp(Add(Symbol('x'), Integer(-3))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Rational(3, 4), I, pi)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_issue_6056"
+},
+{
+"f": "Add(Symbol('x'), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Rational(1, 2)",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_high_order_multivariate"
+},
+{
+"f": "Add(Symbol('x'), Integer(5))",
+"x": "Symbol('x')",
+"v": "Rational(-295244, 59049)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2)))))), Rational(1, 2))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Integer(2), Symbol('a')), Mul(Pow(Symbol('x'), Integer(2)), exp(Mul(Rational(1, 2), Symbol('x')))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(4), LambertW(Mul(Rational(1, 4), Pow(Integer(2), Rational(1, 2)), Pow(Symbol('a'), Rational(1, 2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Integer(1), Mul(Integer(-1), Pow(Symbol('y'), Integer(2))))",
+"x": "Symbol('y')",
+"v": "Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3))))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_guess_rational_cv"
+},
+{
+"f": "log(Add(Pow(Symbol('x'), Rational(1, 2)), Integer(2)))",
+"x": "Dummy('bivariate-cov', dummy_index=2694251)",
+"v": "Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1))))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('u', positive=True, dummy_index=2693299)), Mul(Integer(3), Dummy('x', positive=True, commutative=True, dummy_index=2693300)), log(Dummy('x', positive=True, commutative=True, dummy_index=2693300)))",
+"x": "Dummy('x', positive=True, commutative=True, dummy_index=2693300)",
+"v": "Mul(Rational(1, 3), LambertW(Mul(Integer(3), exp(Dummy('u', positive=True, dummy_index=2693299)))))",
+"flags": {
+"force": false,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_multivariate"
+},
+{
+"f": "Add(exp(Mul(Symbol('x'), Pow(Symbol('y'), Integer(-1)))), Mul(Integer(-1), Integer(2), exp(Mul(Pow(Symbol('y'), Integer(-1)), Symbol('z')))))",
+"x": "Symbol('y')",
+"v": "Mul(Add(Symbol('x'), Mul(Integer(-1), Symbol('z'))), Pow(log(Integer(2)), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Add(Mul(Dummy('C', complex=True, dummy_index=5123693), cos(Integer(45))), Mul(Symbol('y'), Pow(Add(Mul(Integer(-1), Pow(Dummy('C', complex=True, dummy_index=5123693), Integer(2)), Pow(Symbol('y'), Integer(-2)), Pow(sin(Integer(45)), Integer(2))), Integer(1)), Rational(1, 2))))",
+"x": "Dummy('C', complex=True, dummy_index=5123693)",
+"v": "Mul(Symbol('y'), Pow(Add(Pow(cos(Integer(45)), Integer(2)), Pow(sin(Integer(45)), Integer(2))), Rational(-1, 2)))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solveset.py::test_issue_17933"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(Dummy('t', dummy_index=2696718), Pow(pi, Integer(-1)))), erf(Pow(Symbol('x'), Rational(1, 3))))",
+"x": "Symbol('x')",
+"v": "Pow(erfinv(Pow(Dummy('t', dummy_index=2696718), Pow(pi, Integer(-1)))), Integer(3))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_17799"
+},
+{
+"f": "Symbol('y')",
+"x": "Symbol('y')",
+"v": "Mul(Add(Symbol('x'), Mul(Integer(-1), Symbol('z'))), Pow(log(Integer(2)), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Dummy('Dummy_8177', dummy_index=2697545)",
+"x": "Dummy('Dummy_8177', dummy_index=2697545)",
+"v": "Add(Mul(Integer(-1), Symbol('A')), Mul(Integer(-1), Symbol('B'), Pow(sin(Symbol('phi')), Integer(-1)), cos(Symbol('phi'))))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_undetermined_coeffs_issue_23927"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2696718)), Pow(erf(Pow(Symbol('x'), Rational(1, 3))), pi))",
+"x": "Symbol('x')",
+"v": "Pow(erfinv(Pow(Dummy('t', dummy_index=2696718), Pow(pi, Integer(-1)))), Integer(3))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_17799"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('rhs', dummy_index=2693328)), Dummy('x', positive=True, commutative=True, dummy_index=2693321), log(Dummy('x', positive=True, commutative=True, dummy_index=2693321)))",
+"x": "Dummy('x', positive=True, commutative=True, dummy_index=2693321)",
+"v": "LambertW(exp(Dummy('rhs', dummy_index=2693328)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_multivariate"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Integer(6), LambertW(Mul(Rational(1, 3), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3)))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Integer(1), Mul(Integer(-1), Pow(Symbol('y'), Integer(2))))",
+"x": "Symbol('y')",
+"v": "Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_guess_rational_cv"
+},
+{
+"f": "Add(Mul(Pow(Symbol('x'), Symbol('z')), Pow(Symbol('y'), Symbol('z'))), Integer(-2))",
+"x": "Symbol('z')",
+"v": "Mul(Pow(Add(log(Symbol('x')), log(Symbol('y'))), Integer(-1)), log(Integer(2)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Pow(Symbol('y'), Rational(1, 2))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_checking"
+},
+{
+"f": "log(Add(Pow(Symbol('x'), Rational(1, 2)), Integer(2)))",
+"x": "Dummy('bivariate-cov', dummy_index=2694251)",
+"v": "Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))))))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Add(Symbol('b'), Integer(3)), log(exp(Mul(Add(Mul(Integer(3), Symbol('x')), Integer(5)), log(Symbol('a')))))), exp(Mul(Add(Mul(Integer(3), Symbol('x')), Integer(5)), log(Symbol('a')))))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 3), Pow(log(Symbol('a')), Integer(-1)), log(Mul(Pow(Symbol('a'), Integer(-5)), Add(Symbol('b'), Integer(3)), LambertW(Pow(Add(Symbol('b'), Integer(3)), Integer(-1))))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Pow(Symbol('x'), Mul(Integer(2), Symbol('y'))), Pow(Symbol('x'), Symbol('y')), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Pow(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(5), Rational(1, 2)))), Pow(Symbol('y'), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Dummy('Dummy_8145', dummy_index=2697513)",
+"x": "Dummy('Dummy_8145', dummy_index=2697513)",
+"v": "Add(log(Pow(Symbol('x'), Integer(-1))), Integer(1))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_22717"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2693472)), LambertW(Mul(Integer(2), Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 2), Dummy('t', dummy_index=2693472), exp(Dummy('t', dummy_index=2693472)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_multivariate"
+},
+{
+"f": "Dummy('Dummy_5678', dummy_index=2695046)",
+"x": "Dummy('Dummy_5678', dummy_index=2695046)",
+"v": "Add(Mul(Integer(-1), Pow(Add(Pow(Symbol('x'), Integer(2)), Pow(Add(Symbol('y'), Integer(620)), Integer(2))), Rational(1, 2))), Pow(Add(Pow(Add(Symbol('x'), Integer(-51)), Integer(2)), Pow(Add(Symbol('y'), Integer(-205)), Integer(2))), Rational(1, 2)), Integer(816))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_8828"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Mul(Symbol('y'), Add(Symbol('y'), Mul(Integer(-1), exp(Symbol('z'))))), Rational(1, 2)))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_uselogcombine"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('y')), erfcinv(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "erfc(Symbol('y'))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_errorinverses"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('u', positive=True, dummy_index=2690954)), Dummy('x', positive=True, commutative=True, dummy_index=2690955), exp(Dummy('x', positive=True, commutative=True, dummy_index=2690955)))",
+"x": "Dummy('x', positive=True, commutative=True, dummy_index=2690955)",
+"v": "Add(Dummy('u', positive=True, dummy_index=2690954), Mul(Integer(-1), LambertW(exp(Dummy('u', positive=True, dummy_index=2690954)))))",
+"flags": {
+"force": false,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_args"
+},
+{
+"f": "Add(Mul(Dummy('C', complex=True, dummy_index=5123599), cos(Integer(45))), Mul(Symbol('y'), Pow(Add(Mul(Integer(-1), Pow(Dummy('C', complex=True, dummy_index=5123599), Integer(2)), Pow(Symbol('y'), Integer(-2)), Pow(sin(Integer(45)), Integer(2))), Integer(1)), Rational(1, 2))))",
+"x": "Dummy('C', complex=True, dummy_index=5123599)",
+"v": "Mul(Symbol('y'), Pow(Add(Pow(cos(Integer(45)), Integer(2)), Pow(sin(Integer(45)), Integer(2))), Rational(-1, 2)))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solveset.py::test_issue_17933"
+},
+{
+"f": "Pow(Integer(3), Symbol('y'))",
+"x": "Symbol('x')",
+"v": "Mul(Pow(log(Integer(3)), Integer(-1)), log(Mul(Rational(1, 27), Pow(Integer(3), Mul(Integer(-1), Symbol('y'))))))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solveset.py::test_issue_17566"
+},
+{
+"f": "Add(Pow(Dummy('t', dummy_index=2693023), Add(Rational(-1, 3), Mul(Rational(1, 2), Pow(log(Integer(2)), Integer(-1)), log(Integer(5))))), Mul(Integer(-1), Dummy('t', dummy_index=2693025)))",
+"x": "Dummy('t', dummy_index=2693023)",
+"v": "Pow(Dummy('t', dummy_index=2693025), Mul(Integer(-1), log(Pow(Integer(2), Mul(Integer(6), Pow(log(Rational(4, 125)), Integer(-1)))))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_6605"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2694560)), Pow(Add(Integer(200), Mul(Integer(-1), Integer(20), Pow(Add(Integer(100), Mul(Integer(-1), Pow(Symbol('y', real=True), Integer(2)))), Rational(1, 2)))), Rational(1, 2)))",
+"x": "Symbol('y', real=True)",
+"v": "Mul(Rational(1, 20), Dummy('t', dummy_index=2694560), Pow(Add(Integer(400), Mul(Integer(-1), Pow(Dummy('t', dummy_index=2694560), Integer(2)))), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_2777"
+},
+{
+"f": "Add(Pow(Symbol('x'), Rational(1, 2)), Mul(Integer(-1), asin(Dummy('t', dummy_index=2691630))))",
+"x": "Symbol('x')",
+"v": "Pow(asin(Dummy('t', dummy_index=2691630)), Integer(2))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "sin(Symbol('phi'))",
+"x": "Symbol('phi')",
+"v": "Mul(Integer(2), atan(Mul(Pow(Symbol('B'), Integer(-1)), Add(Symbol('A'), Pow(Add(Pow(Symbol('A'), Integer(2)), Pow(Symbol('B'), Integer(2))), Rational(1, 2))))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_undetermined_coeffs_issue_23927"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2694609)), Pow(Add(Mul(Integer(20), Pow(Add(Integer(100), Mul(Integer(-1), Pow(Symbol('y', real=True), Integer(2)))), Rational(1, 2))), Integer(200)), Rational(1, 2)))",
+"x": "Symbol('y', real=True)",
+"v": "Mul(Rational(1, 20), Dummy('t', dummy_index=2694609), Pow(Add(Integer(400), Mul(Integer(-1), Pow(Dummy('t', dummy_index=2694609), Integer(2)))), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_2777"
+},
+{
+"f": "Dummy('Dummy_2312', dummy_index=2691680)",
+"x": "Dummy('Dummy_2312', dummy_index=2691680)",
+"v": "Add(Mul(Integer(-1), Integer(2), Symbol('y')), Mul(Integer(-1), Rational(4, 5), Pow(Integer(3), Rational(1, 2))), Rational(3, 5))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Symbol('y'), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_checking"
+},
+{
+"f": "Add(Integer(1), Mul(Integer(-1), Pow(Symbol('y'), Integer(2))))",
+"x": "Symbol('y')",
+"v": "Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_guess_rational_cv"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2692198)), atan(Symbol('x')))",
+"x": "Symbol('x')",
+"v": "tan(Dummy('t', dummy_index=2692198))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_4671_4463_4467"
+},
+{
+"f": "Add(Symbol('z'), Pow(Add(Pow(Symbol('x'), Integer(2)), Pow(Add(Symbol('y'), Integer(620)), Integer(2))), Rational(1, 2)), Integer(-920))",
+"x": "Symbol('y')",
+"v": "Add(Pow(Mul(Integer(-1), Add(Symbol('x'), Mul(Integer(-1), Symbol('z')), Integer(920)), Add(Symbol('x'), Symbol('z'), Integer(-920))), Rational(1, 2)), Integer(-620))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_8828"
+},
+{
+"f": "log(Add(Integer(2), Pow(Symbol('x'), Rational(-1, 2))))",
+"x": "Dummy('bivariate-cov', dummy_index=2694282)",
+"v": "Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1))))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Symbol('a'), Mul(Symbol('x'), exp(Mul(Rational(1, 2), Symbol('x')))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(2), LambertW(Mul(Integer(-1), Rational(1, 2), Symbol('a'))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Symbol('z'), Pow(Add(Pow(Symbol('x'), Integer(2)), Pow(Add(Symbol('y'), Integer(620)), Integer(2))), Rational(1, 2)), Integer(-920))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Mul(Integer(-1), Add(Symbol('y'), Mul(Integer(-1), Symbol('z')), Integer(1540)), Add(Symbol('y'), Symbol('z'), Integer(-300))), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_8828"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Pow(Symbol('y'), Rational(1, 2))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_checking"
+},
+{
+"f": "Add(Integer(1), Mul(Integer(-1), Pow(Symbol('y'), Integer(2))))",
+"x": "Symbol('y')",
+"v": "Pow(Symbol('x'), Rational(1, 3))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_guess_rational_cv"
+},
+{
+"f": "Add(Pow(Symbol('x'), Mul(Integer(2), Symbol('y'))), Pow(Symbol('x'), Symbol('y')), Integer(-1))",
+"x": "Symbol('x')",
+"v": "Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Integer(5), Rational(1, 2))), Rational(-1, 2)), Pow(Symbol('y'), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_PR1964"
+},
+{
+"f": "Add(Symbol('z'), Mul(Integer(-1), log(Symbol('x'))), log(Mul(Pow(Symbol('x'), Integer(-1)), Symbol('y'), Pow(Add(Integer(-1), Mul(Pow(Symbol('x'), Integer(-2)), Pow(Symbol('y'), Integer(2)))), Integer(-1)))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(-1), Pow(Mul(Symbol('y'), Add(Symbol('y'), Mul(Integer(-1), exp(Symbol('z'))))), Rational(1, 2)))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_uselogcombine"
+},
+{
+"f": "Add(Mul(Integer(8), Symbol('a')), Mul(Pow(Symbol('x'), Integer(3)), exp(Mul(Rational(1, 2), Symbol('x')))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(6), LambertW(Mul(Rational(1, 6), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3)), Add(Integer(-1), Mul(Pow(Integer(3), Rational(1, 2)), I)))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Symbol('a'), Pow(log(Mul(Pow(Symbol('b'), Integer(-1)), Symbol('y'))), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Integer(-1), Mul(Pow(Symbol('x'), Integer(-2)), Pow(Symbol('y'), Integer(2))))",
+"x": "Symbol('x')",
+"v": "Pow(Mul(Symbol('y'), Add(Symbol('y'), Mul(Integer(-1), exp(Symbol('z'))))), Rational(1, 2))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_uselogcombine"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Add(Mul(Integer(-1), Rational(1, 2), Symbol('y')), Mul(Rational(1, 2), Pow(Add(Pow(Symbol('y'), Integer(2)), Integer(-4)), Rational(1, 2))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_guess_poly_cv"
+},
+{
+"f": "Add(Mul(Integer(2), log(Symbol('x'))), Mul(Integer(-1), Integer(2), log(Symbol('z'))), log(Add(Symbol('z'), log(Symbol('x')), log(Symbol('z')))))",
+"x": "Symbol('x')",
+"v": "Mul(Pow(Symbol('z'), Integer(-1)), exp(Add(Mul(Integer(-1), Symbol('z')), Mul(Rational(1, 2), LambertW(Mul(Integer(2), Pow(Symbol('z'), Integer(4)), exp(Mul(Integer(2), Symbol('z')))))))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(log(Symbol('y')), Pow(log(Symbol('z')), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Integer(4), LambertW(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(1, 2)), Pow(Symbol('a'), Rational(1, 2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Integer(2), Symbol('a')), Mul(Pow(Symbol('x'), Integer(2)), exp(Mul(Rational(1, 2), Symbol('x')))))",
+"x": "Symbol('x')",
+"v": "Mul(Integer(4), LambertW(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(1, 2)), Pow(Symbol('a'), Rational(1, 2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=2694560)), Pow(Add(Integer(200), Mul(Integer(-1), Integer(20), Pow(Add(Integer(100), Mul(Integer(-1), Pow(Symbol('y', real=True), Integer(2)))), Rational(1, 2)))), Rational(1, 2)))",
+"x": "Symbol('y', real=True)",
+"v": "Mul(Integer(-1), Rational(1, 20), Dummy('t', dummy_index=2694560), Pow(Add(Integer(400), Mul(Integer(-1), Pow(Dummy('t', dummy_index=2694560), Integer(2)))), Rational(1, 2)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_2777"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('x')",
+"v": "Mul(Integer(6), LambertW(Mul(Rational(1, 6), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3)), Add(Integer(-1), Mul(Pow(Integer(3), Rational(1, 2)), I)))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Pow(Symbol('x', positive=True), Integer(2)), Pow(Symbol('z', positive=True), Integer(2)), exp(Symbol('x', positive=True))), Mul(Integer(-1), Pow(Symbol('y', positive=True), Integer(2)), Pow(Symbol('z', positive=True), Integer(2))))",
+"x": "Symbol('x', positive=True)",
+"v": "Mul(Integer(2), LambertW(Mul(Integer(-1), Rational(1, 2), Symbol('y', positive=True))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_5197"
+},
+{
+"f": "exp(Symbol('x'))",
+"x": "Symbol('x')",
+"v": "log(Add(Mul(Rational(1, 2), Symbol('y')), Mul(Rational(1, 2), Pow(Add(Pow(Symbol('y'), Integer(2)), Integer(-4)), Rational(1, 2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Symbol('y')",
+"x": "Symbol('y')",
+"v": "Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3))))",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_guess_rational_cv"
+},
+{
+"f": "Dummy('Dummy_5190', dummy_index=2694558)",
+"x": "Dummy('Dummy_5190', dummy_index=2694558)",
+"v": "Add(Mul(Integer(20), Pow(Add(Pow(Symbol('y', real=True), Integer(2)), Pow(Add(Integer(10), Mul(Integer(-1), Pow(Mul(Integer(-1), Add(Symbol('y', real=True), Integer(-10)), Add(Symbol('y', real=True), Integer(10))), Rational(1, 2)))), Integer(2))), Rational(1, 2))), Integer(-60))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_2777"
+},
+{
+"f": "Dummy('Dummy_8092', dummy_index=2697460)",
+"x": "Dummy('Dummy_8092', dummy_index=2697460)",
+"v": "Add(Mul(Symbol('z'), Add(Integer(1), exp(Mul(Integer(2), cosh(cos(Integer(4)))))), exp(cosh(cos(Integer(4))))), Mul(Integer(-1), Add(Integer(-1), exp(Mul(Integer(2), cosh(cos(Integer(4)))))), exp(cosh(cos(Integer(4))))))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_21034"
+},
+{
+"f": "Add(Mul(Symbol('a', positive=True), Pow(Symbol('b', positive=True), Symbol('x'))), Mul(Integer(-1), Symbol('c', positive=True), Pow(Symbol('d', positive=True), Symbol('x'))))",
+"x": "Symbol('x')",
+"v": "Mul(log(Mul(Pow(Symbol('a', positive=True), Integer(-1)), Symbol('c', positive=True))), Pow(log(Mul(Symbol('b', positive=True), Pow(Symbol('d', positive=True), Integer(-1)))), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_issue_6819"
+},
+{
+"f": "Symbol('y')",
+"x": "Symbol('y')",
+"v": "Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3))))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "test_solvers.py::test_guess_rational_cv"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('y')), Pow(Symbol('z'), Symbol('x')))",
+"x": "Symbol('x')",
+"v": "Mul(log(Symbol('y')), Pow(log(Symbol('z')), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Symbol('y'), Pow(Symbol('x'), Integer(-1))), Mul(Integer(-1), Symbol('z')))",
+"x": "Symbol('x')",
+"v": "Mul(log(Symbol('y')), Pow(log(Symbol('z')), Integer(-1)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": null,
+"test": "test_solvers.py::test_solve_transcendental"
+},
+{
+"f": "Add(Pow(Symbol('a'), Add(Mul(Integer(3), Symbol('x')), Integer(5))), Mul(Integer(3), log(Pow(Symbol('a'), Add(Mul(Integer(3), Symbol('x')), Integer(5))))))",
+"x": "Symbol('x')",
+"v": "Mul(Rational(1, 3), Pow(log(Symbol('a')), Integer(-1)), log(Mul(Integer(3), Pow(Symbol('a'), Integer(-5)), LambertW(Rational(1, 3)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Pow(Symbol('a'), Add(Mul(Integer(3), Symbol('x')), Integer(5))), Mul(Integer(3), log(Pow(Symbol('a'), Add(Mul(Integer(3), Symbol('x')), Integer(5))))))",
+"x": "Symbol('x')",
+"v": "Mul(Pow(log(Symbol('a')), Integer(-1)), log(Mul(Rational(1, 2), Add(Mul(Integer(-1), Pow(Integer(3), Rational(1, 3))), Mul(Integer(-1), Pow(Integer(3), Rational(5, 6)), I)), Pow(Pow(Symbol('a'), Integer(-5)), Rational(1, 3)), Pow(LambertW(Rational(1, 3)), Rational(1, 3)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Pow(Symbol('a'), Add(Mul(Integer(3), Symbol('x')), Integer(5))), Mul(Integer(3), log(Pow(Symbol('a'), Add(Mul(Integer(3), Symbol('x')), Integer(5))))))",
+"x": "Symbol('x')",
+"v": "Mul(Pow(log(Symbol('a')), Integer(-1)), log(Mul(Rational(1, 2), Add(Mul(Integer(-1), Pow(Integer(3), Rational(1, 3))), Mul(Pow(Integer(3), Rational(5, 6)), I)), Pow(Pow(Symbol('a'), Integer(-5)), Rational(1, 3)), Pow(LambertW(Rational(1, 3)), Rational(1, 3)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": null,
+"test": "test_solvers.py::test_lambert_bivariate"
+},
+{
+"f": "Add(Mul(Integer(-1), Pow(erf(Pow(Symbol('x'), Rational(1, 3))), pi)), I)",
+"x": "Symbol('x')",
+"v": "Pow(erfinv(Pow(I, Pow(pi, Integer(-1)))), Integer(3))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": null,
+"test": "test_solvers.py::test_issue_17799"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6750855)), Pow(Add(Symbol('C1'), Mul(Integer(2), Symbol('x'))), Rational(1, 2)))",
+"x": "Symbol('C1')",
+"v": "Add(Pow(Dummy('t', dummy_index=6750855), Integer(2)), Mul(Integer(-1), Integer(2), Symbol('x')))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6751266)), Pow(log(Pow(Add(Symbol('C1'), Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('x'))), Integer(-1))), Rational(1, 2)))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Pow(Symbol('x'), Integer(2))), Mul(Integer(-1), Integer(2), Symbol('x')), exp(Mul(Integer(-1), Pow(Dummy('t', dummy_index=6751266), Integer(2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6750951)), exp(Mul(Dummy('X0', dummy_index=6750949), Pow(Symbol('x'), Integer(-1)))))",
+"x": "Dummy('X0', dummy_index=6750949)",
+"v": "Mul(Symbol('x'), log(Dummy('t', dummy_index=6750951)))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Pow(Dummy('X0', dummy_index=6750755), Rational(1, 2)), Mul(Integer(-1), Dummy('t', dummy_index=6750757)))",
+"x": "Dummy('X0', dummy_index=6750755)",
+"v": "Pow(Dummy('t', dummy_index=6750757), Integer(2))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6751071)), exp(Symbol('C1')))",
+"x": "Symbol('C1')",
+"v": "log(Dummy('t', dummy_index=6751071))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6750849)), log(Add(Pow(Dummy('X0', dummy_index=6750847), Integer(2)), Integer(-1))))",
+"x": "Dummy('X0', dummy_index=6750847)",
+"v": "Pow(Add(exp(Dummy('t', dummy_index=6750849)), Integer(1)), Rational(1, 2))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Pow(Add(cos(Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Add(Symbol('C2'), Mul(Integer(-1), Symbol('x'))))), Integer(1)), Integer(-1)), sin(Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Add(Symbol('C2'), Mul(Integer(-1), Symbol('x'))))))",
+"x": "Symbol('C2')",
+"v": "Symbol('x')",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "sin(Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Add(Symbol('C2'), Symbol('x'))))",
+"x": "Symbol('C2')",
+"v": "Add(Mul(Integer(-1), Symbol('x')), Mul(pi, Pow(Mul(Integer(-1), Symbol('C1')), Rational(-1, 2))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Add(Mul(Integer(-1), Pow(Add(Symbol('C1'), Mul(Integer(2), Symbol('x'))), Rational(1, 2))), Function('f')(Symbol('x'))), Add(Symbol('C2'), Symbol('x'), Mul(Integer(-1), Function('f')(Symbol('x')))))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Integer(2), Symbol('x')), Pow(Add(Symbol('C2'), Symbol('x')), Integer(2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6751344)), cos(Mul(Dummy('X0', dummy_index=6751342), Pow(Symbol('x'), Integer(-1)))))",
+"x": "Dummy('X0', dummy_index=6751342)",
+"v": "Mul(Symbol('x'), acos(Dummy('t', dummy_index=6751344)))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6751985)), Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)))",
+"x": "Symbol('C1')",
+"v": "Mul(Integer(-1), Pow(Dummy('t', dummy_index=6751985), Integer(2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Pow(Dummy('t', dummy_index=6751137), Integer(2)), Mul(Integer(-1), log(Pow(Add(Symbol('C1'), Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('x'))), Integer(-1)))))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Pow(Symbol('x'), Integer(2))), Mul(Integer(-1), Integer(2), Symbol('x')), exp(Mul(Integer(-1), Pow(Dummy('t', dummy_index=6751137), Integer(2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(cos(Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Add(Symbol('C2'), Symbol('x')))), Integer(1))",
+"x": "Symbol('C1')",
+"v": "Mul(Integer(-1), Pow(pi, Integer(2)), Pow(Add(Symbol('C2'), Symbol('x')), Integer(-2)))",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6750786)), Pow(Pow(Add(Symbol('C1'), log(Symbol('x'))), Integer(-1)), Rational(1, 2)))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), log(Symbol('x'))), Pow(Dummy('t', dummy_index=6750786), Integer(-2)))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('C1')), Mul(Integer(-1), Symbol('x')), log(Dummy('X0', dummy_index=6750714)))",
+"x": "Dummy('X0', dummy_index=6750714)",
+"v": "exp(Add(Symbol('C1'), Symbol('x')))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6750884)), exp(Dummy('X0', dummy_index=6750882)))",
+"x": "Dummy('X0', dummy_index=6750882)",
+"v": "log(Dummy('t', dummy_index=6750884))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Rational(1, 4), Pow(Symbol('C1'), Integer(2))), Mul(Integer(-1), Rational(1, 2), Symbol('C1'), Symbol('x')), Mul(Integer(-1), Rational(1, 4), Pow(Symbol('C2'), Integer(2))), Mul(Integer(-1), Rational(1, 2), Symbol('C2'), Symbol('x')))",
+"x": "Symbol('C1')",
+"v": "Add(Symbol('C2'), Mul(Integer(2), Symbol('x')))",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C1'), Mul(Integer(-1), Symbol('C2')), Mul(Rational(1, 2), Pow(Symbol('x'), Integer(2))))",
+"x": "Symbol('C1')",
+"v": "Add(Symbol('C2'), Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Integer(2))))",
+"flags": {},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Dummy('t', dummy_index=6752677)), cos(Add(Mul(Symbol('C2'), Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2))), Mul(Symbol('x'), Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2))))))",
+"x": "Symbol('C2')",
+"v": "Add(Mul(Integer(-1), Symbol('x')), Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(-1, 2)), acos(Dummy('t', dummy_index=6752677))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Add(Function('f')(Mul(Integer(2), Symbol('x'))), Mul(Integer(-1), sin(Dummy('X0', dummy_index=6754530))))",
+"x": "Dummy('X0', dummy_index=6754530)",
+"v": "asin(Function('f')(Mul(Integer(2), Symbol('x'))))",
+"flags": {
+"simplify": false
+},
+"sympy": true,
+"native": true,
+"test": "ode:"
+},
+{
+"f": "Pow(Dummy('X0', dummy_index=6750890), Integer(3))",
+"x": "Dummy('X0', dummy_index=6750890)",
+"v": "Mul(Integer(4), Pow(Add(Pow(Symbol('C1'), Integer(2)), Mul(Integer(2), Symbol('C1'), Symbol('x')), Pow(Symbol('x'), Integer(2))), Integer(-1)))",
+"flags": {
+"force": true
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Pow(Dummy('X0', dummy_index=6750778), Integer(3)), Pow(Symbol('x'), Integer(6))), Mul(Pow(Dummy('X0', dummy_index=6750778), Integer(2)), Pow(Symbol('x'), Integer(4))))",
+"x": "Dummy('X0', dummy_index=6750778)",
+"v": "Add(Dummy('C', dummy_index=6750783), Integral(Mul(Integer(-1), Pow(Symbol('x'), Integer(-3))), Tuple(Symbol('x'))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Dummy('X0', dummy_index=6753538)",
+"x": "Dummy('X0', dummy_index=6753538)",
+"v": "Pow(Add(Mul(Integer(-1), Symbol('C1')), Mul(Integer(-1), Integer(2), Symbol('x'))), Integer(-1))",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(cos(Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Add(Symbol('C2'), Mul(Integer(-1), Symbol('x'))))), Integer(1))",
+"x": "Symbol('C2')",
+"v": "Symbol('x')",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Pow(Dummy('X0', dummy_index=6751018), Integer(3))",
+"x": "Dummy('X0', dummy_index=6751018)",
+"v": "Mul(Integer(4), Pow(Add(Pow(Symbol('C1'), Integer(2)), Mul(Integer(2), Symbol('C1'), Symbol('x')), Pow(Symbol('x'), Integer(2))), Integer(-1)))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(cos(Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Add(Symbol('C2'), Mul(Integer(-1), Symbol('x'))))), Integer(1))",
+"x": "Symbol('C1')",
+"v": "Integer(0)",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C1'), Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('x')))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Pow(Symbol('x'), Integer(2))), Mul(Integer(-1), Integer(2), Symbol('x')), exp(Mul(Integer(-1), Pow(Dummy('t', dummy_index=6751266), Integer(2)))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C1'), Symbol('x'))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(-1), Pow(Dummy('t', dummy_index=6751050), Integer(-2))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('C1')",
+"v": "Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Integer(2)))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C2'), Symbol('x'))",
+"x": "Symbol('C2')",
+"v": "Symbol('C4')",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C1'), log(Symbol('x')))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), log(Symbol('x'))), Pow(Dummy('t', dummy_index=6750858), Integer(-2)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Dummy('X0', dummy_index=6752500)",
+"x": "Dummy('X0', dummy_index=6752500)",
+"v": "Pow(Add(Mul(Integer(-1), Symbol('C1')), Mul(Integer(-1), Integer(2), Symbol('x'))), Integer(-1))",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C1'), Symbol('x'))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(-1), Pow(Dummy('t', dummy_index=6750733), Integer(-2))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Dummy('X0', dummy_index=6750688)",
+"x": "Dummy('X0', dummy_index=6750688)",
+"v": "Mul(Integer(2), Pow(Add(Mul(Integer(-1), Integer(2), Symbol('C1')), Pow(Symbol('x'), Integer(2))), Integer(-1)))",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C1'), Symbol('x'))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(-1), Pow(Dummy('t', dummy_index=6751001), Integer(-2))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Symbol('x')",
+"x": "Symbol('C1')",
+"v": "Add(Integer(1), Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Integer(2))))",
+"flags": {},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Dummy('X0', dummy_index=6751182)",
+"x": "Dummy('X0', dummy_index=6751182)",
+"v": "Mul(Pow(Symbol('x'), Integer(-1)), Pow(Add(Mul(Symbol('C1'), Symbol('x')), Integer(1)), Integer(-1)))",
+"flags": {
+"minimal": true
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C1'), Symbol('x'))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(-1), Pow(Dummy('t', dummy_index=6751610), Integer(-2))))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C2'), Symbol('x'), Pow(Add(Symbol('C1'), Mul(Integer(2), Symbol('x'))), Rational(1, 2)))",
+"x": "Symbol('C1')",
+"v": "Add(Mul(Integer(-1), Integer(2), Symbol('x')), Pow(Add(Symbol('C2'), Symbol('x')), Integer(2)))",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Symbol('C3'), Mul(Integer(-1), log(Mul(Integer(-1), Symbol('C1'), Pow(Add(cos(Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Add(Symbol('C2'), Mul(Integer(-1), Symbol('x'))))), Integer(1)), Integer(-1))))))",
+"x": "Symbol('C1')",
+"v": "Integer(0)",
+"flags": {
+"simplify": false
+},
+"sympy": false,
+"native": false,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('C1')), log(Symbol('x')), log(atan(Dummy('X0', dummy_index=6750829))))",
+"x": "Dummy('X0', dummy_index=6750829)",
+"v": "tan(Mul(Pow(Symbol('x'), Integer(-1)), exp(Symbol('C1'))))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Add(Dummy('X0', dummy_index=6751057), Integer(3))",
+"x": "Dummy('X0', dummy_index=6751057)",
+"v": "Mul(Integer(3), Pow(Add(Pow(Symbol('x'), Integer(3)), Mul(Integer(-1), exp(Mul(Integer(3), Symbol('C1'))))), Integer(-1)), exp(Mul(Integer(3), Symbol('C1'))))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Add(Dummy('X0', dummy_index=6750893), Mul(Integer(-1), Add(log(Mul(Dummy('X0', dummy_index=6750893), Pow(Symbol('x'), Integer(-1)))), Integer(-1)), exp(Symbol('C1'))))",
+"x": "Dummy('X0', dummy_index=6750893)",
+"v": "Mul(Integer(-1), exp(Symbol('C1')), LambertW(Mul(Integer(-1), Symbol('x'), exp(Add(Integer(1), Mul(Integer(-1), Symbol('C1')))))))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Symbol('C2'), Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2))), Mul(Integer(-1), Symbol('x'), Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2))), asin(Dummy('t', dummy_index=6751989)), Mul(Integer(-1), pi))",
+"x": "Symbol('C1')",
+"v": "Mul(Integer(-1), Pow(Add(Symbol('C2'), Mul(Integer(-1), Symbol('x'))), Integer(-2)), Pow(Add(asin(Dummy('t', dummy_index=6751989)), Mul(Integer(-1), pi)), Integer(2)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Add(cos(Mul(Pow(Mul(Integer(-1), Symbol('C1')), Rational(1, 2)), Add(Symbol('C2'), Mul(Integer(-1), Symbol('x'))))), Integer(1))",
+"x": "Symbol('C1')",
+"v": "Mul(Integer(-1), Pow(pi, Integer(2)), Pow(Add(Symbol('C2'), Mul(Integer(-1), Symbol('x'))), Integer(-2)))",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Add(Pow(Mul(Add(Symbol('C1'), Mul(Integer(-1), Integer(2), Ei(Mul(Integer(4), Symbol('x'))))), exp(Mul(Integer(-1), Integer(4), Symbol('x')))), Rational(1, 2)), Pow(Mul(Add(Symbol('C2'), Mul(Integer(-1), Integer(2), Ei(Mul(Integer(4), Symbol('x'))))), exp(Mul(Integer(-1), Integer(4), Symbol('x')))), Rational(1, 2)))",
+"x": "Symbol('C1')",
+"v": "Symbol('C2')",
+"flags": {},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Add(log(Mul(Dummy('X0', dummy_index=6751212), Pow(Symbol('x'), Integer(-1)))), Integer(-1))",
+"x": "Dummy('X0', dummy_index=6751212)",
+"v": "Mul(Integer(-1), exp(Symbol('C1')), LambertW(Mul(Integer(-1), Symbol('x'), exp(Add(Integer(1), Mul(Integer(-1), Symbol('C1')))))))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Add(Mul(Integer(-1), Symbol('C1')), log(log(Symbol('x'))), asinh(Dummy('X0', dummy_index=6750824)))",
+"x": "Dummy('X0', dummy_index=6750824)",
+"v": "sinh(Add(Symbol('C1'), Mul(Integer(-1), log(log(Symbol('x'))))))",
+"flags": {
+"force": true,
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Dummy('Dummy_671', dummy_index=6751211)",
+"x": "Dummy('Dummy_671', dummy_index=6751211)",
+"v": "Add(Mul(Integer(-1), Symbol('C1')), Symbol('C3'))",
+"flags": {
+"minimal": true
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+},
+{
+"f": "Add(Pow(Mul(Add(Symbol('C1'), Mul(Integer(-1), Integer(2), Ei(Mul(Integer(4), Symbol('x'))))), exp(Mul(Integer(-1), Integer(4), Symbol('x')))), Rational(1, 2)), Pow(Mul(Add(Symbol('C2'), Mul(Integer(-1), Integer(2), Ei(Mul(Integer(4), Symbol('x'))))), exp(Mul(Integer(-1), Integer(4), Symbol('x')))), Rational(1, 2)))",
+"x": "Symbol('C1')",
+"v": "Symbol('C2')",
+"flags": {
+"simplify": false
+},
+"sympy": null,
+"native": null,
+"test": "ode:"
+}
+]

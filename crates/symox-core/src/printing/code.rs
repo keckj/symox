@@ -2225,7 +2225,8 @@ pub fn lambdify_result_kind(e: &Expr, flavor: LambdaFlavor) -> LambdaKind {
         }
         // scipy.special values (gamma, erf, Bessel, ...) can differ from the
         // native ones in the last digits: the generated function computes them.
-        if head.starts_with("numpy.") {
+        // except gamma, which `crate::cephes_gamma` gives bit for bit.
+        if head.starts_with("numpy.") || head == "scipy.special.gamma" {
             LambdaKind::NpFloat
         } else {
             LambdaKind::Unknown

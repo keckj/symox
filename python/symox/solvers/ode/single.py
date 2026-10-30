@@ -318,6 +318,14 @@ class SinglePatternODESolver(SingleODESolver):
         if order not in [1, 2]:
             return False
 
+        from ._classify_native import solver_match
+        native = solver_match(self)
+        if native is not None:
+            if native is False:
+                return False
+            self._wilds_match = native
+            return self._verify(f(x))
+
         pattern = self._equation(f(x), x, order)
 
         if not pattern.coeff(df).has(Wild):
@@ -1030,7 +1038,9 @@ class RationalRiccati(SinglePatternODESolver):
         if order != 1:
             return False
 
-        match, funcs = match_riccati(eq, f, x)
+        from ._classify_native import riccati_match
+        native = riccati_match(eq, f, x)
+        match, funcs = native if native is not None else match_riccati(eq, f, x)
         if not match:
             return False
         _b0, _b1, _b2 = funcs

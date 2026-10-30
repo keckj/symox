@@ -2,23 +2,31 @@
 
 The kernels in ``symox._core._prde_kernel`` reproduce the stock bodies of
 ``symox.integrals.prde`` for ``DE.case == 'base'`` (``D = [Poly(1, x)]``)
-with plain ZZ/QQ polynomials. They are used only while every Python
+with plain ZZ/QQ polynomials, and ``constant_system`` for rational QQ
+matrices in any DE state. They are used only while every Python
 function those bodies reach (prde, rde, risch, PolyMatrix), every global
 or builtin name they read, and the Poly, PolyMatrix and
 DifferentialExtension class dictionaries are the ones captured at import.
 Each entry point returns ``None`` to request the unchanged Python body.
 """
 import builtins as _builtins
-from types import FunctionType, BuiltinFunctionType
+from types import FunctionType, BuiltinFunctionType, ModuleType
 from .. import _core
 
 _TYPE = type
 _LEN = len
+_ZIP = zip
 _STR = str
 _INT = int
 _LIST = list
 _MISSING = object()
 _ROOT = None
+# Number of constant_system calls answered by the fraction-field kernel.
+STATS = {'constant_system_field': 0, 'derivation': 0, 'is_deriv_k': 0}
+_POLY = _core.Poly
+_EXPR = _core.Expr
+_AS_POLY = None
+_DERIV_K = None
 
 
 def _state(f):
@@ -88,6 +96,61 @@ def register_root(namespace):
         visit(value.__func__ if _TYPE(value) in (classmethod, staticmethod) else value)
     classes = tuple((c, tuple(c.__dict__.items())) for c in (_core.Poly, matrix, cls))
     _ROOT = (kernel, cls, slots, tuple(functions), tuple(lookups), classes, matrix, new.__func__, qq)
+    global _AS_POLY
+    reader = _core.__dict__.get('_ddm_function_metadata')
+    if _TYPE(reader) is not BuiltinFunctionType or reader.__self__ is not _core:
+        return
+    from .. import _poly_constructor
+    _AS_POLY = (_core.Poly.__dict__.get('as_poly'), _core.Poly.__dict__.get('diff'),
+                _core.Poly.__dict__.get('as_expr'), _core.Poly.__dict__.get('__add__'),
+                _poly_constructor.__dict__.get('construct'), _core.Expr.__dict__.get('as_poly'),
+                risch.__dict__, risch.derivation, risch.derivation.__code__, reader,
+                _poly_constructor.__dict__)
+    global _DERIV_K
+    from .. import _compat, _public_core
+    import symox
+    try:
+        ext_slots = (cls.__dict__['exts'], cls.__dict__['extargs'])
+    except KeyError:
+        return
+    if any(_TYPE(s).__name__ != 'member_descriptor' for s in ext_slots):
+        return
+    # Once an AccumBounds exists, Add and Mul consult the stock coefficient
+    # fold, which returns None unless an argument is (or directly holds) an
+    # AccumulationBounds. The kernel only builds host-free expressions, so the
+    # fold is admitted when it is the stock function with its stock globals.
+    from importlib import import_module
+    bounds = import_module('symox.calculus.accumulationbounds')
+    fold = bounds.__dict__.get('_fold_coefficient')
+    if _TYPE(fold) is not FunctionType or fold.__globals__ is not bounds.__dict__:
+        return
+    folding = (fold, reader(fold), bounds.__dict__, bounds.__dict__.get('AccumulationBounds'),
+               tuple((name, _builtins.__dict__[name]) for name in ('type', 'getattr', 'any')))
+    if folding[1] is None or folding[3] is None:
+        return
+    _DERIV_K = (_public_core.__dict__.get('_evaluation'), _compat.__dict__.get('_accum_fold'),
+                prde.__dict__.get('Dummy'), ext_slots, symox.__dict__, symox.__dict__.get('cancel'),
+                prde.__dict__.get('cancel'), folding, _compat.__dict__)
+
+
+def _stock_fold(fold, folding):
+    """``fold`` (the installed ``_compat._accum_fold[0]``) is the stock
+    ``_fold_coefficient`` with its captured code, defaults, closure, globals
+    and the builtins it reads."""
+    function, record, ns, bounds, names = folding
+    if fold is not function:
+        return False
+    values = _AS_POLY[9](function)
+    if (values is None or _LEN(values) != _LEN(record)
+            or any(a is not b for a, b in _ZIP(values, record))
+            or ns.get('AccumulationBounds') is not bounds):
+        return False
+    b = ns.get('__builtins__')
+    if _TYPE(b) is ModuleType:
+        b = b.__dict__
+    if _TYPE(b) is not dict:
+        return False
+    return all(name not in ns and b.get(name) is value for name, value in names)
 
 
 def _verified():
@@ -110,6 +173,109 @@ def _verified():
         if _LEN(d) != _LEN(items) or any(d.get(k, _MISSING) is not v for k, v in items):
             return None
     return root
+
+
+def _derivation_protocol():
+    """The Poly methods, the constructor and ``risch.derivation`` (code,
+    globals, builtins) are the ones captured at import."""
+    c = _POLY.__dict__
+    captured = _AS_POLY
+    if (captured is None or c.get('as_poly') is not captured[0] or c.get('diff') is not captured[1]
+            or c.get('as_expr') is not captured[2] or c.get('__add__') is not captured[3]
+            or captured[10].get('construct') is not captured[4]
+            or _EXPR.__dict__.get('as_poly') is not captured[5]):
+        return False
+    # The stock body reads Poly, len and zip: a module global or a builtin
+    # replaced for risch.derivation keeps the stock body (and its calls).
+    ns, f = captured[6], captured[6].get('derivation')
+    if f is not captured[7] or ns.get('Poly') is not _POLY or 'len' in ns or 'zip' in ns:
+        return False
+    # The code object is read by the native metadata reader (no audit event).
+    values = captured[9](f)
+    if values is None or values[0] is not captured[8]:
+        return False
+    b = f.__builtins__
+    return b.get('len') is _LEN and b.get('zip') is _ZIP
+
+
+def is_deriv_k(fa, fd, DE):
+    """``is_deriv_k(fa, fd, DE)`` for stock Polys over ZZ, QQ, ZZ[...],
+    QQ[...], ZZ(...) or QQ(...) whose tower is elementary (``len(DE.exts)
+    == len(DE.D)``; otherwise the stock body raises). The native kernel
+    reproduces the whole body (``Df/f``, the PolyMatrix row, the
+    fraction-field ``constant_system``, the constant and rational checks and
+    the answer). It is used only while the stock prde protocol, the
+    ``derivation`` protocol and the global evaluation state are the ones
+    captured at import, and the Dummy generator is created here exactly as
+    the stock body does.
+
+    Returns ``None`` (stock body, which creates its own Dummy),
+    ``(True, result)``, or ``(False, dum)`` (stock body with the Dummy
+    already created).
+    """
+    root = _ROOT
+    if root is None or _TYPE(fa) is not _POLY or _TYPE(fd) is not _POLY or _TYPE(DE) is not root[1]:
+        return None
+    captured = _DERIV_K
+    if captured is None or not _derivation_protocol() or _verified() is None:
+        return None
+    evaluation, accum, dummy, (exts_slot, extargs_slot), public, cancel, prde_cancel, folding, compat = captured
+    if (evaluation.get() is not True or public.get('cancel') is not cancel
+            or cancel is not prde_cancel or compat.get('_accum_fold') is not accum
+            or _TYPE(accum) is not _LIST or _LEN(accum) != 1):
+        return None
+    fold = accum[0]
+    if fold is not None and not _stock_fold(fold, folding):
+        return None
+    slots, cls = root[2], root[1]
+    try:
+        t = slots[1][1].__get__(DE, cls)
+        T = slots[3][1].__get__(DE, cls)
+        D = slots[4][1].__get__(DE, cls)
+        level = slots[5][1].__get__(DE, cls)
+        exts = exts_slot.__get__(DE, cls)
+        extargs = extargs_slot.__get__(DE, cls)
+    except AttributeError:
+        return None
+    if (_TYPE(T) is not _LIST or _TYPE(D) is not _LIST or _TYPE(level) is not _INT
+            or _TYPE(exts) is not _LIST or _TYPE(extargs) is not _LIST or _LEN(exts) != _LEN(D)):
+        return None
+    dum = dummy()
+    r = root[0]('is_deriv_k', (fa, fd, dum, exts, extargs), t, None, T, D, level)
+    if r is None:
+        return (False, dum)
+    STATS['is_deriv_k'] += 1
+    return (True, r[0])
+
+
+def derivation(p, DE, coefficientD):
+    """``derivation(p, DE, coefficientD, basic=False)`` for a stock Poly
+    ``p`` over ZZ, QQ, ZZ[...], QQ[...], ZZ(...) or QQ(...) (exp, primitive,
+    base or any other case: the stock body does not depend on it). The
+    native kernel runs the stock loop with the native Poly constructor; it
+    is used only while the Poly methods and the constructor the stock body
+    reaches are the ones captured at import. ``None`` requests the Python
+    body.
+    """
+    root = _ROOT
+    if root is None or _TYPE(p) is not _POLY or _TYPE(DE) is not root[1]:
+        return None
+    if not _derivation_protocol():
+        return None
+    slots, cls = root[2], root[1]
+    try:
+        t = slots[1][1].__get__(DE, cls)
+        T = slots[3][1].__get__(DE, cls)
+        D = slots[4][1].__get__(DE, cls)
+        level = slots[5][1].__get__(DE, cls)
+    except AttributeError:
+        return None
+    if _TYPE(T) is not _LIST or _TYPE(D) is not _LIST or _TYPE(level) is not _INT:
+        return None
+    r = root[0]('derivation', (p, coefficientD), t, None, T, D, level)
+    if r is not None:
+        STATS['derivation'] += 1
+    return r
 
 
 def _fields(de):
@@ -243,17 +409,81 @@ def poly_linear_constraints(p, d):
 
 
 def constant_system(A, u, DE):
+    """Rational QQ systems in any DE state (base, exp, primitive, or a tower
+    still being built): the derivation loop of the stock body only runs for
+    entries that involve ``DE.T``, which rational entries never do. The kernel
+    also requires the matrix generator and every ``DE.T`` element to be plain
+    stock symbols, so ``rref``'s ground check and ``has(*DE.T)`` cannot raise.
+    """
     root = _ROOT
     if root is None or _TYPE(A) is not root[6] or _TYPE(u) is not root[6]:
         return None
-    if not (A._rows * A._cols) or A.domain is not root[8] or u.domain is not root[8]:
+    if not (A._rows * A._cols):
         return None
     gens = A.gens
-    fields = _fields(DE)
-    if fields is None or gens != (fields[0],):
+    if _TYPE(gens) is not tuple or _LEN(gens) != 1 or _TYPE(DE) is not root[1]:
         return None
-    r = _call('constant_system', (A._rows, A._cols, _LIST(A._items), u._rows, u._cols, _LIST(u._items)), fields)
+    if A.domain is root[8] and u.domain is root[8]:
+        try:
+            T = root[2][3][1].__get__(DE, root[1])
+        except AttributeError:
+            return None
+        if _TYPE(T) is not _LIST or _verified() is None:
+            return None
+        r = _call('constant_system', (A._rows, A._cols, _LIST(A._items), u._rows, u._cols, _LIST(u._items)),
+                  (gens[0], None, T, None, None))
+        if r is None:
+            return None
+        a, v = r
+        return _matrix(a, gens), _matrix(v, gens)
+    return _constant_system_field(A, u, DE, gens)
+
+
+def _constant_system_field(A, u, DE, gens):
+    """Fraction-field systems (ZZ(x), QQ(x, t0), ...) in any DE state: the
+    rref, the derivation loop and the PolyMatrix domains are computed by the
+    native kernel, which calls the Poly constructor for the domain inference
+    of ``PolyMatrix(items, gens)``. As in the stock body, the result uses the
+    generators of ``A`` (``A.row_join(u)``).
+    """
+    root = _ROOT
+    domain_type = _TYPE(root[8])
+    if _TYPE(A.domain) is not domain_type or _TYPE(u.domain) is not domain_type:
+        return None
+    if _TYPE(A._items) is not _LIST or _TYPE(u._items) is not _LIST:
+        return None
+    cls = root[1]
+    try:
+        T = root[2][3][1].__get__(DE, cls)
+        D = root[2][4][1].__get__(DE, cls)
+        level = root[2][5][1].__get__(DE, cls)
+    except AttributeError:
+        return None
+    if _TYPE(T) is not _LIST or _TYPE(D) is not _LIST or _TYPE(level) is not _INT or _verified() is None:
+        return None
+    r = root[0]('constant_system_field',
+                (A._rows, A._cols, _LIST(A._items), A.domain, u._rows, u._cols, _LIST(u._items), u.domain),
+                gens[0], None, T, D, level)
     if r is None:
         return None
-    a, v = r
-    return _matrix(a, gens), _matrix(v, gens)
+    (ar, ac, ai, ad), (ur, uc, ui, ud) = r
+    if ad == root[8]:
+        ad = root[8]
+    if ud == root[8]:
+        ud = root[8]
+    new, matrix = root[7], root[6]
+    STATS['constant_system_field'] += 1
+    return new(matrix, ar, ac, ai, gens, ad), new(matrix, ur, uc, ui, gens, ud)
+
+
+def limited_integrate_reduce(fa, fd, G, DE):
+    if _TYPE(G) is not _LIST:
+        return None
+    fields = _fields(DE)
+    if fields is None:
+        return None
+    r = _call('limited_integrate_reduce', (fa, fd, G), fields)
+    if r is None:
+        return None
+    a, b, N, g, V = r
+    return (a, b, a, N, g, V)

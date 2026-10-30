@@ -6,6 +6,7 @@ import symox as S
 from ._base import Distribution,variable,scalar,check,positive,HALF
 from ._joint import matrix,_normal_raw
 from ._univariate import continuous_model,discrete_model,finite_model
+from . import _markov_native
 
 _CONTEXT = {}
 
@@ -75,6 +76,9 @@ class _Markov:
         self.continuous = continuous
         self.index_set = S.Interval(0,S.oo) if continuous else S.Range(0,S.oo)
         self._transition = None if transition is None else matrix(transition)
+        # Lists are a symox extension (SymPy: TypeError) and keep the
+        # construction-time row checks; Matrix inputs are checked in queries.
+        self._listed = transition is not None and not isinstance(transition,(S.MatrixBase,S.MatrixSymbol))
         self._symbolic = self._transition is not None and not isinstance(self._transition,S.DenseMatrix)
         if self._transition is not None:check(self._transition.rows == self._transition.cols,'transition matrix must be square')
         if self._symbolic and not self._transition.rows.is_Integer:
@@ -98,14 +102,24 @@ class _Markov:
         self.state_space = S.FiniteSet(*self._states)
         if self._transition is not None:self._validate(self._transition,self._states)
         else:self._default_transition = S.MatrixSymbol('_T',len(self._states),len(self._states))
-    def _validate(self,T,states):
+    def _validate(self,T,states,query=False):
+        # SymPy checks the dimensions at construction and, only in P/E
+        # queries (_check_trans_probs), that (sum(row) - row_sum) != 0 is
+        # False, structurally: Float rows summing to 1.0000000000000002 and
+        # negative entries are accepted elsewhere (stationary_distribution,
+        # fundamental_matrix, ...).
         check(T.rows == T.cols == len(states),'matrix and state-space dimensions differ')
-        if isinstance(T,S.DenseMatrix):
+        if getattr(self,'_listed',False) and not query and isinstance(T,S.DenseMatrix):
             for i in range(T.rows):
                 for j in range(T.cols):
                     if not self.continuous or i != j:check(T[i,j] >= 0,'transition rates/probabilities must be nonnegative')
                 gap = sum(T[i,j] for j in range(T.cols))-(0 if self.continuous else 1)
                 check(gap == 0 or S.simplify(gap) == 0,'transition rows must sum to zero (generator) or one')
+        if query and isinstance(T,S.DenseMatrix):
+            row_sum = 0 if self.continuous else 1
+            for i in range(T.rows):
+                if (sum(T[i,j] for j in range(T.cols))-row_sum) != 0:
+                    raise ValueError('Values in a row must sum to %s. If you are using Float or floats then please use Rational.'%row_sum)
     @property
     def transition_probabilities(self):
         if self.continuous:return None
@@ -135,7 +149,7 @@ class _Markov:
             if not states:states = tuple(S.Integer(i) for i in range(T.rows))
             check(T.rows == len(states),'matrix and state-space dimensions differ')
             T = T.as_explicit();self._stochastic_symbol = True
-        elif T is not None:self._validate(T,states);self._stochastic_symbol = False
+        elif T is not None:self._validate(T,states,True);self._stochastic_symbol = False
         if T is None or not states:raise ValueError('a transition/generator matrix and a finite state space are required')
         return states,T,S.And(*ordinary) if ordinary else None
     def _transition_at(self,T,elapsed):
@@ -233,7 +247,16 @@ class _Markov:
         event = scalar(expr) if codes is None else scalar(expr).xreplace(codes)
         coded_gate = gate if codes is None or gate is None else gate.xreplace(codes)
         numerator,denominator = S.Integer(0),S.Integer(0)
-        for tail in product(states,repeat=len(times)-1):
+        native = None
+        if operation == 'P' or not any(type(x).__name__ == 'Str' for x in states):
+            coded_states = list(states) if codes is None else [codes[x] for x in states]
+            native = _markov_native.path_sums(kernels,states.index(initial),coded_states,
+                list(states) if operation == 'E' else coded_states,
+                [(v._atom,times.index(v.time)) for v in variables],coded_gate,
+                event if operation == 'P' else scalar(expr),operation == 'E')
+        value = None
+        if native is not None:numerator,denominator,value = native
+        for tail in (() if native is not None else product(states,repeat=len(times)-1)):
             path = (initial,)+tail;weight = S.Integer(1)
             for kernel,a,b in zip(kernels,path,path[1:]):weight *= kernel[states.index(a),states.index(b)]
             mapping = {v._atom:path[times.index(v.time)] for v in variables}
@@ -250,7 +273,10 @@ class _Markov:
             # Rows of a transition MatrixSymbol sum to one, so conditioning on
             # the initial state alone has probability one (as in SymPy).
             rest = [item for item in _parts(gate) if not (getattr(item,'class_name','') in ('Eq','Equality') and any(v._atom in item.free_symbols and v.time == earliest for v in variables) and len(random_symbols(item)) == 1)]
-            if not rest:denominator = S.Integer(1)
+            if not rest:denominator,value = S.Integer(1),None
+        # The native assembly: SymPy's unsimplified sum when the condition
+        # has probability one, else the simplified quotient.
+        if value is not None:return value
         check(denominator != 0,'conditioning event has zero probability')
         return S.simplify(numerator/denominator)
     def stationary_distribution(self,condition_set=False):
@@ -266,6 +292,8 @@ class _Markov:
         n = len(self._states)
         if n == 0:return S.ImmutableMatrix(S.Matrix([[]]))
         if not self.continuous:
+            native = _markov_native.stationary_distribution(T)
+            if native is not None:return native
             # The reference linear system: (P - I)^T with its first row
             # replaced by ones, solved by linsolve (free parameters tau0...).
             a = S.Matrix(T-S.eye(n)).T
@@ -281,6 +309,8 @@ class _Markov:
         """The solution of w Q = 0 with unit sum (a chain with a generator)."""
         if self._transition is None:return None
         if self._symbolic:raise NotImplementedError('a Lambda over matrix symbols is not supported')
+        native = _markov_native.ctmc_limiting_distribution(self._transition)
+        if native is not None:return native
         n = self._transition.rows;w = S.IndexedBase('w');wi = [w[i] for i in range(n)]
         equations = list(S.Matrix([wi])*self._transition)+[sum(wi)-1]
         return S.ImmutableMatrix([[S.simplify(v) for v in list(S.linsolve(equations,wi))[0]]])
@@ -344,6 +374,10 @@ class DiscreteMarkovChain(_Markov,DiscreteTimeStochasticProcess):
         T = self.transition_probabilities
         if T is None or not isinstance(T,S.DenseMatrix):
             raise NotImplementedError("Cannot perform the operation with a symbolic matrix.")
+        native = _markov_native.communication_classes(T)
+        if native is not None:
+            return [([scalar(self._states[i]) for i in class_],S.true if recurrent else S.false,S.Integer(period))
+                    for class_,recurrent,period in native]
         n = len(self._states)
         V = list(range(n))
         E = [(i,j) for i in V for j in V if T[i,j] != 0]
@@ -379,6 +413,10 @@ class DiscreteMarkovChain(_Markov,DiscreteTimeStochasticProcess):
 
     def decompose(self):
         T = self.transition_probabilities
+        native = _markov_native.decompose(T) if isinstance(T,S.DenseMatrix) else None
+        if native is not None:
+            indexes,A,B,C = native
+            return [scalar(self._states[i]) for i in indexes],A,B,C
         r_states = [];t_states = []
         for states,recurrent,period in self.communication_classes():
             if recurrent:r_states += states
@@ -393,13 +431,92 @@ class DiscreteMarkovChain(_Markov,DiscreteTimeStochasticProcess):
         return states,A.as_immutable(),B.as_immutable(),C.as_immutable()
 
     def canonical_form(self):
+        T = self.transition_probabilities
+        native = _markov_native.canonical_form(T) if isinstance(T,S.DenseMatrix) else None
+        if native is not None:
+            indexes,matrix = native
+            return [scalar(self._states[i]) for i in indexes],matrix
         states,A,B,C = self.decompose()
         O = S.zeros(A.shape[0],C.shape[1])
         return states,S.BlockMatrix([[A,O],[B,C]]).as_explicit()
 
 
+    def fundamental_matrix(self):
+        T = self.transition_probabilities
+        native = _markov_native.fundamental_matrix(T) if isinstance(T,S.DenseMatrix) else None
+        if native is not None:return native
+        # The reference statement sequence over the native matrix operations.
+        _,_,_,Q = self.decompose()
+        if Q.shape[0] > 0:
+            I = S.eye(Q.shape[0])
+            if (I-Q).det() == 0:raise ValueError("The fundamental matrix doesn't exist.")
+            return (I-Q).inv().as_immutable()
+        P = T;I = S.eye(P.shape[0]);w = self.fixed_row_vector()
+        W = S.Matrix([list(w) for i in range(0,P.shape[0])])
+        if (I-P+W).det() == 0:raise ValueError("The fundamental matrix doesn't exist.")
+        return (I-P+W).inv().as_immutable()
+
+    def absorbing_probabilities(self):
+        T = self.transition_probabilities
+        native = _markov_native.absorbing_probabilities(T) if isinstance(T,S.DenseMatrix) else None
+        if native is not None:return native
+        _,_,R,_ = self.decompose()
+        N = self.fundamental_matrix()
+        if R is None or N is None:return None
+        return N*R
+
+    def absorbing_probabilites(self):
+        from ..utilities.exceptions import sympy_deprecation_warning
+        sympy_deprecation_warning(
+            """
+            DiscreteMarkovChain.absorbing_probabilites() is deprecated. Use
+            absorbing_probabilities() instead (note the spelling difference).
+            """,
+            deprecated_since_version="1.7",
+            active_deprecations_target="deprecated-absorbing_probabilites",
+        )
+        return self.absorbing_probabilities()
+
+    def is_regular(self):
+        tuples = self.communication_classes()
+        if len(tuples) == 0:return S.false
+        classes,_,periods = list(zip(*tuples))
+        return S.And(len(classes) == 1,periods[0] == 1)
+
+    def is_ergodic(self):
+        tuples = self.communication_classes()
+        if len(tuples) == 0:return S.false
+        classes,_,_ = list(zip(*tuples))
+        return S.sympify(len(classes) == 1)
+
+    def is_absorbing_state(self,state):
+        trans_probs = self.transition_probabilities
+        if isinstance(trans_probs,S.ImmutableMatrix) and state < trans_probs.shape[0]:
+            return S.sympify(trans_probs[state,state]) is S.S.One
+
+    def is_absorbing_chain(self):
+        states,A,B,C = self.decompose()
+        r = A.shape[0]
+        return S.And(r > 0,A == S.Identity(r).as_explicit())
+
+
 class ContinuousMarkovChain(_Markov,StochasticProcess):
     def __init__(self,sym,state_space=None,gen_mat=None):self._initialize_chain(sym,state_space,gen_mat,True)
+    def transition_probabilities(self,gen_mat=None):
+        """The reference ``Lambda(t, Q*exp(t*D)*Q.inv())`` (diagonalizable
+        generator) or ``Lambda(t, exp(t*gen_mat))``; the matrix work is the
+        native diagonalization and exponential."""
+        return _ctmc_transition_probabilities(gen_mat)
+
+
+@S.cacheit
+def _ctmc_transition_probabilities(gen_mat):
+    t = S.Dummy('t')
+    if isinstance(gen_mat,(S.Matrix,S.ImmutableMatrix)) and gen_mat.is_diagonalizable():
+        Q,D = gen_mat.diagonalize()
+        return S.Lambda(t,Q*S.exp(t*D)*Q.inv())
+    if gen_mat != None:
+        return S.Lambda(t,S.exp(t*gen_mat))
 
 
 def _context_predicate(process,kind,value):
