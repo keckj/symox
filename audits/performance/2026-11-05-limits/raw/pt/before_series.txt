@@ -1,0 +1,352 @@
+....FFFFFF..F....F...FF......F....FF..F.                                 [100%]
+=================================== FAILURES ===================================
+_______________________________ test_issue_5223 ________________________________
+
+    def test_issue_5223():
+        assert series(1, x) == 1
+>       assert next(S.Zero.lseries(x)) == 0
+E       StopIteration
+
+test_series.py:258: StopIteration
+_______________________________ test_issue_6350 ________________________________
+
+    def test_issue_6350():
+        expr = integrate(exp(k*(y**3 - 3*y)), (y, 0, oo), conds='none')
+>       assert expr.series(k, 0, 3) == -(-1)**(S(2)/3)*sqrt(3)*gamma(S(1)/3)**2*gamma(S(2)/3)/(6*pi*k**(S(1)/3)) - \
+            sqrt(3)*k*gamma(-S(2)/3)*gamma(-S(1)/3)/(6*pi) - \
+            (-1)**(S(1)/3)*sqrt(3)*k**(S(1)/3)*gamma(-S(1)/3)*gamma(S(1)/3)*gamma(S(2)/3)/(6*pi) - \
+            (-1)**(S(2)/3)*sqrt(3)*k**(S(5)/3)*gamma(S(1)/3)**2*gamma(S(2)/3)/(4*pi) - \
+            (-1)**(S(1)/3)*sqrt(3)*k**(S(7)/3)*gamma(-S(1)/3)*gamma(S(1)/3)*gamma(S(2)/3)/(8*pi) + O(k**3)
+
+test_series.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3226: in _expr_series
+    return _series_accum_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3166: in _series_accum_call
+    return _series_call(expr, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = -sqrt(3)*(k**(4/3)*exp(-2*I*pi/3)*gamma(-2/3)*gamma(-1/3)*hyper((1,), (4/3, 5/3), k**2) + k**(1/3)*besseli(-1/3, 2*k)*...2 + k**(1/3)*exp(-I*pi/3)*besseli(1/3, 2*k)*gamma(-1/3)*gamma(1/3)*gamma(2/3)*gamma(4/3))*exp(2*I*pi/3)/(6*pi*k**(1/3))
+x = k, x0 = 0, n = 3, dir = '+', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of hyper(...) is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+_______________________________ test_issue_11313 _______________________________
+
+    def test_issue_11313():
+>       assert Integral(cos(x), x).series(x) == sin(x).series(x)
+
+test_series.py:316: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3226: in _expr_series
+    return _series_accum_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3166: in _series_accum_call
+    return _series_call(expr, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = Integral(cos(x), x), x = x, x0 = 0, n = 6, dir = '+', logx = None
+cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of Integral(...) is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+_____________________________ test_series_of_Subs ______________________________
+
+    def test_series_of_Subs():
+        from symox.abc import z
+    
+        subs1 = Subs(sin(x), x, y)
+        subs2 = Subs(sin(x) * cos(z), x, y)
+        subs3 = Subs(sin(x * z), (x, z), (y, x))
+    
+>       assert subs1.series(x) == subs1
+
+test_series.py:342: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3226: in _expr_series
+    return _series_accum_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3166: in _series_accum_call
+    return _series_call(expr, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = Subs(sin(x), x, y), x = x, x0 = 0, n = 6, dir = '+', logx = None
+cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of Subs(...) is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+_______________________________ test_issue_3978 ________________________________
+
+    def test_issue_3978():
+        f = Function('f')
+>       assert f(x).series(x, 0, 3, dir='-') == \
+                f(0) + x*Subs(Derivative(f(x), x), x, 0) + \
+                x**2*Subs(Derivative(f(x), x, x), x, 0)/2 + O(x**3)
+
+test_series.py:359: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3226: in _expr_series
+    return _series_accum_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3166: in _series_accum_call
+    return _series_call(expr, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = f(x), x = x, x0 = 0, n = 3, dir = '-', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of f(x) is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+______________________________ test_acceleration _______________________________
+
+    def test_acceleration():
+        e = (1 + 1/n)**n
+>       assert round(richardson(e, n, 10, 20).evalf(), 10) == round(E.evalf(), 10)
+
+test_series.py:409: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = ((1 + 1/n)**n, n, 10, 20), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing richardson
+
+test_series.py:3: NotImplementedError
+_______________________________ test_issue_6318 ________________________________
+
+    def test_issue_6318():
+        eq = (1/x)**Rational(2, 3)
+>       assert (eq + 1).as_leading_term(x) == eq
+E       assert x**(-2/3) == (1/x)**(2/3)
+E        +  where x**(-2/3) = as_leading_term(x)
+E        +    where as_leading_term = ((1/x)**(2/3) + 1).as_leading_term
+
+test_series.py:429: AssertionError
+_______________________________ test_issue_9173 ________________________________
+
+    def test_issue_9173():
+        p0,p1,p2,p3,b0,b1,b2=symbols('p0 p1 p2 p3 b0 b1 b2')
+        Q=(p0+(p1+(p2+p3/y)/y)/y)/(1+((p3/(b0*y)+(b0*p2-b1*p3)/b0**2)/y+\
+           (b0**2*p1-b0*b1*p2-p3*(b0*b2-b1**2))/b0**3)/y)
+    
+        series = Q.series(y,n=3)
+    
+>       assert series == y*(b0*p2/p3+b0*(-p2/p3+b1/b0))+y**2*(b0*p1/p3+b0*p2*\
+                (-p2/p3+b1/b0)/p3+b0*(-p1/p3+(p2/p3-b1/b0)**2+b1*p2/(b0*p3)+\
+                b2/b0-b1**2/b0**2))+b0+O(y**3)
+E       assert y*(b0*p2/p3 - (b0*p2 - b1*p3)/p3) + y**2*(b0*p1/p3 - p2*(b0*p2 - b1*p3)/p3**2 - (b0**2*p1 - b0*b1*p2 - p3*(b0*b2 - b1**2))/(b0*p3) + (b0*p2 - b1*p3)**2/(b0*p3**2)) + b0 + O(y**3) == ((((y * (((b0 * p2) / p3) + (b0 * ((-p2 / p3) + (b1 / b0))))) + ((y ** 2) * ((((b0 * p1) / p3) + (((b0 * p2) * ((-p2 / p3) + (b1 / b0))) / p3)) + (b0 * (((((-p1 / p3) + (((p2 / p3) - (b1 / b0)) ** 2)) + ((b1 * p2) / (b0 * p3))) + (b2 / b0)) - ((b1 ** 2) / (b0 ** 2))))))) + b0) + O(y**3))
+E        +  where O(y**3) = O((y ** 3))
+
+test_series.py:461: AssertionError
+_______________________________ test_issue_12791 _______________________________
+
+    def test_issue_12791():
+        beta = symbols('beta', positive=True)
+        theta, varphi = symbols('theta varphi', real=True)
+    
+        expr = (-beta**2*varphi*sin(theta) + beta**2*cos(theta) + \
+            beta*varphi*sin(theta) - beta*cos(theta) - beta + 1)/(beta*cos(theta) - 1)**2
+    
+        sol = (0.5/(0.5*cos(theta) - 1.0)**2 - 0.25*cos(theta)/(0.5*cos(theta) - 1.0)**2
+            + (beta - 0.5)*(-0.25*varphi*sin(2*theta) - 1.5*cos(theta)
+            + 0.25*cos(2*theta) + 1.25)/((0.5*cos(theta) - 1.0)**2*(0.5*cos(theta) - 1.0))
+            + 0.25*varphi*sin(theta)/(0.5*cos(theta) - 1.0)**2
+            + O((beta - S.Half)**2, (beta, S.Half)))
+    
+>       assert expr.series(beta, 0.5, 2).trigsimp() == sol
+E       assert 0.5/(0.5*cos(theta) - 1)**2 - 0.25*cos(theta)/(0.5*cos(theta) - 1)**2 + (beta - 0.5)*(-0.25*varphi*sin(2*theta) - 1.5*...5*cos(theta) - 1.0)**3 + 0.25*varphi*sin(theta)/(0.5*cos(theta) - 1)**2 + O((beta - 0.5)**2, (beta, 0.500000000000000)) == 0.5/(0.5*cos(theta) - 1.0)**2 - 0.25*cos(theta)/(0.5*cos(theta) - 1.0)**2 + (beta - 0.5)*(-0.25*varphi*sin(2*theta) - ... + 1.25)/(0.5*cos(theta) - 1.0)**3 + 0.25*varphi*sin(theta)/(0.5*cos(theta) - 1.0)**2 + O((beta - 1/2)**2, (beta, 1/2))
+E        +  where 0.5/(0.5*cos(theta) - 1)**2 - 0.25*cos(theta)/(0.5*cos(theta) - 1)**2 + (beta - 0.5)*(-0.25*varphi*sin(2*theta) - 1.5*...5*cos(theta) - 1.0)**3 + 0.25*varphi*sin(theta)/(0.5*cos(theta) - 1)**2 + O((beta - 0.5)**2, (beta, 0.500000000000000)) = <lambda>()
+E        +    where <lambda> = 0.5/(0.5*cos(theta) - 1)**2 - 0.25*cos(theta)/(0.5*cos(theta) - 1)**2 + (beta - 0.5)*(-0.5*varphi*sin(theta)*cos(theta....5*cos(theta) - 1)**3) + 0.25*varphi*sin(theta)/(0.5*cos(theta) - 1)**2 + O((beta - 0.5)**2, (beta, 0.500000000000000)).trigsimp
+E        +      where 0.5/(0.5*cos(theta) - 1)**2 - 0.25*cos(theta)/(0.5*cos(theta) - 1)**2 + (beta - 0.5)*(-0.5*varphi*sin(theta)*cos(theta....5*cos(theta) - 1)**3) + 0.25*varphi*sin(theta)/(0.5*cos(theta) - 1)**2 + O((beta - 0.5)**2, (beta, 0.500000000000000)) = _expr_series(beta, 0.5, 2)
+E        +        where _expr_series = (-beta**2*varphi*sin(theta) + beta**2*cos(theta) + beta*varphi*sin(theta) - beta*cos(theta) - beta + 1)/(beta*cos(theta) - 1)**2.series
+
+test_series.py:495: AssertionError
+_______________________________ test_issue_14384 _______________________________
+
+    def test_issue_14384():
+        x, a = symbols('x a')
+        assert series(x**a, x) == x**a
+        assert series(x**(-2*a), x) == x**(-2*a)
+>       assert series(exp(a*log(x)), x) == exp(a*log(x))
+
+test_series.py:502: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/series/__init__.py:16: in series
+    return _series_call(expr, x, x0, n, dir)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = exp(a*log(x)), x = x, x0 = 0, n = 6, dir = '+', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of exp of log is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+_______________________________ test_issue_19534 _______________________________
+
+    def test_issue_19534():
+        dt = symbols('dt', real=True)
+        expr = 16*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0)/45 + \
+                49*dt*(-0.049335189898860408029*dt*(2.0*dt + 1.0) + \
+                0.29601113939316244817*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) - \
+                0.12564355335492979587*dt*(0.074074074074074074074*dt*(2.0*dt + 1.0) + \
+                0.2962962962962962963*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.96296296296296296296*dt + 1.0) + 0.051640768506639183825*dt + \
+                dt*(1/2 - sqrt(21)/14) + 1.0)/180 + 49*dt*(-0.23637909581542530626*dt*(2.0*dt + 1.0) - \
+                0.74817562366625959291*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.88085458023927036857*dt*(0.074074074074074074074*dt*(2.0*dt + 1.0) + \
+                0.2962962962962962963*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.96296296296296296296*dt + 1.0) + \
+                2.1165151389911680013*dt*(-0.049335189898860408029*dt*(2.0*dt + 1.0) + \
+                0.29601113939316244817*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) - \
+                0.12564355335492979587*dt*(0.074074074074074074074*dt*(2.0*dt + 1.0) + \
+                0.2962962962962962963*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.96296296296296296296*dt + 1.0) + 0.22431393315265061193*dt + 1.0) - \
+                1.1854881643947648988*dt + dt*(sqrt(21)/14 + 1/2) + 1.0)/180 + \
+                dt*(0.66666666666666666667*dt*(2.0*dt + 1.0) + \
+                6.0173399699313066769*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) - \
+                4.1117044797036320069*dt*(0.074074074074074074074*dt*(2.0*dt + 1.0) + \
+                0.2962962962962962963*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.96296296296296296296*dt + 1.0) - \
+                7.0189140975801991157*dt*(-0.049335189898860408029*dt*(2.0*dt + 1.0) + \
+                0.29601113939316244817*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) - \
+                0.12564355335492979587*dt*(0.074074074074074074074*dt*(2.0*dt + 1.0) + \
+                0.2962962962962962963*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.96296296296296296296*dt + 1.0) + 0.22431393315265061193*dt + 1.0) + \
+                0.94010945196161777522*dt*(-0.23637909581542530626*dt*(2.0*dt + 1.0) - \
+                0.74817562366625959291*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.88085458023927036857*dt*(0.074074074074074074074*dt*(2.0*dt + 1.0) + \
+                0.2962962962962962963*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.96296296296296296296*dt + 1.0) + \
+                2.1165151389911680013*dt*(-0.049335189898860408029*dt*(2.0*dt + 1.0) + \
+                0.29601113939316244817*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) - \
+                0.12564355335492979587*dt*(0.074074074074074074074*dt*(2.0*dt + 1.0) + \
+                0.2962962962962962963*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0) + \
+                0.96296296296296296296*dt + 1.0) + 0.22431393315265061193*dt + 1.0) - \
+                0.35816132904077632692*dt + 1.0) + 5.5065024887242400038*dt + 1.0)/20 + dt/20 + 1
+    
+>       assert N(expr.series(dt, 0, 8), 20) == (
+                - Float('0.00092592592592592596126289', precision=70) * dt**7
+                + Float('0.0027777777777777783174695', precision=70) * dt**6
+                + Float('0.016666666666666656027029', precision=70) * dt**5
+                + Float('0.083333333333333300951828', precision=70) * dt**4
+                + Float('0.33333333333333337034077', precision=70) * dt**3
+                + Float('1.0', precision=70) * dt**2
+                + Float('1.0', precision=70) * dt
+                + Float('1.0', precision=70)
+            )
+E       AssertionError: assert -0.00092592592592592596126*dt**7 + 0.0027777777777777783175*dt**6 + 0.016666666666666659496*dt**5 + 0.083333333333333300952*dt**4 + 0.33333333333333331483*dt**3 + 0.99999999999999988898*dt**2 + 1.0*dt + 1.0 == ((((((((-0.00092592592592592596126 * (dt ** 7)) + (0.0027777777777777783175 * (dt ** 6))) + (0.016666666666666656027 * (dt ** 5))) + (0.083333333333333300952 * (dt ** 4))) + (0.33333333333333337034 * (dt ** 3))) + (1.0000000000000000000 * (dt ** 2))) + (1.0000000000000000000 * dt)) + 1.0000000000000000000)
+E        +  where -0.00092592592592592596126*dt**7 + 0.0027777777777777783175*dt**6 + 0.016666666666666659496*dt**5 + 0.083333333333333300952*dt**4 + 0.33333333333333331483*dt**3 + 0.99999999999999988898*dt**2 + 1.0*dt + 1.0 = N(-0.000925925925925926*dt**7 + 0.00277777777777778*dt**6 + 0.0166666666666667*dt**5 + 0.0833333333333333*dt**4 + 0.333333333333333*dt**3 + 1.0*dt**2 + 1.0*dt + 1, 20)
+E        +    where -0.000925925925925926*dt**7 + 0.00277777777777778*dt**6 + 0.0166666666666667*dt**5 + 0.0833333333333333*dt**4 + 0.333333333333333*dt**3 + 1.0*dt**2 + 1.0*dt + 1 = _expr_series(dt, 0, 8)
+E        +      where _expr_series = 16*dt*(0.125*dt*(2.0*dt + 1.0) + 0.875*dt + 1.0)/45 + 49*dt*(-0.0493351898988604*dt*(2.0*dt + 1.0) + 0.296011139393162...62963*dt + 1.0) + 0.224313933152651*dt + 1.0) - 0.358161329040776*dt + 1.0) + 5.50650248872424*dt + 1.0)/20 + dt/20 + 1.series
+E        +  and   0.00092592592592592596126 = Float('0.00092592592592592596126289', precision=70)
+E        +  and   0.0027777777777777783175 = Float('0.0027777777777777783174695', precision=70)
+E        +  and   0.016666666666666656027 = Float('0.016666666666666656027029', precision=70)
+E        +  and   0.083333333333333300952 = Float('0.083333333333333300951828', precision=70)
+E        +  and   0.33333333333333337034 = Float('0.33333333333333337034077', precision=70)
+E        +  and   1.0000000000000000000 = Float('1.0', precision=70)
+E        +  and   1.0000000000000000000 = Float('1.0', precision=70)
+E        +  and   1.0000000000000000000 = Float('1.0', precision=70)
+
+test_series.py:583: AssertionError
+_______________________________ test_issue_21245 _______________________________
+
+    def test_issue_21245():
+        fi = (1 + sqrt(5))/2
+>       assert (1/(1 - x - x**2)).series(x, 1/fi, 1).factor() == \
+            (-37*sqrt(5) - 83 + 13*sqrt(5)*x + 29*x + O((x - 2/(1 + sqrt(5)))**2, (x\
+                , 2/(1 + sqrt(5)))))/((2*sqrt(5) + 5)**2*(x + sqrt(5)*x - 2))
+E       assert (-20*sqrt(5) - 52 + 8*sqrt(5)*x + 16*x + O((x - 1/(1/2 + sqrt(5)/2))**2, (x, 1/(1/2 + sqrt(5)/2))))/((sqrt(5) + 5)**2*(x + sqrt(5)*x - 2)) == ((((((-37 * sqrt(5)) - 83) + ((13 * sqrt(5)) * x)) + (29 * x)) + O((x - 2/(1 + sqrt(5)))**2, (x, 2/(1 + sqrt(5))))) / ((((2 * sqrt(5)) + 5) ** 2) * ((x + (sqrt(5) * x)) - 2)))
+E        +  where (-20*sqrt(5) - 52 + 8*sqrt(5)*x + 16*x + O((x - 1/(1/2 + sqrt(5)/2))**2, (x, 1/(1/2 + sqrt(5)/2))))/((sqrt(5) + 5)**2*(x + sqrt(5)*x - 2)) = <lambda>()
+E        +    where <lambda> = 1/((x - 1/(1/2 + sqrt(5)/2))*(-2/(1/2 + sqrt(5)/2) - 1)) + (-2/(1/2 + sqrt(5)/2) - 1)**(-2) + O(x - 1/(1/2 + sqrt(5)/2), (x, 1/(1/2 + sqrt(5)/2))).factor
+E        +      where 1/((x - 1/(1/2 + sqrt(5)/2))*(-2/(1/2 + sqrt(5)/2) - 1)) + (-2/(1/2 + sqrt(5)/2) - 1)**(-2) + O(x - 1/(1/2 + sqrt(5)/2), (x, 1/(1/2 + sqrt(5)/2))) = _expr_series(x, (1 / 1/2 + sqrt(5)/2), 1)
+E        +        where _expr_series = (1 / ((1 - x) - (x ** 2))).series
+E        +  and   sqrt(5) = sqrt(5)
+E        +  and   sqrt(5) = sqrt(5)
+E        +  and   O((x - 2/(1 + sqrt(5)))**2, (x, 2/(1 + sqrt(5)))) = O(((x - (2 / (1 + sqrt(5)))) ** 2), (x, 2/(1 + sqrt(5))))
+E        +    where sqrt(5) = sqrt(5)
+E        +  and   sqrt(5) = sqrt(5)
+E        +  and   sqrt(5) = sqrt(5)
+
+test_series.py:621: AssertionError
+_______________________________ test_issue_21938 _______________________________
+
+    def test_issue_21938():
+        expr = sin(1/x + exp(-x)) - sin(1/x)
+>       assert expr.series(x, oo) == (1/(24*x**4) - 1/(2*x**2) + 1 + O(x**(-6), (x, oo)))*exp(-x)
+E       assert O(x**(-6), (x, oo)) == (((((1 / (24 * (x ** 4))) - (1 / (2 * (x ** 2)))) + 1) + O(x**(-6), (x, oo))) * exp(-x))
+E        +  where O(x**(-6), (x, oo)) = _expr_series(x, oo)
+E        +    where _expr_series = -sin(1/x) + sin(exp(-x) + 1/x).series
+E        +  and   O(x**(-6), (x, oo)) = O((x ** -6), (x, oo))
+E        +  and   exp(-x) = exp(-x)
+
+test_series.py:629: AssertionError
+_______________________________ test_issue_24266 _______________________________
+
+    def test_issue_24266():
+        #type1: exp(f(x))
+        assert (exp(-I*pi*(2*x+1))).series(x, 0, 3) == -1 + 2*I*pi*x + 2*pi**2*x**2 + O(x**3)
+        assert (exp(-I*pi*(2*x+1))*gamma(1+x)).series(x, 0, 3) == -1 + x*(EulerGamma + 2*I*pi) + \
+            x**2*(-EulerGamma**2/2 + 23*pi**2/12 - 2*EulerGamma*I*pi) + O(x**3)
+    
+        #type2: c**f(x)
+>       assert ((2*I)**(-I*pi*(2*x+1))).series(x, 0, 2) == exp(pi**2/2 - I*pi*log(2)) + \
+              x*(pi**2*exp(pi**2/2 - I*pi*log(2)) - 2*I*pi*exp(pi**2/2 - I*pi*log(2))*log(2)) + O(x**2)
+E       assert exp(-I*pi*(log(2) + I*pi/2)) - 2*I*pi*x*(log(2) + I*pi/2)*exp(-I*pi*(log(2) + I*pi/2)) + O(x**2) == ((exp(pi**2/2 - I*pi*log(2)) + (x * (((pi ** 2) * exp(pi**2/2 - I*pi*log(2))) - ((((2 * I) * pi) * exp(pi**2/2 - I*pi*log(2))) * log(2))))) + O(x**2))
+E        +  where exp(-I*pi*(log(2) + I*pi/2)) - 2*I*pi*x*(log(2) + I*pi/2)*exp(-I*pi*(log(2) + I*pi/2)) + O(x**2) = _expr_series(x, 0, 2)
+E        +    where _expr_series = ((2 * I) ** ((-I * pi) * ((2 * x) + 1))).series
+E        +  and   exp(pi**2/2 - I*pi*log(2)) = exp((((pi ** 2) / 2) - ((I * pi) * log(2))))
+E        +    where log(2) = log(2)
+E        +  and   exp(pi**2/2 - I*pi*log(2)) = exp((((pi ** 2) / 2) - ((I * pi) * log(2))))
+E        +    where log(2) = log(2)
+E        +  and   exp(pi**2/2 - I*pi*log(2)) = exp((((pi ** 2) / 2) - ((I * pi) * log(2))))
+E        +    where log(2) = log(2)
+E        +  and   log(2) = log(2)
+E        +  and   O(x**2) = O((x ** 2))
+
+test_series.py:650: AssertionError
+=========================== short test summary info ============================
+FAILED test_series.py::test_issue_5223 - StopIteration
+FAILED test_series.py::test_issue_6350 - NotImplementedError: series expansio...
+FAILED test_series.py::test_issue_11313 - NotImplementedError: series expansi...
+FAILED test_series.py::test_series_of_Subs - NotImplementedError: series expa...
+FAILED test_series.py::test_issue_3978 - NotImplementedError: series expansio...
+FAILED test_series.py::test_acceleration - NotImplementedError: missing richa...
+FAILED test_series.py::test_issue_6318 - assert x**(-2/3) == (1/x)**(2/3)
+FAILED test_series.py::test_issue_9173 - assert y*(b0*p2/p3 - (b0*p2 - b1*p3)...
+FAILED test_series.py::test_issue_12791 - assert 0.5/(0.5*cos(theta) - 1)**2 ...
+FAILED test_series.py::test_issue_14384 - NotImplementedError: series expansi...
+FAILED test_series.py::test_issue_19534 - AssertionError: assert -0.000925925...
+FAILED test_series.py::test_issue_21245 - assert (-20*sqrt(5) - 52 + 8*sqrt(5...
+FAILED test_series.py::test_issue_21938 - assert O(x**(-6), (x, oo)) == (((((...
+FAILED test_series.py::test_issue_24266 - assert exp(-I*pi*(log(2) + I*pi/2))...
+14 failed, 26 passed in 1.96s

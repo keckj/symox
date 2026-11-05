@@ -27,6 +27,11 @@ use crate::traverse::node_count;
 const MAX_DEPTH: u32 = 48;
 
 mod abs_power;
+pub mod api;
+
+/// Prefix of the error of `rewrite` when the result depends on the sign of
+/// a parameter (the reference `NotImplementedError`).
+pub const SIGN_DEPENDENT: &str = "Result depends on the sign of ";
 mod symbolic_lt;
 
 pub struct Gruntz {
@@ -113,7 +118,8 @@ impl Gruntz {
     fn infinity_with_sign_of(&mut self, c0: &Expr) -> LRes<Expr> {
         // SymPy's limitinf: a coefficient matching I*a (a free of I) gives
         // c0*oo, e.g. I*exp(x) -> oo*I.
-        if !depends(c0, &self.x) && imaginary_multiple(c0) {
+        // The match divides by I: `-(-1)**(1/3)` is `I*(-1)**(5/6)`.
+        if !depends(c0, &self.x) && (imaginary_multiple(c0) || !crate::traverse::has(&div(c0, &Expr::i()), &Expr::i())) {
             return Ok(mul2(c0, &Expr::oo()));
         }
         if imaginary_multiple(c0) {
@@ -148,7 +154,7 @@ impl Gruntz {
                         for a in &free {
                             match self.sign(a) {
                                 Ok(t) => s *= t,
-                                Err(_) => signs.push(fx::sign(a)),
+                                Err(_) => signs.push(fx::sign(&super::unit_powers(a))),
                             }
                         }
                         if s == 0 {
@@ -170,7 +176,7 @@ impl Gruntz {
                     && ((!crate::functions::is_numeric_value(c0) && crate::evalf::eval_c64(c0).is_none()) || nonreal())
                 {
                     // parameter: oo*sign(c0), like SymPy
-                    Ok(mul2(&fx::sign(c0), &Expr::oo()))
+                    Ok(mul2(&fx::sign(&super::unit_powers(c0)), &Expr::oo()))
                 } else {
                     Err(err)
                 }
@@ -430,6 +436,14 @@ impl Gruntz {
                     None => e.clone(),
                 }
             }
+            // A hyperbolic function whose argument has a finite limit is
+            // analytic there: the series engine expands it and the leading
+            // coefficient keeps its form (`sinh(tanh(x))` tends to `sinh(1)`).
+            Kind::Func(Func::Sinh | Func::Cosh | Func::Tanh, args)
+                if args.len() == 1 && depends(&args[0], &x) && self.limitinf(&args[0]).is_ok_and(|l| is_finite_limit(&l) && crate::assumptions::is_real(&l) == Some(true)) =>
+            {
+                e.clone()
+            }
             Kind::Func(f, args) if args.len() == 1 && depends(&args[0], &x) => {
                 let a = &args[0];
                 match f {
@@ -535,6 +549,9 @@ impl Gruntz {
             mul(&[pow(z, a), fx::exp(&mz), Asym::Expints.apply(vec![nu, z.clone()])])
         };
         if s == 0 {
+            if let Func::Special(b @ (S::BesselJ | S::BesselY | S::BesselI | S::BesselK)) = f {
+                return self.bessel_imaginary(*b, &args[0], z, &l);
+            }
             // li(z) = z*_eis(log(z)) for z -> 0+
             if matches!(f, Func::Special(S::Li | S::LiOffset)) && l.is_zero() && self.sign(z).ok()? == 1 {
                 let r = mul2(z, &Asym::Eis.apply(vec![fx::log(z)]));
@@ -681,6 +698,56 @@ impl Gruntz {
             S::BesselJ | S::BesselI => mul2(&sg, &form(b, &u)),
             S::BesselY => mul2(&sg, &add(&[form(S::BesselY, &u), mul(&[Expr::int(2), Expr::i(), form(S::BesselJ, &u)])])),
             _ => sub(&mul2(&sg, &form(S::BesselK, &u)), &mul(&[Expr::i(), Expr::pi(), form(S::BesselI, &u)])),
+        })
+    }
+
+    /// A Bessel function whose argument tends to `I*oo` or `-I*oo`, that is
+    /// `z = +-I*u` with `u -> +oo` real: the connection formulas (DLMF
+    /// 10.27.6, 10.27.8, 10.27.11 at `arg u = 0`, valid for every order)
+    ///
+    /// * `J(nu, +-I*u) = exp(+-I*pi*nu/2) I(nu, u)`,
+    /// * `I(nu, +-I*u) = exp(+-I*pi*nu/2) J(nu, u)`,
+    /// * `Y(nu, +-I*u) = exp(+-I*pi*(nu + 1)/2) I(nu, u) - (2/pi) exp(-+I*pi*nu/2) K(nu, u)`,
+    /// * `K(nu, I*u) = -(I*pi/2) exp(-I*pi*nu/2) (J(nu, u) - I*Y(nu, u))`,
+    ///   `K(nu, -I*u) = (I*pi/2) exp(I*pi*nu/2) (J(nu, u) + I*Y(nu, u))`,
+    ///
+    /// followed by Hankel's forms at `u -> +oo`. The reference reaches the
+    /// same values (`bessely(1, I*oo) = -oo`) through `heuristics`.
+    fn bessel_imaginary(&mut self, b: crate::special::SpecialFn, nu: &Expr, z: &Expr, l: &Expr) -> Option<Expr> {
+        use crate::special::SpecialFn as S;
+        let i = Expr::i();
+        let ioo = mul2(&i, &Expr::oo());
+        let sg: i64 = if *l == ioo {
+            1
+        } else if *l == neg(&ioo) {
+            -1
+        } else {
+            return None;
+        };
+        let sgn = Expr::int(sg);
+        // u = -+I*z, real and tending to +oo
+        let u = crate::expand::expand(&mul(&[neg(&sgn), i.clone(), z.clone()]));
+        // `u` real for a real engine variable: no `I`, every other symbol real
+        let x = self.x.clone();
+        let real = !crate::traverse::has(&u, &i)
+            && crate::traverse::free_symbols(&u).iter().all(|v| *v == x || crate::assumptions::is_real(v) == Some(true));
+        if !real || !self.limitinf(&u).ok()?.is_constant(Constant::Infinity) {
+            return None;
+        }
+        let at = |k: S, this: &mut Self| this.bessel_tractable(k, nu, &u, 1);
+        let ph = |c: Expr| fx::exp(&mul(&[c, i.clone(), Expr::pi(), Expr::rational(1, 2)]));
+        let one = Expr::one();
+        Some(match b {
+            S::BesselJ => mul2(&ph(mul2(&sgn, nu)), &at(S::BesselI, self)?),
+            S::BesselI => mul2(&ph(mul2(&sgn, nu)), &at(S::BesselJ, self)?),
+            S::BesselY => sub(
+                &mul2(&ph(mul2(&sgn, &add(&[nu.clone(), one]))), &at(S::BesselI, self)?),
+                &mul(&[Expr::int(2), pow(&Expr::pi(), &Expr::minus_one()), ph(neg(&mul2(&sgn, nu))), at(S::BesselK, self)?]),
+            ),
+            _ => {
+                let h = add(&[at(S::BesselJ, self)?, mul(&[neg(&sgn), i.clone(), at(S::BesselY, self)?])]);
+                mul(&[neg(&sgn), i.clone(), Expr::pi(), Expr::rational(1, 2), ph(neg(&mul2(&sgn, nu))), h])
+            }
         })
     }
 
@@ -1354,7 +1421,17 @@ impl Gruntz {
         let g = omega.last().unwrap().clone();
         omega.reverse(); // smallest first: replacements of nested elements
         let garg = arg(&g)?;
-        let sig = self.sign(&garg)?;
+        // the reference raises NotImplementedError when the sign of the
+        // exponent of the most rapidly varying element is not decided
+        let sig = match self.sign(&garg) {
+            Ok(s) => s,
+            Err(_) => {
+                // the reference variable is positive: `sign(x*w)` is `sign(w)`
+                let tpos = Expr::symbol_with(&self.x.to_string(), crate::symbol::Assumptions::POSITIVE);
+                let shown = xreplace(&garg, &std::iter::once((self.x.clone(), tpos)).collect());
+                return unknown(format!("{}{}", SIGN_DEPENDENT, crate::functions::sign(&shown)));
+            }
+        };
         let wsym = match sig {
             1 => pow(w, &Expr::minus_one()),
             -1 => w.clone(),

@@ -338,13 +338,16 @@ def install_doit():
 
 
 def _limit_doit(held):
-    from ._accum_limit import oscillating_limit
+    """The routes of ``limit`` for a limit the native ``doit`` keeps held;
+    ``NotImplementedError`` and ``ValueError`` propagate as from the
+    reference ``Limit.doit``."""
+    from .. import limit
     try:
         e, z, z0, direction = held.args
-        value = oscillating_limit(e, z, z0, str(direction))
-    except (TypeError, ValueError, NotImplementedError, AttributeError):
+        value = limit(e, z, z0, str(direction))
+    except (TypeError, AttributeError):
         return held
-    return held if value is None else value
+    return held if getattr(value, 'is_Limit', False) else value
 
 
 def _integral_doit(held):

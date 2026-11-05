@@ -1,0 +1,417 @@
+{
+"test_series.py:test_exp_product_positive_factors:1": [
+"1 + a*b + a**2*b**2/2 + a**3*b**3/6 + a**4*b**4/24 + a**5*b**5/120 + a**6*b**6/720 + a**7*b**7/5040 + O(a**8*b**8, a, b)",
+0.0802,
+206
+],
+"test_series.py:test_issue_10761:1": [
+"x**3 - x**4 + x**5 + O(x**6)",
+0.0084,
+234
+],
+"test_series.py:test_issue_11313:1": [
+"x - x**3/6 + x**5/120 + O(x**6)",
+0.0206,
+102
+],
+"test_series.py:test_issue_11313:10": [
+"1/x",
+0.002,
+117
+],
+"test_series.py:test_issue_11313:11": [
+"x*(log(x) - 1)",
+0.0447,
+118
+],
+"test_series.py:test_issue_11313:2": [
+"1 - x**2/2 + O(x**3)",
+0.0312,
+103
+],
+"test_series.py:test_issue_11313:3": [
+"3*x**2",
+0.0031,
+105
+],
+"test_series.py:test_issue_11313:4": [
+"0",
+0.003,
+106
+],
+"test_series.py:test_issue_11313:5": [
+"1",
+0.002,
+107
+],
+"test_series.py:test_issue_11313:6": [
+"-x",
+0.0092,
+108
+],
+"test_series.py:test_issue_11313:7": [
+"Derivative(1, x)",
+0.0001,
+112
+],
+"test_series.py:test_issue_11313:8": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + O(x**6)",
+0.1803,
+114
+],
+"test_series.py:test_issue_11313:9": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + O(x**6)",
+0.0502,
+115
+],
+"test_series.py:test_issue_11407:1": [
+"sqrt(a + b) + O(x)",
+0.012,
+358
+],
+"test_series.py:test_issue_11407:2": [
+"sqrt(a + b + c) + O(x)",
+0.013,
+359
+],
+"test_series.py:test_issue_11884:1": [
+"cos(1) + O(x - 1, (x, 1))",
+0.0095,
+288
+],
+"test_series.py:test_issue_12578:1": [
+"1 - 2*x**4 - 8*x**6 - 34*x**8 - 152*x**10 - 714*x**12 - 3472*x**14 - 17318*x**16 + O(x**17)",
+0.131,
+239
+],
+"test_series.py:test_issue_12791:1": [
+"0.5/(0.5*cos(theta) - 1.0)**2 - 0.25*cos(theta)/(0.5*cos(theta) - 1.0)**2 + (beta - 0.5)*(-0.25*varphi*sin(2*theta) - 1.5*cos(theta) + 0.25*cos(2*theta) + 1.25)/(0.5*cos(theta) - 1.0)**3 + 0.25*varphi*sin(theta)/(0.5*cos(theta) - 1.0)**2 + O((beta - 1/2)**2, (beta, 1/2))",
+0.8639,
+256
+],
+"test_series.py:test_issue_14037:1": [
+"1/x + O(1)",
+0.0125,
+363
+],
+"test_series.py:test_issue_14384:1": [
+"x**a",
+0.0264,
+261
+],
+"test_series.py:test_issue_14384:2": [
+"x**(-2*a)",
+0.0282,
+262
+],
+"test_series.py:test_issue_14384:3": [
+"exp(a*log(x))",
+0.0442,
+263
+],
+"test_series.py:test_issue_14885:1": [
+"x**(-3/2) + 1/sqrt(x) + sqrt(x)/2 + x**(3/2)/6 + x**(5/2)/24 + x**(7/2)/120 + x**(9/2)/720 + x**(11/2)/5040 + O(x**6)",
+0.0566,
+270
+],
+"test_series.py:test_issue_15539:1": [
+"-1/(5*x**5) + 1/(3*x**3) - 1/x - pi/2 + O(x**(-6), (x, -oo))",
+0.0874,
+276
+],
+"test_series.py:test_issue_15539:2": [
+"-1/(5*x**5) + 1/(3*x**3) - 1/x + pi/2 + O(x**(-6), (x, oo))",
+0.0257,
+278
+],
+"test_series.py:test_issue_18008:1": [
+"-9/(32*x**3) - 3/(16*x**2) - 1/(8*x) + 1/4 + x/2 + O(x**(-4), (x, oo))",
+0.1258,
+293
+],
+"test_series.py:test_issue_18842:1": [
+"-180019443780011/5000000000000000",
+0.0998,
+299
+],
+"test_series.py:test_issue_19534:1": [
+"-0.00092592592592592596126*dt**7 + 0.0027777777777777783175*dt**6 + 0.016666666666666656027*dt**5 + 0.083333333333333300952*dt**4 + 0.33333333333333337034*dt**3 + 1.0*dt**2 + 1.0*dt + 1.0",
+0.4196,
+344
+],
+"test_series.py:test_issue_20697:1": [
+"b_2*y**2 + b_1*y + b_0 + O(y**3)",
+0.2801,
+377
+],
+"test_series.py:test_issue_21245:1": [
+"(-37*sqrt(5) - 83 + 13*sqrt(5)*x + 29*x + O((x - 2/(1 + sqrt(5)))**2, (x, 2/(1 + sqrt(5)))))/((2*sqrt(5) + 5)**2*(x + sqrt(5)*x - 2))",
+0.5966,
+382
+],
+"test_series.py:test_issue_21938:1": [
+"(1/(24*x**4) - 1/(2*x**2) + 1 + O(x**(-6), (x, oo)))*exp(-x)",
+0.251,
+390
+],
+"test_series.py:test_issue_24266:1": [
+"-1 + 2*I*pi*x + 2*pi**2*x**2 + O(x**3)",
+0.0354,
+406
+],
+"test_series.py:test_issue_24266:2": [
+"-1 + x*(EulerGamma + 2*I*pi) + x**2*(-EulerGamma**2/2 + 23*pi**2/12 - 2*EulerGamma*I*pi) + O(x**3)",
+0.0794,
+407
+],
+"test_series.py:test_issue_24266:3": [
+"exp(pi**2/2 - I*pi*log(2)) + x*(pi**2*exp(pi**2/2 - I*pi*log(2)) - 2*I*pi*exp(pi**2/2 - I*pi*log(2))*log(2)) + O(x**2)",
+0.1119,
+411
+],
+"test_series.py:test_issue_24266:4": [
+"exp(-I*pi*log(2)) - 2*I*pi*x*exp(-I*pi*log(2))*log(2) + O(x**2)",
+0.036,
+413
+],
+"test_series.py:test_issue_24266:5": [
+"exp(I*pi*log(y)) + 2*I*pi*x*exp(I*pi*log(y))*log(y) + O(x**2)",
+0.0427,
+416
+],
+"test_series.py:test_issue_24266:6": [
+"exp(I*pi*log(I*y)) + 2*I*pi*x*exp(I*pi*log(I*y))*log(I*y) + O(x**2)",
+0.0486,
+417
+],
+"test_series.py:test_issue_3978:1": [
+"f(0) + x*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 0) + x**2*Subs(Derivative(f(_xi_1), (_xi_1, 2)), _xi_1, 0)/2 + O(x**3)",
+0.0222,
+145
+],
+"test_series.py:test_issue_3978:2": [
+"f(0) + x*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 0) + x**2*Subs(Derivative(f(_xi_1), (_xi_1, 2)), _xi_1, 0)/2 + O(x**3)",
+0.0117,
+148
+],
+"test_series.py:test_issue_3978:3": [
+"f(0) + x**2*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 0) + O(x**3)",
+0.014,
+151
+],
+"test_series.py:test_issue_3978:4": [
+"f(1) + x**2*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 1) + O(x**3)",
+0.0171,
+153
+],
+"test_series.py:test_issue_3978:5": [
+"TestF(0) + x*Subs(Derivative(TestF(xi), xi), xi, 0) + x**2*Subs(Derivative(TestF(xi), (xi, 2)), xi, 0)/2 + O(x**3)",
+0.013,
+159
+],
+"test_series.py:test_issue_4583:1": [
+"cos(1) - x*sin(1) + x**2*(-sin(1) - cos(1)/2) + x**3*(-cos(1) + sin(1)/6) + x**4*(-11*cos(1)/24 + sin(1)/2) + O(x**5)",
+0.0571,
+183
+],
+"test_series.py:test_issue_5223:1": [
+"1",
+0.0001,
+43
+],
+"test_series.py:test_issue_5223:10": [
+"4*x - 4",
+0.0308,
+66
+],
+"test_series.py:test_issue_5223:11": [
+"2",
+0.0008,
+68
+],
+"test_series.py:test_issue_5223:12": [
+"exp(logx*y) + O(x)",
+0.1228,
+73
+],
+"test_series.py:test_issue_5223:13": [
+"-1/(6*x**3) + 1/x + O(x**(-5), (x, oo))",
+0.0184,
+76
+],
+"test_series.py:test_issue_5223:14": [
+"x",
+0.002,
+77
+],
+"test_series.py:test_issue_5223:15": [
+"-x",
+0.0021,
+78
+],
+"test_series.py:test_issue_5223:16": [
+"x",
+0.002,
+79
+],
+"test_series.py:test_issue_5223:17": [
+"-x",
+0.0019,
+80
+],
+"test_series.py:test_issue_5223:18": [
+"1 + x*log(x) + x**2*log(x)**2/2 + O(x**3*log(x)**3)",
+0.1196,
+82
+],
+"test_series.py:test_issue_5223:19": [
+"1 + p**(3/2)*log(p) + O(p**3*log(p)**3)",
+0.0617,
+86
+],
+"test_series.py:test_issue_5223:2": [
+"0",
+0.0,
+44
+],
+"test_series.py:test_issue_5223:20": [
+"1 + x*log(x) + O(x**2*log(x)**2)",
+0.0703,
+89
+],
+"test_series.py:test_issue_5223:3": [
+"1 - x**2/2 + x**4/24 + O(x**6)",
+0.0086,
+45
+],
+"test_series.py:test_issue_5223:4": [
+"0",
+0.0836,
+49
+],
+"test_series.py:test_issue_5223:5": [
+"x",
+0.0081,
+56
+],
+"test_series.py:test_issue_5223:6": [
+"E*(1 - x)**2/2 - E*(1 - x) + E",
+0.0545,
+57
+],
+"test_series.py:test_issue_5223:7": [
+"12*x*y",
+0.0151,
+61
+],
+"test_series.py:test_issue_5223:8": [
+"Derivative(1, x)",
+0.0016,
+62
+],
+"test_series.py:test_issue_5223:9": [
+"Derivative(x**3/6, x) + Derivative(x**2/2, x) + Derivative(x, x) + Derivative(1, x) + O(x**3)",
+0.0919,
+63
+],
+"test_series.py:test_issue_5852:1": [
+"1 + x**2/(2*log(x)**2) + 5*x**4/(24*log(x)**4) + O(x**6)",
+0.1531,
+178
+],
+"test_series.py:test_issue_6318:1": [
+"(1/x)**(2/3)",
+0.0044,
+190
+],
+"test_series.py:test_issue_6350:1": [
+"-(-1)**(2/3)*sqrt(3)*gamma(1/3)**2*gamma(2/3)/(6*pi*k**(1/3)) - sqrt(3)*k*gamma(-2/3)*gamma(-1/3)/(6*pi) - (-1)**(1/3)*sqrt(3)*k**(1/3)*gamma(-1/3)*gamma(1/3)*gamma(2/3)/(6*pi) - (-1)**(2/3)*sqrt(3)*k**(5/3)*gamma(1/3)**2*gamma(2/3)/(4*pi) - (-1)**(1/3)*sqrt(3)*k**(7/3)*gamma(-1/3)*gamma(1/3)*gamma(2/3)/(8*pi) + O(k**3)",
+0.1315,
+94
+],
+"test_series.py:test_issue_7203:1": [
+"-1 + (x - pi)**2/2 + O((x - pi)**3, (x, pi))",
+0.0222,
+199
+],
+"test_series.py:test_issue_7259:1": [
+"x - x**2 + 3*x**3/2 - 8*x**4/3 + 125*x**5/24 + O(x**6)",
+0.0083,
+283
+],
+"test_series.py:test_issue_7259:2": [
+"x**2 - x**4 + 3*x**6/2 + O(x**8)",
+0.0057,
+284
+],
+"test_series.py:test_issue_7259:3": [
+"x - x**2 + 4*x**3/3 + O(x**4)",
+0.0361,
+285
+],
+"test_series.py:test_issue_8805:1": [
+"1",
+0.0001,
+212
+],
+"test_series.py:test_issue_9173:1": [
+"y*(b0*p2/p3 + b0*(-p2/p3 + b1/b0)) + y**2*(b0*p1/p3 + b0*p2*(-p2/p3 + b1/b0)/p3 + b0*(-p1/p3 + (p2/p3 - b1/b0)**2 + b1*p2/(b0*p3) + b2/b0 - b1**2/b0**2)) + b0 + O(y**3)",
+0.003,
+222
+],
+"test_series.py:test_issue_9173:2": [
+"b2*y**2 + b1*y + b0 + O(y**3)",
+0.1685,
+225
+],
+"test_series.py:test_issue_9549:1": [
+"x**(-5) - 1/x**4 + x**(-3) + 1/x + O(x**(-6), (x, oo))",
+0.0397,
+230
+],
+"test_series.py:test_series_of_Subs:1": [
+"Subs(sin(x), x, y)",
+0.0001,
+128
+],
+"test_series.py:test_series_of_Subs:2": [
+"Subs(x**5/120, x, y) + Subs(-x**3/6, x, y) + Subs(x, x, y) + O(y**6)",
+0.01,
+131
+],
+"test_series.py:test_series_of_Subs:3": [
+"Subs(x**5/120, x, y) + Subs(-x**3/6, x, y) + Subs(x, x, y) + O(y**6)",
+0.0082,
+132
+],
+"test_series.py:test_series_of_Subs:4": [
+"Subs(sin(x), x, y)",
+0.0001,
+133
+],
+"test_series.py:test_series_of_Subs:5": [
+"Subs(sin(x), x, y) + Subs(z**4*sin(x)/24, x, y) + Subs(-z**2*sin(x)/2, x, y) + O(z**6)",
+0.0286,
+134
+],
+"test_series.py:test_series_of_Subs:6": [
+"x*y - x**3*y**3/6 + x**5*y**5/120 + O(x**6)",
+0.0297,
+136
+],
+"test_series.py:test_series_of_Subs:7": [
+"sin(x*y)",
+0.0008,
+137
+],
+"test_series.py:test_series_of_Subs:8": [
+"x + z",
+0.0042,
+140
+],
+"test_series.py:test_x_is_base_detection:1": [
+"x**(4/3)",
+0.0022,
+195
+]
+}

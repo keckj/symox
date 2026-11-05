@@ -1,0 +1,6 @@
+[
+[
+"cancellation in symbolic leading term",
+"Limit((-zeta(x) + zeta(x + exp(-x)))*exp(x*(log(2) + 1)), x, oo, dir='-')"
+]
+]

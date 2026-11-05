@@ -1,0 +1,368 @@
+........F...F....X..F.F....F..FFFF....F.....F.F.FF...F......F...F.....   [100%]
+=================================== FAILURES ===================================
+_______________________________ test_exp_sqrt_1 ________________________________
+
+    def test_exp_sqrt_1():
+>       assert exp(1 + sqrt(x)).nseries(x, n=3) ==  \
+            (exp(1)*(1 + sqrt(x) + x/2 + sqrt(x)*x/6)).expand() + O(sqrt(x)**3)
+E       assert E + E*x/2 + E*x**2/24 + E*sqrt(x) + E*x**(3/2)/6 + E*x**(5/2)/120 + O(x**3) == (E*x**(3/2)/6 + E*sqrt(x) + E*x/2 + E + O(x**(3/2)))
+E        +  where E + E*x/2 + E*x**2/24 + E*sqrt(x) + E*x**(3/2)/6 + E*x**(5/2)/120 + O(x**3) = _expr_nseries(x, n=3)
+E        +    where _expr_nseries = exp(sqrt(x) + 1).nseries
+E        +      where exp(sqrt(x) + 1) = exp((1 + sqrt(x)))
+E        +        where sqrt(x) = sqrt(x)
+E        +  and   E*x**(3/2)/6 + E*sqrt(x) + E*x/2 + E = expand()
+E        +    where expand = (E * (((1 + sqrt(x)) + (x / 2)) + ((sqrt(x) * x) / 6))).expand
+E        +      where E = exp(1)
+E        +      and   sqrt(x) = sqrt(x)
+E        +      and   sqrt(x) = sqrt(x)
+E        +  and   O(x**(3/2)) = O((sqrt(x) ** 3))
+E        +    where sqrt(x) = sqrt(x)
+
+test_nseries.py:342: AssertionError
+_______________________________ test_log_power1 ________________________________
+
+    def test_log_power1():
+        e = 1 / (1/x + x ** (log(3)/log(2)))
+>       assert e.nseries(x, n=5) == -x**(log(3)/log(2) + 2) + x + O(x**5)
+
+test_nseries.py:363: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3246: in _expr_nseries
+    return _series_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = 1/(x**(log(3)/log(2)) + 1/x), x = x, x0 = 0, n = 5, dir = '+'
+logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of (x)**(log(3)/log(2)) is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+__________________________________ test_bug2 ___________________________________
+
+    def test_bug2():  # 1/log(0)*log(0) problem
+        w = Symbol("w")
+        e = (w**(-1) + w**(
+            -log(3)*log(2)**(-1)))**(-1)*(3*w**(-log(3)*log(2)**(-1)) + 2*w**(-1))
+        e = e.expand()
+>       assert e.nseries(w, 0, 4).subs(w, 0) == 3
+
+test_nseries.py:430: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3246: in _expr_nseries
+    return _series_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = 2/(w/w**(log(3)/log(2)) + 1) + 3/(1 + w**(log(3)/log(2))/w), x = w
+x0 = 0, n = 4, dir = '+', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of (w)**(-log(3)/log(2)) is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+__________________________________ test_exp2 ___________________________________
+
+    def test_exp2():
+        w = Symbol("w")
+        e = w**(1 - log(x)/(log(2) + log(x)))
+        logw = Symbol("logw")
+>       assert e.nseries(
+            w, 0, 1, logx=logw) == exp(logw*log(2)/(log(x) + log(2)))
+E       assert exp(logw*(1 - log(x)/(log(x) + log(2)))) == exp(logw*log(2)/(log(x) + log(2)))
+E        +  where exp(logw*(1 - log(x)/(log(x) + log(2)))) = _expr_nseries(w, 0, 1, logx=logw)
+E        +    where _expr_nseries = w**(1 - log(x)/(log(x) + log(2))).nseries
+E        +  and   exp(logw*log(2)/(log(x) + log(2))) = exp(((logw * log(2)) / (log(x) + log(2))))
+E        +    where log(2) = log(2)
+E        +    and   log(x) = log(x)
+E        +    and   log(2) = log(2)
+
+test_nseries.py:442: AssertionError
+_______________________________ test_seriesbug2 ________________________________
+
+    def test_seriesbug2():
+        w = Symbol("w")
+        #simple case (1):
+        e = ((2*w)/w)**(1 + w)
+        assert e.nseries(w, 0, 1) == 2 + O(w, w)
+>       assert e.nseries(w, 0, 1).subs(w, 0) == 2
+E       assert 2 + O(0) == 2
+E        +  where 2 + O(0) = subs(w, 0)
+E        +    where subs = 2 + O(w).subs
+E        +      where 2 + O(w) = _expr_nseries(w, 0, 1)
+E        +        where _expr_nseries = 2**(w + 1).nseries
+
+test_nseries.py:484: AssertionError
+_______________________________ test_seriesbug2c _______________________________
+
+    def test_seriesbug2c():
+        w = Symbol("w", real=True)
+        #more complicated case, but sin(x)~x, so the result is the same as in (1)
+        e = (sin(2*w)/w)**(1 + w)
+        assert e.series(w, 0, 1) == 2 + O(w)
+        assert e.series(w, 0, 3) == 2 + 2*w*log(2) + \
+            w**2*(Rational(-4, 3) + log(2)**2) + O(w**3)
+>       assert e.series(w, 0, 2).subs(w, 0) == 2
+E       assert 2 + O(0) == 2
+E        +  where 2 + O(0) = subs(w, 0)
+E        +    where subs = 2 + 2*w*log(2) + O(w**2).subs
+E        +      where 2 + 2*w*log(2) + O(w**2) = _expr_series(w, 0, 2)
+E        +        where _expr_series = (sin(2*w)/w)**(w + 1).series
+
+test_nseries.py:507: AssertionError
+_________________________________ test_expbug4 _________________________________
+
+    def test_expbug4():
+        x = Symbol("x", real=True)
+        assert (log(
+            sin(2*x)/x)*(1 + x)).series(x, 0, 2) == log(2) + x*log(2) + O(x**2, x)
+        assert exp(
+            log(sin(2*x)/x)*(1 + x)).series(x, 0, 2) == 2 + 2*x*log(2) + O(x**2)
+    
+>       assert exp(log(2) + O(x)).nseries(x, 0, 2) == 2 + O(x)
+
+test_nseries.py:517: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3246: in _expr_nseries
+    return _series_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = 2*exp(O(x)), x = x, x0 = 0, n = 2, dir = '+', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of series of an expression containing O is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+_________________________________ test_logbug4 _________________________________
+
+    def test_logbug4():
+>       assert log(2 + O(x)).nseries(x, 0, 2) == log(2) + O(x, x)
+
+test_nseries.py:522: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3246: in _expr_nseries
+    return _series_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = log(2 + O(x)), x = x, x0 = 0, n = 2, dir = '+', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of series of an expression containing O is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+_________________________________ test_expbug5 _________________________________
+
+    def test_expbug5():
+        assert exp(log(1 + x)/x).nseries(x, n=3) == exp(1) + -exp(1)*x/2 + 11*exp(1)*x**2/24 + O(x**3)
+    
+>       assert exp(O(x)).nseries(x, 0, 2) == 1 + O(x)
+
+test_nseries.py:528: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3246: in _expr_nseries
+    return _series_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = exp(O(x)), x = x, x0 = 0, n = 2, dir = '+', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of series of an expression containing O is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+_______________________________ test_issue_3463 ________________________________
+
+    def test_issue_3463():
+        w, i = symbols('w,i')
+        r = log(5)/log(3)
+        p = w**(-1 + r)
+        e = 1/x*(-log(w**(1 + r)) + log(w + w**r))
+        e_ser = -r*log(w)/x + p/x - p**2/(2*x) + O(w)
+>       assert e.nseries(w, n=1) == e_ser
+
+test_nseries.py:557: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3246: in _expr_nseries
+    return _series_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = (-log(w**(1 + log(5)/log(3))) + log(w + w**(log(5)/log(3))))/x, x = w
+x0 = 0, n = 1, dir = '+', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of (w)**(1 + log(5)/log(3)) is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+_______________________________ test_issue_3503 ________________________________
+
+    def test_issue_3503():
+        e = sin(2 + x)/(2 + x)
+>       assert e.nseries(x, n=2) == sin(2)/2 + x*cos(2)/2 - x*sin(2)/4 + O(x**2)
+E       assert sin(2)/2 + x*(-sin(2)/4 + cos(2)/2) + O(x**2) == ((((sin(2) / 2) + ((x * cos(2)) / 2)) - ((x * sin(2)) / 4)) + O(x**2))
+E        +  where sin(2)/2 + x*(-sin(2)/4 + cos(2)/2) + O(x**2) = _expr_nseries(x, n=2)
+E        +    where _expr_nseries = sin(x + 2)/(x + 2).nseries
+E        +  and   sin(2) = sin(2)
+E        +  and   cos(2) = cos(2)
+E        +  and   sin(2) = sin(2)
+E        +  and   O(x**2) = O((x ** 2))
+
+test_nseries.py:599: AssertionError
+_______________________________ test_issue_3508 ________________________________
+
+    def test_issue_3508():
+        x = Symbol("x", real=True)
+>       assert log(sin(x)).series(x, n=5) == log(x) - x**2/6 - x**4/180 + O(x**5)
+E       assert log(x) - x**2/6 - x**4/180 + O(x**5*log(x)) == (((log(x) - ((x ** 2) / 6)) - ((x ** 4) / 180)) + O(x**5))
+E        +  where log(x) - x**2/6 - x**4/180 + O(x**5*log(x)) = _expr_series(x, n=5)
+E        +    where _expr_series = log(sin(x)).series
+E        +      where log(sin(x)) = log(sin(x))
+E        +        where sin(x) = sin(x)
+E        +  and   log(x) = log(x)
+E        +  and   O(x**5) = O((x ** 5))
+
+test_nseries.py:610: AssertionError
+_______________________________ test_issue_3639 ________________________________
+
+    def test_issue_3639():
+>       assert sin(cos(x)).nseries(x, n=5) == \
+            sin(1) - x**2*cos(1)/2 - x**4*sin(1)/8 + x**4*cos(1)/24 + O(x**5)
+E       assert sin(1) - x**2*cos(1)/2 + x**4*(-sin(1)/8 + cos(1)/24) + O(x**5) == ((((sin(1) - (((x ** 2) * cos(1)) / 2)) - (((x ** 4) * sin(1)) / 8)) + (((x ** 4) * cos(1)) / 24)) + O(x**5))
+E        +  where sin(1) - x**2*cos(1)/2 + x**4*(-sin(1)/8 + cos(1)/24) + O(x**5) = _expr_nseries(x, n=5)
+E        +    where _expr_nseries = sin(cos(x)).nseries
+E        +      where sin(cos(x)) = sin(cos(x))
+E        +        where cos(x) = cos(x)
+E        +  and   sin(1) = sin(1)
+E        +  and   cos(1) = cos(1)
+E        +  and   sin(1) = sin(1)
+E        +  and   cos(1) = cos(1)
+E        +  and   O(x**5) = O((x ** 5))
+
+test_nseries.py:623: AssertionError
+_______________________________ test_hyperbolic ________________________________
+
+    def test_hyperbolic():
+        assert sinh(x).nseries(x, n=6) == x + x**3/6 + x**5/120 + O(x**6)
+        assert cosh(x).nseries(x, n=5) == 1 + x**2/2 + x**4/24 + O(x**5)
+        assert tanh(x).nseries(x, n=6) == x - x**3/3 + 2*x**5/15 + O(x**6)
+        assert coth(x).nseries(x, n=6) == \
+            1/x - x**3/45 + x/3 + 2*x**5/945 + O(x**6)
+        assert asinh(x).nseries(x, n=6) == x - x**3/6 + 3*x**5/40 + O(x**6)
+        assert acosh(x).nseries(x, n=6) == \
+            pi*I/2 - I*x - 3*I*x**5/40 - I*x**3/6 + O(x**6)
+        assert atanh(x).nseries(x, n=6) == x + x**3/3 + x**5/5 + O(x**6)
+>       assert acoth(x).nseries(x, n=6) == -I*pi/2 + x + x**3/3 + x**5/5 + O(x**6)
+
+test_nseries.py:637: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3246: in _expr_nseries
+    return _series_call(self, x, x0, n, dir, logx)
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3127: in _series_call
+    return _series_native(expr, x, x0, n, dir)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+expr = acoth(x), x = x, x0 = 0, n = 6, dir = '+', logx = None, cdir = None
+
+    def _series_native(expr, x, x0, n, dir, logx=None, cdir=None):
+        try:
+            if logx is None and cdir is None:
+>               return _core._series(expr, x, x0, n, dir)
+E               NotImplementedError: series expansion of acoth(x) is not supported
+
+/home/keckj/symox-ci/wt/limits-20261105/python/symox/__init__.py:3038: NotImplementedError
+__________________________________ test_bug5 ___________________________________
+
+    def test_bug5():
+        w = Symbol("w")
+        l = Symbol('l')
+        e = (-log(w) + log(1 + w*log(x)))**(-2)*w**(-2)*((-log(w) +
+            log(1 + x*w))*(-log(w) + log(1 + w*log(x)))*w - x*(-log(w) +
+            log(1 + w*log(x)))*w)
+>       assert e.nseries(w, n=0, logx=l) == x/w/l + 1/w + O(1, w)
+E       assert (1 + x/l)/w + O(1) == ((((x / w) / l) + (1 / w)) + O(1))
+E        +  where (1 + x/l)/w + O(1) = _expr_nseries(w, n=0, logx=l)
+E        +    where _expr_nseries = (-w*x*(-log(w) + log(w*log(x) + 1)) + w*(-log(w) + log(w*x + 1))*(-log(w) + log(w*log(x) + 1)))/(w**2*(-log(w) + log(w*log(x) + 1))**2).nseries
+E        +  and   O(1) = O(1, w)
+
+test_nseries.py:666: AssertionError
+___________________________________ test_abs ___________________________________
+
+    def test_abs():
+        a = Symbol('a')
+        assert abs(x).nseries(x, n=4) == x
+        assert abs(-x).nseries(x, n=4) == x
+        assert abs(x + 1).nseries(x, n=4) == x + 1
+        assert abs(sin(x)).nseries(x, n=4) == x - Rational(1, 6)*x**3 + O(x**4)
+        assert abs(sin(-x)).nseries(x, n=4) == x - Rational(1, 6)*x**3 + O(x**4)
+>       assert abs(x - a).nseries(x, 1) == -a*sign(1 - a) + (x - 1)*sign(1 - a) + sign(1 - a)
+E       assert a*sign(a - 1) - (x - 1)*sign(a - 1) - sign(a - 1) == (((-a * sign(1 - a)) + ((x - 1) * sign(1 - a))) + sign(1 - a))
+E        +  where a*sign(a - 1) - (x - 1)*sign(a - 1) - sign(a - 1) = _expr_nseries(x, 1)
+E        +    where _expr_nseries = Abs(a - x).nseries
+E        +      where Abs(a - x) = abs((x - a))
+E        +  and   sign(1 - a) = sign((1 - a))
+E        +  and   sign(1 - a) = sign((1 - a))
+E        +  and   sign(1 - a) = sign((1 - a))
+
+test_nseries.py:743: AssertionError
+_______________________________ test_issue_4441 ________________________________
+
+    def test_issue_4441():
+        a, b = symbols('a,b')
+        f = 1/(1 + a*x)
+        assert f.series(x, 0, 5) == 1 - a*x + a**2*x**2 - a**3*x**3 + \
+            a**4*x**4 + O(x**5)
+        f = 1/(1 + (a + b)*x)
+>       assert f.series(x, 0, 3) == 1 + x*(-a - b)\
+            + x**2*(a + b)**2 + O(x**3)
+E       assert 1 + x*(-a - b) + x**2*(a**2 + 2*a*b + b**2) + O(x**3) == (((1 + (x * (-a - b))) + ((x ** 2) * ((a + b) ** 2))) + O(x**3))
+E        +  where 1 + x*(-a - b) + x**2*(a**2 + 2*a*b + b**2) + O(x**3) = _expr_series(x, 0, 3)
+E        +    where _expr_series = 1/(x*(a + b) + 1).series
+E        +  and   O(x**3) = O((x ** 3))
+
+test_nseries.py:779: AssertionError
+=========================== short test summary info ============================
+FAILED test_nseries.py::test_exp_sqrt_1 - assert E + E*x/2 + E*x**2/24 + E*sq...
+FAILED test_nseries.py::test_log_power1 - NotImplementedError: series expansi...
+FAILED test_nseries.py::test_bug2 - NotImplementedError: series expansion of ...
+FAILED test_nseries.py::test_exp2 - assert exp(logw*(1 - log(x)/(log(x) + log...
+FAILED test_nseries.py::test_seriesbug2 - assert 2 + O(0) == 2
+FAILED test_nseries.py::test_seriesbug2c - assert 2 + O(0) == 2
+FAILED test_nseries.py::test_expbug4 - NotImplementedError: series expansion ...
+FAILED test_nseries.py::test_logbug4 - NotImplementedError: series expansion ...
+FAILED test_nseries.py::test_expbug5 - NotImplementedError: series expansion ...
+FAILED test_nseries.py::test_issue_3463 - NotImplementedError: series expansi...
+FAILED test_nseries.py::test_issue_3503 - assert sin(2)/2 + x*(-sin(2)/4 + co...
+FAILED test_nseries.py::test_issue_3508 - assert log(x) - x**2/6 - x**4/180 +...
+FAILED test_nseries.py::test_issue_3639 - assert sin(1) - x**2*cos(1)/2 + x**...
+FAILED test_nseries.py::test_hyperbolic - NotImplementedError: series expansi...
+FAILED test_nseries.py::test_bug5 - assert (1 + x/l)/w + O(1) == ((((x / w) /...
+FAILED test_nseries.py::test_abs - assert a*sign(a - 1) - (x - 1)*sign(a - 1)...
+FAILED test_nseries.py::test_issue_4441 - assert 1 + x*(-a - b) + x**2*(a**2 ...
+17 failed, 52 passed, 1 xpassed in 2.37s

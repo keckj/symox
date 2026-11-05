@@ -215,9 +215,12 @@ fn _leadterm<'py>(
 }
 
 /// `limit(e, z, z0, dir)`; `None` when the limit could not be computed.
+/// With `raise_nie`, the undecided limits for which the reference raises
+/// `NotImplementedError` (a result depending on the sign of a parameter, a
+/// limit point `zoo`) raise it instead of returning `None`.
 #[pyfunction]
-#[pyo3(signature = (e, z, z0, dir="+"))]
-fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str) -> PyResult<Option<PyExpr>> {
+#[pyo3(signature = (e, z, z0, dir="+", raise_nie=false))]
+fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str, raise_nie: bool) -> PyResult<Option<PyExpr>> {
     let d = Dir::parse(dir).ok_or_else(|| PyValueError::new_err("direction must be one of '+', '-' or '+-'"))?;
     let held=lm::held_limit(&to_expr(e)?,&to_expr(z)?,&to_expr(z0)?,d);
     lm::validate_held(&held).map_err(PyNotImplementedError::new_err)?;
@@ -226,10 +229,21 @@ fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir
         Ok(r) => Ok(Some(w(r))),
         Err(LimitError::Unknown(s)) => {
             lm::trace::record(&s, &held);
+            if raise_nie && lm::reference_not_implemented(&s) {
+                return Err(PyNotImplementedError::new_err(s.replace("_symox_lim_t", &args[1].to_string())));
+            }
             Ok(None)
         }
         Err(err @ LimitError::Differ(..)) => Err(PyValueError::new_err(err.to_string())),
     }
+}
+
+/// The expression with its floats replaced by exact numbers as
+/// `Limit.doit` does (`nsimplify`), or `None` when it has none or a
+/// replacement is undecided.
+#[pyfunction]
+fn _limit_nsimplify(e: &Bound<'_, PyAny>) -> PyResult<Option<PyExpr>> {
+    Ok(lm::floats::nsimplify_floats(&to_expr(e)?).map(w))
 }
 
 /// Enables (`True`) or disables the record of native limit declines and
@@ -275,12 +289,87 @@ fn order_point_host(old: &Expr, new: &Expr, var: &Expr, point: &Expr) -> Option<
     })
 }
 
+// ----------------------------------------------------------------------
+// the public functions of the reference `sympy.series.gruntz`
+// ----------------------------------------------------------------------
+
+fn gerr(e: symox::limits::gruntz::api::ApiError) -> PyErr {
+    use symox::limits::gruntz::api::ApiError;
+    match e {
+        ApiError::NotImplemented(s) => PyNotImplementedError::new_err(s),
+        ApiError::Value(s) => PyValueError::new_err(s),
+    }
+}
+
+type ExprPairs = Vec<(PyExpr, PyExpr)>;
+
+fn expr_pairs(v: &[(Bound<'_, PyAny>, Bound<'_, PyAny>)]) -> PyResult<Vec<(Expr, Expr)>> {
+    v.iter().map(|(a, b)| Ok((to_expr(a)?, to_expr(b)?))).collect()
+}
+
+/// `compare(a, b, x)` of the Gruntz algorithm: `"<"`, `"="` or `">"`.
+#[pyfunction]
+fn _gruntz_compare(a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<&'static str> {
+    symox::limits::gruntz::api::compare(&to_expr(a)?, &to_expr(b)?, &to_expr(x)?).map_err(gerr)
+}
+
+/// `sign(e, x)` of the Gruntz algorithm: the sign of `e` for large `x`.
+#[pyfunction]
+fn _gruntz_sign(e: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<i32> {
+    symox::limits::gruntz::api::sign(&to_expr(e)?, &to_expr(x)?).map_err(gerr)
+}
+
+/// `limitinf(e, x)`: the limit at `x -> +oo` by the Gruntz algorithm.
+#[pyfunction]
+fn _gruntz_limitinf(e: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    symox::limits::gruntz::api::limitinf(&to_expr(e)?, &to_expr(x)?).map(w).map_err(gerr)
+}
+
+/// `mrv_leadterm(e, x)`: `(c0, e0)`.
+#[pyfunction]
+fn _gruntz_mrv_leadterm(e: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<(PyExpr, PyExpr)> {
+    symox::limits::gruntz::api::mrv_leadterm(&to_expr(e)?, &to_expr(x)?).map(|(c, e)| (w(c), w(e))).map_err(gerr)
+}
+
+/// `mrv(e, x)`: `((element, dummy) pairs, (dummy, rewrite) pairs, e in the dummies)`.
+#[pyfunction]
+fn _gruntz_mrv(e: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<(ExprPairs, ExprPairs, PyExpr)> {
+    let (p, r, f) = symox::limits::gruntz::api::mrv(&to_expr(e)?, &to_expr(x)?).map_err(gerr)?;
+    let conv = |v: Vec<(Expr, Expr)>| v.into_iter().map(|(a, b)| (w(a), w(b))).collect();
+    Ok((conv(p), conv(r), w(f)))
+}
+
+/// `rewrite(e, Omega, x, wsym)` with `Omega` given as its `(element, dummy)`
+/// pairs and its rewrites: `(f, logw)`.
+#[pyfunction]
+fn _gruntz_rewrite(
+    e: &Bound<'_, PyAny>,
+    omega: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)>,
+    rewrites: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)>,
+    x: &Bound<'_, PyAny>,
+    wsym: &Bound<'_, PyAny>,
+) -> PyResult<(PyExpr, PyExpr)> {
+    symox::limits::gruntz::api::rewrite(&to_expr(e)?, &expr_pairs(&omega)?, &expr_pairs(&rewrites)?, &to_expr(x)?, &to_expr(wsym)?)
+        .map(|(f, l)| (w(f), w(l)))
+        .map_err(gerr)
+}
+
+/// `gruntz(e, z, z0, dir)` without the heuristics of `limit`.
+#[pyfunction]
+#[pyo3(signature = (e, z, z0, dir="+"))]
+fn _gruntz(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str) -> PyResult<PyExpr> {
+    symox::limits::gruntz::api::gruntz(&to_expr(e)?, &to_expr(z)?, &to_expr(z0)?, dir).map(w).map_err(gerr)
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     symox::subs::register_order_point_host(order_point_host);
     m.add_function(wrap_pyfunction!(_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_held_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_limit_trace, m)?)?;
     m.add_function(wrap_pyfunction!(_limit_bounded_affine, m)?)?;
+    for f in [wrap_pyfunction!(_gruntz_compare, m)?, wrap_pyfunction!(_gruntz_sign, m)?, wrap_pyfunction!(_gruntz_limitinf, m)?, wrap_pyfunction!(_gruntz_mrv_leadterm, m)?, wrap_pyfunction!(_gruntz_mrv, m)?, wrap_pyfunction!(_gruntz_rewrite, m)?, wrap_pyfunction!(_gruntz, m)?, wrap_pyfunction!(_limit_nsimplify, m)?] {
+        m.add_function(f)?;
+    }
     m.add_function(wrap_pyfunction!(_series, m)?)?;
     m.add_function(wrap_pyfunction!(_series_direction, m)?)?;
     m.add_function(wrap_pyfunction!(_series_accum_error, m)?)?;
