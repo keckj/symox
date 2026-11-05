@@ -144,8 +144,12 @@ UserWarning, flags inconnus ignorés).
 Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
 - ODE : simplification et intégrales des solutions particulières en
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
-  d'erreur du casus irreducibilis ; factorable, 2F1, Bessel, nth_algebraic,
-  lie_group.
+  d'erreur du casus irreducibilis ; factorable, Bessel, nth_algebraic,
+  lie_group. 2F1 natif depuis `feat-ode-20261105` (corpus 315/287/268,
+  contre 315/285/267 sur main) ; fact_13/fact_16 attendent la branche unrad
+  de `_solve` en natif (le repli tsolve rend `[]` à tort pour
+  `-2*y/sqrt(y**3) = C1 + x`) ; `integrate(x/(x**2 - 1))` garde deux
+  logarithmes ([détail](docs/algorithmic-parity.md#ode-2026-11-05-native-2f1-step-upper-limit-integraldoit-fx-solve-recast)).
 - prde : `limited_integrate`, `param_rischDE`, `prde_cancel_liouvillian` et
   le reste de l'EDR de Risch paramétrique sur K(t) au-dessus du niveau de
   base ; erreur kkinv `PolynomialError` de SymPy non reproduite (xfail
@@ -212,6 +216,7 @@ pas l'équivalence avec SymPy.
 | Rust, LLL/arrondis/protocoles du 28 octobre | 732 tests unitaires + 1 test d’intégration (651 cas) + 5 doctests réussis sur Demeter ; 1 ignoré ; clippy core et bindings validés | Nouvelle exécution complète ; 340 entrées natives vérifiées, dont le TSV compilé ; aucun résultat Rust réutilisé |
 | Rust, rationnel/AUTO/sparse du 27 octobre | 725 tests + 5 doctests réussis sur Demeter ; 1 ignoré ; clippy 1.99 core et bindings validés | Résultats du premier lot réutilisés après correction de deux fichiers Python ; mêmes 335 entrées natives et binaire vérifiés dans les deux snapshots |
 | Suite complète, vague 17 (`f425cf0`, 24 octobre) | 44 338 tests Python ; `cargo test` et clippy validés | Historique, avant le dernier commit |
+| Corpus EDO, rejeu du 5 novembre (`feat-ode-20261105`) | 315 / 287 / 268 identiques sur 315 (main `15e75d3a` : 315 / 285 / 267) | [Preuves](audits/performance/2026-11-05-ode/README.md) ; fact_12 et liouville_08 corrigés, aucune régression |
 | Corpus EDO, rejeu du 26 octobre (`570f1832`) | 315 classifications / 281 indices / 263 résolutions par défaut identiques sur 315 ; 25 observations limitées en ressources | Politique stricte différente de la vague 17 ; écarts de forme et complétude encore à trier |
 | Corpus d’intégration, R11 corrigé du 28 octobre (`e7b29759`) | **1 164 identiques / 36 différences revues / 10 doubles retenues**, sans erreur/timeout | 1 210 cas par moteur exactement une fois ; 2 420 appels ; tous les arbres natifs identiques à R2 ; 21 contrôles de paramètres et 10 E1 réussis |
 | Corpus d'intégration, rejeu du 28 octobre (`c3f413bd`) | 1 164 identiques / 20 branches conditionnelles certifiées / 5 équivalences / 10 corrections E1 / 1 lacune affine nonzero / 10 doubles retenues | 1 210 cas exécutés exactement une fois par backend ; les 4 anciennes branches complexes sont corrigées ; 1 200 autres arbres natifs identiques à cb5 |

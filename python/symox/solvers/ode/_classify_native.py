@@ -257,6 +257,59 @@ def match_2nd_hypergeometric(eq, func):
     return list(value)
 
 
+def _hyper_hooks():
+    from symox.polys.polytools import cancel, factor
+    from symox.polys import roots
+    from symox.core.function import expand
+    from symox.simplify import simplify
+    return cancel, factor, simplify, expand, roots
+
+
+def hyper_2f1_match(A, B, func):
+    """``equivalence_hypergeometric`` and ``match_2nd_2F1_hypergeometric``
+    decided natively: the reference match object, ``None``, or ``_MISSING``
+    (not decided)."""
+    native = getattr(_core, 'ode_hyper_2f1_match', None)
+    if native is None or not isinstance(func, _core.Expr) or len(func.args) != 1:
+        return _MISSING
+    if not (isinstance(A, _core.Expr) and isinstance(B, _core.Expr)):
+        return _MISSING
+    try:
+        value = native(A, B, func.args[0], *_hyper_hooks())
+    except Exception:
+        return _MISSING
+    if value is None:
+        return _MISSING
+    if value is False:
+        return None
+    a, b, c, k, mobius = value
+    return {'a': a, 'b': b, 'c': c, 'k': k, 'mobius': mobius, 'type': "2F1"}
+
+
+def hyper_2f1_solution(eq, func, match_object):
+    """``get_sol_2F1_hypergeometric`` decided natively: ``Eq(f(x), rhs)``,
+    ``None``, or ``_MISSING`` (not decided)."""
+    native = getattr(_core, 'ode_hyper_2f1_solution', None)
+    if native is None or not isinstance(func, _core.Expr) or len(func.args) != 1:
+        return _MISSING
+    params = tuple(match_object.get(key) for key in ('a', 'b', 'c', 'k', 'mobius'))
+    A = match_object.get('A')
+    if not all(isinstance(v, _core.Expr) for v in params + (A,)):
+        return _MISSING
+    from .ode import get_numbered_constants
+    from symox.core.relational import Eq
+    C0, C1 = get_numbered_constants(eq, num=2)
+    try:
+        value = native(params, A, func.args[0], C0, C1, *_hyper_hooks())
+    except Exception:
+        return _MISSING
+    if value is None:
+        return _MISSING
+    if value is False:
+        return None
+    return Eq(func, value[0])
+
+
 def airy_match(solver, eq):
     """The ``2nd_linear_airy`` matcher decided natively: ``(True, rn)``,
     ``(False, None)``, or ``None`` when the reference matcher must run."""

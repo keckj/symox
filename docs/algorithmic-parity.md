@@ -16297,3 +16297,72 @@ Remaining gaps (still Python, recorded):
   contract (Python code runs between two reads) and needs user validation.
 
 Measured: [audit](../audits/performance/2026-11-05-prde/README.md).
+
+## ode (2026-11-05): native 2F1 step, upper-limit `Integral.doit`, `f(x)` solve recast
+
+Corpus (315 cases, live SymPy 1.14, `audits/performance/2026-11-05-ode/`):
+classify / explicit hint / default dsolve identical on 315 / 285 / 267
+before (main `15e75d3a`) and 315 / 287 / 268 after; fact_12 (hint and
+default) and liouville_08 (hint) are now identical, no row regressed.
+
+Now native:
+
+- `2nd_hypergeometric` (2F1): `equivalence_hypergeometric` restricted to its
+  2F1 answer, `match_2nd_2F1_hypergeometric` and `get_sol_2F1_hypergeometric`
+  (`symox::ode::hypergeometric`, bindings `ode_hyper_2f1_match` and
+  `ode_hyper_2f1_solution` in `crates/symox-py/src/ode_classify.rs`,
+  admission in `python/symox/solvers/ode/_classify_native.py`,
+  `match_2nd_2F1` in `hypergeometric.py`). The public `cancel`, `factor`,
+  `simplify`, `expand` and `roots` are passed as hooks, so the steps that
+  call them behave as the public functions. The power counting, the gcd `k`,
+  the `I0` construction, the singular points and the equivalence table, the
+  Möbius map, the collection in `x**2, x`, `c, s, r, a, b`, the three
+  solution branches (`hyperexpand` for `c = 1`), `exp(logcombine(Integral))`
+  and the substitutions are computed in Rust. Declines (the reference body
+  runs and raises its own errors): Floats, non-rational exponents, a single
+  singular point (the reference raises IndexError on `sing_point[1]`),
+  `min` over non-real or undecided roots of `c` (the reference raises
+  TypeError), a Möbius map that keeps a free coefficient, a `hyperexpand`
+  error, or any hook failure. On the 34 second-order linear corpus rows the
+  native and reference match objects and solutions are identical (30 no
+  match, 4 matches).
+- `Integral(F, (u, b)).doit()` with an antiderivative that still contains an
+  indefinite integral (`integrate::eval_upper`, called from
+  `binders::doit`): as `ExprWithLimits._eval_interval`, the terms holding the
+  unevaluated `Integral(g, u)` become `Integral(g, (u, b))` and the other
+  terms are substituted. Before this, `u` was substituted inside the held
+  integral and produced `Integral(1/log(f(x)**2), f(x))`.
+- Solve of an applied undefined function `f(x)` (`solve::recast`): the
+  recast to an assumption-free Dummy no longer requires a rational equation
+  for this target (the reference recasts any non-Symbol). `exp(x)`, `x**2`
+  and other structured atoms keep the rational requirement and the exact
+  reconstruction check. The values are those of the same equation in a plain
+  symbol (`sqrt(f(x)) + f(x) - x`, `log(f(x)) + f(x) - x`).
+
+Remaining gaps (ODE scope):
+
+- fact_13 / fact_16 (`f'(x)**2 = f(x)**3`): SymPy solves
+  `-2*f/sqrt(f**3) = C1 + x` through the `unrad` branch of `_solve`, which
+  runs before `_tsolve`. symox's single-equation fallbacks
+  (`_solve_relations.py`) run the native tsolve before unrad and only for a
+  Symbol; for `y` the tsolve posify retry returns `[]` on the `C1 + x`
+  branch (a wrong empty answer, also for a plain symbol), and for `f(x)` the
+  call raises NotImplementedError and the factor stays implicit. This needs
+  the `_solve` unrad branch in the native solver; it is not fixed in Python.
+- `integrate(x/(x**2 - 1), x)` gives `log(x - 1)/2 + log(x + 1)/2` (the
+  native quadratic-denominator rule) where SymPy gives `log(x**2 - 1)/2`
+  (`ratint` gives the reference form); visible in the 2F1 solution of
+  `(1 - x**2)*f'' - 2*x*f' + 6*f`. Integration domain.
+- `solve(y**(3/2) - x, y)` keeps one root of three, and `f(x)` targets do
+  not get the `_simplified_solutions` form of a Symbol target.
+- 2nd_2F1_hyper_01/02/03 default: the default hint is a power series whose
+  form differs; algeb_04 (order of the Dummy `_C`); lie_group_08/09/12
+  (integration forms, resource limits).
+- Still in Python: nth_algebraic, factorable (orchestration), Bessel,
+  lie_group, `collect` with partial exponents, simplification of particular
+  solutions, vop_013 (above 6 GB).
+
+Tests: `tests/test_native_odehyper.py` (SymPy strings, native = reference on
+every row, IndexError left to the reference, upper-limit doit, solve
+recast, corpus rows; out-of-scope gaps as strict xfails), Rust unit tests in
+`ode/hypergeometric.rs` and `solve/recast.rs`.

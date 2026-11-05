@@ -561,6 +561,37 @@ fn eval_with_integrals(big_f: &Expr, f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> 
     Some(add2(&add(&integrals), &evalued))
 }
 
+/// The reference `Integral.doit` with the single bound `(x, b)`: a term
+/// holding an indefinite integral in `x` becomes `Integral(g, (x, b))`
+/// through `ExprWithLimits._eval_interval`, keeping its bound variable and
+/// class, and the other terms are substituted at `b`.
+pub(crate) fn eval_upper(big_f: &Expr, x: &Expr, b: &Expr) -> Expr {
+    if !has_indefinite_integral(big_f, x) {
+        return subs1(big_f, x, b);
+    }
+    let mut integrals = Vec::new();
+    let mut others = Vec::new();
+    for term in crate::simptools::add_args(big_f) {
+        let factors = crate::simptools::mul_args(&term);
+        if factors.iter().any(|g| indefinite_integrand(g, x).is_some()) {
+            let factors: Vec<Expr> = factors.iter().map(|g| match indefinite_integrand(g, x) {
+                Some(body) => {
+                    let upper = crate::binders::held(Func::Integral, &body, vec![vec![x.clone(), b.clone()]]).expect("valid integration limit");
+                    if host_methods::is_nonelementary(g) {
+                        host_methods::mark_nonelementary(&upper);
+                    }
+                    upper
+                }
+                None => g.clone(),
+            }).collect();
+            integrals.push(mul(&factors));
+        } else {
+            others.push(term);
+        }
+    }
+    add2(&add(&integrals), &subs1(&add(&others), x, b))
+}
+
 fn has_indefinite_integral(e: &Expr, x: &Expr) -> bool {
     crate::simptools::add_args(e).iter().any(|t| crate::simptools::mul_args(t).iter().any(|g| indefinite_integrand(g, x).is_some()))
 }

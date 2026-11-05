@@ -137,6 +137,19 @@ def equivalence_hypergeometric(A, B, func):
         return None
 
 
+def match_2nd_2F1(A, B, func):
+    """``equivalence_hypergeometric`` then, on its 2F1 answer,
+    ``match_2nd_2F1_hypergeometric``: the match object or ``None``."""
+    from ._classify_native import hyper_2f1_match, _MISSING
+    native = hyper_2f1_match(A, B, func)
+    if native is not _MISSING:
+        return native
+    d = equivalence_hypergeometric(A, B, func)
+    if d and d['type'] == "2F1":
+        return match_2nd_2F1_hypergeometric(d['I0'], d['k'], d['sing_point'], func)
+    return None
+
+
 def match_2nd_2F1_hypergeometric(I, k, sing_point, func):
     x = func.args[0]
     a = Wild("a")
@@ -234,6 +247,10 @@ def equivalence(max_num_pow, dem_pow):
 
 
 def get_sol_2F1_hypergeometric(eq, func, match_object):
+    from ._classify_native import hyper_2f1_solution, _MISSING
+    native = hyper_2f1_solution(eq, func, match_object)
+    if native is not _MISSING:
+        return native
     x = func.args[0]
     from symox.simplify.hyperexpand import hyperexpand
     from symox.polys.polytools import factor
