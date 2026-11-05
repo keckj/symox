@@ -200,7 +200,16 @@ fn extension_pair(f: &PyPoly, g: &PyPoly) -> Option<(AlgebraicPoly, AlgebraicPol
         (None, Some(ga)) => { let fa = lift(f, &ga)?; (fa, ga) }
         (None, None) => return None,
     };
-    (fa.gens == ga.gens && fa.number_field.same_embedding(&ga.number_field)).then_some((fa, ga))
+    if fa.gens != ga.gens { return None; }
+    if fa.number_field.same_embedding(&ga.number_field) { return Some((fa, ga)); }
+    // Two different fields: the reference unifies `QQ<a>` with `QQ<b>`
+    // into `QQ<b, a>` (`Domain.unify` swaps algebraic operands), a field of
+    // one primitive element; the pairs come out over EX, independent of the
+    // primitive element chosen.
+    let field = symox::poly::algebraic::NumberField::from_generators(&[
+        ga.number_field.generator.clone(), fa.number_field.generator.clone()]).ok()?;
+    let convert = |p: &AlgebraicPoly| AlgebraicPoly::from_expr(&p.as_expr(), &p.gens, field.clone()).ok();
+    Some((convert(&fa)?, convert(&ga)?))
 }
 
 /// A subresultant over `QQ<a>[t]`, until a division by an `EX` divisor
