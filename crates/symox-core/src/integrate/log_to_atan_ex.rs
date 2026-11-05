@@ -22,13 +22,6 @@
 //! reduce `(a/c)*c - a` to zero on nested radicals, so the remainder pass of
 //! the general division is skipped there. Fed the reference operands, this
 //! reproduces the reference result.
-//!
-//! Exception (kept from the previous Python driver, now computed here): the
-//! native `EX` normal form does not reach SymPy's `cancel` form of nested
-//! Cardano radicals, and on such inputs the field quotient can be much
-//! longer than SymPy's. The constant-divisor step therefore keeps the
-//! shorter (printed length, ties to the plain quotient) of the field quotient
-//! and the plain quotient `a/c` of each coefficient; both are exact.
 
 use crate::expr::Expr;
 use crate::ops;
@@ -38,12 +31,7 @@ use crate::poly::expression_domain::{ExpressionPoly, EX};
 /// `2*atan(p)` for `f` given by its coefficients (highest degree first) in
 /// `x`, divided by the constant `c`.
 pub fn constant_divisor(coefficients: &[Expr], c: &Expr, x: &Expr) -> PResult<Expr> {
-    let field = ops::mul(&[Expr::int(2), crate::functions::atan(&constant_quotient(coefficients, c, x)?)]);
-    let plain = ops::mul(&[Expr::int(2), crate::functions::atan(&plain_quotient(coefficients, c, x))]);
-    if crate::printer::to_str(&field).len() < crate::printer::to_str(&plain).len() {
-        return Ok(field);
-    }
-    Ok(plain)
+    Ok(ops::mul(&[Expr::int(2), crate::functions::atan(&constant_quotient(coefficients, c, x)?)]))
 }
 
 fn constant_quotient(coefficients: &[Expr], c: &Expr, x: &Expr) -> PResult<Expr> {
@@ -56,21 +44,6 @@ fn constant_quotient(coefficients: &[Expr], c: &Expr, x: &Expr) -> PResult<Expr>
         terms.push(ops::mul(&[q.as_expr().clone(), ops::pow(x, &Expr::int(power))]));
     }
     Ok(ops::add(&terms))
-}
-
-/// `sum(a/c * x**k)` with the automatic evaluation of `a/c` only.
-fn plain_quotient(coefficients: &[Expr], c: &Expr, x: &Expr) -> Expr {
-    let inverse = ops::pow(c, &Expr::int(-1));
-    let degree = coefficients.len().saturating_sub(1);
-    let terms: Vec<Expr> = coefficients
-        .iter()
-        .enumerate()
-        .map(|(index, a)| {
-            let power = (degree - index) as i64;
-            ops::mul(&[ops::mul(&[a.clone(), inverse.clone()]), ops::pow(x, &Expr::int(power))])
-        })
-        .collect();
-    ops::add(&terms)
 }
 
 /// `log_to_atan(f, g)` for univariate `EX` polynomials of the same

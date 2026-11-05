@@ -111,6 +111,22 @@ def test_algebraic_field_pairs_are_the_reference_ones(f,g,extension,monkeypatch)
     assert payload(native)==payload(expected)==payload(rt.ratint_logpart(a,b,x,t))
 
 
+@pytest.mark.parametrize('f,g,fext,gext',[
+    ('1','x**2 + sqrt(3)','sqrt(2)','sqrt(3)'),
+    ('x + sqrt(2)','x**2 + sqrt(3)*x + 1','sqrt(2)','sqrt(3)'),
+    ('x','x**3 + 2**(1/3)','sqrt(2)','2**(1/3)'),
+    ('x + sqrt(5)','x**2 + sqrt(2)*x + 3','sqrt(5)','sqrt(2)')])
+def test_two_algebraic_fields_unify_as_the_reference(f,g,fext,gext):
+    # Domain.unify(QQ<a>, QQ<b>) is QQ<b, a>; TypeError before.
+    def build(M,X):
+        F,G=(M.QQ.algebraic_field(M.sympify(e)) for e in (fext,gext))
+        return M.Poly(M.sympify(f,locals={'x':X}),X,domain=F),M.Poly(M.sympify(g,locals={'x':X}),X,domain=G)
+    expected=reference.ratint_logpart(*build(sp,xp),xp)
+    a,b=build(sx,x)
+    assert sx._core._ratint_logpart(a,b,x,sx.Dummy('t')) is not None
+    assert str(rt.ratint_logpart(a,b,x))==str(expected)
+
+
 def test_t_alias_false_and_custom_parameters_keep_existing_normalization(monkeypatch):
     a,b=pairs(1,xp*xp+xp+1)
     for parameter in (x,t+1,sx.Integer(2)):

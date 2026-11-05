@@ -146,6 +146,8 @@ fn ex(
                 // a number times a noncommutative sum stays a product when
                 // built (Mul.flatten), so it is distributed here
                 expand_product(&factors)
+            } else if m.is_mul() && !options.deep && radical_of_sum_product(&m) {
+                shallow_mul_node(&m)
             } else if m.is_mul() {
                 expand_mul_node(&m)
             } else if m.is_add() && !factors.iter().any(|f| f.is_add()) {
@@ -750,7 +752,10 @@ pub fn expand_product(factors: &[Expr]) -> Expr {
         return noncommutative_product(factors);
     }
     if factors.iter().any(|f| f.is_add() && f.float_info().max_precision.is_some()) {
-        return float_product(factors);
+        return reference_product(factors);
+    }
+    if mixed_numeric_radicals(factors) {
+        return reference_product(factors);
     }
     let mut gens = Gens::new();
     let raws: Vec<Vec<RawTerm>> = factors.iter().map(|f| raw_terms(f, &mut gens)).collect();
@@ -772,12 +777,129 @@ pub fn expand_product(factors: &[Expr]) -> Expr {
     }
 }
 
-/// A product with Float sums, distributed in the order of the reference
-/// `Mul._expandsums`: the sums are split in halves, each half is expanded
-/// and the pairwise products are added at once. Float coefficients are
-/// rounded at every addition, so a different association changes the last
-/// bits of the result (and the roots of ill-conditioned polynomials).
-fn float_product(factors: &[Expr]) -> Expr {
+/// Whether the product mixes numeric radicals of several integer bases,
+/// with at most [`REFERENCE_PRODUCT_TERMS`] distributed terms. `Mul.flatten`
+/// combines such radicals by base and then by exponent at each binary
+/// product, so the printed result depends on the order of the products:
+/// `(2**(1/3)*31**(1/3))*31**(1/3)` is `1922**(1/3)` but
+/// `2**(1/3)*(31**(1/3)*31**(1/3))` is `2**(1/3)*31**(2/3)`, and the
+/// reference keeps both as distinct terms of a sum. The generator expansion
+/// merges them; the reference order reproduces them.
+fn mixed_numeric_radicals(factors: &[Expr]) -> bool {
+    fn radical_base(e: &Expr) -> Option<Number> {
+        let Kind::Pow(b, x) = e.kind() else { return None };
+        let n = b.as_number()?;
+        let r = x.as_number()?;
+        (n.is_integer() && !n.is_one() && !n.is_minus_one() && n.is_rational() && r.is_rational() && !r.is_integer())
+            .then(|| n.clone())
+    }
+    fn collect(e: &Expr, depth: u8, bases: &mut Vec<Number>) {
+        if let Some(b) = radical_base(e) {
+            if !bases.contains(&b) {
+                bases.push(b);
+            }
+            return;
+        }
+        if depth == 0 || !(e.is_add() || e.is_mul()) {
+            return;
+        }
+        for a in e.args() {
+            collect(&a, depth - 1, bases);
+        }
+    }
+    let mut terms: usize = 1;
+    let mut sums = 0usize;
+    for f in factors {
+        if f.is_add() {
+            sums += 1;
+            terms = terms.saturating_mul(f.args().len());
+        }
+    }
+    if sums == 0 || terms > REFERENCE_PRODUCT_TERMS {
+        return false;
+    }
+    let mut bases = Vec::new();
+    for f in factors {
+        collect(f, 2, &mut bases);
+        if bases.len() >= 2 {
+            return true;
+        }
+    }
+    false
+}
+
+/// Bound on the distributed terms of [`reference_product`] for radicals;
+/// larger products keep the generator expansion (same value, merged terms).
+const REFERENCE_PRODUCT_TERMS: usize = 4096;
+
+/// A product distributed in the order of the reference `Mul._expandsums`:
+/// the sums are split in halves, each half is expanded and the pairwise
+/// products are added at once, then each term is multiplied by the product
+/// of the other factors. Used for Float sums, whose coefficients are
+/// rounded at every addition (a different association changes the last
+/// bits of the result and the roots of ill-conditioned polynomials), and
+/// for mixed numeric radicals, whose combination by `Mul.flatten` depends
+/// on the association ([`mixed_numeric_radicals`]).
+fn reference_product(factors: &[Expr]) -> Expr {
+    reference_product_with(factors, true)
+}
+
+/// Whether a factor of the product, or a factor of a term of one of its
+/// sums, is a sum raised to a non-integer power, with at most
+/// [`REFERENCE_PRODUCT_TERMS`] distributed terms. Distributing may then
+/// merge such powers into a sum again (`B**(2/3)*B**(1/3)` is `B`).
+fn radical_of_sum_product(m: &Expr) -> bool {
+    let radical = |e: &Expr| matches!(e.kind(), Kind::Pow(b, x) if b.is_add() && !x.is_integer_number());
+    let holds = |e: &Expr| radical(e) || (e.is_mul() && e.args().iter().any(radical));
+    let factors = m.args();
+    let mut terms: usize = 1;
+    let mut found = false;
+    for f in &factors {
+        if f.is_add() {
+            terms = terms.saturating_mul(f.args().len());
+            found |= f.args().iter().any(holds);
+        } else {
+            found |= holds(f);
+        }
+    }
+    found && terms > 1 && terms <= REFERENCE_PRODUCT_TERMS
+}
+
+/// `Mul._eval_expand_mul` under `expand(deep=False)`: the reference never
+/// expands a distributed term again (its `deep` hint is not forwarded to
+/// `_eval_expand_mul`, and the next pass of `Expr.expand` reaches only the
+/// top-level sum, which has no `_eval_expand_mul`). A term whose powers of
+/// a sum merged back into that sum (`c*B**(2/3)*(B**(1/3) + y)` gives
+/// `c*B + c*y*B**(2/3)`) therefore keeps the sum as a factor.
+fn shallow_mul_node(m: &Expr) -> Expr {
+    let (num, den) = fraction_parts(m);
+    let dm = mul(&den);
+    let expr = if dm.is_mul() {
+        let n = mul(&num);
+        let n2 = if n.is_mul() { shallow_mul_node(&n) } else { n };
+        let d2 = shallow_mul_node(&dm);
+        crate::ops::div(&n2, &d2)
+    } else if !den.is_empty() {
+        crate::ops::div(&mul(&num), &dm)
+    } else {
+        m.clone()
+    };
+    if !expr.is_mul() {
+        return expr;
+    }
+    let factors = expr.args();
+    if !factors.iter().any(Expr::is_add) {
+        return expr;
+    }
+    if !radical_of_sum_product(&expr) {
+        return expand_mul_node(&expr);
+    }
+    reference_product_with(&factors, false)
+}
+
+/// [`reference_product`]; `reexpand` expands again a term that still holds
+/// a sum (the next pass of a deep expansion does it), `false` keeps it.
+fn reference_product_with(factors: &[Expr], reexpand: bool) -> Expr {
     fn sums_terms(sums: &[Expr]) -> Vec<Expr> {
         if sums.len() == 1 {
             return crate::traverse::ordered_args(&sums[0]);
@@ -800,7 +922,7 @@ fn float_product(factors: &[Expr]) -> Expr {
         .iter()
         .map(|term| {
             let t = crate::ops::mul2(&plain, term);
-            if t.is_mul() && t.args().iter().any(Expr::is_add) { expand_mul_node(&t) } else { t }
+            if reexpand && t.is_mul() && t.args().iter().any(Expr::is_add) { expand_mul_node(&t) } else { t }
         })
         .collect();
     add(&terms)

@@ -766,7 +766,22 @@ impl KeyCache {
             for factor in factors {
                 self.term_factor(factor, noncommutative, &mut z, &mut cpart, &mut ncpart, &mut gens, &mut gen_list);
             }
-            for (i, (b, x)) in facs.iter().enumerate() {
+            // `Mul.make_args(_term)` iterates the factors in their canonical
+            // order; the complex coefficient is a product of doubles, so with
+            // several numeric factors the order decides its last bit
+            // (`296263766063322*sqrt(3)*31**(1/6)` against
+            // `92163364291974*31**(2/3)`).
+            let mut visit: Vec<usize> = (0..facs.len()).collect();
+            if facs.iter().filter(|(b, x)| super::is_numeric(b) && super::is_numeric(x)).count() >= 2 {
+                let canonical = crate::traverse::ordered_args(&t);
+                let position = |i: usize| {
+                    let f = mul_factor(&facs[i].0, &facs[i].1);
+                    canonical.iter().position(|a| *a == f).unwrap_or(usize::MAX)
+                };
+                visit.sort_by_key(|&i| (position(i), i));
+            }
+            for i in visit {
+                let (b, x) = &facs[i];
                 if Some(i) == special { continue; }
                 // fast path: symbol ** integer
                 if let (false, Kind::Sym(_), Kind::Num(Number::Int(d))) = (noncommutative, b.kind(), x.kind()) {
@@ -816,14 +831,27 @@ impl KeyCache {
                 v.sort_by(cmp);
             }
         };
-        if has_order {
-            let (mut normal, mut orders): (Vec<_>, Vec<_>) = keyed.into_iter().partition(|(_, t)| !t.order);
-            sort(&mut normal, true);
-            sort(&mut orders, true);
-            normal.extend(orders);
-            keyed = normal;
-        } else {
-            sort(&mut keyed, false);
+        let arrange = |mut keyed: Vec<(Vec<(usize, i64)>, Term)>| {
+            if has_order {
+                let (mut normal, mut orders): (Vec<_>, Vec<_>) = keyed.into_iter().partition(|(_, t)| !t.order);
+                sort(&mut normal, true);
+                sort(&mut orders, true);
+                normal.extend(orders);
+                normal
+            } else {
+                sort(&mut keyed, false);
+                keyed
+            }
+        };
+        keyed = arrange(keyed);
+        // Equal keys keep the order of `Add.make_args`, the canonical order
+        // of the arguments, not the storage order: `1922**(1/3)` and
+        // `2**(1/3)*31**(2/3)` have the same complex coefficient.
+        if !has_nan && keyed.windows(2).any(|w| compare(&w[0], &w[1]).is_eq()) {
+            let canonical = crate::traverse::ordered_args(e);
+            let position = |t: &Expr| canonical.iter().position(|a| a == t).unwrap_or(usize::MAX);
+            keyed.sort_by_cached_key(|(_, t)| position(&t.expr));
+            keyed = arrange(keyed);
         }
         keyed.into_iter().map(|(_, t)| t.expr).collect()
     }

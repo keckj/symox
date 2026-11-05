@@ -81,15 +81,18 @@ Vague 38 (calcul en Rust, Python limité à l'encodage et la reconstruction) :
   (`integrate/prde_log.rs`, 938 appels, 0 écart) ; les cas non de base
   restent en Python (lacune).
 
-Interrompu, à reprendre : ratintex (log_to_atan sur EX, RootSum, exroots),
-worktree `~/symox-ci/wt/ratintex-20261030k`, travail non commité et non
-validé, branche `feat-ratintex-20261030k` encore à 21068f42.
+- ratintex (branche `feat-ratintex-20261030k`, non fusionnée) : logpart
+  sur QQ<a> (un corps, deux corps unifiés en QQ<b, a>), log_to_atan sur EX,
+  ordre RootSum, roots cas 20, EX numer/denom de référence, ordre
+  d'association des radicaux dans expand, ordre d'impression des
+  radicaux ; `integrate(1/(x**3+x+1))` et `1/(x**3+2*x-1)` identiques à
+  SymPy. Tout en Rust (aiguillage Python seulement).
 
 Écarts volontaires en attente de validation utilisateur : Markov spec7 1/6,
 conditionnement multi-temps markovrust (22/28 cas où SymPy se trompe) et
 recherche de période ; radicalrust réseaux/ConditionSet ; holonomic y0 ;
 derivsym ; seriesrest ; Derivative(Array) dans tracearr et arrayrust ;
-ratint 1/(x**8+16) ; limite unilatérale Piecewise ; limit(atan(a*x)/x, x, oo)
+ratint 1/(x**8+16) ; nested_binomial de roots (ratintex) ; limite unilatérale Piecewise ; limit(atan(a*x)/x, x, oo)
 = 0 ; x**(n*y+3) à n=0 ; Mod dans solveset ; décalage Laplace ;
 piecewise_fold w23rust ; limit(subfactorial(x)/factorial(x), x, oo) laissé
 non évalué (SymPy donne 0, valeur vraie 1/e) ; règle Abs/sign(c) de
@@ -104,14 +107,12 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   lie_group.
 - prde : is_log_deriv_k_t_radical_in_field hors cas de base, parametric_log_deriv,
   limited_integrate ; surcoût d'admission de splitfactor.
-- ratint/exroots (ratintex, 30 octobre) : TypeError QQ<sqrt(2)> corrigé
-  pour un seul corps (corps différents et domaines paramétriques encore en
-  TypeError) ; log_to_atan sur EX en Rust (choix du quotient le plus court porté en Rust) ; ordre
-  d'impression RootSum corrigé (constructeur RootSum encore en Python) ;
-  roots cas 20 corrigé. Restent : formes cubiques (simplify natif dans
-  roots_quadratic sur EX), binômes à radicaux imbriqués (hypothèses
-  is_extended_real/is_positive, écart en attente de validation), ordre des
-  étapes d'expand.
+- ratint/exroots (ratintex) : restent ratint_logpart sur `QQ<a>[p]`
+  paramétrique et divisions non rétractables de `QQ<a>(t)` (repli de
+  référence, erreur), `EX(a)` Python qui simplifie son élément, binômes à
+  radicaux imbriqués (hypothèses is_extended_real/is_positive, écart en
+  attente de validation), ordre des étapes d'expand hors produits de
+  radicaux, constructeur RootSum en Python.
 - Limites : 175/1293 asserts encore différents ; 90 déclins Gruntz.
 - Matrices : perf lambdarr gamma/poly2.
 - Tableaux : 50/201 tests SymPy de tableaux, repli vendu de

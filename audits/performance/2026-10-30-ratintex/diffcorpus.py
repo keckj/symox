@@ -35,6 +35,9 @@ cases = [
     ('logpart QQ<s2> (x+s2)/(x**4+s2*x**2+1)', lp(x + s2, x**4 + s2*x**2 + 1, K)),
     ('logpart QQ<s3> 1/(x**2-s3*x+1)', lp(1, x**2 - sqrt(3)*x + 1, K3)),
     ('logpart QQ<s2> extension=True', lambda: ratint_logpart(Poly(1, x, extension=True), Poly(x**2 + s2, x, extension=True), x)),
+    ('logpart QQ<s2>/QQ<s3> 1/(x**2+s3)', lambda: ratint_logpart(Poly(1, x, domain=K), Poly(x**2 + sqrt(3), x, domain=K3), x)),
+    ('logpart QQ<s2>/QQ<s3> (x+s2)/(x**2+s3*x+1)', lambda: ratint_logpart(Poly(x + s2, x, domain=K), Poly(x**2 + sqrt(3)*x + 1, x, domain=K3), x)),
+    ('logpart QQ<s2>/QQ<2**(1/3)> x/(x**3+2**(1/3))', lambda: ratint_logpart(Poly(x, x, domain=K), Poly(x**3 + 2**Rational(1, 3), x, domain=QQ.algebraic_field(2**Rational(1, 3))), x)),
     ('ratint tuple QQ<s2>', lambda: ratint((Poly(1, x, domain=K), Poly(x**2 + s2, x, domain=K)), x)),
     # log_to_atan over EX and public integrals that reach it
     ('log_to_atan QQ/EX doctest', lambda: log_to_atan(Poly(x + S(1)/2, x, domain='QQ'), Poly(sqrt(3)/2, x, domain='EX'))),

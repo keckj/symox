@@ -623,6 +623,14 @@ pub(crate) fn held_ordered_terms(e: &Expr) -> Vec<Expr> {
 
 pub(crate) fn numeric_coefficient(e:&Expr)->Option<Complex64>{
     if matches!(e.kind(),Kind::Const(Constant::NaN|Constant::ComplexInfinity)){return Some(Complex64::new(f64::NAN,f64::NAN));}
+    // `complex(factor)` is `Expr.__complex__`: an evalf at 53 bits, so a
+    // radical such as `31**(2/3)` has its correctly rounded double, where the
+    // double evaluator can be one unit off (and two terms of a sum would then
+    // tie, or swap, in the printing order). The double evaluator remains the
+    // fallback for what the multiprecision one does not cover.
+    if !e.is_atom(){
+        if let Some(value)=correctly_rounded(e){return Some(value);}
+    }
     if let Some(value)=crate::evalf::eval_c64(e){return Some(value);}
     // Closed held arithmetic can contain zoo/nan, which the finite evaluator
     // deliberately refuses. Normalize those arithmetic nodes for this numeric
@@ -637,6 +645,27 @@ pub(crate) fn numeric_coefficient(e:&Expr)->Option<Complex64>{
         if value!=*e{return numeric_coefficient(&value);}
     }
     None
+}
+
+thread_local!{
+    // `complex(factor)` by value: the same radicals and denominators recur
+    // in every term of a printed sum (as fresh nodes, hence the structural
+    // key); the table is dropped when it grows past the bound.
+    static COMPLEX_MEMO:std::cell::RefCell<rustc_hash::FxHashMap<Expr,Option<Complex64>>>=std::cell::RefCell::new(rustc_hash::FxHashMap::default());
+}
+const COMPLEX_MEMO_BOUND:usize=1<<14;
+
+/// The 53-bit evalf of a numeric node as a complex double (`None` when the
+/// multiprecision evaluator does not cover it).
+fn correctly_rounded(e:&Expr)->Option<Complex64>{
+    if let Some(value)=COMPLEX_MEMO.with(|memo|memo.borrow().get(e).copied()){return value;}
+    let value=crate::evalf_mp::eval_mp(e,53).map(|value|Complex64::new(value.re.to_f64(),value.im.to_f64()));
+    COMPLEX_MEMO.with(|memo|{
+        let mut memo=memo.borrow_mut();
+        if memo.len()>=COMPLEX_MEMO_BOUND{memo.clear();}
+        memo.insert(e.clone(),value);
+    });
+    value
 }
 
 /// Compare expressions using SymPy default ordering.

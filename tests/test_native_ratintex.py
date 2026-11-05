@@ -65,3 +65,44 @@ def test_nested_radical_binomials_keep_a_complete_zero_set(source):
     values = sorted((complex(sx.N(r, 30)) for r in found), key=lambda z: (round(z.real, 9), round(z.imag, 9)))
     expected = sorted((complex(r) for r in sp.Poly(p, xp).nroots(n=30)), key=lambda z: (round(z.real, 9), round(z.imag, 9)))
     assert all(abs(u - v) < 1e-20 for u, v in zip(values, expected))
+
+
+@pytest.mark.parametrize('text', [
+    '-14945472*31**(1/3)*(2*31**(1/3) + 2**(1/3)*(3*sqrt(93) + 31)**(2/3))'
+    '*(3*sqrt(93) + 31)**(1/3)*(3*sqrt(3)*31**(5/6) + 31*31**(1/3))',
+    '2**(1/3)*(31**(1/3) + 1)*(31**(1/3) + 3**(1/2))',
+    '(2**(1/3) + 3**(1/3))*(2**(2/3) + 5**(1/2))*x',
+    '(sqrt(2) + sqrt(3))*(sqrt(2) - sqrt(3))*(sqrt(6) + 1)',
+])
+def test_expand_of_mixed_radicals_follows_the_reference_order(text):
+    # Mul.flatten combines numeric radicals by association order, so the
+    # reference Mul._expandsums splitting decides 1922**(1/3) versus
+    # 2**(1/3)*31**(2/3); the native expand reproduces that order.
+    s, p = both(text)
+    assert str(sx.expand(s)) == str(sp.expand(p))
+    flags = dict(deep=False, mul=True, power_exp=False, power_base=False, multinomial=False, log=False)
+    assert str(s.expand(**flags)) == str(p.expand(**flags))
+
+
+@pytest.mark.parametrize('text', [
+    '92163364291974*31**(2/3) + 296263766063322*sqrt(3)*31**(1/6)',
+    '31**(2/3) + sqrt(3)*31**(1/6)',
+    '1922**(1/3) + 2**(1/3)*31**(2/3)',
+    '31**(2/3) + sqrt(3)',
+    '5**(2/3) + sqrt(3)*7**(1/6)',
+    '31**(2/3) + 3**(1/3)*31**(1/6)',
+    # keys one unit apart once each factor is correctly rounded
+    '395018354751096*sqrt(3)*31**(1/6)/D + 122884485722632*31**(2/3)/D'.replace('D',
+        '(4613477382612*62**(1/3)*(3*sqrt(93) + 31)**(2/3)'
+        ' + 478395319050*2**(1/3)*sqrt(3)*31**(5/6)*(3*sqrt(93) + 31)**(2/3)'
+        ' + 14335343519193*2**(2/3)*sqrt(93)*(3*sqrt(93) + 31)**(1/3)'
+        ' + 138245046437961*2**(2/3)*(3*sqrt(93) + 31)**(1/3)'
+        ' + 92163364291974*31**(2/3) + 296263766063322*sqrt(3)*31**(1/6))'),
+])
+def test_print_order_of_numeric_radicals_is_the_reference_one(text):
+    # as_ordered_terms folds the numeric factors into a complex float in
+    # the canonical Mul.make_args order (the last bit decides) and keeps the
+    # canonical Add.make_args order between equal keys.
+    s, p = both(text)
+    assert str(s) == str(p)
+    assert [str(t) for t in s.as_ordered_terms()] == [str(t) for t in p.as_ordered_terms()]
