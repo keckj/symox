@@ -330,6 +330,9 @@ def param_rischDE(fa, fd, G, DE):
     r = _call('param_rischDE', (fa, fd, G), fields)
     if r is None:
         return None
+    # The kernel answers when the resultant of weak_normalizer has no z:
+    # the stock body creates its Dummy('z') and no other Dummy.
+    _create(('z',))
     h, spec = r
     return h, _matrix(spec, (fields[0],))
 
@@ -657,5 +660,7 @@ def limited_integrate(fa, fd, G, DE):
     r = _call('limited_integrate', (fa, fd, G), fields)
     if r is None:
         return None
+    # Dummy('z') of weak_normalizer in the inner param_rischDE.
+    _create(('z',))
     STATS['limited_integrate'] += 1
     return r

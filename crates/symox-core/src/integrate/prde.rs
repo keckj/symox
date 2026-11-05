@@ -258,9 +258,8 @@ impl P {
         }
         Some(P::new(scale(&h, &c), false))
     }
-    /// `self.cancel(o, include=True)` of the stock `Poly.cancel`: both
-    /// results are in the domain inferred from the coefficients of the two
-    /// inputs (`Poly.from_exprs` in `an_rational::poly_cancel`).
+    /// `self.cancel(o, include=True)` of `Poly.cancel`: both results are in
+    /// the unified domain of the two inputs.
     pub fn cancel(&self, o: &P) -> Option<(P, P)> {
         if o.is_zero() {
             return None;
@@ -296,7 +295,10 @@ impl P {
             cp = cp.neg();
             q = dense::neg(&q);
         }
-        Some((P::new(scale(&p, &int_rat(&cp)), qq), P::new(scale(&q, &int_rat(&cq)), qq)))
+        // The results keep the unified domain (QQ stays QQ), as SymPy's
+        // `dmp_cancel(include=True)`.
+        let unified = qq || self.qq || o.qq;
+        Some((P::new(scale(&p, &int_rat(&cp)), unified), P::new(scale(&q, &int_rat(&cq)), unified)))
     }
     /// `Poly.half_gcdex` (over QQ): `(s, h)` with `s*self = h (mod o)`.
     pub fn half_gcdex(&self, o: &P) -> Option<(P, P)> {

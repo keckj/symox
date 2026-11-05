@@ -339,7 +339,9 @@ def construct(rep,gens,domain=None,modulus=None,extension=None,kwargs=None):
         ground=result.domain
         if getattr(ground,'is_PolynomialRing',False) or getattr(ground,'is_FractionField',False):
             result=result.set_domain('EX')
-    if args.get('field'):result=result.to_field()
+    if args.get('field'):
+        # Expressions and dicts: native reference `construct_domain(field=True)`.
+        result=result.to_field() if isinstance(rep,Poly) else result._construct_field()
     return result
 
 

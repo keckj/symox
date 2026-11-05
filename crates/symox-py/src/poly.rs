@@ -1647,6 +1647,23 @@ impl PyPoly {
         Self::_from_normalized(&expr,&gens,Some(domain),None,None)
     }
     pub(crate) fn to_field(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_field();Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
+    /// The `field=True` domain of a Poly constructed from an expression or
+    /// a dict: the reference `construct_domain(field=True)` takes the
+    /// coefficients of the numerators and denominators
+    /// (`coeff.as_numer_denom()`), which are integral for a `QQ[gens]`
+    /// construction, so the field is `ZZ(gens)`, not `QQ(gens)`. Any other
+    /// domain is `to_field()`.
+    fn _construct_field(&self)->PyResult<Self>{
+        use symox::poly::domains::ExactDomain;
+        if self.p.algebraic.is_none()&&self.p.expression.is_none()&&self.p.base.modulus.is_none(){
+            let d=self.domain_descriptor()?;
+            if let ExactDomain::Functions{integral:false,ring:true,parameters,order}=&d.inner{
+                let f=ExactDomain::functions(true,false,parameters.clone(),order).map_err(err)?;
+                return Ok(Self{p:domains::PyDomain{inner:f}.poly(&self.p.as_expr(),self.p.true_gens())?});
+            }
+        }
+        self.to_field()
+    }
     fn to_ring(&self)->PyResult<Self>{if self.ex().is_some_and(|p|p.ground.is_none() && p.has_native_coefficient_payload()){return Ok(Self{p:self.p.clone()});}let d=self.domain_descriptor()?.get_ring()?;Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
 
     #[getter]
@@ -2059,7 +2076,15 @@ impl PyPoly {
             values.push(PyPoly{p:q}.into_pyobject(py)?.into_any().unbind());
             return Ok(PyTuple::new(py,values)?.into_any().unbind());
         }
-        let(a,b)=an_rational::poly_cancel(&self.p,&q)?;
+        let(mut a,mut b)=an_rational::poly_cancel(&self.p,&q)?;
+        if include{
+            // `dmp_cancel(include=True)` keeps the unified domain of plain
+            // ZZ/QQ inputs (QQ stays QQ even with integral results).
+            let plain=|p:&PolyValue|p.field.is_none()&&p.algebraic.is_none()&&p.expression.is_none()&&p.base.modulus.is_none()&&!p.base.has_domain_gens()&&matches!(p.base.domain,Domain::ZZ|Domain::QQ);
+            if [&self.p,&q,&a,&b].into_iter().all(plain)&&(self.p.base.domain==Domain::QQ||q.base.domain==Domain::QQ){
+                a.base.domain=Domain::QQ;b.base.domain=Domain::QQ;
+            }
+        }
         if !include{if let Some((c,a,b))=sympy_cancel_parts(&self.p,&q,&a,&b){
             let c=w(Expr::num(c.to_number())).into_pyobject(py)?.into_any().unbind();
             return Ok(PyTuple::new(py,[c,PyPoly{p:a}.into_pyobject(py)?.into_any().unbind(),PyPoly{p:b}.into_pyobject(py)?.into_any().unbind()])?.into_any().unbind());
@@ -2916,6 +2941,12 @@ fn inapplicable_extension<'py>(py:Python<'py>,f:&Bound<'py,PyAny>,g:Option<&Boun
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    // Two Polys in the same generators, no option: the reference
+    // `_parallel_poly_from_expr` unifies them and returns `F.gcd(G)` as a Poly
+    // (the unified domain is kept: QQ stays QQ).
+    if modulus.is_none()&&gens.is_empty()&&_kwargs.is_none_or(|k|k.is_empty()){if let (Ok(p),Some(Ok(q)))=(f.downcast_exact::<PyPoly>(),g.map(|g|g.downcast_exact::<PyPoly>())){
+        if p.get().p.true_gens()==q.get().p.true_gens()&&!p.get().p.true_gens().is_empty(){return poly_obj(py,p.get().gcd(q.as_any())?.p);}
+    }}
     let stripped=inapplicable_extension(py,f,g,gens,_kwargs)?;let _kwargs=stripped.as_ref().or(_kwargs);
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
         let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some()||v.expression.as_ref().is_some_and(|e|e.ground.is_some());
@@ -2971,6 +3002,12 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    // Two Polys in the same generators, no option: the reference
+    // `_parallel_poly_from_expr` unifies them and returns `F.lcm(G)` as a Poly
+    // (the unified domain is kept: QQ stays QQ).
+    if modulus.is_none()&&gens.is_empty()&&_kwargs.is_none_or(|k|k.is_empty()){if let (Ok(p),Some(Ok(q)))=(f.downcast_exact::<PyPoly>(),g.map(|g|g.downcast_exact::<PyPoly>())){
+        if p.get().p.true_gens()==q.get().p.true_gens()&&!p.get().p.true_gens().is_empty(){return poly_obj(py,p.get().lcm(q.as_any())?.p);}
+    }}
     let stripped=inapplicable_extension(py,f,g,gens,_kwargs)?;let _kwargs=stripped.as_ref().or(_kwargs);
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
         let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some()||v.expression.as_ref().is_some_and(|e|e.ground.is_some());
