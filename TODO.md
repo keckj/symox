@@ -1,8 +1,10 @@
 # TODO — Capacités mathématiques et parité SymPy
 
-Mis à jour le **28 octobre 2026**, à partir de `main` à **`5eb39d6`**
-(dernier commit du 24 octobre), avec les lots des 26–28 octobre dans l’arbre de travail.
-Référence : **SymPy 1.14.0**. Dernier lot validé sur Demeter le 28 octobre.
+Mis à jour le **5 novembre 2026**, sur la branche `integrate-wave39-20261105`
+(`main` à **`2e623e66`**, vague 38, plus les trois lots de la vague 39).
+Référence : **SymPy 1.14.0**. Dernier lot validé sur Demeter le 5 novembre
+(voir « Reprise sur Demeter » ; le paragraphe ci-dessous décrit la suite du
+28 octobre).
 
 Dernière suite complète : binaire `e2b10b0c`, sources `cc617a4a`
 (**56 311 tests**, Demeter) ; 762 tests Rust, 1 test d’intégration
@@ -48,20 +50,32 @@ Les preuves, sondes et corrections intentionnelles sont dans le
 [contrat de parité](docs/algorithmic-parity.md). Les extensions et sous-classes
 Python restent un chantier distinct, hors de ce TODO mathématique.
 
-## Reprise sur Demeter (état au 30 octobre)
+## Reprise sur Demeter (état au 5 novembre)
 
-Main intègre la vague 38 (branche `integrate-wave38-20261030`). Dernière
-validation : suite complète **60 020 réussis, 0 échec** ("SUITE CLEAN",
-60 085 collectés et exécutés, 682 fichiers), cargo 852 + 1 + 5, clippy
-correctness propre. Les corpus intégration et ODE n'ont pas été rejoués sur
-la vague 38 (le score ODE 303/279/274/315 ci-dessus est périmé : les agents
-mesurent 315/285/267 sur 21068f42 avec un script reconstruit).
+La branche `integrate-wave39-20261105` (main `2e623e66` + vague 39 :
+ratintex, arrexpr, prde) est validée ; main n'est pas encore avancé.
+Dernière validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) : suite complète
+**60 211 réussis, 0 échec** ("SUITE CLEAN", 6 xfail, 45 sautés, 60 262
+collectés et exécutés, 684 fichiers ; preuves dans
+`~/symox-ci/evidence/integ39-20261105`), soit exactement l'union des trois
+lots (+37, +19 et +121 tests collectés sur les 60 085 de main) ; cargo test
+859 + 1 + 0 + 5 (852 sur main, +6 tests `prde_tower`, +1 ratintex), clippy
+correctness propre. Fusions sans conflit dans le code Rust (`sortkey.rs` et
+`printing/order.rs` gardent l'ordre des radicaux de ratintex et celui
+d'`ArrayElement` d'arrexpr) ; seuls TODO.md et `docs/algorithmic-parity.md`
+ont été fusionnés à la main. Aucun correctif d'intégration n'a été
+nécessaire. Les corpus intégration et ODE n'ont pas été rejoués sur les
+vagues 38 et 39 (le score ODE 303/279/274/315 ci-dessus est périmé : les
+agents mesurent 315/285/267 sur 21068f42 avec un script reconstruit).
 
-Vague 38 (calcul en Rust, Python limité à l'encodage et la reconstruction) :
-- arr2mat : `convert_array_to_matrix`, ses passes, `_EditArrayContraction`
-  et `_ArgE` natifs (`arrayexpr_a2m.rs`). `Trace(MatMul)` n'est plus
-  canonicalisé (aligné sur SymPy, validé le 30 octobre). Vague 39
-  (feat-arrexpr-20261105, en Rust) :
+Vague 39 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
+enveloppes) :
+- ratintex (`feat-ratintex-20261030k`) : logpart sur QQ<a> (un corps, deux
+  corps unifiés en QQ<b, a>), log_to_atan sur EX, ordre RootSum, roots
+  cas 20, EX numer/denom de référence, ordre d'association des radicaux
+  dans expand, ordre d'impression des radicaux ; `integrate(1/(x**3+x+1))`
+  et `1/(x**3+2*x-1)` identiques à SymPy.
+- arrexpr (`feat-arrexpr-20261105`), suite d'arr2mat :
   - `Mul`/`MatMul`/`Trace` à coefficient tableau natifs, ce qui fait passer
     le repli vendu de 86/527 à 6/527 cas ; ces 6 cas sont arr15, arr34,
     arr145, arr249, arr308 et arr336 (Hadamard, `DiagMatrix` ou transposée
@@ -70,21 +84,26 @@ Vague 38 (calcul en Rust, Python limité à l'encodage et la reconstruction) :
   - `_chain_array_to_matrix` natif (repli Python gardé) ;
   - `_get_contraction_tuples` natif ;
   - `MatPow` imbriqués combinés, et `A/B` ;
-  - ordre de `MatrixElement` et `ArrayElement` ;
+  - ordre de `MatrixElement` et `ArrayElement` (arrindex passe de 162/168 à
+    167/168 ; reste `u_int_mul`, ordre des arguments d'`ArrayDiagonal`) ;
   - `matrix_derivative` passe d'abord par le chemin tableau natif comme
     SymPy 1.14 (0,5 à 1,7 ms contre quelques µs avant : le rappel Python
     `matrix_sort_key` domine, suivi de performance) ;
-    il décline quand une feuille scalaire dépend de `x` (`exp(Trace(X))`,
-    `X[0, 1]`, `DotProduct(a, a)`), où SymPy rend un zéro faux ; la chaîne
-    précédente répond alors (écart volontaire à valider) ;
   - tests SymPy des tableaux 165/201 (159 avant).
+- prde (`feat-prde-20261105`) : `is_log_deriv_k_t_radical_in_field` et
+  `parametric_log_deriv_heu` (donc `parametric_log_deriv`) sur les tours
+  exp/primitive (`integrate/prde_tower.rs`) : 533 appels aléatoires,
+  529 natifs, 4 déclins, aucun écart propre au natif ; appels des tests
+  SymPy et du corpus identiques à main. Trace des Dummies du noyau de base,
+  `Poly.free_symbols` des domaines composites et boucles d'admission de
+  splitfactor (`risch_sf_admission.rs`) en Rust.
 
-  Écart à valider : NotImplementedError levée dès la conversion, et non à
-  l'affichage, pour un `MatMul` à coefficient tableau.
+Vague 38 (dans main) :
+- arr2mat : `convert_array_to_matrix`, ses passes, `_EditArrayContraction`
+  et `_ArgE` natifs (`arrayexpr_a2m.rs`). `Trace(MatMul)` n'est plus
+  canonicalisé (aligné sur SymPy, validé le 30 octobre).
 - arrindex : `array_derive`, `convert_indexed_to_array` et le plan
-  d'indices de `convert_array_to_indexed` natifs (`arrayexpr_index.rs`),
-  corpus 162/168, puis 167/168 en vague 39 (ordre natif d'`ArrayElement`) ;
-  reste `u_int_mul` (ordre des arguments d'`ArrayDiagonal`).
+  d'indices de `convert_array_to_indexed` natifs (`arrayexpr_index.rs`).
 - odepart : ensemble d'essai et résolution des coefficients indéterminés,
   variation des paramètres (`ode/undetermined.rs`, `ode/variation.rs`) ;
   correctif de parité `dotprodsimp` (gardé, validé le 30 octobre, mais
@@ -96,30 +115,25 @@ Vague 38 (calcul en Rust, Python limité à l'encodage et la reconstruction) :
   Gruntz 92 → 90 ; `factorial(x)/x` et `gamma(x)/x` en -oo laissés non
   évalués (SymPy donne 0 ; écart validé le 30 octobre).
 - prdelog : cas de base de `is_log_deriv_k_t_radical_in_field` en Rust
-  (`integrate/prde_log.rs`, 938 appels, 0 écart) ; les cas non de base
-  restent en Python (lacune).
+  (`integrate/prde_log.rs`, 938 appels, 0 écart).
 
-- ratintex (branche `feat-ratintex-20261030k`, non fusionnée) : logpart
-  sur QQ<a> (un corps, deux corps unifiés en QQ<b, a>), log_to_atan sur EX,
-  ordre RootSum, roots cas 20, EX numer/denom de référence, ordre
-  d'association des radicaux dans expand, ordre d'impression des
-  radicaux ; `integrate(1/(x**3+x+1))` et `1/(x**3+2*x-1)` identiques à
-  SymPy. Tout en Rust (aiguillage Python seulement).
+Écarts volontaires de la vague 39 en attente de validation utilisateur :
+- ratintex : `nested_binomial` de roots (binômes à radicaux imbriqués,
+  hypothèses is_extended_real/is_positive) ;
+- arrexpr : `matrix_derivative` décline quand une feuille scalaire dépend
+  de `x` (`exp(Trace(X))`, `X[0, 1]`, `DotProduct(a, a)`), où SymPy rend un
+  zéro faux, et la chaîne précédente répond ; NotImplementedError levée dès
+  la conversion, et non à l'affichage, pour un `MatMul` à coefficient
+  tableau ;
+- prde : lire `_core.__dict__` une seule fois par appel de splitfactor
+  (au lieu d'environ 395 fois) changerait le contrat d'authentification ;
+  non fait, à valider.
 
-Branche `feat-prde-20261105` (non fusionnée) : `is_log_deriv_k_t_radical_in_field`
-et `parametric_log_deriv_heu` (donc `parametric_log_deriv`) sur les tours
-exp/primitive calculés en Rust (`integrate/prde_tower.rs`) : 533 appels
-aléatoires, 529 natifs, 4 déclins, aucun écart propre au natif ; appels des
-tests SymPy et du corpus identiques à main. Trace des Dummies du noyau de
-base, `Poly.free_symbols` des domaines composites et boucles d'admission de
-splitfactor (`risch_sf_admission.rs`) en Rust. `limited_integrate` et l'EDR
-de Risch paramétrique au-dessus du niveau de base restent en Python (lacune).
-
-Écarts volontaires en attente de validation utilisateur : Markov spec7 1/6,
+Écarts volontaires antérieurs en attente de validation : Markov spec7 1/6,
 conditionnement multi-temps markovrust (22/28 cas où SymPy se trompe) et
 recherche de période ; radicalrust réseaux/ConditionSet ; holonomic y0 ;
 derivsym ; seriesrest ; Derivative(Array) dans tracearr et arrayrust ;
-ratint 1/(x**8+16) ; nested_binomial de roots (ratintex) ; limite unilatérale Piecewise ; limit(atan(a*x)/x, x, oo)
+ratint 1/(x**8+16) ; limite unilatérale Piecewise ; limit(atan(a*x)/x, x, oo)
 = 0 ; x**(n*y+3) à n=0 ; Mod dans solveset ; décalage Laplace ;
 piecewise_fold w23rust ; limit(subfactorial(x)/factorial(x), x, oo) laissé
 non évalué (SymPy donne 0, valeur vraie 1/e) ; règle Abs/sign(c) de
@@ -134,23 +148,15 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   lie_group.
 - prde : `limited_integrate`, `param_rischDE`, `prde_cancel_liouvillian` et
   le reste de l'EDR de Risch paramétrique sur K(t) au-dessus du niveau de
-  base ; erreur kkinv `PolynomialError` de SymPy non reproduite ; surcoût
-  restant de l'admission splitfactor sur QQ (2,8 ms contre 1,0 ms SymPy :
-  `_metadata` relit `_core.__dict__` environ 395 fois par appel, changement
-  du contrat d'authentification à valider).
-- ratint/exroots (ratintex) : restent ratint_logpart sur `QQ<a>[p]`
-  paramétrique et divisions non rétractables de `QQ<a>(t)` (repli de
-  référence, erreur), `EX(a)` Python qui simplifie son élément, binômes à
-  radicaux imbriqués (hypothèses is_extended_real/is_positive, écart en
-  attente de validation), ordre des étapes d'expand hors produits de
-  radicaux, constructeur RootSum en Python, bruit imaginaire de evalf
-  (approché par l'évaluateur double dans l'ordre d'impression).
-- Environnement (2026-11-05) : `tests/extra/test_jax_codegen.py::
-  test_custom_functions_and_standalone_source` échoue dans le shard 23
-  (CUDA_ERROR_OUT_OF_MEMORY du sous-processus jax : le pytest parent a
-  préalloué la mémoire GPU) avec le .so de main 2e623e66 comme avec
-  ratintex ; il passe seul et avec `XLA_PYTHON_CLIENT_PREALLOCATE=false`
-  (382/382). Le lanceur de suite pourrait fixer cette variable.
+  base ; erreur kkinv `PolynomialError` de SymPy non reproduite (xfail
+  strict, cas 44 de `tests/test_native_prde_tower.py`) ; surcoût restant de
+  l'admission splitfactor sur QQ (2,8 ms contre 1,0 ms SymPy, voir l'écart
+  ci-dessus).
+- ratint/exroots : restent ratint_logpart sur `QQ<a>[p]` paramétrique et
+  divisions non rétractables de `QQ<a>(t)` (repli de référence, erreur),
+  `EX(a)` Python qui simplifie son élément, ordre des étapes d'expand hors
+  produits de radicaux, constructeur RootSum en Python, bruit imaginaire de
+  evalf (approché par l'évaluateur double dans l'ordre d'impression).
 - Limites : 175/1293 asserts encore différents ; 90 déclins Gruntz.
 - Matrices : perf lambdarr gamma/poly2.
 - Tableaux : 36/201 tests SymPy de tableaux. Les causes sont :
@@ -159,15 +165,25 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   - l'ordre de `Sum` ;
   - `MatrixSymbol.args[0]` en `str`.
 
-  À cela s'ajoutent le repli vendu de `convert_array_to_matrix` (6/527) et
-  l'ordre des arguments d'`ArrayDiagonal` (arrindex u_int_mul).
+  À cela s'ajoutent le repli vendu de `convert_array_to_matrix` (6/527),
+  l'ordre des arguments d'`ArrayDiagonal` (arrindex u_int_mul) et le coût
+  de `matrix_derivative` par le chemin tableau.
 
-Procédure de validation (leçons du 30 octobre) : n'accepter que "SUITE
-CLEAN" (le compte de lots "passed" incluait des lots en échec) ; le build
-doit sortir en succès avant de copier `lib_core.so` (un build tué en
-silence laissait l'ancien `.so`) ; doctests parallèles à relancer en
-mono-thread ("Couldn't compile") ; tests Python en worktree avec
-`PYTHONPATH=python` ; jamais de `pkill` large.
+Procédure de validation (leçons du 30 octobre et du 5 novembre) : lancer la
+suite avec `XLA_PYTHON_CLIENT_PREALLOCATE=false` (sinon
+`tests/extra/test_jax_codegen.py::test_custom_functions_and_standalone_source`
+échoue dans le shard 23 par CUDA_ERROR_OUT_OF_MEMORY du sous-processus jax,
+le pytest parent ayant préalloué la mémoire GPU ; échec d'environnement,
+reproduit avec le .so de main) ; n'accepter que "SUITE CLEAN" (le compte de
+lots "passed" incluait des lots en échec) ; le build doit sortir en succès
+avant de copier `lib_core.so` (un build tué en silence laissait l'ancien
+`.so`) ; doctests parallèles à relancer en mono-thread ("Couldn't
+compile") ; tests Python en worktree avec `PYTHONPATH=python` ; jamais de
+`pkill` large. Le compte de base « 60 020 réussis » de main comptait
+15 tests sautés de plus (« Slang cuda device unavailable », 60 sautés contre
+45) : les lots se comparent sur les tests collectés et les non-réussis
+(main 60 085 collectés ; vague 39 : 51 non réussis, 6 xfail dont le xfail
+strict prde).
 
 ## État des preuves et prochaine étape
 
