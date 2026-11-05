@@ -80,10 +80,9 @@ def test_nonpreconditions_keep_full_existing_result_or_error(f,g,monkeypatch):
     assert run()==actual
 
 
-@pytest.mark.parametrize('domain',['EX','RR','QQ<sqrt(2)>','GF(5)'])
+@pytest.mark.parametrize('domain',['EX','RR','GF(5)'])
 def test_other_domains_retain_complete_algorithm(domain,monkeypatch):
-    if domain=='QQ<sqrt(2)>':a,b=sx.Poly(1,x,extension=sx.sqrt(2)),sx.Poly(x*x+1,x,extension=sx.sqrt(2))
-    elif domain=='GF(5)':a,b=sx.Poly(1,x,modulus=5),sx.Poly(x*x+1,x,modulus=5)
+    if domain=='GF(5)':a,b=sx.Poly(1,x,modulus=5),sx.Poly(x*x+1,x,modulus=5)
     else:a,b=pairs(1,xp*xp+xp+1,domain)
     # EX is computed by the native orchestration (test_native_ratintgen.py);
     # the public result below must still equal the reference body.
@@ -93,6 +92,39 @@ def test_other_domains_retain_complete_algorithm(domain,monkeypatch):
         except Exception as error:return ('error',type(error),str(error))
     actual=run();monkeypatch.setattr(sx._core,'_ratint_logpart',lambda *args:None)
     assert run()==actual
+
+
+@pytest.mark.parametrize('f,g,extension',[
+    (1,xp*xp+1,sp.sqrt(2)),(1,xp*xp+sp.sqrt(2),sp.sqrt(2)),(1,(xp-sp.sqrt(2))*(xp+1),sp.sqrt(2)),
+    (xp,xp**3+sp.sqrt(2),sp.sqrt(2)),(1,xp**3-sp.sqrt(2)*xp+1,sp.sqrt(2)),
+    (xp+sp.sqrt(2),xp**4+sp.sqrt(2)*xp**2+1,sp.sqrt(2)),(1,xp*xp-sp.sqrt(3)*xp+1,sp.sqrt(3))])
+def test_algebraic_field_pairs_are_the_reference_ones(f,g,extension,monkeypatch):
+    # The reference unifies QQ<a> with ZZ[t] into QQ<a>[t]; the subresultants
+    # are computed natively over that ring, the pairs come out over EX.
+    K=sp.QQ.algebraic_field(extension)
+    Kx=sx.QQ.algebraic_field(sx.sympify(str(extension)))
+    expected=reference.ratint_logpart(sp.Poly(f,xp,domain=K),sp.Poly(g,xp,domain=K),xp,tp)
+    a=sx.Poly(sx.sympify(str(f),locals={'x':x}),x,domain=Kx)
+    b=sx.Poly(sx.sympify(str(g),locals={'x':x}),x,domain=Kx)
+    native=sx._core._ratint_logpart(a,b,x,t)
+    assert native is not None
+    assert payload(native)==payload(expected)==payload(rt.ratint_logpart(a,b,x,t))
+
+
+@pytest.mark.parametrize('f,g,fext,gext',[
+    ('1','x**2 + sqrt(3)','sqrt(2)','sqrt(3)'),
+    ('x + sqrt(2)','x**2 + sqrt(3)*x + 1','sqrt(2)','sqrt(3)'),
+    ('x','x**3 + 2**(1/3)','sqrt(2)','2**(1/3)'),
+    ('x + sqrt(5)','x**2 + sqrt(2)*x + 3','sqrt(5)','sqrt(2)')])
+def test_two_algebraic_fields_unify_as_the_reference(f,g,fext,gext):
+    # Domain.unify(QQ<a>, QQ<b>) is QQ<b, a>; TypeError before.
+    def build(M,X):
+        F,G=(M.QQ.algebraic_field(M.sympify(e)) for e in (fext,gext))
+        return M.Poly(M.sympify(f,locals={'x':X}),X,domain=F),M.Poly(M.sympify(g,locals={'x':X}),X,domain=G)
+    expected=reference.ratint_logpart(*build(sp,xp),xp)
+    a,b=build(sx,x)
+    assert sx._core._ratint_logpart(a,b,x,sx.Dummy('t')) is not None
+    assert str(rt.ratint_logpart(a,b,x))==str(expected)
 
 
 def test_t_alias_false_and_custom_parameters_keep_existing_normalization(monkeypatch):

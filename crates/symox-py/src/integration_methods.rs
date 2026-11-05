@@ -46,6 +46,7 @@ pub(crate) fn register_rational_reduction(m: &Bound<'_, PyModule>) -> PyResult<(
     m.add_function(wrap_pyfunction!(_ratint_logpart, m)?)?;
     m.add_function(wrap_pyfunction!(_ratint_ratpart, m)?)?;
     m.add_function(wrap_pyfunction!(_log_to_atan_ex_constant, m)?)?;
+    m.add_function(wrap_pyfunction!(_log_to_atan_ex, m)?)?;
     m.add_function(wrap_pyfunction!(_log_to_atan, m)?)
 }
 
@@ -304,6 +305,70 @@ pub(crate) fn _ratint_ratpart(
 
 /// Select only exact native univariate QQ/ZZ polynomials. The host adapter
 /// separately guards its atan constructor, evaluation context and recursion.
+/// Both operands are stock `Poly` objects whose methods and `is_EX` flag are
+/// the ones captured at import (the host adapter guards the rest).
+fn log_atan_stock_polys(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>) -> PyResult<bool> {
+    use crate::poly::PyPoly;
+    let py=f.py();
+    if !f.is_exact_instance_of::<PyPoly>() || !g.is_exact_instance_of::<PyPoly>() { return Ok(false); }
+    let class=f.get_type();
+    if class.hasattr("__getattribute__")? {
+        let own=class.getattr("__dict__")?;
+        if own.contains("__getattribute__")? || own.contains("__getattr__")? { return Ok(false); }
+    }
+    let Some(methods)=LOG_ATAN_POLY_METHODS.get() else { return Ok(false) };
+    for (name,original) in methods {
+        if *name=="as_expr" {
+            let evaluation=py.import("symox.polys._evaluation")?;
+            if !class.getattr(*name)?.is(&evaluation.getattr("as_expr")?)
+                || !evaluation.getattr("_native_as_expr")?.is(original.bind(py)) { return Ok(false); }
+        } else if !class.getattr(*name)?.is(original.bind(py)) { return Ok(false); }
+    }
+    let Some(original)=LOG_ATAN_DOMAIN_FLAG.get() else { return Ok(false) };
+    if !py.get_type::<crate::poly::domains::PyDomain>().getattr("is_EX")?.is(original.bind(py)) { return Ok(false); }
+    Ok(true)
+}
+
+/// `log_to_atan(f, g)` when one operand is over `EX` and the other over
+/// `EX`, `ZZ` or `QQ` (unified to `EX` as the reference does), both
+/// univariate in the same symbol.
+#[pyfunction]
+pub(crate) fn _log_to_atan_ex(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>)
+    -> PyResult<Option<crate::PyExpr>>
+{
+    use crate::poly::PyPoly;
+    use symox::poly::{expression_domain::ExpressionPoly, polyobj::Domain};
+    let py=f.py();
+    py.check_signals()?;
+    if !log_atan_stock_polys(f,g)? { return Ok(None); }
+    let (f,g)=(f.downcast::<PyPoly>()?.get(),g.downcast::<PyPoly>()?.get());
+    if f.p.expression.is_none() && g.p.expression.is_none() { return Ok(None); }
+    let lift=|p: &symox::poly::fraction::Polynomial| -> Option<ExpressionPoly> {
+        if let Some(e)=&p.expression {
+            return (e.ground.is_none() && p.algebraic.is_none() && p.field.is_none()).then(|| e.clone());
+        }
+        let plain=p.field.is_none() && p.algebraic.is_none() && !p.base.has_domain_gens()
+            && p.base.modulus.is_none() && matches!(p.base.domain,Domain::ZZ|Domain::QQ);
+        if !plain { return None; }
+        ExpressionPoly::from_expr(&p.as_expr(),&p.base.gens).ok()
+    };
+    let (Some(fe),Some(ge))=(lift(&f.p),lift(&g.p)) else { return Ok(None) };
+    if fe.gens.len()!=1 || fe.gens!=ge.gens || !matches!(fe.gens[0].kind(),Kind::Sym(_)) { return Ok(None); }
+    if fe.degree(0)>128 || ge.degree(0)>128 || ge.is_zero() { return Ok(None); }
+    match symox::integrate::log_to_atan_ex::log_to_atan(&fe,&ge,&mut ||py.check_signals().map_err(Declined::Python)) {
+        Ok(result) => Ok(Some(wrap(result))),
+        Err(Declined::Python(e)) => Err(e),
+        Err(Declined::Poly) => Ok(None),
+    }
+}
+
+/// A native step that failed: an interrupt is propagated, a polynomial
+/// error declines to the reference body.
+enum Declined { Python(PyErr), Poly }
+impl From<symox::poly::convert::PolyError> for Declined {
+    fn from(_: symox::poly::convert::PolyError) -> Self { Declined::Poly }
+}
+
 #[pyfunction]
 pub(crate) fn _log_to_atan(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>)
     -> PyResult<Option<crate::PyExpr>>
@@ -312,22 +377,7 @@ pub(crate) fn _log_to_atan(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>)
     use symox::poly::{dense, convert, polyobj::Domain};
     let py=f.py();
     py.check_signals()?;
-    if !f.is_exact_instance_of::<PyPoly>() || !g.is_exact_instance_of::<PyPoly>() { return Ok(None); }
-    let class=f.get_type();
-    if class.hasattr("__getattribute__")? {
-        let own=class.getattr("__dict__")?;
-        if own.contains("__getattribute__")? || own.contains("__getattr__")? { return Ok(None); }
-    }
-    let Some(methods)=LOG_ATAN_POLY_METHODS.get() else { return Ok(None) };
-    for (name,original) in methods {
-        if *name=="as_expr" {
-            let evaluation=py.import("symox.polys._evaluation")?;
-            if !class.getattr(*name)?.is(&evaluation.getattr("as_expr")?)
-                || !evaluation.getattr("_native_as_expr")?.is(original.bind(py)) { return Ok(None); }
-        } else if !class.getattr(*name)?.is(original.bind(py)) { return Ok(None); }
-    }
-    let Some(original)=LOG_ATAN_DOMAIN_FLAG.get() else { return Ok(None) };
-    if !py.get_type::<crate::poly::domains::PyDomain>().getattr("is_EX")?.is(original.bind(py)) { return Ok(None); }
+    if !log_atan_stock_polys(f,g)? { return Ok(None); }
     let (f,g)=(f.downcast::<PyPoly>()?.get(),g.downcast::<PyPoly>()?.get());
     let plain=|p: &symox::poly::fraction::Polynomial| p.field.is_none() && p.algebraic.is_none()
         && p.expression.is_none() && !p.base.has_domain_gens() && p.base.modulus.is_none()

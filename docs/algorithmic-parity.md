@@ -12502,7 +12502,8 @@ Family status against SymPy 1.14 (`tests/test_native_ratintgrow.py`):
   printed result identical to SymPy, symox faster on every one. The "0.73x"
   of `1/(x**6+8)` was a base-vs-new symox ratio of a wasted native attempt,
   not a ratio against SymPy (131.7 ms for SymPy, 11.6 ms for symox).
-- `1/(x**3+x+1)`: 7892 characters (SymPy 16653; the 82704 of the 2026-10-26
+- `1/(x**3+x+1)`: SymPy's printed primitive since ratintex (wave 39,
+  16653 characters). Before: 7892 characters (the 82704 of the 2026-10-26
   audit predates the ratint-dom EX cancel), `integrate` returns the same
   expression as `ratint`, log arguments of degree 1 and 2 and one `atan` as
   in SymPy. Only the Cardano coefficients of the quadratic log argument are
@@ -14336,9 +14337,10 @@ Corrections (SymPy 1.14 values that symox did not compute before):
   TypeError ("expected a polynomial").
 
 Remaining gaps:
-- `ratint_logpart` over QQ<sqrt(2)> raises TypeError in the native
+- `ratint_logpart` over QQ<sqrt(2)> raised TypeError in the native
   primitives and in the reference body alike: QQ<a> cannot be unified with
-  ZZ[t]. SymPy returns EX pairs.
+  ZZ[t]. SymPy returns EX pairs. Ported in the ratintex section (one field;
+  different fields and parametric domains still raise).
 - Printed forms that differ from SymPy 1.14 and were already present in the
   base:
   - parametric `cancel` output, expanded where SymPy collects
@@ -15097,7 +15099,8 @@ Native now (Rust, `crates/symox-core`):
   output.
 
 Still Python: the `log_to_atan` choice between the native quotient and the
-plain coefficient quotient (the shorter is kept), the rest of `log_to_real`,
+plain coefficient quotient (the shorter is kept; moved to Rust inside the
+native reference recursion in the ratintex section), the rest of `log_to_real`,
 and the order of the substituted `A`/`B` expansion (`_substituted_poly`: each
 term of `a(r_u, r_v)` and `b(r_u, r_v)` is expanded natively on its own, as
 SymPy's `expand` of a sum does, before `Poly`).
@@ -15106,11 +15109,11 @@ Intentional deviations and remaining gaps:
 
 - `roots(x**4 + 2*x**2 + 3)` keeps the quadratic-in-x**2 form
   `sqrt(-1 + sqrt(2)*I)`; SymPy gives its binomial form (`try_decompose`
-  uses `roots_quadratic`; unchanged since before the wave).
-- `integrate(1/(x**3 + x + 1))` and `integrate(1/(x**3 + 2*x - 1))` are exact
-  but not SymPy's form (9543 and 9987 characters, SymPy 16653 and 17352):
-  the native EX `cancel`/`expand` of the Cardano radicals does not reach
-  SymPy's normal form, so neither `log_to_atan` quotient matches.
+  uses `roots_quadratic`; unchanged since before the wave). Fixed in the
+  ratintex section.
+- `integrate(1/(x**3 + x + 1))` and `integrate(1/(x**3 + 2*x - 1))` were
+  exact but not SymPy's form (9543 and 9987 characters, SymPy 16653 and
+  17352). Fixed in the ratintex section (SymPy's form).
 - Native `expand` of a sum is not always the sum of the expanded terms. SymPy
   applies the multinomial hint to the whole tree before the mul hint, so in
   `k*(p/d + ...)**(3/2)` the rational `k` meets the unexpanded numerator `p`
@@ -15836,3 +15839,154 @@ Remaining gaps (still Python, recorded as gaps):
   it still runs in full (see prdeconst item 3).
 
 Measured: [audit](../audits/performance/2026-10-30-prdelog/README.md).
+
+## ratintex (wave 39): QQ<a> logpart, EX log_to_atan, RootSum order, binomial preimages, 2026-10-30
+
+Items of TODO.md "ratint : forme log_to_atan sur EX, RootSum real=False,
+TypeError QQ<sqrt(2)> ; exroots : ordre des étapes d'expand, formes
+cubiques, roots cas 20". `ratint(1/(x**8+16))` was not touched.
+
+Native now (Rust, `crates/symox-core`, bindings in `crates/symox-py`):
+
+- `integrate/ratint_algebraic.rs` and `ratint_logpart.rs::extension_logpart`:
+  `ratint_logpart` when the coefficients lie in one algebraic field `QQ<a>`
+  (or one operand over `ZZ`/`QQ`, unified into `QQ<a>`). The reference
+  unifies `QQ<a>` with `ZZ[t]` into `QQ<a>[t]` and runs the subresultant PRS
+  over that ring; symox had no such composite and raised TypeError
+  ("incompatible coefficient fields") in the native primitives and in the
+  reference body alike. The PRS now runs natively in `QQ<a>[x, t]`
+  (`poly::prs::subresultants`, the same exact divisions), the resultant goes
+  through `Poly(res, t, composite=False)` (EX), and a member of the sequence
+  stays in `QQ<a>[t]` until its first division by an EX divisor moves it to
+  EX, as `unify(QQ<a>[t], EX)` does. Divisions by a `ZZ[t]`/`QQ[t]`
+  polynomial are computed in `QQ<a>(t)` and retracted to the ring
+  (`Poly.quo(auto=True)`). The 7 audited QQ<sqrt(2)>/QQ<sqrt(3)> calls
+  return SymPy's EX pairs (TypeError before).
+- `integrate/log_to_atan_ex.rs::log_to_atan`: the whole reference recursion
+  of `log_to_atan` over EX (`f.div(g)`, `gcdex(g, -f)`, `(f*s + g*t).quo(h)`)
+  on `ExpressionPoly`, reached through `_core._log_to_atan_ex` when one
+  operand is over EX and the other over EX, ZZ or QQ, univariate in one
+  symbol, degree at most 128. The constant-divisor case is the EX quotient
+  coefficient by coefficient (the reference remainder is zero), always: the
+  former choice of the shorter of that quotient and the plain `a/c` (a
+  deviation predating this wave) is removed, since the operands are now the
+  reference ones (next items).
+- `poly/expression_domain.rs`: `EX.numer`/`EX.denom` are the reference
+  `Expr.as_numer_denom` (`simptools::as_numer_denom`) instead of the native
+  `fraction`, so `dup_clear_denoms` over EX, and with it the
+  `roots_quadratic` input `simplify(-c/a)` of `log_to_real`, is SymPy's.
+- `expand.rs`: a product of numeric radicals is rebuilt in the
+  association order of `Mul._expandsums` (`reference_product`, up to 4096
+  terms), since `Mul.flatten` combines radicals by association
+  (`1922**(1/3)` versus `2**(1/3)*31**(2/3)`). With `deep=False` (the EX
+  `simplify` hints) a product holding a radical of a sum is distributed
+  once without re-expanding the distributed terms, as
+  `Mul._eval_expand_mul`, which does not forward `deep`.
+- `printing/order.rs` (`as_ordered_terms`): the numeric factors of a term
+  are folded into the complex float key in the canonical `Mul.make_args`
+  order (the multiplication order sets the last bit), and terms with equal
+  keys keep the canonical `Add.make_args` order (Python's stable sort)
+  instead of the storage order. Each numeric factor is `complex(factor)`,
+  the 53-bit evalf of `Expr.__complex__`; the double evaluator used for the
+  key can be one unit off (`31**(2/3)`) and made two terms of the cubic
+  primitive tie, so terms whose keys agree to 1e-12 (same monomial) are
+  recomputed with the 53-bit `eval_mp`
+  (`sortkey::correctly_rounded_coefficient`) before the sort, instead of
+  evaluating every factor at 53 bits (7x slower printing unmemoized).
+- Together: `integrate(1/(x**3 + x + 1))` and `integrate(1/(x**3 + 2*x - 1))`
+  print SymPy's primitives (16653 and 17352 characters; before 9569 and
+  9948, a different exact form).
+- `sortkey.rs`, `printing/order.rs`: a RootSum node has SymPy's
+  `class_key` `(5, 0, 'RootSum')` (RootSum is an `Expr` subclass) and
+  `args` `(expr, fun, gen)`. `ratint(1/(x**5 + 1), real=False)` now prints
+  its terms in SymPy's order.
+- `poly/roots.rs` (`try_decompose`, `try_decompose_symbolic`): every lifted
+  polynomial goes through `_try_heuristics`, as in the reference, so a
+  quadratic binomial is solved by `roots_binomial`
+  (`alpha.expand(complex=True)`). Roots case 20 of the exroots audit,
+  `roots(x**4 + 2*x**2 + 3)`, is now SymPy's output (25/25 cases), as are
+  `x**4 - x**2 + 3` and `x**8 + x**4 + 3`. Exception: see
+  `nested_binomial` below.
+- `integrate/cartesian.rs` (heurisch conjugate pairs): the Cartesian kernel
+  also turns `cos(atan(a)/2)` and `sin(atan(a)/2)` (closed real `a` of
+  decided sign) into radicals, `sqrt((1 + c)/2)` and `sign(a)*sqrt((1 - c)/2)`
+  with `c = 1/sqrt(1 + a**2)`. These polar forms now come out of `roots`
+  (they are SymPy's), where the previous principal square roots
+  `sqrt(7/9 + 4*sqrt(2)*I/9)` were split by the existing square-root rule.
+  heurisch's Python driver dispatches a factor containing `cos`/`sin` to the
+  kernel (dispatch only). Without it, `integrate(1/(1 + 8*cos(x)**2))`
+  took 39 s and returned a 19902-character primitive with logarithms; it is
+  again the compact one of before (0.18 s). SymPy returns the integral
+  unevaluated there.
+- `ops.rs::expand_power_base_split`: a rational residual is kept unevaluated
+  (`evaluate=False` in the reference), so `Mul.flatten` combines it with the
+  other numeric radicals (`6**(1/4)*(-1/12)**(1/2) = 54**(1/4)*I/6`).
+
+Still Python (fallback, outside the native domain):
+
+- The RootSum constructor: RootSum is a Python class over an undefined
+  function node with a Python side table (`_sums`); there is no Rust RootSum
+  node. About 4% of `ratint(..., real=False)` time.
+- `extension_logpart` drives the stock Poly methods (`sqf_list`, `gcd`,
+  `quo`, `invert`, `rem`, all Rust-backed) and the `_from_terms` constructor
+  from the binding; the loop itself is Rust.
+- `log_to_atan` for multivariate, non-stock or other-domain operands, and
+  the rest of `log_to_real` (`collect`, `xreplace`, `roots` calls).
+- heurisch's conjugate-pair loop (`collect(poly, I)`, pairing); only the
+  kernel admission condition changed.
+
+Remaining gaps:
+
+- Two different algebraic fields (`QQ<sqrt(2)>` with `QQ<sqrt(3)>` or
+  `QQ<2**(1/3)>`) are now unified natively into `QQ<b, a>` as
+  `unify` does (`ratint_logpart.rs::extension_pair`; 3 corpus cases, SymPy's
+  pairs). `ratint_logpart` over `QQ<a>` still declines to the reference
+  body, and raises where SymPy returns EX pairs, when the domain is
+  parametric (`QQ<a>[p]`: NotImplementedError at construction in symox) or
+  when a division by a `t`-polynomial does not retract from `QQ<a>(t)` to
+  `QQ<a>[t]`. Not seen in the corpus; not proved absent.
+- `EX(a)` / `EX.from_sympy(a)` from Python simplify their element in symox
+  (SymPy keeps it as given). A gap of the Python domain binding; the native
+  EX paths above do not go through it.
+- evalf noise: SymPy's evalf keeps the imaginary rounding noise of a real
+  value computed through complex arithmetic
+  (`(1/sqrt(2/(3*c) + 2*c)).evalf()` is `0.687629194402954 - 0.e-28*I` for
+  `c = (1/16 + sqrt(687)*I/144)**(1/3)`); symox's evalf, `complex()` and
+  `eval_mp` return an exact real. The sign of that noise orders printed
+  terms (`roots(x**4 + x + 1)`). The print-order key uses the double
+  evaluator, which keeps such noise, and the 53-bit refinement of near ties
+  keeps the double evaluator's imaginary noise when `eval_mp` gives zero: a
+  proxy that matches the audited cases, not the reference noise. Not fixed
+  in evalf.
+- `nested_binomial` (intentional deviation, en attente de validation
+  utilisateur): a lifted binomial `x**2 - r` free of `I` whose base has no
+  decided sign and contains a radical other than a square root keeps the
+  quadratic formula instead of `roots_binomial`. Reason: the reference form comes from
+  `alpha.expand(complex=True)`, whose `Abs` decisions rest on the assumption
+  system, and symox's assumptions differ there: for
+  `c = (-421/432 + sqrt(34257)/144)**(1/3)` symox gives `is_positive` True
+  and `is_extended_real` None (SymPy: True and True), and it decides the sign
+  of a mixed-sign sum of such radicals that SymPy leaves undecided. Through
+  `roots_binomial` the forms then differ from SymPy's and `solve` with real
+  symbols can no longer reject the non-real preimages
+  (`solve([x**2 + y**2 - 4, y - x**4 + 1])` with real `x, y` returned 6 rows
+  instead of 2). Affected forms: `x**8 - 2*x**4 + x**2 - 3` and
+  `(x**2 + 1)**4 - 2*(x**2 + 1)**2 + (x**2 + 1) - 3` (unchanged from
+  before), and the preimages of the real Cardano root in `x**6 + x**2 + 1`
+  (its complex preimages now take `roots_binomial`; 2525 characters,
+  before 671, SymPy 3829). The zero set is complete in both forms
+  (checked numerically to 1e-20 in `tests/test_native_ratintex.py`).
+- Expand step order: partly fixed (radical association order, shallow
+  `deep=False` products, above). In general SymPy still applies the hints
+  one by one over the whole tree (multinomial before mul) and repeats, where
+  native `expand` works term by term; products of more than 4096 terms
+  keep the native order. Making native `expand` follow the reference hint
+  order everywhere would change every caller and was not attempted;
+  `log_to_real` keeps the term-by-term expansion of the substituted `A`/`B`
+  that already gives SymPy's output (exroots section).
+- SymPy's test files: test_rationaltools.py 12/12 before and after;
+  test_polyroots.py 17/32 before and after (imports made optional: the same
+  15 failures, 8 of them because `roots_cubic`, `roots_quartic`,
+  `roots_quintic`, `roots_cyclotomic` and `_nsort` are not exported).
+
+Measured: [audit](../audits/performance/2026-10-30-ratintex/README.md).

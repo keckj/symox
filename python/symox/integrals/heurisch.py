@@ -685,7 +685,10 @@ def heurisch(f, x, rewrite=False, hints=None, mappings=None, retries=3,
 
         for poly in ordered(irreducibles):
             m = collect(poly, I, evaluate=False)
-            if not m.get(I, S.Zero) or any(part.has(I) for part in m.values()):
+            # Dispatch only: the native kernel also takes the polar forms
+            # cos(atan(a)/2) + I*sin(atan(a)/2) of roots_binomial.
+            if not m.get(I, S.Zero) or any(part.has(I) for part in m.values()) \
+                    or poly.has(cos, sin):
                 cartesian = _cartesian_numeric_coefficients(poly, V)
                 if cartesian != poly:
                     m = collect(cartesian, I, evaluate=False)

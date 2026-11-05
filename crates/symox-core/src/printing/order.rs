@@ -147,6 +147,8 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
         Kind::Func(Func::Min, _) => (5, 0, Cow::Borrowed("Min")),
         Kind::Func(f @ (Func::SymbolicDerivative | Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..)), _) => (5, 0, Cow::Owned(f.name().into())),
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, Cow::Borrowed("ComplexRootOf")),
+        // RootSum is an Expr subclass, not a Function: Basic.class_key.
+        Kind::Func(Func::Undefined(_), _) if crate::printer::root_sum_parts(e).is_some() => (5, 0, Cow::Borrowed("RootSum")),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, Cow::Owned(head.name.to_string())),
         Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {
             let (a, b) = head.host().and_then(|host| host.class_key()).unwrap();
@@ -202,6 +204,10 @@ pub struct KeyCache {
     map: FxHashMap<usize, (Expr, Rc<SortKey>)>,
     matrices: FxHashMap<usize, (MatrixExpr, Rc<SortKey>)>,
     one: Option<Rc<SortKey>>,
+    // `ordered_terms`: evaluate numeric factors at 53 bits (`precise`), and
+    // whether a factor went through a floating evaluator (`inexact`).
+    precise: bool,
+    inexact: bool,
 }
 
 impl KeyCache {
@@ -349,6 +355,11 @@ impl KeyCache {
             Kind::Mul(..) => {
                 let f = self.ordered_factors(&expr);
                 KArgs::List(f.iter().map(|a| self.key(a)).collect())
+            }
+            // RootSum.args is the reference `(expr, fun, poly.gen)`.
+            Kind::Func(Func::Undefined(_), _) if crate::printer::root_sum_parts(&expr).is_some() => {
+                let (gen, poly, fun) = crate::printer::root_sum_parts(&expr).unwrap();
+                KArgs::List([poly, fun, gen].iter().map(|a| self.key(a)).collect())
             }
             _ => KArgs::List(expr.args().iter().map(|a| self.key(a)).collect()),
         };
@@ -688,7 +699,13 @@ impl KeyCache {
         // variables, so the free-symbol mask alone does not decide it.
         if (super::is_numeric(&factor) || matches!(factor.kind(), Kind::Func(Func::Integral | Func::Sum | Func::Product, _)))
             && crate::symbolic_number::is_symbolic_number(&factor) {
-            if let Some(v) = crate::sortkey::numeric_coefficient(&factor) {
+            let value = if self.precise && !factor.is_atom() {
+                crate::sortkey::correctly_rounded_coefficient(&factor)
+            } else {
+                crate::sortkey::numeric_coefficient(&factor)
+            };
+            if let Some(v) = value {
+                self.inexact |= !factor.is_atom();
                 *z *= v;
                 return;
             }
@@ -705,6 +722,70 @@ impl KeyCache {
         // cpart is a dict: a repeated base keeps the last exponent
         cpart.retain(|(h, _)| *h != g);
         cpart.push((g, d));
+    }
+
+    /// One term of `Expr.as_terms()` (`term.as_coeff_Mul()`, then the
+    /// factors of `Mul.make_args`).
+    fn decompose_term(&mut self, t: Expr, noncommutative: bool, gens: &mut FxHashMap<Expr, usize>, gen_list: &mut Vec<Expr>) -> Term {
+        let order = t.is_func(&Func::Order);
+        // coeff, _term = term.as_coeff_Mul(); coeff = complex(coeff)
+        let (coeff, facs): (Number, &[(Expr, Expr)]) = match t.kind() {
+            Kind::Num(n) => (n.clone(), &[]),
+            Kind::Mul(c, facs) => (c.clone(), facs.as_slice()),
+            _ => (Number::ONE, &[]),
+        };
+        let mut z = num_complex::Complex64::new(coeff.to_f64(), 0.0);
+        let mut cpart: Vec<(usize, i64)> = Vec::with_capacity(facs.len().max(1));
+        let mut ncpart = Vec::new();
+        // A real infinity (or nan) factor is SymPy's Number coefficient.
+        let special = facs.iter().position(|(b, x)| x.is_one() && matches!(b.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN)));
+        if let Some(i) = special {
+            let value = match facs[i].0.kind() {
+                Kind::Const(Constant::Infinity) => f64::INFINITY,
+                Kind::Const(Constant::NegInfinity) => f64::NEG_INFINITY,
+                _ => f64::NAN,
+            };
+            z = num_complex::Complex64::new(z.re * value, 0.0);
+        }
+        let factors: Vec<Expr> = match t.kind() {
+            Kind::Num(_) => Vec::new(),
+            Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN) => {
+                z = num_complex::Complex64::new(if t.is_constant(Constant::Infinity) { f64::INFINITY } else if t.is_constant(Constant::NegInfinity) { f64::NEG_INFINITY } else { f64::NAN }, 0.0);
+                Vec::new()
+            }
+            Kind::Mul(..) => Vec::new(),
+            _ => vec![t.clone()],
+        };
+        for factor in factors {
+            self.term_factor(factor, noncommutative, &mut z, &mut cpart, &mut ncpart, gens, gen_list);
+        }
+        // `Mul.make_args(_term)` iterates the factors in their canonical
+        // order; the complex coefficient is a product of doubles, so with
+        // several numeric factors the order decides its last bit
+        // (`296263766063322*sqrt(3)*31**(1/6)` against
+        // `92163364291974*31**(2/3)`).
+        let mut visit: Vec<usize> = (0..facs.len()).collect();
+        if facs.iter().filter(|(b, x)| super::is_numeric(b) && super::is_numeric(x)).count() >= 2 {
+            let canonical = crate::traverse::ordered_args(&t);
+            let position = |i: usize| {
+                let f = mul_factor(&facs[i].0, &facs[i].1);
+                canonical.iter().position(|a| *a == f).unwrap_or(usize::MAX)
+            };
+            visit.sort_by_key(|&i| (position(i), i));
+        }
+        for i in visit {
+            let (b, x) = &facs[i];
+            if Some(i) == special { continue; }
+            // fast path: symbol ** integer
+            if let (false, Kind::Sym(_), Kind::Num(Number::Int(d))) = (noncommutative, b.kind(), x.kind()) {
+                let g = gen_index(b.clone(), gens, gen_list);
+                cpart.retain(|(h, _)| *h != g);
+                cpart.push((g, *d));
+                continue;
+            }
+            self.term_factor(mul_factor(b, x), noncommutative, &mut z, &mut cpart, &mut ncpart, gens, gen_list);
+        }
+        Term { expr: t, re: z.re, im: z.im, cpart, ncpart, order }
     }
 
     /// `Add.as_ordered_terms()`.
@@ -726,51 +807,11 @@ impl KeyCache {
         let mut gens: FxHashMap<Expr, usize> = FxHashMap::default();
         let mut gen_list: Vec<Expr> = Vec::new();
         let mut decomposed: Vec<Term> = Vec::with_capacity(all.len());
+        let mut inexact: Vec<bool> = Vec::with_capacity(all.len());
         for t in all {
-            let order = t.is_func(&Func::Order);
-            // coeff, _term = term.as_coeff_Mul(); coeff = complex(coeff)
-            let (coeff, facs): (Number, &[(Expr, Expr)]) = match t.kind() {
-                Kind::Num(n) => (n.clone(), &[]),
-                Kind::Mul(c, facs) => (c.clone(), facs.as_slice()),
-                _ => (Number::ONE, &[]),
-            };
-            let mut z = num_complex::Complex64::new(coeff.to_f64(), 0.0);
-            let mut cpart: Vec<(usize, i64)> = Vec::with_capacity(facs.len().max(1));
-            let mut ncpart = Vec::new();
-            // A real infinity (or nan) factor is SymPy's Number coefficient.
-            let special = facs.iter().position(|(b, x)| x.is_one() && matches!(b.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN)));
-            if let Some(i) = special {
-                let value = match facs[i].0.kind() {
-                    Kind::Const(Constant::Infinity) => f64::INFINITY,
-                    Kind::Const(Constant::NegInfinity) => f64::NEG_INFINITY,
-                    _ => f64::NAN,
-                };
-                z = num_complex::Complex64::new(z.re * value, 0.0);
-            }
-            let factors: Vec<Expr> = match t.kind() {
-                Kind::Num(_) => Vec::new(),
-                Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN) => {
-                    z = num_complex::Complex64::new(if t.is_constant(Constant::Infinity) { f64::INFINITY } else if t.is_constant(Constant::NegInfinity) { f64::NEG_INFINITY } else { f64::NAN }, 0.0);
-                    Vec::new()
-                }
-                Kind::Mul(..) => Vec::new(),
-                _ => vec![t.clone()],
-            };
-            for factor in factors {
-                self.term_factor(factor, noncommutative, &mut z, &mut cpart, &mut ncpart, &mut gens, &mut gen_list);
-            }
-            for (i, (b, x)) in facs.iter().enumerate() {
-                if Some(i) == special { continue; }
-                // fast path: symbol ** integer
-                if let (false, Kind::Sym(_), Kind::Num(Number::Int(d))) = (noncommutative, b.kind(), x.kind()) {
-                    let g = gen_index(b.clone(), &mut gens, &mut gen_list);
-                    cpart.retain(|(h, _)| *h != g);
-                    cpart.push((g, *d));
-                    continue;
-                }
-                self.term_factor(mul_factor(b, x), noncommutative, &mut z, &mut cpart, &mut ncpart, &mut gens, &mut gen_list);
-            }
-            decomposed.push(Term { expr: t, re: z.re, im: z.im, cpart, ncpart, order });
+            self.inexact = false;
+            decomposed.push(self.decompose_term(t, noncommutative, &mut gens, &mut gen_list));
+            inexact.push(self.inexact);
         }
         // gens = sorted(gens, key=default_sort_key)
         let mut rank: Vec<usize> = (0..gen_list.len()).collect();
@@ -809,14 +850,54 @@ impl KeyCache {
                 v.sort_by(cmp);
             }
         };
-        if has_order {
-            let (mut normal, mut orders): (Vec<_>, Vec<_>) = keyed.into_iter().partition(|(_, t)| !t.order);
-            sort(&mut normal, true);
-            sort(&mut orders, true);
-            normal.extend(orders);
-            keyed = normal;
-        } else {
-            sort(&mut keyed, false);
+        let arrange = |mut keyed: Vec<(Vec<(usize, i64)>, Term)>| {
+            if has_order {
+                let (mut normal, mut orders): (Vec<_>, Vec<_>) = keyed.into_iter().partition(|(_, t)| !t.order);
+                sort(&mut normal, true);
+                sort(&mut orders, true);
+                normal.extend(orders);
+                normal
+            } else {
+                sort(&mut keyed, false);
+                keyed
+            }
+        };
+        // The double evaluator can be a unit or so off `complex(factor)`
+        // (a 53-bit evalf) for a radical, which only matters between close
+        // keys: those terms are recomputed at 53 bits before the sort
+        // (`122884485722632*31**(2/3)/D` against
+        // `395018354751096*sqrt(3)*31**(1/6)/D`, one unit apart).
+        if !has_nan && inexact.iter().any(|b| *b) && keyed.len() > 1 {
+            let close = |x: f64, y: f64| x == y || (x - y).abs() <= 1e-12 * x.abs().max(y.abs());
+            let mut probe: Vec<usize> = (0..keyed.len()).collect();
+            probe.sort_by(|a, b| compare(&keyed[*a], &keyed[*b]));
+            let mut refine = vec![false; keyed.len()];
+            for w in probe.windows(2) {
+                let ((ma, ta), (mb, tb)) = (&keyed[w[0]], &keyed[w[1]]);
+                if ma == mb && ta.ncpart == tb.ncpart && close(ta.re, tb.re) && close(ta.im, tb.im) {
+                    refine[w[0]] |= inexact[w[0]];
+                    refine[w[1]] |= inexact[w[1]];
+                }
+            }
+            if refine.iter().any(|b| *b) {
+                self.precise = true;
+                for (_, entry) in keyed.iter_mut().enumerate().filter(|(i, _)| refine[*i]) {
+                    let term = self.decompose_term(entry.1.expr.clone(), noncommutative, &mut gens, &mut gen_list);
+                    entry.1.re = term.re;
+                    entry.1.im = term.im;
+                }
+                self.precise = false;
+            }
+        }
+        keyed = arrange(keyed);
+        // Equal keys keep the order of `Add.make_args`, the canonical order
+        // of the arguments, not the storage order: `1922**(1/3)` and
+        // `2**(1/3)*31**(2/3)` have the same complex coefficient.
+        if !has_nan && keyed.windows(2).any(|w| compare(&w[0], &w[1]).is_eq()) {
+            let canonical = crate::traverse::ordered_args(e);
+            let position = |t: &Expr| canonical.iter().position(|a| a == t).unwrap_or(usize::MAX);
+            keyed.sort_by_cached_key(|(_, t)| position(&t.expr));
+            keyed = arrange(keyed);
         }
         keyed.into_iter().map(|(_, t)| t.expr).collect()
     }

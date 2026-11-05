@@ -1,0 +1,38 @@
+logpart QQ<s2> 1/(x**2+s2) | 84 chars | 0.015768789002322592
+logpart QQ<s2> 1/((x-s2)(x+1)) | 146 chars | 0.042342052001913544
+logpart QQ<s2> x/(x**3+s2) | 89 chars | 0.011477682004624512
+logpart QQ<s2> 1/(x**3-s2*x+1) | 246 chars | 0.23374053899897262
+logpart QQ<s2> (x+s2)/(x**4+s2*x**2+1) | 338 chars | 0.35648375200253213
+logpart QQ<s3> 1/(x**2-s3*x+1) | 80 chars | 0.011716712004272267
+logpart QQ<s2> extension=True | 84 chars | 0.014136045996565372
+logpart QQ<s2>/QQ<s3> 1/(x**2+s3) | 85 chars | 0.04641776999778813
+logpart QQ<s2>/QQ<s3> (x+s2)/(x**2+s3*x+1) | 199 chars | 0.10451853300037328
+logpart QQ<s2>/QQ<2**(1/3)> x/(x**3+2**(1/3)) | 100 chars | 0.07388365299993893
+ratint tuple QQ<s2> | 29 chars | 0.09115845799533417
+log_to_atan QQ/EX doctest | 33 chars | 0.0008779839990893379
+log_to_atan EX non-constant | 9 chars | 0.00045345300168264657
+log_to_atan EX deg2/deg1 | 223 chars | 0.05060401700029615
+integrate 1/(x**4+2) | 160 chars | 0.09766214799310546
+integrate 1/(x**2+sqrt(2)) | 29 chars | 0.09778704400378047
+integrate 1/(x**3+sqrt(2)) | 136 chars | 0.08755369499704102
+integrate 1/(x**2+p) | 23 chars | 0.04056503799802158
+integrate 1/(x**5+1) | 493 chars | 0.7665000400011195
+integrate x/(x**5+1) | 689 chars | 0.8965227689986932
+integrate 1/(x**3-2) | 136 chars | 0.04441782300273189
+integrate 1/(x**3+x+1) | 16653 chars | 2.189827049995074
+integrate 1/(x**3+2*x-1) | 17352 chars | 2.1226032790000318
+integrate 1/((x**2+1)*(x**3+2)) | 9057 chars | 1.8807669609959703
+ratint real=False x/(x**3-a*x+1) | 140 chars | 0.4037522239959799
+ratint real=False 1/(x**4+x+a) | 173 chars | 0.4202310149994446
+ratint real=False 1/(x**5+1) | 97 chars | 0.015382835001219064
+ratint real=False 1/(x**2+2) | 64 chars | 0.009109709004405886
+roots x**8-2*x**4+x**2-3 | 12742 chars | 0.12270441200234927
+roots (x**4-2*x**2-3)**2 | 38 chars | 0.0021853149955859408
+roots octic in x**2+1 | 16202 chars | 0.1180975729948841
+roots case 20 x**4+2*x**2+3 | 274 chars | 0.005101060996821616
+roots x**6+x**2+1 | 3829 chars | 0.02564586700464133
+roots x**4+x**2+1 | 90 chars | 0.004947487002937123
+roots x**4-x**2+3 | 282 chars | 0.005740450993471313
+roots x**8+x**4+3 | 2212 chars | 0.014831439002591651
+roots x**4+a*x**2+1 | 138 chars | 0.010451494003063999
+roots x**6-3*x**3+1 | 342 chars | 0.0056132200043066405

@@ -777,6 +777,37 @@ fn real_binomial(f: &UPoly) -> bool {
     is_neg(&base) || is_pos(&base)
 }
 
+/// A binomial `a*x**2 + b` free of `I` whose base `-b/a` has no decided
+/// real sign and contains a radical other than a square root (a Cardano or
+/// quartic root). Bases with `I` (complex preimages) take the reference path.
+/// The reference `roots_binomial` form of such a base comes from
+/// `alpha.expand(complex=True)`, whose `Abs`/`arg` decisions rest on the
+/// assumption system; symox decides some of those signs where SymPy does not
+/// (and leaves `is_extended_real` undecided where SymPy decides it), so the
+/// expanded form neither matches the reference nor lets `solve` reject the
+/// non-real preimages. Such a binomial keeps the quadratic formula (same
+/// zero set, documented form gap).
+fn nested_binomial(f: &UPoly) -> bool {
+    if f.deg() != 2 || f.length() != 2 || f.nth(0).is_zero() || real_binomial(f) {
+        return false;
+    }
+    if crate::functions::contains_i(&f.nth(0)) || crate::functions::contains_i(&f.nth(2)) {
+        return false;
+    }
+    let mut nested = false;
+    crate::traverse::preorder(&f.nth(0), &mut |s| {
+        if let Kind::Pow(_, x) = s.kind() {
+            if let Some(n) = x.as_number() {
+                let r = super::convert::number_to_rat(n);
+                if !r.mul(&Rat::from_i64(2)).is_integer() {
+                    nested = true;
+                }
+            }
+        }
+    });
+    nested
+}
+
 fn try_heuristics(f: &UPoly) -> Vec<Expr> {
     let n = f.deg();
     if n == 0 {
@@ -840,16 +871,13 @@ fn try_decompose(f: &[Rat]) -> Vec<Expr> {
             c[last] = sub(&c[last], &r);
             let numerical = c.iter().all(|x| x.is_number());
             let lifted = UPoly { c, numerical: numerical || r.mask() == 0 };
-            // Back substitution through a quadratic needs only its exact
-            // quadratic formula. A binomial's polar/Cartesian presentation
-            // expands a nested quartic radical through atan2, abs and arg;
-            // that presentation can grow enormously without changing the
-            // two preimages. Principal square roots retain their branches,
-            // and both signs retain the complete quadratic zero set. A binomial
-            // with a real base keeps the reference `roots_binomial` form
-            // (`I*sqrt(2 + sqrt(3))` rather than `sqrt(-2 - sqrt(3))`).
-            let quadratic = lifted.deg() == 2 && !real_binomial(&lifted);
-            roots.extend(if quadratic { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
+            // The reference `_try_decompose` solves every lifted polynomial
+            // with `_try_heuristics`: a quadratic binomial goes through
+            // `roots_binomial` (`alpha.expand(complex=True)` for a numeric
+            // root), any other quadratic through `roots_quadratic`. A binomial
+            // with a nested radical base keeps the quadratic formula (see
+            // `nested_binomial`).
+            roots.extend(if nested_binomial(&lifted) { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
         }
     }
     roots
@@ -1038,12 +1066,13 @@ fn try_decompose_symbolic(f: &UPoly) -> Vec<Expr> {
             let last = c.len() - 1;
             c[last] = sub(&c[last], &r);
             let lifted = UPoly { c, numerical: false };
-            // The binomial solver expands only a numeric root (the
-            // reference `alpha.expand(complex=True)`); symbolic preimages keep
-            // the binomial form `sqrt(r)`.
+            // As in the reference, every lifted polynomial goes through
+            // `_try_heuristics`; the binomial solver expands only a numeric
+            // root (`alpha.expand(complex=True)`). A numeric binomial with a
+            // nested radical base keeps the quadratic formula
+            // (`nested_binomial`).
             let numeric = lifted.c.iter().all(|x| x.is_number());
-            let quadratic = lifted.deg() == 2 && numeric && !real_binomial(&lifted);
-            roots.extend(if quadratic { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
+            roots.extend(if numeric && nested_binomial(&lifted) { roots_quadratic(&lifted) } else { try_heuristics(&lifted) });
         }
     }
     roots

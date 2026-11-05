@@ -295,6 +295,8 @@ pub fn class_key(e: &Expr) -> Key {
         // Max and Min are not Function subclasses: Basic.class_key.
         Kind::Func(f @ (Func::SymbolicDerivative | Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::Max | Func::Min), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, "ComplexRootOf".into()),
+        // RootSum is an Expr subclass, not a Function: Basic.class_key.
+        Kind::Func(Func::Undefined(_), _) if crate::printer::root_sum_parts(e).is_some() => (5, 0, "RootSum".into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         // An Expr or Atom subclass that is not a Function keeps its class_key.
         Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {
@@ -481,6 +483,11 @@ impl SortKeyCache {
             Kind::Add(..) if !base.is_canonical() => self.held_ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
             Kind::Add(..) => crate::printing::order::ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
             Kind::Mul(..) => self.ordered_factors(&base).iter().map(|arg| self.key(arg)).collect(),
+            // RootSum.args is the reference `(expr, fun, poly.gen)`.
+            Kind::Func(Func::Undefined(_), _) if crate::printer::root_sum_parts(&base).is_some() => {
+                let (gen, poly, fun) = crate::printer::root_sum_parts(&base).unwrap();
+                [poly, fun, gen].iter().map(|arg| self.key(arg)).collect()
+            }
             _ => base.args().iter().map(|arg| self.key(arg)).collect(),
         }
     };
@@ -630,6 +637,50 @@ pub(crate) fn numeric_coefficient(e:&Expr)->Option<Complex64>{
         if value!=*e{return numeric_coefficient(&value);}
     }
     None
+}
+
+thread_local!{
+    // `complex(factor)` by value: the same radicals and denominators recur
+    // in every term of a printed sum (as fresh nodes, hence the structural
+    // key); the table is dropped when it grows past the bound.
+    static COMPLEX_MEMO:std::cell::RefCell<rustc_hash::FxHashMap<Expr,Option<Complex64>>>=std::cell::RefCell::new(rustc_hash::FxHashMap::default());
+}
+const COMPLEX_MEMO_BOUND:usize=1<<12;
+
+/// `complex(factor)` as `Expr.__complex__` computes it, an evalf at 53 bits:
+/// a radical such as `31**(2/3)` gets its correctly rounded double, where
+/// `numeric_coefficient` (the double evaluator) can be one unit off. Falls
+/// back to `numeric_coefficient` outside the multiprecision evaluator.
+pub(crate) fn correctly_rounded_coefficient(e:&Expr)->Option<Complex64>{
+    if matches!(e.kind(),Kind::Const(Constant::NaN|Constant::ComplexInfinity)){return Some(Complex64::new(f64::NAN,f64::NAN));}
+    correctly_rounded(e).or_else(||numeric_coefficient(e))
+}
+
+/// The 53-bit evalf of a numeric node as a complex double (`None` when the
+/// multiprecision evaluator does not cover it).
+///
+/// SymPy's evalf keeps the imaginary rounding noise of a real value reached
+/// through complex arithmetic (`complex(1/sqrt(2/(3*c) + 2*c))` has an
+/// imaginary part of -1e-28 for a complex `c`), and its sign orders the
+/// printed terms; the native multiprecision evaluator returns an exact zero
+/// there. The double evaluator keeps such noise, so its imaginary part is
+/// taken in that case (a proxy for the reference noise, see
+/// docs/algorithmic-parity.md, ratintex).
+fn correctly_rounded(e:&Expr)->Option<Complex64>{
+    if let Some(value)=COMPLEX_MEMO.with(|memo|memo.borrow().get(e).copied()){return value;}
+    let value=crate::evalf_mp::eval_mp(e,53).map(|value|{
+        let (re,im)=(value.re.to_f64(),value.im.to_f64());
+        if im==0.0{
+            if let Some(noise)=crate::evalf::eval_c64(e).map(|d|d.im).filter(|n|*n!=0.0&&n.is_finite()){return Complex64::new(re,noise);}
+        }
+        Complex64::new(re,im)
+    });
+    COMPLEX_MEMO.with(|memo|{
+        let mut memo=memo.borrow_mut();
+        if memo.len()>=COMPLEX_MEMO_BOUND{memo.clear();}
+        memo.insert(e.clone(),value);
+    });
+    value
 }
 
 /// Compare expressions using SymPy default ordering.

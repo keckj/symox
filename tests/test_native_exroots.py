@@ -151,18 +151,9 @@ def _assert_primitive(integrand, primitive):
             assert abs(value) < 1e-20, (point, value)
 
 
-CARDANO_GAP = {'1/(x**3 + x + 1)', '1/(x**3 + 2*x - 1)'}
-
-
 @pytest.mark.parametrize('text', sorted(INTEGRATE))
 def test_integrate_matches_sympy(text):
     f = sx.sympify(text, locals=NS)
     result = sx.integrate(f, x)
     _assert_primitive(f, result)
-    if text in CARDANO_GAP:
-        # Known form gap (docs/algorithmic-parity.md, exroots): the native EX
-        # simplify does not reach SymPy's normal form of the Cardano
-        # radicals; the primitive is exact and shorter than SymPy's.
-        assert len(str(result)) <= len(INTEGRATE[text])
-        return
     assert str(result) == INTEGRATE[text]

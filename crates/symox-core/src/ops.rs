@@ -2005,7 +2005,12 @@ pub(crate) fn expand_power_base_split(b: &Expr, cargs: Vec<Expr>, nc: Option<Exp
     }
     let mut v: Vec<Expr> = nonneg.iter().map(|x| pow(x, e)).collect();
     if let Some((rest, noncommutative)) = residual {
-        v.push(if noncommutative { pow_raw(&rest, e) } else { pow(&rest, e) });
+        // SymPy keeps the residual power unevaluated (`evaluate=False`); a
+        // rational residual such as `(-1/12)**(1/2)` is then combined by
+        // `Mul.flatten` with the other numeric radicals
+        // (`6**(1/4)*(-1/12)**(1/2) = 54**(1/4)*I/6`).
+        let raw = noncommutative || rest.is_rational_number();
+        v.push(if raw { pow_raw(&rest, e) } else { pow(&rest, e) });
     }
     mul(&v)
 }

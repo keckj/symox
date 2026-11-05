@@ -75,13 +75,17 @@ def test_x8_plus_16_keeps_the_exact_rootsum():
         assert abs(complex(derivative.subs(x, point).evalf(30))) < 1e-20
 
 
-def test_cubic_casus_form_is_smaller_and_equal():
+def test_cubic_casus_form_is_the_reference_one():
+    sp = pytest.importorskip('sympy')
     x = sx.Symbol('x')
     f = 1/(x**3 + x + 1)
     value = rt.ratint(f, x)
     assert sx.integrate(f, x) == value
-    # SymPy 1.14 prints 16653 characters; the native EX cancel gives 7892.
-    assert len(str(value)) < 16653
+    # The EX element operations (numer/denom, shallow expand) and the
+    # constant log_to_atan quotient now follow the reference, so the form is
+    # SymPy 1.14's own (16653 characters; 7892 before, a shorter variant).
+    xp = sp.Symbol('x')
+    assert str(value) == str(sp.integrate(1/(xp**3 + xp + 1), xp))
     assert not value.has(sx.RootSum, sx.Integral)
     logs = sorted(value.atoms(sx.log), key=lambda e: sx.Poly(e.args[0], x).degree())
     assert [sx.Poly(e.args[0], x).degree() for e in logs] == [1, 2]

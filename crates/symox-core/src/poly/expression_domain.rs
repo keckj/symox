@@ -145,11 +145,15 @@ impl EX {
         let c = crate::ops::as_coeff_mul(&self.0).0;
         c.is_positive() || c.is_zero()
     }
+    /// `Expression.numer`: `ex.as_numer_denom()[0]`, the reference
+    /// `Expr.as_numer_denom` (a radical of a sum with a rational content
+    /// separates its positive denominator, as `Pow.as_numer_denom` does).
     pub fn numer(&self) -> Self {
-        EX(super::api::as_numer_denom(&self.0).0)
+        EX(crate::simptools::as_numer_denom(&self.0).0)
     }
+    /// `Expression.denom`: `ex.as_numer_denom()[1]`.
     pub fn denom(&self) -> Self {
-        EX(super::api::as_numer_denom(&self.0).1)
+        EX(crate::simptools::as_numer_denom(&self.0).1)
     }
     /// `Expression.lcm`: the expression-level `lcm`.
     pub fn lcm(&self, g: &Self) -> PResult<Self> {

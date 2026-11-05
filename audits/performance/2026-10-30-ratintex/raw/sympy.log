@@ -1,0 +1,36 @@
+logpart QQ<s2> 1/(x**2+s2) | 84 chars | 0.016790496069006622
+logpart QQ<s2> 1/((x-s2)(x+1)) | 146 chars | 0.04456447693519294
+logpart QQ<s2> x/(x**3+s2) | 89 chars | 0.012034273007884622
+logpart QQ<s2> 1/(x**3-s2*x+1) | 246 chars | 0.24714670598041266
+logpart QQ<s2> (x+s2)/(x**4+s2*x**2+1) | 338 chars | 0.37367387500125915
+logpart QQ<s3> 1/(x**2-s3*x+1) | 80 chars | 0.012552052969112992
+logpart QQ<s2> extension=True | 84 chars | 0.01510013802908361
+ratint tuple QQ<s2> | 29 chars | 0.09737807093188167
+log_to_atan QQ/EX doctest | 33 chars | 0.000900684972293675
+log_to_atan EX non-constant | 9 chars | 0.0004801759496331215
+log_to_atan EX deg2/deg1 | 223 chars | 0.053724030032753944
+integrate 1/(x**4+2) | 160 chars | 0.1481078009819612
+integrate 1/(x**2+sqrt(2)) | 29 chars | 0.13985197700094432
+integrate 1/(x**3+sqrt(2)) | 136 chars | 0.09620843105949461
+integrate 1/(x**2+p) | 23 chars | 0.04307293798774481
+integrate 1/(x**5+1) | 493 chars | 0.7831621330697089
+integrate x/(x**5+1) | 689 chars | 0.912642217008397
+integrate 1/(x**3-2) | 136 chars | 0.044849762110970914
+integrate 1/(x**3+x+1) | 16653 chars | 2.3389971560100093
+integrate 1/(x**3+2*x-1) | 17352 chars | 2.268650716985576
+integrate 1/((x**2+1)*(x**3+2)) | 9057 chars | 2.171349107986316
+ratint real=False x/(x**3-a*x+1) | 140 chars | 0.44272877799812704
+ratint real=False 1/(x**4+x+a) | 173 chars | 0.48466834402643144
+ratint real=False 1/(x**5+1) | 97 chars | 0.017521929927170277
+ratint real=False 1/(x**2+2) | 64 chars | 0.009923117002472281
+roots x**8-2*x**4+x**2-3 | 12742 chars | 0.13050508603919297
+roots (x**4-2*x**2-3)**2 | 38 chars | 0.0022731490898877382
+roots case 20 (x**2+1) composition | 16202 chars | 0.1436242900090292
+roots x**4+2*x**2+3 | 274 chars | 0.006286008050665259
+roots x**6+x**2+1 | 3829 chars | 0.03329694294370711
+roots x**4+x**2+1 | 90 chars | 0.006052896962501109
+roots x**4-x**2+3 | 282 chars | 0.00698799395468086
+roots x**8+x**4+3 | 2212 chars | 0.017283985973335803
+roots x**4+a*x**2+1 | 138 chars | 0.0123487290693447
+roots x**6-3*x**3+1 | 342 chars | 0.006398179102689028
+EXIT=0
