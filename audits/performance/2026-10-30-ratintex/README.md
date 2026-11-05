@@ -40,5 +40,6 @@ Times (ms, best of three; symox / SymPy): `integrate 1/(x**3+x+1)`
 336 / 2190, `1/(x**3+2*x-1)` 312 / 2123, two-field logparts 1.7-8.5 /
 46-105. Printing the 16653-character primitive: 0.022 s (SymPy 0.85 s);
 only near ties of the print order are recomputed at 53 bits (evaluating
-every factor at 53 bits took 0.16 s unmemoized, and memoized it pushed the
-tests/extra shard past its 6 GiB cgroup).
+every factor at 53 bits took 0.16 s unmemoized). Peak RSS of the tests/extra
+shard, each run alone: 6 309 168 KB on this branch, 6 302 600 KB on main
+(2e623e66); both are near its 6 GiB cgroup.

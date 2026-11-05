@@ -15891,8 +15891,8 @@ Native now (Rust, `crates/symox-core`, bindings in `crates/symox-py`):
   key can be one unit off (`31**(2/3)`) and made two terms of the cubic
   primitive tie, so terms whose keys agree to 1e-12 (same monomial) are
   recomputed with the 53-bit `eval_mp`
-  (`sortkey::correctly_rounded_coefficient`) before the sort. Evaluating
-  every factor at 53 bits cost 4% more memory on the tests/extra shard.
+  (`sortkey::correctly_rounded_coefficient`) before the sort, instead of
+  evaluating every factor at 53 bits (7x slower printing unmemoized).
 - Together: `integrate(1/(x**3 + x + 1))` and `integrate(1/(x**3 + 2*x - 1))`
   print SymPy's primitives (16653 and 17352 characters; before 9569 and
   9948, a different exact form).
