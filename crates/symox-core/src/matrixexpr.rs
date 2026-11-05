@@ -259,7 +259,17 @@ impl MatrixExpr {
         if crate::sets::lambda_arity(&function)!=Some(1){return Err(MatrixError::Value("ElementwiseApplyFunction Lambda must accept exactly one argument".into()));}
         let parameters=signature.args();
         if parameters.len()!=1||!parameters[0].is_symbol(){return Err(MatrixError::NotImplemented("ElementwiseApplyFunction requires one scalar Lambda parameter; destructured signatures are unsupported".into()));}
-        if crate::sets::lambda_parts(&function).is_none(){return Err(MatrixError::Value("Invalid ElementwiseApplyFunction Lambda signature".into()));}
+        let Some((_,body))=crate::sets::lambda_parts(&function) else {return Err(MatrixError::Value("Invalid ElementwiseApplyFunction Lambda signature".into()))};
+        // ElementwiseApplyFunction.__new__: on a (1, 1) matrix the function
+        // is applied to the matrix itself and a matrix result is returned.
+        // The bodies whose value at a matrix is a matrix expression are
+        // w*d**p (w, p free of d): MatMul(w, MatPow(expr, p)).
+        if parent.rows().is_one()&&parent.cols().is_one()&&!matches!(parent.kind(),MatrixKind::Explicit(_)){
+            if let Some((w,p))=crate::arrayexpr_a2m::match_power(&body,&parameters[0]).filter(|_|crate::traverse::has(&body,&parameters[0])){
+                let powered=if p.is_one(){parent.clone()}else{parent.pow(p,true)?};
+                return if w.is_one(){Ok(powered)}else{Self::mul(w,&[powered],true)};
+            }
+        }
         if evaluate{
             if matches!(function.kind(),Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction),_)){return Ok(parent.clone());}
             if let MatrixKind::Explicit(matrix)=parent.kind(){
@@ -277,6 +287,11 @@ impl MatrixExpr {
         Ok(Self::new(MatrixKind::ApplyFunction(function,parent.clone()),parent.rows().clone(),parent.cols().clone()))
     }
     pub fn function_lambda(&self)->Option<&Expr>{if let MatrixKind::Function(lambda)=self.kind(){Some(lambda)}else{None}}
+    /// SymPy's `is_Identity is True`: an Identity, or a OneMatrix whose
+    /// shape is (1, 1).
+    pub fn is_identity_true(&self)->bool{
+        match self.kind(){MatrixKind::Identity=>true,MatrixKind::One=>self.rows().is_one()&&self.cols().is_one(),_=>false}
+    }
     pub fn identity(n:Expr)->MResult<Self> { dimension(&n)?;Ok(Self::new(MatrixKind::Identity,n.clone(),n)) }
     pub fn zero(rows:Expr,cols:Expr)->MResult<Self> {dimension(&rows)?;dimension(&cols)?;Ok(Self::new(MatrixKind::Zero,rows,cols))}
     pub fn one(rows:Expr,cols:Expr)->MResult<Self> {dimension(&rows)?;dimension(&cols)?;Ok(Self::new(MatrixKind::One,rows,cols))}
@@ -300,6 +315,16 @@ impl MatrixExpr {
     /// SymPy's `DiagMatrix.doit`: the scalar factors of a MatMul vector come
     /// out (`2*DiagMatrix(A*x)`), and a transposed vector is unwrapped.
     fn diag_doit(vector:&Self)->MResult<Self>{
+        // DiagMatrix.doit: a vector that is diagonal (1x1, an identity, ...)
+        // is returned as is; an explicit vector becomes the explicit diagonal.
+        let proxy=Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(vector.clone())),vec![]));
+        if matches!(crate::ask::ask(&crate::ask::q(crate::ask::Pred::Diagonal,&proxy),&Expr::boolean(true)),Ok(Some(true))){return Ok(vector.clone());}
+        if let MatrixKind::Explicit(m)=vector.kind(){
+            let n=m.rows().max(m.cols());
+            let mut entries=vec![Expr::zero();n*n];
+            for i in 0..n{entries[i*n+i]=if i<m.data().len(){m.data()[i].clone()}else{Expr::one()};}
+            return Ok(Self::explicit(Matrix::new(n,n,entries)?));
+        }
         if let MatrixKind::Mul(coefficient,factors)=vector.kind(){
             if !coefficient.is_one(){
                 let inner=Self::mul(Expr::one(),factors,true)?;
@@ -571,8 +596,11 @@ impl MatrixExpr {
         for factor in factors {if let MatrixKind::Mul(c,fs)=factor.kind(){scalar=mul2(&scalar,c);flat.extend(fs.iter().cloned());}else{flat.push(factor.clone());}}
         if scalar.is_zero() || flat.iter().any(|f|matches!(f.kind(),MatrixKind::Zero)) {return Self::zero(rows,cols);}
         let mut result:Vec<Self>=Vec::new();
+        // remove_ids drops every factor whose is_Identity is True (a 1x1
+        // OneMatrix too); when all of them are, rm_id keeps the first one.
+        let first_one=flat.first().filter(|f|matches!(f.kind(),MatrixKind::One)).cloned();
         for factor in flat {
-            if matches!(factor.kind(),MatrixKind::Identity){continue;}
+            if factor.is_identity_true(){continue;}
             if let Some(prev)=result.last().cloned(){
                 if let (MatrixKind::Explicit(a),MatrixKind::Explicit(b))=(prev.kind(),factor.kind()){
                     result.pop();result.push(Self::explicit(a.matmul(b)?));continue;
@@ -594,7 +622,10 @@ impl MatrixExpr {
             }
             result.push(factor);
         }
-        if result.is_empty(){return Ok(if scalar.is_one(){Self::identity(rows)?}else{Self::new(MatrixKind::Mul(scalar,vec![Self::identity(rows.clone())?]),rows,cols)});}
+        if result.is_empty(){
+            let kept=match first_one{Some(one)=>one,None=>Self::identity(rows.clone())?};
+            return Ok(if scalar.is_one(){kept}else{Self::new(MatrixKind::Mul(scalar,vec![kept]),rows,cols)});
+        }
         if result.len()==1 {
             if scalar.is_one(){return Ok(result.remove(0));}
             if let MatrixKind::Explicit(m)=result[0].kind(){return Ok(Self::explicit(m.scale(&scalar)));}
@@ -676,19 +707,12 @@ impl MatrixExpr {
             MatrixKind::Function(_) if finite_dim(self.rows()).is_ok()=>self.trace_explicit(),
             MatrixKind::Add(terms)=>Ok(add(&terms.iter().map(Self::trace).collect::<MResult<Vec<_>>>()?)),
             MatrixKind::Mul(coefficient,factors)=>{
-                if factors.len()==1{return Ok(mul2(coefficient,&factors[0].trace()?));}
-                // The trace is invariant under cyclic rotations, including
-                // rectangular compatible factors forming a closed chain.
-                let transposed=factors.iter().rev().map(|factor|factor.transpose(true)).collect::<MResult<Vec<_>>>()?;
-                let mut canonical=factors.clone();
-                for orientation in [factors,&transposed]{
-                    for i in 0..orientation.len(){
-                        let rotation=orientation[i..].iter().chain(&orientation[..i]).cloned().collect::<Vec<_>>();
-                        if rotation<canonical{canonical=rotation;}
-                    }
-                }
-                let parent=Self::mul(Expr::one(),&canonical,false)?;
-                Ok(mul2(coefficient,&parent.trace_unevaluated()?))
+                // MatMul._eval_trace: `factor*trace(mmul.doit())` when the
+                // scalar factor is not 1, otherwise the trace stays held
+                // (the factors keep their order, no cyclic normalization).
+                if coefficient.is_one(){return self.trace_unevaluated();}
+                let product=Self::mul(Expr::one(),factors,false)?.doit(true)?;
+                Ok(mul2(coefficient,&product.trace()?))
             },
             MatrixKind::Transpose(base)=>base.trace(),
             MatrixKind::Adjoint(base)|MatrixKind::Conjugate(base)=>Ok(func(Func::Conjugate,vec![base.trace()?])),
@@ -971,8 +995,10 @@ impl MatrixExpr {
             MatrixKind::Transpose(b) if op==0=>return Ok(b.clone()),MatrixKind::Adjoint(b) if op==1=>return Ok(b.clone()),MatrixKind::Conjugate(b) if op==2=>return Ok(b.clone()),
             MatrixKind::Transpose(b) if op==1=>return b.conjugate(true),MatrixKind::Adjoint(b) if op==0=>return b.conjugate(true),
             MatrixKind::Conjugate(b) if op==0=>return b.adjoint(true),MatrixKind::Conjugate(b) if op==1=>return b.transpose(true),
-            MatrixKind::Add(args)=>return Self::add(&args.iter().map(apply).collect::<MResult<Vec<_>>>()?,true),
-            MatrixKind::Mul(c,fs)=>{let mut factors=fs.clone();if op!=2{factors.reverse();}let c=if op==0{c.clone()}else{func(Func::Conjugate,vec![c.clone()])};return Self::mul(c,&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,true);},
+            // MatAdd/MatMul._eval_transpose and _eval_adjoint end with a
+            // (deep) doit of the rebuilt sum or product.
+            MatrixKind::Add(args)=>{let r=Self::add(&args.iter().map(apply).collect::<MResult<Vec<_>>>()?,true)?;return if op==2{Ok(r)}else{r.doit(true)};},
+            MatrixKind::Mul(c,fs)=>{let mut factors=fs.clone();if op!=2{factors.reverse();}let c=if op==0{c.clone()}else{func(Func::Conjugate,vec![c.clone()])};let r=Self::mul(c,&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,true)?;return if op==2{Ok(r)}else{r.doit(true)};},
             MatrixKind::Pow(b,e)=>return apply(b)?.pow(if op==1{func(Func::Conjugate,vec![e.clone()])}else{e.clone()},true),
             MatrixKind::Inverse(b)=>return apply(b)?.inverse(true),_=>{},
         }}
@@ -1209,13 +1235,17 @@ impl MatrixExpr {
         if let Some(result)=memo.get(&self.dag_id()){return Ok(result.clone());}
         if !inv_expand&&matches!(self.kind(),MatrixKind::Inverse(_)){return Ok(self.clone());}
         let children=if deep{self.children().iter().map(|c|c.doit_cached(true,inv_expand,memo)).collect::<MResult<Vec<_>>>()?}else{self.children()};
-        let result=match self.kind(){MatrixKind::Permutation(p)=>Self::permutation(p.clone(),true),MatrixKind::Permute(_,p,axis)=>children[0].permute(p.clone(),*axis,true),MatrixKind::ApplyFunction(function,_)=>Self::apply_function(function.clone(),&children[0],true),MatrixKind::Diag(_)=>Self::diag_doit(&children[0]),MatrixKind::DiagonalOf(_)=>Self::diagonal_of(&children[0]),MatrixKind::Diagonal(_)=>Self::diagonal(&children[0]),MatrixKind::Block(grid)=>Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,children.clone())?),MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice_normalized(rows.clone(),cols.clone()),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(c.clone(),&children,true),MatrixKind::Pow(_,e)=>Self::pow_doit(&children[0],e,inv_expand),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
+        let result=match self.kind(){MatrixKind::Permutation(p)=>Self::permutation(p.clone(),true),MatrixKind::Permute(_,p,axis)=>children[0].permute(p.clone(),*axis,true),MatrixKind::ApplyFunction(function,_)=>Self::apply_function(function.clone(),&children[0],true),MatrixKind::Diag(_)=>Self::diag_doit(&children[0]),MatrixKind::DiagonalOf(_)=>Self::diagonal_of(&children[0]),MatrixKind::Diagonal(_)=>Self::diagonal(&children[0]),MatrixKind::Block(grid)=>Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,children.clone())?),MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice_normalized(rows.clone(),cols.clone()),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(if deep{crate::functions::doit(c,true)}else{c.clone()},&children,true),MatrixKind::Pow(_,e)=>Self::pow_doit(&children[0],e,inv_expand),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
         let result=if result==*self{self.clone()}else{result};
         memo.insert(self.dag_id(),result.clone());Ok(result)
     }
     pub fn validate_index(index:&Expr,dim:&Expr)->MResult<()> {
         if crate::assumptions::is_integer(index)==Some(false){return Err(MatrixError::Index("Matrix indices must be integers".into()));}
-        if crate::assumptions::is_nonnegative(&sub(index,dim))==Some(true)||crate::assumptions::is_negative(&crate::ops::add2(index,dim))==Some(true){return Err(MatrixError::Index("Matrix index out of range".into()));}
+        // SymPy's MatrixExpr.valid_index: `(i >= -n) != False and (i < n) != False`,
+        // the relations evaluated as SymPy does (a non-real dimension such as a
+        // plain symbol `k` leaves `k < k` unevaluated, so `M[i, k]` is valid).
+        let fals=Expr::boolean(false);
+        if crate::relational::lt(index,dim)==fals||crate::relational::ge(index,&crate::ops::neg(dim))==fals{return Err(MatrixError::Index("Matrix index out of range".into()));}
         Ok(())
     }
     fn kronecker_element(&self,factors:&[Self],i:&Expr,j:&Expr)->MResult<Expr>{
@@ -1565,7 +1595,10 @@ mod tests {
         let a=symbol("A",2,3);let b=symbol("B",3,2);
         let ab=MatrixExpr::mul(Expr::one(),&[a.clone(),b.clone()],true).unwrap();
         let ba=MatrixExpr::mul(Expr::one(),&[b,a],true).unwrap();
-        assert_eq!(ab.trace().unwrap(),ba.trace().unwrap());
+        // SymPy 1.14 MatMul._eval_trace: no cyclic canonicalization.
+        assert_ne!(ab.trace().unwrap(),ba.trace().unwrap());
+        let mul_ab=MatrixExpr::mul(Expr::one(),&[symbol("A",2,3),symbol("B",3,2)],false).unwrap();
+        assert_eq!(ab.trace().unwrap(),mul_ab.trace_unevaluated().unwrap());
         assert!(matches!(ab.determinant().unwrap().kind(),Kind::Func(Func::MatrixDeterminant(_),_)));
         assert_eq!(MatrixExpr::identity(Expr::int(0)).unwrap().determinant().unwrap(),Expr::one());
         assert_eq!(MatrixExpr::zero(Expr::int(0),Expr::int(0)).unwrap().determinant().unwrap(),Expr::one());

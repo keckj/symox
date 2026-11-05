@@ -1,0 +1,39 @@
+{"case": "array_derive(X, X)", "first_ms": 0.2806179691106081, "median_ms": 0.09423197479918599, "result": "PermuteDims(ArrayTensorProduct(I, I), (3)(1 2))"}
+{"case": "array_derive(X.T, X)", "first_ms": 0.3285589627921581, "median_ms": 0.1739939907565713, "result": "PermuteDims(ArrayTensorProduct(I, I), (1 2 3))"}
+{"case": "array_derive(X*Y*X, X)", "first_ms": 3.2539040548726916, "median_ms": 2.7061065775342286, "result": "ArrayAdd(PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 5), (1, 6)), (3)(1 2)), PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 7), (1, 3)), (2 3)))"}
+{"case": "array_derive(X**-1, X)", "first_ms": 2.1026519825682044, "median_ms": 1.39405153458938, "result": "ArrayContraction(ArrayTensorProduct(I, I, -X**(-1), X**(-1)), (1, 5), (3, 6))"}
+{"case": "array_derive(tp(A3, B), B)", "first_ms": 0.6205819081515074, "median_ms": 0.510153011418879, "result": "PermuteDims(ArrayTensorProduct(I, I, A), (1 2 4 6 3 5))"}
+{"case": "array_derive(con(tp(X, Y, X), (1, 2), (3, 4)), X)", "first_ms": 2.418041112832725, "median_ms": 2.204359509050846, "result": "ArrayAdd(PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 5), (1, 6)), (3)(1 2)), PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 7), (1, 3)), (2 3)))"}
+{"case": "c(Sum(M[i,j]*N[j,k], j))", "first_ms": 8.249659091234207, "median_ms": 1.2223384692333639, "result": "ArrayContraction(ArrayTensorProduct(M, N), (1, 2))"}
+{"case": "c(Sum(M[i,j]*N[j,k]*P[k,l], j, k))", "first_ms": 2.1609619725495577, "median_ms": 1.8204160151071846, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": "c(M[i,j]*N[k,l] + N[i,j]*M[k,l], [i,j,k,l])", "first_ms": 2.6272180257365108, "median_ms": 2.189845487009734, "result": "ArrayAdd(ArrayTensorProduct(M, N), ArrayTensorProduct(N, M))"}
+{"case": "c(E[i,j] + F[j,i])", "first_ms": 0.6067190552130342, "median_ms": 0.2892659977078438, "result": "ArrayAdd(E, PermuteDims(F, (0 1)))"}
+{"case": "a2i(con(tp(M, N), (1, 2)), [i, j])", "first_ms": 0.7379330927506089, "median_ms": 0.3018839634023607, "result": "Sum(M[i, _d0]*N[_d0, j], (_d0, 0, d - 1))"}
+{"case": "a2i(pd(tp(M, N), [1, 0, 3, 2]), [i, j, k, l])", "first_ms": 0.26002200320363045, "median_ms": 0.14025939162820578, "result": "M[j, i]*N[l, k]"}
+{"case": "a2i(dia(tp(M, N), (0, 2)), [i, j, k])", "first_ms": null, "median_ms": null, "result": "TypeError: list indices must be integers or slices, not NoneType"}
+{"case": "array_derive(X, X)", "first_ms": 0.2681530313566327, "median_ms": 0.09351095650345087, "result": "PermuteDims(ArrayTensorProduct(I, I), (3)(1 2))"}
+{"case": "array_derive(X.T, X)", "first_ms": 0.29246602207422256, "median_ms": 0.1703570014797151, "result": "PermuteDims(ArrayTensorProduct(I, I), (1 2 3))"}
+{"case": "array_derive(X*Y*X, X)", "first_ms": 3.226525033824146, "median_ms": 2.6818494661711156, "result": "ArrayAdd(PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 5), (1, 6)), (3)(1 2)), PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 7), (1, 3)), (2 3)))"}
+{"case": "array_derive(X**-1, X)", "first_ms": 1.6893469728529453, "median_ms": 1.3775365077890456, "result": "ArrayContraction(ArrayTensorProduct(I, I, -X**(-1), X**(-1)), (1, 5), (3, 6))"}
+{"case": "array_derive(tp(A3, B), B)", "first_ms": 0.5994179518893361, "median_ms": 0.5050059407949448, "result": "PermuteDims(ArrayTensorProduct(I, I, A), (1 2 4 6 3 5))"}
+{"case": "array_derive(con(tp(X, Y, X), (1, 2), (3, 4)), X)", "first_ms": 2.315002027899027, "median_ms": 2.192087471485138, "result": "ArrayAdd(PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 5), (1, 6)), (3)(1 2)), PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 7), (1, 3)), (2 3)))"}
+{"case": "c(Sum(M[i,j]*N[j,k], j))", "first_ms": 6.01397710852325, "median_ms": 1.2420120183378458, "result": "ArrayContraction(ArrayTensorProduct(M, N), (1, 2))"}
+{"case": "c(Sum(M[i,j]*N[j,k]*P[k,l], j, k))", "first_ms": 1.9974178867414594, "median_ms": 1.822732447180897, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": "c(M[i,j]*N[k,l] + N[i,j]*M[k,l], [i,j,k,l])", "first_ms": 2.4437010288238525, "median_ms": 2.1941185113973916, "result": "ArrayAdd(ArrayTensorProduct(M, N), ArrayTensorProduct(N, M))"}
+{"case": "c(E[i,j] + F[j,i])", "first_ms": 0.4694670205935836, "median_ms": 0.29060745146125555, "result": "ArrayAdd(E, PermuteDims(F, (0 1)))"}
+{"case": "a2i(con(tp(M, N), (1, 2)), [i, j])", "first_ms": 0.43356604874134064, "median_ms": 0.2996909897774458, "result": "Sum(M[i, _d0]*N[_d0, j], (_d0, 0, d - 1))"}
+{"case": "a2i(pd(tp(M, N), [1, 0, 3, 2]), [i, j, k, l])", "first_ms": 0.25484501384198666, "median_ms": 0.14142453437671065, "result": "M[j, i]*N[l, k]"}
+{"case": "a2i(dia(tp(M, N), (0, 2)), [i, j, k])", "first_ms": null, "median_ms": null, "result": "TypeError: list indices must be integers or slices, not NoneType"}
+{"case": "array_derive(X, X)", "first_ms": 0.2739990595728159, "median_ms": 0.09536999277770519, "result": "PermuteDims(ArrayTensorProduct(I, I), (3)(1 2))"}
+{"case": "array_derive(X.T, X)", "first_ms": 0.3034590044990182, "median_ms": 0.17456302884966135, "result": "PermuteDims(ArrayTensorProduct(I, I), (1 2 3))"}
+{"case": "array_derive(X*Y*X, X)", "first_ms": 3.2730180537328124, "median_ms": 2.687595027964562, "result": "ArrayAdd(PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 5), (1, 6)), (3)(1 2)), PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 7), (1, 3)), (2 3)))"}
+{"case": "array_derive(X**-1, X)", "first_ms": 1.6768360510468483, "median_ms": 1.371672551613301, "result": "ArrayContraction(ArrayTensorProduct(I, I, -X**(-1), X**(-1)), (1, 5), (3, 6))"}
+{"case": "array_derive(tp(A3, B), B)", "first_ms": 0.6023070309311152, "median_ms": 0.5083769792690873, "result": "PermuteDims(ArrayTensorProduct(I, I, A), (1 2 4 6 3 5))"}
+{"case": "array_derive(con(tp(X, Y, X), (1, 2), (3, 4)), X)", "first_ms": 2.3078409722074866, "median_ms": 2.192072512116283, "result": "ArrayAdd(PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 5), (1, 6)), (3)(1 2)), PermuteDims(ArrayContraction(ArrayTensorProduct(Y, I, I, X), (0, 7), (1, 3)), (2 3)))"}
+{"case": "c(Sum(M[i,j]*N[j,k], j))", "first_ms": 5.929598002694547, "median_ms": 1.2342419940978289, "result": "ArrayContraction(ArrayTensorProduct(M, N), (1, 2))"}
+{"case": "c(Sum(M[i,j]*N[j,k]*P[k,l], j, k))", "first_ms": 2.008827985264361, "median_ms": 1.8051870283670723, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": "c(M[i,j]*N[k,l] + N[i,j]*M[k,l], [i,j,k,l])", "first_ms": 2.421822980977595, "median_ms": 2.1778909722343087, "result": "ArrayAdd(ArrayTensorProduct(M, N), ArrayTensorProduct(N, M))"}
+{"case": "c(E[i,j] + F[j,i])", "first_ms": 0.4634450888261199, "median_ms": 0.2906920271925628, "result": "ArrayAdd(E, PermuteDims(F, (0 1)))"}
+{"case": "a2i(con(tp(M, N), (1, 2)), [i, j])", "first_ms": 0.44633797369897366, "median_ms": 0.30155148124322295, "result": "Sum(M[i, _d0]*N[_d0, j], (_d0, 0, d - 1))"}
+{"case": "a2i(pd(tp(M, N), [1, 0, 3, 2]), [i, j, k, l])", "first_ms": 0.24715205654501915, "median_ms": 0.14048448065295815, "result": "M[j, i]*N[l, k]"}
+{"case": "a2i(dia(tp(M, N), (0, 2)), [i, j, k])", "first_ms": null, "median_ms": null, "result": "TypeError: list indices must be integers or slices, not NoneType"}

@@ -1,0 +1,101 @@
+pass        agree/total  native-path  stock-fallback  stock-agree
+convert      517/527      441           86              77
+a2m          517/527      441           86              77
+rtd          526/527      500           27              26
+hadamard     521/527      481           46              40
+removable    527/527      508           19              19
+remove_id    527/527      508           19              19
+multi_id     527/527      508           19              19
+diag2contr   524/527      524            3               0
+editor       312/312      299           13              13
+inputs differing: 0
+--- arr12 convert
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*M)
+--- arr12 a2m
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*M)
+--- arr12 hadamard
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*M)
+--- arr15 convert
+  sympy: N*DiagMatrix(OneArray(1, k))
+  symox: EXC:TypeError
+--- arr15 a2m
+  sympy: ArrayTensorProduct(OneArray(1), N*DiagMatrix(OneArray(1, k)))
+  symox: EXC:TypeError
+--- arr15 diag2contr
+  sympy: ArrayContraction(ArrayTensorProduct(OneArray(1), N, DiagMatrix(OneArray(1, k))), (2, 4))
+  symox: EXC:TypeError
+--- arr34 convert
+  sympy: EXC:NotImplementedError
+  symox: EXC:TypeError
+--- arr34 a2m
+  sympy: EXC:NotImplementedError
+  symox: EXC:TypeError
+--- arr34 hadamard
+  sympy: EXC:NotImplementedError
+  symox: EXC:TypeError
+--- arr47 convert
+  sympy: Trace(I*Trace(a*c))*Trace(I)
+  symox: Trace(Trace(a*c)*I)*Trace(I)
+--- arr47 a2m
+  sympy: Trace(I*Trace(a*c))*Trace(I)
+  symox: Trace(Trace(a*c)*I)*Trace(I)
+--- arr127 diag2contr
+  sympy: ArrayContraction(ArrayTensorProduct(OneArray(1), a, OneArray(1, k), DiagMatrix(OneArray(1, k))), (4, 6))
+  symox: EXC:TypeError
+--- arr145 convert
+  sympy: EXC:ValueError
+  symox: EXC:TypeError
+--- arr145 a2m
+  sympy: EXC:ValueError
+  symox: EXC:TypeError
+--- arr145 diag2contr
+  sympy: EXC:ValueError
+  symox: EXC:TypeError
+--- arr158 convert
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*M.T)
+--- arr158 a2m
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*M.T)
+--- arr158 hadamard
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*M.T)
+--- arr249 convert
+  sympy: PermuteDims(ArrayTensorProduct(OneArray(1, k).T, u), (3)(1 2))
+  symox: EXC:TypeError
+--- arr249 a2m
+  sympy: PermuteDims(ArrayTensorProduct(OneArray(1, k).T, u), (3)(1 2))
+  symox: EXC:TypeError
+--- arr300 convert
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*I)
+--- arr300 a2m
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*I)
+--- arr300 hadamard
+  sympy: EXC:NotImplementedError
+  symox: Trace(ArraySymbol(A, (k, k))*I)
+--- arr308 convert
+  sympy: PermuteDims(ArrayTensorProduct(y*Y.T*DiagMatrix(u), HadamardProduct(A.T, N.T)), (1 2 3))
+  symox: EXC:TypeError
+--- arr308 a2m
+  sympy: PermuteDims(ArrayTensorProduct(OneArray(1), y*Y.T*DiagMatrix(u), HadamardProduct(A.T, N.T)), (2 3 4))
+  symox: EXC:TypeError
+--- arr308 hadamard
+  sympy: ArrayDiagonal(ArrayTensorProduct(y*u, Y, HadamardProduct(A.T, N.T)), (0, 2))
+  symox: EXC:TypeError
+--- arr336 convert
+  sympy: EXC:NotImplementedError
+  symox: EXC:TypeError
+--- arr336 a2m
+  sympy: EXC:NotImplementedError
+  symox: EXC:TypeError
+--- arr336 rtd
+  sympy: EXC:NotImplementedError
+  symox: EXC:TypeError
+--- arr336 hadamard
+  sympy: EXC:NotImplementedError
+  symox: EXC:TypeError

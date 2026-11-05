@@ -15,6 +15,8 @@ DifferentialExtension,derivation=risch.DifferentialExtension,risch.derivation
 x,t,n=sx.symbols('x t n')
 QQ=polymatrix.QQ
 
+# prdelog entries: number of positional arguments of the stock body.
+WRAPPED={'limited_integrate':4,'parametric_log_deriv_heu':5,'is_log_deriv_k_t_radical_in_field':3}
 ENTRIES=('param_rischDE','param_poly_rischDE','prde_no_cancel_b_large','prde_no_cancel_b_small',
          'prde_spde','prde_normal_denom','prde_special_denom','prde_linear_constraints',
          'poly_linear_constraints','constant_system')
@@ -125,7 +127,9 @@ def test_sympy_limited_integrate(kinds):
     G=[(Poly(1,x),Poly(x,x))]
     assert prde.limited_integrate(Poly(5*x**2,x),Poly(3,x),G,DE)==\
         ((Poly(5*x**3/9,x),Poly(1,x,domain='QQ')),[0])
-    assert kinds.count('param_rischDE')==2
+    # The whole base-case limited_integrate (its param_rischDE included) is
+    # one native call since prdelog.
+    assert kinds.count('limited_integrate')==2
 
 
 def test_sympy_non_base_examples_keep_python_results(kinds):
@@ -164,7 +168,7 @@ INTEGRANDS=['log(x)**2','x*log(x)','log(x)**3/x','x**2*log(x)**2','x*log(x+1)','
 def test_risch_integrate_kernel_calls_match_python(monkeypatch,text):
     xs=sx.Symbol('x');f=sx.sympify(text,locals={'x':xs})
     records=[];depth=[0]
-    for name in ENTRIES:
+    for name in ENTRIES+tuple(WRAPPED):
         entry=getattr(native,name);body=getattr(prde,name)
 
         def wrapper(*args,_entry=entry,_body=body,_name=name):
@@ -172,15 +176,18 @@ def test_risch_integrate_kernel_calls_match_python(monkeypatch,text):
             fresh=tuple(list(a)if type(a)is list else a for a in args)
             r=_entry(*args)
             if r is None:return None
+            # The prdelog entries return (answer,) and their stock bodies
+            # take the trailing options as keywords.
+            value,k=(r[0],WRAPPED[_name])if _name in WRAPPED else (r,len(fresh))
             depth[0]+=1
             try:
                 with monkeypatch.context()as patch:
                     patch.setattr(native,'_ROOT',None)
-                    expected=_body(*fresh)
+                    expected=_body(*fresh[:k])
             finally:
                 depth[0]-=1
             records.append(_name)
-            assert sig(r)==sig(expected),_name
+            assert sig(value)==sig(expected),_name
             assert sig(list(args))==sig(list(fresh)),_name
             return r
         monkeypatch.setattr(native,name,wrapper)
@@ -207,6 +214,9 @@ def test_integrands_reach_every_first_wave_kernel(monkeypatch):
         if r is not None:seen.add(kind)
         return r
     monkeypatch.setattr(native,'_call',spy)
+    # The native base-case limited_integrate runs these kernels in Rust;
+    # route it to the stock body so the first-wave entries are reached.
+    monkeypatch.setattr(native,'limited_integrate',lambda *args:None)
     xs=sx.Symbol('x')
     for text in INTEGRANDS[:27]:
         risch.risch_integrate(sx.sympify(text,locals={'x':xs}),xs)

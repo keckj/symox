@@ -86,7 +86,8 @@ def test_symbolic_array_operations_against_concrete_engine():
     assert ArrayElementwiseApplyFunc(S.sin,a).as_explicit()==a.applyfunc(S.sin)
     A,B=ArraySymbol('A',(2,2)),ArraySymbol('B',(2,2))
     product=ArrayContraction(ArrayTensorProduct(A,B),(1,2))
-    assert convert_array_to_matrix(product)==S.MatrixSymbol('A',2,2)*S.MatrixSymbol('B',2,2)
+    # SymPy 1.14: array symbols are not matrices, the contraction is kept
+    assert convert_array_to_matrix(product)==product
     assert convert_array_to_matrix(convert_matrix_to_array(S.MatrixSymbol('A',2,2).T))==S.MatrixSymbol('A',2,2).T
     assert array_derive(A,A).as_explicit()==S.Array([S.Integer(int(i==k and j==l)) for i,j,k,l in itertools.product(range(2),repeat=4)],(2,2,2,2))
     i,j=S.symbols('i j',integer=True)

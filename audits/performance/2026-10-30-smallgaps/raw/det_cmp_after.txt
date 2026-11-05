@@ -1,0 +1,402 @@
+('None', 'same') 77
+('bareiss', 'same') 77
+('berkowitz', 'diff') 1
+('berkowitz', 'same') 76
+('bird', 'diff') 46
+('bird', 'same') 31
+('domain-ge', 'diff') 39
+('domain-ge', 'same') 38
+('laplace', 'diff') 42
+('laplace', 'same') 35
+('lu', 'diff') 2
+('lu', 'same') 75
+-- markov4 bird
+   ref   ["Float('8.6736173798840355e-18', precision=53)", 'Float']
+   other ["Float('6.9388939039072284e-18', precision=53)", 'Float']
+-- markov4 domain-ge
+   ref   ["Float('2.5510639352600102e-18', precision=53)", 'Float']
+   other ["Float('4.3368086899420177e-18', precision=53)", 'Float']
+-- markov4 laplace
+   ref   ["Float('3.4694469519536142e-18', precision=53)", 'Float']
+   other ["Float('6.9388939039072284e-18', precision=53)", 'Float']
+-- n4_k0 bird
+   ref   ["Float('-224.71493273510873', precision=53)", 'Float']
+   other ["Float('-224.71493273510876', precision=53)", 'Float']
+-- n4_k0 laplace
+   ref   ["Float('-224.71493273510873', precision=53)", 'Float']
+   other ["Float('-224.71493273510876', precision=53)", 'Float']
+-- n4_k1 bird
+   ref   ["Float('2.8289163212640211', precision=53)", 'Float']
+   other ["Float('2.8289163212640225', precision=53)", 'Float']
+-- n4_k1 domain-ge
+   ref   ["Float('2.8289163212639692', precision=53)", 'Float']
+   other ["Float('2.8289163212640274', precision=53)", 'Float']
+-- n4_k1 laplace
+   ref   ["Float('2.8289163212640256', precision=53)", 'Float']
+   other ["Float('2.8289163212640225', precision=53)", 'Float']
+-- n4_k1 lu
+   ref   ["Float('2.8289163212639923', precision=53)", 'Float']
+   other ["Float('2.8289163212640154', precision=53)", 'Float']
+-- n4_k10 bird
+   ref   ["Float('-0.957223262138474861870918175554736', precision=103)", 'Float']
+   other ["Float('-0.957223262138474861870918175554933', precision=103)", 'Float']
+-- n4_k10 domain-ge
+   ref   ["Float('-0.957223262138474861870918175554637', precision=103)", 'Float']
+   other ["Float('-0.957223262138474861870918175554834', precision=103)", 'Float']
+-- n4_k10 laplace
+   ref   ["Float('-0.957223262138474861870918175554834', precision=103)", 'Float']
+   other ["Float('-0.957223262138474861870918175554933', precision=103)", 'Float']
+-- n4_k11 bird
+   ref   ["Add(Mul(Integer(-1), Integer(2), Pow(Symbol('x'), Integer(2)), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Symbol('x'), Mul(Integer(2), Symbol('y')))), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(-1), Integer(2), Pow(Symbol('x'), Integer(2)), Symbol('y')), Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(-1), Integer(2), Symbol('y'), Add(Pow(Symbol('x'), Integer(2)), Mul
+   other ["Add(Mul(Integer(-1), Symbol('x'), Add(Mul(Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Symbol('x'))), Mul(Integer(2), Symbol('y'), Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('y')))))), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Mul(Symbol('x'), Add(Mul(Integer(4), Symbol('x'), Symbol('y')), Mul(Integer(2), Symbol('y')))), Symbol('x')
+-- n4_k11 laplace
+   ref   ["Add(Mul(Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(4), Pow(Symbol('y'), Integer(2))))))), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(2), Pow(Symbol('x'), Integer(2)), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1
+   other ["Add(Mul(Integer(-1), Symbol('x'), Add(Mul(Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Symbol('x'))), Mul(Integer(2), Symbol('y'), Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(2), Symbol('y')))))), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Mul(Symbol('x'), Add(Mul(Integer(4), Symbol('x'), Symbol('y')), Mul(Integer(2), Symbol('y')))), Symbol('x')
+-- n4_k3 bird
+   ref   ["Add(Mul(Integer(-1), Pow(Symbol('x'), Integer(2)), Add(Mul(Integer(-1), Integer(2), Symbol('y')), Integer(-1))), Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(-1), Integer(2), Symbol('y')))), Mul(Integer(-1), Integer(2), Symbol('y'), Add(Pow(Symbol('x'), Integer(2)), Symbol('x'))), Mul(Integer(-1),
+   other ["Add(Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(2), Symbol('y'), Add(Symbol('x'), Mul(Integer(2), Symbol('y')))))), Mul(Integer(-1), Symbol('x')), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(-1), Integer(2), Symbol('y')))), Mul(Integer(-1), Integer(2), Symbol('y'))
+-- n4_k3 laplace
+   ref   ["Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(2), Symbol('y'), Add(Symbol('x'), Mul(Integer(-1), Integer(4), Pow(Symbol('y'), Integer(2))))), Mul(Integer(2), Symbol('y'))))", 'Mul']
+   other ["Add(Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(2), Symbol('y'), Add(Symbol('x'), Mul(Integer(2), Symbol('y')))))), Mul(Integer(-1), Symbol('x')), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(-1), Integer(2), Symbol('y')))), Mul(Integer(-1), Integer(2), Symbol('y'))
+-- n4_k4 bird
+   ref   ["Float('-63.417694309801746', precision=53)", 'Float']
+   other ["Float('-63.417694309801774', precision=53)", 'Float']
+-- n4_k4 domain-ge
+   ref   ["Float('-63.417694309801774', precision=53)", 'Float']
+   other ["Float('-63.417694309801753', precision=53)", 'Float']
+-- n4_k4 laplace
+   ref   ["Float('-63.417694309801732', precision=53)", 'Float']
+   other ["Float('-63.417694309801774', precision=53)", 'Float']
+-- n4_k5 domain-ge
+   ref   ["Float('-45.852729328150687', precision=53)", 'Float']
+   other ["Float('-45.852729328150694', precision=53)", 'Float']
+-- n4_k5 laplace
+   ref   ["Float('-45.85272932815068', precision=53)", 'Float']
+   other ["Float('-45.852729328150659', precision=53)", 'Float']
+-- n4_k7 bird
+   ref   ["Add(Mul(Integer(-1), Float('2.737106330177717', precision=53), Symbol('x'), Symbol('y')), Mul(Symbol('x'), Add(Symbol('x'), Mul(Integer(-1), Float('0.326086143375794', precision=53), Symbol('y')))), Mul(Integer(-1), Float('1.3685531650888585', precision=53), Symbol('x'), Add(Mul(Float('1.7724728105305489', precision=53), Symbol('y')), Float('2.3451725647201753', precision=53))), Mul(Integer(-1),
+   other ["Add(Mul(Integer(-1), Float('7.5700446056613897', precision=53), Symbol('x'), Symbol('y')), Mul(Symbol('x'), Add(Symbol('x'), Mul(Integer(2), Symbol('y')))), Mul(Float('0.72319333357737747', precision=53), Symbol('x'), Add(Mul(Float('1.163043071687897', precision=53), Symbol('x')), Float('0.36855316508885849', precision=53))), Mul(Float('0.72319333357737747', precision=53), Symbol('x'), Add(Symbo
+-- n4_k7 laplace
+   ref   ["Add(Mul(Float('0.58723013965675075', precision=53), Symbol('x'), Symbol('y')), Mul(Symbol('x'), Add(Symbol('x'), Mul(Integer(-1), Integer(2), Symbol('y')))), Mul(Integer(-1), Float('0.26942141803164898', precision=53), Symbol('x')), Mul(Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Integer(2), Symbol('y'), Add(Mul(Integer(-1), Float('0.326086143375794', precision=53), Symbol('x'), 
+   other ["Add(Mul(Integer(-1), Float('7.5700446056613897', precision=53), Symbol('x'), Symbol('y')), Mul(Symbol('x'), Add(Symbol('x'), Mul(Integer(2), Symbol('y')))), Mul(Float('0.72319333357737747', precision=53), Symbol('x'), Add(Mul(Float('1.163043071687897', precision=53), Symbol('x')), Float('0.36855316508885849', precision=53))), Mul(Float('0.72319333357737747', precision=53), Symbol('x'), Add(Symbo
+-- n4_k8 domain-ge
+   ref   ["Float('-193.0694918063983', precision=53)", 'Float']
+   other ["Float('-193.06949180639828', precision=53)", 'Float']
+-- n4_k8 laplace
+   ref   ["Float('-193.06949180639828', precision=53)", 'Float']
+   other ["Float('-193.0694918063983', precision=53)", 'Float']
+-- n4_k9 bird
+   ref   ["Float('2.952682132298345', precision=53)", 'Float']
+   other ["Float('2.9526821322983547', precision=53)", 'Float']
+-- n4_k9 laplace
+   ref   ["Float('2.9526821322983459', precision=53)", 'Float']
+   other ["Float('2.9526821322983547', precision=53)", 'Float']
+-- n5_k0 bird
+   ref   ["Float('-2300.8061482655376', precision=53)", 'Float']
+   other ["Float('-2300.8061482655366', precision=53)", 'Float']
+-- n5_k0 domain-ge
+   ref   ["Float('-2300.8061482655362', precision=53)", 'Float']
+   other ["Float('-2300.8061482655371', precision=53)", 'Float']
+-- n5_k1 bird
+   ref   ["Float('-352.98253720195561', precision=53)", 'Float']
+   other ["Float('-352.98253720195584', precision=53)", 'Float']
+-- n5_k1 laplace
+   ref   ["Float('-352.98253720195567', precision=53)", 'Float']
+   other ["Float('-352.98253720195584', precision=53)", 'Float']
+-- n5_k10 bird
+   ref   ["Float('0.34115846909435832702444646651457', precision=103)", 'Float']
+   other ["Float('0.34115846909435832702444646651452', precision=103)", 'Float']
+-- n5_k10 laplace
+   ref   ["Float('0.34115846909435832702444646651457', precision=103)", 'Float']
+   other ["Float('0.34115846909435832702444646651452', precision=103)", 'Float']
+-- n5_k11 bird
+   ref   ["Add(Mul(Integer(2), Symbol('y'), Add(Mul(Symbol('x'), Add(Mul(Integer(-1), Float('2.2639708021361553', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('2.2639708021361553', precision=53), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('1.1319854010680777', precision=53), Symbol('y'), Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(-1), Integer(2), Symbol('y')), Integer(-1)
+   other ["Add(Mul(Symbol('x'), Add(Mul(Float('1.8178227423238611', precision=53), Symbol('x'), Add(Mul(Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Integer(2), Symbol('y')))), Mul(Float('22.542581938590889', precision=53), Pow(Symbol('y'), Integer(3))), Mul(Float('18.542581938590889', precision=53), Pow(Symbol('y'), Integer(2))), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(2), Symbol('x'), Symbol('y'))
+-- n5_k11 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('2048.0', precision=53), Symbol('x'), Symbol('y')), Mul(Float('579.57652534685576', precision=53), Symbol('x')), Mul(Integer(-1), Float('4096.0', precision=53), Pow(Symbol('y'), Integer(2)))), Integer(-1)), Add(Mul(Integer(-1), Float('8192.0', precision=53), Pow(Symbol('x'), Integer(4)), Pow(Symbol('y'), Integer(3))), Mul(Integer(-1), Float('4636.6122027748461', precision=5
+   other ["Mul(Pow(Add(Mul(Float('4.0', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.1319854010680777', precision=53), Symbol('x')), Mul(Integer(-1), Float('8.0', precision=53), Pow(Symbol('y'), Integer(2)))), Integer(-1)), Add(Mul(Integer(-1), Float('16.0', precision=53), Pow(Symbol('x'), Integer(4)), Pow(Symbol('y'), Integer(3))), Mul(Integer(-1), Float('9.0558832085446213', precision=53), Pow(
+-- n5_k11 laplace
+   ref   ["Add(Mul(Symbol('x'), Add(Mul(Symbol('x'), Add(Mul(Integer(-1), Integer(4), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('1.1319854010680777', precision=53), Symbol('x'), Symbol('y')))), Mul(Integer(-1), Integer(2), Symbol('y'), Add(Mul(Integer(-1), Integer(8), Pow(Symbol('y'), Integer(3))), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y
+   other ["Add(Mul(Symbol('x'), Add(Mul(Float('1.8178227423238611', precision=53), Symbol('x'), Add(Mul(Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Integer(2), Symbol('y')))), Mul(Float('22.542581938590889', precision=53), Pow(Symbol('y'), Integer(3))), Mul(Float('18.542581938590889', precision=53), Pow(Symbol('y'), Integer(2))), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(2), Symbol('x'), Symbol('y'))
+-- n5_k2 bird
+   ref   ["Float('3.36778223305188696438307631497467', precision=103)", 'Float']
+   other ["Float('3.36778223305188696438307631497506', precision=103)", 'Float']
+-- n5_k2 laplace
+   ref   ["Float('3.36778223305188696438307631497467', precision=103)", 'Float']
+   other ["Float('3.36778223305188696438307631497506', precision=103)", 'Float']
+-- n5_k3 bird
+   ref   ["Add(Mul(Float('26.273516306667659', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('0.87247222449997297', precision=53), Symbol('x'), Add(Mul(Float('1.6103727379375226', precision=53), Symbol('x')), Mul(Integer(-1), Float('3.5340533853036371', precision=53), Symbol('y')))), Mul(Float('0.89455446815184558', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('6.79366021582306
+   other ["Add(Mul(Integer(-1), Float('2.9333385281842359', precision=53), Symbol('x'), Add(Mul(Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(2), Symbol('y')), Float('-0.87247222449997297', precision=53))), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Float('2.6408218878184133', precision=53), Symbol('y')), Float('3.3398493567
+-- n5_k3 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('14.423400483489468', precision=53), Pow(Symbol('x'), Integer(3)), Symbol('y')), Mul(Integer(-1), Float('22.907112365899977', precision=53), Pow(Symbol('x'), Integer(3))), Mul(Integer(-1), Float('259.93774462299587', precision=53), Pow(Symbol('x'), Integer(2)), Pow(Symbol('y'), Integer(2))), Mul(Float('297.04531909345383', precision=53), Pow(Symbol('x'), Integer(2)), Symbol
+   other ["Mul(Pow(Add(Mul(Float('0.45073126510904588', precision=53), Pow(Symbol('x'), Integer(3)), Symbol('y')), Mul(Integer(-1), Float('0.71584726143437427', precision=53), Pow(Symbol('x'), Integer(3))), Mul(Integer(-1), Float('8.1230545194686208', precision=53), Pow(Symbol('x'), Integer(2)), Pow(Symbol('y'), Integer(2))), Mul(Float('9.2826662216704321', precision=53), Pow(Symbol('x'), Integer(2)), Symb
+-- n5_k3 laplace
+   ref   ["Add(Mul(Symbol('x'), Add(Mul(Float('6.4414909517500902', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('6.8918637998319703', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('7.0681067706072742', precision=53), Pow(Symbol('y'), Integer(2))), Mul(Float('10.053267046342494', precision=53), Symbol('y')))), Mul(Integer(-1), Symbol('x'), Add(Mul(Int
+   other ["Add(Mul(Integer(-1), Float('2.9333385281842359', precision=53), Symbol('x'), Add(Mul(Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(2), Symbol('y')), Float('-0.87247222449997297', precision=53))), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Float('2.6408218878184133', precision=53), Symbol('y')), Float('3.3398493567
+-- n5_k4 bird
+   ref   ["Float('364.10575414824916', precision=53)", 'Float']
+   other ["Float('364.10575414824882', precision=53)", 'Float']
+-- n5_k4 domain-ge
+   ref   ["Float('364.10575414824672', precision=53)", 'Float']
+   other ["Float('364.10575414824916', precision=53)", 'Float']
+-- n5_k4 laplace
+   ref   ["Float('364.10575414824939', precision=53)", 'Float']
+   other ["Float('364.10575414824882', precision=53)", 'Float']
+-- n5_k5 bird
+   ref   ["Float('56.216942018490315', precision=53)", 'Float']
+   other ["Float('56.2169420184903', precision=53)", 'Float']
+-- n5_k5 domain-ge
+   ref   ["Float('56.216942018490343', precision=53)", 'Float']
+   other ["Float('56.2169420184903', precision=53)", 'Float']
+-- n5_k6 bird
+   ref   ['Integer(0)', 'Zero']
+   other ["Float('-9.86076131526264756764660706603483e-32', precision=103)", 'Float']
+-- n5_k6 domain-ge
+   ref   ["Float('0.0', precision=103)", 'Float']
+   other ['Integer(0)', 'Zero']
+-- n5_k6 laplace
+   ref   ['Integer(0)', 'Zero']
+   other ["Float('-9.86076131526264756764660706603483e-32', precision=103)", 'Float']
+-- n5_k7 bird
+   ref   ["Add(Mul(Integer(-1), Float('2.6196123961296367', precision=53), Pow(Symbol('x'), Integer(2)), Symbol('y')), Mul(Float('8.5132847764100976', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Float('7.2625798709820426', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.6300959367982182', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('1.3156449677455107', precision=53), Symbol('x')), 
+   other ["Add(Mul(Integer(-1), Float('2.6196123961296367', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('0.99259691703295339', precision=53), Symbol('x'), Add(Float('1.6422536770221505', precision=53), Mul(Integer(-1), Float('1.3195751221755345', precision=53), Symbol('x')))), Mul(Integer(-1), Float('1.6300959367982182', precision=53), Symbol('x'), Add(Mul(Integer(-1), Integer(2), Symb
+-- n5_k7 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('0.87484638734590414', precision=53), Pow(Symbol('x'), Integer(6))), Mul(Float('3.5479213497662112', precision=53), Pow(Symbol('x'), Integer(4))), Mul(Float('4.4574879480609138', precision=53), Pow(Symbol('x'), Integer(2))), Float('1.7844643020940261', precision=53)), Integer(-1)), Add(Mul(Float('2.9415623963544788', precision=53), Pow(Symbol('x'), Integer(9))), Mul(Integer
+   other ["Mul(Pow(Add(Mul(Float('0.90796099674330932', precision=53), Pow(Symbol('x'), Integer(6))), Mul(Float('3.6822169602523633', precision=53), Pow(Symbol('x'), Integer(4))), Mul(Float('4.6262123943508389', precision=53), Pow(Symbol('x'), Integer(2))), Float('1.8520096897211373', precision=53)), Integer(-1)), Add(Mul(Float('3.0529061604510423', precision=53), Pow(Symbol('x'), Integer(9))), Mul(Integer
+-- n5_k7 laplace
+   ref   ["Add(Mul(Integer(-1), Float('5.6495740788607769', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('2.6196123961296367', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('0.99259691703295339', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('1.756207443822754', precision=53), Symbol('x')), Mul(Integer(-1), Float('4.3713132867746376', precisi
+   other ["Add(Mul(Integer(-1), Float('2.6196123961296367', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('0.99259691703295339', precision=53), Symbol('x'), Add(Float('1.6422536770221505', precision=53), Mul(Integer(-1), Float('1.3195751221755345', precision=53), Symbol('x')))), Mul(Integer(-1), Float('1.6300959367982182', precision=53), Symbol('x'), Add(Mul(Integer(-1), Integer(2), Symb
+-- n5_k8 bird
+   ref   ["Float('330.56667362061853', precision=53)", 'Float']
+   other ["Float('330.5666736206183', precision=53)", 'Float']
+-- n5_k8 domain-ge
+   ref   ["Float('330.56667362061893', precision=53)", 'Float']
+   other ["Float('330.56667362061887', precision=53)", 'Float']
+-- n5_k8 laplace
+   ref   ["Float('330.56667362061887', precision=53)", 'Float']
+   other ["Float('330.5666736206183', precision=53)", 'Float']
+-- n5_k9 bird
+   ref   ["Float('-1133.3870651357747', precision=53)", 'Float']
+   other ["Float('-1133.3870651357743', precision=53)", 'Float']
+-- n5_k9 domain-ge
+   ref   ["Float('-1133.387065135774', precision=53)", 'Float']
+   other ["Float('-1133.3870651357743', precision=53)", 'Float']
+-- n6_k0 bird
+   ref   ["Float('19769.574361257051', precision=53)", 'Float']
+   other ["Float('19769.574361257026', precision=53)", 'Float']
+-- n6_k0 domain-ge
+   ref   ["Float('19769.574361257037', precision=53)", 'Float']
+   other ["Float('19769.574361257044', precision=53)", 'Float']
+-- n6_k0 laplace
+   ref   ["Float('19769.574361257037', precision=53)", 'Float']
+   other ["Float('19769.574361257026', precision=53)", 'Float']
+-- n6_k1 bird
+   ref   ["Float('-1978.1454640732154', precision=53)", 'Float']
+   other ["Float('-1978.1454640732138', precision=53)", 'Float']
+-- n6_k1 domain-ge
+   ref   ["Float('-1978.1454640732138', precision=53)", 'Float']
+   other ["Float('-1978.1454640732134', precision=53)", 'Float']
+-- n6_k1 laplace
+   ref   ["Float('-1978.1454640732147', precision=53)", 'Float']
+   other ["Float('-1978.1454640732138', precision=53)", 'Float']
+-- n6_k11 bird
+   ref   ["Add(Mul(Integer(-1), Float('0.87155863103299414', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('2.0147080765523464', precision=53), Symbol('x'), Add(Float('0.65516978758136624', precision=53), Mul(Integer(-1), Integer(2), Symbol('y')))), Mul(Float('0.54850570807927157', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('5.5672048187383432', precision=53), Symbol('y')), F
+   other ["Add(Mul(Float('4.4849098534451315', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.652894660541999', precision=53), Symbol('x'), Add(Mul(Integer(2), Symbol('x')), Float('1.0147717373419041', precision=53))), Mul(Integer(-1), Float('0.051589015711657575', precision=53), Symbol('x'), Add(Mul(Symbol('x'), Add(Mul(Integer(2), Symbol('x')), Float('1.0147717373419041', precision=53))), Symbol(
+-- n6_k11 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('254.42134649221839', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(3))), Mul(Integer(-1), Float('258.17959179677501', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Float('65.498338228459232', precision=53), Symbol('x'), Symbol('y')), Mul(Float('5437.7877249666381', precision=53), Pow(Symbol('y'), Integer(5))), Mul(Integer(-1), Float('7185.2165343144
+   other ["Mul(Integer(-1), Pow(Add(Mul(Float('7.9506670778818247', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(3))), Mul(Integer(-1), Float('8.0681122436492192', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Float('2.046823069639351', precision=53), Symbol('x'), Symbol('y')), Mul(Float('169.93086640520744', precision=53), Pow(Symbol('y'), Integer(5))), Mul(Integer(-1), Float('224
+-- n6_k11 laplace
+   ref   ["Add(Mul(Integer(-1), Float('2.8496738923857032', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('0.55086051120134139', precision=53), Symbol('x'), Symbol('y')), Mul(Float('0.68587753212200253', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('2.8950127768721998', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Float('0.85692400362437993', prec
+   other ["Add(Mul(Float('4.4849098534451315', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.652894660541999', precision=53), Symbol('x'), Add(Mul(Integer(2), Symbol('x')), Float('1.0147717373419041', precision=53))), Mul(Integer(-1), Float('0.051589015711657575', precision=53), Symbol('x'), Add(Mul(Symbol('x'), Add(Mul(Integer(2), Symbol('x')), Float('1.0147717373419041', precision=53))), Symbol(
+-- n6_k2 bird
+   ref   ["Float('0.369597489296467265946955318515235', precision=103)", 'Float']
+   other ["Float('0.36959748929646726594695531851351', precision=103)", 'Float']
+-- n6_k2 domain-ge
+   ref   ["Float('0.369597489296467265946955318521645', precision=103)", 'Float']
+   other ["Float('0.369597489296467265946955318520757', precision=103)", 'Float']
+-- n6_k2 laplace
+   ref   ["Float('0.369597489296467265946955318521595', precision=103)", 'Float']
+   other ["Float('0.36959748929646726594695531851351', precision=103)", 'Float']
+-- n6_k3 bird
+   ref   ["Add(Mul(Integer(-1), Float('0.95767111906872504', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Float('5.9060203120578372', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.2564192971692174', precision=53), Symbol('x'), Add(Float('2.0036728316611523', precision=53), Mul(Integer(-1), Integer(2), Symbol('y')))), Mul(Integer(-1), Float('1.1836448863627269', precision=53), Symbol('x'), Add
+   other ["Add(Mul(Integer(-1), Float('2.7407645515758174', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Float('8.7706582652755838', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('1.946299323230789', precision=53), Symbol('x'), Add(Mul(Float('1.6206970109188443', precision=53), Symbol('x')), Mul(Integer(2), Symbol('y')))), Mul(Float('1.2737718400061835', precision=53), Symbol('x'), 
+-- n6_k3 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('377890.37841062812', precision=53), Pow(Symbol('x'), Integer(5))), Mul(Integer(-1), Float('7934922.3916959763', precision=53), Pow(Symbol('x'), Integer(4)), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('1649821.1549885401', precision=53), Pow(Symbol('x'), Integer(4)), Symbol('y')), Mul(Float('41654271.290959239', precision=53), Pow(Symbol('x'), Integer(3)), Pow(Sy
+   other ["Mul(Pow(Add(Mul(Float('0.090096087076813727', precision=53), Pow(Symbol('x'), Integer(5))), Mul(Integer(-1), Float('1.8918329219093266', precision=53), Pow(Symbol('x'), Integer(4)), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('0.39334801554406645', precision=53), Pow(Symbol('x'), Integer(4)), Symbol('y')), Mul(Float('9.9311521747015092', precision=53), Pow(Symbol('x'), Integer(3)), Pow
+-- n6_k3 laplace
+   ref   ["Add(Mul(Float('0.59671692162772894', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Integer(-1), Float('0.61380932778049813', precision=53), Symbol('x'), Add(Float('0.94227449300776933', precision=53), Mul(Integer(-1), Float('1.4684898967713949', precision=53), Symbol('y')))), Mul(Float('0.62069701091884433', precision=53), Symbol('x'), Add(Symbol('x'), Float('0.89278222497872317', precision=
+   other ["Add(Mul(Integer(-1), Float('2.7407645515758174', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Float('8.7706582652755838', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('1.946299323230789', precision=53), Symbol('x'), Add(Mul(Float('1.6206970109188443', precision=53), Symbol('x')), Mul(Integer(2), Symbol('y')))), Mul(Float('1.2737718400061835', precision=53), Symbol('x'), 
+-- n6_k4 bird
+   ref   ["Float('-21013.208526730101', precision=53)", 'Float']
+   other ["Float('-21013.20852673009', precision=53)", 'Float']
+-- n6_k4 domain-ge
+   ref   ["Float('-21013.208526730079', precision=53)", 'Float']
+   other ["Float('-21013.208526730101', precision=53)", 'Float']
+-- n6_k5 bird
+   ref   ["Float('83.828742809379975', precision=53)", 'Float']
+   other ["Float('83.828742809380003', precision=53)", 'Float']
+-- n6_k5 laplace
+   ref   ["Float('83.82874280937996', precision=53)", 'Float']
+   other ["Float('83.828742809380003', precision=53)", 'Float']
+-- n6_k6 bird
+   ref   ["Float('-2.69652303542715301384398384243391', precision=103)", 'Float']
+   other ["Float('-2.6965230354271530138439838424351', precision=103)", 'Float']
+-- n6_k6 domain-ge
+   ref   ["Float('-2.69652303542715301384398384243549', precision=103)", 'Float']
+   other ["Float('-2.69652303542715301384398384243707', precision=103)", 'Float']
+-- n6_k6 lu
+   ref   ["Float('-2.69652303542715301384398384243549', precision=103)", 'Float']
+   other ["Float('-2.6965230354271530138439838424351', precision=103)", 'Float']
+-- n6_k7 bird
+   ref   ["Add(Mul(Float('0.58210881002399617', precision=53), Symbol('x'), Symbol('y')), Mul(Float('0.30982805396980073', precision=53), Symbol('x'), Add(Float('1.8164597660435406', precision=53), Mul(Integer(-1), Integer(2), Symbol('x')))), Mul(Float('3.9604357484386488', precision=53), Symbol('x'), Add(Float('1.8164597660435406', precision=53), Mul(Integer(-1), Symbol('x')))), Mul(Integer(-1), Float('1.
+   other ["Add(Mul(Float('2.7709237942306406', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.2458228739529251', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('1.3091497248339783', precision=53), Symbol('x')), Mul(Integer(-1), Float('0.096253336675196088', precision=53), Symbol('y')))), Mul(Float('1.3889830529608893', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('0.22306107573403
+-- n6_k7 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('130.22660085114899', precision=53), Pow(Symbol('x'), Integer(12)), Symbol('y')), Mul(Float('326.43388394391042', precision=53), Pow(Symbol('x'), Integer(11)), Pow(Symbol('y'), Integer(2))), Mul(Float('147.35056060435707', precision=53), Pow(Symbol('x'), Integer(11))), Mul(Float('1672.4894502917243', precision=53), Pow(Symbol('x'), Integer(10)), Pow(Symbol('y'), Integer(4))
+   other ["Mul(Pow(Add(Mul(Float('9.315884577403299', precision=53), Pow(Symbol('x'), Integer(12)), Symbol('y')), Mul(Float('23.351760432193625', precision=53), Pow(Symbol('x'), Integer(11)), Pow(Symbol('y'), Integer(2))), Mul(Float('10.540863433691849', precision=53), Pow(Symbol('x'), Integer(11))), Mul(Float('119.64313415237949', precision=53), Pow(Symbol('x'), Integer(10)), Pow(Symbol('y'), Integer(4)))
+-- n6_k7 laplace
+   ref   ["Add(Mul(Integer(-1), Float('0.025809461741840851', precision=53), Symbol('x'), Add(Mul(Integer(-1), Integer(4), Pow(Symbol('y'), Integer(2))), Mul(Integer(2), Symbol('y')))), Mul(Integer(-1), Float('0.0043975766797655982', precision=53), Symbol('x'), Add(Mul(Float('4.4679990707473909', precision=53), Pow(Symbol('y'), Integer(2))), Mul(Float('1.1722269797449163', precision=53), Symbol('y')))), Mu
+   other ["Add(Mul(Float('2.7709237942306406', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.2458228739529251', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('1.3091497248339783', precision=53), Symbol('x')), Mul(Integer(-1), Float('0.096253336675196088', precision=53), Symbol('y')))), Mul(Float('1.3889830529608893', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('0.22306107573403
+-- n6_k8 bird
+   ref   ["Float('-13432.67231598262', precision=53)", 'Float']
+   other ["Float('-13432.672315982629', precision=53)", 'Float']
+-- n6_k8 domain-ge
+   ref   ["Float('-13432.672315982623', precision=53)", 'Float']
+   other ["Float('-13432.672315982614', precision=53)", 'Float']
+-- n6_k8 laplace
+   ref   ["Float('-13432.672315982622', precision=53)", 'Float']
+   other ["Float('-13432.672315982629', precision=53)", 'Float']
+-- n6_k9 bird
+   ref   ["Float('371.76816449173225', precision=53)", 'Float']
+   other ["Float('371.76816449173214', precision=53)", 'Float']
+-- n6_k9 domain-ge
+   ref   ["Float('371.76816449173225', precision=53)", 'Float']
+   other ["Float('371.76816449173111', precision=53)", 'Float']
+-- n7_k0 bird
+   ref   ["Float('-76980.543076610731', precision=53)", 'Float']
+   other ["Float('-76980.543076610833', precision=53)", 'Float']
+-- n7_k0 domain-ge
+   ref   ["Float('-76980.543076610644', precision=53)", 'Float']
+   other ["Float('-76980.543076610731', precision=53)", 'Float']
+-- n7_k0 laplace
+   ref   ["Float('-76980.543076610731', precision=53)", 'Float']
+   other ["Float('-76980.543076610833', precision=53)", 'Float']
+-- n7_k1 bird
+   ref   ["Float('-16.073270044314533', precision=53)", 'Float']
+   other ["Float('-16.073270044313745', precision=53)", 'Float']
+-- n7_k1 domain-ge
+   ref   ["Float('-16.073270044315279', precision=53)", 'Float']
+   other ["Float('-16.073270044315255', precision=53)", 'Float']
+-- n7_k1 laplace
+   ref   ["Float('-16.073270044314711', precision=53)", 'Float']
+   other ["Float('-16.073270044313745', precision=53)", 'Float']
+-- n7_k10 bird
+   ref   ["Float('5.53949584289391009388043421145652', precision=103)", 'Float']
+   other ["Float('5.53949584289391009388043421147387', precision=103)", 'Float']
+-- n7_k10 domain-ge
+   ref   ["Float('5.53949584289391009388043421149438', precision=103)", 'Float']
+   other ["Float('5.53949584289391009388043421148965', precision=103)", 'Float']
+-- n7_k10 laplace
+   ref   ["Float('5.53949584289391009388043421149281', precision=103)", 'Float']
+   other ["Float('5.53949584289391009388043421147387', precision=103)", 'Float']
+-- n7_k11 berkowitz
+   ref   ["Add(Mul(Integer(-1), Float('5.3842091077074059', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.7441272546335136', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('4.1221018169133137', precision=53), Symbol('x'), Symbol('y')), Mul(Float('2.6127843889527518', precision=53), Symbol('x')), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(-1), Float('2.6857625002000907', precision=53), Sy
+   other ["Add(Mul(Integer(-1), Float('5.3842091077074059', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.7441272546335136', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('4.1221018169133137', precision=53), Symbol('x'), Symbol('y')), Mul(Float('2.6127843889527518', precision=53), Symbol('x')), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(-1), Float('2.6857625002000907', precision=53), Sy
+-- n7_k11 bird
+   ref   ["Add(Mul(Integer(-1), Float('2.8891747104565768', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Float('7.5683991192660489', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Float('4.4785578343370842', precision=53), Symbol('x'), Add(Mul(Integer(-1), Integer(8), Symbol('y')), Integer(-1))), Mul(Integer(-1), Float('2.6447337599609284', precision=53), Symbol('x'), Add(Mul(Integer(-1), 
+   other ["Add(Mul(Integer(-1), Float('5.3842091077074059', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.7441272546335136', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('4.1221018169133137', precision=53), Symbol('x'), Symbol('y')), Mul(Float('2.6127843889527518', precision=53), Symbol('x')), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(-1), Float('2.6857625002000907', precision=53), Sy
+-- n7_k11 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('3.485614299728538e-11', precision=53), Pow(Symbol('x'), Integer(26)), Pow(Symbol('y'), Integer(2))), Mul(Float('1.8611304186735514e-11', precision=53), Pow(Symbol('x'), Integer(26)), Symbol('y')), Mul(Integer(-1), Float('8.4393695762266677e-28', precision=53), Pow(Symbol('x'), Integer(26))), Mul(Float('9.2181326801782334e-12', precision=53), Pow(Symbol('x'), Integer(25)), 
+   other ["Mul(Pow(Add(Mul(Float('3.4077315267117993e-106', precision=53), Pow(Symbol('x'), Integer(31)), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('7.6130405991867892e-105', precision=53), Pow(Symbol('x'), Integer(31)), Symbol('y')), Mul(Float('9.3341420271963721e-122', precision=53), Pow(Symbol('x'), Integer(30)), Pow(Symbol('y'), Integer(3))), Mul(Integer(-1), Float('6.7958657291916578e-88',
+-- n7_k11 laplace
+   ref   ["Add(Mul(Float('17.399967339582059', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Integer(-1), Float('3.4882545092670272', precision=53), Symbol('x'), Symbol('y'), Add(Mul(Float('8.2578525446447184', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Float('1.8273895421522131', precision=53), Symbol('x'), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Mul(Float('5.7
+   other ["Add(Mul(Integer(-1), Float('5.3842091077074059', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.7441272546335136', precision=53), Symbol('x'), Add(Mul(Integer(-1), Float('4.1221018169133137', precision=53), Symbol('x'), Symbol('y')), Mul(Float('2.6127843889527518', precision=53), Symbol('x')), Mul(Integer(2), Symbol('y'), Add(Mul(Integer(-1), Float('2.6857625002000907', precision=53), Sy
+-- n7_k2 bird
+   ref   ["Float('-28.673249406080603078757393250382', precision=103)", 'Float']
+   other ["Float('-28.6732494060806030787573932504041', precision=103)", 'Float']
+-- n7_k2 domain-ge
+   ref   ["Float('-28.6732494060806030787573932503852', precision=103)", 'Float']
+   other ["Float('-28.6732494060806030787573932503978', precision=103)", 'Float']
+-- n7_k2 laplace
+   ref   ["Float('-28.673249406080603078757393250401', precision=103)", 'Float']
+   other ["Float('-28.6732494060806030787573932504041', precision=103)", 'Float']
+-- n7_k3 bird
+   ref   ["Add(Mul(Integer(-1), Float('2.2651769136858451', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Integer(-1), Float('0.12405256859467641', precision=53), Symbol('x'), Add(Mul(Integer(-1), Integer(2), Symbol('y')), Integer(-1))), Mul(Float('3.6911676078485982', precision=53), Symbol('x'), Add(Mul(Integer(2), Symbol('y')), Float('0.075550856342996089', precision=53))), Mul(Integer(-1), Float('0.
+   other ["Add(Mul(Integer(-1), Float('0.29511397634793596', precision=53), Pow(Symbol('x'), Integer(2)), Symbol('y')), Mul(Integer(-1), Float('0.14755698817396798', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Float('0.46333453386432871', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Float('7.0042053022692681', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.6330756467743006',
+-- n7_k3 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('3.1087245734248988e-7', precision=53), Pow(Symbol('x'), Integer(3)), Pow(Symbol('y'), Integer(10))), Mul(Float('65003763.016059741', precision=53), Pow(Symbol('x'), Integer(3)), Pow(Symbol('y'), Integer(9))), Mul(Integer(-1), Float('1851963370.377347', precision=53), Pow(Symbol('x'), Integer(3)), Pow(Symbol('y'), Integer(8))), Mul(Float('20534297626.358826', precision=53),
+   other ["Mul(Pow(Add(Mul(Float('1.5982812936697472e-15', precision=53), Pow(Symbol('x'), Integer(3)), Pow(Symbol('y'), Integer(10))), Mul(Float('0.59244465732247509', precision=53), Pow(Symbol('x'), Integer(3)), Pow(Symbol('y'), Integer(9))), Mul(Integer(-1), Float('16.878804448072902', precision=53), Pow(Symbol('x'), Integer(3)), Pow(Symbol('y'), Integer(8))), Mul(Float('187.14970266567121', precision=5
+-- n7_k3 laplace
+   ref   ["Add(Mul(Float('1.2565606884688956', precision=53), Pow(Symbol('x'), Integer(2)), Pow(Symbol('y'), Integer(2))), Mul(Float('5.2175862508050406', precision=53), Pow(Symbol('x'), Integer(2)), Symbol('y')), Mul(Float('13.016195509420804', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(3))), Mul(Float('8.1415705618057945', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Integer(-
+   other ["Add(Mul(Integer(-1), Float('0.29511397634793596', precision=53), Pow(Symbol('x'), Integer(2)), Symbol('y')), Mul(Integer(-1), Float('0.14755698817396798', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Float('0.46333453386432871', precision=53), Symbol('x'), Pow(Symbol('y'), Integer(2))), Mul(Float('7.0042053022692681', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.6330756467743006',
+-- n7_k4 bird
+   ref   ["Float('51379.374716835999', precision=53)", 'Float']
+   other ["Float('51379.374716836086', precision=53)", 'Float']
+-- n7_k4 domain-ge
+   ref   ["Float('51379.374716835984', precision=53)", 'Float']
+   other ["Float('51379.374716836035', precision=53)", 'Float']
+-- n7_k4 laplace
+   ref   ["Float('51379.374716835984', precision=53)", 'Float']
+   other ["Float('51379.374716836086', precision=53)", 'Float']
+-- n7_k5 bird
+   ref   ["Float('131.13390915330015', precision=53)", 'Float']
+   other ["Float('131.13390915330012', precision=53)", 'Float']
+-- n7_k5 domain-ge
+   ref   ["Float('131.13390915330021', precision=53)", 'Float']
+   other ["Float('131.13390915330018', precision=53)", 'Float']
+-- n7_k5 laplace
+   ref   ["Float('131.13390915330024', precision=53)", 'Float']
+   other ["Float('131.13390915330012', precision=53)", 'Float']
+-- n7_k6 bird
+   ref   ["Float('4.60915634852756399101843446812388', precision=103)", 'Float']
+   other ["Float('4.60915634852756399101843446808364', precision=103)", 'Float']
+-- n7_k6 domain-ge
+   ref   ["Float('4.60915634852756399101843446809153', precision=103)", 'Float']
+   other ["Float('4.60915634852756399101843446809074', precision=103)", 'Float']
+-- n7_k6 laplace
+   ref   ["Float('4.60915634852756399101843446809153', precision=103)", 'Float']
+   other ["Float('4.60915634852756399101843446808364', precision=103)", 'Float']
+-- n7_k7 bird
+   ref   ["Add(Mul(Integer(-1), Symbol('x'), Add(Mul(Symbol('x'), Add(Mul(Float('1.9769342860499699', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Float('3.9538685720999398', precision=53), Symbol('x'), Symbol('y')), Mul(Float('1.9769342860499699', precision=53), Symbol('x'), Add(Mul(Integer(-1), Symbol('x')), Mul(Integer(-1), Integer(4), Symbol('y')))), Mul(Float('2.9769342860499699', precision=53), 
+   other ["Add(Mul(Integer(4), Symbol('x'), Symbol('y'), Add(Mul(Integer(-1), Integer(8), Symbol('x'), Symbol('y'), Add(Mul(Float('1.9769342860499699', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Mul(Float('1.9769342860499699', precision=53), Symbol('x')))), Mul(Integer(-1)
+-- n7_k7 domain-ge
+   ref   ["Mul(Pow(Add(Mul(Float('2199023255552.0', precision=53), Pow(Symbol('x'), Integer(9)), Pow(Symbol('y'), Integer(3))), Mul(Integer(-1), Float('8796093022208.0', precision=53), Pow(Symbol('x'), Integer(8)), Pow(Symbol('y'), Integer(4))), Mul(Integer(-1), Float('3298534883328.0', precision=53), Pow(Symbol('x'), Integer(8)), Pow(Symbol('y'), Integer(2))), Mul(Float('8796093022208.0', precision=53), P
+   other ["Mul(Integer(-1), Pow(Add(Mul(Float('8.0', precision=53), Pow(Symbol('x'), Integer(9)), Pow(Symbol('y'), Integer(3))), Mul(Integer(-1), Float('32.0', precision=53), Pow(Symbol('x'), Integer(8)), Pow(Symbol('y'), Integer(4))), Mul(Integer(-1), Float('12.0', precision=53), Pow(Symbol('x'), Integer(8)), Pow(Symbol('y'), Integer(2))), Mul(Float('32.0', precision=53), Pow(Symbol('x'), Integer(7)), Pow
+-- n7_k7 laplace
+   ref   ["Add(Mul(Integer(-1), Float('0.95193389252506577', precision=53), Symbol('x'), Add(Mul(Integer(-1), Pow(Symbol('x'), Integer(2))), Mul(Integer(4), Pow(Symbol('y'), Integer(2))))), Mul(Integer(-1), Symbol('x'), Add(Pow(Symbol('x'), Integer(2)), Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y')))), Mul(Symbol('x'), Add(Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(-1), Float('1.9769342860499699
+   other ["Add(Mul(Integer(4), Symbol('x'), Symbol('y'), Add(Mul(Integer(-1), Integer(8), Symbol('x'), Symbol('y'), Add(Mul(Float('1.9769342860499699', precision=53), Pow(Symbol('x'), Integer(2))), Mul(Integer(-1), Integer(2), Symbol('x'), Symbol('y')), Mul(Integer(-1), Symbol('x'), Add(Mul(Integer(2), Symbol('x'), Symbol('y')), Mul(Float('1.9769342860499699', precision=53), Symbol('x')))), Mul(Integer(-1)
+-- n7_k8 bird
+   ref   ["Float('-70241.865050645429', precision=53)", 'Float']
+   other ["Float('-70241.8650506454', precision=53)", 'Float']
+-- n7_k8 laplace
+   ref   ["Float('-70241.865050645167', precision=53)", 'Float']
+   other ["Float('-70241.8650506454', precision=53)", 'Float']
+-- n7_k9 bird
+   ref   ["Float('-76.065612387157955', precision=53)", 'Float']
+   other ["Float('-76.065612387157074', precision=53)", 'Float']
+-- n7_k9 domain-ge
+   ref   ["Float('-76.065612387158708', precision=53)", 'Float']
+   other ["Float('-76.065612387158893', precision=53)", 'Float']
+-- n7_k9 laplace
+   ref   ["Float('-76.065612387158609', precision=53)", 'Float']
+   other ["Float('-76.065612387157074', precision=53)", 'Float']
+-- prec50 domain-ge
+   ref   ["Float('5.9578000000000000032085445411667024018242955207823428', precision=169)", 'Float']
+   other ["Float('5.9578000000000000032085445411667024018242955207824604', precision=169)", 'Float']
+-- sing4 bird
+   ref   ["Float('-1.0613732115416496e-14', precision=53)", 'Float']
+   other ["Float('-3.8413716652030416e-14', precision=53)", 'Float']
+-- sing4 domain-ge
+   ref   ["Float('0.0', precision=53)", 'Float']
+   other ['Integer(0)', 'Zero']
+-- sing4 laplace
+   ref   ["Float('-8.8817841970012523e-16', precision=53)", 'Float']
+   other ["Float('-3.8413716652030416e-14', precision=53)", 'Float']
+-- third4 bird
+   ref   ["Float('-0.0033845265845265926', precision=53)", 'Float']
+   other ["Float('-0.0033845265845265822', precision=53)", 'Float']
+-- third4 domain-ge
+   ref   ["Float('-0.003384526584526541', precision=53)", 'Float']
+   other ["Float('-0.0033845265845265848', precision=53)", 'Float']
+-- third4 laplace
+   ref   ["Float('-0.0033845265845265857', precision=53)", 'Float']
+   other ["Float('-0.0033845265845265822', precision=53)", 'Float']

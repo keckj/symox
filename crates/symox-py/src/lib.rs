@@ -32,6 +32,8 @@ mod solveset_radical;
 mod prde;
 mod matrix_rank_four;
 mod arrayexpr_canon;
+mod arrayexpr_a2m;
+mod arrayexpr_index;
 mod prde_frac;
 mod prde_const;
 mod prde_deriv;
@@ -1617,6 +1619,7 @@ fn checked_subs_impl(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],simulta
     };
     let result=if simultaneous && result.has_matrix() {symox::matrixexpr::MatrixExpr::promote_operands(&result).map_err(|e|matrices::err(py,e))?} else {result};
     symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
+    symox::series::order::check_order_points(&result).map_err(PyNotImplementedError::new_err)?;
     if pairs.iter().any(|(_,new)|new.is_number()) {
         if let Some(msg)=symox::special::orthopoly_subs_error(expression,&result) { return Err(PyValueError::new_err(msg)); }
     }
@@ -4698,6 +4701,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     prde::register(m)?;
     matrix_rank_four::register(m)?;
     arrayexpr_canon::register(m)?;
+    arrayexpr_index::register(m)?;
     prde_frac::register(m)?;
     piecewise_fold::register(m)?;
     derivative_orders::register(m)?;

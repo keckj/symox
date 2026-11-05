@@ -79,10 +79,9 @@ def test_convert_indexed_to_array():
     assert convert_array_to_matrix(convert_indexed_to_array(expr)) == M*N
 
 
-def test_unported_indexed_forms_raise():
-    import pytest
+def test_single_axis_contraction():
     A = MatrixSymbol('A', d, d)
-    B = MatrixSymbol('B', d, d)
-    # SymPy gives ArrayContraction(A, (1,)); symox must not return a wrong value
-    with pytest.raises(NotImplementedError):
-        convert_indexed_to_array(Sum(A[i, j], (j, 0, d - 1)))
+    # SymPy 1.14 gives ArrayContraction(A, (1,)), native since arrindex.
+    result = convert_indexed_to_array(Sum(A[i, j], (j, 0, d - 1)))
+    assert str(result) == 'ArrayContraction(A, (1,))'
+    assert result.shape == (d,)

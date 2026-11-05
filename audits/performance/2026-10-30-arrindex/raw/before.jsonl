@@ -1,0 +1,39 @@
+{"case": "array_derive(X, X)", "first_ms": 0.03167707473039627, "median_ms": 0.004351022653281689, "result": "_ArrayDerivative(X, X)"}
+{"case": "array_derive(X.T, X)", "first_ms": 0.019763014279305935, "median_ms": 0.0045040505938231945, "result": "_ArrayDerivative(X.T, X)"}
+{"case": "array_derive(X*Y*X, X)", "first_ms": 0.1606460427865386, "median_ms": 0.006145972292870283, "result": "_ArrayDerivative(X*Y*X, X)"}
+{"case": "array_derive(X**-1, X)", "first_ms": 0.026804977096617222, "median_ms": 0.006364542059600353, "result": "_ArrayDerivative(X**(-1), X)"}
+{"case": "array_derive(tp(A3, B), B)", "first_ms": 0.011748983524739742, "median_ms": 0.005210051313042641, "result": "_ArrayDerivative(ArrayTensorProduct(A, B), B)"}
+{"case": "array_derive(con(tp(X, Y, X), (1, 2), (3, 4)), X)", "first_ms": 0.058511970564723015, "median_ms": 0.018994032870978117, "result": "_ArrayDerivative(ArrayContraction(ArrayTensorProduct(X, Y, X), (1, 2), (3, 4)), X)"}
+{"case": "c(Sum(M[i,j]*N[j,k], j))", "first_ms": 0.9589199908077717, "median_ms": 0.2431759494356811, "result": "ArrayContraction(ArrayTensorProduct(M, N), (1, 2))"}
+{"case": "c(Sum(M[i,j]*N[j,k]*P[k,l], j, k))", "first_ms": 0.49000000581145287, "median_ms": 0.32989849569275975, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": "c(M[i,j]*N[k,l] + N[i,j]*M[k,l], [i,j,k,l])", "first_ms": null, "median_ms": null, "result": "NotImplementedError: indexed conversion requires an Indexed array or a recognized matrix summation"}
+{"case": "c(E[i,j] + F[j,i])", "first_ms": 2.0043570548295975, "median_ms": 0.20654796389862895, "result": "E[i, j] + F[j, i]"}
+{"case": "a2i(con(tp(M, N), (1, 2)), [i, j])", "first_ms": 1.0049419943243265, "median_ms": 0.28123450465500355, "result": "Sum(M[i, _i]*N[_i, j], (_i, 0, d - 1))"}
+{"case": "a2i(pd(tp(M, N), [1, 0, 3, 2]), [i, j, k, l])", "first_ms": 0.291930977255106, "median_ms": 0.15688652638345957, "result": "M[j, i]*N[l, k]"}
+{"case": "a2i(dia(tp(M, N), (0, 2)), [i, j, k])", "first_ms": 0.19222800619900227, "median_ms": 0.14620990259572864, "result": "M[k, i]*N[k, j]"}
+{"case": "array_derive(X, X)", "first_ms": 0.021265004761517048, "median_ms": 0.004393048584461212, "result": "_ArrayDerivative(X, X)"}
+{"case": "array_derive(X.T, X)", "first_ms": 0.011255964636802673, "median_ms": 0.00462500611320138, "result": "_ArrayDerivative(X.T, X)"}
+{"case": "array_derive(X*Y*X, X)", "first_ms": 0.06447709165513515, "median_ms": 0.006007961928844452, "result": "_ArrayDerivative(X*Y*X, X)"}
+{"case": "array_derive(X**-1, X)", "first_ms": 0.017973012290894985, "median_ms": 0.006307440344244242, "result": "_ArrayDerivative(X**(-1), X)"}
+{"case": "array_derive(tp(A3, B), B)", "first_ms": 0.01226901076734066, "median_ms": 0.005214533302932978, "result": "_ArrayDerivative(ArrayTensorProduct(A, B), B)"}
+{"case": "array_derive(con(tp(X, Y, X), (1, 2), (3, 4)), X)", "first_ms": 0.04190101753920317, "median_ms": 0.01925800461322069, "result": "_ArrayDerivative(ArrayContraction(ArrayTensorProduct(X, Y, X), (1, 2), (3, 4)), X)"}
+{"case": "c(Sum(M[i,j]*N[j,k], j))", "first_ms": 0.5440780660137534, "median_ms": 0.24075200781226158, "result": "ArrayContraction(ArrayTensorProduct(M, N), (1, 2))"}
+{"case": "c(Sum(M[i,j]*N[j,k]*P[k,l], j, k))", "first_ms": 0.4074010066688061, "median_ms": 0.32563251443207264, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": "c(M[i,j]*N[k,l] + N[i,j]*M[k,l], [i,j,k,l])", "first_ms": null, "median_ms": null, "result": "NotImplementedError: indexed conversion requires an Indexed array or a recognized matrix summation"}
+{"case": "c(E[i,j] + F[j,i])", "first_ms": 1.0905959643423557, "median_ms": 0.20632997620850801, "result": "E[i, j] + F[j, i]"}
+{"case": "a2i(con(tp(M, N), (1, 2)), [i, j])", "first_ms": 0.5731089040637016, "median_ms": 0.2777319750748575, "result": "Sum(M[i, _i]*N[_i, j], (_i, 0, d - 1))"}
+{"case": "a2i(pd(tp(M, N), [1, 0, 3, 2]), [i, j, k, l])", "first_ms": 0.2212900435552001, "median_ms": 0.1576784416101873, "result": "M[j, i]*N[l, k]"}
+{"case": "a2i(dia(tp(M, N), (0, 2)), [i, j, k])", "first_ms": 0.17511798068881035, "median_ms": 0.14756846940144897, "result": "M[k, i]*N[k, j]"}
+{"case": "array_derive(X, X)", "first_ms": 0.021862098947167397, "median_ms": 0.004443980287760496, "result": "_ArrayDerivative(X, X)"}
+{"case": "array_derive(X.T, X)", "first_ms": 0.012442003935575485, "median_ms": 0.004543515387922525, "result": "_ArrayDerivative(X.T, X)"}
+{"case": "array_derive(X*Y*X, X)", "first_ms": 0.0770878978073597, "median_ms": 0.006141955964267254, "result": "_ArrayDerivative(X*Y*X, X)"}
+{"case": "array_derive(X**-1, X)", "first_ms": 0.0182280782610178, "median_ms": 0.0065229833126068115, "result": "_ArrayDerivative(X**(-1), X)"}
+{"case": "array_derive(tp(A3, B), B)", "first_ms": 0.011811032891273499, "median_ms": 0.005194975528866053, "result": "_ArrayDerivative(ArrayTensorProduct(A, B), B)"}
+{"case": "array_derive(con(tp(X, Y, X), (1, 2), (3, 4)), X)", "first_ms": 0.040887040086090565, "median_ms": 0.018474995158612728, "result": "_ArrayDerivative(ArrayContraction(ArrayTensorProduct(X, Y, X), (1, 2), (3, 4)), X)"}
+{"case": "c(Sum(M[i,j]*N[j,k], j))", "first_ms": 0.5433950573205948, "median_ms": 0.24167652009055018, "result": "ArrayContraction(ArrayTensorProduct(M, N), (1, 2))"}
+{"case": "c(Sum(M[i,j]*N[j,k]*P[k,l], j, k))", "first_ms": 0.39862701669335365, "median_ms": 0.3292534383945167, "result": "ArrayContraction(ArrayTensorProduct(N, M, P), (0, 3), (1, 4))"}
+{"case": "c(M[i,j]*N[k,l] + N[i,j]*M[k,l], [i,j,k,l])", "first_ms": null, "median_ms": null, "result": "NotImplementedError: indexed conversion requires an Indexed array or a recognized matrix summation"}
+{"case": "c(E[i,j] + F[j,i])", "first_ms": 1.0816589929163456, "median_ms": 0.20605401368811727, "result": "E[i, j] + F[j, i]"}
+{"case": "a2i(con(tp(M, N), (1, 2)), [i, j])", "first_ms": 0.4677809774875641, "median_ms": 0.28141250368207693, "result": "Sum(M[i, _i]*N[_i, j], (_i, 0, d - 1))"}
+{"case": "a2i(pd(tp(M, N), [1, 0, 3, 2]), [i, j, k, l])", "first_ms": 0.20988204050809145, "median_ms": 0.15807646559551358, "result": "M[j, i]*N[l, k]"}
+{"case": "a2i(dia(tp(M, N), (0, 2)), [i, j, k])", "first_ms": 0.17932802438735962, "median_ms": 0.14722353080287576, "result": "M[k, i]*N[k, j]"}

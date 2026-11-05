@@ -1,0 +1,17 @@
+{
+ "files": 677,
+ "shards": 24,
+ "counts": {
+  "passed": 59153,
+  "failed": 4,
+  "skipped": 48
+ },
+ "failures": [
+  "tests.test_matrix_calculus::test_trace_cycles_rectangular_products_and_explicit_lowering",
+  "tests.test_downstream_audit::test_native_imports_keep_actual_symbol_identity_and_no_reference_files",
+  "tests.test_downstream_audit::test_missing_native_module_does_not_fall_back_to_an_installed_reference",
+  "tests.test_downstream_audit::test_preloaded_package_aliases_preserve_public_simplify_callable",
+  "shard 23: no junit (rc -6)"
+ ],
+ "elapsed_seconds": 363.7
+}

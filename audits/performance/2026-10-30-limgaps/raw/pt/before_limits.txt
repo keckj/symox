@@ -1,0 +1,641 @@
+F.........F.F.....F....FFX....FF.F.......xFF.FF...x..F...........F..F... [ 40%]
+.F....F.......F...........F............F...F...F..........F....F.F....FF [ 81%]
+...........FF.........F....F..F.                                         [100%]
+=================================== FAILURES ===================================
+_________________________________ test_basic1 __________________________________
+
+    def test_basic1():
+        assert limit(x, x, oo) is oo
+        assert limit(x, x, -oo) is -oo
+        assert limit(-x, x, oo) is -oo
+        assert limit(x**2, x, -oo) is oo
+        assert limit(-x**2, x, oo) is -oo
+        assert limit(x*log(x), x, 0, dir="+") == 0
+        assert limit(1/x, x, oo) == 0
+        assert limit(exp(x), x, oo) is oo
+        assert limit(-exp(x), x, oo) is -oo
+        assert limit(exp(x)/x, x, oo) is oo
+        assert limit(1/x - exp(-x), x, oo) == 0
+        assert limit(x + 1/x, x, oo) is oo
+        assert limit(x - x**2, x, oo) is -oo
+        assert limit((1 + x)**(1 + sqrt(2)), x, 0) == 1
+        assert limit((1 + x)**oo, x, 0) == Limit((x + 1)**oo, x, 0)
+        assert limit((1 + x)**oo, x, 0, dir='-') == Limit((x + 1)**oo, x, 0, dir='-')
+        assert limit((1 + x + y)**oo, x, 0, dir='-') == Limit((1 + x + y)**oo, x, 0, dir='-')
+        assert limit(y/x/log(x), x, 0) == -oo*sign(y)
+        assert limit(cos(x + y)/x, x, 0) == sign(cos(y))*oo
+        assert limit(gamma(1/x + 3), x, oo) == 2
+        assert limit(S.NaN, x, -oo) is S.NaN
+        assert limit(Order(2)*x, x, S.NaN) is S.NaN
+        assert limit(1/(x - 1), x, 1, dir="+") is oo
+        assert limit(1/(x - 1), x, 1, dir="-") is -oo
+        assert limit(1/(5 - x)**3, x, 5, dir="+") is -oo
+        assert limit(1/(5 - x)**3, x, 5, dir="-") is oo
+        assert limit(1/sin(x), x, pi, dir="+") is -oo
+        assert limit(1/sin(x), x, pi, dir="-") is oo
+        assert limit(1/cos(x), x, pi/2, dir="+") is -oo
+        assert limit(1/cos(x), x, pi/2, dir="-") is oo
+        assert limit(1/tan(x**3), x, (2*pi)**Rational(1, 3), dir="+") is oo
+        assert limit(1/tan(x**3), x, (2*pi)**Rational(1, 3), dir="-") is -oo
+        assert limit(1/cot(x)**3, x, (pi*Rational(3, 2)), dir="+") is -oo
+        assert limit(1/cot(x)**3, x, (pi*Rational(3, 2)), dir="-") is oo
+        assert limit(tan(x), x, oo) == AccumBounds(S.NegativeInfinity, S.Infinity)
+        assert limit(cot(x), x, oo) == AccumBounds(S.NegativeInfinity, S.Infinity)
+        assert limit(sec(x), x, oo) == AccumBounds(S.NegativeInfinity, S.Infinity)
+        assert limit(csc(x), x, oo) == AccumBounds(S.NegativeInfinity, S.Infinity)
+    
+        # test bi-directional limits
+        assert limit(sin(x)/x, x, 0, dir="+-") == 1
+        assert limit(x**2, x, 0, dir="+-") == 0
+        assert limit(1/x**2, x, 0, dir="+-") is oo
+    
+        # test failing bi-directional limits
+        assert limit(1/x, x, 0, dir="+-") is zoo
+        # approaching 0
+        # from dir="+"
+        assert limit(1 + 1/x, x, 0) is oo
+        # from dir='-'
+        # Add
+        assert limit(1 + 1/x, x, 0, dir='-') is -oo
+        # Pow
+        assert limit(x**(-2), x, 0, dir='-') is oo
+        assert limit(x**(-3), x, 0, dir='-') is -oo
+        assert limit(1/sqrt(x), x, 0, dir='-') == (-oo)*I
+        assert limit(x**2, x, 0, dir='-') == 0
+        assert limit(sqrt(x), x, 0, dir='-') == 0
+>       assert limit(x**-pi, x, 0, dir='-') == -oo*(-1)**(1 - pi)
+E       AssertionError: assert oo*sign((-1)**(-pi)) == (-oo * (-1 ** (1 - pi)))
+E        +  where oo*sign((-1)**(-pi)) = limit((x ** -pi), x, 0, dir='-')
+
+test_limits.py:668: AssertionError
+__________________________________ test_floor __________________________________
+
+    def test_floor():
+        assert limit(floor(x), x, -2, "+") == -2
+        assert limit(floor(x), x, -2, "-") == -3
+        assert limit(floor(x), x, -1, "+") == -1
+        assert limit(floor(x), x, -1, "-") == -2
+        assert limit(floor(x), x, 0, "+") == 0
+        assert limit(floor(x), x, 0, "-") == -1
+        assert limit(floor(x), x, 1, "+") == 1
+        assert limit(floor(x), x, 1, "-") == 0
+        assert limit(floor(x), x, 2, "+") == 2
+        assert limit(floor(x), x, 2, "-") == 1
+        assert limit(floor(x), x, 248, "+") == 248
+        assert limit(floor(x), x, 248, "-") == 247
+    
+        # https://github.com/symox/symox/issues/14478
+        assert limit(x*floor(3/x)/2, x, 0, '+') == Rational(3, 2)
+>       assert limit(floor(x + 1/2) - floor(x), x, oo) == AccumBounds(-S.Half, S(3)/2)
+E       assert AccumBounds(-0.500000000000000, 1.50000000000000) == AccumBounds(-1/2, 3/2)
+E        +  where AccumBounds(-0.500000000000000, 1.50000000000000) = limit((floor(x + 0.5) - floor(x)), x, oo)
+E        +    where floor(x + 0.5) = floor((x + (1 / 2)))
+E        +    and   floor(x) = floor(x)
+E        +  and   AccumBounds(-1/2, 3/2) = AccumBounds(-1/2, (3 / 2))
+E        +    where 1/2 = S.Half
+E        +    and   3 = S(3)
+
+test_limits.py:769: AssertionError
+_________________________________ test_ceiling _________________________________
+
+    def test_ceiling():
+        assert limit(ceiling(x), x, -2, "+") == -1
+        assert limit(ceiling(x), x, -2, "-") == -2
+        assert limit(ceiling(x), x, -1, "+") == 0
+        assert limit(ceiling(x), x, -1, "-") == -1
+        assert limit(ceiling(x), x, 0, "+") == 1
+        assert limit(ceiling(x), x, 0, "-") == 0
+        assert limit(ceiling(x), x, 1, "+") == 2
+        assert limit(ceiling(x), x, 1, "-") == 1
+        assert limit(ceiling(x), x, 2, "+") == 3
+        assert limit(ceiling(x), x, 2, "-") == 2
+        assert limit(ceiling(x), x, 248, "+") == 249
+        assert limit(ceiling(x), x, 248, "-") == 248
+    
+        # https://github.com/symox/symox/issues/14478
+        assert limit(x*ceiling(3/x)/2, x, 0, '+') == Rational(3, 2)
+>       assert limit(ceiling(x + 1/2) - ceiling(x), x, oo) == AccumBounds(-S.Half, S(3)/2)
+E       assert AccumBounds(-0.500000000000000, 1.50000000000000) == AccumBounds(-1/2, 3/2)
+E        +  where AccumBounds(-0.500000000000000, 1.50000000000000) = limit((ceiling(x + 0.5) - ceiling(x)), x, oo)
+E        +    where ceiling(x + 0.5) = ceiling((x + (1 / 2)))
+E        +    and   ceiling(x) = ceiling(x)
+E        +  and   AccumBounds(-1/2, 3/2) = AccumBounds(-1/2, (3 / 2))
+E        +    where 1/2 = S.Half
+E        +    and   3 = S(3)
+
+test_limits.py:805: AssertionError
+________________________________ test_heuristic ________________________________
+
+    def test_heuristic():
+        x = Symbol("x", real=True)
+>       assert heuristics(sin(1/x) + atan(x), x, 0, '+') == AccumBounds(-1, 1)
+
+test_limits.py:882: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (sin(1/x) + atan(x), x, 0, '+'), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing heuristics
+
+test_limits.py:3: NotImplementedError
+___________________________ test_series_AccumBounds ____________________________
+
+    def test_series_AccumBounds():
+        assert limit(sin(k) - sin(k + 1), k, oo) == AccumBounds(-2, 2)
+        assert limit(cos(k) - cos(k + 1) + 1, k, oo) == AccumBounds(-1, 3)
+    
+        # not the exact bound
+        assert limit(sin(k) - sin(k)*cos(k), k, oo) == AccumBounds(-2, 2)
+    
+        # test for issue #9934
+        lo = (-3 + cos(1))/2
+        hi = (1 + cos(1))/2
+        t1 = Mul(AccumBounds(lo, hi), 1/(-1 + cos(1)), evaluate=False)
+>       assert limit(simplify(Sum(cos(n).rewrite(exp), (n, 0, k)).doit().rewrite(sin)), k, oo) == t1
+E       assert AccumBounds(-1 - cos(1), 3 - cos(1))/(2 - 2*cos(1)) == AccumBounds(-3/2 + cos(1)/2, cos(1)/2 + 1/2)/(-1 + cos(1))
+E        +  where AccumBounds(-1 - cos(1), 3 - cos(1))/(2 - 2*cos(1)) = limit((cos(k) - cos(k + 1) - cos(1) + 1)/(2 - 2*cos(1)), k, oo)
+E        +    where (cos(k) - cos(k + 1) - cos(1) + 1)/(2 - 2*cos(1)) = simplify((-I*sin(k + 1) - cos(k + 1) + 1)/(2*(-cos(1) + 1 - I*sin(1))) + (I*sin(k + 1) - cos(k + 1) + 1)/(2*(-cos(1) + 1 + I*sin(1))))
+E        +      where (-I*sin(k + 1) - cos(k + 1) + 1)/(2*(-cos(1) + 1 - I*sin(1))) + (I*sin(k + 1) - cos(k + 1) + 1)/(2*(-cos(1) + 1 + I*sin(1))) = rewrite(sin)
+E        +        where rewrite = (1 - exp(-I*(k + 1)))/(2*(1 - exp(-I))) + (1 - exp(I*(k + 1)))/(2*(1 - exp(I))).rewrite
+E        +          where (1 - exp(-I*(k + 1)))/(2*(1 - exp(-I))) + (1 - exp(I*(k + 1)))/(2*(1 - exp(I))) = doit()
+E        +            where doit = Sum(exp(I*n)/2 + exp(-I*n)/2, (n, 0, k)).doit
+E        +              where Sum(exp(I*n)/2 + exp(-I*n)/2, (n, 0, k)) = Sum(exp(I*n)/2 + exp(-I*n)/2, (n, 0, k))
+E        +                where exp(I*n)/2 + exp(-I*n)/2 = rewrite(exp)
+E        +                  where rewrite = cos(n).rewrite
+E        +                    where cos(n) = cos(n)
+
+test_limits.py:926: AssertionError
+______________________ test_bessel_functions_at_infinity _______________________
+
+    def test_bessel_functions_at_infinity():
+        # Pull Request 23844 implements limits for all bessel and modified bessel
+        # functions approaching infinity along any direction i.e. abs(z0) tends to oo
+    
+        assert limit(besselj(1, x), x, oo) == 0
+        assert limit(besselj(1, x), x, -oo) == 0
+        assert limit(besselj(1, x), x, I*oo) == oo*I
+        assert limit(besselj(1, x), x, -I*oo) == -oo*I
+        assert limit(bessely(1, x), x, oo) == 0
+        assert limit(bessely(1, x), x, -oo) == 0
+>       assert limit(bessely(1, x), x, I*oo) == -oo
+E       AssertionError: assert Limit(bessely(1, x), x, oo*I, dir='+') == -oo
+E        +  where Limit(bessely(1, x), x, oo*I, dir='+') = limit(bessely(1, x), x, (I * oo))
+E        +    where bessely(1, x) = bessely(1, x)
+
+test_limits.py:948: AssertionError
+_______________________________ test_issue_5164 ________________________________
+
+    def test_issue_5164():
+        assert limit(x**0.5, x, oo) == oo**0.5 is oo
+>       assert limit(x**0.5, x, 16) == 4 # Should this be a float?
+E       assert 4.00000000000000 == 4
+E        +  where 4.00000000000000 = limit((x ** 0.5), x, 16)
+
+test_limits.py:995: AssertionError
+_______________________________ test_issue_5383 ________________________________
+
+    def test_issue_5383():
+        func = (1.0 * 1 + 1.0 * x)**(1.0 * 1 / x)
+>       assert limit(func, x, 0) == E
+E       assert 2.71828182845905 == E
+E        +  where 2.71828182845905 = limit((1.0*x + 1.0)**(1.0/x), x, 0)
+
+test_limits.py:1003: AssertionError
+_______________________________ test_issue_5183 ________________________________
+
+    def test_issue_5183():
+        # using list(...) so py.test can recalculate values
+        tests = list(product([x, -x],
+                             [-1, 1],
+                             [2, 3, S.Half, Rational(2, 3)],
+                             ['-', '+']))
+        results = (oo, oo, -oo, oo, -oo*I, oo, -oo*(-1)**Rational(1, 3), oo,
+                   0, 0, 0, 0, 0, 0, 0, 0,
+                   oo, oo, oo, -oo, oo, -oo*I, oo, -oo*(-1)**Rational(1, 3),
+                   0, 0, 0, 0, 0, 0, 0, 0)
+        assert len(tests) == len(results)
+        for i, (args, res) in enumerate(zip(tests, results)):
+            y, s, e, d = args
+            eq = y**(s*e)
+            try:
+>               assert limit(eq, x, 0, dir=d) == res
+E               AssertionError: assert -oo*sign((-1)**(1/3)) == -oo*(-1)**(1/3)
+E                +  where -oo*sign((-1)**(1/3)) = limit(x**(-2/3), x, 0, dir='-')
+
+test_limits.py:1027: AssertionError
+
+During handling of the above exception, another exception occurred:
+
+    def test_issue_5183():
+        # using list(...) so py.test can recalculate values
+        tests = list(product([x, -x],
+                             [-1, 1],
+                             [2, 3, S.Half, Rational(2, 3)],
+                             ['-', '+']))
+        results = (oo, oo, -oo, oo, -oo*I, oo, -oo*(-1)**Rational(1, 3), oo,
+                   0, 0, 0, 0, 0, 0, 0, 0,
+                   oo, oo, oo, -oo, oo, -oo*I, oo, -oo*(-1)**Rational(1, 3),
+                   0, 0, 0, 0, 0, 0, 0, 0)
+        assert len(tests) == len(results)
+        for i, (args, res) in enumerate(zip(tests, results)):
+            y, s, e, d = args
+            eq = y**(s*e)
+            try:
+                assert limit(eq, x, 0, dir=d) == res
+            except AssertionError:
+                if 0:  # change to 1 if you want to see the failing tests
+                    print()
+                    print(i, res, eq, d, limit(eq, x, 0, dir=d))
+                else:
+>                   assert None
+E                   assert None
+
+test_limits.py:1033: AssertionError
+_______________________________ test_issue_5436 ________________________________
+
+    def test_issue_5436():
+>       raises(NotImplementedError, lambda: limit(exp(x*y), x, oo))
+
+test_limits.py:1103: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+________________________________ test_Limit_dir ________________________________
+
+    def test_Limit_dir():
+>       raises(TypeError, lambda: Limit(x, x, 0, dir=0))
+
+test_limits.py:1108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:39: in raises
+    try:return _pytest.raises(expectedException,code,**kwargs)
+test_limits.py:1108: in <lambda>
+    raises(TypeError, lambda: Limit(x, x, 0, dir=0))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'symox.Limit'>, e = x, z = x, z0 = 0, dir = 0
+
+    def __new__(cls, e, z, z0, dir="+"):
+>       return _core._held_limit(e, z, z0, str(dir))
+E       ValueError: direction must be one of '+', '-' or '+-'
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/__init__.py:3370: ValueError
+________________________________ test_rational _________________________________
+
+    def test_rational():
+>       assert limit(1/y - (1/(y + x) + x/(y + x)/y)/z, x, oo) == (z - 1)/(y*z)
+E       assert 1/y - 1/(y*z) == ((z - 1) / (y * z))
+E        +  where 1/y - 1/(y*z) = limit(((1 / y) - (((1 / (y + x)) + ((x / (y + x)) / y)) / z)), x, oo)
+
+test_limits.py:1120: AssertionError
+_______________________________ test_issue_5740 ________________________________
+
+    def test_issue_5740():
+>       assert limit(log(x)*z - log(2*x)*y, x, 0) == oo*sign(y - z)
+E       assert -oo*sign(-y + z) == (oo * sign(y - z))
+E        +  where -oo*sign(-y + z) = limit(((log(x) * z) - (log(2*x) * y)), x, 0)
+E        +    where log(x) = log(x)
+E        +    and   log(2*x) = log((2 * x))
+E        +  and   sign(y - z) = sign((y - z))
+
+test_limits.py:1125: AssertionError
+_______________________________ test_issue_6364 ________________________________
+
+    def test_issue_6364():
+        a = Symbol('a')
+        e = z/(1 - sqrt(1 + z)*sin(a)**2 - sqrt(1 - z)*cos(a)**2)
+>       assert limit(e, z, 0) == 1/(cos(a)**2 - S.Half)
+E       assert 1/(-sin(a)**2/2 + cos(a)**2/2) == (1 / ((cos(a) ** 2) - 1/2))
+E        +  where 1/(-sin(a)**2/2 + cos(a)**2/2) = limit(z/(-sqrt(1 - z)*cos(a)**2 - sqrt(z + 1)*sin(a)**2 + 1), z, 0)
+E        +  and   cos(a) = cos(a)
+E        +  and   1/2 = S.Half
+
+test_limits.py:1221: AssertionError
+_______________________________ test_issue_8634 ________________________________
+
+    def test_issue_8634():
+        n = Symbol('n', integer=True, positive=True)
+        x = Symbol('x')
+>       assert limit(x**n, x, -oo) == oo*sign((-1)**n)
+E       assert oo*sign(exp(I*pi*n)) == (oo * sign((-1)**n))
+E        +  where oo*sign(exp(I*pi*n)) = limit((x ** n), x, -oo)
+E        +  and   sign((-1)**n) = sign((-1 ** n))
+
+test_limits.py:1289: AssertionError
+_______________________________ test_issue_9252 ________________________________
+
+    def test_issue_9252():
+        n = Symbol('n', integer=True)
+        c = Symbol('c', positive=True)
+        assert limit((log(n))**(n/log(n)) / (1 + c)**n, n, oo) == 0
+        # limit should depend on the value of c
+>       raises(NotImplementedError, lambda: limit((log(n))**(n/log(n)) / c**n, n, oo))
+
+test_limits.py:1313: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+_______________________________ test_issue_9205 ________________________________
+
+    def test_issue_9205():
+        x, y, a = symbols('x, y, a')
+        assert Limit(x, x, a).free_symbols == {a}
+        assert Limit(x, x, a, '-').free_symbols == {a}
+>       assert Limit(x + y, x + y, a).free_symbols == {a}
+
+test_limits.py:1338: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'symox.Limit'>, e = x + y, z = x + y, z0 = a, dir = '+'
+
+    def __new__(cls, e, z, z0, dir="+"):
+>       return _core._held_limit(e, z, z0, str(dir))
+E       NotImplementedError: held limits require a symbol variable
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/__init__.py:3370: NotImplementedError
+____________________________ test_limit_with_Float _____________________________
+
+    def test_limit_with_Float():
+        k = symbols("k")
+        assert limit(1.0 ** k, k, oo) == 1
+>       assert limit(0.3*1.0**k, k, oo) == Rational(3, 10)
+E       assert 0.300000000000000 == 3/10
+E        +  where 0.300000000000000 = limit((0.3 * (1.0 ** k)), k, oo)
+E        +  and   3/10 = Rational(3, 10)
+
+test_limits.py:1362: AssertionError
+_______________________________ test_issue_14456 _______________________________
+
+    def test_issue_14456():
+>       raises(NotImplementedError, lambda: Limit(exp(x), x, zoo).doit())
+
+test_limits.py:1416: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+_______________________________ test_issue_14377 _______________________________
+
+    def test_issue_14377():
+>       raises(NotImplementedError, lambda: limit(exp(I*x)*sin(pi*x), x, oo))
+
+test_limits.py:1481: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+_______________________________ test_issue_14393 _______________________________
+
+    def test_issue_14393():
+        a, b = symbols('a b')
+>       assert limit((x**b - y**b)/(x**a - y**a), x, y) == b*y**(-a + b)/a
+E       assert b*y**b/(a*y**a) == ((b * (y ** (-a + b))) / a)
+E        +  where b*y**b/(a*y**a) = limit((((x ** b) - (y ** b)) / ((x ** a) - (y ** a))), x, y)
+
+test_limits.py:1544: AssertionError
+_______________________________ test_issue_16714 _______________________________
+
+    def test_issue_16714():
+>       assert limit(((x**(x + 1) + (x + 1)**x) / x**(x + 1))**x, x, oo) == exp(exp(1))
+E       AssertionError: assert Limit((x**(-x - 1)*(x**(x + 1) + (x + 1)**x))**x, x, oo, dir='-') == exp(E)
+E        +  where Limit((x**(-x - 1)*(x**(x + 1) + (x + 1)**x))**x, x, oo, dir='-') = limit(((((x ** (x + 1)) + ((x + 1) ** x)) / (x ** (x + 1))) ** x), x, oo)
+E        +  and   exp(E) = exp(E)
+E        +    where E = exp(1)
+
+test_limits.py:1560: AssertionError
+_______________________________ test_issue_17751 _______________________________
+
+    def test_issue_17751():
+        a, b, c, x = symbols('a b c x', positive=True)
+>       assert limit((a + 1)*x - sqrt((a + 1)**2*x**2 + b*x + c), x, oo) == -b/(2*a + 2)
+E       assert -a*b/(2*(a + 1)**2) - b/(2*(a + 1)**2) == (-b / ((2 * a) + 2))
+E        +  where -a*b/(2*(a + 1)**2) - b/(2*(a + 1)**2) = limit((((a + 1) * x) - sqrt(b*x + c + x**2*(a + 1)**2)), x, oo)
+E        +    where sqrt(b*x + c + x**2*(a + 1)**2) = sqrt((((((a + 1) ** 2) * (x ** 2)) + (b * x)) + c))
+
+test_limits.py:1584: AssertionError
+_______________________________ test_issue_18521 _______________________________
+
+    def test_issue_18521():
+>       raises(NotImplementedError, lambda: limit(exp((2 - n) * x), x, oo))
+
+test_limits.py:1645: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+_______________________________ test_issue_13715 _______________________________
+
+    def test_issue_13715():
+        n = Symbol('n')
+        p = Symbol('p', zero=True)
+>       assert limit(n + p, n, 0) == 0
+E       assert p == 0
+E        +  where p = limit((n + p), n, 0)
+
+test_limits.py:1670: AssertionError
+_______________________________ test_issue_16708 _______________________________
+
+    def test_issue_16708():
+        m, vi = symbols('m vi', positive=True)
+        B, ti, d = symbols('B ti d')
+>       assert limit((B*ti*vi - sqrt(m)*sqrt(-2*B*d*vi + m*(vi)**2) + m*vi)/(B*vi), B, 0) == (d + ti*vi)/vi
+E       assert d/vi + ti == ((d + (ti * vi)) / vi)
+E        +  where d/vi + ti = limit((((((B * ti) * vi) - (sqrt(m) * sqrt(-2*B*d*vi + m*vi**2))) + (m * vi)) / (B * vi)), B, 0)
+E        +    where sqrt(m) = sqrt(m)
+E        +    and   sqrt(-2*B*d*vi + m*vi**2) = sqrt(((((-2 * B) * d) * vi) + (m * (vi ** 2))))
+
+test_limits.py:1680: AssertionError
+_______________________________ test_issue_19770 _______________________________
+
+    def test_issue_19770():
+        m = Symbol('m')
+        # the result is not 0 for non-real m
+        assert limit(cos(m*x)/x, x, oo) == Limit(cos(m*x)/x, x, oo, dir='-')
+        m = Symbol('m', real=True)
+        # can be improved to give the correct result 0
+>       assert limit(cos(m*x)/x, x, oo) == Limit(cos(m*x)/x, x, oo, dir='-')
+E       AssertionError: assert 0 == Limit(cos(m*x)/x, x, oo, dir='-')
+E        +  where 0 = limit((cos(m*x) / x), x, oo)
+E        +    where cos(m*x) = cos((m * x))
+E        +  and   Limit(cos(m*x)/x, x, oo, dir='-') = Limit((cos(m*x) / x), x, oo, dir='-')
+E        +    where cos(m*x) = cos((m * x))
+
+test_limits.py:1721: AssertionError
+_______________________________ test_issue_7535 ________________________________
+
+    def test_issue_7535():
+>       assert limit(tan(x)/sin(tan(x)), x, pi/2) == Limit(tan(x)/sin(tan(x)), x, pi/2, dir='+')
+E       AssertionError: assert AccumBounds(-oo, oo) == Limit(tan(x)/sin(tan(x)), x, pi/2, dir='+')
+E        +  where AccumBounds(-oo, oo) = limit((tan(x) / sin(tan(x))), x, (pi / 2))
+E        +    where tan(x) = tan(x)
+E        +    and   sin(tan(x)) = sin(tan(x))
+E        +      where tan(x) = tan(x)
+E        +  and   Limit(tan(x)/sin(tan(x)), x, pi/2, dir='+') = Limit((tan(x) / sin(tan(x))), x, (pi / 2), dir='+')
+E        +    where tan(x) = tan(x)
+E        +    and   sin(tan(x)) = sin(tan(x))
+E        +      where tan(x) = tan(x)
+
+test_limits.py:1728: AssertionError
+_______________________________ test_issue_21756 _______________________________
+
+    def test_issue_21756():
+        term = (1 - exp(-2*I*pi*z))/(1 - exp(-2*I*pi*z/5))
+        assert term.limit(z, 0) == 5
+>       assert re(term).limit(z, 0) == 5
+E       AssertionError: assert Limit((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*...in(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2), z, 0, dir='+') == 5
+E        +  where Limit((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*...in(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2), z, 0, dir='+') = <lambda>(z, 0)
+E        +    where <lambda> = (-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/...(2*pi*re(z)/5)*sin(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2).limit
+E        +      where (-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/...(2*pi*re(z)/5)*sin(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2) = re((1 - exp(-2*I*pi*z))/(1 - exp(-2*I*pi*z/5)))
+
+test_limits.py:1815: AssertionError
+_______________________________ test_issue_21785 _______________________________
+
+    def test_issue_21785():
+        a = Symbol('a')
+>       assert sqrt((-a**2 + x**2)/(1 - x**2)).limit(a, 1, '-') == I
+E       AssertionError: assert sqrt(x**2/(1 - x**2) - 1/(1 - x**2)) == I
+E        +  where sqrt(x**2/(1 - x**2) - 1/(1 - x**2)) = <lambda>(a, 1, '-')
+E        +    where <lambda> = sqrt((-a**2 + x**2)/(1 - x**2)).limit
+E        +      where sqrt((-a**2 + x**2)/(1 - x**2)) = sqrt(((-(a ** 2) + (x ** 2)) / (1 - (x ** 2))))
+
+test_limits.py:1820: AssertionError
+_______________________________ test_issue_25230 _______________________________
+
+    def test_issue_25230():
+        a = Symbol('a', real = True)
+        b = Symbol('b', positive = True)
+        c = Symbol('c', negative = True)
+        n = Symbol('n', integer = True)
+>       raises(NotImplementedError, lambda: limit(Mod(x, a), x, a))
+
+test_limits.py:1894: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+_______________________________ test_issue_26513 _______________________________
+
+    def test_issue_26513():
+        assert limit(abs((-x/(x+1))**x), x ,oo) == exp(-1)
+        assert limit((x/(x + 1))**x, x, oo) == exp(-1)
+>       raises (NotImplementedError, lambda: limit((-x/(x+1))**x, x, oo))
+
+test_limits.py:1988: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+_______________________________ test_issue_26991 _______________________________
+
+    def test_issue_26991():
+>       assert limit(x/((x - 6)*sinh(tanh(0.03*x)) + tanh(x) - 0.5), x, oo) == 1/sinh(1)
+E       assert 1/(-exp(-1)/2 + E/2) == (1 / sinh(1))
+E        +  where 1/(-exp(-1)/2 + E/2) = limit((x / ((((x - 6) * sinh(tanh(0.03*x))) + tanh(x)) - 0.5)), x, oo)
+E        +    where sinh(tanh(0.03*x)) = sinh(tanh(0.03*x))
+E        +      where tanh(0.03*x) = tanh((0.03 * x))
+E        +    and   tanh(x) = tanh(x)
+E        +  and   sinh(1) = sinh(1)
+
+test_limits.py:2004: AssertionError
+=========================== short test summary info ============================
+FAILED test_limits.py::test_basic1 - AssertionError: assert oo*sign((-1)**(-p...
+FAILED test_limits.py::test_floor - assert AccumBounds(-0.500000000000000, 1....
+FAILED test_limits.py::test_ceiling - assert AccumBounds(-0.500000000000000, ...
+FAILED test_limits.py::test_heuristic - NotImplementedError: missing heuristics
+FAILED test_limits.py::test_series_AccumBounds - assert AccumBounds(-1 - cos(...
+FAILED test_limits.py::test_bessel_functions_at_infinity - AssertionError: as...
+FAILED test_limits.py::test_issue_5164 - assert 4.00000000000000 == 4
+FAILED test_limits.py::test_issue_5383 - assert 2.71828182845905 == E
+FAILED test_limits.py::test_issue_5183 - assert None
+FAILED test_limits.py::test_issue_5436 - Failed: DID NOT RAISE
+FAILED test_limits.py::test_Limit_dir - ValueError: direction must be one of ...
+FAILED test_limits.py::test_rational - assert 1/y - 1/(y*z) == ((z - 1) / (y ...
+FAILED test_limits.py::test_issue_5740 - assert -oo*sign(-y + z) == (oo * sig...
+FAILED test_limits.py::test_issue_6364 - assert 1/(-sin(a)**2/2 + cos(a)**2/2...
+FAILED test_limits.py::test_issue_8634 - assert oo*sign(exp(I*pi*n)) == (oo *...
+FAILED test_limits.py::test_issue_9252 - Failed: DID NOT RAISE
+FAILED test_limits.py::test_issue_9205 - NotImplementedError: held limits req...
+FAILED test_limits.py::test_limit_with_Float - assert 0.300000000000000 == 3/10
+FAILED test_limits.py::test_issue_14456 - Failed: DID NOT RAISE
+FAILED test_limits.py::test_issue_14377 - Failed: DID NOT RAISE
+FAILED test_limits.py::test_issue_14393 - assert b*y**b/(a*y**a) == ((b * (y ...
+FAILED test_limits.py::test_issue_16714 - AssertionError: assert Limit((x**(-...
+FAILED test_limits.py::test_issue_17751 - assert -a*b/(2*(a + 1)**2) - b/(2*(...
+FAILED test_limits.py::test_issue_18521 - Failed: DID NOT RAISE
+FAILED test_limits.py::test_issue_13715 - assert p == 0
+FAILED test_limits.py::test_issue_16708 - assert d/vi + ti == ((d + (ti * vi)...
+FAILED test_limits.py::test_issue_19770 - AssertionError: assert 0 == Limit(c...
+FAILED test_limits.py::test_issue_7535 - AssertionError: assert AccumBounds(-...
+FAILED test_limits.py::test_issue_21756 - AssertionError: assert Limit((-exp(...
+FAILED test_limits.py::test_issue_21785 - AssertionError: assert sqrt(x**2/(1...
+FAILED test_limits.py::test_issue_25230 - Failed: DID NOT RAISE
+FAILED test_limits.py::test_issue_26513 - Failed: DID NOT RAISE
+FAILED test_limits.py::test_issue_26991 - assert 1/(-exp(-1)/2 + E/2) == (1 /...
+33 failed, 140 passed, 2 xfailed, 1 xpassed in 4.52s

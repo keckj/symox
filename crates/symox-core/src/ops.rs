@@ -1552,7 +1552,27 @@ fn base_as_e(b: &Expr, e: &Expr) -> Option<Expr> {
             _ => false,
         }
     }
-    if (b.mask() & !e.mask()) != 0 || !inverse_log(e, b) {
+    fn has_pi(e: &Expr) -> bool {
+        matches!(e.kind(), Kind::Const(Constant::Pi)) || e.args().iter().any(has_pi)
+    }
+    // Second branch of the reference: a denominator `log(-b) ± I*pi`. It
+    // needs an Add raised to a negative power with a log term and a term
+    // carrying `pi`; anything else cannot match and is not examined.
+    fn shifted_log_den(e: &Expr) -> bool {
+        let candidate = |f: &Expr, k: &Expr| {
+            matches!(k.kind(), Kind::Num(n) if n.is_negative())
+                && matches!(f.kind(), Kind::Add(_, t) if t.iter().any(|(x, _)| matches!(x.kind(), Kind::Func(Func::Log, _)))
+                    && t.iter().any(|(x, _)| has_pi(x)))
+        };
+        match e.kind() {
+            Kind::Pow(base, k) => candidate(base, k) || shifted_log_den(base),
+            Kind::Mul(_, factors) => factors.iter().any(|(f, k)| candidate(f, k) || shifted_log_den(f)),
+            Kind::Add(_, terms) => terms.iter().any(|(t, _)| shifted_log_den(t)),
+            _ => false,
+        }
+    }
+    let first = (b.mask() & !e.mask()) == 0 && inverse_log(e, b);
+    if !first && !shifted_log_den(e) {
         return None;
     }
     let factored = crate::simptools::exprtools::factor_terms(e, false, false, false, false);
@@ -1560,6 +1580,16 @@ fn base_as_e(b: &Expr, e: &Expr) -> Option<Expr> {
     let (num, den) = crate::simptools::radsimp::fraction(&ex, false);
     if is_log_of(&den, b) {
         return Some(crate::functions::exp(&mul2(&c, &num)));
+    }
+    if matches!(den.kind(), Kind::Add(..)) {
+        let s = crate::functions::func(Func::Sign, vec![crate::functions::func(Func::Im, vec![b.clone()])]);
+        if matches!(s.kind(), Kind::Num(n) if !n.is_zero()) {
+            let minus_b = neg(&crate::simptools::exprtools::factor_terms(b, false, false, false, false));
+            let target = add2(&crate::functions::func(Func::Log, vec![minus_b]), &mul(&[s, Expr::i(), Expr::pi()]));
+            if den == target {
+                return Some(crate::functions::exp(&mul2(&c, &num)));
+            }
+        }
     }
     None
 }
@@ -2723,5 +2753,25 @@ mod noncommutative_zero_infinite_sum_tests {
         for boundary in [square,function,nested,ordered()] {
             assert_eq!(mul(&[Expr::zero(),boundary]),Expr::zero());
         }
+    }
+}
+
+#[cfg(test)]
+mod base_as_e_tests {
+    use super::*;
+    fn p(source: &str) -> Expr { crate::parser::parse_str(source).unwrap() }
+    #[test]
+    fn shifted_log_denominator_is_recognised_like_the_reference() {
+        // Pow.__new__'s second branch: den == log(-b) + sign(im(b))*I*pi.
+        // Values from SymPy 1.14.
+        assert_eq!(pow(&p("2*I"), &p("x/log(2*I)")), p("exp(x)"));
+        assert_eq!(pow(&p("-2*I"), &p("x/log(-2*I)")), p("exp(x)"));
+        assert_eq!(pow(&p("1+I"), &p("2*x/log(1+I)")), p("exp(2*x)"));
+        assert_eq!(pow(&p("2*I"), &p("1/log(2*I)")), Expr::e());
+        // the sign must be the one of im(b); a real base has sign(im) = 0
+        let kept = pow(&p("-2"), &p("x/(log(2)+I*pi)"));
+        assert!(matches!(kept.kind(), Kind::Pow(..)));
+        // an Add exponent has no single denominator
+        assert!(matches!(pow(&p("2*I"), &p("1 + 3/log(2*I)")).kind(), Kind::Pow(..)));
     }
 }

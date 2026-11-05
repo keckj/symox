@@ -344,7 +344,7 @@ impl PyMatrixExpr{
     #[getter] fn is_FunctionMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Function(_))}
     #[getter] fn lamda(&self)->PyResult<PyExpr>{self.m.function_lambda().cloned().map(wrap).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("Only FunctionMatrix has a lamda"))}
     #[getter] fn is_ZeroMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Zero)}
-    #[getter] fn is_Identity(&self)->bool{matches!(self.m.kind(),MatrixKind::Identity)||matches!(self.m.kind(),MatrixKind::Permutation(p) if p.iter().enumerate().all(|(i,j)|i==*j))}
+    #[getter] fn is_Identity(&self)->bool{self.m.is_identity_true()||matches!(self.m.kind(),MatrixKind::Permutation(p) if p.iter().enumerate().all(|(i,j)|i==*j))}
     #[getter] fn is_PermutationMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Permutation(_))}
     #[getter] fn is_MatrixPermute(&self)->bool{matches!(self.m.kind(),MatrixKind::Permute(..))}
     #[getter] fn is_OneMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::One)}
@@ -418,9 +418,9 @@ impl PyMatrixExpr{
     fn __rmul__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{self.binary_mul(other,true)}
     fn __matmul__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if !is_matrix(other){return Err(PyTypeError::new_err("Matrix @ requires matrix operands"));}self.binary_mul(other,false)}
     fn __rmatmul__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if !is_matrix(other){return Err(PyTypeError::new_err("Matrix @ requires matrix operands"));}self.binary_mul(other,true)}
-    fn __truediv__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if is_matrix(other){return Err(PyTypeError::new_err("Matrix division requires a scalar divisor"));}let c=symox::ops::pow(&to_expr(other)?,&Expr::minus_one());Ok(wrap_matrixexpr(MatrixExpr::mul(c,&[self.m.clone()],true).map_err(|e|error(other.py(),e))?))}
-    fn __pow__(&self,exponent:&Bound<'_,PyAny>,modulo:Option<&Bound<'_,PyAny>>)->PyResult<Self>{if modulo.is_some_and(|m|!m.is_none()){return Err(PyTypeError::new_err("Modular matrix powers are unsupported"));}if is_matrix(exponent){return Err(PyTypeError::new_err("Matrix exponent must be scalar"));}Ok(wrap_matrixexpr(self.m.pow(to_expr(exponent)?,true).map_err(|e|error(exponent.py(),e))?))}
-    fn __neg__(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(MatrixExpr::mul(Expr::minus_one(),&[self.m.clone()],true).map_err(|e|error(py,e))?))}
+    fn __truediv__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if is_matrix(other){return Err(PyTypeError::new_err("Matrix division requires a scalar divisor"));}let c=symox::ops::pow(&to_expr(other)?,&Expr::minus_one());Ok(wrap_matrixexpr(MatrixExpr::mul(c,&[self.m.clone()],true).and_then(|m|m.doit(true)).map_err(|e|error(other.py(),e))?))}
+    fn __pow__(&self,exponent:&Bound<'_,PyAny>,modulo:Option<&Bound<'_,PyAny>>)->PyResult<Self>{if modulo.is_some_and(|m|!m.is_none()){return Err(PyTypeError::new_err("Modular matrix powers are unsupported"));}if is_matrix(exponent){return Err(PyTypeError::new_err("Matrix exponent must be scalar"));}Ok(wrap_matrixexpr(self.m.pow(to_expr(exponent)?,true).and_then(|m|m.doit(true)).map_err(|e|error(exponent.py(),e))?))}
+    fn __neg__(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(MatrixExpr::mul(Expr::minus_one(),&[self.m.clone()],true).and_then(|m|m.doit(true)).map_err(|e|error(py,e))?))}
     fn __pos__(&self)->Self{self.clone()}
     fn applyfunc(&self,function:&Bound<'_,PyAny>)->PyResult<PyObject>{
         let py=function.py();
@@ -664,6 +664,9 @@ impl PyMatrixExpr{
         }
         crate::with_derivative_errors(||Ok(wrap_matrixexpr(self.m.diff_many(&variables).map_err(|e|error(args.py(),e))?)))
     }
+    // SymPy's MatrixExpr operators (+, -, *, @, /, **, unary -) build the
+    // node and return its deep `.doit()`, which canonicalizes the operands
+    // (HadamardProduct order, Inverse/Transpose of a product, ...).
     fn binary_add(&self,other:&Bound<'_,PyAny>,subtract:bool,reverse:bool)->PyResult<Self>{let py=other.py();let mut a=self.m.clone();
         // MatAdd's validate: a scalar term is SymPy's TypeError "Mix of Matrix
         // and Scalar symbols"; an object that does not sympify is an
@@ -676,8 +679,8 @@ impl PyMatrixExpr{
                 return Err(PyTypeError::new_err(format!("unsupported operand type(s) for {}: '{left}' and '{right}'",if subtract{"-"}else{"+"})));
             }
             return Err(error);
-        }};if reverse{std::mem::swap(&mut a,&mut b);}if subtract{b=MatrixExpr::mul(Expr::minus_one(),&[b],true).map_err(|e|error(py,e))?;}Ok(wrap_matrixexpr(MatrixExpr::add(&[a,b],true).map_err(|e|error(py,e))?))}
-    fn binary_mul(&self,other:&Bound<'_,PyAny>,reverse:bool)->PyResult<Self>{let py=other.py();let result=if is_matrix(other){let peer=to_matrixexpr(other)?;let terms=if reverse{vec![peer,self.m.clone()]}else{vec![self.m.clone(),peer]};MatrixExpr::mul(Expr::one(),&terms,true)}else{MatrixExpr::mul(to_expr(other)?,&[self.m.clone()],true)};Ok(wrap_matrixexpr(result.map_err(|e|error(py,e))?))}
+        }};if reverse{std::mem::swap(&mut a,&mut b);}if subtract{b=MatrixExpr::mul(Expr::minus_one(),&[b],true).map_err(|e|error(py,e))?;}Ok(wrap_matrixexpr(MatrixExpr::add(&[a,b],true).and_then(|m|m.doit(true)).map_err(|e|error(py,e))?))}
+    fn binary_mul(&self,other:&Bound<'_,PyAny>,reverse:bool)->PyResult<Self>{let py=other.py();let result=if is_matrix(other){let peer=to_matrixexpr(other)?;let terms=if reverse{vec![peer,self.m.clone()]}else{vec![self.m.clone(),peer]};MatrixExpr::mul(Expr::one(),&terms,true)}else{MatrixExpr::mul(to_expr(other)?,&[self.m.clone()],true)};Ok(wrap_matrixexpr(result.and_then(|m|m.doit(true)).map_err(|e|error(py,e))?))}
 }
 #[pyfunction]
 fn _block_collapse(value:&Bound<'_,PyAny>)->PyResult<PyObject>{

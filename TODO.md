@@ -50,20 +50,40 @@ Python restent un chantier distinct, hors de ce TODO mathématique.
 
 ## Reprise sur Demeter (état au 30 octobre)
 
-Main est à 691ac5a7 (vagues 18 à 37 intégrées). Dernière validation : suite
-complète **59 068 réussis, 0 échec** ("SUITE CLEAN"), cargo 833 + 1 + 5
-doctests, corpus ODE {'cls': 303, 'hint': 279, 'def': 274, 'n': 315} et
-intégration {"COND": 20, "DIFF": 10, "EQUIV": 8, "MISSING": 1, "SAME": 1171}.
+Main intègre la vague 38 (branche `integrate-wave38-20261030`). Dernière
+validation : suite complète **60 020 réussis, 0 échec** ("SUITE CLEAN",
+60 085 collectés et exécutés, 682 fichiers), cargo 852 + 1 + 5, clippy
+correctness propre. Les corpus intégration et ODE n'ont pas été rejoués sur
+la vague 38 (le score ODE 303/279/274/315 ci-dessus est périmé : les agents
+mesurent 315/285/267 sur 21068f42 avec un script reconstruit).
 
-Dernières intégrations : ODE homogène (coefficients constants et Euler) en
-Rust (`ode/constcoeff.rs`), `checksol` public en Rust (`solve/checksol.rs`,
-5304/5304 cas identiques à SymPy), ordre des clés de code indépendant du
-hash seed (`_code_key.py`), correction use-after-free des ensembles visités
-par `dag_id` (logpart gaussien).
+Vague 38 (calcul en Rust, Python limité à l'encodage et la reconstruction) :
+- arr2mat : `convert_array_to_matrix`, ses passes, `_EditArrayContraction`
+  et `_ArgE` natifs (`arrayexpr_a2m.rs`) ; tests SymPy des tableaux 151/201,
+  corpus 517/527 ; 86/527 cas retombent encore sur la version vendue
+  (lacune) ; `_chain_array_to_matrix` des dérivées matricielles reste en
+  Python (lacune). `Trace(MatMul)` n'est plus canonicalisé (aligné sur
+  SymPy, validé le 30 octobre).
+- arrindex : `array_derive`, `convert_indexed_to_array` et le plan
+  d'indices de `convert_array_to_indexed` natifs (`arrayexpr_index.rs`),
+  corpus 162/168.
+- odepart : ensemble d'essai et résolution des coefficients indéterminés,
+  variation des paramètres (`ode/undetermined.rs`, `ode/variation.rs`) ;
+  correctif de parité `dotprodsimp` (gardé, validé le 30 octobre, mais
+  vop_013 dépasse 6 Go : lacune). simplify/trigsimp, évaluation des
+  intégrales et enveloppes Euler restent en Python.
+- smallgaps : déterminant Bareiss Float (77/77), checksol 17799, seconde
+  branche puissance-de-E (`ops.rs`), unités, correctif clippy.
+- limgaps : corrections limites/séries en Rust, 1118/1293 asserts, déclins
+  Gruntz 92 → 90 ; `factorial(x)/x` et `gamma(x)/x` en -oo laissés non
+  évalués (SymPy donne 0 ; écart validé le 30 octobre).
+- prdelog : cas de base de `is_log_deriv_k_t_radical_in_field` en Rust
+  (`integrate/prde_log.rs`, 938 appels, 0 écart) ; les cas non de base
+  restent en Python (lacune).
 
-Interrompu, à reprendre : branche `feat-arrexprrust-20261030a` (736acf4c,
-non intégrée au-delà de r2) pour `_EditArrayContraction`,
-`convert_array_to_matrix`, conversions indexées et `array_derive`.
+Interrompu, à reprendre : ratintex (log_to_atan sur EX, RootSum, exroots),
+worktree `~/symox-ci/wt/ratintex-20261030k`, travail non commité et non
+validé, branche `feat-ratintex-20261030k` encore à 21068f42.
 
 Écarts volontaires en attente de validation utilisateur : Markov spec7 1/6,
 conditionnement multi-temps markovrust (22/28 cas où SymPy se trompe) et
@@ -78,13 +98,11 @@ limitsrest r2 identique à SymPy même pour y complexe ; trois asserts de
 UserWarning, flags inconnus ignorés).
 
 Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
-- ODE : solutions particulières (coefficients indéterminés, variation des
-  paramètres) encore en Python ; collect à exposants partiels ; parité
+- ODE : simplification et intégrales des solutions particulières en
+  Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
   d'erreur du casus irreducibilis ; factorable, 2F1, Bessel, nth_algebraic,
   lie_group.
-- checksol : issue 17799 (erreur evalf d'`erfinv` imbriqué propagée) ;
-  seconde branche de la règle puissance-de-E ; unités.
-- prde : is_log_deriv_k_t_radical_in_field, parametric_log_deriv,
+- prde : is_log_deriv_k_t_radical_in_field hors cas de base, parametric_log_deriv,
   limited_integrate ; surcoût d'admission de splitfactor.
 - ratint/exroots (ratintex, 30 octobre) : TypeError QQ<sqrt(2)> corrigé
   pour un seul corps (corps différents et domaines paramétriques encore en
@@ -94,9 +112,10 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   roots_quadratic sur EX), binômes à radicaux imbriqués (hypothèses
   is_extended_real/is_positive, écart en attente de validation), ordre des
   étapes d'expand.
-- Limites : exp(E), séries frac, factorial/x en -oo, loggamma, formes
-  Order ; déclins Gruntz.
-- Matrices : déterminant Bareiss Float ; perf lambdarr gamma/poly2.
+- Limites : 175/1293 asserts encore différents ; 90 déclins Gruntz.
+- Matrices : perf lambdarr gamma/poly2.
+- Tableaux : 50/201 tests SymPy de tableaux, repli vendu de
+  `convert_array_to_matrix` (86/527), `_chain_array_to_matrix` en Python.
 
 Procédure de validation (leçons du 30 octobre) : n'accepter que "SUITE
 CLEAN" (le compte de lots "passed" incluait des lots en échec) ; le build

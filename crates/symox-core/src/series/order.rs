@@ -38,6 +38,30 @@ pub fn order_parts(e: &Expr) -> Option<(Expr, Vec<(Expr, Expr)>)> {
     }
 }
 
+/// `Order.__new__` refuses variables at different points
+/// (`O(x*y, (x, 0), (y, 1))`, also reached through `O(x*y).subs(x, x + 1)`).
+pub const DIFFERENT_POINTS: &str = "Multivariable orders at different points are not supported.";
+
+/// Whether the points of an order's variables are not all equal.
+pub fn different_points(vars: &[(Expr, Expr)]) -> bool {
+    vars.windows(2).any(|w| w[0].1 != w[1].1)
+}
+
+/// `Err(DIFFERENT_POINTS)` when `e` holds an order term whose variables
+/// sit at different points (the reference raises `NotImplementedError`
+/// when such a term would be built).
+pub fn check_order_points(e: &Expr) -> Result<(), &'static str> {
+    if !e.may_have_order() {
+        return Ok(());
+    }
+    if let Some((_, vars)) = order_parts(e) {
+        if different_points(&vars) {
+            return Err(DIFFERENT_POINTS);
+        }
+    }
+    e.args().iter().try_for_each(check_order_points)
+}
+
 fn raw(expr: Expr, vars: &[(Expr, Expr)]) -> Expr {
     let mut args = Vec::with_capacity(1 + 2 * vars.len());
     args.push(expr);
@@ -152,8 +176,113 @@ fn lead_exponents(e: &Expr, x: &Expr) -> Option<(Number, i64)> {
         return None;
     }
     let lt = super::leading_term(e, x, &Expr::zero(), false).ok()?;
-    let b = degree_in(&lt.coeff_logt, &lt.logt).unwrap_or(0);
+    // a coefficient that is not a polynomial in `log(x)` (`log(log(x))`)
+    // has no such leading behaviour
+    let b = match degree_in(&lt.coeff_logt, &lt.logt) {
+        Some(b) => b,
+        None if depends(&lt.coeff_logt, &lt.logt) => return None,
+        None => 0,
+    };
     Some((lt.exp, b))
+}
+
+thread_local! {
+    static TRIG_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static CONTAINS_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Runs `f` unless `flag` is already set on this thread (the limits taken
+/// below build order terms themselves).
+fn reentry_guarded<T>(flag: &'static std::thread::LocalKey<std::cell::Cell<bool>>, f: impl FnOnce() -> Option<T>) -> Option<T> {
+    if flag.with(|a| a.replace(true)) {
+        return None;
+    }
+    let r = f();
+    flag.with(|a| a.set(false));
+    r
+}
+
+/// `sin(a)`, `cos(a)` or `tan(a)` (to a nonzero integer power) whose
+/// argument is infinite at `x = 0` (`a.subs(x, 0)` is `zoo` or `oo`) and
+/// tends to `oo` or `-oo` as `x -> 0+`: the reference leading term is the
+/// constant `AccumBounds(-1, 1)` (`AccumBounds(-oo, oo)` for `tan`), which
+/// `Order` strips as a factor free of `x`.
+fn bounded_trig_factor(b: &Expr, k: &Expr, x: &Expr) -> bool {
+    let Kind::Func(Func::Sin | Func::Cos | Func::Tan, a) = b.kind() else { return false };
+    if a.len() != 1 || !depends(&a[0], x) {
+        return false;
+    }
+    if !k.as_number().is_some_and(|n| n.is_integer() && !n.is_zero()) {
+        return false;
+    }
+    let a0 = crate::subs::subs1(&a[0], x, &Expr::zero());
+    if !(a0.is_constant(Constant::ComplexInfinity) || a0.is_constant(Constant::Infinity) || a0.is_constant(Constant::NegInfinity)) {
+        return false;
+    }
+    reentry_guarded(&TRIG_ACTIVE, || crate::limits::limit(&a[0], x, &Expr::zero(), crate::limits::Dir::Plus).ok())
+        .is_some_and(|l| l.is_constant(Constant::Infinity) || l.is_constant(Constant::NegInfinity))
+}
+
+/// `e0` (a point moved to 0) without its bounded trigonometric factors
+/// (`O(x*sin(x), (x, oo)) = O(x, (x, oo))`, `O(tan(x), (x, oo)) = O(1, (x, oo))`).
+/// Admitted only when the remaining factors have a power or logarithmic
+/// leading term, so `Mul._eval_as_leading_term` raises no `PoleError`;
+/// otherwise (`sin(1/x)*exp(1/x)`) the expression is kept, as the
+/// reference does when every factor is a function.
+fn drop_bounded_trig(e0: &Expr, x: &Expr) -> Option<Expr> {
+    if e0.may_have_order() {
+        return None;
+    }
+    let facs: Vec<(Expr, Expr)> = match e0.kind() {
+        Kind::Mul(c, facs) => {
+            let mut v: Vec<(Expr, Expr)> = facs.to_vec();
+            v.push((Expr::num(c.clone()), Expr::one()));
+            v
+        }
+        Kind::Pow(b, k) => vec![(b.clone(), k.clone())],
+        _ => vec![(e0.clone(), Expr::one())],
+    };
+    let mut dropped = false;
+    let mut rest = Vec::with_capacity(facs.len());
+    for (b, k) in &facs {
+        if bounded_trig_factor(b, k, x) {
+            dropped = true;
+        } else {
+            rest.push(mul_factor(b, k));
+        }
+    }
+    if !dropped {
+        return None;
+    }
+    let r = mul(&rest);
+    let simple = !depends(&r, x) || lead_exponents(&r, x).is_some() || super::order_log::log_coefficient_order(&r, x).is_some();
+    simple.then_some(r)
+}
+
+/// The `PoleError` branch of `Order.__new__` (no power leading term): a
+/// function, or a product of functions only, is kept; otherwise every
+/// factor is replaced by its own order, a power with an exponent depending
+/// on `x` being written `exp(k*log(b))` and a bounded trigonometric factor
+/// (`AccumBounds` leading term) dropping out. The factors free of `x` are
+/// removed (`Expr.as_independent`).
+fn pole_factors(e: &Expr, x: &Expr) -> Expr {
+    let one = |f: Expr| super::order_dominant::pole_power(&f, x).unwrap_or(f);
+    match e.kind() {
+        Kind::Mul(c, facs) => {
+            let all_functions = c.is_one() && facs.iter().all(|(b, k)| k.is_one() && matches!(b.kind(), Kind::Func(..)));
+            let keep = |(b, k): &&(Expr, Expr)| (depends(b, x) || depends(k, x)) && (all_functions || !bounded_trig_factor(b, k, x));
+            // a sum factor takes its own order (`Order(x + 1) = O(1)`)
+            let own = |(b, k): &(Expr, Expr)| {
+                if !all_functions && k.is_one() && b.is_add() && !b.may_have_order() {
+                    order_parts(&order(b, &[(x.clone(), Expr::zero())])).map_or_else(|| b.clone(), |(oe, _)| oe)
+                } else {
+                    one(mul_factor(b, k))
+                }
+            };
+            mul(&facs.iter().filter(keep).map(own).collect::<Vec<_>>())
+        }
+        _ => one(as_coeff_mul(e).1),
+    }
 }
 
 /// Canonical constructor `O(expr, (x1, p1), ...)`.
@@ -189,13 +318,19 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
     }
     if vars.len() == 1 {
         let (x, p) = &vars[0];
-        let e0 = to_zero(&expr, x, p);
+        let mut e0 = to_zero(&expr, x, p);
+        if let Some(d) = drop_bounded_trig(&e0, x) {
+            e0 = d;
+        }
         if let Some(lead) = super::order_log::log_coefficient_order(&e0, x) {
             return raw(from_zero(&lead, x, p), &vars);
         }
         let lead = match lead_exponents(&e0, x) {
             Some((a, b)) => build_monomial(x, &a, b),
-            None => as_coeff_mul(&e0).1,
+            None => {
+                let r = super::order_dominant::dominant_terms(&e0, x).unwrap_or(e0);
+                pole_factors(&r, x)
+            }
         };
         return raw(from_zero(&lead, x, p), &vars);
     }
@@ -259,6 +394,21 @@ pub fn contains(o: &Expr, t: &Expr) -> bool {
     contains_expr(&oe, &vars, t)
 }
 
+/// The reference `Order.contains` for terms without a power leading
+/// ratio: `O(o)` contains `t` iff `limit(o/t, x, 0+)` is not `0` (`O(x)`
+/// holds `exp(-1/x)`, `O(exp(1/x))` holds `x**-3`). `None` when the native
+/// limit declines or leaves a symbol: the term is then kept, as before.
+fn limit_contains(o0: &Expr, t0: &Expr, x: &Expr) -> Option<bool> {
+    if o0.may_have_order() || t0.may_have_order() || t0.is_zero() {
+        return None;
+    }
+    let l = reentry_guarded(&CONTAINS_ACTIVE, || crate::limits::limit(&div(o0, t0), x, &Expr::zero(), crate::limits::Dir::Plus).ok())?;
+    if !free_symbols(&l).is_empty() || l.is_constant(Constant::NaN) {
+        return None;
+    }
+    Some(!l.is_zero())
+}
+
 fn contains_expr(oe: &Expr, vars: &[(Expr, Expr)], t: &Expr) -> bool {
     if t.is_zero() {
         return true;
@@ -277,13 +427,13 @@ fn contains_expr(oe: &Expr, vars: &[(Expr, Expr)], t: &Expr) -> bool {
         if !depends(&t0, x) {
             return match monomial_x(&o0, x) {
                 Some((a, b)) => a.is_negative() || (a.is_zero() && b >= 0),
-                None => false,
+                None => limit_contains(&o0, &t0, x).unwrap_or(false),
             };
         }
         let ratio = div(&t0, &o0);
         return match lead_exponents(&ratio, x) {
             Some((a, b)) => a.is_positive() || (a.is_zero() && b <= 0),
-            None => false,
+            None => limit_contains(&o0, &t0, x).unwrap_or(false),
         };
     }
     let ratio = div(t, oe);

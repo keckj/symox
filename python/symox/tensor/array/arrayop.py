@@ -103,7 +103,9 @@ def tensorcontraction(array, *contraction_axes):
     if _expressions()._is_symbolic_array(array):
         if not contraction_axes:
             return array
-        return _expressions()._array_contraction(array,*contraction_axes)
+        # SymPy: the canonicalizing _array_contraction
+        from .expressions._canon import _array_contraction
+        return _array_contraction(array,*contraction_axes)
     array=_array(array)
     if not contraction_axes:
         return array
@@ -124,7 +126,8 @@ def tensordiagonal(array, *diagonal_axes):
     if _expressions()._is_symbolic_array(array):
         if not diagonal_axes:
             return array
-        return _expressions().ArrayDiagonal(array,*diagonal_axes)
+        from .expressions._canon import _array_diagonal
+        return _array_diagonal(array,*diagonal_axes)
     array=_array(array)
     if not diagonal_axes:
         return array
@@ -150,7 +153,8 @@ def permutedims(expr, perm=None, index_order_old=None, index_order_new=None):
             perm=tuple(old.index(index) for index in new)
         if perm is None:
             raise ValueError('Permutation is not defined')
-        return _expressions()._permute_dims(expr,perm)
+        from .expressions._canon import _permute_dims
+        return _permute_dims(expr,perm)
     expr=_array(expr)
     if index_order_old is not None or index_order_new is not None:
         if perm is not None or index_order_old is None or index_order_new is None:

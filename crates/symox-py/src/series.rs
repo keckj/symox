@@ -105,6 +105,20 @@ fn _series_accum_error(expr: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: &Bound
     }))
 }
 
+/// `frac`/`floor`/`ceiling` of an argument infinite at the expansion
+/// point (series/accum_value.rs): `(lo, hi, rest)` for
+/// `AccumBounds(lo, hi) + rest`, `(None, None, rest)` for `rest`, `None`
+/// when not decided.
+#[pyfunction]
+#[allow(clippy::type_complexity)]
+fn _series_accum_value(expr: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: &Bound<'_, PyAny>, n: i64, dir: &str, nseries: bool) -> PyResult<Option<(Option<PyExpr>, Option<PyExpr>, PyExpr)>> {
+    let (e, x, x0) = (to_expr(expr)?, to_expr(x)?, to_expr(x0)?);
+    Ok(sr::accum_value::accum_series_value(&e, &x, &x0, n, dir == "-", nseries).map(|(b, rest)| match b {
+        Some((lo, hi)) => (Some(w(lo)), Some(w(hi)), w(rest)),
+        None => (None, None, w(rest)),
+    }))
+}
+
 /// `expr.nseries(x, 0, n, cdir=cdir)` for a negative or nonreal `cdir`
 /// passed down to the step functions (`floor`, `ceiling`, `frac`, `sign`,
 /// `atan`, `acot`); `None` when the native path declines.
@@ -137,6 +151,9 @@ fn _order(expr: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr
     // O(x**2, x, y): all at the point given last (default 0)
     for s in pending_syms {
         vars.push((s, Expr::zero()));
+    }
+    if sr::order::different_points(&vars) {
+        return Err(pyo3::exceptions::PyNotImplementedError::new_err(sr::order::DIFFERENT_POINTS));
     }
     Ok(w(sr::order(&e, &vars)))
 }
@@ -207,9 +224,19 @@ fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir
     let args=held.args();let d=Dir::parse(args[3].as_sym().unwrap().name()).unwrap();
     match lm::limit(&args[0], &args[1], &args[2], d) {
         Ok(r) => Ok(Some(w(r))),
-        Err(LimitError::Unknown(_)) => Ok(None),
+        Err(LimitError::Unknown(s)) => {
+            lm::trace::record(&s, &held);
+            Ok(None)
+        }
         Err(err @ LimitError::Differ(..)) => Err(PyValueError::new_err(err.to_string())),
     }
+}
+
+/// Enables (`True`) or disables the record of native limit declines and
+/// returns the `(reason, held limit)` pairs recorded so far.
+#[pyfunction]
+fn _limit_trace(on: bool) -> Vec<(String, String)> {
+    lm::trace::set_enabled(on)
 }
 
 /// `(c0, [(c_i, lo_i, hi_i)])` of `limits::bounded_affine`: the limit is
@@ -252,10 +279,12 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     symox::subs::register_order_point_host(order_point_host);
     m.add_function(wrap_pyfunction!(_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_held_limit, m)?)?;
+    m.add_function(wrap_pyfunction!(_limit_trace, m)?)?;
     m.add_function(wrap_pyfunction!(_limit_bounded_affine, m)?)?;
     m.add_function(wrap_pyfunction!(_series, m)?)?;
     m.add_function(wrap_pyfunction!(_series_direction, m)?)?;
     m.add_function(wrap_pyfunction!(_series_accum_error, m)?)?;
+    m.add_function(wrap_pyfunction!(_series_accum_value, m)?)?;
     m.add_function(wrap_pyfunction!(_nseries_cdir, m)?)?;
     m.add_function(wrap_pyfunction!(_order, m)?)?;
     m.add_function(wrap_pyfunction!(_remove_o, m)?)?;

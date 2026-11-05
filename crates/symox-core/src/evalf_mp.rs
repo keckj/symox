@@ -22,7 +22,7 @@ pub struct MpComplex {
 // inside an enclosing numerical cache must not answer an unchopped query.
 struct NumericMemo {
     depth: usize,
-    values: Option<rustc_hash::FxHashMap<(usize,u32,bool,EvalfOptions),(Expr,Option<MpComplex>,bool)>>,
+    values: Option<rustc_hash::FxHashMap<(usize,u32,bool,EvalfOptions,bool),(Expr,Option<MpComplex>,bool)>>,
 }
 thread_local! {
     static NUMERIC_MEMO:std::cell::RefCell<NumericMemo> = const {
@@ -550,7 +550,18 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
     }
     let memoized=EvalfOptions{residue:false,..options}==EvalfOptions::default();
     if memoized { if let Some(value) = memo::get(e,prec,options.residue) { return value; } }
-    if let Some(value) = eval_mp_root(e, prec) {
+    let outer_discarded = take_discarded_argument_error();
+    let root = eval_mp_root(e, prec);
+    // A function whose argument conversion failed (the ValueError that
+    // `Function._eval_evalf` swallows, issue 17799) stays unevaluated; the
+    // reference then rebuilds the enclosing Add, Mul or Pow from the
+    // `_eval_evalf` of each argument: `(gamma(erfinv(2)) + pi).n()` is
+    // `gamma(erfinv(2)) + 3.14159265358979`.
+    let discarded = take_discarded_argument_error();
+    if outer_discarded || discarded {
+        ARGUMENT_ERROR_DISCARDED.with(|cell| cell.set(true));
+    }
+    if let Some(value) = root {
         let value=match RESIDUE.with(|cell|cell.take()) {
             Some(accuracies)=>residue_expr(value,prec,accuracies),
             None=>to_expr(value,prec),
@@ -560,7 +571,9 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
     }
     if lower_gamma_pole(e) { return Expr::oo(); }
     if let Some(value) = nonfinite_value(e, prec) { return value; }
-    if crate::functions::is_numeric_value(e) { return e.clone(); }
+    if crate::functions::is_numeric_value(e) && !(discarded && matches!(e.kind(), Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..))) {
+        return e.clone();
+    }
     // The arguments of a partially numerical Add, Mul or Pow are evaluated
     // by their `_eval_evalf` (`AssocOp._eval_evalf`, `Pow._eval_evalf`),
     // which leaves `I` alone: `(x + I).evalf()` is `x + I`.
@@ -637,7 +650,7 @@ pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i128)->Expr {
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
     if e.is_atom(){return ev_uncached(e,p);}
     let _scope=NumericScope::enter();
-    let key=(e.dag_id(),p,crate::assumptions::numeric_refinement_enabled(),OPTIONS.with(|cell|cell.get()));
+    let key=(e.dag_id(),p,crate::assumptions::numeric_refinement_enabled(),OPTIONS.with(|cell|cell.get()),converting_arguments());
     if let Some((value,nested))=NUMERIC_MEMO.with(|memo|memo.borrow().values.as_ref()
         .and_then(|values|values.get(&key).map(|(_,value,nested)|(value.clone(),*nested)))) {
         if nested {NESTED.with(|cell|cell.set(true));}
@@ -921,6 +934,14 @@ pub struct HostError(pub Box<dyn std::any::Any + Send>);
 /// raises it.
 pub struct FatalHostError(pub HostError);
 
+/// A host error of the kind (`ValueError`) that SymPy's generic
+/// `Function._eval_evalf` catches while it converts the arguments of a
+/// function (`arg._to_mpmath(prec + 5)` inside `try/except ValueError`).
+/// Raised while the arguments of such a head are evaluated, it is discarded
+/// and the head stays unevaluated (`gamma(erfinv(2)).n()`, issue 17799);
+/// raised elsewhere it is an ordinary host error.
+pub struct ValueHostError(pub HostError);
+
 /// Host evaluator of a special function head at a binary precision. It
 /// returns `Ok(None)` when the value is unavailable; it must never return a
 /// value with fewer correct bits than requested.
@@ -935,6 +956,56 @@ thread_local! {
     static HOST_FATAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     // Number of live enabled scopes, which will raise a pending error.
     static HOST_ENABLED_DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    // Number of generic function heads whose arguments are being evaluated
+    // (see `ValueHostError`).
+    static ARGUMENT_CONVERSION_DEPTH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    // A `ValueHostError` was discarded by an argument conversion.
+    static ARGUMENT_ERROR_DISCARDED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether an argument conversion discarded a `ValueError` since the last
+/// call (the head then stays unevaluated, as in SymPy); clears the flag.
+pub fn take_discarded_argument_error() -> bool {
+    ARGUMENT_ERROR_DISCARDED.with(|cell| cell.replace(false))
+}
+
+/// While alive, the arguments of a generic function head are being
+/// evaluated (`ArgumentConversion::enter`), or that head's own value is
+/// (`ArgumentConversion::own_call`, which restores the enclosing depth).
+struct ArgumentConversion(u32);
+impl ArgumentConversion {
+    fn enter() -> Self {
+        Self(ARGUMENT_CONVERSION_DEPTH.with(|cell| cell.replace(cell.get() + 1)))
+    }
+    fn own_call() -> Self {
+        Self(ARGUMENT_CONVERSION_DEPTH.with(|cell| cell.replace(cell.get().saturating_sub(1))))
+    }
+}
+impl Drop for ArgumentConversion {
+    fn drop(&mut self) {
+        ARGUMENT_CONVERSION_DEPTH.with(|cell| cell.set(self.0));
+    }
+}
+
+fn converting_arguments() -> bool {
+    ARGUMENT_CONVERSION_DEPTH.with(|cell| cell.get()) > 0
+}
+
+/// Heads whose SymPy evaluation propagates every error of its arguments:
+/// the `evalf_table` entries and the `_eval_evalf` overrides without the
+/// generic `try/except ValueError`. Every other function head converts its
+/// arguments as `Function._eval_evalf` does.
+fn propagates_argument_errors(f: &Func) -> bool {
+    use crate::special::SpecialFn as S;
+    match f {
+        Func::Exp | Func::Log | Func::Sin | Func::Cos | Func::Tan | Func::Atan | Func::Abs | Func::Re | Func::Im
+        | Func::Floor | Func::Ceiling | Func::Max | Func::Min => true,
+        Func::Special(s) => matches!(s,
+            S::Ynm | S::AiryAiPrime | S::AiryBiPrime | S::LowerGamma | S::UpperGamma | S::Polygamma | S::Digamma
+            | S::Trigamma | S::Bernoulli | S::Harmonic | S::Euler | S::Andre | S::Genocchi | S::MeijerG
+            | S::PolarLift | S::PeriodicArgument | S::PrincipalBranch),
+        _ => false,
+    }
 }
 
 /// Install the multiprecision evaluator used for special functions without a
@@ -1005,8 +1076,16 @@ fn call_host(host: SpecialHost, name: &str, args: &[HostArg], p: u32, report: bo
                 None
             }
             Err(error) => {
+                let error = match error.downcast::<ValueHostError>() {
+                    Ok(_) if converting_arguments() => {
+                        ARGUMENT_ERROR_DISCARDED.with(|cell| cell.set(true));
+                        return None;
+                    }
+                    Ok(value) => value.0,
+                    Err(error) => HostError(error),
+                };
                 if report && HOST_ERRORS.with(|cell| cell.get()) {
-                    HOST_ERROR.with(|cell| { cell.borrow_mut().get_or_insert(HostError(error)); });
+                    HOST_ERROR.with(|cell| { cell.borrow_mut().get_or_insert(error); });
                 }
                 None
             }
@@ -1110,10 +1189,18 @@ fn certified_hyper_unit_values(e: &Expr) -> Expr {
     visit(e, &mut rustc_hash::FxHashMap::default())
 }
 
-fn host_eval(name: &str, args: &[Expr], p: u32) -> Option<MpComplex> {
+/// The host value of the head `f` named `name`, called from [`func`] (which
+/// holds an [`ArgumentConversion`] for a generic head): the arguments are
+/// evaluated inside that conversion, the head's own call outside it.
+fn host_eval(f: &Func, name: &str, args: &[Expr], p: u32) -> Option<MpComplex> {
     let host = *SPECIAL_HOST.get()?;
     let values = |q: u32| args.iter().map(|arg| host_arg(arg, q + HOST_ARGUMENT_GUARD)).collect::<Option<Vec<_>>>();
-    refined_with(p, |q, first| call_host(host, name, &values(q)?, q, first), |q| exact_arguments(&values, q))
+    let own = |q: u32, first: bool| {
+        let arguments = values(q)?;
+        let _own = (!propagates_argument_errors(f)).then(ArgumentConversion::own_call);
+        call_host(host, name, &arguments, q, first)
+    };
+    refined_with(p, own, |q| exact_arguments(&values, q))
 }
 
 /// SymPy's `Function._eval_evalf` returns mpmath's value through
@@ -1321,6 +1408,7 @@ fn meijerg_host(args: &[Expr], p: u32) -> Option<MpComplex> {
 }
 
 fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
+    let _conversion = (!propagates_argument_errors(f)).then(ArgumentConversion::enter);
     let wp = p + 10;
     if let Some(elementary) = match f {
         Func::Special(s) => crate::elementary_mp::Elementary::of_special(*s),
@@ -1339,7 +1427,7 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
             // a spurious finite number; public evalf rewrites these poles.
             if hyper_unit_divergence_args(args).is_some() { return None; }
         }
-        let value = crate::special::mp::eval(*s, args, p).or_else(|| host_eval(s.name(), args, p))?;
+        let value = crate::special::mp::eval(*s, args, p).or_else(|| host_eval(f, s.name(), args, p))?;
         // SymPy's Ei._eval_evalf: an argument on the ray polar_lift(-1)*(0, oo)
         // lies on the upper side of the cut, Ei(-x) + I*pi.
         if *s == crate::special::SpecialFn::Ei && args.len() == 1 && crate::special::polar::has_polar_func(&args[0]) {
@@ -1416,11 +1504,11 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         }
         Func::Erf if a.is_real() => match erf_mp(&a.re, p) {
             Some(value) => MpComplex::real(value),
-            None => return host_eval("erf", args, p),
+            None => return host_eval(f, "erf", args, p),
         },
         Func::Erfc if a.is_real() => match erfc_mp(&a.re, p) {
             Some(value) => MpComplex::real(value),
-            None => return host_eval("erfc", args, p),
+            None => return host_eval(f, "erfc", args, p),
         },
         Func::Gamma if a.is_real() => {
             // d log(gamma(x))/dx = digamma(x) ~ log(x): a large argument
@@ -1452,13 +1540,13 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
             }
             match gamma_mp(&x, p) {
                 Some(value) => MpComplex::real(value),
-                None => return host_eval("gamma", args, p),
+                None => return host_eval(f, "gamma", args, p),
             }
         }
-        Func::Erf => return host_eval("erf", args, p),
-        Func::Erfc => return host_eval("erfc", args, p),
-        Func::Gamma => return host_eval("gamma", args, p),
-        Func::LogGamma => return host_eval("loggamma", args, p),
+        Func::Erf => return host_eval(f, "erf", args, p),
+        Func::Erfc => return host_eval(f, "erfc", args, p),
+        Func::Gamma => return host_eval(f, "gamma", args, p),
+        Func::LogGamma => return host_eval(f, "loggamma", args, p),
         _ => return None,
     })
 }

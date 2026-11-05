@@ -1,0 +1,12 @@
+{
+ "gamma_float": {
+  "first_median": 0.1883363580564037,
+  "repeat_median": 7.430003351439516e-07,
+  "ok": true
+ },
+ "poly2_float": {
+  "first_median": 0.12458111997693777,
+  "repeat_median": 2.892643038649112e-07,
+  "ok": true
+ }
+}

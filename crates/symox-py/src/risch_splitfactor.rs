@@ -66,4 +66,24 @@ fn _risch_splitfactor(p:&Bound<'_,PyAny>,d:&Bound<'_,PyAny>,t:&Bound<'_,PyAny>,
     };
     py.check_signals()?;Ok(Some((normal,special)))
 }
-pub(crate)fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_function(wrap_pyfunction!(_risch_splitfactor,m)?)}
+/// The input-only conditions of `_risch_splitfactor` on `p` and `One`
+/// (stock Poly type, exact instances, plain QQ, `One == 1`). Reads native
+/// data only, so the admission can run it before authentication: when it is
+/// False the kernel would return None.
+#[pyfunction]
+fn _risch_splitfactor_precheck(p:&Bound<'_,PyAny>,one:&Bound<'_,PyAny>,py:Python<'_>)->PyResult<bool>{
+    use pyo3::impl_::pyclass::PyClassImpl;
+    let expected=<PyPoly as PyClassImpl>::items_iter().flat_map(|i|i.slots)
+        .find(|slot|slot.slot==pyo3::ffi::Py_tp_new).map(|slot|slot.pfunc);
+    let current=unsafe{pyo3::ffi::PyType_GetSlot(py.get_type::<PyPoly>().as_type_ptr(),pyo3::ffi::Py_tp_new)};
+    if !expected.is_some_and(|p|!p.is_null()&&p==current)
+        ||!p.is_exact_instance_of::<PyPoly>()||!one.is_exact_instance_of::<PyPoly>(){return Ok(false);}
+    let(a,unit)=(p.downcast::<PyPoly>()?.get(),one.downcast::<PyPoly>()?.get());
+    Ok(plain(&a.p)&&a.p.base.domain==Domain::QQ
+        &&plain(&unit.p)&&unit.p.base.domain==Domain::QQ&&unit.p.base.rep.is_one()
+        &&unit.p.base.gens==a.p.base.gens)
+}
+pub(crate)fn register(m:&Bound<'_,PyModule>)->PyResult<()>{
+    m.add_function(wrap_pyfunction!(_risch_splitfactor,m)?)?;
+    m.add_function(wrap_pyfunction!(_risch_splitfactor_precheck,m)?)
+}

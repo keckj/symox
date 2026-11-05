@@ -13230,6 +13230,10 @@ vector), `prde_cancel_liouvillian`, `limited_integrate_reduce`,
 `parametric_log_deriv(_heu)`, `is_deriv_k`, `is_log_deriv_k_t_radical`
 and `is_log_deriv_k_t_radical_in_field`, inexact (RR/CC) and algebraic or
 rational-function coefficient domains.
+Update (prdelog, 2026-10-30): base-case `limited_integrate`,
+`parametric_log_deriv(_heu)` and `is_log_deriv_k_t_radical_in_field`, and
+`param_rischDE` with `v == 0` and an empty `W`, are native; see the prdelog
+section.
 
 Parity note (not changed here): symox `Poly.cancel(g, include=True)`
 over ZZ/QQ returns its results in the domain inferred from the two inputs
@@ -13353,6 +13357,179 @@ and `Reshape` of non-array arguments. The matrix derivative code keeps
 using its own Python `_array_contraction`/`_permute_dims` in
 `symox.tensor.array.expressions`, so the term-order differences listed
 above are unchanged.
+
+
+### arr2mat (wave 28, third part): native `convert_array_to_matrix`, its passes and `_EditArrayContraction`, 2026-10-30
+
+Native now (crates/symox-core/src/arrayexpr_a2m.rs, binding
+`_core._arrayexpr_a2m` in crates/symox-py/src/arrayexpr_a2m.rs):
+
+- SymPy 1.14's `convert_array_to_matrix` and every pass it calls:
+  - `_array2matrix`, `_remove_trivial_dims`;
+  - `identify_hadamard_products`, `identify_removable_identity_matrices`,
+    `remove_identity_matrices`;
+  - `_array_contraction_to_diagonal_multiple_identity`,
+    `_array_diag2contr_diagmatrix`;
+  - `_support_function_tp1_recognize`, `_a2m_tensor_product`/`_a2m_add`
+    and the matrix multiplications they perform;
+  - `ArrayContraction.split_multiple_contractions` and
+    `flatten_contraction_of_diagonal`;
+  - `_find_trivial_matrices_rewrite`, `_find_trivial_kronecker_products_broadcast`,
+    `_remove_diagonalized_identity_matrices`;
+  - `_combine_removed`, and the index pushes `_push_indices_up/down` of
+    ArrayContraction and ArrayDiagonal.
+- `_EditArrayContraction` and `_ArgE`, with every method SymPy's passes
+  use. The public class keeps the editor state (the `_ArgE` list, the
+  contraction indices, the diagonal count) in Python objects, and each
+  method calls Rust (`ed_*` operations) on the encoded state.
+- `Trace(...)._normalize()` of the passes (`_matrix_trace_normalize`) and
+  the 1x1 element-wise case of `_remove_trivial_dims`
+  (`expr.function(subexpr)`, removed axes `[0, 1]`).
+
+The Rust side works on the index tree of the canonical forms
+(arrayexpr.rs). The leaves are native matrix expressions, scalars,
+`OneArray` (with dimension ids), opaque array leaves (`ArraySymbol`), and
+the `Lambda` of an `ArrayElementwiseApplyFunc`. The matrix operations
+(`MatMul(...).doit()`, `MatAdd`, `Transpose`, `Trace`, `DiagMatrix`,
+`DiagonalOf`, `HadamardProduct`, `KroneckerProduct`, Identity
+recognition) use the native `MatrixExpr`. The only callback is
+`default_sort_key`, as for the canonical forms.
+
+Python only encodes the objects (`python/symox/tensor/array/expressions/_a2m.py`)
+and rebuilds them. The error types and messages are SymPy's: ValueError,
+IndexError, TypeError, AttributeError (with the class name), and
+NotImplementedError (including "noncommutative scalars in MatMul are not
+supported.").
+
+Fallback (Python, a remaining gap): the native port declines
+(`_core.ArrayExprUnsupported`) inputs where SymPy puts an array object
+inside a matrix operation. Examples are `MatMul(OneArray(1, k), M)`,
+`MatAdd` of an `ArraySymbol`, `Transpose(OneArray(1, k))`,
+`DiagMatrix(OneArray(1, k))`, a Hadamard product with a `OneArray`, and a
+scalar times a `OneArray`.
+
+- Native matrix expressions cannot hold array objects, and SymPy's result
+  in these cases is either an object of that kind or an error raised later.
+- The input is then translated structurally into the vendored SymPy 1.14
+  classes (`symox._arrayexpr`, unmodified SymPy Python), SymPy's algorithm
+  runs, and the result is translated back
+  (`python/symox/tensor/array/expressions/_stock.py`).
+- The same holds for an editor whose `merge_scalars` or
+  `to_array_contraction` meets such a product.
+- In SymPy's own array-expression tests, no test needs this fallback: with
+  the fallback disabled, test_convert_array_to_matrix.py passes 16/16,
+  test_array_expressions.py 24/25 and test_as_explicit.py 2/2.
+
+Python changes, each an admission, API or argument fix (no algorithm):
+
+- `ArrayElement._check_shape`, `subranks`/`subrank`, ZeroArray()/OneArray()
+  with no shape return `0`/`1`, ArrayTensorProduct keeps nested products
+  (SymPy's `canonicalize=False`), `as_explicit` of a symbolic shape raises
+  ValueError, `Reshape` checks only a decidably different size and its
+  `doit` reshapes explicit arrays, and `_canonicalize`.
+- `_sort_key` gives the `Basic.sort_key` of the array classes (class key,
+  then the arguments). `default_sort_key` otherwise iterates over a
+  symbolic-shape expression forever.
+- `tensorcontraction`, `tensordiagonal` and `permutedims` of symbolic
+  arrays use the canonicalizing constructors, as in SymPy.
+- `_matrixexpr._normalize_matrix_function` accepts `sqrt` and `cbrt` heads.
+- The vendored `from_array_to_matrix` calls the native trace
+  normalization.
+
+Matrix expressions (crates/symox-core/src/matrixexpr.rs, Rust):
+
+- The MatrixExpr operators (`*`, `+`, `-`, `**`, `.T`) return a deep `doit`,
+  as SymPy's `MatrixExpr.__mul__` etc.
+- `Trace(MatMul)` follows `MatMul._eval_trace`:
+  - a unit coefficient keeps the unevaluated trace without rotating the
+    factors (`Trace(N*M)*P` prints as in SymPy; it printed `Trace(M*N)*P`);
+  - otherwise the coefficient moves out of the trace of the product.
+
+  Intentional correction, validated by the user on 2026-10-30: symox
+  used to canonicalize `Trace(MatMul)` over cyclic rotations and over the
+  reversed transposes, so `trace(A*B) == trace(B*A)` and
+  `trace(A*B) == trace((A*B).T)` held. SymPy 1.14 gives False for both and
+  prints `trace((A*B).T)` as `Trace(B.T*A.T)`. That canonicalization was
+  removed. tests/test_matrix_calculus.py now pins SymPy's result. The
+  test was named `test_trace_cycles_rectangular_products_and_explicit_lowering`;
+  it is now `test_trace_of_rectangular_products_keeps_sympy_order_and_explicit_lowering`.
+
+Checks:
+
+- tests/test_native_arr2mat.py pins the following against SymPy 1.14, and
+  asserts that the stock fallback is not used:
+  - 53 corpus cases;
+  - 28 curated calls;
+  - the AttributeError messages of `_array_diag2contr_diagmatrix`;
+  - the 1x1 element-wise case.
+- Differential corpus (600 generated inputs, 527 constructible; the 73
+  others raise the same error at construction in both): the table below.
+  "Native" counts results computed in Rust; "stock" counts results computed
+  by the fallback.
+
+| pass | agree / total | native (agree) | stock (agree) |
+|---|---|---|---|
+| convert_array_to_matrix | 517/527 | 441 (440) | 86 (77) |
+| _array2matrix | 517/527 | 441 (440) | 86 (77) |
+| _remove_trivial_dims | 526/527 | 500 (500) | 27 (26) |
+| identify_hadamard_products | 521/527 | 481 (481) | 46 (40) |
+| identify_removable_identity_matrices | 527/527 | 508 (508) | 19 (19) |
+| remove_identity_matrices | 527/527 | 508 (508) | 19 (19) |
+| _array_contraction_to_diagonal_multiple_identity | 527/527 | 508 (508) | 19 (19) |
+| _array_diag2contr_diagmatrix | 524/527 | 524 (524) | 3 (0) |
+| _EditArrayContraction (state and round trip) | 312/312 | 299 (299) | 13 (13) |
+
+Full suite: 59153 passed in shards 0-22 and 367 in tests/extra, 0
+failures after the trace test update. The three tests of
+test_downstream_audit.py need `symox` installed in the interpreter: they
+fail on the base as well in the CI venv, and pass with a private overlay
+venv. `cargo test -p symox --release`: 833 + 1 + 5. Details in
+audits/performance/2026-10-30-arr2mat/README.md.
+
+Remaining differences to SymPy 1.14 (gaps):
+
+- Scalar placement in an unevaluated MatMul. Native matrix expressions
+  keep the scalar coefficient in front, while SymPy's held MatMul keeps it
+  where it was built.
+  - `Trace(I*Trace(a*c))*Trace(I)` in SymPy is
+    `Trace(Trace(a*c)*I)*Trace(I)` in symox (the one native disagreement of
+    the corpus).
+  - The trace rotation of `_support_function_tp1_recognize` keeps the
+    coefficient in front for the same reason.
+- Array objects inside matrix operations, on the stock path:
+  - `Transpose(OneArray(1, k))`, `DiagMatrix(OneArray(1, k))`, and Hadamard
+    products with array objects (corpus arr15, arr34, arr127, arr145,
+    arr249, arr308, arr336). SymPy builds the object or raises
+    NotImplementedError/ValueError. symox's stock path raises TypeError,
+    because the native `Transpose`/`DiagMatrix`/`HadamardProduct` reject a
+    non-matrix argument.
+  - A MatMul with an `ArraySymbol` (arr12, arr158, arr300). SymPy computes
+    `Trace(MatMul(A, M))` and raises NotImplementedError when printing it.
+    symox returns a trace whose MatMul contains the vendored ArraySymbol.
+- `ArrayElementwiseApplyFunc(sin, x)` keeps `sin` as its function. SymPy
+  stores `Lambda(_d, sin(_d))`, so printed results differ
+  (`ArrayElementwiseApplyFunc(sin, ...)` against
+  `ArrayElementwiseApplyFunc(Lambda(_d, sin(_d)), ...)`). This predates
+  this lot (class constructor) and is not changed here.
+- The matrix derivatives (`_matrix_derivatives.py`) still use their own
+  Python chain-to-matrix conversion (`_chain_array_to_matrix`, the former
+  symox `convert_array_to_matrix`). The element-wise derivatives still use
+  the vendored `symox._arrayexpr` conversion.
+- Not in this lot: `convert_indexed_to_array`, `convert_array_to_indexed`,
+  `array_derive` and `_get_contraction_tuples`. The remaining failure of
+  test_array_expressions.py (`test_arrayexpr_contraction_construction`)
+  needs the last one.
+
+SymPy array-expression test files (21 files, 201 test functions): 120
+passed before, 151 after.
+
+- test_array_expressions.py: 24/25 (13 before).
+- test_as_explicit.py: 2/2 (0 before).
+- test_convert_array_to_matrix.py: 16/16 (collection error before).
+- matrices test_applyfunc.py: 4/5 (`test_applyfunc_shape_11_matrices`).
+- matrices test_derivatives.py: 6/12 (`test_mixed_deriv_mixed_expressions`).
+
+Measured in [the audit](../audits/performance/2026-10-30-arr2mat/README.md).
 
 ## tsolverust (wave 27): native `_tsolve` steps and `sympy.solvers.bivariate`, 2026-10-29
 
@@ -14251,13 +14428,14 @@ Remaining gaps:
 - `_core._linsolve_matrix` (expression RREF) does not cancel
   (`a*b/(a**2 + a*b)` for SymPy's `b/(a + b)`); the Markov kernels no
   longer use it.
-- `Matrix.det` of a Float matrix is not SymPy's (explicit formulas up to
-  3x3, else Bareiss with `_find_reasonable_pivot` per strongly connected
-  block): for a Float chain whose rows sum to 0.99999999999999989, SymPy
-  sees no recurrent class, `(I - P).det()` is -2.07e-17 and
-  `fundamental_matrix` returns entries near 2e15, while symox's det is
-  exactly 0 and raises "The fundamental matrix doesn't exist.". The
-  shared det is unchanged.
+- `Matrix.det` of a Float matrix now follows SymPy's Bareiss (smallgaps
+  section below). Before, for a Float chain whose rows sum to
+  0.99999999999999989, SymPy's `(I - P).det()` was -2.07e-17 (no recurrent
+  class, `fundamental_matrix` entries near 2e15) while symox's was exactly
+  0 ("The fundamental matrix doesn't exist."). After the change the
+  chain of `audits/performance/2026-10-30-markovrust/bench_r2.py` (seed 7)
+  gives SymPy's `Float('-2.073958280700135e-17')` and the same
+  `fundamental_matrix` entries (2.04792404838000e+15 at (0, 0)).
 - Path queries over several kernels sum over the paths in odometer
   order where SymPy forms matrix powers: on the tested non-binary Float
   chains (2x2 and 3x3, gaps 2 to 4) the values agree bit for bit, but the
@@ -14458,12 +14636,17 @@ Remaining gaps of item 3:
   `real_roots`), `residue_reduce_derivation`, `parametric_log_deriv` and the
   recursion down the tower, with per-case `ValueError`/
   `NotImplementedError` behavior. It stays on the stock Python body.
+  Update: the base case is native since prdelog (below); the other cases
+  remain on the Python body.
 - The splitfactor admission overhead (`_risch_native._prove_fields`,
   `_states_match`, `_str_keyed`) is unchanged. No registration generation or
   change notification exists for the class dictionaries and function
   records it compares: Python 3.10 has no dict or type watchers, and the
   abi3 build cannot read `tp_version_tag`. A cache keyed on anything else
   would miss a class or method mutation and weaken the protocol checks.
+  Update: since prdelog a native precheck of the kernel's input conditions
+  skips the authentication for non-QQ inputs (all splitfactor calls of the
+  integration corpus); QQ inputs are still fully authenticated.
 
 
 ## odeclass (wave 35): native first-order `classify_ode` matches, 2026-10-30
@@ -14720,6 +14903,173 @@ stays held (SymPy `zoo`); with any
 `O(x**3*log(x))` (SymPy `O(x**3)`).
 
 
+## limgaps (wave 36): limit and Order gaps of limitsrest, Gruntz declines, 2026-10-30
+
+This section covers the open items of the limitsrest section above:
+`exp(E)`, `frac` series, `factorial/x` at `-oo`, `loggamma`, Order forms
+and Gruntz declines. Every value below was checked against SymPy 1.14.0.
+The measurements are in
+[audits/performance/2026-10-30-limgaps](../audits/performance/2026-10-30-limgaps/README.md).
+
+Closed limitsrest gaps (now equal to SymPy; each one differed on the base
+21068f42):
+
+- the `exp(E)` limit;
+- `frac(x).series(x, oo)`;
+- `limit(loggamma(x), x, -oo)`;
+- `O(exp(1/x) + 1)` and `O(log(x) + log(log(x)))`;
+- `O(x**2, (x, oo)).subs(x, cos(x))` and `O(x*y).subs(x, cos(x))`;
+- `floor(1/p).series(p, 0)` for a positive `p`.
+
+`limit(1 + O(1/x), x, 1)`, `O(x**2, (x, 1)).subs(x, cos(x))`,
+`O(1, x).diff(x)` and `exp(floor(x)).series(x, oo)` already matched on the
+base; the limitsrest list was stale for them.
+
+In the 37 cases of this lot (`raw/cases_*.txt` in the audit), 33 now match
+SymPy, up from 11 before. The four that still differ are the two held
+`gamma`/`factorial` quotients, `Abs(x + y)**2` and `floor(1/sin(p))`.
+
+Native now (crates/symox-core):
+
+- `limits/gruntz.rs`, `merge_cancelling_exps`: before the mrv set is
+  computed, the exponential factors of each product are merged into one
+  exponential when the expanded sum of their exponents is smaller than the
+  sum (`exp((-x - 1)*log(x))*exp((x + 1)*log(x))`). SymPy's `Mul.flatten`
+  does this merge. `limit(((x**(x+1) + (x+1)**x)/x**(x+1))**x, x, oo)` is
+  `exp(E)`.
+- `limits/gamma_heuristic.rs`, `loggamma_value`: this ports SymPy's
+  `heuristics` for `loggamma(a)` with `a -> -oo` along the reals. Gruntz
+  raises `PoleError` there. Each argument is evaluated at its limit with
+  `loggamma(-oo) = zoo`, then products, sums and powers with a constant
+  exponent are rebuilt. `loggamma(x)`, `x*loggamma(x)` and
+  `loggamma(x) + 3` give `zoo`; `1/loggamma(x)` gives 0;
+  `loggamma(-x)` and `loggamma(x**2)` give `oo`. The `nan` forms
+  `loggamma(x)/x`, `loggamma(x) + x` and `loggamma(x) + loggamma(x + 1)`
+  stay held, as in SymPy. Any other function of a `loggamma` node
+  declines.
+- `limits/mod.rs`, `bounded_affine`:
+  - An integer power `k >= 2` of a bounded `sin`/`cos` becomes its own
+    bounded parameter: `AccumBounds(0, 1)` for an even `k`,
+    `AccumBounds(-1, 1)` for an odd one. Examples: `sin(x)**2` at `oo`,
+    `sin(x)**2 - sin(x)`, `cos(x)**3 + 1`.
+  - `bounded_times_limit`: a product of bounded `sin`/`cos` factors and a
+    part `f` next to a rounding function gives `limit(f)*AccumBounds`.
+    This is the result of SymPy's term-wise heuristics:
+    `cos(x)*floor(x)/x` is `AccumBounds(-1, 1)`, and
+    `cos(x)*floor(x)/x**2` is 0. Only a real, finite, numeric
+    `limit(f)` is accepted.
+- `series/accum_value.rs`: this ports `frac._eval_nseries` and
+  `floor/ceiling._eval_nseries` for an argument that is infinite at the
+  point, after the point is moved to `0+`.
+  - It handles sums `c0 + sum(c_i*frac(a_i)) + r` with real `c_i`
+    (`frac(x).series(x, oo)` is `AccumBounds(0, 1) + O(x**(-6), (x, oo))`).
+  - It handles `floor`/`ceiling` alone of a Laurent polynomial
+    (`floor(1/p + p).series(p)` is `AccumBounds(p - 1 + 1/p, p + 1/p)`).
+  - A `frac` whose argument at 0 is `nan` gives `nan`
+    (`frac(exp(1/x)).series(x)`, `frac(x**2 + x).series(x, oo)`).
+  - The result is returned as `(bounds, rest)`, because `AccumBounds` is a
+    host node. Binding: `_core._series_accum_value`.
+- `series/order_dominant.rs`: this ports `Order.__new__`'s
+  `factor` + `extract_leading_order` for sums whose terms have no monomial
+  leading exponent.
+  - `leading_sum` keeps the terms that are not contained in another one.
+    Containment is decided by the native limit at `0+`.
+  - `leading_product` applies this to each sum factor of a factored
+    product.
+  - Examples: `O(x + exp(1/x))` is `O(exp(1/x))`;
+    `O(log(x) + log(log(x)))` is `O(log(x))`;
+    `O(2**x + factorial(x), (x, oo))` is `O(factorial(x), (x, oo))`;
+    `O(2**x + 3**x, (x, oo))` is `O(exp(x*log(3)), (x, oo))`.
+- `series/order.rs`:
+  - `drop_bounded_trig`: following `sin/cos/tan._eval_as_leading_term`,
+    a `sin`, `cos` or `tan` factor whose argument at the moved point is
+    infinite has a bounded leading term, which `as_independent` strips.
+    `O(x*sin(x), (x, oo))` is `O(x, (x, oo))`; `O(sin(1/x))` is `O(1, x)`.
+  - `pole_factors`: this ports the `PoleError` branch.
+    - A product made only of functions is kept, as in SymPy
+      (`O(sin(x)*exp(x), (x, oo))`).
+    - An argument whose value at 0 is `nan` keeps its function
+      (`O(sin(1/x - 1/x**2))`).
+    - A sum factor takes its own order (`O(exp(1/x)*(x + 1))` is
+      `O(exp(1/x))`).
+  - `limit_contains`: `Order.contains` uses `limit(self/other) != 0` where
+    the monomial test does not apply. `O(exp(1/x)) + O(x)` is
+    `O(exp(1/x))`. A limit with free symbols or `nan` is undecided, so
+    both terms are kept. That is not a proof of non-containment.
+  - `different_points`: Orders at different points with several variables
+    raise SymPy's `NotImplementedError`.
+- `series/order_point.rs` and `subs.rs`:
+  - `O(e).subs(x, F(x))` where the moved point is `+-oo*I` is
+    `O(1, (x, +-oo*I))`. Example: `O(x**2, (x, oo)).subs(x, cos(x))`.
+  - With several variables, it raises SymPy's `NotImplementedError`
+    (`O(x*y).subs(x, cos(x))`).
+- `limits/trace.rs`: this is a record of native limit declines, used by
+  the audit. Binding: `_core._limit_trace`. It has no effect on results.
+
+Python (routing and host node construction only, no algorithm):
+
+- `Expr.series` and `Expr.nseries` call `_core._series_accum_value` after
+  a native `PoleError`. They add the native bounds to the native rest with
+  the `AccumBounds` operators.
+- `oscillating_limit` tries the native `_bounded_affine` first. The
+  existing Python walker takes only what it declines.
+- `_bounded_affine` adds the native bounded terms with the `AccumBounds`
+  operators, which absorb a symbolic constant. For example,
+  `limit(atan(x) + sin(x), x, oo)` is `AccumBounds(-1 + pi/2, 1 + pi/2)`,
+  where a bare `Add` would keep `pi/2` apart.
+
+Gruntz declines on the SymPy series test files (statement-level replay,
+native `_limit` returning undecided): 92 before, 90 after. 68 of them stay
+"series in mrv variable" on `sin`, `cos`, `tan` and `floor`; SymPy's
+`gruntz` fails on these too. This is structural: the value is an
+`AccumBounds`, a host node, so these limits continue in the oscillating
+front end. Of the 90 oscillating limits on these files:
+
+| route | before | after |
+| --- | ---: | ---: |
+| native `bounded_affine` | 2 | 19 |
+| Python walker (unchanged code) | 57 | 38 |
+| held | 31 | 29 |
+
+The walker cases are not ported to Rust. They are recorded below as a gap.
+
+Intentional deviation, validated by the user on 2026-10-30:
+`limit(factorial(x)/x, x, -oo)` and `limit(gamma(x)/x, x, -oo)` stay
+held. SymPy 1.14 returns 0 through `0*gamma(-oo)`, but the quotient
+passes through poles arbitrarily close to `-oo`. This is the limitsrest
+choice, kept unchanged.
+
+Still en attente de validation utilisateur:
+
+- The deviations listed in the task are kept unchanged: the one-sided
+  `Piecewise` limit, `limit(atan(a*x)/x, x, oo) = 0`,
+  `limit(subfactorial(x)/factorial(x), x, oo)`, and the `Abs`/`sign(c)`
+  rule. Because of that rule, `limit(Abs(x + y)**2, x, 0)` is still
+  `y**2*sign(y)**2`; SymPy gives `y**2`.
+
+Remaining gaps:
+
+- `floor(1/sin(p)).series(p)` raises `PoleError`. SymPy returns the
+  unevaluated `(1/p + p/6 + ... + O(p**6)) + AccumBounds(-1, 0)`. The
+  argument's expansion is not exact, and the native path declines.
+- `floor(1/p + p**7).series(p)`: SymPy keeps `O(p**7)` beside the bounds.
+  The native path admits only exact Laurent arguments and declines here.
+- `floor(1/x**2 + x**7).series(x)` with an unsigned `x` raises
+  `ValueError`. SymPy gives `x**(-2) + AccumBounds(-1, 0) + O(x**7)`.
+  This is unchanged from before.
+- `(x*frac(1/x)).series(x)` raises `PoleError`. SymPy raises
+  `ValueError`. Products of a bounded node by a variable decline, as
+  before.
+- `O(x*frac(1/x))` stays `O(x*frac(1/x))`. SymPy gives `O(x)`.
+- `O(exp(1/x)*sin(1/x) + x)` keeps both terms. SymPy gives
+  `O(exp(1/x)*sin(1/x))`. The native containment limit is undecided
+  there. `O(x*sin(1/x)*exp(1/x))` now matches: `O(x*exp(1/x))`.
+- Order containment with a symbolic limit is undecided, so both terms are
+  kept.
+- The oscillating walker (`python/symox/calculus/_accum_limit.py`) remains
+  a Python algorithm for the forms that `bounded_affine` declines: 38
+  limits on the SymPy series test files.
+
 ## exroots (wave 36): EX roots and the simplify denominator step, 2026-10-30
 
 Native now (Rust, `crates/symox-core`):
@@ -14945,24 +15295,552 @@ TypeError on unknown flags) now use SymPy's values. The new tests are in
 
 Remaining gaps:
 
-- Issue 17799: `-erf(x**(1/3))**pi + I` at `erfinv(I**(1/pi))**3` is None
-  (SymPy False). SymPy's `Function._eval_evalf` swallows the ValueError of
-  a nested argument conversion, which leaves `erf(erfinv(...))`
-  unevaluated, so `abs(...) < 1e-9` is not `S.true`. In symox's evalf the
-  mpmath error of the inner `erfinv` propagates instead. Fixing it needs
-  the evalf host-error scope to follow `Function._eval_evalf`.
-- `Pow.__new__`'s second E branch, `den == log(-b) + sign(im(b))*I*pi`, is
-  not ported.
+- Issue 17799 and `Pow.__new__`'s second E branch: fixed natively, see
+  the smallgaps section below.
 - `bivariate_type` tries its candidates in an order that depends on hashes
   in SymPy (a set), so it is not reproducible. Its order is not matched.
-- Units: `as_independent(Unit)` on a Quantity is not reproduced natively (a
-  Quantity becomes a positive Symbol). Such calls keep the stock path.
+- Units: `as_independent(Unit)` is now native (smallgaps section below).
+  What remains comes from the units representation (Prefix, Quantity as
+  a free symbol).
 - The simplified mapping value can differ where symox's `simplify` differs
   from SymPy's (`test_exclude`). The decision is the same.
 
 Measured: [audit](../audits/performance/2026-10-30-checksol/README.md).
 
-## ratintex (wave 37): QQ<a> logpart, EX log_to_atan, RootSum order, binomial preimages, 2026-10-30
+## smallgaps: Float Bareiss determinant, checksol issue 17799, second E branch, units, 2026-10-30
+
+All the computation is in Rust. Python only passes arguments (the unit
+atoms of checksol, see below).
+
+| Correction | Computation | Files |
+| --- | --- | --- |
+| Float Bareiss `det` (`method='bareiss'` and default) | Rust | `crates/symox-core/src/matrix/linalg.rs`, `matrix/ratfunc.rs` |
+| Issue 17799: evalf drops a ValueError raised while converting a function argument | Rust | `crates/symox-core/src/evalf_mp.rs`, `crates/symox-py/src/special.rs` (error class only) |
+| Issue 17799 in checksol (False instead of None) | Rust | `crates/symox-core/src/solve/checksol.rs` |
+| Second "recognize base as E" branch of `Pow.__new__` | Rust | `crates/symox-core/src/ops.rs` |
+| checksol attempt 0, `val.as_independent(Unit)[0]` | Rust; Python collects the Quantity atoms and passes them | `checksol.rs`, `crates/symox-py/src/tsolve.rs`, `python/symox/_solver_checks.py` |
+| lambdarr gamma/poly2 | no change: no Python on the call path (see below) | none |
+
+Float Bareiss determinant (`bareiss_expr_with`, `dotprodsimp_withsimp`):
+
+- Each entry `(pivot*a - b*c)/cumm` is now a quotient (`ops::div`): two
+  Floats give a single rounded `Float.__truediv__`, as in SymPy. Before,
+  the entry was a product with a rounded inverse `cumm**-1`, so the last
+  bits could differ. A symbolic quotient is still `Mul(ret, Pow(cumm, -1))`.
+- `dotprodsimp` on an expression that contains a Float follows SymPy:
+  `nonalg_subs_dummies`, then the reference `cancel` (domain RR) when
+  `count_ops_alg` is at least 6, then the dummies are replaced back. The
+  previous `cancel_opts` has no inexact ground and left such entries
+  unsimplified.
+- Admitted natively: every matrix that reaches the expression Bareiss
+  kernel (the default for n > 3 and `method='bareiss'`). Exact matrices
+  take the same path as before (`contains_float` is false).
+- The Float Markov chain of the markovrust gap (`(I - P).det()` exactly 0
+  before) now gives SymPy's determinant and `fundamental_matrix`.
+- Differential corpus against SymPy 1.14 (77 Float/symbolic matrices,
+  sizes 1 to 7, precisions 15 and 50, exact `srepr` comparison): default
+  and `bareiss` 77/77 identical (before: 43 identical, 33 different, 1 not
+  run because it ran out of memory). `domain-ge` went from 33 to 38
+  identical as a side effect.
+
+Issue 17799 (`evalf_mp.rs`):
+
+- SymPy's `Function._eval_evalf` catches the ValueError raised while one
+  argument is converted to mpmath and returns the call unevaluated. The
+  binding now marks a non-fatal ValueError raised by mpmath
+  (`ValueHostError`). `call_host` drops it only while it converts the
+  arguments of another function (`ArgumentConversion` depth); the
+  function's own mpmath call still raises. So `gamma(erfinv(2)).n()` stays
+  `gamma(erfinv(2))`, while `sin(erfinv(2)).n()` and
+  `erfinv(I**(1/pi)).n()` raise ValueError, as in SymPy.
+- When such an error was dropped, an Add, Mul or Pow is rebuilt from its
+  evaluated arguments, as SymPy's `_eval_evalf` fallbacks do:
+  `(gamma(erfinv(2)) + pi).n()` is `gamma(erfinv(2)) + 3.14159265358979`.
+- `checksol` returns False for such a value: `abs(val) < 1e-9` is then a
+  Relational, as in SymPy. `checksol(-erf(x**(1/3))**pi + I, x,
+  erfinv(I**(1/pi))**3)` is False and `solve(-erf(x**(1/3))**pi + I, x)` is
+  `[]`.
+
+Second E branch (`ops.rs`, `base_as_e`): `b**(c*num/den)` with an Add
+`den == log(-factor_terms(b, sign=False)) + sign(im(b))*I*pi` and a
+nonzero numeric `sign(im(b))` is `E**(c*num)`. A cheap structural pre-check
+(an Add with a log term and a term containing pi, raised to a negative
+number) keeps the cost of other powers unchanged. `(2*I)**(x/log(2*I))` is
+`exp(x)`; `(-2)**(x/(log(2) + I*pi))` stays a power, as in SymPy.
+
+Units (`checksol.rs`, attempt 0): when the value is a Mul, the factors that
+contain a unit are dropped (`as_independent(Unit)[0]`). In symox a Quantity
+is a registered positive Symbol (`physics/units/_core.py`), so the binding
+gets the unit atoms as a list: `_solver_checks._unit_atoms` gives the free
+symbols registered as quantities, only when `symox.physics.units` is loaded.
+`checksol(cm*(x - 2), x, Float('2.0000000001'))` is True, and
+`checksol(2*cm*x, x, 1)` is False, as in SymPy.
+
+checksol differential results against SymPy 1.14 (scripts of the checksol
+audit):
+
+- 1897 distinct calls logged again from SymPy's test_solvers.py and
+  test_solveset.py: 1889 agree, against 1888 before. The issue 17799 call is
+  now False, as in SymPy; no decision differs. The 7 remaining differences
+  are the mapping values written back (print order of radicals, public
+  `simplify`), the same as before; 1 call cannot be rebuilt (setup).
+- 5304 generated cases: 5304 agree (unchanged).
+
+lambdarr gamma/poly2: both are `symox._core.CompiledFunction` calls with no
+Python frame on the call path (checked with cProfile), so there is no
+Python computation to port. Measured on 2026-10-30 (median per call):
+`gamma` float64 arrays of 10 elements 0.87 us against 0.65 us for SymPy;
+1000 and 100000 elements are equal within 5%; scalar `gamma(0.5)` 0.39 us
+against 0.74 us; the `[x, y]` polynomial scalar call 0.37 us against
+0.29 us. What remains is the fixed cost of the PyO3 call (`tp_call` with
+an argument tuple against SymPy's vectorcall of a Python function), already
+recorded in the lambdarr section.
+
+Cost of the corrections (median per call, machine under load; before /
+after / SymPy):
+
+- Symbolic Float determinants `n6_k3`: 0.016 / 0.081 / 1.02 s. The RR
+  `cancel` that SymPy's `dotprodsimp` applies makes them about 5 times
+  slower than before, still about 12 times faster than SymPy. Purely
+  numeric Float determinants are unchanged (n7: 66 / 73 / 3537 us).
+- `(2*I)**(x/log(2*I))`: 19 / 102 / 7 us, because the second branch is
+  now evaluated. Powers that fail the structural pre-check are unchanged
+  (5 / 6 / 7 us).
+- `checksol` issue 17799: 51 / 23 / 1.3 ms. Units: 0.94 / 0.066 /
+  0.142 ms.
+
+Corrections awaiting user validation (« en attente de validation
+utilisateur »): none. Every change makes symox give SymPy 1.14's value,
+type or exception.
+
+Remaining gaps:
+
+- Other det methods on Float matrices still differ from SymPy in the last
+  bits or in the symbolic form (`berkowitz` 1, `lu` 2, `bird` 46,
+  `laplace` 42, `domain-ge` 39 of 77 corpus cases).
+- `(I**(1/pi))**pi` stays nested (SymPy: `I`), so its `.n()` is
+  `0.e-175 + 1.0*I` (SymPy `1.0*I`). This is a gap of `Pow._eval_power`
+  for a non-Number exponent with `|1/pi| < 1`, not of evalf or checksol.
+- Units are represented differently. A Prefix is a symbol atom, so
+  `8*kilo*newton` is not `8000*newton`, and
+  `checksol(8*kilo*newton + x + y, {x: -8000*newton - y})` is False
+  (SymPy True). A Quantity is a free symbol, so
+  `solve(1/x - 1/(2*cm))` is `[{centimeter: x/2}]` (SymPy
+  `[2*centimeter]`). Both come from the units module, not from checksol.
+- The internal checks of the native `solve` (`tsolve.rs`) do not pass the
+  unit atoms. They behave as the public checksol did before.
+- lambdarr: the small-array and scalar polynomial calls above.
+
+Measured: [audit](../audits/performance/2026-10-30-smallgaps/README.md).
+
+## arrindex (arrexprrust, third part): native array_derive, convert_indexed_to_array and convert_array_to_indexed, 2026-10-30
+
+Native now (crates/symox-core, bindings in crates/symox-py/src/arrayexpr_index.rs):
+
+- `array_derive` (crates/symox-core/src/arrayexpr_derive.rs, binding
+  `_core._arrayexpr_derive`): every dispatch rule of SymPy 1.14
+  `arrayexpr_derivatives.py` (ArrayTensorProduct, ArrayAdd, PermuteDims,
+  ArrayContraction, ArrayDiagonal, Reshape, ArrayElementwiseApplyFunc,
+  ArraySymbol, MatrixSymbol, Identity/OneMatrix, Transpose, Inverse,
+  ElementwiseApplyFunction, HadamardProduct, scalar `Expr`, other matrix
+  expressions through `convert_matrix_to_array`), with the index arithmetic
+  and the `_array_tensor_product`/`_permute_dims`/`_array_contraction`/
+  `_array_diagonal`/`_array_add` calls on the canonical forms of
+  arrayexpr.rs.
+- `convert_indexed_to_array` and `_convert_indexed_to_array`
+  (crates/symox-core/src/arrayexpr_index.rs, binding
+  `_core._arrayexpr_from_indexed`): Sum (limit checks, contraction of the
+  summed indices), Mul (diagonals of repeated indices, Kronecker delta
+  merging into index sets, `first_indices`), Add (broadcasting with
+  OneArray factors, permutation to a common index order, the mismatch
+  ValueError), Pow (diagonal of a square, ArrayElementwiseApplyFunc
+  otherwise), functions of an element, KroneckerDelta, MatrixElement,
+  ArrayElement, Indexed and IndexedBase, with SymPy's error types and
+  messages (IndexError "... not found in ...", ValueError "summation index
+  and array dimension mismatch", TypeError on unshaped bases where SymPy
+  raises one).
+- `convert_array_to_indexed` (same module, binding
+  `_core._arrayexpr_to_indexed`): the index plan (dummy numbering, the
+  index expressions of PermuteDims, ArrayContraction, ArrayDiagonal,
+  Reshape, the products and sums, the Sum limits).
+
+Python (python/symox/tensor/array/expressions/_native.py) encodes the
+objects into the Rust trees and rebuilds the results: interning of index
+atoms, the leaf table (rank, shape ids, zero flag), the `default_sort_key`
+order of fully contracted factors (the callback of the canonical forms,
+as in the second part of arrexprrust), the objects the rules build
+beforehand (`Identity(i)`, `-expr` as `MatMul(-1, expr).doit()`,
+`ElementwiseApplyFunction(fdiff, expr)`), the Dummy objects `d0, d1, ...`
+and `ArrayElement`/`Sum` objects of the index plan. The previous Python
+algorithms (`_ArrayDerivative`, `_indexed_to_array`, `_diagonal_indices`,
+`_canonical_permute`) are removed.
+
+API envelope changes (Python, constructors only):
+`ArrayElement` accepts a str name and a single index and checks its shape
+with SymPy's messages (`_check_shape`); `ArrayTensorProduct`,
+`ArrayContraction`, `ArrayDiagonal`, `PermuteDims` and
+`ArrayElementwiseApplyFunc` have shape None when an argument has no shape
+(IndexedBase without shape); `ArrayElementwiseApplyFunc` wraps a function
+class in a Lambda and gives `_get_function_fdiff` as SymPy does. The
+native scalar form of an `ArrayElement` is an applied function whose class
+is one per parent array: elements of distinct arrays sharing a name are
+distinct (SymPy compares `ArrayElement.name`, the array), their
+derivative with respect to each other is 0, and `convert_indexed_to_array`
+recovers the parent from the class.
+
+Core fix (Rust, crates/symox-core/src/matrixexpr.rs `validate_index`):
+SymPy's `MatrixExpr.valid_index` evaluates `i < n` and `i >= -n` as
+relations; for a dimension without real assumptions (a plain symbol `k`)
+`k < k` stays unevaluated and `M[i, k]` is a valid entry. symox tested
+`is_nonnegative(i - n)`, which rejected `M[i, k]` of a k x k matrix. The
+check now uses the relations as SymPy does. Errors for real dimensions
+(`n` integer positive, `M[n, 0]`) are unchanged; their message stays
+"Matrix index out of range" where SymPy says "Invalid indices (n, 0)"
+(preexisting, not changed here).
+
+Admitted domain and fallbacks: all inputs of the three functions go to
+Rust; there is no Python fallback algorithm. Inputs the reference rejects
+from Python objects (missing `shape`, failing `fdiff`, unsupported types)
+are captured during encoding and raised by Rust at the point where SymPy
+raises them.
+
+Checks: a differential corpus of 168 cases (57 array_derive, 86
+convert_indexed_to_array, 25 convert_array_to_indexed) gives SymPy 1.14's
+structure for 162 (57, 82, 23); the base tree matched 30 (its array_derive
+returned an unevaluated `_ArrayDerivative`). tests/test_native_arrindex.py
+pins the corpus. SymPy 1.14's array-expression test files (copied with
+the imports renamed): 120 passed, 56 failed, 3 collection errors before;
+127 passed, 56 failed, 1 collection error after.
+test_arrayexpr_derivatives.py and test_convert_indexed_to_array.py now
+collect; every test of them passes except the last assertion of
+`test_arrayexpr_convert_indexed_to_array_and_back_to_matrix`, where
+`_convert_indexed_to_array` gives SymPy's array and
+`convert_array_to_matrix` (not part of this work) does not reduce it to
+`M*P*N + M*P.T*N + N*P*M + N*P.T*M`. `test_convert_array_to_indexed_main`
+passes. Full `tests/` (24 shards): 59583 passed, 20 failed; 14 of the
+failures pass when rerun alone (load-dependent timeouts and memory caps),
+the 6 others (test_downstream_audit.py, test_sympy_parity_audit.py) fail
+identically on the base tree and on main in the same environment.
+
+Intentional deviations: none.
+
+Remaining gaps (outside these functions unless stated):
+
+- Order of commutative factors in symox's core Mul/Add. Six corpus cases
+  differ from SymPy only in it: `(M[i, 0]*N[0, j]).args` is `(N, M)` in
+  symox and `(M, N)` in SymPy, the same for `M[i, j] + v[i, 0]`,
+  `IA[i, 0]*IB[i]` (Indexed products are Symbols in symox and sort by
+  name), and `C[2]*B[0, 1]`, `C[l]*B[i, j]` from convert_array_to_indexed
+  (the native ArrayElement node sorts by its argument count). The
+  conversion consumes the arguments in the order the core gives; with
+  SymPy's order (`evaluate=False`) the native result equals SymPy's. The
+  same holds for `Sum(IA[i, j]*IB[j], ...)`: SymPy orders `IB[j]` first.
+- The term order of rank-4 matrix derivatives with three or more factors
+  of `X` (`X**3`, `X*A*X*B*X`, `A*X**3`) is not changed by this work.
+  `array_derive(convert_matrix_to_array(e), X)` now gives SymPy's array
+  exactly for these cases; the difference comes from the matrix lines
+  kernel and from `convert_array_to_matrix`, which another branch ports.
+  `matrix_derive` (new module `arrayexpr_derivatives`) chains
+  `convert_matrix_to_array`, the native `array_derive` and the current
+  `convert_array_to_matrix`, whose results are not yet SymPy's
+  (unsimplified contractions); `MatrixExpr.diff` does not use it.
+- The element-wise matrix derivatives keep the vendored Python copy of
+  SymPy's array expressions (`symox._arrayexpr`, 3409 lines), a
+  preexisting Python path not touched here.
+- `fdiff` of an element-wise function is evaluated when the tree is
+  encoded, not lazily; an `fdiff` that raises is stored and raised by Rust
+  only on the branch where SymPy calls it, so the error is the same.
+- `x` without `shape`: SymPy raises AttributeError at its first use of
+  `x.shape`; symox raises the same AttributeError message, from the
+  encoding step when the shape is needed.
+- The RecursionError of SymPy on an unconvertible matrix expression
+  (`convert_matrix_to_array` returning the same object) is raised directly
+  with SymPy's message, without recursing.
+- `Reshape` constructor errors are raised when the result is rebuilt.
+- `ZeroArray()`/`OneArray()` with an empty shape are leaves; corpus cases
+  with them match SymPy, other uses are not verified.
+- The class name in the NotImplementedError "not implemented for type"
+  message is the symox class.
+
+Measured: [audit](../audits/performance/2026-10-30-arrindex/README.md).
+
+
+## odepart: native particular solutions of the linear ODE hints, 2026-10-30
+
+Now native (`symox::ode::undetermined`, `symox::ode::variation`, bindings
+`ode_uc_trialset`, `ode_uc_solve`, `ode_vop_solve` in
+`crates/symox-py/src/ode_solve.rs`, admission in
+`python/symox/solvers/ode/_odesolve_native.py`, hooks at the start of the
+three reference helpers in `python/symox/solvers/ode/nonhomogeneous.py`).
+The reference body follows each hook unchanged and runs whenever the
+kernel declines.
+
+- `_undetermined_coefficients_match` (both branches: with
+  `eq_homogeneous`, as the constant-coefficient hint calls it, and without,
+  as the Euler hint calls it): the `test` entry and the trial set. On the
+  native domain `powsimp(expr, combine='exp')` is the identity, `_test_term`
+  is true, `_get_trial_set` of `q*x**k*exp(a*x)*T(b*x)` is
+  `{x**j*exp(a*x)*T'(b*x) : j <= k}` with `T'` in `{sin, cos}` (absent when
+  `b = 0`), and the `is_homogeneous_solution` loop multiplies it by
+  `x**m`, `m` the multiplicity of `a + i*b` as a root of the characteristic
+  polynomial (exact Gaussian-rational evaluation of the polynomial and its
+  derivatives).
+- `_solve_undetermined_coefficients`: the trial function substituted in
+  the equation, the linear system of the coefficients of the independent
+  terms, solved exactly over QQ (Gauss-Jordan), and
+  `gsol.rhs + Σ v_i*t_i`, which is `trialfunc.subs(coeffvals)` added to the
+  homogeneous solution in the reference.
+- `_solve_variation_of_parameters`: the Wronskians (`matrix::wronskian`),
+  the integrands `W_i*r[-1]/wr`, the held integrals
+  (`binders::held(Func::Integral, ...)`, as the reference's
+  `Integral(body, x)`) and `psol`, built with the reference's binary
+  operations in the reference's order (`0 + t`, `psol + t`, alternating
+  `(-1)**order` sign), then `homogen_sol.rhs + psol`.
+
+Native domain of undetermined coefficients: forcing terms that are sums of
+monomials `q*x**k*exp(a*x)*T(b*x)` (`q`, `a`, `b` rational, `k` a
+non-negative integer, at most one `exp` and one `sin`/`cos` factor), an
+equation `Σ c_n*Derivative(f(x), (x, n))` plus such monomials with
+rational `c_n`, an `f(x)` with a symbol argument, no user (host) class in
+the inputs. The solve kernel also requires as many homogeneous solutions
+as the order and a unique solution of the coefficient system. Everything
+else declines: `log(x)`, `1/x`, `sqrt(x)`, `exp(x**2)`, `sin(x)**2`,
+`sin(x)*cos(x)`, unexpanded products such as `x*(x + 1)` (the case where
+the reference's mutable default `exprs=set()` would carry terms across
+calls), Floats, `sqrt(2)`, symbolic coefficients or frequencies, and
+inconsistent or underdetermined systems (the reference then raises
+`NotImplementedError` or returns its own form; the decline keeps both).
+
+Native domain of variation of parameters: as many fundamental solutions as
+the order, a symbol variable, a Wronskian that `matrix::wronskian`
+computes, integrands without `Piecewise` (the reference `Integral`
+constructor folds it), `nan` or a bare applied function, no host class.
+A zero Wronskian declines, so the reference raises its
+`NotImplementedError` with its own message.
+
+Parity fix in a shared Rust kernel (`matrix::ratfunc::dotprodsimp`, used by
+the 2x2 and 3x3 determinants, hence by `wronskian`): SymPy's `dotprodsimp`
+replaces every subexpression that is not an `Add`, `Mul` or `Pow` by a
+Dummy (`nonalg_subs_dummies`) before `cancel`, and keeps the expanded form
+when `cancel` changes nothing. The native version cancelled the expression
+itself, so `exp(-2*x)` became the denominator `exp(2*x)`:
+`wronskian([exp(-x)*sin(3*x), exp(-x)*cos(3*x)], x)` gave
+`(-3*sin(3*x)**2 - 3*cos(3*x)**2)*exp(-2*x)` where SymPy gives
+`-3*exp(-2*x)*sin(3*x)**2 - 3*exp(-2*x)*cos(3*x)**2`, and the held
+variation-of-parameters integrals of such equations differed (random case
+`vop_023`). The native `dotprodsimp` now substitutes the Dummies, numbered
+in SymPy's first-encounter order (their generator order in `cancel`),
+cancels and substitutes back. This is a move towards the reference, not a
+deviation from it.
+
+Still in Python (each is a gap of this lot, not ported):
+
+- the `simplify` + `trigsimp(deep=True[, recursive=True])` of the Wronskian
+  and of `psol` when `simplify=True`: the kernel calls the public symox
+  functions as callbacks (`simplify` has non-native steps). An exception
+  of a callback propagates, as in the reference;
+- the evaluation of the held integrals (dsolve's `_handle_Integral`,
+  `integrate`), on the existing integration path;
+- the Euler wrappers in `single.py` (indicial equation, `posify`,
+  `subs(x, exp(x))`, `subs(x, log(x))`, `expand`, the
+  `homogen_sol.rhs + (sol.rhs - homogen_sol.rhs)*r[order]` envelope);
+- `get_numbered_constants`, `_get_simplified_sol` callers and the
+  `odesimp`/`constantsimp` steps of `dsolve`;
+- the declined inputs above.
+
+Differences from the reference, none visible in results:
+
+- The native path does not create the `numbered_symbols('a', cls=Dummy)`
+  coefficients, so the global Dummy counter advances less. Dummy names
+  never appear in the results.
+- The trial set is a Python `set` built from the native list; its
+  iteration order (hash order) can differ from SymPy's, as for any set of
+  symox expressions. The docstring example of
+  `_undetermined_coefficients_match` prints the set in another order before
+  and after this lot (it is not collected by `tests/`).
+
+No intentional correction: every native result is meant to be the
+reference's expression. Nothing here awaits user validation.
+
+Remaining gaps observed (all identical before this lot and with the
+kernels removed):
+
+- the forms of evaluated variation-of-parameters integrals: e.g. for
+  `f'' + f = 1/cos(x)` with `simplify=False` the held integrals are
+  SymPy's, but symox integrates `-sin(x)/((-sin(x)**2 - cos(x)**2)*cos(x))`
+  to `-log(cos(x))` where SymPy gives
+  `-log(tan(x/2) - 1) - log(tan(x/2) + 1) + log(tan(x/2)**2 + 1)`
+  (strict xfail in `tests/test_native_odepart.py`); the test_single
+  `var_of_parameters_01/02/06/08/13/14` and `euler_var_05` unsimplified
+  forms;
+- `simplify` results of `euler_undet_03`/`euler_undet_06` and of
+  `var_of_parameters_13`;
+- the symbolic quadratic characteristic roots of `undet_38`/`undet_39`
+  (symbolic coefficients, declined);
+- `var_of_parameters_15` and the random `vop_016` exceed 6 GB inside
+  integration before and after;
+- `Ei(-3*x)` where SymPy's `integrate` gives `Ei(3*x*exp_polar(I*pi))`
+  (random `vop_001`, `vop_026`), and other evaluated-integral forms with
+  `sqrt` roots (`vop_000`, `vop_014`, `vop_025`);
+- the random `vop_023` with `simplify=False`: the held integrals built by
+  the kernel are SymPy's, but `Integral.doit` of the unevaluable integral
+  returns the denominator `x*(sin(3*x)**2 + cos(3*x)**2)` where SymPy
+  returns `x*sin(3*x)**2 + x*cos(3*x)**2` (integration path).
+
+Resource change caused by the `dotprodsimp` fix (frank note, not a
+mathematical difference from the reference): for the random `vop_013`,
+`f'' + 6*f' + 16*f = log(x)` with the variation-of-parameters hint and
+`simplify=False`, the integrands handed to `integrate` are now SymPy's
+(`exp(-6*x)` stays a factor of the Wronskian), and symox exceeds 6 GB
+inside integration, where before it returned held integrals. SymPy 1.14
+does not finish this call in 30 s either. The hinted and default calls
+(`simplify=True`) still return the before result. The cause is in the
+integration path, which this lot does not change. The user accepted
+keeping the `dotprodsimp` fix on 2026-10-30; the integration cost of
+`vop_013` stays an open gap.
+
+Evidence: [audit](../audits/performance/2026-10-30-odepart/README.md).
+
+## prdelog: base-case is_log_deriv_k_t_radical_in_field, parametric_log_deriv_heu and limited_integrate in Rust, 2026-10-30
+
+Three functions of `sympy/integrals/prde.py` are computed in Rust in the base
+case (`DE.case == 'base'`, the derivation `d/dx` over `QQ(x)`):
+- `is_log_deriv_k_t_radical_in_field(fa, fd, DE)` with `case` `'auto'` or
+  `'base'` and `z=None`;
+- `parametric_log_deriv_heu(fa, fd, wa, wd, DE)` with `c1=None`
+  (`parametric_log_deriv` calls it);
+- `limited_integrate(fa, fd, G, DE)` with `G` a list.
+
+The logic is in `crates/symox-core/src/integrate/prde_log.rs`; the PyO3
+kinds `is_log_deriv_in_field`, `parametric_log_deriv_heu` and
+`limited_integrate` of `_core._prde_kernel` are in
+`crates/symox-py/src/prde.rs`. Python (`_prde_native.py`, hooks at the top
+of the three bodies of `prde.py`) only checks admission and passes the
+arguments.
+
+Steps reproduced in Rust:
+- `is_log_deriv_k_t_radical_in_field`: `fa.cancel(fd, include=True)`;
+  `residue_reduce` with the subresultant PRS of `d` and `a - z*d'`, the
+  square-free decomposition of the resultant, ground factors skipped, the
+  last PRS entry of degree `i`, the `invert` normalization (`h` is the
+  monic `S_i(x, rho)`); the rational-root check of each `s`; the square-free
+  test of `fd` and `deg fa < deg fd`; `p = f - sum(rho*Dh/h)` and the test
+  `p in k`; the answer `(n, u)` with `n` the lcm of the root denominators
+  and `u = Mul(*[h**(rho*n)])`, built with the native `Mul`/`Pow`.
+- `parametric_log_deriv_heu`: the three branches on `deg q` and `deg p`,
+  the linear equations in `c1` and their `solve` (one unknown: `[]` when
+  the system is empty, all zero or inconsistent), `lcm` of the leading
+  coefficients and of the monic denominators, `gcd(l, l')`, the remainders,
+  and the final `is_log_deriv_k_t_radical_in_field` call with the
+  `Q.is_zero or v.is_zero` test.
+- `limited_integrate`: `fa*Poly(1/fd.LC())`, `fd.monic()`, the native
+  `param_rischDE(0, 1, [(fa, fd)] + G)`, the nullspace, the first vector
+  with `v[0] != 0`, `y = -Add(v_i*h_i)` and `as_numer_denom`, the normalized
+  `(Ya, Yd)`; `C` holds `Poly(c, x, domain='QQ')`.
+
+`param_rischDE` (Rust, `prde.rs`) now also answers the case where
+`param_poly_rischDE` returns no polynomial (`h == []`) and the combined
+relation matrix has no nullspace (`W == []`): `C` is `eye(m)`, as in SymPy.
+It declined before. When `h == []` and `W != []`, the stock `wl[-0:]`
+slice keeps the whole vector and the call still declines (see the
+PolyMatrix gap below).
+
+Admission (`_prde_native.is_log_deriv_k_t_radical_in_field`,
+`parametric_log_deriv_heu`, `limited_integrate`):
+- the base-case fields of the earlier prde waves (`_fields`: case 'base',
+  captured prde protocol); the binding takes only exact stock Polys over
+  ZZ or QQ in the single generator `DE.t`;
+- `_expr_state()` (factored out of `is_deriv_k`): stock `derivation`
+  protocol, evaluation on, stock `cancel`, stock AccumBounds fold;
+- `z is None` / `c1 is None`, `case` in `('auto', 'base')`, exact Poly or
+  list arguments.
+
+The kernel returns None, and the unchanged Python body runs, when:
+- the PRS of `residue_reduce` exceeds its budget;
+- a subresultant leading coefficient is not invertible modulo `s` (the
+  stock body raises `NotInvertible`);
+- `param_rischDE` declines (non-ground `weak_normalizer` denominator, the
+  `h == []`, `W != []` case);
+- `limited_integrate` would compute `-sum([])` with no `h` (the stock body
+  raises AttributeError on the int 0);
+- `fd` or `wd` is zero.
+
+Dummies: on success the native path creates the Dummies the stock body
+creates at the top level (`z` for `is_log_deriv_k_t_radical_in_field`;
+`c1`, then `z` when the final call is reached, for
+`parametric_log_deriv_heu`). The Dummies created inside the stock helpers
+(`residue_reduce_derivation`'s `i`, `RootSum` internals) are not created.
+This only shifts later Dummy counter values, which are not part of any
+result; the symox stock body already creates a different number of internal
+Dummies than SymPy (3 against 2 for `5/(2x)`).
+
+Splitfactor admission precheck. `_risch_splitfactor_native.reduce` ran the
+whole protocol authentication (416 function states, 3176 lookups,
+`_prove_fields`) before the kernel checked its own input conditions. On the
+integration corpus no splitfactor call has a QQ Poly (the domains are
+`ZZ`, `ZZ[x]`, `ZZ(x)`, `ZZ[_t0]`, `ZZ(_t0, x)`, ...), so the kernel never
+admitted and the authentication was spent for nothing. The new
+`_core._risch_splitfactor_precheck(p, one)` (Rust,
+`crates/symox-py/src/risch_splitfactor.rs`) checks those input conditions
+first: stock `Poly` constructor slot, exact `Poly` instances, plain
+generators, QQ domain for `p` and `one`, `one == 1`, same generators. When
+it fails, `reduce` returns None before authenticating; the kernel would
+have returned None on the same inputs, and the authentication has no side
+effect, so results are unchanged. The precheck itself is captured at
+registration and compared by identity in `_core.__dict__`.
+
+Validation:
+- 938 base-case calls (38 recorded from `risch_integrate` on the 114
+  integrands of the audit corpus, 900 seeded random calls): all equal SymPy
+  1.14 (srepr of every value, Poly domains, None, exceptions) and equal the
+  stock symox body. 937 are answered natively; 1 is declined
+  (`ZZ[log(2)]` coefficients).
+- tests/test_native_prdelog.py: 110 of these cases with SymPy outputs
+  hard-coded and the native counters checked, the two SymPy
+  `test_limited_integrate` examples, the SymPy `test_parametric_log_deriv`
+  primitive case (stock path), explicit `z`/`c1` (stock path), the
+  `h == []` case and the splitfactor precheck.
+- tests/test_native_prderust.py: the risch_integrate comparison now also
+  checks the three new entries against the stock body; the first-wave
+  reachability test routes `limited_integrate` to the stock body so the
+  `param_rischDE` kernels are still reached.
+- SymPy test_prde.py: 1 failed (test_prde_special_denom), 14 passed.
+  test_risch.py: 5 failed (test_gcdex_diophantine, test_laurent_series,
+  test_recognize_derivative, test_residue_reduce,
+  test_risch_integrate_float), 31 passed. Both unchanged.
+- Full suite: no failure caused by this lot (load-induced timeouts rerun
+  and passing; 4 order-dependent LLL classifier failures reproduced on the
+  base). cargo test 836 + 1 + 5; clippy correctness clean apart from a
+  pre-existing `approx_constant` error; integration corpus at baseline; ODE
+  corpus with no output differences against the base build.
+- Times (audit): replay of the 938 calls 17.95 s SymPy, 14.13 s stock,
+  3.10 s native; `risch.splitfactor` on non-QQ inputs 3.9 ms to 0.45 ms
+  per call; `risch_integrate` on the 114 integrands 3.55 s before, 2.33 s
+  after, 6.49 s SymPy.
+
+Remaining gaps (still Python, recorded as gaps):
+- Every non-base case of the three functions (`exp`, `primitive`, `tan`):
+  55 of the 89 `limited_integrate` calls in the corpus profile, with most of
+  the `limited_integrate` time, and all `residue_reduce` calls. This needs
+  the K(t) parametric Risch DE (`prde_cancel_liouvillian`, the non-base
+  `param_rischDE`) in Rust.
+- Coefficients outside ZZ/QQ (`ZZ[log(2)]`, `EX`, RR/CC, algebraic).
+- Explicit `z` or `c1` Dummies, `case` other than 'auto'/'base'.
+- The declines listed above (`NotInvertible`, PRS budget, AttributeError
+  path, `param_rischDE` declines).
+- `PolyMatrix(rows, cols, items)` raises ValueError when `items` has more
+  than `rows*cols` entries, where SymPy 1.14 keeps the first `rows*cols`.
+  `param_rischDE` builds such a matrix when `h == []` and `W != []`
+  (`wl[:m] + wl[-0:]`). This case was not reached in the base case
+  (`bound_degree` is at least 0, and `h == []` there only follows an empty
+  nullspace, which gives `W == []`); it may be reachable in non-base cases.
+  The fix is in the Python PolyMatrix constructor and is not made here.
+- The splitfactor authentication itself is unchanged for QQ inputs, where
+  it still runs in full (see prdeconst item 3).
+
+Measured: [audit](../audits/performance/2026-10-30-prdelog/README.md).
+
+## ratintex (wave 39): QQ<a> logpart, EX log_to_atan, RootSum order, binomial preimages, 2026-10-30
 
 Items of TODO.md "ratint : forme log_to_atan sur EX, RootSum real=False,
 TypeError QQ<sqrt(2)> ; exroots : ordre des étapes d'expand, formes

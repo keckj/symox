@@ -113,7 +113,7 @@ def _normalize_matrix_function(function, arity, context):
                      'erfcinv', 'fresnels', 'fresnelc', 'Ei', 'li', 'Li',
                      'Si', 'Ci', 'Shi', 'Chi', 'E1', 'airyai', 'airybi',
                      'airyaiprime', 'airybiprime', 'elliptic_k', 'elliptic_e',
-                     'LambertW')
+                     'LambertW', 'sqrt', 'cbrt')
         if not any(function is candidate or function is getattr(candidate, '__wrapped__', None) for name in names
                    if (candidate := namespace.get(name)) is not None):
             raise TypeError(f'{context} requires a native Lambda or a supported symbolic function head')

@@ -1,0 +1,537 @@
+{
+"test_gruntz.py:test_aseries_trig:1": [
+"(-log(pi) + log(pi/2) + log(2))/(-log(pi/2)*log(pi) + log(2)*log(pi/2))",
+0.0047,
+681
+],
+"test_gruntz.py:test_aseries_trig:2": [
+"-oo",
+0.0005,
+683
+],
+"test_gruntz.py:test_exp_log_series:1": [
+"oo",
+0.0008,
+687
+],
+"test_gruntz.py:test_grunts_eval_special_slow_sometimes_fail:1": [
+"oo",
+0.0047,
+394
+],
+"test_gruntz.py:test_gruntz_Ei:1": [
+"-1",
+0.0019,
+398
+],
+"test_gruntz.py:test_gruntz_I:1": [
+"oo*I",
+0.0006,
+659
+],
+"test_gruntz.py:test_gruntz_I:2": [
+"oo*I*sign(y)",
+0.0003,
+660
+],
+"test_gruntz.py:test_gruntz_I:3": [
+"oo*I*sign(y)",
+0.0001,
+661
+],
+"test_gruntz.py:test_gruntz_I:4": [
+"oo*I*sign(y)",
+0.0004,
+662
+],
+"test_gruntz.py:test_gruntz_eval_special:1": [
+"1",
+0.0014,
+366
+],
+"test_gruntz.py:test_gruntz_eval_special:10": [
+"1/2",
+0.002,
+378
+],
+"test_gruntz.py:test_gruntz_eval_special:11": [
+"1",
+0.0013,
+380
+],
+"test_gruntz.py:test_gruntz_eval_special:2": [
+"-2/sqrt(pi)",
+0.0036,
+367
+],
+"test_gruntz.py:test_gruntz_eval_special:3": [
+"1",
+0.001,
+369
+],
+"test_gruntz.py:test_gruntz_eval_special:4": [
+"oo",
+0.0044,
+371
+],
+"test_gruntz.py:test_gruntz_eval_special:5": [
+"exp(-1/2)",
+0.0032,
+372
+],
+"test_gruntz.py:test_gruntz_eval_special:6": [
+"exp(-1/2)",
+0.0027,
+373
+],
+"test_gruntz.py:test_gruntz_eval_special:7": [
+"oo",
+0.0006,
+374
+],
+"test_gruntz.py:test_gruntz_eval_special:8": [
+"oo",
+0.001,
+375
+],
+"test_gruntz.py:test_gruntz_eval_special:9": [
+"-1/2",
+0.0025,
+376
+],
+"test_gruntz.py:test_gruntz_eval_special_fail:1": [
+"EXC PoleError",
+0.0015,
+404
+],
+"test_gruntz.py:test_gruntz_eval_special_slow:1": [
+"oo",
+0.0097,
+385
+],
+"test_gruntz.py:test_gruntz_eval_special_slow:2": [
+"0",
+0.0085,
+387
+],
+"test_gruntz.py:test_gruntz_evaluation:1": [
+"-1",
+0.0054,
+299
+],
+"test_gruntz.py:test_gruntz_evaluation:10": [
+"-exp(2)",
+0.0018,
+323
+],
+"test_gruntz.py:test_gruntz_evaluation:11": [
+"5",
+0.0009,
+326
+],
+"test_gruntz.py:test_gruntz_evaluation:12": [
+"oo",
+0.0006,
+328
+],
+"test_gruntz.py:test_gruntz_evaluation:13": [
+"oo",
+0.0035,
+330
+],
+"test_gruntz.py:test_gruntz_evaluation:14": [
+"oo",
+0.0234,
+333
+],
+"test_gruntz.py:test_gruntz_evaluation:15": [
+"1",
+0.0024,
+337
+],
+"test_gruntz.py:test_gruntz_evaluation:16": [
+"1",
+0.0014,
+340
+],
+"test_gruntz.py:test_gruntz_evaluation:17": [
+"1",
+0.0016,
+343
+],
+"test_gruntz.py:test_gruntz_evaluation:18": [
+"E",
+0.0017,
+346
+],
+"test_gruntz.py:test_gruntz_evaluation:19": [
+"oo",
+0.0012,
+349
+],
+"test_gruntz.py:test_gruntz_evaluation:2": [
+"1",
+0.004,
+301
+],
+"test_gruntz.py:test_gruntz_evaluation:3": [
+"oo",
+0.0026,
+304
+],
+"test_gruntz.py:test_gruntz_evaluation:4": [
+"oo",
+0.0019,
+306
+],
+"test_gruntz.py:test_gruntz_evaluation:5": [
+"oo",
+0.0019,
+308
+],
+"test_gruntz.py:test_gruntz_evaluation:6": [
+"1",
+0.0157,
+311
+],
+"test_gruntz.py:test_gruntz_evaluation:7": [
+"1",
+0.0012,
+314
+],
+"test_gruntz.py:test_gruntz_evaluation:8": [
+"0",
+0.0029,
+316
+],
+"test_gruntz.py:test_gruntz_evaluation:9": [
+"1/3",
+0.0017,
+320
+],
+"test_gruntz.py:test_gruntz_evaluation_slow:1": [
+"-oo",
+0.005,
+355
+],
+"test_gruntz.py:test_gruntz_evaluation_slow:2": [
+"2",
+0.0029,
+358
+],
+"test_gruntz.py:test_gruntz_hyperbolic:1": [
+"oo",
+0.0007,
+411
+],
+"test_gruntz.py:test_gruntz_hyperbolic:10": [
+"-1",
+0.0004,
+420
+],
+"test_gruntz.py:test_gruntz_hyperbolic:11": [
+"1",
+0.0005,
+421
+],
+"test_gruntz.py:test_gruntz_hyperbolic:12": [
+"-1",
+0.0005,
+422
+],
+"test_gruntz.py:test_gruntz_hyperbolic:2": [
+"oo",
+0.0003,
+412
+],
+"test_gruntz.py:test_gruntz_hyperbolic:3": [
+"oo",
+0.0006,
+413
+],
+"test_gruntz.py:test_gruntz_hyperbolic:4": [
+"-oo",
+0.0003,
+414
+],
+"test_gruntz.py:test_gruntz_hyperbolic:5": [
+"oo",
+0.0012,
+415
+],
+"test_gruntz.py:test_gruntz_hyperbolic:6": [
+"1",
+0.001,
+416
+],
+"test_gruntz.py:test_gruntz_hyperbolic:7": [
+"oo",
+0.0009,
+417
+],
+"test_gruntz.py:test_gruntz_hyperbolic:8": [
+"-1",
+0.0008,
+418
+],
+"test_gruntz.py:test_gruntz_hyperbolic:9": [
+"1",
+0.0007,
+419
+],
+"test_gruntz.py:test_intractable:1": [
+"0",
+0.0016,
+670
+],
+"test_gruntz.py:test_intractable:2": [
+"0",
+0.0009,
+671
+],
+"test_gruntz.py:test_intractable:3": [
+"oo",
+0.0014,
+672
+],
+"test_gruntz.py:test_intractable:4": [
+"oo",
+0.0018,
+673
+],
+"test_gruntz.py:test_intractable:5": [
+"2",
+0.0011,
+674
+],
+"test_gruntz.py:test_intractable:6": [
+"gamma(1/7)",
+0.001,
+675
+],
+"test_gruntz.py:test_intractable:7": [
+"1",
+0.001,
+676
+],
+"test_gruntz.py:test_intractable:8": [
+"oo",
+0.0016,
+677
+],
+"test_gruntz.py:test_issue_24210_25885:1": [
+"exp(1/2)",
+0.0004,
+744
+],
+"test_gruntz.py:test_issue_24210_25885:2": [
+"exp(-1/2)",
+0.0004,
+745
+],
+"test_gruntz.py:test_issue_3644:1": [
+"2",
+0.0012,
+691
+],
+"test_gruntz.py:test_issue_4109:1": [
+"0",
+0.0002,
+721
+],
+"test_gruntz.py:test_issue_4109:2": [
+"1",
+0.0001,
+722
+],
+"test_gruntz.py:test_issue_4190:1": [
+"EulerGamma",
+0.0011,
+701
+],
+"test_gruntz.py:test_issue_4814:1": [
+"E",
+0.0007,
+666
+],
+"test_gruntz.py:test_issue_5172:1": [
+"1",
+0.0085,
+714
+],
+"test_gruntz.py:test_issue_5172:2": [
+"(2*(2/(r + 1))**p + (r - 1)/(r + 1)**p)/(r + 1)",
+0.0182,
+716
+],
+"test_gruntz.py:test_issue_6682:1": [
+"exp(2*EulerGamma)",
+0.0003,
+726
+],
+"test_gruntz.py:test_issue_6843:1": [
+"n/2",
+0.0261,
+697
+],
+"test_gruntz.py:test_issue_7096:1": [
+"oo*sign((-1)**(-pi))",
+0.0005,
+731
+],
+"test_gruntz.py:test_limit1:1": [
+"oo",
+0.0003,
+610
+],
+"test_gruntz.py:test_limit1:10": [
+"oo",
+0.0005,
+619
+],
+"test_gruntz.py:test_limit1:11": [
+"0",
+0.0007,
+620
+],
+"test_gruntz.py:test_limit1:12": [
+"oo",
+0.0001,
+621
+],
+"test_gruntz.py:test_limit1:2": [
+"-oo",
+0.0001,
+611
+],
+"test_gruntz.py:test_limit1:3": [
+"-oo",
+0.0001,
+612
+],
+"test_gruntz.py:test_limit1:4": [
+"oo",
+0.0002,
+613
+],
+"test_gruntz.py:test_limit1:5": [
+"-oo",
+0.0001,
+614
+],
+"test_gruntz.py:test_limit1:6": [
+"0",
+0.0005,
+615
+],
+"test_gruntz.py:test_limit1:7": [
+"0",
+0.0002,
+616
+],
+"test_gruntz.py:test_limit1:8": [
+"oo",
+0.0014,
+617
+],
+"test_gruntz.py:test_limit1:9": [
+"-oo",
+0.0009,
+618
+],
+"test_gruntz.py:test_limit2:1": [
+"1",
+0.0002,
+625
+],
+"test_gruntz.py:test_limit2:2": [
+"1",
+0.0002,
+626
+],
+"test_gruntz.py:test_limit2:3": [
+"1",
+0.0002,
+627
+],
+"test_gruntz.py:test_limit2:4": [
+"-1",
+0.0002,
+628
+],
+"test_gruntz.py:test_limit2:5": [
+"oo",
+0.0006,
+629
+],
+"test_gruntz.py:test_limit2:6": [
+"oo",
+0.0003,
+630
+],
+"test_gruntz.py:test_limit2:7": [
+"oo",
+0.0012,
+631
+],
+"test_gruntz.py:test_limit2:8": [
+"13",
+0.0006,
+632
+],
+"test_gruntz.py:test_limit3:1": [
+"0",
+0.0014,
+637
+],
+"test_gruntz.py:test_limit3:2": [
+"0",
+0.0007,
+638
+],
+"test_gruntz.py:test_limit3:3": [
+"1",
+0.0007,
+639
+],
+"test_gruntz.py:test_limit3:4": [
+"1",
+0.0003,
+640
+],
+"test_gruntz.py:test_limit4:1": [
+"5",
+0.0012,
+645
+],
+"test_gruntz.py:test_limit4:2": [
+"5",
+0.0008,
+647
+],
+"test_gruntz.py:test_mrv_leadterm1:1": [
+"EXC NotImplementedError",
+0.0002,
+591
+],
+"test_gruntz.py:test_mrv_leadterm1:2": [
+"EXC NotImplementedError",
+0.0006,
+592
+],
+"test_gruntz.py:test_mrv_leadterm1:3": [
+"EXC NotImplementedError",
+0.0007,
+593
+],
+"test_gruntz.py:test_mrv_leadterm2:1": [
+"EXC NotImplementedError",
+0.0007,
+599
+],
+"test_gruntz.py:test_mrv_leadterm3:1": [
+"EXC NotImplementedError",
+0.0002,
+606
+]
+}

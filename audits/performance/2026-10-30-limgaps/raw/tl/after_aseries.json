@@ -1,0 +1,47 @@
+{
+"test_aseries.py:test_hierarchical:1": [
+"-exp(-2*x)*sin(1/x)/2 + exp(-x)*cos(1/x) + sin(1/x) + O(exp(-3*x), (x, oo))",
+0.1231,
+122
+],
+"test_aseries.py:test_hierarchical:2": [
+"exp(-4*x)*sin(x)/24 - exp(-2*x)*sin(x)/2 + sin(x) + O(exp(-6*x), (x, oo))",
+0.0016,
+126
+],
+"test_aseries.py:test_simple:1": [
+"(1/(24*x**4) - 1/(2*x**2) + 1 + O(x**(-6), (x, oo)))*exp(-x)",
+0.0051,
+89
+],
+"test_aseries.py:test_simple:2": [
+"EXC PoleError",
+0.0039,
+92
+],
+"test_aseries.py:test_simple:3": [
+"exp(exp(x)/(1 - 1/x))",
+0.0019,
+95
+],
+"test_aseries.py:test_simple:4": [
+"(-1/(2*x**3) + 1/x + 1 + O(x**(-4), (x, oo)))*exp(-exp(x))",
+0.0041,
+103
+],
+"test_aseries.py:test_simple:5": [
+"exp(exp(exp(x)))*exp(-exp(exp(x - exp(-exp(exp(x))))))",
+0.0033,
+107
+],
+"test_aseries.py:test_simple:6": [
+"EXC PoleError",
+0.0039,
+112
+],
+"test_aseries.py:test_simple:7": [
+"EXC NotImplementedError",
+0.0048,
+116
+]
+}

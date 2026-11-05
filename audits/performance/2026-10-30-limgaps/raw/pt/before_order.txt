@@ -1,0 +1,447 @@
+..F....F.FF......FF..F.FF...FF..F.F..F.FF.FF.Fx.FF.FFF.FFF               [100%]
+=================================== FAILURES ===================================
+________________________________ test_simple_1 _________________________________
+
+    def test_simple_1():
+        o = Rational(0)
+        assert Order(2*x) == Order(x)
+        assert Order(x)*3 == Order(x)
+        assert -28*Order(x) == Order(x)
+        assert Order(Order(x)) == Order(x)
+>       assert Order(Order(x), y) == Order(Order(x), x, y)
+E       assert O(1) == O(x, x, y)
+E        +  where O(1) = Order(O(x), y)
+E        +    where O(x) = Order(x)
+E        +  and   O(x, x, y) = Order(O(x), x, y)
+E        +    where O(x) = Order(x)
+
+test_order.py:233: AssertionError
+________________________________ test_simple_6 _________________________________
+
+    def test_simple_6():
+        assert Order(x) - Order(x) == Order(x)
+        assert Order(x) + Order(1) == Order(1)
+        assert Order(x) + Order(x**2) == Order(x)
+        assert Order(1/x) + Order(1) == Order(1/x)
+>       assert Order(x) + Order(exp(1/x)) == Order(exp(1/x))
+E       assert (O(x) + O(exp(1/x))) == O(exp(1/x))
+E        +  where O(x) = Order(x)
+E        +  and   O(exp(1/x)) = Order(exp(1/x))
+E        +    where exp(1/x) = exp((1 / x))
+E        +  and   O(exp(1/x)) = Order(exp(1/x))
+E        +    where exp(1/x) = exp((1 / x))
+
+test_order.py:277: AssertionError
+________________________________ test_simple_8 _________________________________
+
+    def test_simple_8():
+        assert O(sqrt(-x)) == O(sqrt(x))
+        assert O(x**2*sqrt(x)) == O(x**Rational(5, 2))
+        assert O(x**3*sqrt(-(-x)**3)) == O(x**Rational(9, 2))
+        assert O(x**Rational(3, 2)*sqrt((-x)**3)) == O(x**3)
+>       assert O(x*(-2*x)**(I/2)) == O(x*(-x)**(I/2))
+E       assert O(x*(-2*x)**(I/2)) == O(x*(-x)**(I/2))
+E        +  where O(x*(-2*x)**(I/2)) = O((x * ((-2 * x) ** (I / 2))))
+E        +  and   O(x*(-x)**(I/2)) = O((x * (-x ** (I / 2))))
+
+test_order.py:294: AssertionError
+____________________________ test_as_expr_variables ____________________________
+
+    def test_as_expr_variables():
+>       assert Order(x).as_expr_variables(None) == (x, ((x, 0),))
+E       AttributeError: 'Order' object has no attribute 'as_expr_variables'
+
+test_order.py:298: AttributeError
+__________________________________ test_add_1 __________________________________
+
+    def test_add_1():
+        assert Order(x + x) == Order(x)
+        assert Order(3*x - 2*x**2) == Order(x)
+        assert Order(1 + x) == Order(1, x)
+        assert Order(1 + 1/x) == Order(1/x)
+        # TODO : A better output for Order(log(x) + 1/log(x))
+        # could be Order(log(x)). Currently Order for expressions
+        # where all arguments would involve a log term would fall
+        # in this category and outputs for these should be improved.
+        assert Order(log(x) + 1/log(x)) == Order((log(x)**2 + 1)/log(x))
+>       assert Order(exp(1/x) + x) == Order(exp(1/x))
+E       assert O(x + exp(1/x)) == O(exp(1/x))
+E        +  where O(x + exp(1/x)) = Order((exp(1/x) + x))
+E        +    where exp(1/x) = exp((1 / x))
+E        +  and   O(exp(1/x)) = Order(exp(1/x))
+E        +    where exp(1/x) = exp((1 / x))
+
+test_order.py:359: AssertionError
+_________________________________ test_ln_args _________________________________
+
+    def test_ln_args():
+        assert O(log(x)) + O(log(2*x)) == O(log(x))
+        assert O(log(x)) + O(log(x**3)) == O(log(x))
+>       assert O(log(x*y)) + O(log(x) + log(y)) == O(log(x) + log(y), x, y)
+E       assert (O(log(x*y), x, y) + O(log(x) + log(y), x, y)) == O(log(x) + log(y), x, y)
+E        +  where O(log(x*y), x, y) = O(log(x*y))
+E        +    where log(x*y) = log((x * y))
+E        +  and   O(log(x) + log(y), x, y) = O((log(x) + log(y)))
+E        +    where log(x) = log(x)
+E        +    and   log(y) = log(y)
+E        +  and   O(log(x) + log(y), x, y) = O((log(x) + log(y)), x, y)
+E        +    where log(x) = log(x)
+E        +    and   log(y) = log(y)
+
+test_order.py:366: AssertionError
+_______________________________ test_multivar_1 ________________________________
+
+    def test_multivar_1():
+        assert Order(x + y).expr == x + y
+        assert Order(x + 2*y).expr == x + y
+>       assert (Order(x + y) + x).expr == (x + y)
+
+test_order.py:387: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = x + O(x + y, x, y)
+
+    def get(self):
+        if self.is_Lambda:
+            if i == 0:
+                return self._lambda_body
+            if i == 1:
+                return self._lambda_variables
+        if (self.is_Integral or self.is_Sum or self.is_Product) and i == 1:
+            return [limit[0] for limit in self.limits]
+        if self.is_Derivative:
+            if i == 0:
+                return self.args[0]
+            if i == 1:
+                return self._derivative_variables
+        if self.is_Limit:
+            if i == 0:
+                return self.args[0]
+            if i == 2:
+                return self.args[2]
+        if self.is_Subs:
+            return self.args[0] if i == 0 else tuple(self.args[i].args)
+        if not _core._is_order(self):
+>           raise AttributeError("only Order terms have expr/variables/point")
+E           AttributeError: only Order terms have expr/variables/point. Did you mean: 'exp'?
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/__init__.py:3348: AttributeError
+_____________________________ test_multivar_mul_1 ______________________________
+
+    def test_multivar_mul_1():
+>       assert Order(x + y)*x == Order(x**2 + y*x, x, y)
+E       assert (O(x + y, x, y) * x) == O(x**2 + x*y, x, y)
+E        +  where O(x + y, x, y) = Order((x + y))
+E        +  and   O(x**2 + x*y, x, y) = Order(((x ** 2) + (y * x)), x, y)
+
+test_order.py:398: AssertionError
+_______________________________ test_multivar_3 ________________________________
+
+    def test_multivar_3():
+        assert (Order(x) + Order(y)).args in [
+            (Order(x), Order(y)),
+            (Order(y), Order(x))]
+>       assert Order(x) + Order(y) + Order(x + y) == Order(x + y)
+E       assert ((O(x) + O(y)) + O(x + y, x, y)) == O(x + y, x, y)
+E        +  where O(x) = Order(x)
+E        +  and   O(y) = Order(y)
+E        +  and   O(x + y, x, y) = Order((x + y))
+E        +  and   O(x + y, x, y) = Order((x + y))
+
+test_order.py:405: AssertionError
+_____________________________ test_order_leadterm ______________________________
+
+    def test_order_leadterm():
+>       assert O(x**2)._eval_as_leading_term(x, None, 1) == O(x**2)
+E       AttributeError: 'Order' object has no attribute '_eval_as_leading_term'. Did you mean: 'as_leading_term'?
+
+test_order.py:443: AttributeError
+______________________________ test_order_symbols ______________________________
+
+    def test_order_symbols():
+        e = x*y*sin(x)*Integral(x, (x, 1, 2))
+>       assert O(e) == O(x**2*y, x, y)
+E       assert O(x*y*sin(x)*Integral(x, (x, 1, 2)), x, y) == O(x**2*y, x, y)
+E        +  where O(x*y*sin(x)*Integral(x, (x, 1, 2)), x, y) = O(x*y*sin(x)*Integral(x, (x, 1, 2)))
+E        +  and   O(x**2*y, x, y) = O(((x ** 2) * y), x, y)
+
+test_order.py:448: AssertionError
+__________________________________ test_getn ___________________________________
+
+    def test_getn():
+        # other lines are tested incidentally by the suite
+        assert O(x).getn() == 1
+        assert O(x/log(x)).getn() == 1
+        assert O(x**2/log(x)**2).getn() == 2
+        assert O(x*log(x)).getn() == 1
+>       raises(NotImplementedError, lambda: (O(x) + O(y)).getn())
+
+test_order.py:468: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+__________________________________ test_getO ___________________________________
+
+    def test_getO():
+        assert (x).getO() is None
+        assert (x).removeO() == x
+        assert (O(x)).getO() == O(x)
+        assert (O(x)).removeO() == 0
+        assert (z + O(x) + O(y)).getO() == O(x) + O(y)
+        assert (z + O(x) + O(y)).removeO() == z
+>       raises(NotImplementedError, lambda: (O(x) + O(y)).getn())
+
+test_order.py:482: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+_______________________________ test_issue_4279 ________________________________
+
+    def test_issue_4279():
+        a, b = symbols('a b')
+        assert O(a, a, b) + O(1, a, b) == O(1, a, b)
+        assert O(b, a, b) + O(1, a, b) == O(1, a, b)
+>       assert O(a + b, a, b) + O(1, a, b) == O(1, a, b)
+E       assert (O(a + b, a, b) + O(1, a, b)) == O(1, a, b)
+E        +  where O(a + b, a, b) = O((a + b), a, b)
+E        +  and   O(1, a, b) = O(1, a, b)
+E        +  and   O(1, a, b) = O(1, a, b)
+
+test_order.py:502: AssertionError
+________________________ test_order_conjugate_transpose ________________________
+
+    def test_order_conjugate_transpose():
+        x = Symbol('x', real=True)
+        y = Symbol('y', imaginary=True)
+>       assert conjugate(Order(x)) == Order(conjugate(x))
+E       assert conjugate(O(x)) == O(x)
+E        +  where conjugate(O(x)) = conjugate(O(x))
+E        +    where O(x) = Order(x)
+E        +  and   O(x) = Order(x)
+E        +    where x = conjugate(x)
+
+test_order.py:520: AssertionError
+__________________________ test_order_noncommutative ___________________________
+
+    def test_order_noncommutative():
+        A = Symbol('A', commutative=False)
+        assert Order(A + A*x, x) == Order(1, x)
+>       assert (A + A*x)*Order(x) == Order(x)
+E       assert ((A + (A * x)) * O(x)) == O(x)
+E        +  where O(x) = Order(x)
+E        +  and   O(x) = Order(x)
+
+test_order.py:533: AssertionError
+____________________________ test_order_at_infinity ____________________________
+
+    def test_order_at_infinity():
+        assert Order(1 + x, (x, oo)) == Order(x, (x, oo))
+        assert Order(3*x, (x, oo)) == Order(x, (x, oo))
+        assert Order(x, (x, oo))*3 == Order(x, (x, oo))
+        assert -28*Order(x, (x, oo)) == Order(x, (x, oo))
+        assert Order(Order(x, (x, oo)), (x, oo)) == Order(x, (x, oo))
+>       assert Order(Order(x, (x, oo)), (y, oo)) == Order(x, (x, oo), (y, oo))
+E       assert O(1, (y, oo)) == O(x, (x, oo), (y, oo))
+E        +  where O(1, (y, oo)) = Order(O(x, (x, oo)), (y, oo))
+E        +    where O(x, (x, oo)) = Order(x, (x, oo))
+E        +  and   O(x, (x, oo), (y, oo)) = Order(x, (x, oo), (y, oo))
+
+test_order.py:550: AssertionError
+____________________ test_mixing_order_at_zero_and_infinity ____________________
+
+    def test_mixing_order_at_zero_and_infinity():
+        assert (Order(x, (x, 0)) + Order(x, (x, oo))).is_Add
+        assert Order(x, (x, 0)) + Order(x, (x, oo)) == Order(x, (x, oo)) + Order(x, (x, 0))
+        assert Order(Order(x, (x, oo))) == Order(x, (x, oo))
+    
+        # not supported (yet)
+>       raises(NotImplementedError, lambda: Order(x, (x, 0))*Order(x, (x, oo)))
+
+test_order.py:594: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+____________________________ test_order_subs_limits ____________________________
+
+    def test_order_subs_limits():
+        # issue 3333
+        assert (1 + Order(x)).subs(x, 1/x) == 1 + Order(1/x, (x, oo))
+        assert (1 + Order(x)).limit(x, 0) == 1
+        # issue 5769
+        assert ((x + Order(x**2))/x).limit(x, 0) == 1
+    
+        assert Order(x**2).subs(x, y - 1) == Order((y - 1)**2, (y, 1))
+        assert Order(10*x**2, (x, 2)).subs(x, y - 1) == Order(1, (y, 3))
+    
+        #issue 19120
+>       assert O(x).subs(x, O(x)) == O(x)
+E       assert O(x) == O(x)
+E        +  where O(x) = subs(x, O(x))
+E        +    where subs = O(x).subs
+E        +      where O(x) = O(x)
+E        +    and   O(x) = O(x)
+E        +  and   O(x) = O(x)
+
+test_order.py:619: AssertionError
+_______________________________ test_issue_9192 ________________________________
+
+    def test_issue_9192():
+        assert O(1)*O(1) == O(1)
+>       assert O(1)**O(1) == O(1)
+E       assert (O(1) ** O(1)) == O(1)
+E        +  where O(1) = O(1)
+E        +  and   O(1) = O(1)
+E        +  and   O(1) = O(1)
+
+test_order.py:643: AssertionError
+_______________________________ test_issue_9910 ________________________________
+
+    def test_issue_9910():
+>       assert O(x*log(x) + sin(x), (x, oo)) == O(x*log(x), (x, oo))
+E       assert O(x*log(x) + sin(x), (x, oo)) == O(x*log(1/x), (x, oo))
+E        +  where O(x*log(x) + sin(x), (x, oo)) = O(((x * log(x)) + sin(x)), (x, oo))
+E        +    where log(x) = log(x)
+E        +    and   sin(x) = sin(x)
+E        +  and   O(x*log(1/x), (x, oo)) = O((x * log(x)), (x, oo))
+E        +    where log(x) = log(x)
+
+test_order.py:647: AssertionError
+_______________________________ test_issue_14622 _______________________________
+
+    def test_issue_14622():
+        assert (x**(-4) + x**(-3) + x**(-1) + O(x**(-6), (x, oo))).as_numer_denom() == (
+            x**4 + x**5 + x**7 + O(x**2, (x, oo)), x**8)
+        assert (x**3 + O(x**2, (x, oo))).is_Add
+        assert O(x**2, (x, oo)).contains(x**3) is False
+        assert O(x, (x, oo)).contains(O(x, (x, 0))) is None
+        assert O(x, (x, 0)).contains(O(x, (x, oo))) is None
+>       raises(NotImplementedError, lambda: O(x**3).contains(x**w))
+
+test_order.py:662: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/limgaps-20261030k/python/symox/testing/pytest.py:18: Failed
+_______________________________ test_issue_15539 _______________________________
+
+    def test_issue_15539():
+        assert O(1/x**2 + 1/x**4, (x, -oo)) == O(1/x**2, (x, -oo))
+        assert O(1/x**4 + exp(x), (x, -oo)) == O(1/x**4, (x, -oo))
+>       assert O(1/x**4 + exp(-x), (x, -oo)) == O(exp(-x), (x, -oo))
+E       assert O(exp(-x) + x**(-4), (x, -oo)) == O(exp(-x), (x, -oo))
+E        +  where O(exp(-x) + x**(-4), (x, -oo)) = O(((1 / (x ** 4)) + exp(-x)), (x, -oo))
+E        +    where exp(-x) = exp(-x)
+E        +  and   O(exp(-x), (x, -oo)) = O(exp(-x), (x, -oo))
+E        +    where exp(-x) = exp(-x)
+
+test_order.py:668: AssertionError
+_______________________________ test_issue_18606 _______________________________
+
+    def test_issue_18606():
+>       assert unchanged(Order, 0)
+E       assert False
+E        +  where False = unchanged(Order, 0)
+
+test_order.py:672: AssertionError
+_______________________________ test_issue_23231 _______________________________
+
+    def test_issue_23231():
+        # This test checks Order for expressions having
+        # arguments containing variables in exponents/powers.
+>       assert O(x**x + 2**x, (x, oo)) == O(exp(x*log(x)), (x, oo))
+E       assert O(2**x + x**x, (x, oo)) == O(exp(x*log(x)), (x, oo))
+E        +  where O(2**x + x**x, (x, oo)) = O(((x ** x) + (2 ** x)), (x, oo))
+E        +  and   O(exp(x*log(x)), (x, oo)) = O(exp(x*log(x)), (x, oo))
+E        +    where exp(x*log(x)) = exp((x * log(x)))
+E        +      where log(x) = log(x)
+
+test_order.py:682: AssertionError
+_______________________________ test_issue_9917 ________________________________
+
+    def test_issue_9917():
+>       assert O(x*sin(x) + 1, (x, oo)) == O(x, (x, oo))
+E       assert O(x*sin(x) + 1, (x, oo)) == O(x, (x, oo))
+E        +  where O(x*sin(x) + 1, (x, oo)) = O(((x * sin(x)) + 1), (x, oo))
+E        +    where sin(x) = sin(x)
+E        +  and   O(x, (x, oo)) = O(x, (x, oo))
+
+test_order.py:689: AssertionError
+_______________________________ test_issue_22836 _______________________________
+
+    def test_issue_22836():
+>       assert O(2**x + factorial(x), (x, oo)) == O(factorial(x), (x, oo))
+E       assert O(2**x + factorial(x), (x, oo)) == O(factorial(x), (x, oo))
+E        +  where O(2**x + factorial(x), (x, oo)) = O(((2 ** x) + factorial(x)), (x, oo))
+E        +    where factorial(x) = factorial(x)
+E        +  and   O(factorial(x), (x, oo)) = O(factorial(x), (x, oo))
+E        +    where factorial(x) = factorial(x)
+
+test_order.py:693: AssertionError
+=========================== short test summary info ============================
+FAILED test_order.py::test_simple_1 - assert O(1) == O(x, x, y)
+FAILED test_order.py::test_simple_6 - assert (O(x) + O(exp(1/x))) == O(exp(1/x))
+FAILED test_order.py::test_simple_8 - assert O(x*(-2*x)**(I/2)) == O(x*(-x)**...
+FAILED test_order.py::test_as_expr_variables - AttributeError: 'Order' object...
+FAILED test_order.py::test_add_1 - assert O(x + exp(1/x)) == O(exp(1/x))
+FAILED test_order.py::test_ln_args - assert (O(log(x*y), x, y) + O(log(x) + l...
+FAILED test_order.py::test_multivar_1 - AttributeError: only Order terms have...
+FAILED test_order.py::test_multivar_mul_1 - assert (O(x + y, x, y) * x) == O(...
+FAILED test_order.py::test_multivar_3 - assert ((O(x) + O(y)) + O(x + y, x, y...
+FAILED test_order.py::test_order_leadterm - AttributeError: 'Order' object ha...
+FAILED test_order.py::test_order_symbols - assert O(x*y*sin(x)*Integral(x, (x...
+FAILED test_order.py::test_getn - Failed: DID NOT RAISE
+FAILED test_order.py::test_getO - Failed: DID NOT RAISE
+FAILED test_order.py::test_issue_4279 - assert (O(a + b, a, b) + O(1, a, b)) ...
+FAILED test_order.py::test_order_conjugate_transpose - assert conjugate(O(x))...
+FAILED test_order.py::test_order_noncommutative - assert ((A + (A * x)) * O(x...
+FAILED test_order.py::test_order_at_infinity - assert O(1, (y, oo)) == O(x, (...
+FAILED test_order.py::test_mixing_order_at_zero_and_infinity - Failed: DID NO...
+FAILED test_order.py::test_order_subs_limits - assert O(x) == O(x)
+FAILED test_order.py::test_issue_9192 - assert (O(1) ** O(1)) == O(1)
+FAILED test_order.py::test_issue_9910 - assert O(x*log(x) + sin(x), (x, oo)) ...
+FAILED test_order.py::test_issue_14622 - Failed: DID NOT RAISE
+FAILED test_order.py::test_issue_15539 - assert O(exp(-x) + x**(-4), (x, -oo)...
+FAILED test_order.py::test_issue_18606 - assert False
+FAILED test_order.py::test_issue_23231 - assert O(2**x + x**x, (x, oo)) == O(...
+FAILED test_order.py::test_issue_9917 - assert O(x*sin(x) + 1, (x, oo)) == O(...
+FAILED test_order.py::test_issue_22836 - assert O(2**x + factorial(x), (x, oo...
+27 failed, 30 passed, 1 xfailed in 1.32s

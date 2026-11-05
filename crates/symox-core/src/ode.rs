@@ -12,6 +12,8 @@ pub mod second;
 pub mod reducible;
 pub mod liouville;
 pub mod constcoeff;
+pub mod undetermined;
+pub mod variation;
 
 use rustc_hash::{FxHashMap,FxHashSet};
 
