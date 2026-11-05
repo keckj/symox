@@ -112,7 +112,14 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   référence, erreur), `EX(a)` Python qui simplifie son élément, binômes à
   radicaux imbriqués (hypothèses is_extended_real/is_positive, écart en
   attente de validation), ordre des étapes d'expand hors produits de
-  radicaux, constructeur RootSum en Python.
+  radicaux, constructeur RootSum en Python, bruit imaginaire de evalf
+  (approché par l'évaluateur double dans l'ordre d'impression).
+- Environnement (2026-11-05) : `tests/extra/test_jax_codegen.py::
+  test_custom_functions_and_standalone_source` échoue dans le shard 23
+  (CUDA_ERROR_OUT_OF_MEMORY du sous-processus jax : le pytest parent a
+  préalloué la mémoire GPU) avec le .so de main 2e623e66 comme avec
+  ratintex ; il passe seul et avec `XLA_PYTHON_CLIENT_PREALLOCATE=false`
+  (382/382). Le lanceur de suite pourrait fixer cette variable.
 - Limites : 175/1293 asserts encore différents ; 90 déclins Gruntz.
 - Matrices : perf lambdarr gamma/poly2.
 - Tableaux : 50/201 tests SymPy de tableaux, repli vendu de
