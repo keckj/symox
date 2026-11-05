@@ -36,6 +36,24 @@ pub enum Src {
     Opaque,
     /// The function (a Lambda) of an `ArrayElementwiseApplyFunc`.
     Fn(Expr),
+    /// SymPy's `Mul(coeff, *factors)` of a commutative coefficient and
+    /// non-commutative array leaves (`OneArray`s, array symbols), in order:
+    /// what `OneArray(1, k)*2` or `A*B` evaluate to. It is a rank-zero
+    /// operand that is no array (`_a2m_tensor_product` takes it for a
+    /// scalar, `MatMul` refuses it).
+    NcMul(Expr, Vec<usize>),
+    /// SymPy's `MatMul(x, *matrices)` with an array leaf `x` as its
+    /// coefficient (`M*OneArray(1, k)`, `A*M`): a matrix expression of the
+    /// shape of its matrices that SymPy cannot evaluate or print
+    /// (`as_coeff_matrices` raises NotImplementedError).
+    NcMatMul(Vec<usize>, Vec<MatrixExpr>),
+    /// `Trace` of an [`Src::NcMatMul`] leaf (a scalar that is no `Expr`).
+    NcTrace(usize),
+}
+
+impl Src {
+    /// A leaf SymPy builds but cannot print or evaluate further.
+    pub fn is_held(&self) -> bool { matches!(self, Src::NcMatMul(..) | Src::NcTrace(_)) }
 }
 
 type Order<'a> = &'a mut dyn FnMut(&[&Node], &[Src], &[Expr]) -> R<Vec<usize>>;
@@ -50,8 +68,11 @@ pub struct A2m<'a> {
     mats: FxHashMap<MatrixExpr, usize>,
     scals: FxHashMap<Expr, usize>,
     onel: FxHashMap<Vec<usize>, usize>,
+    ncm: FxHashMap<(Expr, Vec<usize>), usize>,
     dimid: FxHashMap<Expr, usize>,
 }
+
+const NC_MATMUL: &str = "noncommutative scalars in MatMul are not supported.";
 
 fn unsupported<T>(what: &str) -> R<T> { Err(AErr::Unsupported(what.into())) }
 
@@ -90,6 +111,23 @@ fn mapping(subranks: &[usize]) -> Vec<(usize, usize)> {
     let mut out = vec![];
     for (i, &r) in subranks.iter().enumerate() { for j in 0..r { out.push((i, j)); } }
     out
+}
+
+/// `ArrayContraction._get_contraction_tuples`: each contracted axis as
+/// (argument, axis within the argument), through `_mapping`.
+pub fn contraction_tuples(subranks: &[usize], groups: &[Vec<usize>]) -> R<Vec<Vec<(usize, usize)>>> {
+    let map = mapping(subranks);
+    groups.iter().map(|g| g.iter().map(|&j| map.get(j).copied()
+        .ok_or_else(|| AErr::Index("list index out of range".into()))).collect()).collect()
+}
+
+/// `ArrayContraction._contraction_tuples_to_contraction_indices`: the
+/// inverse of [`contraction_tuples`], on the cumulative ranks.
+pub fn contraction_tuples_to_indices(subranks: &[usize], tuples: &[Vec<(usize, usize)>]) -> R<Vec<Vec<usize>>> {
+    let mut cumulative = vec![0];
+    cumulative.extend(accumulate(subranks.iter().copied()));
+    tuples.iter().map(|g| g.iter().map(|&(j, k)| cumulative.get(j).map(|c| c + k)
+        .ok_or_else(|| AErr::Index("list index out of range".into()))).collect()).collect()
 }
 
 fn accumulate(v: impl IntoIterator<Item = usize>) -> Vec<usize> {
@@ -354,7 +392,7 @@ impl<'a> A2m<'a> {
         let ones = dims.iter().map(Expr::is_one).collect();
         let alias = (0..srcs.len()).collect();
         let mut s = A2m { srcs, info, dims, ones, order, alias, mats: FxHashMap::default(), scals: FxHashMap::default(),
-            onel: FxHashMap::default(), dimid: FxHashMap::default() };
+            onel: FxHashMap::default(), ncm: FxHashMap::default(), dimid: FxHashMap::default() };
         for (i, d) in s.dims.iter().enumerate() { s.dimid.entry(d.clone()).or_insert(i); }
         for i in 0..s.srcs.len() {
             s.alias[i] = match &s.srcs[i] {
@@ -362,6 +400,14 @@ impl<'a> A2m<'a> {
                 Src::Scalar(e) => *s.scals.entry(e.clone()).or_insert(i),
                 Src::One(sh) => *s.onel.entry(sh.clone()).or_insert(i),
                 _ => i,
+            };
+        }
+        // The factors of a product refer to the unified leaves.
+        for i in 0..s.srcs.len() {
+            if let Src::NcMul(c, f) = &s.srcs[i] {
+                let (c, f) = (c.clone(), f.iter().map(|&j| s.alias.get(j).copied().unwrap_or(j)).collect::<Vec<_>>());
+                s.srcs[i] = Src::NcMul(c.clone(), f.clone());
+                s.alias[i] = *s.ncm.entry((c.clone(), f)).or_insert(i);
             };
         }
         s
@@ -452,6 +498,20 @@ impl<'a> A2m<'a> {
         match n { Node::Leaf(i) => match &self.srcs[*i] { Src::Scalar(e) => Some(e), _ => None }, _ => None }
     }
     fn is_mat(&self, n: &Node) -> bool { self.as_mat(n).is_some() }
+    /// `isinstance(n, MatrixExpr)`.
+    fn is_matexpr(&self, n: &Node) -> bool {
+        self.is_mat(n) || matches!(n, Node::Leaf(i) if matches!(self.srcs[*i], Src::NcMatMul(..)))
+    }
+    /// Whether a tree holds a leaf SymPy cannot print ([`Src::is_held`]).
+    pub fn holds_unprintable(&self, n: &Node) -> bool {
+        match n {
+            Node::Leaf(i) => self.srcs.get(*i).is_some_and(Src::is_held),
+            Node::Zero(_) => false,
+            Node::Tensor(a) | Node::Add(a) => a.iter().any(|x| self.holds_unprintable(x)),
+            Node::Permute(e, _) | Node::Contract(e, _) | Node::Diagonal(e, _) | Node::Reshape(e, _) | Node::PowApply(e, _)
+            | Node::Apply(e, _) => self.holds_unprintable(e),
+        }
+    }
     fn is_mat_opt(&self, n: &Option<Node>) -> bool { n.as_ref().is_some_and(|n| self.is_mat(n)) }
     fn is_one_array(&self, n: &Node) -> bool { matches!(n, Node::Leaf(i) if matches!(self.srcs[*i], Src::One(_))) }
     /// `isinstance(x, Identity)`.
@@ -470,7 +530,7 @@ impl<'a> A2m<'a> {
     /// `isinstance(x, (MatrixExpr, _ArrayExpr, _CodegenArrayAbstract))`.
     fn arraylike(&self, n: &Node) -> bool {
         match n {
-            Node::Leaf(i) => matches!(self.srcs[*i], Src::Matrix(_) | Src::One(_) | Src::Opaque),
+            Node::Leaf(i) => matches!(self.srcs[*i], Src::Matrix(_) | Src::One(_) | Src::Opaque | Src::NcMatMul(..)),
             _ => true,
         }
     }
@@ -484,7 +544,14 @@ impl<'a> A2m<'a> {
             Node::Zero(_) => "ZeroArray",
             Node::Reshape(..) => "Reshape",
             Node::Apply(..) | Node::PowApply(..) => "ArrayElementwiseApplyFunc",
-            Node::Leaf(i) => match self.srcs[*i] { Src::One(_) => "OneArray", Src::Opaque => "ArraySymbol", _ => return unsupported("matrix or scalar class name") },
+            Node::Leaf(i) => match self.srcs[*i] {
+                Src::One(_) => "OneArray",
+                Src::Opaque => "ArraySymbol",
+                Src::NcMul(..) => "Mul",
+                Src::NcMatMul(..) => "MatMul",
+                Src::NcTrace(_) => "Trace",
+                _ => return unsupported("matrix or scalar class name"),
+            },
         })
     }
 
@@ -497,9 +564,61 @@ impl<'a> A2m<'a> {
             (Some(x), Some(y), ..) => MatrixExpr::mul(Expr::one(), &[x, y], false)?.doit(true)?,
             (Some(x), None, _, Some(s)) | (None, Some(x), Some(s), _) => MatrixExpr::mul(s, &[x], false)?.doit(true)?,
             (None, None, Some(x), Some(y)) => return Ok(self.scal(crate::ops::mul2(&x, &y))),
-            _ => return unsupported("product of an array expression"),
+            (Some(_), None, ..) | (None, Some(_), ..) => {
+                // `MatMul(...).doit()` with a non-commutative coefficient.
+                let (m, other) = if self.is_mat(a) { (self.as_mat(a).cloned().unwrap(), b) } else { (self.as_mat(b).cloned().unwrap(), a) };
+                let Node::Leaf(i) = other else { return unsupported("product of a matrix and an array expression") };
+                match self.srcs[*i] {
+                    Src::NcMul(..) | Src::NcTrace(_) => return Err(AErr::NotImplemented(NC_MATMUL.into())),
+                    Src::One(_) | Src::Opaque => {
+                        // `MatMul(x, m).doit()` keeps the array leaf as a
+                        // coefficient (its commutativity is unknown).
+                        let shape = vec![self.dim(&m.rows().clone()), self.dim(&m.cols().clone())];
+                        let i = *i;
+                        return Ok(self.push(Src::NcMatMul(vec![i], vec![m]), LeafInfo { rank: 2, shape: Some(shape), zero: false }));
+                    },
+                    _ => return unsupported("product of a matrix and an array expression"),
+                }
+            },
+            _ => return self.mul_scalars(&[a.clone(), b.clone()]),
         };
         Ok(self.mat(out))
+    }
+
+    /// The commutative coefficient and the non-commutative factors of an
+    /// operand of SymPy's `Mul`.
+    fn mul_parts(&self, n: &Node) -> Option<(Expr, Vec<usize>)> {
+        let Node::Leaf(i) = n else { return None };
+        match &self.srcs[*i] {
+            Src::Scalar(e) => Some((e.clone(), vec![])),
+            Src::NcMul(c, f) => Some((c.clone(), f.clone())),
+            Src::One(_) | Src::Opaque | Src::NcTrace(_) => Some((Expr::one(), vec![*i])),
+            _ => None,
+        }
+    }
+
+    /// `Mul(*factors)` (`Mul.fromiter`): the commutative factors multiply,
+    /// the array factors keep their order.
+    fn mul_scalars(&mut self, fs: &[Node]) -> R<Node> {
+        let (mut cs, mut nc) = (vec![], vec![]);
+        for f in fs {
+            let Some((c, n)) = self.mul_parts(f) else { return unsupported("product of an array expression") };
+            cs.push(c);
+            nc.extend(n);
+        }
+        if nc.is_empty() { return Ok(self.scal(crate::ops::mul(&cs))); }
+        // `Mul` distributes a rational over a sum only for two operands and
+        // collects equal adjacent factors into a power; neither is modeled.
+        if cs.iter().any(Expr::is_add) { return unsupported("product of an array expression and a sum"); }
+        if nc.windows(2).any(|w| w[0] == w[1]) { return unsupported("power of an array expression"); }
+        let coeff = crate::ops::mul(&cs);
+        if coeff.is_add() { return unsupported("product of an array expression and a sum"); }
+        if coeff.is_zero() { return unsupported("product of an array expression and zero"); }
+        if coeff.is_one() && nc.len() == 1 { return Ok(Node::Leaf(nc[0])); }
+        let key = (coeff, nc);
+        if let Some(&i) = self.ncm.get(&key) { return Ok(Node::Leaf(i)); }
+        self.ncm.insert(key.clone(), self.srcs.len());
+        Ok(self.push(Src::NcMul(key.0, key.1), LeafInfo { rank: 0, shape: Some(vec![]), zero: false }))
     }
 
     fn mul_matrices(&mut self, coef: Expr, fs: &[MatrixExpr]) -> R<Node> {
@@ -520,9 +639,32 @@ impl<'a> A2m<'a> {
         Ok(m.transpose(evaluate)?)
     }
 
+    /// The attribute `x.T`, which only matrices have.
+    fn attr_t(&mut self, n: &Node) -> R<MatrixExpr> {
+        if let Some(m) = self.as_mat(n) { return Ok(m.transpose(true)?); }
+        let c = match n {
+            Node::Leaf(i) => match &self.srcs[*i] {
+                Src::Scalar(e) => e.class_name().to_string(),
+                Src::One(_) | Src::Opaque | Src::NcMul(..) | Src::NcTrace(_) => self.class(n)?.to_string(),
+                _ => return unsupported("transpose of a non-matrix"),
+            },
+            _ => return unsupported("transpose of a non-matrix"),
+        };
+        Err(AErr::Attribute(format!("'{c}' object has no attribute 'T'")))
+    }
+
+    /// `Trace` of a square [`Src::NcMatMul`] leaf: a held scalar.
+    fn nc_trace(&mut self, n: &Node) -> Option<Node> {
+        let Node::Leaf(i) = *n else { return None };
+        let Some(LeafInfo { shape: Some(sh), .. }) = self.info.get(i) else { return None };
+        if !matches!(self.srcs[i], Src::NcMatMul(..)) || sh[0] != sh[1] { return None; }
+        Some(self.push(Src::NcTrace(i), LeafInfo { rank: 0, shape: Some(vec![]), zero: false }))
+    }
+
     /// `_a2m_trace`.
     fn trace(&mut self, n: Node) -> R<Node> {
         if codegen(&n) { return self.with(|c| c.contract(n, vec![vec![0, 1]])); }
+        if let Some(t) = self.nc_trace(&n) { return Ok(t); }
         let Some(m) = self.as_mat(&n).cloned() else { return unsupported("trace of a non-matrix") };
         let t = m.trace_unevaluated()?;
         Ok(self.scal(t))
@@ -530,6 +672,11 @@ impl<'a> A2m<'a> {
 
     /// `Trace(m)._normalize()`.
     fn trace_norm(&mut self, n: &Node) -> R<Node> {
+        // `_normalize` of a product holding an array coefficient either
+        // rotates it (the trace stays held) or transposes it, where
+        // `as_coeff_matrices` raises the same NotImplementedError the held
+        // trace raises.
+        if let Some(t) = self.nc_trace(n) { return Ok(t); }
         let Some(m) = self.as_mat(n).cloned() else { return unsupported("trace of a non-matrix") };
         let t = trace_normalized_arg(&m)?.trace_unevaluated()?;
         Ok(self.scal(t))
@@ -539,7 +686,11 @@ impl<'a> A2m<'a> {
     fn madd(&mut self, args: Vec<Node>) -> R<Node> {
         if !args.iter().any(codegen) {
             let ms: Option<Vec<MatrixExpr>> = args.iter().map(|a| self.as_mat(a).cloned()).collect();
-            let Some(ms) = ms else { return unsupported("MatAdd of non-matrices") };
+            // `MatAdd` accepts matrix expressions only.
+            let Some(ms) = ms else {
+                if args.iter().all(|a| self.is_matexpr(a)) { return unsupported("MatAdd of an unevaluated product"); }
+                return Err(AErr::Type("Mix of Matrix and Scalar symbols".into()));
+            };
             let m = MatrixExpr::add(&ms, false)?.doit(true)?;
             return Ok(self.mat(m));
         }
@@ -566,13 +717,13 @@ impl<'a> A2m<'a> {
         let mut arrays = vec![];
         for a in args {
             if self.arraylike(&a) { arrays.push(a); } else {
-                match self.as_scal(&a) { Some(s) => scalars.push(s.clone()), None => return unsupported("tensor factor") }
+                if self.mul_parts(&a).is_none() { return unsupported("tensor factor"); }
+                scalars.push(a);
             }
         }
-        let scalar = crate::ops::mul(&scalars);
-        if arrays.is_empty() { return Ok(self.scal(scalar)); }
-        if !scalar.is_one() {
-            let s = self.scal(scalar);
+        let s = self.mul_scalars(&scalars)?;
+        if arrays.is_empty() { return Ok(s); }
+        if !self.as_scal(&s).is_some_and(Expr::is_one) {
             if codegen(&arrays[0]) { arrays.insert(0, s); } else { arrays[0] = self.mm(&arrays[0].clone(), &s)?; }
         }
         self.with(|c| c.tensor(arrays))
@@ -650,9 +801,9 @@ impl<'a> A2m<'a> {
         ed.args = kept;
         let mut factors = vec![];
         for s in &scalars {
-            match s.element.as_ref().and_then(|e| self.as_scal(e)) { Some(x) => factors.push(x.clone()), None => return unsupported("rank zero array factor") }
+            match &s.element { Some(e) if self.mul_parts(e).is_some() => factors.push(e.clone()), _ => return unsupported("rank zero array factor") }
         }
-        let scalar = self.scal(crate::ops::mul(&factors));
+        let scalar = self.mul_scalars(&factors)?;
         if ed.args.is_empty() {
             let a = ed.arg(Some(scalar), vec![]);
             ed.args.push(a);
@@ -998,11 +1149,20 @@ impl<'a> A2m<'a> {
             if k.iter().all(|&j| count(j) == v.len() && j >= 0) {
                 make_trace = true;
                 let mut fe = elems[0].0.clone();
-                if !check_transpose(&elems[0].1) { let t = self.mat_t(&fe, true)?; fe = self.mat(t); }
+                if !check_transpose(&elems[0].1) { let t = self.attr_t(&fe)?; fe = self.mat(t); }
                 first_element = Some(fe);
                 factors = elems[1..].to_vec();
             } else {
                 factors = elems.clone();
+            }
+            if factors.len() > 1 {
+                // `Transpose(x)` of an array leaf is a matrix expression; an
+                // operand that is no matrix fails `HadamardProduct`'s check.
+                let leafy = |e: &Node| matches!(e, Node::Leaf(i) if matches!(self.srcs[*i], Src::One(_) | Src::Opaque));
+                let built = factors.iter().all(|(e, idx)| self.is_matexpr(e) || check_transpose(idx) || leafy(e));
+                if built && factors.iter().any(|(e, idx)| !self.is_matexpr(e) && check_transpose(idx)) {
+                    return Err(AErr::Type("Mix of Matrix and Scalar symbols".into()));
+                }
             }
             let mut ms = vec![];
             for (e, idx) in &factors {
@@ -1019,7 +1179,7 @@ impl<'a> A2m<'a> {
             let mut hp_indices = elems[0].1.clone();
             if !check_transpose(&factors[0].1) { hp_indices.reverse(); }
             if make_trace {
-                let hpt = self.mat_t(&hp, true)?;
+                let hpt = self.attr_t(&hp)?;
                 let hpt = self.mat(hpt);
                 let prod = match &first_element {
                     Some(fe) => self.mm(fe, &hpt)?,
@@ -1672,4 +1832,165 @@ impl<'a> A2m<'a> {
         let m = self.a2m(expr)?;
         Ok(self.rtd(m)?.0)
     }
+
+    // ------------------------------------------------- matrix-derivative chains
+
+    /// Python's `a * b` of two matrix expressions (`MatMul(a, b).doit()`).
+    fn times(a: &MatrixExpr, b: &MatrixExpr) -> R<MatrixExpr> {
+        Ok(MatrixExpr::mul(Expr::one(), &[a.clone(), b.clone()], true)?.doit(true)?)
+    }
+
+    /// `_chain_array_to_matrix` (the matrix form of an array expression for
+    /// the matrix-derivative lines, not `convert_array_to_matrix`).
+    /// `symbols` holds the `MatrixSymbol` of each rank-two `ArraySymbol`
+    /// leaf. [`Chain::FunctionMatrix`] is the `FunctionMatrix` of the input,
+    /// which only the caller can build: below the top level it declines.
+    pub fn chain(&mut self, expr: &Node, symbols: &FxHashMap<usize, MatrixExpr>) -> R<Chain> {
+        if matches!(expr, Node::Contract(..) | Node::Tensor(_)) {
+            if let Some(n) = self.matrix_chains(expr, symbols)? { return Ok(Chain::Done(n)); }
+        }
+        if self.rank(expr) != 2 { return Ok(Chain::Keep); }
+        match expr {
+            Node::Leaf(i) if matches!(self.srcs[*i], Src::Opaque) => {
+                let Some(m) = symbols.get(i) else { return unsupported("MatrixSymbol of an array symbol") };
+                Ok(Chain::Done(self.mat(m.clone())))
+            },
+            // A matrix leaf is no array expression: it is returned as it is.
+            Node::Leaf(i) if !matches!(self.srcs[*i], Src::One(_)) => Ok(Chain::Keep),
+            Node::Add(args) => {
+                let mut ms = vec![];
+                for a in args { ms.push(self.chain_matrix(a, symbols)?); }
+                let m = MatrixExpr::add(&ms, false)?;
+                Ok(Chain::Done(self.mat(m)))
+            },
+            Node::Permute(inner, p) if p.as_slice() == [1, 0] => {
+                let m = self.chain_matrix(inner, symbols)?.transpose(true)?;
+                Ok(Chain::Done(self.mat(m)))
+            },
+            Node::Contract(inner, groups) if matches!(**inner, Node::Tensor(_)) => {
+                let Node::Tensor(factors) = &**inner else { unreachable!() };
+                let n = factors.iter().filter(|a| self.rank(a) == 2).count();
+                if groups.iter().cloned().eq((0..n.saturating_sub(1)).map(|i| vec![2 * i + 1, 2 * i + 2])) {
+                    // `MatMul` of the converted factors, reached only when a
+                    // factor is no matrix (`_matrix_chains` declined).
+                    return unsupported("MatMul of array factors");
+                }
+                Ok(Chain::FunctionMatrix)
+            },
+            _ => Ok(Chain::FunctionMatrix),
+        }
+    }
+
+    /// `_chain_array_to_matrix` of a rank-two operand that must be a matrix
+    /// (a `FunctionMatrix` below the top level declines).
+    fn chain_matrix(&mut self, e: &Node, symbols: &FxHashMap<usize, MatrixExpr>) -> R<MatrixExpr> {
+        match self.chain(e, symbols)? {
+            Chain::Done(n) => match self.as_mat(&n) { Some(m) => Ok(m.clone()), None => unsupported("matrix chain of a non-matrix") },
+            Chain::Keep => match self.as_mat(e) { Some(m) => Ok(m.clone()), None => unsupported("matrix chain of a non-matrix") },
+            Chain::FunctionMatrix => unsupported("FunctionMatrix of an array operand"),
+        }
+    }
+
+    /// `_as_matrix_factor`: the matrix of a tensor factor, or `None`.
+    fn as_matrix_factor(&mut self, f: &Node, symbols: &FxHashMap<usize, MatrixExpr>) -> R<Option<MatrixExpr>> {
+        if let Some(m) = self.as_mat(f) { return Ok(Some(m.clone())); }
+        let arraylike = match f {
+            Node::Leaf(i) => matches!(self.srcs[*i], Src::One(_) | Src::Opaque),
+            _ => true,
+        };
+        if !arraylike { return unsupported("matrix factor of an array product"); }
+        Ok(match self.chain(f, symbols)? {
+            Chain::Done(n) => self.as_mat(&n).cloned(),
+            Chain::Keep => None,
+            Chain::FunctionMatrix => return unsupported("FunctionMatrix of an array operand"),
+        })
+    }
+
+    /// `_matrix_chains`: each connected set of contracted matrix axes is a
+    /// chain (a matrix product whose ends are free axes) or a cycle (a
+    /// trace). `None` when an operand is no matrix or the free axes of a
+    /// chain are not consecutive.
+    fn matrix_chains(&mut self, expr: &Node, symbols: &FxHashMap<usize, MatrixExpr>) -> R<Option<Node>> {
+        let (inner, groups): (&Node, &[Vec<usize>]) = match expr { Node::Contract(e, g) => (&**e, g.as_slice()), _ => (expr, &[]) };
+        let factors: Vec<Node> = match inner { Node::Tensor(a) => a.clone(), _ => vec![inner.clone()] };
+        if groups.iter().any(|g| g.len() != 2) { return Ok(None); }
+        let mut owner: Vec<(usize, usize)> = vec![];
+        let mut matrices: Vec<(usize, MatrixExpr)> = vec![];
+        let mut scalars: Vec<Expr> = vec![];
+        for (k, f) in factors.iter().enumerate() {
+            if self.rank(f) == 0 {
+                let Some(s) = self.as_scal(f) else { return unsupported("scalar factor of an array product") };
+                scalars.push(s.clone());
+                continue;
+            }
+            let Some(m) = self.as_matrix_factor(f, symbols)? else { return Ok(None) };
+            matrices.push((k, m));
+            owner.push((k, 0));
+            owner.push((k, 1));
+        }
+        let axes = owner.len();
+        let position = |k: usize, side: usize| owner.iter().position(|&o| o == (k, side)).unwrap();
+        let mut partner: FxHashMap<usize, usize> = FxHashMap::default();
+        for g in groups { partner.insert(g[0], g[1]); partner.insert(g[1], g[0]); }
+        let free: Vec<usize> = (0..axes).filter(|a| !partner.contains_key(a)).collect();
+        let matrix = |k: usize| &matrices.iter().find(|(j, _)| *j == k).unwrap().1;
+        let mut seen: Vec<usize> = vec![];
+        // The factors from (k, side) on, and the free axis that ends them.
+        let walk = |k: usize, side: usize, seen: &mut Vec<usize>| -> R<(Vec<MatrixExpr>, Option<usize>)> {
+            let (mut k, mut side) = (k, side);
+            let start = (k, side);
+            let mut chain = vec![];
+            loop {
+                chain.push(if side == 0 { matrix(k).clone() } else { matrix(k).transpose(true)? });
+                seen.push(k);
+                let out = position(k, 1 - side);
+                let Some(&p) = partner.get(&out) else { return Ok((chain, Some(out))) };
+                let Some(&o) = owner.get(p) else { return Err(AErr::Key(p.to_string())) };
+                (k, side) = o;
+                if (k, side) == start { return Ok((chain, None)); }
+            }
+        };
+        let product = |chain: Vec<MatrixExpr>| -> R<MatrixExpr> {
+            let mut it = chain.into_iter();
+            let first = it.next().expect("a chain has a factor");
+            it.try_fold(first, |a, b| Self::times(&a, &b))
+        };
+        let (mut chains, mut ends, mut pending) = (vec![], vec![], free.clone());
+        while !pending.is_empty() {
+            let start = pending.remove(0);
+            let (k, side) = owner[start];
+            let (chain, end) = walk(k, side, &mut seen)?;
+            let Some(end) = end else { return Ok(None) };
+            let Some(at) = pending.iter().position(|&a| a == end) else { return Ok(None) };
+            pending.remove(at);
+            ends.push(start);
+            ends.push(end);
+            chains.push(product(chain)?);
+        }
+        let ks: Vec<usize> = matrices.iter().map(|(k, _)| *k).collect();
+        for k in ks {
+            if seen.contains(&k) { continue; }
+            let (chain, _) = walk(k, 0, &mut seen)?;
+            // The trace of a cycle is evaluated (`Trace(...).doit(deep=False)`).
+            let t = product(chain)?.trace_unevaluated()?;
+            scalars.push(crate::functions::doit(&t, false));
+        }
+        let scalar = crate::ops::mul(&scalars);
+        if chains.is_empty() { return Ok(Some(self.scal(scalar))); }
+        if !scalar.is_one() { chains[0] = MatrixExpr::mul(scalar, &[chains[0].clone()], true)?.doit(true)?; }
+        if chains.len() == 1 { return Ok(Some(self.mat(chains.pop().unwrap()))); }
+        let form: Vec<i64> = ends.iter().map(|e| free.iter().position(|f| f == e).unwrap() as i64).collect();
+        let form = af_invert(&form)?;
+        let nodes: Vec<Node> = chains.into_iter().map(|m| self.mat(m)).collect();
+        Ok(Some(self.permute_checked(Node::Tensor(nodes), form)?))
+    }
+}
+
+/// The result of [`A2m::chain`].
+pub enum Chain {
+    Done(Node),
+    /// The input itself (`return expr`).
+    Keep,
+    /// `FunctionMatrix(*shape, Lambda((i, j), expr[i, j]))` of the input.
+    FunctionMatrix,
 }

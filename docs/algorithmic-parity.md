@@ -13507,19 +13507,23 @@ Remaining differences to SymPy 1.14 (gaps):
   - A MatMul with an `ArraySymbol` (arr12, arr158, arr300). SymPy computes
     `Trace(MatMul(A, M))` and raises NotImplementedError when printing it.
     symox returns a trace whose MatMul contains the vendored ArraySymbol.
+    (Wave 39: native, NotImplementedError at conversion; only arr15, arr34,
+    arr145, arr249, arr308 and arr336 remain on the stock path.)
 - `ArrayElementwiseApplyFunc(sin, x)` keeps `sin` as its function. SymPy
   stores `Lambda(_d, sin(_d))`, so printed results differ
   (`ArrayElementwiseApplyFunc(sin, ...)` against
   `ArrayElementwiseApplyFunc(Lambda(_d, sin(_d)), ...)`). This predates
-  this lot (class constructor) and is not changed here.
+  this lot (class constructor) and is not changed here. (Resolved since:
+  symox now stores `Lambda(_d, sin(_d))` as SymPy.)
 - The matrix derivatives (`_matrix_derivatives.py`) still use their own
   Python chain-to-matrix conversion (`_chain_array_to_matrix`, the former
   symox `convert_array_to_matrix`). The element-wise derivatives still use
-  the vendored `symox._arrayexpr` conversion.
+  the vendored `symox._arrayexpr` conversion. (Wave 39: the chain is native,
+  and `matrix_derivative` first takes the native array path.)
 - Not in this lot: `convert_indexed_to_array`, `convert_array_to_indexed`,
   `array_derive` and `_get_contraction_tuples`. The remaining failure of
   test_array_expressions.py (`test_arrayexpr_contraction_construction`)
-  needs the last one.
+  needs the last one. (Wave 39: native, the test passes.)
 
 SymPy array-expression test files (21 files, 201 test functions): 120
 passed before, 151 after.
@@ -13531,6 +13535,181 @@ passed before, 151 after.
 - matrices test_derivatives.py: 6/12 (`test_mixed_deriv_mixed_expressions`).
 
 Measured in [the audit](../audits/performance/2026-10-30-arr2mat/README.md).
+
+## arrexpr (wave 39): the stock fallback of arr2mat, `_chain_array_to_matrix` and the array tests, 2026-11-05
+
+Branch feat-arrexpr-20261105, base 2e623e66. The computation is in Rust
+(`crates/symox-core/src/arrayexpr_a2m.rs`, `matrixexpr.rs`, `traverse.rs`,
+bound in `crates/symox-py/src/arrayexpr_a2m.rs`). The Python changes are
+encoding, dispatch and API envelopes. Measurements are in
+[the audit](../audits/performance/2026-11-05-arrexpr/README.md).
+
+Native forms that previously fell back to the vendored SymPy (Rust):
+
+- `Src::NcMul`: SymPy's `Mul(coeff, *arrays)` of a commutative coefficient
+  and array leaves (`OneArray(1, k)*2`, `A*B`), a rank-zero operand that is
+  no array. `_a2m_tensor_product` takes it for a scalar, and `MatMul`
+  refuses it, as in SymPy.
+- `Src::NcMatMul`: SymPy's `MatMul(x, *matrices)` whose coefficient `x` is
+  an array leaf (`M*OneArray(1, k)`, `A*M`). `MatMul(...).doit()` keeps the
+  array leaf as a coefficient.
+- `Src::NcTrace`: the trace of a square `NcMatMul`. `_normalize` either
+  rotates the product (the trace stays held) or transposes it.
+- `Transpose` of an array leaf is a matrix expression. `MatAdd` accepts
+  matrix expressions only. A Hadamard operand that is no matrix fails as in
+  SymPy.
+
+The corpus of `audits/performance/2026-10-30-arr2mat` (527 cases) now
+falls back on 6 cases (86 before). Their forms are not ported: the
+Hadamard product of an array expression (arr34, arr308, arr336),
+`DiagMatrix` of a non-matrix (arr15, arr145), and the transpose of a
+non-matrix (arr249). These need a matrix expression that holds an array
+operand. The stock fallback stays for them.
+
+Deviation (to be validated): `NcMatMul` and `NcTrace` are leaves SymPy
+builds but cannot print or evaluate (`as_coeff_matrices` raises
+NotImplementedError "noncommutative scalars in MatMul are not
+supported."). symox has no object for them. When a conversion result holds
+one, `convert_array_to_matrix` raises that NotImplementedError at
+conversion time. SymPy raises it when the result is printed or `doit` is
+called. Ordering such a leaf raises `ArrayExprUnsupported`, and the stock
+path takes over.
+
+`_chain_array_to_matrix` (Rust, `A2m::chain`): this is the matrix form the
+matrix-derivative lines use. It covers matrix leaves, `_as_matrix_factor`,
+`_matrix_chains` (chains and traced cycles, with `Trace(...).doit(deep=False)`)
+and `MatMul` of the converted factors. Results:
+
+- `'keep'` is the input itself.
+- `'fm'` is the `FunctionMatrix(*shape, Lambda((i, j), expr[i, j]))` of the
+  input. The caller builds it, because the Lambda body indexes the Python
+  object.
+
+The Python `_chain_array_to_matrix_py` is kept as the fallback for:
+
+- a nested FunctionMatrix;
+- a scalar factor that is an array expression;
+- objects the codec cannot encode.
+
+On 3000 fuzzed array expressions and the 78 chains of the matrix-derivative
+tests, the native and Python forms are identical.
+
+Contraction tuples (Rust):
+
+- `ArrayContraction._get_contraction_tuples` maps each contracted axis to
+  (argument, axis within the argument) through `_mapping`.
+- `_contraction_tuples_to_contraction_indices` is its inverse, computed on
+  the cumulative ranks.
+
+Both use `contraction_tuples` and `contraction_tuples_to_indices` (Rust,
+bound as `_arrayexpr_contraction_tuples`). Their errors are SymPy's
+IndexError "list index out of range".
+
+Matrix powers (Rust, `matrixexpr.rs`):
+
+- `MatPow.doit` combines nested powers unconditionally:
+  `(M**a)**b = M**(a*b)` and `Inverse(M)**b = M**(-b)`, as SymPy does.
+- `Inverse(M**e)` is the unevaluated `M**(-e)`, which is SymPy's
+  `MatPow._eval_inverse`.
+- `A / B` for a matrix `B` is `A * (B**-1).doit()`, from SymPy
+  `MatrixExpr.__truediv__`.
+- With these, `M**(-2)`, `M**(-1/2)`, `M**(3*x)`, `(M**2)**(-1)` and
+  `b*(a.T*b)**(-1/2)/2` print as in SymPy.
+
+Ordering (Rust, `traverse.rs::args_cmp`):
+
+- A `MatrixElement` compares its parent before its indices: name, then
+  shape, for matrix symbols, and the class name for parents of different
+  classes. This is SymPy's `Basic.compare` on the arguments
+  `(parent, i, j)`.
+- An `ArrayElement` (the host node of an `ArraySymbol` element) sorts as
+  SymPy's `ArrayElement(ArraySymbol(name, Tuple(*shape)), Tuple(*indices))`.
+  - Its class key is (5, 0, "ArrayElement"), an Expr and not a Function,
+    so `f(x)*B[0, 1]` and `y*sin(x)*B[0, 1]`.
+  - Its arguments are the parent (name, then shape) and the Tuple of
+    indices, so `B[0, 1]*C[2]` and `A[0, 0, 1]*B[1, 0]*C[1]`.
+  - The shape is given to the host class at registration
+    (`_host_class(..., element_shape)`). `sortkey.rs`, `printing/order.rs`
+    and `args_cmp` use it.
+  - Gap: `Indexed` is a symbol in symox, so `B[0, 1]*IB[1]` prints as
+    `IB[1]*B[0, 1]`. This is outside this lot.
+
+Python envelopes (no algorithm):
+
+- `ArrayDerivative(expr, *variables, evaluate=False)` follows SymPy
+  `Derivative.__new__`. `evaluate=True` returns `doit(deep=False)`. Explicit
+  matrices are made immutable. `shape` includes the shape of the
+  expression only when it has one. For an explicit variable, `doit` takes
+  one derivative per order.
+- The deprecated `conv_*` modules wrap the `from_*` functions in SymPy's
+  `deprecated(..., deprecated_since_version="1.11",
+  active_deprecations_target="deprecated-conv-array-expr-module-names")`.
+- `matrix_derivative` (`_matrix_derivatives.py`) first tries the native
+  array path, as SymPy 1.14's `_matrix_derivative` does:
+  `convert_matrix_to_array`, then `array_derive`, then
+  `convert_array_to_matrix`, all in Rust.
+  - On an error of that path, it falls back to the previous chain: the
+    lines kernel, the element-wise path, rank four, and then the Python
+    lines.
+  - Example: `(X**-2).diff(X)`, where SymPy itself raises RecursionError
+    and symox still answers through the lines kernel.
+  - Admission: when the converted array expression contains a scalar
+    leaf (neither an array expression nor a matrix expression) that
+    depends on `x`, the native array path declines and the previous chain
+    answers. Examples: `exp(Trace(X))`, `X[0, 1]`, `sin(X[0, 0])`,
+    `Trace(X)*X[0, 0]` and `DotProduct(a, a).diff(a)`. This is a deliberate
+    deviation to validate. SymPy 1.14 registers `array_derive(Expr)` as a
+    `ZeroArray`, so it returns a wrong `ZeroMatrix` for most of these. For
+    `DotProduct(a, a)` it returns an unevaluated `ArrayDerivative`, and for
+    `Trace(X)*X[0, 0]` it raises IndexError. symox keeps the correct
+    explicit derivative it already computed (an `Array` of the elementwise
+    derivatives).
+  - Cost: the native array path takes 0.5 to 1.7 ms per derivative, the
+    previous lines kernel 0.2 to 36 µs, and SymPy 12 to 30 ms on a cold
+    cache. The profile is dominated by the Python `matrix_sort_key`
+    callback of the codec's ordering. Moving that ordering to Rust is a
+    performance follow-up.
+
+SymPy array tests (21 files, 201 functions): 165 pass, against 159 at the
+base. Newly passing:
+
+- `test_array_derivative_construction`;
+- `test_arrayexpr_contraction_construction`;
+- `test_deprecated_conv_module_results`;
+- matrices test_derivatives.py, now 9/12: `test_derivatives_matrix_norms`,
+  `test_derivatives_of_complicated_matrix_expr` and
+  `test_derivatives_of_hadamard_expressions`.
+
+No test that passed at the base fails.
+
+Remaining SymPy failures (36), gaps:
+
+- test_array_comprehension.py (2). These are Python class semantics: `len`
+  of a symbolic but numeric shape, and the equality of Python lambdas. No
+  Rust computation is involved, so they are recorded and not fixed in
+  Python.
+- test_immutable_ndim_array.py, `test_symbolic_indexing` (1).
+- matrices test_applyfunc.py (1).
+- matrices test_derivatives.py (3):
+  - the order of a `Sum` result: `Sum` lacks `_eval_factor`, and symox's
+    summation is not a faithful port;
+  - `test_derivatives_of_traces`: `MatrixSymbol.args[0]` is a `str`, not a
+    `Str`;
+  - an element-wise `applyfunc` with a Python lambda (admission policy).
+- matrices test_hadamard.py, `test_canonicalize` (1).
+- test_kronecker.py (7), test_matexpr.py (15), test_trace.py (4). These are
+  gaps of the native matrix-expression model, outside the array scope.
+
+arrindex corpus (`audits/performance/2026-10-30-arrindex`): 167/168, against
+162/168 at the base. The remaining difference is `u_int_mul`, the argument
+order of an `ArrayDiagonal` built from an indexed product: SymPy gives
+`ArrayDiagonal(ArrayTensorProduct(IB, IA), (0, 1))`, symox
+`ArrayDiagonal(ArrayTensorProduct(IA, IB), (0, 2))`.
+
+`convert_array_to_matrix` corpus: 520/527 agree with SymPy (517 before),
+521 native (441 before) and 6 on the stock path (86 before). The one native
+disagreement is arr47, the known scalar placement in a held MatMul (see
+above).
 
 ## tsolverust (wave 27): native `_tsolve` steps and `sympy.solvers.bivariate`, 2026-10-29
 

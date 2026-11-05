@@ -93,6 +93,10 @@ pub trait HostClass: Send + Sync + fmt::Debug {
     /// symbolic array (SymPy `ArrayElement`, `_diff_wrt`): the first argument
     /// names the array, the others are the indices.
     fn array_element(&self) -> bool { false }
+    /// The shape of the `ArraySymbol` an array-element head indexes, when
+    /// the parent is one: SymPy sorts `ArrayElement(ArraySymbol(name,
+    /// shape), Tuple(*indices))` by those two arguments.
+    fn array_element_shape(&self) -> Option<Vec<Expr>> { None }
     /// Whether numerical evaluation consults `evalf` (SymPy `_eval_evalf`).
     fn evaluates_numerically(&self) -> bool { false }
     /// SymPy `_eval_evalf(prec)` of an application, at binary precision

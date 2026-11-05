@@ -638,19 +638,23 @@ impl MatrixExpr {
         if matches!(self.kind(),MatrixKind::GenericIdentity){return Ok(self.clone());}
         compatible(self.rows(),self.cols())?;
         if evaluate {
+            // MatPow.doit combines all nested powers first, whatever the
+            // exponents (`exp *= base.args[1]`; an Inverse is a MatPow of
+            // exponent -1): (X**2)**-1 is X**-2, (X**(1/2))**-1 is
+            // X**(-1/2) and (X**n)**3 is X**(3*n).
+            match self.kind(){
+                MatrixKind::Pow(b,e)=>return b.pow(mul2(&exponent,e),true),
+                MatrixKind::Inverse(b)=>return b.pow(neg(&exponent),true),
+                _=>{},
+            }
             if exponent.is_zero(){return Self::identity(self.rows().clone());}
             if exponent.is_one(){return Ok(self.clone());}
-            // MatPow.doit combines nested powers before the exp == -1 case,
-            // so (X**2)**-1 is X**-2 rather than Inverse(X**2).
-            if exponent.as_i64().is_some(){if let MatrixKind::Pow(b,e)=self.kind(){if e.is_integer_number(){return b.pow(mul2(e,&exponent),true);}}}
             if exponent==Expr::minus_one(){return self.inverse(true);}
             if matches!(self.kind(),MatrixKind::Identity){return Ok(self.clone());}
             if let Some(n)=exponent.as_i64(){
                 if let MatrixKind::Permutation(p)=self.kind(){return Self::permutation(permutation::power(p,n),true);}
                 if let MatrixKind::Explicit(m)=self.kind(){return Ok(Self::explicit(m.powi(n)?));}
                 if matches!(self.kind(),MatrixKind::Zero){if n<0{return Err(MatrixError::NonInvertible("Zero matrix is not invertible".into()));}return Ok(self.clone());}
-                if let MatrixKind::Pow(b,e)=self.kind(){if e.is_integer_number(){return b.pow(mul2(e,&exponent),true);}}
-                if let MatrixKind::Inverse(b)=self.kind(){return b.pow(neg(&exponent),true);}
             }
             // ZeroMatrix._eval_power: any other exponent keeps the zero
             // matrix, unless it is known to be negative.
@@ -668,6 +672,8 @@ impl MatrixExpr {
             MatrixKind::Dft(inverse)=>return Self::dft(self.rows().clone(),!inverse),
             MatrixKind::Identity=>return Ok(self.clone()),MatrixKind::Zero=>return Err(MatrixError::NonInvertible("Zero matrix is not invertible".into())),
             MatrixKind::Inverse(b)=>return Ok(b.clone()),
+            // MatPow._eval_inverse: MatPow(base, -exp), not evaluated.
+            MatrixKind::Pow(b,e)=>return Ok(Self::new(MatrixKind::Pow(b.clone(),neg(e)),self.rows().clone(),self.cols().clone())),
             MatrixKind::Permutation(p)=>return Self::permutation(permutation::inverse(p),false),
             MatrixKind::Explicit(m)=>return Ok(Self::explicit(m.inv()?)),
             MatrixKind::One=>{if let Some(n)=self.rows().as_i64(){return if n==0{Self::identity(Expr::zero())}else if n==1{Ok(self.clone())}else{Err(MatrixError::NonInvertible("An all-ones matrix of size greater than one is singular".into()))};}},

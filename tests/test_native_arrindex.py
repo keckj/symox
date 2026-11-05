@@ -35,14 +35,8 @@ CORPUS = _corpus()
 EXPECTED = json.loads((AUDIT / 'sympy_expected.json').read_text())
 
 CORE_ORDER = {
-    ('indexed', 'add_bcast'): 'ArrayElement(ArrayAdd(ArrayTensorProduct(MatrixSymbol:v, OneArray(d,)), PermuteDims('
-                              'ArrayTensorProduct(MatrixSymbol:M, OneArray(1,)), [0, 2, 1])), [i, 0, j])',
-    ('indexed', 'int_mul'): 'ArrayElement(ArrayTensorProduct(MatrixSymbol:N, MatrixSymbol:M), [0, j, i, 0])',
-    ('indexed', 'int_mul_first'): 'ArrayElement(ArrayTensorProduct(MatrixSymbol:N, MatrixSymbol:M), [0, j, i, 0])',
     ('indexed', 'u_int_mul'): '(ArrayDiagonal(ArrayTensorProduct(IndexedBase:IA, IndexedBase:IB), (0, 2)), '
                               '(Zero:0, Symbol:i))',
-    ('to_indexed', 'numbers'): 'Mul:C[2]*B[0, 1]',
-    ('to_indexed', 'tp'): 'Mul:C[l]*B[i, j]',
 }
 
 CASES = [(s, n) for s, cases in CORPUS.SECTIONS.items() for n in sorted(cases)]

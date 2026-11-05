@@ -450,10 +450,17 @@ class _HostFunctionType(type):
             flags |= _PRETTY
         if _defines(cls, '_sympyrepr'):
             flags |= _REPR
+        class_key, element_shape = None, None
         if cls.__dict__.get('_symox_array_element'):
             flags |= _ELEMENT
+            # SymPy's ArrayElement is an Expr (class_key (5, 0, name)) whose
+            # arguments are its ArraySymbol and the Tuple of indices.
+            class_key = (5, 0)
+            parent = cls.__dict__.get('_symox_element_parent')
+            if type(parent).__name__ == 'ArraySymbol' and type(parent).__module__.startswith('symox.'):
+                element_shape = list(parent.shape)
         _install_content_hash(cls)
-        host = _core._host_class(cls, flags)
+        host = _core._host_class(cls, flags, class_key, element_shape)
         cls._symox_head = _core._host_head(host, name, _class_facts(cls), nargs)
         _defined[0] = True
         return cls

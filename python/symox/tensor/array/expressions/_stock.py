@@ -16,16 +16,23 @@ def _v():
     return V
 
 
+def stock_leaf(e):
+    """``symox._arrayexpr`` class of an ``ArraySymbol`` or ``OneArray``: the
+    factors of the ``Mul`` SymPy forms of an array leaf and a scalar."""
+    V = _v()
+    if type(e) is ArraySymbol:
+        return V.ArraySymbol(e.name, e.shape)
+    return V.OneArray(*e.shape)
+
+
 def to_stock(e):
     """Public array expression -> ``symox._arrayexpr`` expression."""
     V = _v()
     t = type(e)
-    if t is ArraySymbol:
-        return V.ArraySymbol(e.name, e.shape)
+    if t is ArraySymbol or t is OneArray:
+        return stock_leaf(e)
     if t is ZeroArray:
         return V.ZeroArray(*e.shape)
-    if t is OneArray:
-        return V.OneArray(*e.shape)
     if t is ArrayTensorProduct:
         return V.ArrayTensorProduct(*[to_stock(a) for a in e.args])
     if t is ArrayAdd:

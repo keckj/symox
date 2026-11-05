@@ -306,6 +306,15 @@ impl KeyCache {
                 let args = vec![self.matrix_key(matrix)];
                 return self.composite((5, 0, "Trace"), KArgs::List(args));
             }
+            // SymPy's ArrayElement(ArraySymbol(name, Tuple(*shape)), Tuple(*indices)).
+            Kind::Func(Func::Undefined(_), args) if crate::sortkey::array_element_shape(e).is_some() => {
+                let shape = crate::sortkey::array_element_shape(e).unwrap();
+                let shape = self.presentation_arg(PresentationArg::Node("Tuple", shape.into_iter().map(PresentationArg::Scalar).collect()));
+                let name = self.key(&args[0]);
+                let parent = Rc::new(self.composite((5, 0, "ArraySymbol"), KArgs::List(vec![name, shape])));
+                let indices = self.presentation_arg(PresentationArg::Node("Tuple", args[1..].iter().cloned().map(PresentationArg::Scalar).collect()));
+                return self.composite((5, 0, "ArrayElement"), KArgs::List(vec![parent, indices]));
+            }
             Kind::Func(Func::MatrixDeterminant(matrix), _) => {
                 let args = vec![self.matrix_key(matrix)];
                 return self.composite((5, 0, "Determinant"), KArgs::List(args));
@@ -335,7 +344,7 @@ impl KeyCache {
             _ => (rest, None),
         };
         let heaviside = matches!(expr.kind(), Kind::Func(Func::Heaviside, args) if args.len() == 1);
-        if heaviside || matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::SymbolicDerivative,_) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
+        if heaviside || matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::SymbolicDerivative,_) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) || crate::sortkey::array_element_shape(&expr).is_some() {
             let mut key = (*self.key(&expr)).clone();
             key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
             key.coeff = coeff;

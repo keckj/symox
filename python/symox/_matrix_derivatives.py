@@ -445,11 +445,47 @@ def _array_matrix_derivative(expr, x):
         return convert_array_to_matrix(array_derive(convert_matrix_to_array(evaluated), x))
 
 
+_ARRAY_PATH_ERRORS = (RecursionError, NotImplementedError, IndexError, ValueError, TypeError, AttributeError,
+                      _core.ArrayExprUnsupported)
+
+
+def _native_array_derivative(expr, x):
+    from .tensor.array.expressions._canon import convert_matrix_to_array
+    from .tensor.array.expressions._native import array_derive
+    from .tensor.array.expressions.from_array_to_matrix import convert_array_to_matrix
+    array = convert_matrix_to_array(expr)
+    if _opaque_scalar_has(array, x):
+        # Admission only: SymPy 1.14's array_derive registers Expr -> ZeroArray,
+        # so a scalar leaf depending on x (exp(Trace(X)), X[0, 1],
+        # DotProduct(a, a)) would yield a wrong zero. Those inputs keep the
+        # previous derivation chain, which differentiates them.
+        raise NotImplementedError
+    return convert_array_to_matrix(array_derive(array, x))
+
+
+def _opaque_scalar_has(node, x):
+    from .tensor.array.expressions import _ArrayExpr
+    if isinstance(node, _ArrayExpr):
+        return any(_opaque_scalar_has(a, x) for a in node.args)
+    if isinstance(node, _core._MatrixExpr):
+        return False
+    return isinstance(node, _core.Expr) and node.has(x)
+
+
 def matrix_derivative(expr, x):
     """``expr.diff(x)`` for a matrix expression or scalar and a MatrixSymbol ``x``."""
     S = _S()
     if not _is_matrix(expr) and not expr.has(x):
         return S.ZeroMatrix(*x.shape)
+    try:
+        # SymPy 1.14's _matrix_derivative: convert_matrix_to_array,
+        # array_derive and convert_array_to_matrix, each computed in Rust
+        # (arrayexpr_matrix.rs, arrayexpr_derive.rs, arrayexpr_a2m.rs).
+        return _native_array_derivative(expr, x)
+    except _ARRAY_PATH_ERRORS:
+        # Where SymPy's array algorithm fails (e.g. RecursionError for
+        # (X**-2).diff(X)), the matrix-line algorithm below still answers.
+        pass
     native = _core._matrix_lines_derivative(expr, x)
     if native is not None:
         # The native matrix-line kernel (crates/symox-core matrixexpr/lines.rs)

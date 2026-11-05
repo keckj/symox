@@ -418,7 +418,9 @@ impl PyMatrixExpr{
     fn __rmul__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{self.binary_mul(other,true)}
     fn __matmul__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if !is_matrix(other){return Err(PyTypeError::new_err("Matrix @ requires matrix operands"));}self.binary_mul(other,false)}
     fn __rmatmul__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if !is_matrix(other){return Err(PyTypeError::new_err("Matrix @ requires matrix operands"));}self.binary_mul(other,true)}
-    fn __truediv__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if is_matrix(other){return Err(PyTypeError::new_err("Matrix division requires a scalar divisor"));}let c=symox::ops::pow(&to_expr(other)?,&Expr::minus_one());Ok(wrap_matrixexpr(MatrixExpr::mul(c,&[self.m.clone()],true).and_then(|m|m.doit(true)).map_err(|e|error(other.py(),e))?))}
+    /// `self * other**-1`, as `MatrixExpr.__truediv__` in the reference: a
+    /// matrix divisor is inverted by `MatPow(other, -1).doit()`.
+    fn __truediv__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if is_matrix(other){let py=other.py();let inverse=to_matrixexpr(other)?.pow(Expr::minus_one(),true).and_then(|m|m.doit(true)).map_err(|e|error(py,e))?;return Ok(wrap_matrixexpr(MatrixExpr::mul(Expr::one(),&[self.m.clone(),inverse],true).and_then(|m|m.doit(true)).map_err(|e|error(py,e))?));}let c=symox::ops::pow(&to_expr(other)?,&Expr::minus_one());Ok(wrap_matrixexpr(MatrixExpr::mul(c,&[self.m.clone()],true).and_then(|m|m.doit(true)).map_err(|e|error(other.py(),e))?))}
     fn __pow__(&self,exponent:&Bound<'_,PyAny>,modulo:Option<&Bound<'_,PyAny>>)->PyResult<Self>{if modulo.is_some_and(|m|!m.is_none()){return Err(PyTypeError::new_err("Modular matrix powers are unsupported"));}if is_matrix(exponent){return Err(PyTypeError::new_err("Matrix exponent must be scalar"));}Ok(wrap_matrixexpr(self.m.pow(to_expr(exponent)?,true).and_then(|m|m.doit(true)).map_err(|e|error(exponent.py(),e))?))}
     fn __neg__(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(MatrixExpr::mul(Expr::minus_one(),&[self.m.clone()],true).and_then(|m|m.doit(true)).map_err(|e|error(py,e))?))}
     fn __pos__(&self)->Self{self.clone()}

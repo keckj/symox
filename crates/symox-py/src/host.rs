@@ -61,6 +61,7 @@ struct ClassInfo {
     class: Py<PyType>,
     flags: u32,
     class_key: Option<(u8, u32)>,
+    element_shape: Option<Vec<Expr>>,
 }
 
 /// Registration of one Python class extending a native atom or head.
@@ -559,6 +560,7 @@ impl HostClass for HeadHost {
     }
     fn differentiates(&self) -> bool { self.class.flags & DERIV != 0 }
     fn array_element(&self) -> bool { self.class.flags & ELEMENT != 0 }
+    fn array_element_shape(&self) -> Option<Vec<Expr>> { self.class.element_shape.clone() }
     fn substitutes(&self) -> bool { self.class.flags & SUBS != 0 }
     fn subs(&self, expr: &Expr, old: &Expr, new: &Expr) -> Option<Expr> {
         if self.class.flags & SUBS == 0 { return None; }
@@ -648,12 +650,15 @@ pub(crate) fn apply<'py>(py: Python<'py>, head: &UndefinedFunction, args: &Bound
 
 /// Register `cls` as a native host class with the given hook flags and,
 /// for expression classes, the first two fields of its `class_key()`.
+/// `element_shape` is the shape of the `ArraySymbol` an array-element
+/// class indexes.
 #[pyfunction]
-#[pyo3(signature = (cls, flags, class_key=None))]
-fn _host_class(cls: &Bound<'_, PyType>, flags: u32, class_key: Option<(u8, u32)>) -> PyResult<PyHostClass> {
+#[pyo3(signature = (cls, flags, class_key=None, element_shape=None))]
+fn _host_class(cls: &Bound<'_, PyType>, flags: u32, class_key: Option<(u8, u32)>, element_shape: Option<Vec<Bound<'_, PyAny>>>) -> PyResult<PyHostClass> {
     let name = cls.getattr("__name__")?.extract::<String>()?;
     let id = NEXT_CLASS.fetch_add(1, Ordering::Relaxed);
-    Ok(PyHostClass { info: Arc::new(ClassInfo { id, name, class: cls.clone().unbind(), flags, class_key }) })
+    let element_shape = element_shape.map(|shape| shape.iter().map(to_expr).collect::<PyResult<Vec<_>>>()).transpose()?;
+    Ok(PyHostClass { info: Arc::new(ClassInfo { id, name, class: cls.clone().unbind(), flags, class_key, element_shape }) })
 }
 
 /// A new instance of the host class owning the native atom `atom`.

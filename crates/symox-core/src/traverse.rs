@@ -530,6 +530,24 @@ pub(crate) fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
         (Kind::Num(x), Kind::Num(y)) => mpf_cmp(x, y).unwrap_or_else(|| x.cmp_value(y).unwrap_or_else(|| a.cmp_struct(b))),
         (Kind::Sym(x), Kind::Sym(y)) => x.cmp_basic(y),
         _ => {
+            // `MatrixElement(parent, i, j)`: the parent comes first in SymPy's
+            // arguments, before the indices that are this node's `args`.
+            if let (Kind::Func(Func::MatrixElement(p), _), Kind::Func(Func::MatrixElement(q), _)) = (a.kind(), b.kind()) {
+                let comparison = matrix_parent_cmp(p, q);
+                if comparison != std::cmp::Ordering::Equal { return comparison; }
+            }
+            // `ArrayElement(ArraySymbol(name, shape), Tuple(*indices))`:
+            // SymPy compares the parent array (name, then shape) before the
+            // `Tuple` of indices (its length, then its entries).
+            if let (Some(p), Some(q)) = (crate::sortkey::array_element_shape(a), crate::sortkey::array_element_shape(b)) {
+                let (x, y) = (a.args(), b.args());
+                let tuple = |u: &[Expr], v: &[Expr]| u.len().cmp(&v.len()).then_with(|| u.iter().zip(v)
+                    .map(|(i, j)| args_cmp(i, j)).find(|o| o.is_ne()).unwrap_or(std::cmp::Ordering::Equal));
+                let comparison = args_cmp(&x[0], &y[0])
+                    .then_with(|| tuple(&p, &q))
+                    .then_with(|| tuple(&x[1..], &y[1..]));
+                if comparison.is_ne() { return comparison; }
+            }
             let aa = ordered_args(a);
             let bb = ordered_args(b);
             aa.len().cmp(&bb.len()).then_with(|| {
@@ -540,6 +558,22 @@ pub(crate) fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
                 a.cmp_struct(b)
             })
         }
+    }
+}
+
+/// `Basic.compare` of two matrix-element parents, for the parents it
+/// orders: matrix symbols (name, then shape) and parents of different
+/// classes (no matrix class is in `ordering_of_classes`: the class names
+/// compare). Other parents of one class compare equal here (their element
+/// indices decide).
+fn matrix_parent_cmp(p: &crate::matrixexpr::MatrixExpr, q: &crate::matrixexpr::MatrixExpr) -> std::cmp::Ordering {
+    use crate::matrixexpr::MatrixKind;
+    let class = |m: &crate::matrixexpr::MatrixExpr| match m.kind() { MatrixKind::Explicit(_) => "ImmutableDenseMatrix", _ => m.kind_name() };
+    match (p.kind(), q.kind()) {
+        (MatrixKind::Symbol(x), MatrixKind::Symbol(y)) => x.cmp(y)
+            .then_with(|| args_cmp(p.rows(), q.rows()))
+            .then_with(|| args_cmp(p.cols(), q.cols())),
+        _ => class(p).cmp(class(q)),
     }
 }
 

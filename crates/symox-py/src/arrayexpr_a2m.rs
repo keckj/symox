@@ -17,7 +17,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 use symox::arrayexpr::{AErr, LeafInfo, Node};
-use symox::arrayexpr_a2m::{combine_removed, trace_normalized_arg, A2m, ArgE, Editor, Src};
+use symox::arrayexpr_a2m::{combine_removed, trace_normalized_arg, A2m, ArgE, Chain, Editor, Src};
 use symox::expr::Expr;
 use symox::matrixexpr::MatrixKind;
 
@@ -60,6 +60,12 @@ fn parse_leaves(descs: &Bound<'_, PyList>, dims_in: &Bound<'_, PyList>) -> PyRes
                 srcs.push(Src::Opaque);
                 info.push(LeafInfo { rank, shape, zero: false });
             },
+            "ncmul" => {
+                let ids: Vec<usize> = t.get_item(2)?.extract()?;
+                if ids.iter().any(|&i| i >= srcs.len()) { return Err(PyValueError::new_err("array-expression product of later leaves")); }
+                srcs.push(Src::NcMul(crate::to_expr(&t.get_item(1)?)?, ids));
+                info.push(LeafInfo { rank: 0, shape: Some(vec![]), zero: false });
+            },
             "fn" => {
                 srcs.push(Src::Fn(crate::to_expr(&t.get_item(1)?)?));
                 info.push(LeafInfo { rank: 0, shape: Some(vec![]), zero: false });
@@ -81,6 +87,10 @@ fn sync_leaves(py: Python<'_>, descs: &Bound<'_, PyList>, srcs: &[Src], out: &Bo
             Src::Matrix(m) => PyTuple::new(py, ["m".into_pyobject(py)?.into_any(), crate::matrixexpr::matrix_object(py, m)?])?,
             Src::Scalar(e) => PyTuple::new(py, ["s".into_pyobject(py)?.into_any(), crate::expr_object(py, e.clone())?.into_bound(py)])?,
             Src::One(ids) => PyTuple::new(py, ["one".into_pyobject(py)?.into_any(), PyList::new(py, ids)?.into_any()])?,
+            Src::NcMul(c, ids) => PyTuple::new(py, ["ncmul".into_pyobject(py)?.into_any(), crate::expr_object(py, c.clone())?.into_bound(py),
+                PyList::new(py, ids)?.into_any()])?,
+            // Never rebuilt: the sort-key callback declines on them.
+            s if s.is_held() => PyTuple::new(py, ["held".into_pyobject(py)?.into_any()])?,
             _ => return Err(PyValueError::new_err("array-expression leaf without a descriptor")),
         };
         out.append(d)?;
@@ -98,6 +108,9 @@ enum Out {
     Removed(Node, Vec<usize>),
     Editor(Editor, Option<Py<PyAny>>),
     EditorTree(Editor, Node),
+    /// `chain` keeping its input (`"keep"`) or asking for its
+    /// `FunctionMatrix` (`"fm"`).
+    Flag(&'static str),
 }
 
 type EdState = (Vec<Vec<Option<i64>>>, i64, Option<Vec<Vec<i64>>>);
@@ -166,6 +179,17 @@ fn run_op(py: Python<'_>, a: &mut A2m<'_>, op: &str, trees: Vec<Option<Node>>, e
         "diag2contr" => a.diag2contr_entry(first()?).map(Out::Tree),
         "split" => a.split_multiple_contractions(first()?).map(Out::Tree),
         "flatten" => a.flatten_contraction_of_diagonal(first()?).map(Out::Tree),
+        "chain" => {
+            // `extra`: (leaf id, MatrixSymbol) of the rank-two array symbols.
+            let pairs: Vec<(usize, Bound<'_, PyAny>)> = match extra { Some(e) => e.extract()?, None => vec![] };
+            let mut symbols = rustc_hash::FxHashMap::default();
+            for (i, m) in pairs { symbols.insert(i, crate::matrixexpr::to_matrixexpr(&m)?); }
+            a.chain(&first()?, &symbols).map(|c| match c {
+                Chain::Done(n) => Out::Tree(n),
+                Chain::Keep => Out::Flag("keep"),
+                Chain::FunctionMatrix => Out::Flag("fm"),
+            })
+        },
         "tp1" => {
             let ci: Vec<Vec<usize>> = extra.ok_or_else(|| PyValueError::new_err("missing contraction indices"))?.extract()?;
             let args: Option<Vec<Node>> = trees.into_iter().collect();
@@ -192,7 +216,7 @@ fn editor_out<'py>(py: Python<'py>, ed: &Editor, n_in: usize) -> PyResult<Bound<
 
 /// `op` is a pass name (`convert`, `a2m`, `rtd`, `hadamard`, `removable`,
 /// `remove_identity`, `multi_identity`, `diag2contr`, `split`, `flatten`,
-/// `tp1`, `combine_removed`) or an editor method (`ed_*`, with
+/// `tp1`, `chain`, `combine_removed`) or an editor method (`ed_*`, with
 /// `extra = (indices, n_contr, track, param)` and the element trees in
 /// `trees`). Returns `(result, leaves, dims)`; an editor method's result is
 /// `((args, n_contr, track), value)` where each arg is
@@ -225,7 +249,16 @@ fn _arrayexpr_a2m(
     let (res, srcs, dimv) = {
         let mut a = A2m::new(srcs, info, dimv, &mut order_fn);
         let nodes = nodes.into_iter().map(|n| n.map(|n| a.unify(n))).collect();
-        let r = run_op(py, &mut a, op, nodes, extra)?;
+        let mut r = run_op(py, &mut a, op, nodes, extra)?;
+        // SymPy returns an object it cannot print or evaluate further (a
+        // `MatMul` with an array coefficient); its first use raises.
+        let held = match &r {
+            Ok(Out::Tree(n)) | Ok(Out::Removed(n, _)) => a.holds_unprintable(n),
+            Ok(Out::EditorTree(ed, n)) => a.holds_unprintable(n) || ed.args.iter().flat_map(|x| &x.element).any(|n| a.holds_unprintable(n)),
+            Ok(Out::Editor(ed, _)) => ed.args.iter().flat_map(|x| &x.element).any(|n| a.holds_unprintable(n)),
+            Ok(Out::Flag(_)) | Err(_) => false,
+        };
+        if held { r = Err(AErr::NotImplemented("noncommutative scalars in MatMul are not supported.".into())); }
         (r, a.srcs, a.dims)
     };
     let out = res.map_err(|e| to_pyerr(e, failure.borrow_mut().take()))?;
@@ -239,6 +272,7 @@ fn _arrayexpr_a2m(
             PyTuple::new(py, [editor_out(py, &ed, n_orig)?, v])?.into_any()
         },
         Out::EditorTree(ed, n) => PyTuple::new(py, [editor_out(py, &ed, n_orig)?, encode(py, &n)?])?.into_any(),
+        Out::Flag(f) => f.into_pyobject(py)?.into_any(),
     };
     Ok(PyTuple::new(py, [value, pleaves.into_any(), pdims.into_any()])?.into_any().unbind())
 }
@@ -276,7 +310,34 @@ fn _arrayexpr_push_indices(py: Python<'_>, kind: &str, groups: Vec<Vec<usize>>, 
     Ok(PyTuple::new(py, out)?.into_any().unbind())
 }
 
+/// `ArrayContraction._get_contraction_tuples` (`kind` "tuples", `groups`
+/// the contraction indices) and `_contraction_tuples_to_contraction_indices`
+/// (`kind` "indices", `groups` the (argument, axis) pairs) on the subranks.
+#[pyfunction]
+fn _arrayexpr_contraction_tuples(py: Python<'_>, kind: &str, subranks: Vec<usize>, groups: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    use pyo3::IntoPyObjectExt;
+    use symox::arrayexpr_a2m::{contraction_tuples, contraction_tuples_to_indices};
+    let out = PyList::empty(py);
+    match kind {
+        "tuples" => {
+            let groups: Vec<Vec<usize>> = groups.extract()?;
+            for g in contraction_tuples(&subranks, &groups).map_err(|e| to_pyerr(e, None))? {
+                out.append(PyList::new(py, g.into_iter().map(|p| p.into_py_any(py)).collect::<PyResult<Vec<_>>>()?)?)?;
+            }
+        }
+        "indices" => {
+            let tuples: Vec<Vec<(usize, usize)>> = groups.extract()?;
+            for g in contraction_tuples_to_indices(&subranks, &tuples).map_err(|e| to_pyerr(e, None))? {
+                out.append(PyTuple::new(py, g)?)?;
+            }
+        }
+        _ => return Err(PyValueError::new_err("unknown request")),
+    }
+    Ok(out.into_any().unbind())
+}
+
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(_arrayexpr_contraction_tuples, m)?)?;
     m.add_function(wrap_pyfunction!(_arrayexpr_a2m, m)?)?;
     m.add_function(wrap_pyfunction!(_arrayexpr_push_indices, m)?)?;
     m.add_function(wrap_pyfunction!(_matrix_trace_normalize, m)?)?;

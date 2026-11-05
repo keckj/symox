@@ -59,14 +59,32 @@ mesurent 315/285/267 sur 21068f42 avec un script reconstruit).
 
 Vague 38 (calcul en Rust, Python limité à l'encodage et la reconstruction) :
 - arr2mat : `convert_array_to_matrix`, ses passes, `_EditArrayContraction`
-  et `_ArgE` natifs (`arrayexpr_a2m.rs`) ; tests SymPy des tableaux 151/201,
-  corpus 517/527 ; 86/527 cas retombent encore sur la version vendue
-  (lacune) ; `_chain_array_to_matrix` des dérivées matricielles reste en
-  Python (lacune). `Trace(MatMul)` n'est plus canonicalisé (aligné sur
-  SymPy, validé le 30 octobre).
+  et `_ArgE` natifs (`arrayexpr_a2m.rs`). `Trace(MatMul)` n'est plus
+  canonicalisé (aligné sur SymPy, validé le 30 octobre). Vague 39
+  (feat-arrexpr-20261105, en Rust) :
+  - `Mul`/`MatMul`/`Trace` à coefficient tableau natifs, ce qui fait passer
+    le repli vendu de 86/527 à 6/527 cas ; ces 6 cas sont arr15, arr34,
+    arr145, arr249, arr308 et arr336 (Hadamard, `DiagMatrix` ou transposée
+    d'un opérande tableau : lacune) ;
+  - corpus à 520/527 ;
+  - `_chain_array_to_matrix` natif (repli Python gardé) ;
+  - `_get_contraction_tuples` natif ;
+  - `MatPow` imbriqués combinés, et `A/B` ;
+  - ordre de `MatrixElement` et `ArrayElement` ;
+  - `matrix_derivative` passe d'abord par le chemin tableau natif comme
+    SymPy 1.14 (0,5 à 1,7 ms contre quelques µs avant : le rappel Python
+    `matrix_sort_key` domine, suivi de performance) ;
+    il décline quand une feuille scalaire dépend de `x` (`exp(Trace(X))`,
+    `X[0, 1]`, `DotProduct(a, a)`), où SymPy rend un zéro faux ; la chaîne
+    précédente répond alors (écart volontaire à valider) ;
+  - tests SymPy des tableaux 165/201 (159 avant).
+
+  Écart à valider : NotImplementedError levée dès la conversion, et non à
+  l'affichage, pour un `MatMul` à coefficient tableau.
 - arrindex : `array_derive`, `convert_indexed_to_array` et le plan
   d'indices de `convert_array_to_indexed` natifs (`arrayexpr_index.rs`),
-  corpus 162/168.
+  corpus 162/168, puis 167/168 en vague 39 (ordre natif d'`ArrayElement`) ;
+  reste `u_int_mul` (ordre des arguments d'`ArrayDiagonal`).
 - odepart : ensemble d'essai et résolution des coefficients indéterminés,
   variation des paramètres (`ode/undetermined.rs`, `ode/variation.rs`) ;
   correctif de parité `dotprodsimp` (gardé, validé le 30 octobre, mais
@@ -122,8 +140,14 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   (382/382). Le lanceur de suite pourrait fixer cette variable.
 - Limites : 175/1293 asserts encore différents ; 90 déclins Gruntz.
 - Matrices : perf lambdarr gamma/poly2.
-- Tableaux : 50/201 tests SymPy de tableaux, repli vendu de
-  `convert_array_to_matrix` (86/527), `_chain_array_to_matrix` en Python.
+- Tableaux : 36/201 tests SymPy de tableaux. Les causes sont :
+  - la classe ArrayComprehension, en Python ;
+  - les modèles natifs kronecker, matexpr et trace (26 tests) ;
+  - l'ordre de `Sum` ;
+  - `MatrixSymbol.args[0]` en `str`.
+
+  À cela s'ajoutent le repli vendu de `convert_array_to_matrix` (6/527) et
+  l'ordre des arguments d'`ArrayDiagonal` (arrindex u_int_mul).
 
 Procédure de validation (leçons du 30 octobre) : n'accepter que "SUITE
 CLEAN" (le compte de lots "passed" incluait des lots en échec) ; le build
