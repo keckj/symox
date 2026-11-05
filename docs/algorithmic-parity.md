@@ -15836,3 +15836,131 @@ Remaining gaps (still Python, recorded as gaps):
   it still runs in full (see prdeconst item 3).
 
 Measured: [audit](../audits/performance/2026-10-30-prdelog/README.md).
+
+## prde (towers): is_log_deriv_k_t_radical_in_field and parametric_log_deriv_heu on exp/primitive levels in Rust, 2026-11-05
+
+Above the base level (`DE.case` not `'base'`), two functions of
+`sympy/integrals/prde.py` are computed in Rust on differential towers
+`K = QQ(params)(x, t_1, ..., t_k)` whose levels are exp or primitive
+(`DE.cases` entries `'exp'`/`'primitive'`, the base level `D = 1`):
+- `is_log_deriv_k_t_radical_in_field(fa, fd, DE, case)` with `z=None` and
+  any `case` string;
+- `parametric_log_deriv_heu(fa, fd, wa, wd, DE)` with `c1=None`
+  (`parametric_log_deriv` only calls it, so it is covered).
+
+The logic is in `crates/symox-core/src/integrate/prde_tower.rs` (dense
+polynomials in the top variable over the rational function field `RF` of
+every symbol involved); the binding is `crates/symox-py/src/prde_tower.rs`
+(`_prde_kernel` kinds `is_log_deriv_tower` and `heu_tower`). Python
+(`_prde_native._tower`) only checks admission, passes the arguments, creates
+the Dummies from the native trace and raises the stock exceptions the kernel
+reports.
+
+Steps reproduced in Rust, recursively one level down where SymPy recurses:
+- `fa.cancel(fd, include=True)` and `residue_reduce` over `K(t)`: the
+  subresultant PRS of `d` and `a - z*Dd`, the square-free decomposition of
+  the resultant, `splitfactor_sqf` with `S_i = gcd(p_i, kappa(p_i))`
+  (including the constant `S_i` that keeps a non-unit content, which gives
+  SymPy's `([], False)` answers), the `H` loop (`exquo(gcd(...))`, the
+  `invert` normalization), and `b`;
+- the `real_roots` checks of each `s` (rational, ascending, multiplicities),
+  `p = f - sum(rho*Dh/h)`, the `p in k[t]` test and the degree conditions;
+- the exp branch (`parametric_log_deriv` of `p` and `Dt/t` on the level
+  below, then `t**e`), the primitive branch (recursive call), the base
+  branch (`(1, 1)` without terms), the tan / other / unknown case
+  exceptions (`NotImplementedError`, `ValueError`), the
+  `ValueError('Inexact division')` and the final `cancel(u**m*Mul(...))`;
+- `parametric_log_deriv_heu` on any level: its three branches, the linear
+  equations in `c1` and their one-unknown `solve`, `splitfactor` of the
+  lcm (`kinv = [1/T_i]`), the remainders and the final
+  `is_log_deriv_k_t_radical_in_field` call;
+- every Dummy the stock bodies create, in order (`z`, one unnamed Dummy per
+  `real_roots` call, `i`, `c1` of nested calls). The base-case kernel
+  (`prde_log.rs`) now records the same trace, so the base calls create the
+  same Dummies as the stock body (they created only `z`/`c1` before).
+
+`Poly.free_symbols` (Rust, `symox-py/src/poly.rs`) now includes the symbols
+of a typed composite domain (`Poly(z - 3/2, z, domain='QQ(x)')` gives
+`{x, z}`), as SymPy's `free_symbols_in_domain`; the stock `real_roots`
+raise "sorted roots not supported over QQ" depends on it.
+
+Admission: exact stock Poly arguments in `DE.t` over ZZ, QQ, ZZ[...],
+QQ[...], ZZ(...) or QQ(...) of plain commutative symbols; `DE.T` plain
+distinct symbols; the active `DE.D` stock Polys in their `DE.T` entry,
+`D[0] = 1`; `DE.cases` a list of strings with `cases[0] == 'base'` and
+`cases[top] == DE.case`; the captured prde protocol and `_expr_state()` of
+the earlier waves; at most 16 levels, 32 symbols, degree 64.
+
+The kernel returns None, and the stock body runs unchanged, when:
+- an explicit `case='exp'` is given on a primitive level (or `D` is not
+  `c*t` there): the stock exp branch then runs on a non-exp level;
+- the base branch is reached above the base level with residue terms: the
+  stock answer is an uncancelled `Mul` of Poly powers;
+- a step may raise in the stock body: the `exquo(gcd(..., *kkinv))` of
+  `residue_reduce` when a leading coefficient has a denominator in the
+  `1/T_i` generators (SymPy raises `PolynomialError`), a non-invertible
+  subresultant leading coefficient (`NotInvertible`), `real_roots` over
+  `QQ(...)` with a kept symbolic content and a non-integral `s`
+  (`NotImplementedError('sorted roots not supported over QQ')`), and the
+  PRS failures;
+- the inputs leave the field (zero denominators, non-integer powers, a
+  splitfactor remainder);
+- a signal interrupts the computation (the signal is then raised).
+
+Differential comparison against SymPy 1.14
+(`audits/performance/2026-11-05-prde/`):
+- 533 seeded random tower calls (429 `is_log_deriv`, 104 heu): the native
+  kernel answers 529 and declines 4 (2 explicit exp cases on a primitive
+  level, 1 stock `real_roots` raise, 1 kkinv `PolynomialError`). 1 result
+  difference and 2 Dummy-count differences, all also present in the stock
+  body (below). SymPy 43.42 s, stock 4.43 s, native 0.45 s.
+- the 142 calls recorded from the SymPy prde/Risch test copies and the 485
+  calls recorded from `risch_integrate` on the integration corpus: results
+  identical to main 2e623e66 and to the stock bodies; every tower call of
+  the two functions in the tests is native (7 + 3), the corpus reaches them
+  only at the base level.
+- SymPy test copies: test_prde.py 1 failed (test_prde_special_denom),
+  test_risch.py 5 failed (unchanged list), test_rde.py passing; 55 passed
+  in all, as before.
+- tests/test_native_prde_tower.py: 60 cases with the SymPy srepr, exception
+  and Dummy count hard-coded, plus a reachability test per case; case 44
+  (kkinv) is a strict xfail.
+
+Differences against SymPy that remain (all pre-existing, same in the stock
+body):
+- kkinv `PolynomialError`: SymPy's `residue_reduce` raises
+  `PolynomialError('... contains an element of the set of generators')` in
+  `gcd(a, s**j, *kkinv)` when `1/T_i` appears in a coefficient; the symox
+  stock gcd succeeds and the call goes on (rt 146 ends in the tan
+  `NotImplementedError`). The native kernel declines there. Fixing it means
+  reproducing a SymPy failure in the stock Python `gcd`; not done.
+- Dummy counts: the first call of some stock paths in a symox process
+  creates one extra Dummy (lazy initialisation); SymPy's `solve` creates
+  temporary `subs` Dummies in `is_constant` that symox's `solve` does not
+  (rt 427). Results are unaffected.
+- `param_rischDE`, `param_poly_rischDE`, `prde_cancel_liouvillian` on the
+  recorded calls: 272 results differ from SymPy by the ZZ/QQ ground domain
+  of returned Polys and 11 by a differently scaled basis; identical in main
+  and in the stock bodies.
+
+Remaining gaps (still Python, recorded):
+- `limited_integrate`, `limited_integrate_reduce`, `param_rischDE`,
+  `param_poly_rischDE`, `prde_cancel_liouvillian` and the rest of the
+  parametric Risch DE above the base level: the K(t) parametric Risch DE
+  (`prde_normal_denom`, `prde_special_denom` exp/primitive,
+  `prde_linear_constraints`, `constant_system` over towers, `prde_spde`,
+  the no-cancel and cancel cases) is not ported. Most of the corpus prde
+  time is there (native 42.7 s, SymPy 37.1 s).
+- `z` or `c1` given, and the declines listed above. (On tan levels SymPy
+  only raises `NotImplementedError`; the kernel reproduces it, after the
+  `residue_reduce` Dummies, on any level.)
+- splitfactor admission on QQ inputs: the Python iteration over the
+  namespaces, function states and lookups now runs in Rust
+  (`symox-py/src/risch_sf_admission.rs`, same checks and order, nothing
+  cached); `risch.splitfactor` on a QQ Poly goes from 3.9 ms to 2.8 ms
+  (SymPy 1.0 ms). The rest is the shared `_prove_fields` protocol, which
+  calls `_metadata` about 395 times per call, each rescanning
+  `_core.__dict__`; scanning once per call would change the authentication
+  contract (Python code runs between two reads) and needs user validation.
+
+Measured: [audit](../audits/performance/2026-11-05-prde/README.md).

@@ -160,6 +160,14 @@ def register_root(namespace):
     precheck=_core.__dict__.get('_risch_splitfactor_precheck')
     if (_TYPE(precheck) is not _BUILTIN or precheck.__self__ is not _core
             or precheck.__name__!='_risch_splitfactor_precheck'):precheck=None
+    # Native loops of the per-call authentication below (same checks, same
+    # order); absent or foreign, the Python loops run.
+    loops=[]
+    for name in ('_risch_splitfactor_scopes','_risch_splitfactor_states'):
+        value=_core.__dict__.get(name)
+        if (_TYPE(value) is not _BUILTIN or value.__self__ is not _core
+                or value.__name__!=name):value=None
+        loops.append(value)
     from importlib import import_module
     risch=import_module('symox.integrals.risch')
     from .. import _poly_constructor as constructor
@@ -238,7 +246,7 @@ def register_root(namespace):
     aliases=tuple((m,m.__dict__)for m in modules)
     builtin_names=_ground._ROOT[5]+('globals','bytes','int','bool','float','complex','frozenset')
     builtin_aliases=tuple((name,builtins[name])for name in builtin_names)
-    _ROOT={'reader':(_core,reader),'kernel':kernel,'precheck':precheck,'shared':_shared,
+    _ROOT={'reader':(_core,reader),'kernel':kernel,'precheck':precheck,'loops':tuple(loops),'shared':_shared,
            'shared_root':_shared._ROOT,'ground_root':_ground._ROOT,
            'prove':prove,'verify':verify,'states':tuple(states),
            'lookups':tuple(lookups),'scopes':tuple(scopes),'modules':aliases,
@@ -262,18 +270,34 @@ def reduce(p,de,one,coefficientD,z):
     precheck=root['precheck']
     if precheck is not None and (owner.__dict__.get('_risch_splitfactor_precheck') is not precheck
             or not precheck(p,one)):return None
-    for module,scope in root['modules']:
-        if _TYPE(module) is not ModuleType or module.__dict__ is not scope:return None
-    for scope in root['scopes']:
-        if not _plain(scope):return None
     builtins=root['builtins']
-    for name,value in root['builtin_aliases']:
-        if builtins.get(name) is not value:return None
+    scopes,states=root['loops']
+    if scopes is not None:
+        if (owner.__dict__.get('_risch_splitfactor_scopes') is not scopes
+                or not scopes(root['modules'],root['scopes'],builtins,root['builtin_aliases'])):return None
+    else:
+        for module,scope in root['modules']:
+            if _TYPE(module) is not ModuleType or module.__dict__ is not scope:return None
+        for scope in root['scopes']:
+            if not _plain(scope):return None
+        for name,value in root['builtin_aliases']:
+            if builtins.get(name) is not value:return None
     local_namespace=_plain.__globals__
     for name,value in root['local_aliases']:
         if local_namespace.get(name) is not value:return None
     if (_shared is not root['shared'] or _shared.__dict__.get('_ROOT') is not root['shared_root']
             or _ground.__dict__.get('_ROOT') is not root['ground_root']):return None
+    if states is not None:
+        if owner.__dict__.get('_risch_splitfactor_states') is not states:return None
+        lookups=root['lookups']
+        pending=states(root['states'],lookups,builtins,root['rational_namespace'])
+        if pending is None:return None
+        for index in pending:
+            scope,name,present,value=lookups[index]
+            if not _equivalent(scope.get(name,builtins.get(name)),value,_metadata,builtins,scope):return None
+        fields=root['prove'](p,de,_metadata,root['verify'],_lookup)
+        if fields is None:return None
+        return root['kernel'](p,fields['d'],fields['t'],fields['T'],fields['D'],fields['level'],one)
     # Authenticate the helpers before invoking them, without Python metadata reads.
     for function,code,namespace,defaults,keywords,contents,attributes in root['states']:
         values=reader(function)

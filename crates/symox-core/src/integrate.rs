@@ -30,6 +30,7 @@ pub mod prde;
 pub mod prde_limited;
 pub mod prde_const;
 pub mod prde_log;
+pub mod prde_tower;
 pub mod log_to_atan;
 pub mod log_to_atan_ex;
 pub mod log_to_real;

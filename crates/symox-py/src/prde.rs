@@ -221,6 +221,12 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
     if kind == "constant_system_field" {
         return crate::prde_const::constant_system_field(py, args, t, variables, derivations, level);
     }
+    if kind == "is_log_deriv_tower" || kind == "heu_tower" {
+        if !stock_poly_type(py) {
+            return Ok(None);
+        }
+        return crate::prde_tower::kernel(py, kind, args, t, d, variables, derivations, level);
+    }
     let Some(cx) = context(t, d, variables, derivations, level)? else { return Ok(None) };
     let arg = |i: usize| args.get_item(i);
     let result: Option<PyObject> = match (kind, args.len()) {
@@ -294,9 +300,10 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
         }
         ("is_log_deriv_in_field", 2) => {
             let (Some(fa), Some(fd)) = (cx.poly(&arg(0)?)?, cx.poly(&arg(1)?)?) else { return Ok(None) };
-            match log::is_log_deriv_k_t_radical_in_field(&fa, &fd, &cx.t) {
+            let mut trace = Vec::new();
+            match log::is_log_deriv_traced(&fa, &fd, &cx.t, &mut trace) {
                 None => None,
-                Some(answer) => Some((log_answer(py, answer)?,).into_pyobject(py)?.into_any().unbind()),
+                Some(answer) => Some((log_answer(py, answer)?, PyList::new(py, trace)?).into_pyobject(py)?.into_any().unbind()),
             }
         }
         ("parametric_log_deriv_heu", 4) => {
@@ -311,7 +318,7 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
                         None => py.None(),
                         Some((n, m, v)) => (crate::wrap(int_expr(n)), crate::wrap(int_expr(m)), crate::wrap(v)).into_pyobject(py)?.into_any().unbind(),
                     };
-                    Some((heu.reached, answer).into_pyobject(py)?.into_any().unbind())
+                    Some((answer, PyList::new(py, heu.trace)?).into_pyobject(py)?.into_any().unbind())
                 }
             }
         }
