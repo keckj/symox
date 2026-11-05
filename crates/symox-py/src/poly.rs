@@ -1656,7 +1656,17 @@ impl PyPoly {
         // SymPy: generators count only when some monomial uses them, plus
         // the symbols of a composite domain (free_symbols_in_domain).
         let used = self.p.true_gens().iter().enumerate().filter(|(i, _)| self.p.degree(*i).is_some_and(|d| d > 0)).map(|(_, g)| g);
-        for g in used.chain(self.p.domain_gens().iter()) {
+        // The symbols of a typed composite domain (`QQ(x)`, `ZZ[y]`, ...),
+        // even when no coefficient involves them.
+        let typed: Vec<Expr> = if self.p.field.is_some() || self.p.expression.as_ref().is_some_and(|e| e.ground.is_some()) {
+            match domains::PyDomain::of(&self.p).map(|d| d.inner) {
+                Ok(symox::poly::domains::ExactDomain::Functions { parameters, .. }) | Ok(symox::poly::domains::ExactDomain::Composite { parameters, .. }) => parameters,
+                _ => Vec::new(),
+            }
+        } else {
+            Vec::new()
+        };
+        for g in used.chain(self.p.domain_gens().iter()).chain(typed.iter()) {
             for s in symox::traverse::free_symbols(g) {
                 if !v.iter().any(|x| x.e == s) {
                     v.push(w(s));

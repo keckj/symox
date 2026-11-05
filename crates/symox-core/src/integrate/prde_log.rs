@@ -37,7 +37,7 @@ fn integral(c: &[Rat]) -> Vec<Int> {
 
 /// The rational roots of a squarefree `s`, ascending, when `s` splits into
 /// linear factors over QQ (`real_roots` then lists `deg(s)` rationals).
-fn rational_split(s: &[Rat]) -> Option<Vec<Rat>> {
+pub(crate) fn rational_split(s: &[Rat]) -> Option<Vec<Rat>> {
     let (_, factors) = crate::poly::factor_uni::factor_zx(&integral(s));
     let mut roots = Vec::new();
     for (f, k) in &factors {
@@ -79,14 +79,18 @@ enum Log {
 }
 
 /// Base-case `residue_reduce(fa, fd, DE, z)` (always `b == True` there):
-/// the monic `s` and the `h` of every pair of `H`. `None` when the
-/// reference raises (`NotInvertible`) or the PRS exceeds its budget.
-fn residue_reduce(fa: &P, fd: &P) -> Option<(Vec<Rat>, Vec<(Vec<Rat>, Log)>)> {
+/// the monic `s` and the `h` of every pair of `H` with a non-constant `s`,
+/// and the number of pairs of `H` (the constant `(1, h)` pair that
+/// `splitfactor_sqf` keeps for a non-unit integer content of `Poly(r, z)`
+/// when no factor has multiplicity 1). `None` when the reference raises
+/// (`NotInvertible`) or the PRS exceeds its budget.
+#[allow(clippy::type_complexity)]
+fn residue_reduce(fa: &P, fd: &P) -> Option<(Vec<Rat>, Vec<(Vec<Rat>, Log)>, usize)> {
     let (a, d) = fa.cancel(fd)?;
     let l = d.lc().inv();
     let d: Vec<Rat> = d.c.iter().map(|v| v.mul(&l)).collect();
     if a.is_zero() {
-        return Some((d, Vec::new()));
+        return Some((d, Vec::new(), 0));
     }
     let a = dense::rem(&a.c.iter().map(|v| v.mul(&l)).collect::<Vec<_>>(), &d);
     let n = d.len() as i64 - 1;
@@ -104,9 +108,23 @@ fn residue_reduce(fa: &P, fd: &P) -> Option<(Vec<Rat>, Vec<(Vec<Rat>, Log)>)> {
     let r = dense::from_mpoly(&prs.resultant, 1);
     let mut h = Vec::new();
     if r.is_empty() {
-        return Some((d, h));
+        return Some((d, h, 0));
     }
     let (_, factors) = crate::poly::sqf::sqf_list_zx(&integral(&r));
+    // `Poly(r, z).sqf_list_include()` starts with the content `(c, 1)` when
+    // no factor has multiplicity 1; over ZZ (integral coefficients) a
+    // non-unit `c` is a pair of `H` (h = d for `deg d == 1`, otherwise the
+    // degree-1 subresultant when there is one).
+    let mut extra = 0;
+    if factors.iter().all(|(f, i)| f.len() < 2 || *i != 1) && r.iter().all(|v| v.d.is_one()) {
+        let mut c = Int::zero();
+        for v in &r {
+            c = c.gcd(&v.n);
+        }
+        if !c.abs().is_one() && (n == 1 || prs.sequence.iter().any(|p| p.degree(0) == 1)) {
+            extra = 1;
+        }
+    }
     for (f, i) in factors {
         if f.len() < 2 {
             continue;
@@ -123,7 +141,8 @@ fn residue_reduce(fa: &P, fd: &P) -> Option<(Vec<Rat>, Vec<(Vec<Rat>, Log)>)> {
         }
         h.push((s, Log::Subresultant(sub.clone())));
     }
-    Some((d, h))
+    let count = h.len() + extra;
+    Some((d, h, count))
 }
 
 fn is_sqf(c: &[Rat]) -> bool {
@@ -132,6 +151,14 @@ fn is_sqf(c: &[Rat]) -> bool {
 
 /// Base-case `is_log_deriv_k_t_radical_in_field(fa, fd, DE)`: `(n, u)`.
 pub fn is_log_deriv_k_t_radical_in_field(fa: &P, fd: &P, x: &Expr) -> Option<Option<(Int, Expr)>> {
+    is_log_deriv_traced(fa, fd, x, &mut Vec::new())
+}
+
+/// [`is_log_deriv_k_t_radical_in_field`] that also records, in order, the
+/// Dummies the stock body creates: `z`, one unnamed Dummy per pair of `H`
+/// (`real_roots`) and `i` (`residue_reduce_derivation`) when every `s`
+/// splits.
+pub fn is_log_deriv_traced(fa: &P, fd: &P, x: &Expr, trace: &mut Vec<&'static str>) -> Option<Option<(Int, Expr)>> {
     if fd.is_zero() {
         return None;
     }
@@ -139,9 +166,12 @@ pub fn is_log_deriv_k_t_radical_in_field(fa: &P, fd: &P, x: &Expr) -> Option<Opt
     if fd.deg() == 0 {
         // residue_reduce has nothing to do; `p` is the constant `f` and the
         // base branch keeps only `f == 0` (the empty product).
+        trace.extend(["z", "i"]);
         return Some(if fa.is_zero() { Some((Int::one(), Expr::one())) } else { None });
     }
-    let (_, pairs) = residue_reduce(&fa, &fd)?;
+    let (_, pairs, count) = residue_reduce(&fa, &fd)?;
+    trace.push("z");
+    trace.extend(std::iter::repeat_n("", count));
     let mut roots = Vec::with_capacity(pairs.len());
     for (s, _) in &pairs {
         match rational_split(s) {
@@ -149,6 +179,7 @@ pub fn is_log_deriv_k_t_radical_in_field(fa: &P, fd: &P, x: &Expr) -> Option<Opt
             None => return Some(None),
         }
     }
+    trace.push("i");
     // The `p in k` check and the base-case conditions: `p` is a constant
     // only if every residue is covered, and the answer needs `fd`
     // squarefree with `deg(fa) < deg(fd)`.
@@ -217,13 +248,17 @@ fn lcm_number(a: &Rat, b: &Rat) -> Rat {
 pub struct Heu {
     pub reached: bool,
     pub answer: Option<(Int, Int, Expr)>,
+    /// The Dummies created by the stock body, in order (`c1`, then those of
+    /// `is_log_deriv_k_t_radical_in_field`).
+    pub trace: Vec<&'static str>,
 }
 
 fn finish(c: Rat, fa: &P, fd: &P, wa: &P, wd: &P, x: &Expr) -> Option<Heu> {
     let (m, n) = (Rat::from(c.n.clone()), Rat::from(c.d.clone()));
     let nfmwa = P::inferred(vec![n]).mul(fa).mul(wd).sub(&P::inferred(vec![m]).mul(wa).mul(fd));
     let nfmwd = fd.mul(wd);
-    let answer = match is_log_deriv_k_t_radical_in_field(&nfmwa, &nfmwd, x)? {
+    let mut trace = vec!["c1"];
+    let answer = match is_log_deriv_traced(&nfmwa, &nfmwd, x, &mut trace)? {
         None => None,
         Some((q, v)) => {
             // `Q.is_zero or v.is_zero`: Q >= 1; v is a product of powers.
@@ -234,12 +269,12 @@ fn finish(c: Rat, fa: &P, fd: &P, wa: &P, wd: &P, x: &Expr) -> Option<Heu> {
             }
         }
     };
-    Some(Heu { reached: true, answer })
+    Some(Heu { reached: true, answer, trace })
 }
 
 /// Base-case `parametric_log_deriv_heu(fa, fd, wa, wd, DE)` (`B = 0`).
 pub fn parametric_log_deriv_heu(fa: &P, fd: &P, wa: &P, wd: &P, x: &Expr) -> Option<Heu> {
-    let none = Some(Heu { reached: false, answer: None });
+    let none = Some(Heu { reached: false, answer: None, trace: vec!["c1"] });
     let (p, _) = fa.div(fd)?;
     let (q, _) = wa.div(wd)?;
     if q.deg() > 0 {

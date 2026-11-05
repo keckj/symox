@@ -37,6 +37,8 @@ mod arrayexpr_index;
 mod prde_frac;
 mod prde_const;
 mod prde_deriv;
+mod prde_tower;
+mod risch_sf_admission;
 mod piecewise_fold;
 mod derivative_orders;
 
@@ -4703,6 +4705,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     arrayexpr_canon::register(m)?;
     arrayexpr_index::register(m)?;
     prde_frac::register(m)?;
+    risch_sf_admission::register(m)?;
     piecewise_fold::register(m)?;
     derivative_orders::register(m)?;
     solve::register(m)?;

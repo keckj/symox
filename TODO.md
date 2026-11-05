@@ -106,6 +106,15 @@ Vague 38 (calcul en Rust, Python limité à l'encodage et la reconstruction) :
   radicaux ; `integrate(1/(x**3+x+1))` et `1/(x**3+2*x-1)` identiques à
   SymPy. Tout en Rust (aiguillage Python seulement).
 
+Branche `feat-prde-20261105` (non fusionnée) : `is_log_deriv_k_t_radical_in_field`
+et `parametric_log_deriv_heu` (donc `parametric_log_deriv`) sur les tours
+exp/primitive calculés en Rust (`integrate/prde_tower.rs`) : 533 appels
+aléatoires, 529 natifs, 4 déclins, aucun écart propre au natif ; appels des
+tests SymPy et du corpus identiques à main. Trace des Dummies du noyau de
+base, `Poly.free_symbols` des domaines composites et boucles d'admission de
+splitfactor (`risch_sf_admission.rs`) en Rust. `limited_integrate` et l'EDR
+de Risch paramétrique au-dessus du niveau de base restent en Python (lacune).
+
 Écarts volontaires en attente de validation utilisateur : Markov spec7 1/6,
 conditionnement multi-temps markovrust (22/28 cas où SymPy se trompe) et
 recherche de période ; radicalrust réseaux/ConditionSet ; holonomic y0 ;
@@ -123,8 +132,12 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
   d'erreur du casus irreducibilis ; factorable, 2F1, Bessel, nth_algebraic,
   lie_group.
-- prde : is_log_deriv_k_t_radical_in_field hors cas de base, parametric_log_deriv,
-  limited_integrate ; surcoût d'admission de splitfactor.
+- prde : `limited_integrate`, `param_rischDE`, `prde_cancel_liouvillian` et
+  le reste de l'EDR de Risch paramétrique sur K(t) au-dessus du niveau de
+  base ; erreur kkinv `PolynomialError` de SymPy non reproduite ; surcoût
+  restant de l'admission splitfactor sur QQ (2,8 ms contre 1,0 ms SymPy :
+  `_metadata` relit `_core.__dict__` environ 395 fois par appel, changement
+  du contrat d'authentification à valider).
 - ratint/exroots (ratintex) : restent ratint_logpart sur `QQ<a>[p]`
   paramétrique et divisions non rétractables de `QQ<a>(t)` (repli de
   référence, erreur), `EX(a)` Python qui simplifie son élément, binômes à

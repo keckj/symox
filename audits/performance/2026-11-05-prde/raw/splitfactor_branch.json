@@ -1,0 +1,14 @@
+{
+ "QQ 2t+1": [
+  2836.6,
+  "(Poly(2*t1 + 1, t1, domain='QQ'), Poly(1, t1, domain='QQ'))"
+ ],
+ "QQ t^2-3t/2": [
+  5851.6,
+  "(Poly(t1 - 3/2, t1, domain='QQ'), Poly(t1, t1, domain='QQ'))"
+ ],
+ "ZZ(x) t+x": [
+  338.6,
+  "(Poly(t1 + x, t1, domain='ZZ(x)'), Poly(1, t1, domain='ZZ(x)'))"
+ ]
+}

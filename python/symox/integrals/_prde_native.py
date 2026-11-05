@@ -24,11 +24,16 @@ _ROOT = None
 # Number of calls answered by the native kernels (per entry point).
 STATS = {'constant_system_field': 0, 'derivation': 0, 'is_deriv_k': 0,
          'is_log_deriv_k_t_radical_in_field': 0, 'parametric_log_deriv_heu': 0,
-         'limited_integrate': 0}
+         'limited_integrate': 0, 'is_log_deriv_k_t_radical_in_field_tower': 0,
+         'parametric_log_deriv_heu_tower': 0}
 _POLY = _core.Poly
 _EXPR = _core.Expr
 _AS_POLY = None
 _DERIV_K = None
+# The ``DifferentialExtension.cases`` slot descriptor (tower kernels).
+_CASES = None
+_NOT_IMPLEMENTED = NotImplementedError
+_VALUE_ERROR = ValueError
 
 
 def _state(f):
@@ -133,6 +138,10 @@ def register_root(namespace):
     _DERIV_K = (_public_core.__dict__.get('_evaluation'), _compat.__dict__.get('_accum_fold'),
                 prde.__dict__.get('Dummy'), ext_slots, symox.__dict__, symox.__dict__.get('cancel'),
                 prde.__dict__.get('cancel'), folding, _compat.__dict__)
+    global _CASES
+    cases = cls.__dict__.get('cases')
+    if _TYPE(cases).__name__ == 'member_descriptor':
+        _CASES = cases
 
 
 def _stock_fold(fold, folding):
@@ -509,17 +518,83 @@ def _log_fields(fa, fd, DE):
     return fields
 
 
+def _create(trace):
+    """Create the Dummies of the stock body, in its order."""
+    dummy = _DERIV_K[2]
+    for name in trace:
+        if name:
+            dummy(name)
+        else:
+            dummy()
+
+
+def _tower(kind, args, DE, stat):
+    """Tower kernels (exp/primitive levels above the base): ``None`` (stock
+    body) or ``(answer,)``. The stock exceptions of the tan, other and
+    unknown cases are raised here after the Dummies created before them;
+    ``STATS[stat]`` counts every native answer, raised ones included."""
+    root = _ROOT
+    if root is None or _CASES is None or _TYPE(DE) is not root[1]:
+        return None
+    cls, slots = root[1], root[2]
+    try:
+        case, t, d, T, D, level = [slot.__get__(DE, cls) for _, slot in slots]
+        cases = _CASES.__get__(DE, cls)
+    except AttributeError:
+        return None
+    if (_TYPE(T) is not _LIST or _TYPE(D) is not _LIST or _TYPE(level) is not _INT
+            or _TYPE(cases) is not _LIST or _TYPE(case) is not _STR
+            or _LEN(cases) != _LEN(T) or _LEN(D) != _LEN(T)):
+        return None
+    active = _LEN(T) + level + 1
+    if active < 2 or active > _LEN(T):
+        return None
+    top = cases[active - 1]
+    if _TYPE(top) is not _STR or top != case:
+        return None
+    if not _expr_state() or _verified() is None:
+        return None
+    r = root[0](kind, args + (_LIST(cases),), t, d, T, D, level)
+    if r is None:
+        return None
+    status, payload, trace = r
+    _create(trace)
+    STATS[stat] += 1
+    if status == 1:
+        raise _NOT_IMPLEMENTED(payload)
+    if status == 2:
+        raise _VALUE_ERROR(payload)
+    return (payload,)
+
+
 def is_log_deriv_k_t_radical_in_field(fa, fd, DE, case, z):
-    """Base-case ``is_log_deriv_k_t_radical_in_field(fa, fd, DE, case, z)``
-    for ``z=None`` and ``case`` 'auto' or 'base'. The kernel reproduces
+    """``is_log_deriv_k_t_radical_in_field(fa, fd, DE, case, z)`` for
+    ``z=None``. Base case (``case`` 'auto' or 'base'): the kernel reproduces
     ``cancel``, ``residue_reduce`` (subresultant PRS, square-free resultant,
     the ``invert`` normalization), the rational root check, ``p in k`` and
-    the base branch. The Dummy ``z`` is created as the stock body does.
+    the base branch. Exp/primitive towers (any ``case`` string): the same
+    steps over the rational function field of the tower, the exp branch
+    (``parametric_log_deriv`` one level down), the primitive branch
+    (recursive call), the base branch, the stock exceptions and the final
+    ``cancel``. The Dummies (``z``, one per ``real_roots`` call, ``i``,
+    ``c1`` of nested calls) are created as the stock body does.
 
     Returns ``None`` (stock body) or ``(answer,)`` with ``answer`` the stock
     result (``None`` or ``(n, u)``).
     """
-    if z is not None or _TYPE(case) is not _STR or case not in ('auto', 'base'):
+    if z is not None or _TYPE(case) is not _STR or _TYPE(fa) is not _POLY or _TYPE(fd) is not _POLY:
+        return None
+    root = _ROOT
+    if root is None or _TYPE(DE) is not root[1]:
+        return None
+    try:
+        current = root[2][0][1].__get__(DE, root[1])
+    except AttributeError:
+        return None
+    if _TYPE(current) is _STR and current != 'base':
+        return _tower('is_log_deriv_tower', (fa, fd, case), DE,
+                      'is_log_deriv_k_t_radical_in_field_tower')
+    if case not in ('auto', 'base'):
         return None
     fields = _log_fields(fa, fd, DE)
     if fields is None:
@@ -527,31 +602,42 @@ def is_log_deriv_k_t_radical_in_field(fa, fd, DE, case, z):
     r = _call('is_log_deriv_in_field', (fa, fd), fields)
     if r is None:
         return None
-    _DERIV_K[2]('z')
+    answer, trace = r
+    _create(trace)
     STATS['is_log_deriv_k_t_radical_in_field'] += 1
-    return r
+    return (answer,)
 
 
 def parametric_log_deriv_heu(fa, fd, wa, wd, DE, c1):
-    """Base-case ``parametric_log_deriv_heu(fa, fd, wa, wd, DE, c1=None)``
+    """``parametric_log_deriv_heu(fa, fd, wa, wd, DE, c1=None)``. Base case
     (``B = 0``): the linear equations in ``c1``, ``solve`` for one unknown
-    and the base-case ``is_log_deriv_k_t_radical_in_field``. The Dummies
-    ``c1`` and (when that call is reached) ``z`` are created as the stock
-    body does. Returns ``None`` (stock body) or ``(answer,)``.
+    and the base-case ``is_log_deriv_k_t_radical_in_field``. Exp/primitive
+    towers: the same steps over the rational function field of the tower
+    (``splitfactor`` included). The Dummies (``c1``, then those of
+    ``is_log_deriv_k_t_radical_in_field``) are created as the stock body
+    does. Returns ``None`` (stock body) or ``(answer,)``.
     """
-    if c1 is not None or _TYPE(wa) is not _POLY or _TYPE(wd) is not _POLY:
+    if (c1 is not None or _TYPE(fa) is not _POLY or _TYPE(fd) is not _POLY
+            or _TYPE(wa) is not _POLY or _TYPE(wd) is not _POLY):
         return None
+    root = _ROOT
+    if root is None or _TYPE(DE) is not root[1]:
+        return None
+    try:
+        current = root[2][0][1].__get__(DE, root[1])
+    except AttributeError:
+        return None
+    if _TYPE(current) is _STR and current != 'base':
+        return _tower('heu_tower', (fa, fd, wa, wd), DE,
+                      'parametric_log_deriv_heu_tower')
     fields = _log_fields(fa, fd, DE)
     if fields is None:
         return None
     r = _call('parametric_log_deriv_heu', (fa, fd, wa, wd), fields)
     if r is None:
         return None
-    reached, answer = r
-    dummy = _DERIV_K[2]
-    dummy('c1')
-    if reached:
-        dummy('z')
+    answer, trace = r
+    _create(trace)
     STATS['parametric_log_deriv_heu'] += 1
     return (answer,)
 
