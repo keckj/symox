@@ -147,6 +147,8 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
         Kind::Func(Func::Min, _) => (5, 0, Cow::Borrowed("Min")),
         Kind::Func(f @ (Func::SymbolicDerivative | Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..)), _) => (5, 0, Cow::Owned(f.name().into())),
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, Cow::Borrowed("ComplexRootOf")),
+        // RootSum is an Expr subclass, not a Function: Basic.class_key.
+        Kind::Func(Func::Undefined(_), _) if crate::printer::root_sum_parts(e).is_some() => (5, 0, Cow::Borrowed("RootSum")),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, Cow::Owned(head.name.to_string())),
         Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {
             let (a, b) = head.host().and_then(|host| host.class_key()).unwrap();
@@ -349,6 +351,11 @@ impl KeyCache {
             Kind::Mul(..) => {
                 let f = self.ordered_factors(&expr);
                 KArgs::List(f.iter().map(|a| self.key(a)).collect())
+            }
+            // RootSum.args is the reference `(expr, fun, poly.gen)`.
+            Kind::Func(Func::Undefined(_), _) if crate::printer::root_sum_parts(&expr).is_some() => {
+                let (gen, poly, fun) = crate::printer::root_sum_parts(&expr).unwrap();
+                KArgs::List([poly, fun, gen].iter().map(|a| self.key(a)).collect())
             }
             _ => KArgs::List(expr.args().iter().map(|a| self.key(a)).collect()),
         };

@@ -295,6 +295,8 @@ pub fn class_key(e: &Expr) -> Key {
         // Max and Min are not Function subclasses: Basic.class_key.
         Kind::Func(f @ (Func::SymbolicDerivative | Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::Max | Func::Min), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, "ComplexRootOf".into()),
+        // RootSum is an Expr subclass, not a Function: Basic.class_key.
+        Kind::Func(Func::Undefined(_), _) if crate::printer::root_sum_parts(e).is_some() => (5, 0, "RootSum".into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         // An Expr or Atom subclass that is not a Function keeps its class_key.
         Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {
@@ -481,6 +483,11 @@ impl SortKeyCache {
             Kind::Add(..) if !base.is_canonical() => self.held_ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
             Kind::Add(..) => crate::printing::order::ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
             Kind::Mul(..) => self.ordered_factors(&base).iter().map(|arg| self.key(arg)).collect(),
+            // RootSum.args is the reference `(expr, fun, poly.gen)`.
+            Kind::Func(Func::Undefined(_), _) if crate::printer::root_sum_parts(&base).is_some() => {
+                let (gen, poly, fun) = crate::printer::root_sum_parts(&base).unwrap();
+                [poly, fun, gen].iter().map(|arg| self.key(arg)).collect()
+            }
             _ => base.args().iter().map(|arg| self.key(arg)).collect(),
         }
     };

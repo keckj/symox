@@ -7,7 +7,7 @@
 use rustc_hash::FxHashMap;
 
 use crate::complex_parts::{as_real_imag, PartsError};
-use crate::expr::{Constant, Expr, Kind};
+use crate::expr::{Constant, Expr, Func, Kind};
 use crate::ops::{add, div, mul, mul2, pow, sqrt, sub};
 
 type Parts = (Expr, Expr);
@@ -64,10 +64,50 @@ impl Splitter {
                     None
                 }
             }
+            Kind::Func(f @ (Func::Cos | Func::Sin), args) if args.len() == 1 => {
+                match half_arctangent(*f == Func::Cos, &args[0]) {
+                    Some(value) => Some((value, Expr::zero())),
+                    None => as_real_imag(coefficient, true, None)?,
+                }
+            }
             _ => as_real_imag(coefficient, true, None)?,
         };
         self.memo.insert(coefficient.dag_id(), (coefficient.clone(), result.clone()));
         Ok(result)
+    }
+}
+
+/// `cos(atan(a)/2)` or `sin(atan(a)/2)` for a closed real number `a` of
+/// decided sign, as radicals: `atan(a)/2` lies in `(-pi/4, pi/4)`, so with
+/// `c = cos(atan(a)) = 1/sqrt(1 + a**2)` the cosine is `sqrt((1 + c)/2)` and
+/// the sine `sign(a)*sqrt((1 - c)/2)`. These are the polar forms that
+/// `roots_binomial` (`alpha.expand(complex=True)`) gives for the square roots
+/// of a complex number; heurisch needs their algebraic components, as for the
+/// principal square roots above.
+fn half_arctangent(cosine: bool, argument: &Expr) -> Option<Expr> {
+    let doubled = mul2(&Expr::int(2), argument);
+    let Kind::Func(Func::Atan, inner) = doubled.kind() else { return None };
+    let a = inner.first()?;
+    if inner.len() != 1
+        || !crate::symbolic_number::is_symbolic_number(a)
+        || !crate::traverse::free_symbols(a).is_empty()
+        || a.float_info().max_precision.is_some()
+        || crate::assumptions::is_real(a) != Some(true)
+    {
+        return None;
+    }
+    let sign = if crate::assumptions::is_positive(a) == Some(true) {
+        Expr::one()
+    } else if crate::assumptions::is_negative(a) == Some(true) {
+        Expr::int(-1)
+    } else {
+        return None;
+    };
+    let c = pow(&crate::expand::expand(&add(&[Expr::one(), pow(a, &Expr::int(2))])), &Expr::rational(-1, 2));
+    if cosine {
+        Some(sqrt(&div(&add(&[Expr::one(), c]), &Expr::int(2))))
+    } else {
+        Some(mul2(&sign, &sqrt(&div(&sub(&Expr::one(), &c), &Expr::int(2)))))
     }
 }
 
@@ -129,6 +169,9 @@ mod tests {
             ("z + sqrt(1/2 - sqrt(3)*I/2)", "z + sqrt(3)/2 - I/2"),
             ("z + sqrt(-3 + 4*I)", "z + 1 + 2*I"),
             ("z + sqrt(-3 - 4*I)", "z + 1 - 2*I"),
+            ("z - cos(atan(4*sqrt(2)/7)/2) - I*sin(atan(4*sqrt(2)/7)/2)", "z - 2*sqrt(2)/3 - I/3"),
+            ("z + cos(atan(4*sqrt(2)/7)/2) - I*sin(atan(4*sqrt(2)/7)/2)", "z + 2*sqrt(2)/3 - I/3"),
+            ("z + cos(atan(-3/4)/2) + I*sin(atan(-3/4)/2)", "z + 3*sqrt(10)/10 - sqrt(10)*I/10"),
         ] {
             assert_eq!(numeric_coefficients(&p(source), std::slice::from_ref(&z)).unwrap(), p(expected));
         }

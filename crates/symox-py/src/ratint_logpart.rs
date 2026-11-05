@@ -18,7 +18,10 @@ use pyo3::prelude::*;
 use pyo3::basic::CompareOp;
 use pyo3::types::{PyDict, PyTuple};
 
-use super::PyPoly;
+use super::{w, PyPoly};
+use symox::integrate::ratint_algebraic::{self, ExtensionRingPoly};
+use symox::poly::algebraic::AlgebraicPoly;
+use symox::poly::expression_domain::ExpressionPoly;
 
 type Pairs = Vec<(PyObject, PyObject)>;
 
@@ -81,6 +84,9 @@ pub(crate) fn logpart(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, x: &Bound<'_, 
     let new = |p: PyPoly| Bound::new(py, p).map(|b| b.into_any());
     // f, g = Poly(f, x), Poly(g, x)
     let (Some(f), Some(g)) = (construct(f, &in_x)?, construct(g, &in_x)?) else { return Ok(None) };
+    if let Some((fa, ga)) = extension_pair(&f, &g) {
+        return extension_logpart(py, &g, &fa, &ga, x, t);
+    }
     let g_object = new(g.clone())?;
     py.check_signals()?;
     // a, b = g, f - g.diff()*Poly(t, x)
@@ -164,6 +170,156 @@ pub(crate) fn logpart(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, x: &Bound<'_, 
         }
         // Poly(dict(...), x): the stock constructor's term path (its
         // coefficient sympification is the identity on these expressions).
+        let h = from_terms.call1((data, &in_x, py.None(), py.None(), py.None()))?;
+        if !h.is_exact_instance_of::<PyPoly>() { return Ok(None); }
+        pairs.push((h.unbind(), q_object.unbind()));
+    }
+    py.check_signals()?;
+    Ok(Some(pairs))
+}
+
+/// A polynomial over `ZZ` or `QQ` without coefficient generators.
+fn plain_rational(p: &PyPoly) -> bool {
+    p.p.algebraic.is_none() && p.p.field.is_none() && p.p.expression.is_none()
+        && p.p.base.modulus.is_none() && !p.p.base.has_domain_gens()
+        && matches!(p.p.base.domain, symox::poly::polyobj::Domain::ZZ | symox::poly::polyobj::Domain::QQ)
+}
+
+/// `f, g` over one algebraic field `QQ<a>` (not the Gaussian domains), or
+/// one of them over `ZZ`/`QQ`, which the reference unifies into `QQ<a>`.
+fn extension_pair(f: &PyPoly, g: &PyPoly) -> Option<(AlgebraicPoly, AlgebraicPoly)> {
+    let genuine = |p: &PyPoly| p.p.algebraic.as_ref().filter(|a| a.gaussian.is_none() && a.gens.len() == 1).cloned();
+    let (fa, ga) = (genuine(f), genuine(g));
+    let lift = |p: &PyPoly, other: &AlgebraicPoly| -> Option<AlgebraicPoly> {
+        if !plain_rational(p) { return None; }
+        other.convert(&p.p.as_expr()).ok().filter(|a| a.gens == other.gens)
+    };
+    let (fa, ga) = match (fa, ga) {
+        (Some(fa), Some(ga)) => (fa, ga),
+        (Some(fa), None) => { let ga = lift(g, &fa)?; (fa, ga) }
+        (None, Some(ga)) => { let fa = lift(f, &ga)?; (fa, ga) }
+        (None, None) => return None,
+    };
+    (fa.gens == ga.gens && fa.number_field.same_embedding(&ga.number_field)).then_some((fa, ga))
+}
+
+/// A subresultant over `QQ<a>[t]`, until a division by an `EX` divisor
+/// moves it to `EX` (the reference unification of `QQ<a>[t]` with `EX`).
+enum Member {
+    Ring(ExtensionRingPoly),
+    Stock(PyPoly),
+}
+
+/// The reference body when the coefficients lie in `QQ<a>`: `b`, the
+/// resultant and the subresultants over `QQ<a>[t]` are computed natively
+/// (the stock Poly arithmetic has no `QQ<a>[t]` composite); every later
+/// step is the generic one on stock polynomials.
+fn extension_logpart(py: Python<'_>, g: &PyPoly, fa: &AlgebraicPoly, ga: &AlgebraicPoly,
+    x: &Bound<'_, PyAny>, t: &Bound<'_, PyAny>) -> PyResult<Option<Pairs>>
+{
+    let in_x = PyTuple::new(py, [x])?;
+    let in_t = PyTuple::new(py, [t])?;
+    let new = |p: PyPoly| Bound::new(py, p).map(|b| b.into_any());
+    let (xe, te) = (crate::to_expr(x)?, crate::to_expr(t)?);
+    if ga.gens.first() != Some(&xe) { return Ok(None); }
+    let Ok((res, sequence)) = ratint_algebraic::logpart_prs(fa, ga, &te) else { return Ok(None) };
+    py.check_signals()?;
+    // res = Poly(res, t, composite=False)
+    let res_object = w(res).into_pyobject(py)?.into_any();
+    let Some(res) = construct(&res_object, &in_t)? else { return Ok(None) };
+    let ground = Bound::new(py, res.clone())?.getattr("domain")?;
+    let composite = ground.getattr("is_PolynomialRing").map_or(Ok(false), |v| v.is_truthy())?
+        || ground.getattr("is_FractionField").map_or(Ok(false), |v| v.is_truthy())?;
+    let res = if composite {
+        res.set_domain(&pyo3::types::PyString::new(py, "EX").into_any())?
+    } else { res };
+    if !res.__bool__() { return Ok(None); }
+    let mut map: Vec<(u32, ExtensionRingPoly)> = Vec::new();
+    for r in sequence {
+        let Some(degree) = r.degree() else { continue };
+        match map.iter_mut().find(|(d, _)| *d == degree) {
+            Some(slot) => slot.1 = r,
+            None => map.push((degree, r)),
+        }
+    }
+    let Some((c, mut res_sqf)) = listed(res.sqf_list(py, false)?)? else { return Ok(None) };
+    if include_sign(&c, &mut res_sqf)?.is_none() { return Ok(None); }
+    let Some(g_degree) = int(g.degree(py, None)?.bind(py)) else { return Ok(None) };
+    let g_object = new(g.clone())?;
+    let one = py.import("symox.core.singleton")?.getattr("S")?.getattr("One")?;
+    let from_terms = py.import("symox._poly_constructor")?.getattr("_from_terms")?;
+    let mut pairs = Vec::new();
+    for (q, i) in res_sqf {
+        py.check_signals()?;
+        let primitive = q.primitive(py)?;
+        if primitive.len() != 2 { return Ok(None); }
+        let Ok(q) = primitive.get_item(1)?.downcast::<PyPoly>().map(|p| p.get().clone()) else { return Ok(None) };
+        let Some(i) = int(&i) else { return Ok(None) };
+        let q_object = new(q.clone())?;
+        if g_degree == i {
+            pairs.push((g_object.clone().unbind(), q_object.unbind()));
+            continue;
+        }
+        let Some((_, ring)) = map.iter().find(|(d, _)| i64::from(*d) == i) else { return Ok(None) };
+        // h_lc = Poly(h.LC(), t, field=True)
+        let lc = w(ring.lc_expr()).into_pyobject(py)?.into_any();
+        let mut h = Member::Ring(ring.clone());
+        let Some(h_lc) = construct(&lc, &in_t)? else { return Ok(None) };
+        let h_lc = h_lc.to_field()?;
+        let Some((c, mut h_lc_sqf)) = listed(h_lc.sqf_list(py, true)?)? else { return Ok(None) };
+        if include_sign(&c, &mut h_lc_sqf)?.is_none() { return Ok(None); }
+        for (a, j) in h_lc_sqf {
+            py.check_signals()?;
+            let Some(j) = int(&j).and_then(|j| u32::try_from(j).ok()) else { return Ok(None) };
+            let power = new(a.gcd(&q_object)?.__pow__(j, None)?)?;
+            let Some(divisor) = construct(&power, &in_x)? else { return Ok(None) };
+            h = match h {
+                Member::Stock(p) => Member::Stock(p.quo(&new(divisor)?, true)?),
+                Member::Ring(r) if divisor.p.expression.is_some() => {
+                    // unify(QQ<a>[t], EX) = EX, each coefficient being
+                    // EX(QQ<a>[t].to_sympy(c)).
+                    let terms = r.terms().into_iter().map(|(k, c)| (vec![k], c)).collect();
+                    let Ok(p) = ExpressionPoly::from_terms(terms, std::slice::from_ref(&xe)) else { return Ok(None) };
+                    Member::Stock(PyPoly { p: p.into() }.quo(&new(divisor)?, true)?)
+                }
+                Member::Ring(r) => {
+                    // unify(QQ<a>[t], ZZ, QQ, ZZ[t] or QQ[t]) = QQ<a>[t]; the
+                    // quotient over QQ<a>(t) must retract to the ring.
+                    if divisor.p.algebraic.is_some() || divisor.p.field.is_some() || divisor.p.expression.is_some()
+                        || divisor.p.base.modulus.is_some() || divisor.p.base.domain.is_rr() { return Ok(None); }
+                    let Some(r) = r.quo_by_t_polynomial(&divisor.p.as_expr(), &xe) else { return Ok(None) };
+                    Member::Ring(r)
+                }
+            };
+        }
+        let inv = h_lc.invert(&q_object, true)?;
+        let inv_gens = inv.gens(py)?;
+        let inv_object = new(inv)?;
+        let terms: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = match &h {
+            Member::Ring(r) => {
+                let terms = r.terms();
+                let terms = if terms.is_empty() { vec![(0, symox::Expr::zero())] } else { terms };
+                terms.into_iter()
+                    .map(|(k, c)| Ok((PyTuple::new(py, [k])?.into_any(), w(c).into_pyobject(py)?.into_any())))
+                    .collect::<PyResult<_>>()?
+            }
+            Member::Stock(p) => p.terms(py)?.into_iter()
+                .map(|term| Ok((term.get_item(0)?, term.get_item(1)?)))
+                .collect::<PyResult<_>>()?,
+        };
+        let mut coeffs = vec![one.clone()];
+        for (_, coeff) in terms.iter().skip(1) {
+            py.check_signals()?;
+            let Some(coeff) = construct(coeff, &inv_gens)? else { return Ok(None) };
+            let product = inv_object.mul(new(coeff)?)?;
+            let Ok(product) = product.downcast::<PyPoly>().map(|p| p.get().clone()) else { return Ok(None) };
+            coeffs.push(product.rem(&q_object, true)?.as_expr().into_pyobject(py)?.into_any());
+        }
+        let data = PyDict::new(py);
+        for ((monom, _), coeff) in terms.iter().zip(coeffs) {
+            data.set_item(monom, coeff)?;
+        }
+        // Poly(dict(...), x)
         let h = from_terms.call1((data, &in_x, py.None(), py.None(), py.None()))?;
         if !h.is_exact_instance_of::<PyPoly>() { return Ok(None); }
         pairs.push((h.unbind(), q_object.unbind()));

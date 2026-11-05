@@ -80,10 +80,9 @@ def test_nonpreconditions_keep_full_existing_result_or_error(f,g,monkeypatch):
     assert run()==actual
 
 
-@pytest.mark.parametrize('domain',['EX','RR','QQ<sqrt(2)>','GF(5)'])
+@pytest.mark.parametrize('domain',['EX','RR','GF(5)'])
 def test_other_domains_retain_complete_algorithm(domain,monkeypatch):
-    if domain=='QQ<sqrt(2)>':a,b=sx.Poly(1,x,extension=sx.sqrt(2)),sx.Poly(x*x+1,x,extension=sx.sqrt(2))
-    elif domain=='GF(5)':a,b=sx.Poly(1,x,modulus=5),sx.Poly(x*x+1,x,modulus=5)
+    if domain=='GF(5)':a,b=sx.Poly(1,x,modulus=5),sx.Poly(x*x+1,x,modulus=5)
     else:a,b=pairs(1,xp*xp+xp+1,domain)
     # EX is computed by the native orchestration (test_native_ratintgen.py);
     # the public result below must still equal the reference body.
@@ -93,6 +92,23 @@ def test_other_domains_retain_complete_algorithm(domain,monkeypatch):
         except Exception as error:return ('error',type(error),str(error))
     actual=run();monkeypatch.setattr(sx._core,'_ratint_logpart',lambda *args:None)
     assert run()==actual
+
+
+@pytest.mark.parametrize('f,g,extension',[
+    (1,xp*xp+1,sp.sqrt(2)),(1,xp*xp+sp.sqrt(2),sp.sqrt(2)),(1,(xp-sp.sqrt(2))*(xp+1),sp.sqrt(2)),
+    (xp,xp**3+sp.sqrt(2),sp.sqrt(2)),(1,xp**3-sp.sqrt(2)*xp+1,sp.sqrt(2)),
+    (xp+sp.sqrt(2),xp**4+sp.sqrt(2)*xp**2+1,sp.sqrt(2)),(1,xp*xp-sp.sqrt(3)*xp+1,sp.sqrt(3))])
+def test_algebraic_field_pairs_are_the_reference_ones(f,g,extension,monkeypatch):
+    # The reference unifies QQ<a> with ZZ[t] into QQ<a>[t]; the subresultants
+    # are computed natively over that ring, the pairs come out over EX.
+    K=sp.QQ.algebraic_field(extension)
+    Kx=sx.QQ.algebraic_field(sx.sympify(str(extension)))
+    expected=reference.ratint_logpart(sp.Poly(f,xp,domain=K),sp.Poly(g,xp,domain=K),xp,tp)
+    a=sx.Poly(sx.sympify(str(f),locals={'x':x}),x,domain=Kx)
+    b=sx.Poly(sx.sympify(str(g),locals={'x':x}),x,domain=Kx)
+    native=sx._core._ratint_logpart(a,b,x,t)
+    assert native is not None
+    assert payload(native)==payload(expected)==payload(rt.ratint_logpart(a,b,x,t))
 
 
 def test_t_alias_false_and_custom_parameters_keep_existing_normalization(monkeypatch):

@@ -86,9 +86,14 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   seconde branche de la règle puissance-de-E ; unités.
 - prde : is_log_deriv_k_t_radical_in_field, parametric_log_deriv,
   limited_integrate ; surcoût d'admission de splitfactor.
-- ratint : forme log_to_atan sur EX, RootSum real=False, TypeError
-  QQ<sqrt(2)> ; exroots : ordre des étapes d'expand, formes cubiques,
-  roots cas 20.
+- ratint/exroots (ratintex, 30 octobre) : TypeError QQ<sqrt(2)> corrigé
+  pour un seul corps (corps différents et domaines paramétriques encore en
+  TypeError) ; log_to_atan sur EX en Rust (choix du quotient le plus court porté en Rust) ; ordre
+  d'impression RootSum corrigé (constructeur RootSum encore en Python) ;
+  roots cas 20 corrigé. Restent : formes cubiques (simplify natif dans
+  roots_quadratic sur EX), binômes à radicaux imbriqués (hypothèses
+  is_extended_real/is_positive, écart en attente de validation), ordre des
+  étapes d'expand.
 - Limites : exp(E), séries frac, factorial/x en -oo, loggamma, formes
   Order ; déclins Gruntz.
 - Matrices : déterminant Bareiss Float ; perf lambdarr gamma/poly2.

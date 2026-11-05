@@ -1,0 +1,53 @@
+test_polyroots.py:100: AssertionError
+E         (pytest_assertion plugin: representation of details failed: /home/keckj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/pprint.py:579: TypeError: cannot determine truth value of Relational: sqrt(2)*sqrt(-1/2 + sqrt(5)/2)/2 - sqrt(2)*I*sqrt(-1/2 + sqrt(5)/2)/2 < -sqrt(2)*sqrt(-1/2 + sqrt(5)/2)/2 + sqrt(2)*I*sqrt(-1/2 + sqrt(5)/2)/2.
+test_polyroots.py:119: AssertionError
+>   def f(*a, **k): raise NotImplementedError(name + ' not provided by symox')
+E   NotImplementedError: roots_cubic not provided by symox
+test_polyroots.py:4: NotImplementedError
+>   def f(*a, **k): raise NotImplementedError(name + ' not provided by symox')
+E   NotImplementedError: roots_quartic not provided by symox
+test_polyroots.py:4: NotImplementedError
+>   def f(*a, **k): raise NotImplementedError(name + ' not provided by symox')
+E   NotImplementedError: roots_cubic not provided by symox
+test_polyroots.py:4: NotImplementedError
+>   def f(*a, **k): raise NotImplementedError(name + ' not provided by symox')
+E   NotImplementedError: roots_quartic not provided by symox
+test_polyroots.py:4: NotImplementedError
+>   def f(*a, **k): raise NotImplementedError(name + ' not provided by symox')
+E   NotImplementedError: roots_quartic not provided by symox
+test_polyroots.py:4: NotImplementedError
+>   def f(*a, **k): raise NotImplementedError(name + ' not provided by symox')
+E   NotImplementedError: roots_quintic not provided by symox
+test_polyroots.py:4: NotImplementedError
+>   def f(*a, **k): raise NotImplementedError(name + ' not provided by symox')
+E   NotImplementedError: roots_cyclotomic not provided by symox
+test_polyroots.py:4: NotImplementedError
+>   def f(*a, **k): raise NotImplementedError(name + ' not provided by symox')
+E   NotImplementedError: _nsort not provided by symox
+test_polyroots.py:4: NotImplementedError
+E       AssertionError: assert (1, Poly(-y**... domain='EX')) == (x, Poly(-y**...'ZZ[exp(x)]'))
+test_polyroots.py:430: AssertionError
+E       AssertionError: assert {4*sqrt(2)/(3...)**(1/3)/3: 1} == {-1 + sqrt(2)... - sqrt(2): 1}
+E         (pytest_assertion plugin: representation of details failed: /home/keckj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/pprint.py:579: TypeError: cannot determine truth value of Relational: 4*sqrt(2)/(3*(7 + 5*sqrt(2))) + 2/(7 + 5*sqrt(2)) - (-1/2 + sqrt(3)*I/2)*(-9*(-sqrt(2)/(7 + 5*sqrt(2)) - 1/(7 + 5*sqrt(2)))*(-6/(7 + 5*sqrt(2)) - 4*sqrt(2)/(7 + 5*sqrt(2)))/2 + (-6/(7 + 5*sqrt(2)) - 4*sqrt(2)/(7 + 5*sqrt(2)))**3 + 27/(7 + 5*sqrt(2)) + sqrt(-4*(3/(7 + 5*sqrt(2)) + 3*sqrt(2)/(7 + 5*sqrt(2)) + (-6/(7 + 5*sqrt(2)) - 4*sqrt(2...
+test_polyroots.py:588: AssertionError
+test_polyroots.py:668: AssertionError
+>       raises(PolynomialError, lambda: roots(eq))
+error = DID NOT RAISE PolynomialError
+E         (pytest_assertion plugin: representation of details failed: /home/keckj/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/pprint.py:579: TypeError: cannot determine truth value of Relational: (-a**4 - 5*a**3 - 10*a**2 - 10*a - 5 - 1/a)**(1/3) < -(-a**4 - 5*a**3 - 10*a**2 - 10*a - 5 - 1/a)**(1/3)/2 + sqrt(3)*I*(-a**4 - 5*a**3 - 10*a**2 - 10*a - 5 - 1/a)**(1/3)/2.
+test_polyroots.py:784: AssertionError
+FAILED test_polyroots.py::test_roots_quadratic - assert [-y**2/2 + (y... (y**...
+FAILED test_polyroots.py::test_issue_7724 - assert {-sqrt(2)*sqr...rt(5)/2)/2...
+FAILED test_polyroots.py::test_issue_8438 - NotImplementedError: roots_cubic ...
+FAILED test_polyroots.py::test_issue_15076 - NotImplementedError: roots_quart...
+FAILED test_polyroots.py::test_roots_cubic - NotImplementedError: roots_cubic...
+FAILED test_polyroots.py::test_roots_quartic - NotImplementedError: roots_qua...
+FAILED test_polyroots.py::test_issue_21287 - NotImplementedError: roots_quart...
+FAILED test_polyroots.py::test_roots_quintic - NotImplementedError: roots_qui...
+FAILED test_polyroots.py::test_roots_cyclotomic - NotImplementedError: roots_...
+FAILED test_polyroots.py::test_roots_binomial - NotImplementedError: _nsort n...
+FAILED test_polyroots.py::test_roots_preprocessing - AssertionError: assert (...
+FAILED test_polyroots.py::test_roots0 - AssertionError: assert {4*sqrt(2)/(3....
+FAILED test_polyroots.py::test_roots_preprocessed - assert 0 == 8
+FAILED test_polyroots.py::test_issue_19113 - Failed: DID NOT RAISE
+FAILED test_polyroots.py::test_issue_22768 - assert {(-a**4 - 5*a...)**(1/3)/...
+15 failed, 17 passed in 2.55s

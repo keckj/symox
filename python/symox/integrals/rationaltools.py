@@ -906,6 +906,9 @@ def log_to_atan(f, g):
         native = _rational_core._log_to_atan(f, g)
         if native is not None:
             return native
+        native = _rational_core._log_to_atan_ex(f, g)
+        if native is not None:
+            return native
 
     if f.degree() < g.degree():
         f, g = -g, f
@@ -914,22 +917,15 @@ def log_to_atan(f, g):
     g = g.to_field()
 
     if g.degree() == 0 and f.domain.is_EX:
-        # Division by a nonzero constant is exact. SymPy's EX elements are
-        # canonicalised by cancel, so its f.div(g) leaves a zero remainder;
-        # symox's EX arithmetic does not always recognise (a/c)*c - a as 0
-        # for nested radicals. The native quotient is that of the reference
-        # (the EX field quotient of each coefficient by the constant, the
-        # remainder pass skipped). The native EX simplify does not reach
-        # SymPy's normal form of the Cardano radicals, so the shorter of that
-        # quotient and the plain coefficient quotient is kept.
+        # The reference remainder is zero (EX elements are canonicalised by
+        # cancel); the native EX normal form does not always reduce
+        # (a/c)*c - a to zero on nested radicals, so the reference quotient
+        # is taken coefficient by coefficient.
         c = g.LC()
-        p = Poly([coeff/c for coeff in f.all_coeffs()], *f.gens, domain=f.domain)
-        plain = 2*atan(p.as_expr())
         if len(f.gens) == 1:
-            native = _rational_core._log_to_atan_ex_constant(f.all_coeffs(), c, f.gen)
-            if len(str(native)) < len(str(plain)):
-                return native
-        return plain
+            return _rational_core._log_to_atan_ex_constant(f.all_coeffs(), c, f.gen)
+        p = Poly([coeff/c for coeff in f.all_coeffs()], *f.gens, domain=f.domain)
+        return 2*atan(p.as_expr())
 
     p, q = f.div(g)
 

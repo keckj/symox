@@ -1,0 +1,36 @@
+logpart QQ<s2> 1/(x**2+s2) | TypeError: incompatible coefficient fields; construct a supported joint extension explicitly | None
+logpart QQ<s2> 1/((x-s2)(x+1)) | TypeError: incompatible coefficient fields; construct a supported joint extension explicitly | None
+logpart QQ<s2> x/(x**3+s2) | TypeError: incompatible coefficient fields; construct a supported joint extension explicitly | None
+logpart QQ<s2> 1/(x**3-s2*x+1) | TypeError: incompatible coefficient fields; construct a supported joint extension explicitly | None
+logpart QQ<s2> (x+s2)/(x**4+s2*x**2+1) | TypeError: incompatible coefficient fields; construct a supported joint extension explicitly | None
+logpart QQ<s3> 1/(x**2-s3*x+1) | TypeError: incompatible coefficient fields; construct a supported joint extension explicitly | None
+logpart QQ<s2> extension=True | TypeError: incompatible coefficient fields; construct a supported joint extension explicitly | None
+ratint tuple QQ<s2> | 29 chars | 0.008646054076962173
+log_to_atan QQ/EX doctest | 33 chars | 0.0004135699709877372
+log_to_atan EX non-constant | 9 chars | 0.0002926979213953018
+log_to_atan EX deg2/deg1 | 223 chars | 0.005607809056527913
+integrate 1/(x**4+2) | 160 chars | 0.01237674301955849
+integrate 1/(x**2+sqrt(2)) | 29 chars | 0.00019517098553478718
+integrate 1/(x**3+sqrt(2)) | 136 chars | 0.01157735800370574
+integrate 1/(x**2+p) | 23 chars | 0.007486573071219027
+integrate 1/(x**5+1) | 493 chars | 0.03606306295841932
+integrate x/(x**5+1) | 689 chars | 0.04530988493934274
+integrate 1/(x**3-2) | 136 chars | 0.008692150935530663
+integrate 1/(x**3+x+1) | 9569 chars | 0.36296627204865217
+integrate 1/(x**3+2*x-1) | 9948 chars | 0.32792503002565354
+integrate 1/((x**2+1)*(x**3+2)) | 9057 chars | 0.2916185159701854
+ratint real=False x/(x**3-a*x+1) | 140 chars | 0.04076628899201751
+ratint real=False 1/(x**4+x+a) | 173 chars | 0.041360658942721784
+ratint real=False 1/(x**5+1) | 97 chars | 0.0017040889943018556
+ratint real=False 1/(x**2+2) | 64 chars | 0.0015658230986446142
+roots x**8-2*x**4+x**2-3 | 4418 chars | 0.021889042924158275
+roots (x**4-2*x**2-3)**2 | 38 chars | 0.0001611310290172696
+roots case 20 (x**2+1) composition | 5022 chars | 0.022831469075754285
+roots x**4+2*x**2+3 | 102 chars | 0.00015168008394539356
+roots x**6+x**2+1 | 671 chars | 0.0010777589632198215
+roots x**4+x**2+1 | 90 chars | 0.0002931209746748209
+roots x**4-x**2+3 | 118 chars | 0.00016119994688779116
+roots x**8+x**4+3 | 284 chars | 0.0004381278995424509
+roots x**4+a*x**2+1 | 138 chars | 0.0004526160191744566
+roots x**6-3*x**3+1 | 342 chars | 0.0004054510500282049
+EXIT=0
