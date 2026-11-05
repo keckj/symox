@@ -277,7 +277,8 @@ def test_array_expression_converter_modules():
     from symox.tensor.array.expressions.from_array_to_matrix import convert_array_to_matrix
     from symox.tensor.array.expressions.from_indexed_to_array import convert_indexed_to_array
     from symox.tensor.array.expressions.from_matrix_to_array import convert_matrix_to_array
-    assert c2 is convert_array_to_matrix
+    # SymPy 1.14: the conv_ name is the from_ function behind a deprecation warning.
+    assert c2 is not convert_array_to_matrix and c2.__wrapped__ is convert_array_to_matrix
     assert callable(convert_array_to_indexed) and callable(convert_indexed_to_array)
     M = ArraySymbol('M', (1, 2, 3, 4, 5))
     expr = PermuteDims(M, index_order_old='ijklm', index_order_new='kijml')

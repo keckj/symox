@@ -342,6 +342,12 @@ class ArrayContraction(_AxisOperation):
         return _doit(self,hints.get('deep',True))
     @property
     def contraction_indices(self):return self.groups
+    def _get_contraction_tuples(self):
+        # (argument, axis) of each contracted axis, computed in Rust
+        return _core._arrayexpr_contraction_tuples('tuples',_subranks(self),[list(g) for g in self.groups])
+    @staticmethod
+    def _contraction_tuples_to_contraction_indices(expr,contraction_tuples):
+        return _core._arrayexpr_contraction_tuples('indices',list(expr.subranks),[[tuple(p) for p in g] for g in contraction_tuples])
     @staticmethod
     def _push_indices_down(contraction_indices,indices):return _push_indices('c_down',contraction_indices,indices)
     @staticmethod
@@ -522,7 +528,20 @@ def _matrix_chains(expr):
 def _chain_array_to_matrix(expr):
     """Matrix form of an array expression for the matrix-derivative chains
     (not SymPy's ``convert_array_to_matrix``, ported in
-    ``from_array_to_matrix``)."""
+    ``from_array_to_matrix``).
+
+    Computed natively (``A2m::chain`` in
+    ``crates/symox-core/src/arrayexpr_a2m.rs``); the Python form below runs
+    only on the inputs the native port declines (a ``FunctionMatrix`` operand
+    below the top level, an object kind the codec does not encode)."""
+    from . import _a2m
+    try:
+        return _a2m.chain(expr)
+    except (_a2m._Decline, _a2m.Unsupported):
+        return _chain_array_to_matrix_py(expr)
+
+
+def _chain_array_to_matrix_py(expr):
     if isinstance(expr,(ArrayContraction,ArrayTensorProduct)):
         chained=_matrix_chains(expr)
         if chained is not None:return chained

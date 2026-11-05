@@ -277,3 +277,95 @@ def test_trace_of_matmul_keeps_sympy_order():
     # MatMul._eval_trace: no cyclic rotation of the factors.
     assert str(S.Trace(N * M) * P) == 'Trace(N*M)*P'
     assert str(ca(cm(S.Trace(N * M) * P))) == 'Trace(M*N)*P'
+
+
+@pytest.mark.parametrize('inp', [
+    'ArrayContraction(ArrayTensorProduct(A, M), (0, 3), (1, 2))',
+    'ArrayContraction(ArrayTensorProduct(A, M), (0, 2), (1, 3))',
+    'ArrayContraction(ArrayTensorProduct(A, I, M, u), (0, 3), (1, 2), (4, 5))',
+    'ArrayContraction(ArrayTensorProduct(A, M, c, b), (0, 3), (1, 2), (4, 7))',
+])
+def test_matmul_with_an_array_symbol_raises_as_sympy(inp, no_stock):
+    # SymPy builds MatMul(A, M) with the ArraySymbol as a noncommutative
+    # scalar; as_coeff_matrices (from Trace._normalize or MatMul.doit)
+    # raises. symox holds that MatMul natively and raises at conversion.
+    e = eval(inp, dict(NS))
+    with pytest.raises(NotImplementedError, match='noncommutative scalars in MatMul are not supported.'):
+        ca(e)
+
+
+def test_chain_array_to_matrix_is_native(monkeypatch):
+    # The matrix derivatives' conversion (crates/symox-core/src/arrayexpr_a2m.rs, `chain`).
+    # The expected values are those of the Python form it replaces.
+    from symox.tensor.array import expressions as E
+    inputs = [cm(M * N), con(tp(M, N, P), (0, 2), (1, 5)), tp(a, b), cm(x * M * N.T + P)]
+    expected = [E._chain_array_to_matrix_py(e) for e in inputs]
+    monkeypatch.setattr(E, '_chain_array_to_matrix_py', lambda *a: (_ for _ in ()).throw(AssertionError('python chain')))
+    assert [E._chain_array_to_matrix(e) for e in inputs] == expected
+    assert [str(e) for e in expected] == ['M*N', 'N.T*M*P.T', 'ArrayTensorProduct(a, b)', 'x*M*N.T + P']
+
+
+def test_contraction_tuples_match_sympy():
+    A3, B3 = S.MatrixSymbol('A', 3, 3), S.MatrixSymbol('B', 3, 3)
+    cg = con(tp(A3, B3), (1, 2))
+    assert cg._get_contraction_tuples() == [[(0, 1), (1, 0)]]
+    assert cg._contraction_tuples_to_contraction_indices(cg.expr, [[(0, 1), (1, 0)]]) == [(1, 2)]
+    cg = con(tp(A3, A3, B3), (1, 4), (2, 5))
+    # The canonical product sorts its arguments: ArrayTensorProduct(B, A, A).
+    assert cg._get_contraction_tuples() == [[(0, 0), (1, 1)], [(0, 1), (2, 0)]]
+    assert cg._contraction_tuples_to_contraction_indices(cg.expr, cg._get_contraction_tuples()) == [(0, 3), (1, 4)]
+
+
+@pytest.mark.parametrize('expr,expected', [
+    # MatPow.doit combines nested powers whatever the exponents.
+    (lambda: (M**2)**-1, 'M**(-2)'),
+    (lambda: S.Inverse(M**2).doit(), 'M**(-2)'),
+    (lambda: (M**S.Rational(1, 2))**-1, 'M**(-1/2)'),
+    (lambda: (M**x)**3, 'M**(3*x)'),
+    (lambda: S.Inverse(M)**x, 'M**(-x)'),
+    (lambda: (M**-1)**-1, 'M'),
+    (lambda: S.Inverse(M**2), '(M**2)**(-1)'),
+    # MatrixExpr.__truediv__: self * other**-1.
+    (lambda: b/(2*S.sqrt(a.T*b)), '(1/2)*b*(a.T*b)**(-1/2)'),
+    (lambda: M/M, 'I'),
+    (lambda: M/(2*M), '(1/2)*I'),
+    (lambda: M/M**2, 'M**(-1)'),
+])
+def test_matrix_powers_and_division_match_sympy(expr, expected):
+    assert str(expr()) == expected
+
+
+def test_array_element_order_matches_sympy():
+    # SymPy sorts ArrayElement(ArraySymbol(name, shape), Tuple(*indices)) as
+    # an Expr of class key (5, 0): the array name decides before the number
+    # of indices, and functions (class key 4) come first. Expected strings
+    # are SymPy 1.14's.
+    from symox import Function, MatrixSymbol, exp, sin, symbols
+    from symox.tensor.array.expressions import ArraySymbol
+    k, x, y, z = symbols('k x y z')
+    f = Function('f')
+    B, C, A = ArraySymbol('B', (k, k)), ArraySymbol('C', (k,)), ArraySymbol('A', (k, k, k))
+    # (Indexed is a symbol in symox, so B[0, 1]*IB[1] is not compared here.)
+    M = MatrixSymbol('M', k, k)
+    b01, b10, c2, c1 = B[0, 1]._symox_(), B[1, 0]._symox_(), C[2]._symox_(), C[1]._symox_()
+    cases = [
+        (b01*c2, 'B[0, 1]*C[2]'), (c2*b01*x, 'x*B[0, 1]*C[2]'), (b01*f(x), 'f(x)*B[0, 1]'),
+        (b01*sin(x)*y, 'y*sin(x)*B[0, 1]'), (b01**2*c2, 'B[0, 1]**2*C[2]'), (b01*M[0, 1], 'B[0, 1]*M[0, 1]'),
+        (A[0, 0, 1]._symox_()*c1*b10, 'A[0, 0, 1]*B[1, 0]*C[1]'),
+        (b10*b01, 'B[0, 1]*B[1, 0]'), (b01 + c2 + x + f(x), 'x + f(x) + B[0, 1] + C[2]'),
+        (3*b01*c2, '3*B[0, 1]*C[2]'), (b01*exp(x), 'exp(x)*B[0, 1]'), (c2*b01*z, 'z*B[0, 1]*C[2]'),
+    ]
+    assert [str(e) for e, _ in cases] == [s for _, s in cases]
+
+
+def test_matrix_derivative_declines_scalar_leaves_depending_on_x():
+    # SymPy 1.14's array_derive maps a scalar Expr leaf to ZeroArray; the
+    # native array path declines there and the previous chain differentiates.
+    import symox as sx
+    X = sx.MatrixSymbol('X', 2, 2)
+    a = sx.MatrixSymbol('a', 1, 2)
+    t = X[0, 0] + X[1, 1]
+    assert sx.exp(sx.Trace(X)).diff(X) == sx.Array([[sx.exp(t), 0], [0, sx.exp(t)]])
+    assert X[0, 1].diff(X) == sx.Array([[0, 1], [0, 0]])
+    assert sx.DotProduct(a, a).diff(a) == sx.Array([[2*a[0, 0], 2*a[0, 1]]])
+    assert (X*X.T).diff(X) != sx.ZeroMatrix(2, 2)

@@ -1,0 +1,21 @@
+arr_test_array_comprehension.py | 2 failed in 0.24s
+arr_test_array_derivatives.py | 1 passed in 0.22s
+arr_test_arrayop.py | 9 passed in 0.38s
+arr_test_immutable_ndim_array.py | 1 failed, 18 passed in 0.34s
+arr_test_mutable_ndim_array.py | 15 passed in 0.32s
+arr_test_ndim_array_conversions.py | 1 passed in 0.21s
+arr_test_ndim_array.py | 5 passed in 0.24s
+expr_test_arrayexpr_derivatives.py | 1 passed in 0.22s
+expr_test_array_expressions.py | 25 passed in 0.64s
+expr_test_as_explicit.py | 2 passed in 0.31s
+expr_test_convert_array_to_indexed.py | 1 passed in 0.23s
+expr_test_convert_array_to_matrix.py | 16 passed in 0.41s
+expr_test_convert_indexed_to_array.py | 6 passed in 0.28s
+expr_test_convert_matrix_to_array.py | 1 passed in 0.23s
+expr_test_deprecated_conv_modules.py | 1 passed in 0.23s
+mat_test_applyfunc.py | 1 failed, 4 passed in 0.23s
+mat_test_derivatives.py | 3 failed, 9 passed in 0.52s
+mat_test_hadamard.py | 1 failed, 8 passed in 0.23s
+mat_test_kronecker.py | 7 failed, 11 passed in 0.27s
+mat_test_matexpr.py | 15 failed, 25 passed, 2 xfailed in 0.92s
+mat_test_trace.py | 4 failed, 6 passed in 0.27s

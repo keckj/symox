@@ -275,6 +275,15 @@ pub(crate) fn undefined_ordinal(head: &crate::expr::UndefinedFunction) -> u32 {
     }
 }
 
+/// The shape of the `ArraySymbol` whose element `e` is (a host array-element
+/// application with at least the array name as argument).
+pub(crate) fn array_element_shape(e: &Expr) -> Option<Vec<Expr>> {
+    match e.kind() {
+        Kind::Func(Func::Undefined(head), args) if !args.is_empty() => head.host()?.array_element_shape(),
+        _ => None,
+    }
+}
+
 pub fn class_key(e: &Expr) -> Key {
     if let Kind::Func(Func::MatrixProxy(matrix),_)=e.kind(){return matrix_class_key(matrix);}
     let (a, b, n): (i64, i64, String) = match e.kind() {
@@ -438,6 +447,14 @@ impl SortKeyCache {
             keys.extend(args.iter().map(|arg| self.key(arg)));
             return composite_key((5, 0, "MatrixElement"), keys);
         }
+        // SymPy's ArrayElement(ArraySymbol(name, Tuple(*shape)), Tuple(*indices)).
+        Kind::Func(Func::Undefined(_), args) if array_element_shape(e).is_some() => {
+            let shape = array_element_shape(e).unwrap();
+            let shape = composite_key((5, 0, "Tuple"), shape.iter().map(|s| self.key(s)).collect());
+            let parent = composite_key((5, 0, "ArraySymbol"), vec![self.key(&args[0]), shape]);
+            let indices = composite_key((5, 0, "Tuple"), args[1..].iter().map(|a| self.key(a)).collect());
+            return composite_key((5, 0, "ArrayElement"), vec![parent, indices]);
+        }
         Kind::Func(f @ (Func::MatrixTrace(matrix) | Func::MatrixDeterminant(matrix)), _) => {
             return composite_key((5, 0, f.name()), vec![self.matrix_key(matrix)]);
         }
@@ -456,7 +473,7 @@ impl SortKeyCache {
         },
         _ => (rest.clone(), Expr::one()),
     };
-    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::SymbolicDerivative,_) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
+    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::SymbolicDerivative,_) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) || array_element_shape(&base).is_some() {
         let mut parts = match self.key(&base) {
             Key::Tup(parts) => parts,
             Key::Shared(parts) => parts.to_vec(),

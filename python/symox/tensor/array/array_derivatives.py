@@ -21,9 +21,28 @@ class ArrayDerivative:
     _symox_held_matrix_derivative = True
     __slots__ = ('_expr', '_variable_count')
 
-    def __init__(self, expr, *variables):
+    def __new__(cls, expr, *variables, evaluate=False):
+        # Derivative.__new__: held by default; ``evaluate=True`` is the
+        # held object's ``doit(deep=False)`` (Derivative.doit rebuilds
+        # with evaluate=True).
+        obj = object.__new__(cls)
+        if not evaluate:
+            return obj
+        obj.__init__(expr, *variables)
+        return obj.doit(deep=False)
+
+    def __init__(self, expr, *variables, evaluate=False):
         from ... import _core
+        try:
+            self._expr
+            return  # the held result of ``evaluate=True``, already built
+        except AttributeError:
+            pass
         S = _symox()
+        # Derivative sympifies its arguments: explicit matrices become
+        # immutable.
+        if _is_explicit(expr) and hasattr(expr, 'as_immutable'):
+            expr = expr.as_immutable()
         counts = []
         for v in variables:
             if isinstance(v, tuple) or (hasattr(v, 'is_Tuple') and getattr(v, 'is_Tuple', False)):
@@ -34,6 +53,8 @@ class ArrayDerivative:
                     count = S.sympify(count)
             else:
                 var, count = v, S.Integer(1)
+            if _is_explicit(var) and hasattr(var, 'as_immutable'):
+                var = var.as_immutable()
             if counts and counts[-1][0] == var:
                 counts[-1] = (var, counts[-1][1] + count)
             else:
@@ -42,7 +63,7 @@ class ArrayDerivative:
         Tuple, native = S.Tuple, _core.Expr
         self._variable_count = tuple(
             Tuple._from_native(_core._apply("Tuple", v, c))
-            if isinstance(v, native) and isinstance(c, native) else Tuple(v, c)
+            if isinstance(v, native) and isinstance(c, native) else _pair(Tuple, v, c)
             for v, c in counts)
 
     @property
@@ -72,7 +93,9 @@ class ArrayDerivative:
         for v, c in self._variable_count:
             if hasattr(v, 'shape'):
                 shape += tuple(v.shape) * int(c)
-        return shape + tuple(self._expr.shape)
+        if hasattr(self._expr, 'shape'):
+            shape += tuple(self._expr.shape)
+        return shape
 
     @property
     def free_symbols(self):
@@ -93,7 +116,13 @@ class ArrayDerivative:
             return _evaluate(expr, self._variable_count, type(self))
         result = expr
         for v, c in self._variable_count:
-            result = result.diff((v, c))
+            if _is_explicit(v):
+                # _dispatch_eval_derivative_n_times: one derivative by an
+                # explicit matrix or array per order.
+                for _ in range(int(c)):
+                    result = result.diff(v)
+            else:
+                result = result.diff((v, c))
         return result
 
     def diff(self, *variables, **options):
@@ -211,6 +240,15 @@ class Derivative(ArrayDerivative):
     def srepr(self):
         S = _symox()
         return 'Derivative(%s)' % ', '.join(S.srepr(arg) for arg in self.args)
+
+
+def _pair(Tuple, v, c):
+    """``Tuple(v, c)``, or a plain pair when ``v`` (an explicit matrix) is
+    not a Tuple element here."""
+    try:
+        return Tuple(v, c)
+    except TypeError:
+        return (v, c)
 
 
 def held_matrix_derivative(expr, variables, cls=ArrayDerivative, contained=False):
