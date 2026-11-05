@@ -11,6 +11,8 @@
   `raw/sympy2.jsonl`, `raw/after2.jsonl`: final pass (38 cases, the three
   two-field logpart cases added), table in `raw/compare2.md`.
   `raw/merged.jsonl`: the WIP tree after the merge of main (2e623e66).
+  `raw/after3.jsonl`: the final build (53-bit refinement of print-order
+  near ties only), same 35/38.
 - SymPy 1.14 in `~/symox-ci/venv`; symox: release build of this branch.
   Other agents' builds were running, so timings are noisy (+-10%).
 - `raw/sympy_tests/`: SymPy's test_rationaltools.py (12/12) and
@@ -37,5 +39,6 @@ complete (checked to 1e-20 in tests/test_native_ratintex.py).
 Times (ms, best of three; symox / SymPy): `integrate 1/(x**3+x+1)`
 336 / 2190, `1/(x**3+2*x-1)` 312 / 2123, two-field logparts 1.7-8.5 /
 46-105. Printing the 16653-character primitive: 0.022 s (SymPy 0.85 s);
-the correctly rounded factor values of the print order are memoized, an
-unmemoized first version took 0.16 s.
+only near ties of the print order are recomputed at 53 bits (evaluating
+every factor at 53 bits took 0.16 s unmemoized, and memoized it pushed the
+tests/extra shard past its 6 GiB cgroup).

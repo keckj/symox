@@ -15887,9 +15887,12 @@ Native now (Rust, `crates/symox-core`, bindings in `crates/symox-py`):
   order (the multiplication order sets the last bit), and terms with equal
   keys keep the canonical `Add.make_args` order (Python's stable sort)
   instead of the storage order. Each numeric factor is `complex(factor)`,
-  the 53-bit evalf (`sortkey::numeric_coefficient` now calls `eval_mp`
-  first, as `Expr.__complex__` does), not the double evaluator, which can be
-  one unit off for `31**(2/3)` and made two terms of the cubic primitive tie.
+  the 53-bit evalf of `Expr.__complex__`; the double evaluator used for the
+  key can be one unit off (`31**(2/3)`) and made two terms of the cubic
+  primitive tie, so terms whose keys agree to 1e-12 (same monomial) are
+  recomputed with the 53-bit `eval_mp`
+  (`sortkey::correctly_rounded_coefficient`) before the sort. Evaluating
+  every factor at 53 bits cost 4% more memory on the tests/extra shard.
 - Together: `integrate(1/(x**3 + x + 1))` and `integrate(1/(x**3 + 2*x - 1))`
   print SymPy's primitives (16653 and 17352 characters; before 9569 and
   9948, a different exact form).
@@ -15945,6 +15948,16 @@ Remaining gaps:
 - `EX(a)` / `EX.from_sympy(a)` from Python simplify their element in symox
   (SymPy keeps it as given). A gap of the Python domain binding; the native
   EX paths above do not go through it.
+- evalf noise: SymPy's evalf keeps the imaginary rounding noise of a real
+  value computed through complex arithmetic
+  (`(1/sqrt(2/(3*c) + 2*c)).evalf()` is `0.687629194402954 - 0.e-28*I` for
+  `c = (1/16 + sqrt(687)*I/144)**(1/3)`); symox's evalf, `complex()` and
+  `eval_mp` return an exact real. The sign of that noise orders printed
+  terms (`roots(x**4 + x + 1)`). The print-order key uses the double
+  evaluator, which keeps such noise, and the 53-bit refinement of near ties
+  keeps the double evaluator's imaginary noise when `eval_mp` gives zero: a
+  proxy that matches the audited cases, not the reference noise. Not fixed
+  in evalf.
 - `nested_binomial` (intentional deviation, en attente de validation
   utilisateur): a lifted binomial `x**2 - r` free of `I` whose base has no
   decided sign and contains a radical other than a square root keeps the
