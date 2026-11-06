@@ -81,6 +81,29 @@ Conflits de fusion limités au texte (`TODO.md`,
 correctif d'intégration nécessaire. Le corpus d'intégration n'a pas été
 rejoué depuis la vague 37.
 
+Vague 42 (en cours ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes) :
+- ode3 (`feat-ode3-20261106`) : solveurs EDO `nth_algebraic`,
+  `factorable` et `2nd_linear_bessel` natifs, classification et
+  construction de la solution (`crates/symox-core/src/ode/algebraic.rs`,
+  `ode/bessel.rs`, liaisons `ode_nth_algebraic`, `ode_factorable_match`,
+  `ode_factorable_solutions`, `ode_bessel_match`, `ode_bessel_solution`
+  dans `crates/symox-py/src/ode_classify.rs`). Les appels publics
+  (`solve`, `dsolve`, `simplify`, `factor`, `cancel`, `expand`,
+  `Expr.match`) sont des rappels de l'hôte ; un résultat non modélisé
+  décline vers le corps de référence. Exemples SymPy de `test_single.py`
+  pour ces trois indices : 23/23, 20/20, 12/12 avant et après ; sur les
+  315 exemples de `test_single.py`, 791 décisions natives, aucun
+  déclin. `test_single.py`/`test_ode.py` copiés : 53 réussis, 20 échecs,
+  identiques avant et après. Corpus EDO 315/289/270 avant et après. `lie_group` reste en
+  Python (non porté dans ce lot). Validation du lot : suite complète
+  **60 425 réussis, 0 échec** ("SUITE CLEAN", 8 xfail, 45 sautés,
+  60 478 collectés, 691 fichiers ; +73 tests et 1 fichier :
+  `tests/test_native_ode3.py` ; un premier passage avait échoué sur le
+  délai de 5 s d'un sous-processus de `test_dirac_affine_integration.py`
+  sous charge, réussi isolément puis au second passage) ; cargo test
+  871 + 1 + 0 + 5 ; clippy correctness propre.
+
 Vague 41 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
 enveloppes) :
 - unrad (`feat-unrad-20261106`) : branches radicales de `_solve` natives
@@ -317,8 +340,14 @@ UserWarning, flags inconnus ignorés).
 Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
 - ODE : simplification et intégrales des solutions particulières en
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
-  d'erreur du casus irreducibilis ; factorable, Bessel, nth_algebraic,
-  lie_group. 2F1 natif depuis la vague 40 (corpus 315/285/267 →
+  d'erreur du casus irreducibilis ; lie_group (Python) ; nth_algebraic,
+  factorable et Bessel natifs depuis la vague 42, mais la classe `diffx`
+  de nth_algebraic reste créée en Python et le filtrage du Bessel passe
+  par le filtreur de référence Python (`Expr.match`, appelé depuis Rust) :
+  le `pattern_match` natif n'en reproduit pas les choix (`x**2` contre
+  `c4**2*x**(2*a4)`), et l'égalité supposée par `ode/second.rs`,
+  `liouville.rs` et `reducible.rs` n'est pas prouvée ; algeb_04 (ordre
+  des solutions de `solve` à plusieurs générateurs). 2F1 natif depuis la vague 40 (corpus 315/285/267 →
   315/287/268) ; fact_13/fact_16 identiques depuis la vague 41 (branche
   unrad native ; corpus 315/289/270 sur la branche intégrée) ;
   conserved_03/04 (dsolve par défaut) dépassent la mémoire dans le

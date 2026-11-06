@@ -1,0 +1,11 @@
+{
+ "counts": {
+  "bessel_match:native": 37,
+  "bessel_solution:native": 14,
+  "factorable_match:native": 377,
+  "factorable_solutions:native": 23,
+  "nth_algebraic:native": 340
+ },
+ "declines": {},
+ "examples": 315
+}

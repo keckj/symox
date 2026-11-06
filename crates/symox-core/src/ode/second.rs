@@ -24,7 +24,7 @@ use super::linear::{linear_coefficients, unmodelled};
 pub type Cancel<'a> = &'a mut dyn FnMut(&Expr) -> Option<Expr>;
 
 /// Special functions, whose substitution can raise in the public `subs`.
-fn has_special(e: &Expr) -> bool {
+pub(super) fn has_special(e: &Expr) -> bool {
     let mut found = false;
     preorder(e, &mut |s| {
         if matches!(s.kind(), Kind::Func(Func::Special(_), _)) {
@@ -36,14 +36,14 @@ fn has_special(e: &Expr) -> bool {
 
 /// The reference `e != 0` is false only on an exact zero; `None` for a
 /// float, whose comparison the port does not model.
-fn nonzero(e: &Expr) -> Option<bool> {
+pub(super) fn nonzero(e: &Expr) -> Option<bool> {
     if has_float(e) {
         return None;
     }
     Some(!e.is_zero())
 }
 
-fn has_float(e: &Expr) -> bool {
+pub(super) fn has_float(e: &Expr) -> bool {
     let mut found = false;
     preorder(e, &mut |s| {
         if matches!(s.kind(), Kind::Num(n) if n.is_float()) {
@@ -53,11 +53,11 @@ fn has_float(e: &Expr) -> bool {
     found
 }
 
-fn d(fx: &Expr, x: &Expr, n: u32) -> Expr {
+pub(super) fn d(fx: &Expr, x: &Expr, n: u32) -> Expr {
     derivative_unevaluated(fx, vec![(x.clone(), n)])
 }
 
-fn is_polynomial(e: &Expr) -> bool {
+pub(super) fn is_polynomial(e: &Expr) -> bool {
     crate::inspection::classify(e, &free_symbols(e), crate::inspection::PolynomialKind::Polynomial) == Some(true)
 }
 

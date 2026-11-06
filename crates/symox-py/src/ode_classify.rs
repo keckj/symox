@@ -10,6 +10,7 @@ use symox::ode::second::{self, PowerSeries2};
 use symox::ode::hypergeometric;
 use symox::ode::reducible;
 use symox::ode::liouville;
+use symox::ode::{algebraic, bessel};
 use symox::Expr;
 
 use crate::{to_expr, wrap as w};
@@ -277,7 +278,204 @@ fn ode_second_order_patterns(
     Ok(out.into_any().unbind())
 }
 
+/// The public callables of `nth_algebraic`, `factorable` and
+/// `2nd_linear_bessel`. An error they raise propagates; a result that is not
+/// an expression (or a list of them) sets `foreign` and the binding declines.
+#[derive(Default)]
+struct SolverHooks<'a, 'py> {
+    solve: Option<&'a Bound<'py, PyAny>>,
+    dsolve: Option<&'a Bound<'py, PyAny>>,
+    simplify: Option<&'a Bound<'py, PyAny>>,
+    factor: Option<&'a Bound<'py, PyAny>>,
+    cancel: Option<&'a Bound<'py, PyAny>>,
+    expand: Option<&'a Bound<'py, PyAny>>,
+    matcher: Option<&'a Bound<'py, PyAny>>,
+    foreign: bool,
+}
+
+impl SolverHooks<'_, '_> {
+    fn missing(&mut self) -> PyErr {
+        self.foreign = true;
+        pyo3::exceptions::PyTypeError::new_err("native ODE hook missing")
+    }
+
+    fn expr(&mut self, f: Option<&Bound<'_, PyAny>>, e: &Expr) -> PyResult<Expr> {
+        let Some(f) = f else { return Err(self.missing()) };
+        let v = f.call1((w(e.clone()),))?;
+        to_expr(&v).inspect_err(|_| self.foreign = true)
+    }
+
+    /// A call whose `NotImplementedError` is `Ok(None)`; a single expression
+    /// is a one-element list.
+    fn list(&mut self, f: Option<&Bound<'_, PyAny>>, a: &Expr, b: &Expr) -> PyResult<Option<Vec<Expr>>> {
+        let Some(f) = f else { return Err(self.missing()) };
+        let v = match f.call1((w(a.clone()), w(b.clone()))) {
+            Ok(v) => v,
+            Err(e) if e.is_instance_of::<pyo3::exceptions::PyNotImplementedError>(f.py()) => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        if let Ok(list) = v.downcast::<PyList>() {
+            return list.iter().map(|item| to_expr(&item)).collect::<PyResult<Vec<_>>>().map(Some).inspect_err(|_| self.foreign = true);
+        }
+        to_expr(&v).map(|e| Some(vec![e])).inspect_err(|_| self.foreign = true)
+    }
+}
+
+impl algebraic::Hooks for SolverHooks<'_, '_> {
+    type Error = PyErr;
+    fn solve(&mut self, eq: &Expr, sym: &Expr) -> PyResult<Option<Vec<Expr>>> {
+        // solve returns a list; anything else is not modelled.
+        let Some(f) = self.solve else { return Err(self.missing()) };
+        let v = match f.call1((w(eq.clone()), w(sym.clone()))) {
+            Ok(v) => v,
+            Err(e) if e.is_instance_of::<pyo3::exceptions::PyNotImplementedError>(f.py()) => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        let Ok(list) = v.downcast::<PyList>() else {
+            self.foreign = true;
+            return Err(pyo3::exceptions::PyTypeError::new_err("solve did not return a list"));
+        };
+        list.iter().map(|item| to_expr(&item)).collect::<PyResult<Vec<_>>>().map(Some).inspect_err(|_| self.foreign = true)
+    }
+    fn dsolve(&mut self, eq: &Expr, fx: &Expr) -> PyResult<Option<Vec<Expr>>> { self.list(self.dsolve, eq, fx) }
+    fn simplify(&mut self, e: &Expr) -> PyResult<Expr> { self.expr(self.simplify, e) }
+    fn factor(&mut self, e: &Expr) -> PyResult<Expr> { self.expr(self.factor, e) }
+    fn cancel(&mut self, e: &Expr) -> PyResult<Expr> { self.expr(self.cancel, e) }
+    fn expand(&mut self, e: &Expr) -> PyResult<Expr> { self.expr(self.expand, e) }
+    /// The public `Expr.match`: `None` or a dict of expressions.
+    fn matches(&mut self, e: &Expr, pattern: &Expr) -> PyResult<Option<rustc_hash::FxHashMap<Expr, Expr>>> {
+        let Some(f) = self.matcher else { return Err(self.missing()) };
+        let v = f.call1((w(e.clone()), w(pattern.clone())))?;
+        if v.is_none() {
+            return Ok(None);
+        }
+        let Ok(d) = v.downcast::<PyDict>() else {
+            self.foreign = true;
+            return Err(pyo3::exceptions::PyTypeError::new_err("match did not return a dict"));
+        };
+        let mut out = rustc_hash::FxHashMap::default();
+        for (k, v) in d.iter() {
+            let (k, v) = (to_expr(&k).inspect_err(|_| self.foreign = true)?, to_expr(&v).inspect_err(|_| self.foreign = true)?);
+            out.insert(k, v);
+        }
+        Ok(Some(out))
+    }
+}
+
+/// A native result, `None` when a hook result was not modelled, or the
+/// error a hook raised.
+fn settle<T>(hooks: &SolverHooks<'_, '_>, r: PyResult<T>) -> PyResult<Option<T>> {
+    match r {
+        Ok(v) => Ok(Some(v)),
+        Err(_) if hooks.foreign => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// `NthAlgebraic._matches`: the list of solution equations (empty for no
+/// match) or `None` (not decided). `diffx_template` is `diffx(var)`;
+/// `solve(eq, sym)` is the reference `solve(eq, sym, simplify=False)`.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn ode_nth_algebraic(
+    py: Python<'_>,
+    eq: &Bound<'_, PyAny>,
+    fx: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    diffx_template: &Bound<'_, PyAny>,
+    solve: &Bound<'_, PyAny>,
+    simplify: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let (eq, fx, x, template) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?, to_expr(diffx_template)?);
+    let mut hooks = SolverHooks { solve: Some(solve), simplify: Some(simplify), ..Default::default() };
+    let r = algebraic::nth_algebraic(&eq, &fx, &x, &template, &mut hooks);
+    Ok(match settle(&hooks, r)? {
+        Some(Outcome::Match(v)) => PyList::new(py, v.into_iter().map(w))?.into_any().unbind(),
+        _ => py.None(),
+    })
+}
+
+/// `Factorable._matches`: the list `self.eqs` of a match, `False` or `None`.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn ode_factorable_match(
+    py: Python<'_>,
+    eq: &Bound<'_, PyAny>,
+    fx: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    cancel: &Bound<'_, PyAny>,
+    factor: &Bound<'_, PyAny>,
+    solve: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
+    let mut hooks = SolverHooks { solve: Some(solve), cancel: Some(cancel), factor: Some(factor), ..Default::default() };
+    let r = algebraic::factorable(&eq, &fx, &x, &mut hooks);
+    Ok(match settle(&hooks, r)? {
+        Some(Outcome::Match(v)) => PyList::new(py, v.into_iter().map(w))?.into_any().unbind(),
+        Some(Outcome::NoMatch) => false.into_pyobject(py)?.to_owned().into_any().unbind(),
+        _ => py.None(),
+    })
+}
+
+/// `Factorable._get_general_solution`: `(solutions, None)`, `([], eq)` when
+/// every `dsolve(eq, fx)` raised `NotImplementedError` (`eq` the last one),
+/// or `None` (not decided).
+#[pyfunction]
+fn ode_factorable_solutions(py: Python<'_>, eqs: Vec<Bound<'_, PyAny>>, fx: &Bound<'_, PyAny>, dsolve: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let eqs = eqs.iter().map(to_expr).collect::<PyResult<Vec<_>>>()?;
+    let fx = to_expr(fx)?;
+    let mut hooks = SolverHooks { dsolve: Some(dsolve), ..Default::default() };
+    let r = algebraic::factorable_solutions(&eqs, &fx, &mut hooks);
+    Ok(match settle(&hooks, r)? {
+        Some(Ok(sols)) => (PyList::new(py, sols.into_iter().map(w))?, py.None()).into_pyobject(py)?.into_any().unbind(),
+        Some(Err(last)) => (PyList::empty(py), w(last)).into_pyobject(py)?.into_any().unbind(),
+        None => py.None(),
+    })
+}
+
+/// `SecondLinearBessel._matches`: `(n, a4, c4, d4, b4)` (the reference
+/// `self.rn`), `False` or `None` (not decided). `matcher(e, pattern)` is the
+/// public `Expr.match`.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn ode_bessel_match(
+    py: Python<'_>,
+    eq: &Bound<'_, PyAny>,
+    fx: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    order: u32,
+    factor: &Bound<'_, PyAny>,
+    simplify: &Bound<'_, PyAny>,
+    cancel: &Bound<'_, PyAny>,
+    expand: &Bound<'_, PyAny>,
+    matcher: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
+    let mut hooks = SolverHooks { factor: Some(factor), simplify: Some(simplify), cancel: Some(cancel), expand: Some(expand), matcher: Some(matcher), ..Default::default() };
+    let r = bessel::bessel_match(&eq, &fx, &x, order, &mut hooks);
+    let r = settle(&hooks, r)?.unwrap_or(Outcome::Decline);
+    outcome(py, &r, |m| vec![m.n.clone(), m.a4.clone(), m.c4.clone(), m.d4.clone(), m.b4.clone()])
+}
+
+/// `SecondLinearBessel._get_general_solution` for `rn = (n, a4, c4, d4,
+/// b4)` and the numbered constants `c1`, `c2`: `Eq(f(x), ...)` or `None`.
+#[pyfunction]
+fn ode_bessel_solution(py: Python<'_>, rn: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, c1: &Bound<'_, PyAny>, c2: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let (n, a4, c4, d4, b4): (Bound<'_, PyAny>, Bound<'_, PyAny>, Bound<'_, PyAny>, Bound<'_, PyAny>, Bound<'_, PyAny>) = rn.extract()?;
+    let m = bessel::Bessel { n: to_expr(&n)?, a4: to_expr(&a4)?, c4: to_expr(&c4)?, d4: to_expr(&d4)?, b4: to_expr(&b4)? };
+    let (fx, x, c1, c2) = (to_expr(fx)?, to_expr(x)?, to_expr(c1)?, to_expr(c2)?);
+    Ok(match bessel::bessel_solution(&m, &fx, &x, &c1, &c2) {
+        Some(e) => w(e).into_pyobject(py)?.into_any().unbind(),
+        None => py.None(),
+    })
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(ode_nth_algebraic, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_factorable_match, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_factorable_solutions, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_bessel_match, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_bessel_solution, m)?)?;
     m.add_function(wrap_pyfunction!(ode_second_order_patterns, m)?)?;
     m.add_function(wrap_pyfunction!(ode_nth_order_reducible, m)?)?;
     m.add_function(wrap_pyfunction!(ode_match_2nd_hypergeometric, m)?)?;

@@ -401,3 +401,92 @@ def nth_order_reducible(solver):
     if value is False:
         return False, None
     return True, value
+
+
+def _expr_args(*values):
+    return all(isinstance(v, _core.Expr) for v in values)
+
+
+def nth_algebraic(eq, func, var, diffx, solve, simplify):
+    """``NthAlgebraic._matches`` decided natively: the list of solution
+    equations (empty for no match), or ``None`` when the reference body must
+    run. ``diffx`` is the invertible derivative class of ``var``."""
+    native = getattr(_core, 'ode_nth_algebraic', None)
+    if native is None or not _expr_args(eq, func, var):
+        return None
+    template = diffx(var)
+    if not isinstance(template, _core.Expr):
+        return None
+    try:
+        value = native(eq, func, var, template, lambda e, s: solve(e, s, simplify=False), simplify)
+    except Exception:
+        return None
+    return value
+
+
+def factorable_match(eq, func, x, cancel, factor, solve):
+    """``Factorable._matches`` decided natively: ``(matches, eqs)``, or
+    ``None`` when the reference body must run."""
+    native = getattr(_core, 'ode_factorable_match', None)
+    if native is None or not _expr_args(eq, func, x):
+        return None
+    try:
+        value = native(eq, func, x, cancel, factor, solve)
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if value is False:
+        return False, None
+    return True, value
+
+
+def factorable_solutions(eqs, func, dsolve):
+    """``Factorable._get_general_solution`` computed natively: ``(sols,
+    unsolved)`` where ``unsolved`` is the last equation when no factor could
+    be solved, or ``None`` when the reference body must run. An error raised
+    by ``dsolve`` propagates, as in the reference."""
+    native = getattr(_core, 'ode_factorable_solutions', None)
+    if native is None or not eqs or not _expr_args(func, *eqs):
+        return None
+    return native(list(eqs), func, dsolve)
+
+
+def bessel_match(solver, eq, factor, simplify, cancel, expand):
+    """``SecondLinearBessel._matches`` decided natively: ``(True, rn)``,
+    ``(False, None)``, or ``None`` when the reference matcher must run.
+    The wild matches call the public ``Expr.match``."""
+    native = getattr(_core, 'ode_bessel_match', None)
+    problem = solver.ode_problem
+    order = problem.order
+    x = _second_args(eq, problem.func)
+    if native is None or x is None or x != problem.sym or not isinstance(order, int) or order < 0:
+        return None
+    try:
+        value = native(eq, problem.func, x, order, factor, simplify, cancel, expand, lambda e, p: e.match(p))
+    except Exception:
+        return None
+    if value is None:
+        return None
+    if value is False:
+        return False, None
+    n, a4, c4, d4, b4 = value
+    return True, {'n': n, 'a4': a4, 'd4': d4, 'c4': c4, 'b4': b4}
+
+
+def bessel_solution(rn, func, x, C1, C2):
+    """``SecondLinearBessel._get_general_solution`` computed natively: the
+    equation, or ``None`` when the reference body must run."""
+    native = getattr(_core, 'ode_bessel_solution', None)
+    if native is None or not isinstance(rn, dict) or not _expr_args(func, x, C1, C2):
+        return None
+    try:
+        params = tuple(rn[k] for k in ('n', 'a4', 'c4', 'd4', 'b4'))
+    except KeyError:
+        return None
+    if not _expr_args(*params):
+        return None
+    try:
+        return native(params, func, x, C1, C2)
+    except Exception:
+        return None

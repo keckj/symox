@@ -1,0 +1,452 @@
+{
+ "2nd_linear_bessel/2nd_lin_bessel_01": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_02": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_03": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_04": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_05": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_06": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_07": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_08": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_09": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_10": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_11": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "2nd_linear_bessel/2nd_lin_bessel_12": {
+  "detail": "",
+  "secs": 0.6,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_01": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_02": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_03": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_04": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_05": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_06": {
+  "detail": "",
+  "secs": 0.8,
+  "slow": true,
+  "status": "pass"
+ },
+ "factorable/fact_07": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_08": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_09": {
+  "detail": "",
+  "secs": 0.3,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_10": {
+  "detail": "",
+  "secs": 0.3,
+  "slow": true,
+  "status": "pass"
+ },
+ "factorable/fact_11": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_12": {
+  "detail": "",
+  "secs": 0.3,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_13": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_14": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_15": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_16": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_17": {
+  "detail": "",
+  "secs": 1.1,
+  "slow": true,
+  "status": "pass"
+ },
+ "factorable/fact_18": {
+  "detail": "",
+  "secs": 1.5,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_19": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "factorable/fact_20": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_01": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_02": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_03": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_04": {
+  "detail": "",
+  "secs": 0.3,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_05": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_06": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_07": {
+  "detail": "AttributeError: not a relational",
+  "secs": 0.3,
+  "slow": false,
+  "status": "fail"
+ },
+ "lie_group/lie_group_08": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_09": {
+  "detail": "AssertionError: Different solution found from dsolve for example lie_group_09.\n\nThe ODE is:\n(2*x + 1)*Derivative(f(x), x) + 2 - 4*exp(-f(x))\n\nThe expected solution was\n[Eq(f(x), log(C1/(2*x + 1) + 2))]\n\nWhat dsolve returned is:\nEq(f(x), log((4*x*exp(C1) + 2*exp(C1) + 1)*exp(-C1)/(2*x + 1)))",
+  "secs": 0.3,
+  "slow": false,
+  "status": "fail"
+ },
+ "lie_group/lie_group_10": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_11": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_12": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_13": {
+  "detail": "",
+  "secs": 9.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_14": {
+  "detail": "",
+  "secs": 13.7,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_15": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_16": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_17": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_18": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_19": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "lie_group/lie_group_20": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_01": {
+  "detail": "",
+  "secs": 0.2,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_02": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_03": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_04": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_05": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_06": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_07": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_08": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_09": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_10": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_11": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_12": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_13": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_14": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_15": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_16": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_17": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_18": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_19": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_20": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_21": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_22": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ },
+ "nth_algebraic/algeb_23": {
+  "detail": "",
+  "secs": 0.1,
+  "slow": false,
+  "status": "pass"
+ }
+}

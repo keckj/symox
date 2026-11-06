@@ -1,0 +1,1628 @@
+.FF.F..FF........F.F..F..F.F...F..F.FF..FFF...F..x..............F......F [ 96%]
+..s                                                                      [100%]
+=================================== FAILURES ===================================
+___________________________ test_linear_coefficients ___________________________
+
+    def test_linear_coefficients():
+>       _ode_solver_test(_get_examples_ode_sol_linear_coefficients)
+
+test_single.py:359: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'linear_coefficients'
+ode_example = {'eq': Derivative(f(x), x) + (2*f(x) + 3)/(x + 3), 'sol': [Eq(f(x), C1/(x**2 + 6*x + 9) - 3/2)], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example linear_coeff_01.
+E                   
+E                   The ODE is:
+E                   Derivative(f(x), x) + (2*f(x) + 3)/(x + 3)
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), C1/(x**2 + 6*x + 9) - 3/2)]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), (C1 - 3*x**2 - 18*x)/(2*(x**2 + 6*x + 9)))
+
+test_single.py:272: AssertionError
+________________________ test_1st_homogeneous_coeff_ode ________________________
+
+    @slow
+    def test_1st_homogeneous_coeff_ode():
+        #These were marked as test_1st_homogeneous_coeff_corner_case
+        eq1 = f(x).diff(x) - f(x)/x
+        c1 = classify_ode(eq1, f(x))
+        eq2 = x*f(x).diff(x) - f(x)
+        c2 = classify_ode(eq2, f(x))
+        sdi = "1st_homogeneous_coeff_subs_dep_div_indep"
+        sid = "1st_homogeneous_coeff_subs_indep_div_dep"
+        assert sid not in c1 and sdi not in c1
+        assert sid not in c2 and sdi not in c2
+        _ode_solver_test(_get_examples_ode_sol_1st_homogeneous_coeff_subs_dep_div_indep)
+>       _ode_solver_test(_get_examples_ode_sol_1st_homogeneous_coeff_best)
+
+test_single.py:374: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = '1st_homogeneous_coeff_best'
+ode_example = {'eq': 2*x**2*f(x) + (-2*x**3 + x*f(x)**2)*Derivative(f(x), x) + f(x)**3, 'sol': [Eq(f(x), exp(2*C1 + LambertW(-2*x**4*exp(-4*C1))/2)/x)], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example 1st_homogeneous_coeff_best_03.
+E                   
+E                   The ODE is:
+E                   2*x**2*f(x) + (-2*x**3 + x*f(x)**2)*Derivative(f(x), x) + f(x)**3
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), exp(2*C1 + LambertW(-2*x**4*exp(-4*C1))/2)/x)]
+E                   
+E                   What dsolve returned is:
+E                   Eq(log(x), C1 - x**2/(2*f(x)**2) - log(sqrt(f(x)/x)))
+
+test_single.py:272: AssertionError
+__________________ test_nth_linear_constant_coeff_homogeneous __________________
+
+    @slow
+    def test_nth_linear_constant_coeff_homogeneous():
+>       _ode_solver_test(_get_examples_ode_sol_nth_linear_constant_coeff_homogeneous)
+
+test_single.py:385: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'nth_linear_constant_coeff_homogeneous'
+ode_example = {'eq': -2*f(x) + 11*Derivative(f(x), x) + Derivative(f(x), (x, 5)), 'sol': [Eq(f(x), C5*exp(x*CRootOf(x**5 + 11*x - 2,... + C4*cos(x*im(CRootOf(x**5 + 11*x - 2, 3))))*exp(x*re(CRootOf(x**5 + 11*x - 2, 3))))], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example lin_const_coeff_hom_33.
+E                   
+E                   The ODE is:
+E                   -2*f(x) + 11*Derivative(f(x), x) + Derivative(f(x), (x, 5))
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), C5*exp(x*CRootOf(x**5 + 11*x - 2, 0)) + (C1*sin(x*im(CRootOf(x**5 + 11*x - 2, 1))) + C2*cos(x*im(CRootOf(x**5 + 11*x - 2, 1))))*exp(x*re(CRootOf(x**5 + 11*x - 2, 1))) + (C3*sin(x*im(CRootOf(x**5 + 11*x - 2, 3))) + C4*cos(x*im(CRootOf(x**5 + 11*x - 2, 3))))*exp(x*re(CRootOf(x**5 + 11*x - 2, 3))))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), C5*exp(x*CRootOf(_x**5 + 11*_x - 2, 0)) + (C1*sin(x*im(CRootOf(_x**5 + 11*_x - 2, 1))) + C2*cos(x*im(CRootOf(_x**5 + 11*_x - 2, 1))))*exp(x*re(CRootOf(_x**5 + 11*_x - 2, 1))) + (C3*sin(x*im(CRootOf(_x**5 + 11*_x - 2, 3))) + C4*cos(x*im(CRootOf(_x**5 + 11*_x - 2, 3))))*exp(x*re(CRootOf(_x**5 + 11*_x - 2, 3))))
+
+test_single.py:272: AssertionError
+________________________________ test_lie_group ________________________________
+
+    @slow
+    def test_lie_group():
+>       _ode_solver_test(_get_examples_ode_sol_lie_group)
+
+test_single.py:399: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+test_single.py:280: in _test_particular_example
+    if checkodesol(eq, dsolve_sol, func, solve_for_func=False) != expected_checkodesol:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+ode = Eq(a*f(x) - c*exp(b*x) + Derivative(f(x), x), 0)
+sol = -Piecewise(((-C1*(a + b) + c*exp(x*(a + b)))*exp(-a*x)/(a + b), Ne(a, -b)), ((-C1 + c*x)*exp(-a*x), True)) + f(x)
+func = f(x), order = 1, solve_for_func = False
+
+    def checkodesol(ode, sol, func=None, order='auto', solve_for_func=True):
+        r"""
+        Substitutes ``sol`` into ``ode`` and checks that the result is ``0``.
+    
+        This works when ``func`` is one function, like `f(x)` or a list of
+        functions like `[f(x), g(x)]` when `ode` is a system of ODEs.  ``sol`` can
+        be a single solution or a list of solutions.  Each solution may be an
+        :py:class:`~sympy.core.relational.Equality` that the solution satisfies,
+        e.g. ``Eq(f(x), C1), Eq(f(x) + C1, 0)``; or simply an
+        :py:class:`~sympy.core.expr.Expr`, e.g. ``f(x) - C1``. In most cases it
+        will not be necessary to explicitly identify the function, but if the
+        function cannot be inferred from the original equation it can be supplied
+        through the ``func`` argument.
+    
+        If a sequence of solutions is passed, the same sort of container will be
+        used to return the result for each solution.
+    
+        It tries the following methods, in order, until it finds zero equivalence:
+    
+        1. Substitute the solution for `f` in the original equation.  This only
+           works if ``ode`` is solved for `f`.  It will attempt to solve it first
+           unless ``solve_for_func == False``.
+        2. Take `n` derivatives of the solution, where `n` is the order of
+           ``ode``, and check to see if that is equal to the solution.  This only
+           works on exact ODEs.
+        3. Take the 1st, 2nd, ..., `n`\th derivatives of the solution, each time
+           solving for the derivative of `f` of that order (this will always be
+           possible because `f` is a linear operator). Then back substitute each
+           derivative into ``ode`` in reverse order.
+    
+        This function returns a tuple.  The first item in the tuple is ``True`` if
+        the substitution results in ``0``, and ``False`` otherwise. The second
+        item in the tuple is what the substitution results in.  It should always
+        be ``0`` if the first item is ``True``. Sometimes this function will
+        return ``False`` even when an expression is identically equal to ``0``.
+        This happens when :py:meth:`~sympy.simplify.simplify.simplify` does not
+        reduce the expression to ``0``.  If an expression returned by this
+        function vanishes identically, then ``sol`` really is a solution to
+        the ``ode``.
+    
+        If this function seems to hang, it is probably because of a hard
+        simplification.
+    
+        To use this function to test, test the first item of the tuple.
+    
+        Examples
+        ========
+    
+        >>> from sympy import (Eq, Function, checkodesol, symbols,
+        ...     Derivative, exp)
+        >>> x, C1, C2 = symbols('x,C1,C2')
+        >>> f, g = symbols('f g', cls=Function)
+        >>> checkodesol(f(x).diff(x), Eq(f(x), C1))
+        (True, 0)
+        >>> assert checkodesol(f(x).diff(x), C1)[0]
+        >>> assert not checkodesol(f(x).diff(x), x)[0]
+        >>> checkodesol(f(x).diff(x, 2), x**2)
+        (False, 2)
+    
+        >>> eqs = [Eq(Derivative(f(x), x), f(x)), Eq(Derivative(g(x), x), g(x))]
+        >>> sol = [Eq(f(x), C1*exp(x)), Eq(g(x), C2*exp(x))]
+        >>> checkodesol(eqs, sol)
+        (True, [0, 0])
+    
+        """
+        if iterable(ode):
+            return checksysodesol(ode, sol, func=func)
+    
+        if not isinstance(ode, Equality):
+            ode = Eq(ode, 0)
+        if func is None:
+            try:
+                _, func = _preprocess(ode.lhs)
+            except ValueError:
+                funcs = [s.atoms(AppliedUndef) for s in (
+                    sol if is_sequence(sol, set) else [sol])]
+                funcs = set().union(*funcs)
+                if len(funcs) != 1:
+                    raise ValueError(
+                        'must pass func arg to checkodesol for this case.')
+                func = funcs.pop()
+        if not isinstance(func, AppliedUndef) or len(func.args) != 1:
+            raise ValueError(
+                "func must be a function of one variable, not %s" % func)
+        if is_sequence(sol, set):
+            return type(sol)([checkodesol(ode, i, order=order, solve_for_func=solve_for_func) for i in sol])
+    
+        if not isinstance(sol, Equality):
+            sol = Eq(func, sol)
+        elif sol.rhs == func:
+            sol = sol.reversed
+    
+        if order == 'auto':
+            order = ode_order(ode, func)
+        solved = sol.lhs == func and not sol.rhs.has(func)
+        if solve_for_func and not solved:
+            rhs = solve(sol, func)
+            if rhs:
+                eqs = [Eq(func, t) for t in rhs]
+                if len(rhs) == 1:
+                    eqs = eqs[0]
+                return checkodesol(ode, eqs, order=order,
+                    solve_for_func=False)
+    
+        x = func.args[0]
+    
+        # Handle series solutions here
+        if sol.has(Order):
+            assert sol.lhs == func
+            Oterm = sol.rhs.getO()
+            solrhs = sol.rhs.removeO()
+    
+            Oexpr = Oterm.expr
+            assert isinstance(Oexpr, Pow)
+            sorder = Oexpr.exp
+            assert Oterm == Order(x**sorder)
+    
+            odesubs = (ode.lhs-ode.rhs).subs(func, solrhs).doit().expand()
+    
+            neworder = Order(x**(sorder - order))
+            odesubs = odesubs + neworder
+            assert odesubs.getO() == neworder
+            residual = odesubs.removeO()
+    
+            return (residual == 0, residual)
+    
+        s = True
+        testnum = 0
+        while s:
+            if testnum == 0:
+                # First pass, try substituting a solved solution directly into the
+                # ODE. This has the highest chance of succeeding.
+                ode_diff = ode.lhs - ode.rhs
+    
+                if sol.lhs == func:
+                    s = sub_func_doit(ode_diff, func, sol.rhs)
+                    s = besselsimp(s)
+                else:
+                    testnum += 1
+                    continue
+                ss = simplify(s.rewrite(exp))
+                if ss:
+                    # with the new numer_denom in power.py, if we do a simple
+                    # expansion then testnum == 0 verifies all solutions.
+                    s = ss.expand(force=True)
+                else:
+                    s = 0
+                testnum += 1
+            elif testnum == 1:
+                # Second pass. If we cannot substitute f, try seeing if the nth
+                # derivative is equal, this will only work for odes that are exact,
+                # by definition.
+                s = simplify(
+                    trigsimp(diff(sol.lhs, x, order) - diff(sol.rhs, x, order)) -
+                    trigsimp(ode.lhs) + trigsimp(ode.rhs))
+                # s2 = simplify(
+                #     diff(sol.lhs, x, order) - diff(sol.rhs, x, order) - \
+                #     ode.lhs + ode.rhs)
+                testnum += 1
+            elif testnum == 2:
+                # Third pass. Try solving for df/dx and substituting that into the
+                # ODE. Thanks to Chris Smith for suggesting this method.  Many of
+                # the comments below are his, too.
+                # The method:
+                # - Take each of 1..n derivatives of the solution.
+                # - Solve each nth derivative for d^(n)f/dx^(n)
+                #   (the differential of that order)
+                # - Back substitute into the ODE in decreasing order
+                #   (i.e., n, n-1, ...)
+                # - Check the result for zero equivalence
+                if sol.lhs == func and not sol.rhs.has(func):
+                    diffsols = {0: sol.rhs}
+                elif sol.rhs == func and not sol.lhs.has(func):
+                    diffsols = {0: sol.lhs}
+                else:
+                    diffsols = {}
+                sol = sol.lhs - sol.rhs
+                for i in range(1, order + 1):
+                    # Differentiation is a linear operator, so there should always
+                    # be 1 solution. Nonetheless, we test just to make sure.
+                    # We only need to solve once.  After that, we automatically
+                    # have the solution to the differential in the order we want.
+                    if i == 1:
+                        ds = sol.diff(x)
+                        try:
+                            sdf = solve(ds, func.diff(x, i))
+                            if not sdf:
+                                raise NotImplementedError
+                        except NotImplementedError:
+                            testnum += 1
+                            break
+                        else:
+                            diffsols[i] = sdf[0]
+                    else:
+                        # This is what the solution says df/dx should be.
+                        diffsols[i] = diffsols[i - 1].diff(x)
+    
+                # Make sure the above didn't fail.
+                if testnum > 2:
+                    continue
+                else:
+                    # Substitute it into ODE to check for self consistency.
+                    lhs, rhs = ode.lhs, ode.rhs
+                    for i in range(order, -1, -1):
+                        if i == 0 and 0 not in diffsols:
+                            # We can only substitute f(x) if the solution was
+                            # solved for f(x).
+                            break
+                        lhs = sub_func_doit(lhs, func.diff(x, i), diffsols[i])
+                        rhs = sub_func_doit(rhs, func.diff(x, i), diffsols[i])
+                        ode_or_bool = Eq(lhs, rhs)
+                        ode_or_bool = simplify(ode_or_bool)
+    
+                        if isinstance(ode_or_bool, (bool, BooleanAtom)):
+                            if ode_or_bool:
+                                lhs = rhs = S.Zero
+                        else:
+>                           lhs = ode_or_bool.lhs
+E                           AttributeError: not a relational. Did you mean: 'rhs'?
+
+../beforepy/python/symox/solvers/ode/subscheck.py:270: AttributeError
+____________________________ test_separable_reduced ____________________________
+
+    @slow
+    def test_separable_reduced():
+        df = f(x).diff(x)
+        eq = (x / f(x))*df  + tan(x**2*f(x) / (x**2*f(x) - 1))
+        assert classify_ode(eq) == ('factorable', 'separable_reduced', 'lie_group',
+            'separable_reduced_Integral')
+>       _ode_solver_test(_get_examples_ode_sol_separable_reduced)
+
+test_single.py:408: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'separable_reduced'
+ode_example = {'eq': Eq(Derivative(f(x), x) + (x**2*f(x)**2 + 1)*f(x)/x, 0), 'sol': [Eq(f(x), -sqrt(2)*sqrt(1/(C1 + log(x)))/(2*x)), Eq(f(x), sqrt(2)*sqrt(1/(C1 + log(x)))/(2*x))], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example separable_reduced_05.
+E                   
+E                   The ODE is:
+E                   Eq(Derivative(f(x), x) + (x**2*f(x)**2 + 1)*f(x)/x, 0)
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), -sqrt(2)*sqrt(1/(C1 + log(x)))/(2*x)), Eq(f(x), sqrt(2)*sqrt(1/(C1 + log(x)))/(2*x))]
+E                   
+E                   What dsolve returned is:
+E                   [Eq(f(x), -sqrt(2)*sqrt(1/(x**2*(C1 + log(x))))/2), Eq(f(x), sqrt(2)*sqrt(1/(x**2*(C1 + log(x))))/2)]
+
+test_single.py:272: AssertionError
+_______________ test_nth_linear_constant_coeff_var_of_parameters _______________
+
+    def test_nth_linear_constant_coeff_var_of_parameters():
+>       _ode_solver_test(_get_examples_ode_sol_nth_linear_var_of_parameters)
+
+test_single.py:468: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'nth_linear_constant_coeff_variation_of_parameters'
+ode_example = {'eq': -2*x - exp(I*x) + Derivative(f(x), x) + 2*Derivative(f(x), (x, 3)) + Derivative(f(x), (x, 5)), 'sol': [Eq(f(x),...3*I*exp(-I*x)/2) + 5*I*exp(2*I*x)/16 - 2*exp(I*x) - 2*exp(-I*x))*cos(x) - I*exp(I*x))], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example var_of_parameters_13.
+E                   
+E                   The ODE is:
+E                   -2*x - exp(I*x) + Derivative(f(x), x) + 2*Derivative(f(x), (x, 3)) + Derivative(f(x), (x, 5))
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), C1 + x**2 + (C2 + x*(C3 - x/8 + 3*exp(I*x)/2 + 3*exp(-I*x)/2) + 5*exp(2*I*x)/16 + 2*I*exp(I*x) - 2*I*exp(-I*x))*sin(x) + (C4 + x*(C5 + I*x/8 + 3*I*exp(I*x)/2 - 3*I*exp(-I*x)/2) + 5*I*exp(2*I*x)/16 - 2*exp(I*x) - 2*exp(-I*x))*cos(x) - I*exp(I*x))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), C1 + x**2 + (C2 + x*(C3 - x/8) + 5*exp(2*I*x)/16)*sin(x) + (C4 + x*(C5 + I*x/8) + 5*I*exp(2*I*x)/16)*cos(x) - I*exp(I*x))
+
+test_single.py:272: AssertionError
+_________________________ test_slow_examples_1st_exact _________________________
+
+    @slow
+    def test_slow_examples_1st_exact():
+>       _ode_solver_test(_get_examples_ode_sol_1st_exact, run_slow_test=True)
+
+test_single.py:487: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = '1st_exact'
+ode_example = {'eq': (-x + f(x))*Derivative(f(x), x)/f(x)**2 + (2*x*f(x) + 1)/f(x), 'sol': [Eq(f(x), exp(C1 - x**2 + LambertW(-x*exp(-C1 + x**2))))], 'XFAIL': ['lie_group'], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example 1st_exact_02.
+E                   
+E                   The ODE is:
+E                   (-x + f(x))*Derivative(f(x), x)/f(x)**2 + (2*x*f(x) + 1)/f(x)
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), exp(C1 - x**2 + LambertW(-x*exp(-C1 + x**2))))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(x**2 + x/f(x) + log(f(x)), C1)
+
+test_single.py:272: AssertionError
+____________________ test_slow_examples_nth_order_reducible ____________________
+
+    @slow
+    def test_slow_examples_nth_order_reducible():
+>       _ode_solver_test(_get_examples_ode_sol_nth_order_reducible, run_slow_test=True)
+
+test_single.py:503: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'nth_order_reducible'
+ode_example = {'eq': Derivative(x*f(x), (x, 3)) + Derivative(f(x), (x, 3)), 'sol': [Eq(f(x), C1 + C3/(2*(x**2 + 2*x + 1)) + x*(C2 + C3/(2*(x**2 + 2*x + 1))))], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example reducible_12.
+E                   
+E                   The ODE is:
+E                   Derivative(x*f(x), (x, 3)) + Derivative(f(x), (x, 3))
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), C1 + C3/(2*(x**2 + 2*x + 1)) + x*(C2 + C3/(2*(x**2 + 2*x + 1))))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), C1 + C3/(x + 1) - C3/(2*(x + 1)**2) + x*(C2 - C3/(2*(x**2 + 2*x + 1))))
+
+test_single.py:272: AssertionError
+___________ test_nth_linear_constant_coeff_undetermined_coefficients ___________
+
+    @slow
+    def test_nth_linear_constant_coeff_undetermined_coefficients():
+        #issue-https://github.com/symox/symox/issues/5787
+        # This test case is to show the classification of imaginary constants under
+        # nth_linear_constant_coeff_undetermined_coefficients
+        eq = Eq(diff(f(x), x), I*f(x) + S.Half - I)
+        our_hint = 'nth_linear_constant_coeff_undetermined_coefficients'
+        assert our_hint in classify_ode(eq)
+>       _ode_solver_test(_get_examples_ode_sol_nth_linear_undetermined_coefficients)
+
+test_single.py:524: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'nth_linear_constant_coeff_undetermined_coefficients'
+ode_example = {'eq': Eq(Derivative(u(t), (t, 2)) + R*Derivative(u(t), t)/L + u(t)/(C*L), alpha), 'sol': [Eq(u(t), C*L*alpha + C1*exp...rt(C*R**2 - 4*L)/sqrt(C))/(2*L)) + C2*exp(-t*(R + sqrt(C*R**2 - 4*L)/sqrt(C))/(2*L)))], 'XFAIL': [], 'func': u(t), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example undet_38.
+E                   
+E                   The ODE is:
+E                   Eq(Derivative(u(t), (t, 2)) + R*Derivative(u(t), t)/L + u(t)/(C*L), alpha)
+E                   
+E                   The expected solution was
+E                   [Eq(u(t), C*L*alpha + C1*exp(t*(-R + sqrt(C*R**2 - 4*L)/sqrt(C))/(2*L)) + C2*exp(-t*(R + sqrt(C*R**2 - 4*L)/sqrt(C))/(2*L)))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(u(t), C*L*alpha + C1*exp(t*(-sqrt(C)*R + sqrt(C*R**2 - 4*L))/(2*sqrt(C)*L)) + C2*exp(-t*(sqrt(C)*R + sqrt(C*R**2 - 4*L))/(2*sqrt(C)*L)))
+
+test_single.py:272: AssertionError
+________________________________ test_separable ________________________________
+
+    @slow
+    def test_separable():
+>       _ode_solver_test(_get_examples_ode_sol_separable)
+
+test_single.py:541: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'separable'
+ode_example = {'eq': -f(x)*log(f(x))/tan(x) + Derivative(f(x), x), 'sol': [Eq(f(x), exp(C1*sin(x)))], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example separable_14.
+E                   
+E                   The ODE is:
+E                   -f(x)*log(f(x))/tan(x) + Derivative(f(x), x)
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), exp(C1*sin(x)))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), exp(C1*tan(x)/sqrt(cos(x)**(-2))))
+
+test_single.py:272: AssertionError
+__________________________ test_1st_rational_riccati ___________________________
+
+    @slow
+    def test_1st_rational_riccati():
+>       _ode_solver_test(_get_examples_ode_sol_1st_rational_riccati)
+
+test_single.py:561: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = '1st_rational_riccati'
+ode_example = {'eq': -f(x)**2 + Derivative(f(x), x) + (15*x**2 - 20*x + 7)/((x - 1)**2*(2*x - 1)**2), 'sol': [Eq(f(x), (9*C1*x - 6*C...*C1*x**2 - 9*C1*x + 3*C1 + 6*x**6 - 29*x**5 + 57*x**4 - 58*x**3 + 28*x**2 - 3*x - 1))], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example rational_riccati_07.
+E                   
+E                   The ODE is:
+E                   -f(x)**2 + Derivative(f(x), x) + (15*x**2 - 20*x + 7)/((x - 1)**2*(2*x - 1)**2)
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), (9*C1*x - 6*C1 - 15*x**5 + 60*x**4 - 94*x**3 + 72*x**2 - 33*x + 8)/(6*C1*x**2 - 9*C1*x + 3*C1 + 6*x**6 - 29*x**5 + 57*x**4 - 58*x**3 + 28*x**2 - 3*x - 1))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), (9*C1*x - 6*C1 - 15*x**5 + 60*x**4 - 94*x**3 + 72*x**2 - 39*x + 12)/(6*C1*x**2 - 9*C1*x + 3*C1 + 6*x**6 - 29*x**5 + 57*x**4 - 58*x**3 + 24*x**2 + 3*x - 3))
+
+test_single.py:272: AssertionError
+______________________________ test_almost_linear ______________________________
+
+    def test_almost_linear():
+>       _ode_solver_test(_get_examples_ode_sol_almost_linear)
+
+test_single.py:573: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'almost_linear'
+ode_example = {'eq': A*(x + f(x) + Derivative(f(x), x)) + x + f(x) + Derivative(f(x), x) + 2, 'sol': [Eq(f(x), (C1 + (-A*x + A - x - 1)*exp(x)/(A + 1))*exp(-x))], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example almost_lin_05.
+E                   
+E                   The ODE is:
+E                   A*(x + f(x) + Derivative(f(x), x)) + x + f(x) + Derivative(f(x), x) + 2
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), (C1 + (-A*x + A - x - 1)*exp(x)/(A + 1))*exp(-x))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), (C1 + (A - x*(A + 1) - 1)*exp(x)/(A + 1))*exp(-x))
+
+test_single.py:272: AssertionError
+__________________ test_nth_order_linear_euler_eq_homogeneous __________________
+
+    def test_nth_order_linear_euler_eq_homogeneous():
+        x, t, a, b, c = symbols('x t a b c')
+        y = Function('y')
+        our_hint = "nth_linear_euler_eq_homogeneous"
+    
+        eq = diff(f(t), t, 4)*t**4 - 13*diff(f(t), t, 2)*t**2 + 36*f(t)
+        assert our_hint in classify_ode(eq)
+    
+        eq = a*y(t) + b*t*diff(y(t), t) + c*t**2*diff(y(t), t, 2)
+        assert our_hint in classify_ode(eq)
+    
+>       _ode_solver_test(_get_examples_ode_sol_euler_homogeneous)
+
+test_single.py:602: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'nth_linear_euler_eq_homogeneous'
+ode_example = {'eq': x**6*Derivative(f(x), (x, 6)) - x*Derivative(f(x), x) + f(x), 'sol': [Eq(f(x), C1*x + C2*x**CRootOf(x**5 - 14*x... + 120*x - 1, 3) + C6*x**CRootOf(x**5 - 14*x**4 + 71*x**3 - 154*x**2 + 120*x - 1, 4))], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example euler_hom_08.
+E                   
+E                   The ODE is:
+E                   x**6*Derivative(f(x), (x, 6)) - x*Derivative(f(x), x) + f(x)
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), C1*x + C2*x**CRootOf(x**5 - 14*x**4 + 71*x**3 - 154*x**2 + 120*x - 1, 0) + C3*x**CRootOf(x**5 - 14*x**4 + 71*x**3 - 154*x**2 + 120*x - 1, 1) + C4*x**CRootOf(x**5 - 14*x**4 + 71*x**3 - 154*x**2 + 120*x - 1, 2) + C5*x**CRootOf(x**5 - 14*x**4 + 71*x**3 - 154*x**2 + 120*x - 1, 3) + C6*x**CRootOf(x**5 - 14*x**4 + 71*x**3 - 154*x**2 + 120*x - 1, 4))]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), C1*x + C2*x**CRootOf(_x**5 - 14*_x**4 + 71*_x**3 - 154*_x**2 + 120*_x - 1, 0) + C3*x**CRootOf(_x**5 - 14*_x**4 + 71*_x**3 - 154*_x**2 + 120*_x - 1, 1) + C4*x**CRootOf(_x**5 - 14*_x**4 + 71*_x**3 - 154*_x**2 + 120*_x - 1, 2) + C5*x**CRootOf(_x**5 - 14*_x**4 + 71*_x**3 - 154*_x**2 + 120*_x - 1, 3) + C6*x**CRootOf(_x**5 - 14*_x**4 + 71*_x**3 - 154*_x**2 + 120*_x - 1, 4))
+
+test_single.py:272: AssertionError
+___ test_nth_order_linear_euler_eq_nonhomogeneous_undetermined_coefficients ____
+
+    def test_nth_order_linear_euler_eq_nonhomogeneous_undetermined_coefficients():
+        x, t = symbols('x t')
+        a, b, c, d = symbols('a b c d', integer=True)
+        our_hint = "nth_linear_euler_eq_nonhomogeneous_undetermined_coefficients"
+    
+        eq = x**4*diff(f(x), x, 4) - 13*x**2*diff(f(x), x, 2) + 36*f(x) + x
+        assert our_hint in classify_ode(eq, f(x))
+    
+        eq = a*x**2*diff(f(x), x, 2) + b*x*diff(f(x), x) + c*f(x) + d*log(x)
+        assert our_hint in classify_ode(eq, f(x))
+    
+>       _ode_solver_test(_get_examples_ode_sol_euler_undetermined_coeff)
+
+test_single.py:616: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_single.py:186: in _ode_solver_test
+    result = _test_particular_example(example['hint'], example, solver_flag=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+our_hint = 'nth_linear_euler_eq_nonhomogeneous_undetermined_coefficients'
+ode_example = {'eq': Eq(x**2*Derivative(f(x), (x, 2)) - x*Derivative(f(x), x) - 3*f(x), log(x)/x), 'sol': [Eq(f(x), (C1 + C2*x**4 - log(x)**2/8 - log(x)/16)/x)], 'XFAIL': [], 'func': f(x), ...}
+solver_flag = True
+
+    def _test_particular_example(our_hint, ode_example, solver_flag=False):
+        eq = ode_example['eq']
+        expected_sol = ode_example['sol']
+        example = ode_example['example_name']
+        xfail = our_hint in ode_example['XFAIL']
+        func = ode_example['func']
+        result = {'msg': '', 'xpass_msg': ''}
+        simplify_flag=ode_example['simplify_flag']
+        checkodesol_XFAIL = ode_example['checkodesol_XFAIL']
+        dsolve_too_slow = ode_example['dsolve_too_slow']
+        checkodesol_too_slow = ode_example['checkodesol_too_slow']
+        xpass = True
+        if solver_flag:
+            if our_hint not in classify_ode(eq, func):
+                message = hint_message.format(example=example, eq=eq, our_hint=our_hint)
+                raise AssertionError(message)
+    
+        if our_hint in classify_ode(eq, func):
+            result['match_list'] = example
+            try:
+                if not (dsolve_too_slow):
+                    dsolve_sol = dsolve(eq, func, simplify=simplify_flag,hint=our_hint)
+                else:
+                    if len(expected_sol)==1:
+                        dsolve_sol = expected_sol[0]
+                    else:
+                        dsolve_sol = expected_sol
+    
+            except Exception as e:
+                dsolve_sol = []
+                result['exception_list'] = example
+                if not solver_flag:
+                    traceback.print_exc()
+                result['msg'] = exception_msg.format(e=str(e), hint=our_hint, example=example, eq=eq)
+                if solver_flag and not xfail:
+                    print(result['msg'])
+                    raise
+                xpass = False
+    
+            if solver_flag and dsolve_sol!=[]:
+                expect_sol_check = False
+                if type(dsolve_sol)==list:
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+                        else:
+                            expect_sol_check = sub_sol not in dsolve_sol
+                        if expect_sol_check:
+                            break
+                else:
+                    expect_sol_check = dsolve_sol not in expected_sol
+                    for sub_sol in expected_sol:
+                        if sub_sol.has(Dummy):
+                            expect_sol_check = not _test_dummy_sol(sub_sol, dsolve_sol)
+    
+                if expect_sol_check:
+                    message = expected_sol_message.format(example=example, eq=eq, sol=expected_sol, dsolve_sol=dsolve_sol)
+>                   raise AssertionError(message)
+E                   AssertionError: Different solution found from dsolve for example euler_undet_03.
+E                   
+E                   The ODE is:
+E                   Eq(x**2*Derivative(f(x), (x, 2)) - x*Derivative(f(x), x) - 3*f(x), log(x)/x)
+E                   
+E                   The expected solution was
+E                   [Eq(f(x), (C1 + C2*x**4 - log(x)**2/8 - log(x)/16)/x)]
+E                   
+E                   What dsolve returned is:
+E                   Eq(f(x), (C1 + C2*x**4 - 2*log(x)**2 - log(x))/(16*x))
+
+test_single.py:272: AssertionError
+_____________________________ test_dsolve_all_hint _____________________________
+
+    def test_dsolve_all_hint():
+        eq = f(x).diff(x)
+        output = dsolve(eq, hint='all')
+    
+        # Match the Dummy variables:
+        sol1 = output['separable_Integral']
+        _y = sol1.lhs.args[1][0]
+        sol1 = output['1st_homogeneous_coeff_subs_dep_div_indep_Integral']
+        _u1 = sol1.rhs.args[1].args[1][0]
+    
+        expected = {'Bernoulli_Integral': Eq(f(x), C1 + Integral(0, x)),
+            '1st_homogeneous_coeff_best': Eq(f(x), C1),
+            'Bernoulli': Eq(f(x), C1),
+            'nth_algebraic': Eq(f(x), C1),
+            'nth_linear_euler_eq_homogeneous': Eq(f(x), C1),
+            'nth_linear_constant_coeff_homogeneous': Eq(f(x), C1),
+            'separable': Eq(f(x), C1),
+            '1st_homogeneous_coeff_subs_indep_div_dep': Eq(f(x), C1),
+            'nth_algebraic_Integral': Eq(f(x), C1),
+            '1st_linear': Eq(f(x), C1),
+            '1st_linear_Integral': Eq(f(x), C1 + Integral(0, x)),
+            '1st_exact': Eq(f(x), C1),
+            '1st_exact_Integral': Eq(Subs(Integral(0, x) + Integral(1, _y), _y, f(x)), C1),
+            'lie_group': Eq(f(x), C1),
+            '1st_homogeneous_coeff_subs_dep_div_indep': Eq(f(x), C1),
+            '1st_homogeneous_coeff_subs_dep_div_indep_Integral': Eq(log(x), C1 + Integral(-1/_u1, (_u1, f(x)/x))),
+            '1st_power_series': Eq(f(x), C1),
+            'separable_Integral': Eq(Integral(1, (_y, f(x))), C1 + Integral(0, x)),
+            '1st_homogeneous_coeff_subs_indep_div_dep_Integral': Eq(f(x), C1),
+            'best': Eq(f(x), C1),
+            'best_hint': 'nth_algebraic',
+            'default': 'nth_algebraic',
+            'order': 1}
+>       assert output == expected
+E       AssertionError: assert {'1st_exact_I...(x), C1), ...} == {'Bernoulli_I...(x), C1), ...}
+E         
+E         Omitting 20 identical items, use -vv to show
+E         Differing items:
+E         {'1st_exact_Integral': Eq(f(x), C1)} != {'1st_exact_Integral': Eq(Subs(Integral(0, x) + Integral(1, _y), _y, f(x)), C1)}
+E         {'Bernoulli_Integral': Eq(f(x), (C1 + Integral(0, x))*exp(-Integral(0, x)))} != {'Bernoulli_Integral': Eq(f(x), C1 + Integral(0, x))}
+E         {'1st_linear_Integral': Eq(f(x), (C1 + Integral(0, x))*exp(-Integral(0, x)))} != {'1st_linear_Integral': Eq(f(x), C1 + Integral(0, x))}
+E         Use -v to get more diff
+
+test_ode.py:86: AssertionError
+_______________________________ test_dsolve_ics ________________________________
+
+    def test_dsolve_ics():
+        # Maybe this should just use one of the solutions instead of raising...
+>       with raises(NotImplementedError):
+
+test_ode.py:93: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../beforepy/python/symox/testing/pytest.py:27: in __exit__
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+../beforepy/python/symox/testing/pytest.py:18: Failed
+_____________________________ test_dsolve_options ______________________________
+
+    @slow
+    def test_dsolve_options():
+        eq = x*f(x).diff(x) + f(x)
+        a = dsolve(eq, hint='all')
+        b = dsolve(eq, hint='all', simplify=False)
+        c = dsolve(eq, hint='all_Integral')
+        keys = ['1st_exact', '1st_exact_Integral', '1st_homogeneous_coeff_best',
+            '1st_homogeneous_coeff_subs_dep_div_indep',
+            '1st_homogeneous_coeff_subs_dep_div_indep_Integral',
+            '1st_homogeneous_coeff_subs_indep_div_dep',
+            '1st_homogeneous_coeff_subs_indep_div_dep_Integral', '1st_linear',
+            '1st_linear_Integral', 'Bernoulli', 'Bernoulli_Integral',
+            'almost_linear', 'almost_linear_Integral', 'best', 'best_hint',
+            'default', 'factorable', 'lie_group',
+            'nth_linear_euler_eq_homogeneous', 'order',
+            'separable', 'separable_Integral']
+        Integral_keys = ['1st_exact_Integral',
+            '1st_homogeneous_coeff_subs_dep_div_indep_Integral',
+            '1st_homogeneous_coeff_subs_indep_div_dep_Integral', '1st_linear_Integral',
+            'Bernoulli_Integral', 'almost_linear_Integral', 'best', 'best_hint', 'default',
+            'factorable', 'nth_linear_euler_eq_homogeneous',
+            'order', 'separable_Integral']
+        assert sorted(a.keys()) == keys
+        assert a['order'] == ode_order(eq, f(x))
+        assert a['best'] == Eq(f(x), C1/x)
+        assert dsolve(eq, hint='best') == Eq(f(x), C1/x)
+        assert a['default'] == 'factorable'
+        assert a['best_hint'] == 'factorable'
+        assert not a['1st_exact'].has(Integral)
+        assert not a['separable'].has(Integral)
+        assert not a['1st_homogeneous_coeff_best'].has(Integral)
+        assert not a['1st_homogeneous_coeff_subs_dep_div_indep'].has(Integral)
+        assert not a['1st_homogeneous_coeff_subs_indep_div_dep'].has(Integral)
+        assert not a['1st_linear'].has(Integral)
+        assert a['1st_linear_Integral'].has(Integral)
+>       assert a['1st_exact_Integral'].has(Integral)
+E       assert False
+E        +  where False = has(Integral)
+E        +    where has = Eq(f(x), C1/x).has
+
+test_ode.py:132: AssertionError
+________________________________ test_solve_ics ________________________________
+
+    def test_solve_ics():
+        # Basic tests that things work from dsolve.
+        assert dsolve(f(x).diff(x) - 1/f(x), f(x), ics={f(1): 2}) == \
+            Eq(f(x), sqrt(2 * x + 2))
+        assert dsolve(f(x).diff(x) - f(x), f(x), ics={f(0): 1}) == Eq(f(x), exp(x))
+        assert dsolve(f(x).diff(x) - f(x), f(x), ics={f(x).diff(x).subs(x, 0): 1}) == Eq(f(x), exp(x))
+        assert dsolve(f(x).diff(x, x) + f(x), f(x), ics={f(0): 1,
+            f(x).diff(x).subs(x, 0): 1}) == Eq(f(x), sin(x) + cos(x))
+        assert dsolve([f(x).diff(x) - f(x) + g(x), g(x).diff(x) - g(x) - f(x)],
+            [f(x), g(x)], ics={f(0): 1, g(0): 0}) == [Eq(f(x), exp(x)*cos(x)), Eq(g(x), exp(x)*sin(x))]
+    
+        # Test cases where dsolve returns two solutions.
+        eq = (x**2*f(x)**2 - x).diff(x)
+        assert dsolve(eq, f(x), ics={f(1): 0}) == [Eq(f(x),
+            -sqrt(x - 1)/x), Eq(f(x), sqrt(x - 1)/x)]
+        assert dsolve(eq, f(x), ics={f(x).diff(x).subs(x, 1): 0}) == [Eq(f(x),
+            -sqrt(x - S.Half)/x), Eq(f(x), sqrt(x - S.Half)/x)]
+    
+        eq = cos(f(x)) - (x*sin(f(x)) - f(x)**2)*f(x).diff(x)
+        assert dsolve(eq, f(x),
+            ics={f(0):1}, hint='1st_exact', simplify=False) == Eq(x*cos(f(x)) + f(x)**3/3, Rational(1, 3))
+        assert dsolve(eq, f(x),
+            ics={f(0):1}, hint='1st_exact', simplify=True) == Eq(x*cos(f(x)) + f(x)**3/3, Rational(1, 3))
+    
+        assert solve_ics([Eq(f(x), C1*exp(x))], [f(x)], [C1], {f(0): 1}) == {C1: 1}
+        assert solve_ics([Eq(f(x), C1*sin(x) + C2*cos(x))], [f(x)], [C1, C2],
+            {f(0): 1, f(pi/2): 1}) == {C1: 1, C2: 1}
+    
+        assert solve_ics([Eq(f(x), C1*sin(x) + C2*cos(x))], [f(x)], [C1, C2],
+            {f(0): 1, f(x).diff(x).subs(x, 0): 1}) == {C1: 1, C2: 1}
+    
+        assert solve_ics([Eq(f(x), C1*sin(x) + C2*cos(x))], [f(x)], [C1, C2], {f(0): 1}) == \
+            {C2: 1}
+    
+        # Some more complicated tests Refer to PR #16098
+    
+        assert set(dsolve(f(x).diff(x)*(f(x).diff(x, 2)-x), ics={f(0):0, f(x).diff(x).subs(x, 1):0})) == \
+            {Eq(f(x), 0), Eq(f(x), x ** 3 / 6 - x / 2)}
+        assert set(dsolve(f(x).diff(x)*(f(x).diff(x, 2)-x), ics={f(0):0})) == \
+            {Eq(f(x), 0), Eq(f(x), C2*x + x**3/6)}
+    
+        K, r, f0 = symbols('K r f0')
+        sol = Eq(f(x), K*f0*exp(r*x)/((-K + f0)*(f0*exp(r*x)/(-K + f0) - 1)))
+>       assert (dsolve(Eq(f(x).diff(x), r * f(x) * (1 - f(x) / K)), f(x), ics={f(0): f0})) == sol
+E       assert Eq(f(x), -K*f0*exp(r*x)/((K - f0)*(-f0*exp(r*x)/(K - f0) - 1))) == Eq(f(x), K*f0*exp(r*x)/((-K + f0)*(f0*exp(r*x)/(-K + f0) - 1)))
+E        +  where Eq(f(x), -K*f0*exp(r*x)/((K - f0)*(-f0*exp(r*x)/(K - f0) - 1))) = dsolve(Eq(Derivative(f(x), x), r*(1 - f(x)/K)*f(x)), f(x), ics={f(0): f0})
+E        +    where Eq(Derivative(f(x), x), r*(1 - f(x)/K)*f(x)) = Eq(Derivative(f(x), x), ((r * f(x)) * (1 - (f(x) / K))))
+E        +      where Derivative(f(x), x) = scalar_diff(x)
+E        +        where scalar_diff = f(x).diff
+E        +          where f(x) = f(x)
+E        +      and   f(x) = f(x)
+E        +      and   f(x) = f(x)
+E        +    and   f(x) = f(x)
+
+test_ode.py:526: AssertionError
+________________________ test_2nd_power_series_regular _________________________
+
+    def test_2nd_power_series_regular():
+        C1, C2, a = symbols("C1 C2 a")
+        eq = x**2*(f(x).diff(x, 2)) - 3*x*(f(x).diff(x)) + (4*x + 4)*f(x)
+        sol = Eq(f(x), C1*x**2*(-16*x**3/9 + 4*x**2 - 4*x + 1) + O(x**6))
+>       assert dsolve(eq, hint='2nd_power_series_regular') == sol
+E       AssertionError: assert Eq(f(x), C2*x**2*(176*x**3/27 - 12*x**2 + 8*x + (-16*x**3/9 + 4*x**2 - 4*x + 1)*log(x)) + C1*x**2*(-16*x**3/9 + 4*x**2 - 4*x + 1) + O(x**6)) == Eq(f(x), C1*x**2*(-16*x**3/9 + 4*x**2 - 4*x + 1) + O(x**6))
+E        +  where Eq(f(x), C2*x**2*(176*x**3/27 - 12*x**2 + 8*x + (-16*x**3/9 + 4*x**2 - 4*x + 1)*log(x)) + C1*x**2*(-16*x**3/9 + 4*x**2 - 4*x + 1) + O(x**6)) = dsolve(x**2*Derivative(f(x), (x, 2)) - 3*x*Derivative(f(x), x) + (4*x + 4)*f(x), hint='2nd_power_series_regular')
+
+test_ode.py:970: AssertionError
+_______________________________ test_issue_22604 _______________________________
+
+    def test_issue_22604():
+        x1, x2 = symbols('x1, x2', cls = Function)
+        t, k1, k2, m1, m2 = symbols('t k1 k2 m1 m2', real = True)
+        k1, k2, m1, m2 = 1, 1, 1, 1
+        eq1 = Eq(m1*diff(x1(t), t, 2) + k1*x1(t) - k2*(x2(t) - x1(t)), 0)
+        eq2 = Eq(m2*diff(x2(t), t, 2) + k2*(x2(t) - x1(t)), 0)
+        eqs = [eq1, eq2]
+        [x1sol, x2sol] = dsolve(eqs, [x1(t), x2(t)], ics = {x1(0):0, x1(t).diff().subs(t,0):0, \
+                                                            x2(0):1, x2(t).diff().subs(t,0):0})
+>       assert x1sol == Eq(x1(t), sqrt(3 - sqrt(5))*(sqrt(10) + 5*sqrt(2))*cos(sqrt(2)*t*sqrt(3 - sqrt(5))/2)/20 + \
+                           (-5*sqrt(2) + sqrt(10))*sqrt(sqrt(5) + 3)*cos(sqrt(2)*t*sqrt(sqrt(5) + 3)/2)/20)
+E       assert Eq(x1(t), sqrt(5)*cos(sqrt(2)*t*sqrt(3 - sqrt(5))/2)/5 - sqrt(5)*cos(sqrt(2)*t*sqrt(sqrt(5) + 3)/2)/5) == Eq(x1(t), sqrt(3 - sqrt(5))*(sqrt(10) + 5*sqrt(2))*cos(sqrt(2)*t*sqrt(3 - sqrt(5))/2)/20 + (-5*sqrt(2) + sqrt(10))*sqrt(sqrt(5) + 3)*cos(sqrt(2)*t*sqrt(sqrt(5) + 3)/2)/20)
+E        +  where Eq(x1(t), sqrt(3 - sqrt(5))*(sqrt(10) + 5*sqrt(2))*cos(sqrt(2)*t*sqrt(3 - sqrt(5))/2)/20 + (-5*sqrt(2) + sqrt(10))*sqrt(sqrt(5) + 3)*cos(sqrt(2)*t*sqrt(sqrt(5) + 3)/2)/20) = Eq(x1(t), ((((sqrt(3 - sqrt(5)) * (sqrt(10) + (5 * sqrt(2)))) * cos(sqrt(2)*t*sqrt(3 - sqrt(5))/2)) / 20) + (((((-5 * sqrt(2)) + sqrt(10)) * sqrt(sqrt(5) + 3)) * cos(sqrt(2)*t*sqrt(sqrt(5) + 3)/2)) / 20)))
+E        +    where x1(t) = x1(t)
+E        +    and   sqrt(3 - sqrt(5)) = sqrt((3 - sqrt(5)))
+E        +      where sqrt(5) = sqrt(5)
+E        +    and   sqrt(10) = sqrt(10)
+E        +    and   sqrt(2) = sqrt(2)
+E        +    and   cos(sqrt(2)*t*sqrt(3 - sqrt(5))/2) = cos((((sqrt(2) * t) * sqrt(3 - sqrt(5))) / 2))
+E        +      where sqrt(2) = sqrt(2)
+E        +      and   sqrt(3 - sqrt(5)) = sqrt((3 - sqrt(5)))
+E        +        where sqrt(5) = sqrt(5)
+E        +    and   sqrt(2) = sqrt(2)
+E        +    and   sqrt(10) = sqrt(10)
+E        +    and   sqrt(sqrt(5) + 3) = sqrt((sqrt(5) + 3))
+E        +      where sqrt(5) = sqrt(5)
+E        +    and   cos(sqrt(2)*t*sqrt(sqrt(5) + 3)/2) = cos((((sqrt(2) * t) * sqrt(sqrt(5) + 3)) / 2))
+E        +      where sqrt(2) = sqrt(2)
+E        +      and   sqrt(sqrt(5) + 3) = sqrt((sqrt(5) + 3))
+E        +        where sqrt(5) = sqrt(5)
+
+test_ode.py:1079: AssertionError
+=========================== short test summary info ============================
+FAILED test_single.py::test_linear_coefficients - AssertionError: Different s...
+FAILED test_single.py::test_1st_homogeneous_coeff_ode - AssertionError: Diffe...
+FAILED test_single.py::test_nth_linear_constant_coeff_homogeneous - Assertion...
+FAILED test_single.py::test_lie_group - AttributeError: not a relational. Did...
+FAILED test_single.py::test_separable_reduced - AssertionError: Different sol...
+FAILED test_single.py::test_nth_linear_constant_coeff_var_of_parameters - Ass...
+FAILED test_single.py::test_slow_examples_1st_exact - AssertionError: Differe...
+FAILED test_single.py::test_slow_examples_nth_order_reducible - AssertionErro...
+FAILED test_single.py::test_nth_linear_constant_coeff_undetermined_coefficients
+FAILED test_single.py::test_separable - AssertionError: Different solution fo...
+FAILED test_single.py::test_1st_rational_riccati - AssertionError: Different ...
+FAILED test_single.py::test_almost_linear - AssertionError: Different solutio...
+FAILED test_single.py::test_nth_order_linear_euler_eq_homogeneous - Assertion...
+FAILED test_single.py::test_nth_order_linear_euler_eq_nonhomogeneous_undetermined_coefficients
+FAILED test_ode.py::test_dsolve_all_hint - AssertionError: assert {'1st_exact...
+FAILED test_ode.py::test_dsolve_ics - Failed: DID NOT RAISE
+FAILED test_ode.py::test_dsolve_options - assert False
+FAILED test_ode.py::test_solve_ics - assert Eq(f(x), -K*f0*exp(r*x)/((K - f0)...
+FAILED test_ode.py::test_2nd_power_series_regular - AssertionError: assert Eq...
+FAILED test_ode.py::test_issue_22604 - assert Eq(x1(t), sqrt(5)*cos(sqrt(2)*t...
+20 failed, 53 passed, 1 skipped, 1 xfailed in 62.02s (0:01:02)
