@@ -39,6 +39,39 @@ fn set_result(py: Python<'_>, variables: &[Expr], solutions: Vec<Vec<Expr>>) -> 
     Ok((symbols, PySet::new(py, rows)?).into_pyobject(py)?.into_any().unbind())
 }
 
+/// The computations of the native `_tsolve` fallback that stay in Python:
+/// `nsimplify` of a number (`mpmath.identify`) and the tail of
+/// `Expr.equals` after the native test is undecided. An exception declines.
+fn native_hooks() -> sv::native_tsolve::Hooks {
+    sv::native_tsolve::Hooks {
+        nsimplify: Box::new(|e: &Expr| {
+            Python::with_gil(|py| {
+                let f = py.import("symox").and_then(|m| m.getattr("nsimplify")).ok()?;
+                let r = f.call1((wrap(e.clone()),)).ok()?;
+                to_expr(&r).ok()
+            })
+        }),
+        equals_zero: Box::new(|e: &Expr| {
+            Python::with_gil(|py| {
+                let obj = wrap(e.clone()).into_pyobject(py).ok()?;
+                let r = obj.call_method1("equals", (0,)).ok()?;
+                if r.is_none() {
+                    return Some(None);
+                }
+                r.is_truthy().ok().map(Some)
+            })
+        }),
+    }
+}
+
+/// The `simplify` flag of a `solve` call (None when not given).
+fn simplify_flag(flags: Option<&Bound<'_, PyDict>>) -> PyResult<Option<bool>> {
+    match flags.map(|f| f.get_item("simplify")).transpose()?.flatten() {
+        Some(v) => Ok(Some(v.is_truthy()?)),
+        None => Ok(None),
+    }
+}
+
 fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,symox::poly::roots::RadicalOptions,bool)> {
     let (mut dict, mut set, mut check) = (false, false, true);
     let mut unrad = true;
@@ -196,8 +229,22 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
     if !is_system && eqs.len() == 1 && vars.len() == 1 {
         let x = &vars[0];
         sv::take_unsimplified();
-        let sols = sv::without_unrad(!unrad, || symox::poly::roots::with_radical_options(root_options,||
-            sv::solve_atom(&eqs[0],x,check).or_else(||sv::solve_with_check(&eqs[0],x,check)))).ok_or_else(|| {
+        // The native `_tsolve` fallback (and the unrad fallback for
+        // radicals mixed with other functions) run first; when one of their
+        // computations needs the Python layer, the call is made again
+        // without them and the Python path keeps the equation.
+        let options = sv::native_tsolve::SolveOptions { check, simplify: simplify_flag(flags)?, ..Default::default() };
+        let run = |native: bool| sv::native_tsolve::scope(native, || sv::without_unrad(!unrad, || symox::poly::roots::with_radical_options(root_options,||
+            sv::solve_atom(&eqs[0],x,check).or_else(||sv::solve_with_check(&eqs[0],x,check))
+                .or_else(|| sv::native_tsolve::fallback(&eqs[0], x, options)))));
+        let (sols, declined) = sv::native_tsolve::with_hooks(native_hooks(), || run(true));
+        let sols = if declined {
+            sv::take_unsimplified();
+            run(false).0
+        } else {
+            sols
+        };
+        let sols = sols.ok_or_else(|| {
             sv::take_unsimplified();
             PyNotImplementedError::new_err(format!("could not solve {} for {}", eqs[0], x))
         })?;

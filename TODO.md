@@ -61,8 +61,9 @@ débloqués. Réserve : les équations qui mêlent des radicaux de l'inconnue à
 d'autres fonctions de celle-ci (`sqrt(x)*exp(x)`, `cosh(x)/x - sqrt(2)`,
 exposants symboliques) ne sont pas admises par la branche native et
 passent encore par les replis Python qui appellent `_tsolve` avant unrad
-(`_masked_solution`, `_inverted_solution`, `_unrad_solution`) ; voir
-« Lacunes ouvertes principales ».
+(`_masked_solution`, `_inverted_solution`, `_unrad_solution`) ; la vague 42
+(en cours, ci-dessous) les porte en Rust ; voir « Lacunes ouvertes
+principales ».
 
 La branche `integrate-wave41-20261106` (main `5ebd60c0` + vague 41 :
 unrad, accumb, arrcomp) est validée, à avancer dans main. Validation
@@ -142,6 +143,41 @@ enveloppes) :
   clippy correctness propre. Écarts délibérés à valider : voir la liste
   de la vague 41 ci-dessous et la section arrcomp de
   docs/algorithmic-parity.md.
+
+Vague 42 (en cours ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes) :
+- tsolve (`feat-tsolve-20261106`) : repli `_tsolve` de `_solve` natif
+  (`crates/symox-core/src/solve/native_tsolve.rs`), dans l'ordre de SymPy :
+  - repli unrad de `_solve` avant `_tsolve` pour les radicaux mêlés à
+    d'autres fonctions de l'inconnue (`radical::solve_mixed`,
+    `sqrt(x)*exp(x) - 1`, `exp(sqrt(x)) - 3`) ;
+  - étapes `_tsolve` (`solve/tsolve.rs`) avec un hôte natif : `_invert`,
+    factor/logcombine, `Pow` (candidats rationnels), `sin`/`cos`/`LambertW`,
+    `rebuild(rewrite(exp))`, bloc bivarié (`_solve_lambert`,
+    `bivariate_type`), reprise posify (drapeaux sans `bivariate`) ;
+  - `_vsolve` imbriqués natifs, sans filtrage par les hypothèses de
+    l'inconnue comme la référence (`u` positif de `bivariate_type`,
+    posify : `x**x - x` garde `-1`) ;
+  - étape multi-générateurs de `_solve` (`_as_base_q`, substitution de la
+    fonction la moins profonde) ; logcombine limité aux termes en `x`
+    (`(x**3)**(x/2) + pi/2` rendait `[]`) ; partie primitive d'une
+    quadratique à coefficients symboliques avant la forme close, comme
+    `preprocess_roots` (`solve.rs::quadratic_primitive`) ;
+  - indécidable natif : déclin et relance, jamais `[]`.
+  Corpus de 115 équations (`audits/performance/2026-11-06-tsolve/`) : avant
+  99 SAME, 6 EQUIV, 3 SUBSET, 1 SUPERSET, 1 WRONG_EMPTY, 5 DECLINED ; après
+  106 SAME, 6 EQUIV, 2 SUPERSET, 1 DECLINED ; cas passant par la chaîne
+  Python 66 → 10. Corpus unrad inchangé (87 SAME, 2 EQUIV, 1 EXTRA).
+  Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) : suite complète
+  **60 379 réussis, 0 échec** ("SUITE CLEAN", 8 xfail, 45 sautés, 60 432
+  collectés, 691 fichiers ; +27 de `tests/test_native_tsolve_fallbacks.py` ;
+  preuves dans `~/symox-ci/evidence/tsolve-20261106`) ; cargo test 867 + 1
+  + 0 + 5 ; clippy correctness propre ; corpus EDO 315/289/270 (inchangé,
+  aucune ligne modifiée). Écarts à valider : branches complexes de Lambert
+  en SUPERSET (`x**3 - 3**x`, `3**cos(x) - cos(x)**3`), `_vsolve`
+  imbriqués sans filtrage par hypothèses, forme de SymPy pour
+  `almost_lin_01` (`tests/test_ode_solve_parity.py`) ; voir la section
+  wave 42 de docs/algorithmic-parity.md.
 
 Vague 40 (dans main ; calcul en Rust, Python limité à l'admission,
 l'aiguillage et les enveloppes) :
@@ -325,12 +361,16 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `checksol` de `_is_special_case_of` (SymPy y dépasse aussi son délai) ;
   `integrate(x/(x**2 - 1))` garde deux
   logarithmes ([détail](docs/algorithmic-parity.md#ode-2026-11-05-native-2f1-step-upper-limit-integraldoit-fx-solve-recast)).
-- solve (radicaux) : équations mêlant radicaux et fonctions de l'inconnue
-  (`sqrt(x)*exp(x)`, exposants symboliques) hors de la branche native, qui
-  passent encore par les replis Python (`_tsolve` avant unrad) ; option
-  `_take` d'unrad non portée ; formes `cov_not_sym`/`ratio_den` différentes
-  (valeurs égales) ; erreurs de la référence déclinées vers les étapes
-  suivantes ([détail](docs/algorithmic-parity.md#solve-2026-11-06-native-unrad-branch-and-generator-roots-of-radical-equations)).
+- solve (radicaux, `_tsolve`) : repli `_tsolve` natif depuis la vague 42 ;
+  restent en Python `nsimplify` d'un nombre (`mpmath.identify`, crochet)
+  et la fin de `Expr.equals` indécise, `force=False` et `bivariate=False`
+  publics, l'inverse d'une classe de fonction inconnue de la table native,
+  la chaîne Python après un NotImplementedError natif (conservée :
+  `_solve_piecewise`, masquage, inversion, `_unrad_resultant`) ; branches
+  complexes LambertW en plus (`x**3 - 3**x`, SUPERSET antérieur) ; formes
+  `cov_not_sym`/`ratio_den` différentes (valeurs égales) ; `_take` lu par
+  le seul `unrad` public, comme la référence
+  ([détail](docs/algorithmic-parity.md#solve-2026-11-06-wave-42-native-_tsolve-fallback-and-unrad-before-_tsolve-for-mixed-equations)).
 - prde : EDR de Risch paramétrique au-dessus du niveau de base sur les
   niveaux tan/non linéaires, `prde_no_cancel_b_small` hors niveau de base,
   `prde_no_cancel_b_equal`, domaines à générateurs non symboles

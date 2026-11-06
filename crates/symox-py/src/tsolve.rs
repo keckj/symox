@@ -69,6 +69,13 @@ impl Host for PyHost<'_> {
                 let d = self.flags.copy().map_err(Fail::Host)?;
                 d.set_item("bivariate", false).map_err(Fail::Host)?;
                 Some(d)
+            },
+            Flags::Popped => {
+                let d = self.flags.copy().map_err(Fail::Host)?;
+                if d.contains("bivariate").map_err(Fail::Host)? {
+                    d.del_item("bivariate").map_err(Fail::Host)?;
+                }
+                Some(d)
             }
         };
         let r = self.solve.call((wrap(eq.clone()), wrap(x.clone())), kw.as_ref()).map_err(|e| host_err(py, e))?;

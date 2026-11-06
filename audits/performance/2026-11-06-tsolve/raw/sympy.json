@@ -1,0 +1,692 @@
+{
+ "mix_sqrt_exp": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.215
+ },
+ "mix_sqrt_exp2": {
+  "ok": true,
+  "str": "[LambertW(8)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(8)))]",
+  "seconds": 0.212
+ },
+ "mix_sqrt_minus_exp": {
+  "ok": true,
+  "str": "[-LambertW(-2)/2]",
+  "srepr": "[Mul(Integer(-1), Rational(1, 2), LambertW(Integer(-2)))]",
+  "seconds": 0.406
+ },
+ "mix_sqrt_plus_exp": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.301
+ },
+ "mix_cbrt_exp": {
+  "ok": true,
+  "str": "[LambertW(3)/3]",
+  "srepr": "[Mul(Rational(1, 3), LambertW(Integer(3)))]",
+  "seconds": 0.23
+ },
+ "mix_exp_sqrt_arg": {
+  "ok": true,
+  "str": "[log(3)**2]",
+  "srepr": "[Pow(log(Integer(3)), Integer(2))]",
+  "seconds": 0.189
+ },
+ "mix_x_exp_sqrt": {
+  "ok": true,
+  "str": "[exp(-2*LambertW(1/2))]",
+  "srepr": "[exp(Mul(Integer(-1), Integer(2), LambertW(Rational(1, 2))))]",
+  "seconds": 0.257
+ },
+ "mix_exp_pm_sqrt": {
+  "ok": true,
+  "str": "[log(3/2 - sqrt(5)/2)**2, log(sqrt(5)/2 + 3/2)**2]",
+  "srepr": "[Pow(log(Add(Rational(3, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(5), Rational(1, 2))))), Integer(2)), Pow(log(Add(Mul(Rational(1, 2), Pow(Integer(5), Rational(1, 2))), Rational(3, 2))), Integer(2))]",
+  "seconds": 0.258
+ },
+ "mix_sqrt_log": {
+  "ok": true,
+  "str": "[exp(-2*LambertW(1/2))]",
+  "srepr": "[exp(Mul(Integer(-1), Integer(2), LambertW(Rational(1, 2))))]",
+  "seconds": 0.29
+ },
+ "mix_sqrt_log_prod": {
+  "ok": true,
+  "str": "[exp(2*LambertW(1/2))]",
+  "srepr": "[exp(Mul(Integer(2), LambertW(Rational(1, 2))))]",
+  "seconds": 0.265
+ },
+ "mix_sqrt_of_exp": {
+  "ok": true,
+  "str": "[log(4)]",
+  "srepr": "[log(Integer(4))]",
+  "seconds": 0.156
+ },
+ "mix_sqrt_exp_plus1": {
+  "ok": true,
+  "str": "[log(8)]",
+  "srepr": "[log(Integer(8))]",
+  "seconds": 0.165
+ },
+ "mix_sqrt_of_log": {
+  "ok": true,
+  "str": "[exp(4)]",
+  "srepr": "[exp(Integer(4))]",
+  "seconds": 0.296
+ },
+ "mix_sqrt_log_two": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.227
+ },
+ "mix_sqrt_2pow": {
+  "ok": true,
+  "str": "[1/2]",
+  "srepr": "[Rational(1, 2)]",
+  "seconds": 0.206
+ },
+ "mix_sqrt1p_exp": {
+  "ok": true,
+  "str": "[log(1/2 + sqrt(5)/2)]",
+  "srepr": "[log(Add(Rational(1, 2), Mul(Rational(1, 2), Pow(Integer(5), Rational(1, 2)))))]",
+  "seconds": 0.183
+ },
+ "mix_log_sqrt_arg": {
+  "ok": true,
+  "str": "[(2 - E)**2]",
+  "srepr": "[Pow(Add(Integer(2), Mul(Integer(-1), E)), Integer(2))]",
+  "seconds": 0.255
+ },
+ "mix_cosh_over_x": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "multiple generators [x, exp(x)]\nNo algorithms are implemented to solve equation -sqrt(2) + (exp(x)/2 + exp(-x)/2)/x",
+  "seconds": 0.104
+ },
+ "mix_sqrt_sin": {
+  "ok": true,
+  "str": "[pi - asin(1/4), asin(1/4)]",
+  "srepr": "[Add(pi, Mul(Integer(-1), asin(Rational(1, 4)))), asin(Rational(1, 4))]",
+  "seconds": 0.214
+ },
+ "mix_sqrt_x1_exp": {
+  "ok": true,
+  "str": "[0]",
+  "srepr": "[Integer(0)]",
+  "seconds": 0.202
+ },
+ "mix_sqrt_exp_param": {
+  "ok": true,
+  "str": "[LambertW(2*a**2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Mul(Integer(2), Pow(Symbol('a'), Integer(2)))))]",
+  "seconds": 0.252
+ },
+ "mix_sqrt_exp_minus": {
+  "ok": true,
+  "str": "[log(7 - 4*sqrt(3)), log(4*sqrt(3) + 7)]",
+  "srepr": "[log(Add(Integer(7), Mul(Integer(-1), Integer(4), Pow(Integer(3), Rational(1, 2))))), log(Add(Mul(Integer(4), Pow(Integer(3), Rational(1, 2))), Integer(7)))]",
+  "seconds": 0.224
+ },
+ "mix_sqrt_x_2x": {
+  "ok": true,
+  "str": "[-LambertW(-log(4))/(2*log(2))]",
+  "srepr": "[Mul(Integer(-1), Rational(1, 2), Pow(log(Integer(2)), Integer(-1)), LambertW(Mul(Integer(-1), log(Integer(4)))))]",
+  "seconds": 0.59
+ },
+ "mix_x_sqrt_log": {
+  "ok": true,
+  "str": "[exp(-LambertW(-2)/2)]",
+  "srepr": "[exp(Mul(Integer(-1), Rational(1, 2), LambertW(Integer(-2))))]",
+  "seconds": 1.259
+ },
+ "mix_exp_sqrt_23707": {
+  "ok": true,
+  "str": "[x - 1]",
+  "srepr": "[Add(Symbol('x'), Integer(-1))]",
+  "seconds": 0.355
+ },
+ "mix_sqrt_lambert": {
+  "ok": true,
+  "str": "[exp(-2*LambertW(1))]",
+  "srepr": "[exp(Mul(Integer(-1), Integer(2), LambertW(Integer(1))))]",
+  "seconds": 0.263
+ },
+ "mix_sqrt_pos": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.209
+ },
+ "mix_two_sqrt_exp": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "multiple generators [exp(x), sqrt(x + 1), sqrt(x)]\nNo algorithms are implemented to solve equation sqrt(x) + sqrt(x + 1) - exp(x)",
+  "seconds": 0.277
+ },
+ "sym_xa": {
+  "ok": true,
+  "str": "[2**(1/a)]",
+  "srepr": "[Pow(Integer(2), Pow(Symbol('a'), Integer(-1)))]",
+  "seconds": 0.162
+ },
+ "sym_x2a": {
+  "ok": true,
+  "str": "[2**(2/y), 3**(2/y)]",
+  "srepr": "[Pow(Integer(2), Mul(Integer(2), Pow(Symbol('y'), Integer(-1)))), Pow(Integer(3), Mul(Integer(2), Pow(Symbol('y'), Integer(-1))))]",
+  "seconds": 0.21
+ },
+ "sym_xy_x2y": {
+  "ok": true,
+  "str": "[(-1/2 + sqrt(5)/2)**(1/y), (-sqrt(5)/2 - 1/2)**(1/y)]",
+  "srepr": "[Pow(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(5), Rational(1, 2)))), Pow(Symbol('y'), Integer(-1))), Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Integer(5), Rational(1, 2))), Rational(-1, 2)), Pow(Symbol('y'), Integer(-1)))]",
+  "seconds": 0.265
+ },
+ "sym_xy1": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.142
+ },
+ "sym_xa_exp": {
+  "ok": true,
+  "str": "[a*LambertW(1/a)]",
+  "srepr": "[Mul(Symbol('a'), LambertW(Pow(Symbol('a'), Integer(-1))))]",
+  "seconds": 0.302
+ },
+ "sym_sqrt_pow_a": {
+  "ok": true,
+  "str": "[2**(2/a)]",
+  "srepr": "[Pow(Integer(2), Mul(Integer(2), Pow(Symbol('a'), Integer(-1))))]",
+  "seconds": 0.23
+ },
+ "sym_inv_a": {
+  "ok": true,
+  "str": "[b**a]",
+  "srepr": "[Pow(Symbol('b'), Symbol('a'))]",
+  "seconds": 0.184
+ },
+ "sym_x1a": {
+  "ok": true,
+  "str": "[2**(1/a) - 1]",
+  "srepr": "[Add(Pow(Integer(2), Pow(Symbol('a'), Integer(-1))), Integer(-1))]",
+  "seconds": 0.201
+ },
+ "sym_half_a": {
+  "ok": true,
+  "str": "[3**(2/a)]",
+  "srepr": "[Pow(Integer(3), Mul(Integer(2), Pow(Symbol('a'), Integer(-1))))]",
+  "seconds": 0.25
+ },
+ "sym_a_2a": {
+  "ok": true,
+  "str": "[1, (-2)**(1/a)]",
+  "srepr": "[Integer(1), Pow(Integer(-2), Pow(Symbol('a'), Integer(-1)))]",
+  "seconds": 0.196
+ },
+ "sym_axb": {
+  "ok": true,
+  "str": "[(y/a)**(1/b)]",
+  "srepr": "[Pow(Mul(Pow(Symbol('a'), Integer(-1)), Symbol('y')), Pow(Symbol('b'), Integer(-1)))]",
+  "seconds": 0.197
+ },
+ "sym_zx": {
+  "ok": true,
+  "str": "[log(y)/log(z)]",
+  "srepr": "[Mul(log(Symbol('y')), Pow(log(Symbol('z')), Integer(-1)))]",
+  "seconds": 0.204
+ },
+ "sym_y1x": {
+  "ok": true,
+  "str": "[log(y)/log(z)]",
+  "srepr": "[Mul(log(Symbol('y')), Pow(log(Symbol('z')), Integer(-1)))]",
+  "seconds": 0.243
+ },
+ "sym_xx2": {
+  "ok": true,
+  "str": "[exp(LambertW(log(2)))]",
+  "srepr": "[exp(LambertW(log(Integer(2))))]",
+  "seconds": 0.325
+ },
+ "sym_xx_x": {
+  "ok": true,
+  "str": "[-1, 1]",
+  "srepr": "[Integer(-1), Integer(1)]",
+  "seconds": 0.18
+ },
+ "sym_x3x2": {
+  "ok": true,
+  "str": "[exp(LambertW(-2*log(2)/3 + 2*log(pi)/3 + 2*I*pi/3))]",
+  "srepr": "[exp(LambertW(Add(Mul(Integer(-1), Rational(2, 3), log(Integer(2))), Mul(Rational(2, 3), log(pi)), Mul(Rational(2, 3), I, pi))))]",
+  "seconds": 1.336
+ },
+ "sym_x_x4": {
+  "ok": true,
+  "str": "[-2]",
+  "srepr": "[Integer(-2)]",
+  "seconds": 0.348
+ },
+ "sym_mx": {
+  "ok": true,
+  "str": "[2]",
+  "srepr": "[Integer(2)]",
+  "seconds": 0.64
+ },
+ "sym_x2x": {
+  "ok": true,
+  "str": "[2, 4]",
+  "srepr": "[Integer(2), Integer(4)]",
+  "seconds": 0.236
+ },
+ "sym_x_half": {
+  "ok": true,
+  "str": "[2]",
+  "srepr": "[Integer(2)]",
+  "seconds": 0.572
+ },
+ "sym_x2p1": {
+  "ok": true,
+  "str": "[2]",
+  "srepr": "[Integer(2)]",
+  "seconds": 0.384
+ },
+ "sym_xo2": {
+  "ok": true,
+  "str": "[4, 8]",
+  "srepr": "[Integer(4), Integer(8)]",
+  "seconds": 0.563
+ },
+ "sym_7xx": {
+  "ok": true,
+  "str": "[-sqrt(log(pi) + I*pi)/sqrt(log(7)), sqrt(log(pi) + I*pi)/sqrt(log(7))]",
+  "srepr": "[Mul(Integer(-1), Pow(Add(log(pi), Mul(I, pi)), Rational(1, 2)), Pow(log(Integer(7)), Rational(-1, 2))), Mul(Pow(Add(log(pi), Mul(I, pi)), Rational(1, 2)), Pow(log(Integer(7)), Rational(-1, 2)))]",
+  "seconds": 1.07
+ },
+ "sym_x11": {
+  "ok": true,
+  "str": "[exp(LambertW(-11*log(11) + 11*log(pi) + 11*I*pi))]",
+  "srepr": "[exp(LambertW(Add(Mul(Integer(-1), Integer(11), log(Integer(11))), Mul(Integer(11), log(pi)), Mul(Integer(11), I, pi))))]",
+  "seconds": 1.352
+ },
+ "sym_bx": {
+  "ok": true,
+  "str": "[2]",
+  "srepr": "[Integer(2)]",
+  "seconds": 0.173
+ },
+ "sym_neg_sqrt": {
+  "ok": true,
+  "str": "[4, log(2)/(log(2**(1/4)) + I*pi)]",
+  "srepr": "[Integer(4), Mul(Pow(Add(log(Pow(Integer(2), Rational(1, 4))), Mul(I, pi)), Integer(-1)), log(Integer(2)))]",
+  "seconds": 0.233
+ },
+ "sym_sqrt2x": {
+  "ok": true,
+  "str": "[1/2]",
+  "srepr": "[Rational(1, 2)]",
+  "seconds": 0.15
+ },
+ "sym_x2y_param": {
+  "ok": true,
+  "str": "[0, 1]",
+  "srepr": "[Integer(0), Integer(1)]",
+  "seconds": 0.175
+ },
+ "ts_exp3": {
+  "ok": true,
+  "str": "[log(3)]",
+  "srepr": "[log(Integer(3))]",
+  "seconds": 0.119
+ },
+ "ts_prod": {
+  "ok": true,
+  "str": "[-b/a, log(3)]",
+  "srepr": "[Mul(Integer(-1), Pow(Symbol('a'), Integer(-1)), Symbol('b')), log(Integer(3))]",
+  "seconds": 0.125
+ },
+ "ts_cosh_y": {
+  "ok": true,
+  "str": "[log(y/2 - sqrt(y**2 - 4)/2), log(y/2 + sqrt(y**2 - 4)/2)]",
+  "srepr": "[log(Add(Mul(Rational(1, 2), Symbol('y')), Mul(Integer(-1), Rational(1, 2), Pow(Add(Pow(Symbol('y'), Integer(2)), Integer(-4)), Rational(1, 2))))), log(Add(Mul(Rational(1, 2), Symbol('y')), Mul(Rational(1, 2), Pow(Add(Pow(Symbol('y'), Integer(2)), Integer(-4)), Rational(1, 2)))))]",
+  "seconds": 0.2
+ },
+ "ts_log3": {
+  "ok": true,
+  "str": "[exp(3)]",
+  "srepr": "[exp(Integer(3))]",
+  "seconds": 0.152
+ },
+ "ts_sqrt3x": {
+  "ok": true,
+  "str": "[16/3]",
+  "srepr": "[Rational(16, 3)]",
+  "seconds": 0.152
+ },
+ "ts_3x2": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.037
+ },
+ "ts_x2x": {
+  "ok": true,
+  "str": "[-LambertW(log(2))/log(2)]",
+  "srepr": "[Mul(Integer(-1), Pow(log(Integer(2)), Integer(-1)), LambertW(log(Integer(2))))]",
+  "seconds": 0.314
+ },
+ "ts_log3x": {
+  "ok": true,
+  "str": "[LambertW(2*exp(-19/3)/3)/2 + 2/3]",
+  "srepr": "[Add(Mul(Rational(1, 2), LambertW(Mul(Rational(2, 3), exp(Rational(-19, 3))))), Rational(2, 3))]",
+  "seconds": 0.394
+ },
+ "ts_log4x": {
+  "ok": true,
+  "str": "[LambertW(3/4)/3]",
+  "srepr": "[Mul(Rational(1, 3), LambertW(Rational(3, 4)))]",
+  "seconds": 0.165
+ },
+ "ts_prod8": {
+  "ok": true,
+  "str": "[-4, log(8) + I*pi]",
+  "srepr": "[Integer(-4), Add(log(Integer(8)), Mul(I, pi))]",
+  "seconds": 0.132
+ },
+ "ts_exp34": {
+  "ok": true,
+  "str": "[log(2**(2/3)*3**(1/3)*exp(-4/3)/2), log(-2**(2/3)*3**(1/3)*exp(-4/3)/4 - 2**(2/3)*3**(5/6)*I*exp(-4/3)/4), log(-2**(2/3)*3**(1/3)*exp(-4/3)/4 + 2**(2/3)*3**(5/6)*I*exp(-4/3)/4)]",
+  "srepr": "[log(Mul(Rational(1, 2), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(1, 3)), exp(Rational(-4, 3)))), log(Add(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(1, 3)), exp(Rational(-4, 3))), Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(5, 6)), I, exp(Rational(-4, 3))))), log(Add(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(1, 3)), exp(Rational(-4, 3))), Mul(Rational(1, 4), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(5, 6)), I, exp(Rational(-4, 3)))))]",
+  "seconds": 0.165
+ },
+ "ts_log34": {
+  "ok": true,
+  "str": "[-4/3 + exp(3/2)/3]",
+  "srepr": "[Add(Rational(-4, 3), Mul(Rational(1, 3), exp(Rational(3, 2))))]",
+  "seconds": 0.174
+ },
+ "ts_exp1": {
+  "ok": true,
+  "str": "[I*pi]",
+  "srepr": "[Mul(I, pi)]",
+  "seconds": 0.118
+ },
+ "ts_poly7": {
+  "ok": true,
+  "str": "[(-log(2401) - 5*LambertW((1 + sqrt(5) - sqrt(2)*sqrt(-5 + sqrt(5)))*log(7**(7*3**(1/5)/20))))/(3*log(7)), (-log(2401) - 5*LambertW((1 + sqrt(5) + sqrt(2)*sqrt(-5 + sqrt(5)))*log(7**(7*3**(1/5)/20))))/(3*log(7)), (-log(2401) - 5*LambertW((-sqrt(5) + 1 - sqrt(2)*sqrt(-5 - sqrt(5)))*log(7**(7*3**(1/5)/20))))/(3*log(7)), (-log(2401) - 5*LambertW((-sqrt(5) + 1 + sqrt(2)*sqrt(-5 - sqrt(5)))*log(7**(7*3**(1/5)/20))))/(3*log(7)), (-log(2401) - 5*LambertW(-log(7**(7*3**(1/5)/5))))/(3*log(7))]",
+  "srepr": "[Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Add(Integer(1), Pow(Integer(5), Rational(1, 2)), Mul(Integer(-1), Pow(Integer(2), Rational(1, 2)), Pow(Add(Integer(-5), Pow(Integer(5), Rational(1, 2))), Rational(1, 2)))), log(Pow(Integer(7), Mul(Rational(7, 20), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1))), Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Add(Integer(1), Pow(Integer(5), Rational(1, 2)), Mul(Pow(Integer(2), Rational(1, 2)), Pow(Add(Integer(-5), Pow(Integer(5), Rational(1, 2))), Rational(1, 2)))), log(Pow(Integer(7), Mul(Rational(7, 20), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1))), Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Add(Mul(Integer(-1), Pow(Integer(5), Rational(1, 2))), Integer(1), Mul(Integer(-1), Pow(Integer(2), Rational(1, 2)), Pow(Add(Integer(-5), Mul(Integer(-1), Pow(Integer(5), Rational(1, 2)))), Rational(1, 2)))), log(Pow(Integer(7), Mul(Rational(7, 20), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1))), Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Add(Mul(Integer(-1), Pow(Integer(5), Rational(1, 2))), Integer(1), Mul(Pow(Integer(2), Rational(1, 2)), Pow(Add(Integer(-5), Mul(Integer(-1), Pow(Integer(5), Rational(1, 2)))), Rational(1, 2)))), log(Pow(Integer(7), Mul(Rational(7, 20), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1))), Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Integer(-1), log(Pow(Integer(7), Mul(Rational(7, 5), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1)))]",
+  "seconds": 4.538
+ },
+ "ts_bexp": {
+  "ok": true,
+  "str": "[a/log(y/b)]",
+  "srepr": "[Mul(Symbol('a'), Pow(log(Mul(Pow(Symbol('b'), Integer(-1)), Symbol('y'))), Integer(-1)))]",
+  "seconds": 0.157
+ },
+ "ts_2x10": {
+  "ok": true,
+  "str": "[1 + log(5)/log(2)]",
+  "srepr": "[Add(Integer(1), Mul(Pow(log(Integer(2)), Integer(-1)), log(Integer(5))))]",
+  "seconds": 0.2
+ },
+ "ts_5x2x": {
+  "ok": true,
+  "str": "[0]",
+  "srepr": "[Integer(0)]",
+  "seconds": 0.147
+ },
+ "ts_loop": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "multiple generators [x, (x + 2)**y]\nNo algorithms are implemented to solve equation x*(x + 2)**y - 3",
+  "seconds": 0.386
+ },
+ "ts_sin_sqrt": {
+  "ok": true,
+  "str": "[0, pi**2]",
+  "srepr": "[Integer(0), Pow(pi, Integer(2))]",
+  "seconds": 0.387
+ },
+ "ts_sinh_ni": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "multiple generators [_t, exp(-1/(2*_t)), exp(-1/_t), exp(_t), exp(_t/2)]\nNo algorithms are implemented to solve equation -12*_t*exp(_t/2 - 1/(2*_t)) + (_t**2 - 1)*(exp(_t - 1/_t) - 1) + (_t**2 + 1)*(exp(_t - 1/_t) + 1)",
+  "seconds": 1.093
+ },
+ "ts_logcomb": {
+  "ok": true,
+  "str": "[-sqrt(y*(y - exp(z))), sqrt(y*(y - exp(z)))]",
+  "srepr": "[Mul(Integer(-1), Pow(Mul(Symbol('y'), Add(Symbol('y'), Mul(Integer(-1), exp(Symbol('z'))))), Rational(1, 2))), Pow(Mul(Symbol('y'), Add(Symbol('y'), Mul(Integer(-1), exp(Symbol('z'))))), Rational(1, 2))]",
+  "seconds": 0.554
+ },
+ "ts_logcomb2": {
+  "ok": true,
+  "str": "[-3 + sqrt(-12 + exp(3))*exp(3/2)/2 + exp(3)/2, -sqrt(-12 + exp(3))*exp(3/2)/2 - 3 + exp(3)/2]",
+  "srepr": "[Add(Integer(-3), Mul(Rational(1, 2), Pow(Add(Integer(-12), exp(Integer(3))), Rational(1, 2)), exp(Rational(3, 2))), Mul(Rational(1, 2), exp(Integer(3)))), Add(Mul(Integer(-1), Rational(1, 2), Pow(Add(Integer(-12), exp(Integer(3))), Rational(1, 2)), exp(Rational(3, 2))), Integer(-3), Mul(Rational(1, 2), exp(Integer(3))))]",
+  "seconds": 0.262
+ },
+ "ts_logcomb3": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.213
+ },
+ "ts_log_sum": {
+  "ok": true,
+  "str": "[sqrt(10)]",
+  "srepr": "[Pow(Integer(10), Rational(1, 2))]",
+  "seconds": 0.177
+ },
+ "ts_erf": {
+  "ok": true,
+  "str": "[erfinv(y)]",
+  "srepr": "[erfinv(Symbol('y'))]",
+  "seconds": 0.12
+ },
+ "lw_sub1": {
+  "ok": true,
+  "str": "[LambertW(3*E)/3]",
+  "srepr": "[Mul(Rational(1, 3), LambertW(Mul(Integer(3), E)))]",
+  "seconds": 0.329
+ },
+ "lw_sub2": {
+  "ok": true,
+  "str": "[LambertW(3*exp(-sqrt(2)))/3, LambertW(3*exp(sqrt(2)))/3]",
+  "srepr": "[Mul(Rational(1, 3), LambertW(Mul(Integer(3), exp(Mul(Integer(-1), Pow(Integer(2), Rational(1, 2))))))), Mul(Rational(1, 3), LambertW(Mul(Integer(3), exp(Pow(Integer(2), Rational(1, 2))))))]",
+  "seconds": 0.422
+ },
+ "lw_sub3": {
+  "ok": true,
+  "str": "[LambertW(3*exp(1 - sqrt(3)))/3, LambertW(3*exp(1 + sqrt(3)))/3]",
+  "srepr": "[Mul(Rational(1, 3), LambertW(Mul(Integer(3), exp(Add(Integer(1), Mul(Integer(-1), Pow(Integer(3), Rational(1, 2)))))))), Mul(Rational(1, 3), LambertW(Mul(Integer(3), exp(Add(Integer(1), Pow(Integer(3), Rational(1, 2)))))))]",
+  "seconds": 0.394
+ },
+ "lw_nested": {
+  "ok": true,
+  "str": "[LambertW(3*exp(-LambertW(3)))]",
+  "srepr": "[LambertW(Mul(Integer(3), exp(Mul(Integer(-1), LambertW(Integer(3))))))]",
+  "seconds": 0.784
+ },
+ "lw_sin_ni": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "multiple generators [x, log(-x + y), sin(x)]\nNo algorithms are implemented to solve equation x - log(-x + y)*sin(x)",
+  "seconds": 0.571
+ },
+ "lw_x3_3x": {
+  "ok": true,
+  "str": "[3, -3*LambertW(-log(3)/3)/log(3)]",
+  "srepr": "[Integer(3), Mul(Integer(-1), Integer(3), Pow(log(Integer(3)), Integer(-1)), LambertW(Mul(Integer(-1), Rational(1, 3), log(Integer(3)))))]",
+  "seconds": 0.307
+ },
+ "lw_3log": {
+  "ok": true,
+  "str": "[3, -3*LambertW(-log(3)/3)/log(3)]",
+  "srepr": "[Integer(3), Mul(Integer(-1), Integer(3), Pow(log(Integer(3)), Integer(-1)), LambertW(Mul(Integer(-1), Rational(1, 3), log(Integer(3)))))]",
+  "seconds": 0.207
+ },
+ "lw_W": {
+  "ok": true,
+  "str": "[y*exp(y)/2]",
+  "srepr": "[Mul(Rational(1, 2), Symbol('y'), exp(Symbol('y')))]",
+  "seconds": 0.188
+ },
+ "lw_biv1": {
+  "ok": true,
+  "str": "[-1/2 + sqrt(1 + 4*LambertW(1))/2, -sqrt(1 + 4*LambertW(1))/2 - 1/2]",
+  "srepr": "[Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Add(Integer(1), Mul(Integer(4), LambertW(Integer(1)))), Rational(1, 2)))), Add(Mul(Integer(-1), Rational(1, 2), Pow(Add(Integer(1), Mul(Integer(4), LambertW(Integer(1)))), Rational(1, 2))), Rational(-1, 2))]",
+  "seconds": 0.51
+ },
+ "lw_ax": {
+  "ok": true,
+  "str": "[2*LambertW(-a/2)]",
+  "srepr": "[Mul(Integer(2), LambertW(Mul(Integer(-1), Rational(1, 2), Symbol('a'))))]",
+  "seconds": 0.185
+ },
+ "lw_ax_diff": {
+  "ok": true,
+  "str": "[4*LambertW(-sqrt(2)*sqrt(a)/4), 4*LambertW(sqrt(2)*sqrt(a)/4)]",
+  "srepr": "[Mul(Integer(4), LambertW(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(1, 2)), Pow(Symbol('a'), Rational(1, 2))))), Mul(Integer(4), LambertW(Mul(Rational(1, 4), Pow(Integer(2), Rational(1, 2)), Pow(Symbol('a'), Rational(1, 2)))))]",
+  "seconds": 0.327
+ },
+ "lw_xlog": {
+  "ok": true,
+  "str": "[exp(-3 + LambertW(-exp(3)))]",
+  "srepr": "[exp(Add(Integer(-3), LambertW(Mul(Integer(-1), exp(Integer(3))))))]",
+  "seconds": 0.496
+ },
+ "lw_2x_x2": {
+  "ok": true,
+  "str": "[2, 4, -2*LambertW(log(2)/2)/log(2)]",
+  "srepr": "[Integer(2), Integer(4), Mul(Integer(-1), Integer(2), Pow(log(Integer(2)), Integer(-1)), LambertW(Mul(Rational(1, 2), log(Integer(2)))))]",
+  "seconds": 0.387
+ },
+ "lw_3x5": {
+  "ok": true,
+  "str": "[(-log(33554432) + 3*LambertW(-log(2**(10240*2**(1/3)/3))))/(15*log(2))]",
+  "srepr": "[Mul(Rational(1, 15), Add(Mul(Integer(-1), log(Integer(33554432))), Mul(Integer(3), LambertW(Mul(Integer(-1), log(Pow(Integer(2), Mul(Rational(10240, 3), Pow(Integer(2), Rational(1, 3))))))))), Pow(log(Integer(2)), Integer(-1)))]",
+  "seconds": 1.555
+ },
+ "lw_5x": {
+  "ok": true,
+  "str": "[1/5 + LambertW(-21*exp(3/5)/5)/7]",
+  "srepr": "[Add(Rational(1, 5), Mul(Rational(1, 7), LambertW(Mul(Integer(-1), Rational(21, 5), exp(Rational(3, 5))))))]",
+  "seconds": 1.371
+ },
+ "lw_logsub": {
+  "ok": true,
+  "str": "[-I*sqrt(1 - LambertW(1)), sqrt(-1 + LambertW(1))]",
+  "srepr": "[Mul(Integer(-1), I, Pow(Add(Integer(1), Mul(Integer(-1), LambertW(Integer(1)))), Rational(1, 2))), Pow(Add(Integer(-1), LambertW(Integer(1))), Rational(1, 2))]",
+  "seconds": 0.204
+ },
+ "lw_cos": {
+  "ok": true,
+  "str": "[acos(3), acos(-3*LambertW(-log(3)/3)/log(3))]",
+  "srepr": "[acos(Integer(3)), acos(Mul(Integer(-1), Integer(3), Pow(log(Integer(3)), Integer(-1)), LambertW(Mul(Integer(-1), Rational(1, 3), log(Integer(3))))))]",
+  "seconds": 0.365
+ },
+ "lw_uniq": {
+  "ok": true,
+  "str": "[exp(-z + LambertW(2*z**4*exp(2*z))/2)/z]",
+  "srepr": "[Mul(Pow(Symbol('z'), Integer(-1)), exp(Add(Mul(Integer(-1), Symbol('z')), Mul(Rational(1, 2), LambertW(Mul(Integer(2), Pow(Symbol('z'), Integer(4)), exp(Mul(Integer(2), Symbol('z')))))))))]",
+  "seconds": 0.576
+ },
+ "lw_ax_diff2": {
+  "ok": true,
+  "str": "[6*LambertW((-a)**(1/3)/3), 6*LambertW((-a)**(1/3)*(-1 - sqrt(3)*I)/6), 6*LambertW((-a)**(1/3)*(-1 + sqrt(3)*I)/6)]",
+  "srepr": "[Mul(Integer(6), LambertW(Mul(Rational(1, 3), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3))))), Mul(Integer(6), LambertW(Mul(Rational(1, 6), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3)), Add(Integer(-1), Mul(Integer(-1), Pow(Integer(3), Rational(1, 2)), I))))), Mul(Integer(6), LambertW(Mul(Rational(1, 6), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3)), Add(Integer(-1), Mul(Pow(Integer(3), Rational(1, 2)), I)))))]",
+  "seconds": 0.601
+ },
+ "lw_23253a": {
+  "ok": true,
+  "str": "[(LambertW(-exp(-2), -1) + 2)**2]",
+  "srepr": "[Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)), Integer(2)), Integer(2))]",
+  "seconds": 0.592
+ },
+ "lw_23253b": {
+  "ok": true,
+  "str": "[(LambertW(-exp(-2), -1) + 2)**(-2)]",
+  "srepr": "[Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)), Integer(2)), Integer(-2))]",
+  "seconds": 0.607
+ },
+ "lw_23253c": {
+  "ok": true,
+  "str": "[-I*sqrt(2 - LambertW(exp(2))), -I*sqrt(LambertW(-exp(-2)) + 2), sqrt(-2 - LambertW(-exp(-2))), sqrt(-2 + LambertW(exp(2))), -sqrt(-2 - LambertW(-exp(-2), -1)), sqrt(-2 - LambertW(-exp(-2), -1))]",
+  "srepr": "[Mul(Integer(-1), I, Pow(Add(Integer(2), Mul(Integer(-1), LambertW(exp(Integer(2))))), Rational(1, 2))), Mul(Integer(-1), I, Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2)))), Integer(2)), Rational(1, 2))), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2)))))), Rational(1, 2)), Pow(Add(Integer(-2), LambertW(exp(Integer(2)))), Rational(1, 2)), Mul(Integer(-1), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)))), Rational(1, 2))), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)))), Rational(1, 2))]",
+  "seconds": 0.674
+ },
+ "lw_xexp": {
+  "ok": true,
+  "str": "[LambertW(1)]",
+  "srepr": "[LambertW(Integer(1))]",
+  "seconds": 0.159
+ },
+ "lw_xexp2": {
+  "ok": true,
+  "str": "[exp(-LambertW(2)/2)]",
+  "srepr": "[exp(Mul(Integer(-1), Rational(1, 2), LambertW(Integer(2))))]",
+  "seconds": 0.515
+ },
+ "lw_logx2": {
+  "ok": true,
+  "str": "[exp(-LambertW(2)/2)]",
+  "srepr": "[exp(Mul(Integer(-1), Rational(1, 2), LambertW(Integer(2))))]",
+  "seconds": 0.437
+ },
+ "flag_mix_nocheck": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.174
+ },
+ "flag_mix_dict": {
+  "ok": true,
+  "str": "[{x: LambertW(2)/2}]",
+  "srepr": "[{Symbol('x'): Mul(Rational(1, 2), LambertW(Integer(2)))}]",
+  "seconds": 0.214
+ },
+ "flag_mix_nosimp": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.218
+ },
+ "flag_mix_nounrad": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.178
+ },
+ "flag_mix_eq": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.208
+ },
+ "flag_23253_nocheck": {
+  "ok": true,
+  "str": "[(2 - LambertW(exp(2)))**2, (LambertW(-exp(-2)) + 2)**2, (LambertW(-exp(-2), -1) + 2)**2]",
+  "srepr": "[Pow(Add(Integer(2), Mul(Integer(-1), LambertW(exp(Integer(2))))), Integer(2)), Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2)))), Integer(2)), Integer(2)), Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)), Integer(2)), Integer(2))]",
+  "seconds": 0.382
+ },
+ "flag_sym_noforce": {
+  "ok": true,
+  "str": "[2**(2/y), 3**(2/y)]",
+  "srepr": "[Pow(Integer(2), Mul(Integer(2), Pow(Symbol('y'), Integer(-1)))), Pow(Integer(3), Mul(Integer(2), Pow(Symbol('y'), Integer(-1))))]",
+  "seconds": 0.195
+ },
+ "flag_lw_dict": {
+  "ok": true,
+  "str": "[{x: LambertW(1)}]",
+  "srepr": "[{Symbol('x'): LambertW(Integer(1))}]",
+  "seconds": 0.159
+ },
+ "flag_sqrt_log_nocheck": {
+  "ok": true,
+  "str": "[exp(-2*LambertW(1/2))]",
+  "srepr": "[exp(Mul(Integer(-1), Integer(2), LambertW(Rational(1, 2))))]",
+  "seconds": 0.273
+ }
+}

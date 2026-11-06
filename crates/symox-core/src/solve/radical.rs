@@ -75,7 +75,7 @@ pub fn without_radical_branch<T>(f: impl FnOnce() -> T) -> T {
     r
 }
 
-fn record(values: &[Expr]) {
+pub(super) fn record(values: &[Expr]) {
     UNSIMPLIFIED.with(|u| {
         let mut u = u.borrow_mut();
         for v in values {
@@ -117,7 +117,7 @@ struct Host {
 impl UnradHost for Host {
     type Error = ();
     fn vsolve(&mut self, eq: &Expr, x: &Expr) -> Result<Vec<Expr>, UFail<()>> {
-        super::solve_checked_at(eq, x, false, self.depth + 1)
+        nested_checked(eq, x, self.depth + 1)
             .ok_or_else(|| UFail::NotImplemented(String::new()))
     }
     fn take(&mut self, _e: &Expr) -> Option<Result<bool, UFail<()>>> {
@@ -152,6 +152,36 @@ pub(super) fn solve(num: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     unrad_branch(num, x, depth)
 }
 
+/// The unrad fallback of `_solve` for radicals of the unknown mixed with
+/// other functions of it (`sqrt(x)*exp(x) - 1`, `cosh(x)/x - sqrt(2)`):
+/// the reference reaches it when the generator branch found nothing, and
+/// before `_tsolve`. Taken inside the native `_tsolve` scope only
+/// (`native_tsolve::scope`); None when `unrad` declines or the
+/// radical-free equation is not solved, so that the `_tsolve` steps follow.
+pub(super) fn solve_mixed(num: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
+    if !super::native_tsolve::enabled() || BRANCH_OFF.with(Cell::get) || x.as_sym().is_none() {
+        return None;
+    }
+    if depth == 0 && UNRAD_DISABLED.with(Cell::get) {
+        return None;
+    }
+    let mut radical = false;
+    // the algebraic equations take `solve` above
+    if algebraic(num, x, &mut radical) || !super::native_tsolve::has_radical(num, x) {
+        return None;
+    }
+    unrad_branch(num, x, depth)
+}
+
+/// A nested `_vsolve(eq, symbol, check=False)`: the native `_solve`, then,
+/// inside the native `_tsolve` scope, its `_tsolve` steps.
+fn nested_checked(eq: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
+    super::solve_checked_at(eq, x, false, depth).or_else(|| {
+        let options = super::native_tsolve::SolveOptions { check: false, ..Default::default() };
+        super::native_tsolve::fallback(eq, x, options)
+    })
+}
+
 /// `roots(Poly(f_num, g, composite=True))` and the inversion of `g`.
 fn single_generator(num: &Expr, g: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     let poly = Poly::from_expr(num, std::slice::from_ref(g)).ok()?;
@@ -183,6 +213,19 @@ fn single_generator(num: &Expr, g: &Expr, x: &Expr, depth: u32) -> Option<Vec<Ex
         record(&out);
     }
     Some(out)
+}
+
+/// Whether `unrad(numer(together(eq)), x)` raises NotImplementedError: the
+/// only case where the established resultant elimination of the Python
+/// wrapper (`_unrad_resultant`) can still reduce an equation that the
+/// native `_solve` left unsolved.
+pub(super) fn unrad_raises_ni(eq: &Expr, x: &Expr) -> bool {
+    let (num, _) = crate::simplify::numer_denom(&crate::simplify::together(eq));
+    let mut host = Host { depth: 8 };
+    matches!(
+        unrad::unrad(&mut host, &num, std::slice::from_ref(x), false, false),
+        Err(UFail::NotImplemented(_))
+    )
 }
 
 /// The unrad fallback of `_solve`; None when `unrad` raises or gives
@@ -232,7 +275,7 @@ fn nested_solve(eq: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     };
     let mut out: Vec<Expr> = Vec::new();
     for factor in factors {
-        let mut found = super::solve_checked_at(&factor, x, false, depth + 1)?;
+        let mut found = nested_checked(&factor, x, depth + 1)?;
         if found.len() <= 2 {
             found = found.iter().map(crate::simplify::simplify).collect();
         }

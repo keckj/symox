@@ -1,0 +1,1013 @@
+{
+ "mix_sqrt_exp": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.068,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_exp2": {
+  "ok": true,
+  "str": "[LambertW(8)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(8)))]",
+  "seconds": 0.062,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_minus_exp": {
+  "ok": true,
+  "str": "[-LambertW(-2)/2]",
+  "srepr": "[Mul(Integer(-1), Rational(1, 2), LambertW(Integer(-2)))]",
+  "seconds": 0.085,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_plus_exp": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.076,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_cbrt_exp": {
+  "ok": true,
+  "str": "[LambertW(3)/3]",
+  "srepr": "[Mul(Rational(1, 3), LambertW(Integer(3)))]",
+  "seconds": 0.061,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_exp_sqrt_arg": {
+  "ok": true,
+  "str": "[log(3)**2]",
+  "srepr": "[Pow(log(Integer(3)), Integer(2))]",
+  "seconds": 0.027
+ },
+ "mix_x_exp_sqrt": {
+  "ok": true,
+  "str": "[exp(-2*LambertW(1/2))]",
+  "srepr": "[exp(Mul(Integer(-1), Integer(2), LambertW(Rational(1, 2))))]",
+  "seconds": 0.069,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_exp_pm_sqrt": {
+  "ok": true,
+  "str": "[log(3/2 - sqrt(5)/2)**2, log(sqrt(5)/2 + 3/2)**2]",
+  "srepr": "[Pow(log(Add(Rational(3, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(5), Rational(1, 2))))), Integer(2)), Pow(log(Add(Mul(Rational(1, 2), Pow(Integer(5), Rational(1, 2))), Rational(3, 2))), Integer(2))]",
+  "seconds": 0.041,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_log": {
+  "ok": true,
+  "str": "[exp(-2*LambertW(1/2))]",
+  "srepr": "[exp(Mul(Integer(-1), Integer(2), LambertW(Rational(1, 2))))]",
+  "seconds": 0.069,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_log_prod": {
+  "ok": true,
+  "str": "[exp(2*LambertW(1/2))]",
+  "srepr": "[exp(Mul(Integer(2), LambertW(Rational(1, 2))))]",
+  "seconds": 0.068,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_of_exp": {
+  "ok": true,
+  "str": "[log(4)]",
+  "srepr": "[log(Integer(4))]",
+  "seconds": 0.024
+ },
+ "mix_sqrt_exp_plus1": {
+  "ok": true,
+  "str": "[log(8)]",
+  "srepr": "[log(Integer(8))]",
+  "seconds": 0.024
+ },
+ "mix_sqrt_of_log": {
+  "ok": true,
+  "str": "[exp(4)]",
+  "srepr": "[exp(Integer(4))]",
+  "seconds": 0.016
+ },
+ "mix_sqrt_log_two": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.023,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_2pow": {
+  "ok": true,
+  "str": "[1/2]",
+  "srepr": "[Rational(1, 2)]",
+  "seconds": 0.043,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt1p_exp": {
+  "ok": true,
+  "str": "[log(1/2 + sqrt(5)/2)]",
+  "srepr": "[log(Add(Rational(1, 2), Mul(Rational(1, 2), Pow(Integer(5), Rational(1, 2)))))]",
+  "seconds": 0.027,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "mix_log_sqrt_arg": {
+  "ok": true,
+  "str": "[(2 - E)**2]",
+  "srepr": "[Pow(Add(Integer(2), Mul(Integer(-1), E)), Integer(2))]",
+  "seconds": 0.018
+ },
+ "mix_cosh_over_x": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve -sqrt(2) + (exp(x)/2 + exp(-x)/2)/x for x",
+  "seconds": 0.016,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_sin": {
+  "ok": true,
+  "str": "[pi - asin(1/4), asin(1/4)]",
+  "srepr": "[Add(pi, Mul(Integer(-1), asin(Rational(1, 4)))), asin(Rational(1, 4))]",
+  "seconds": 0.023
+ },
+ "mix_sqrt_x1_exp": {
+  "ok": true,
+  "str": "[0]",
+  "srepr": "[Integer(0)]",
+  "seconds": 0.038,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_exp_param": {
+  "ok": true,
+  "str": "[LambertW(2*a**2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Mul(Integer(2), Pow(Symbol('a'), Integer(2)))))]",
+  "seconds": 0.018,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_exp_minus": {
+  "ok": true,
+  "str": "[2*log(sqrt(3) + 2)]",
+  "srepr": "[Mul(Integer(2), log(Add(Pow(Integer(3), Rational(1, 2)), Integer(2))))]",
+  "seconds": 0.01,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_x_2x": {
+  "ok": true,
+  "str": "[-LambertW(-log(4))/(2*log(2))]",
+  "srepr": "[Mul(Integer(-1), Rational(1, 2), Pow(log(Integer(2)), Integer(-1)), LambertW(Mul(Integer(-1), log(Integer(4)))))]",
+  "seconds": 0.216,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_x_sqrt_log": {
+  "ok": true,
+  "str": "[exp(-LambertW(-2)/2)]",
+  "srepr": "[exp(Mul(Integer(-1), Rational(1, 2), LambertW(Integer(-2))))]",
+  "seconds": 0.086,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "mix_exp_sqrt_23707": {
+  "ok": true,
+  "str": "[x - 1]",
+  "srepr": "[Add(Symbol('x'), Integer(-1))]",
+  "seconds": 0.013,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_lambert": {
+  "ok": true,
+  "str": "[exp(-2*LambertW(1))]",
+  "srepr": "[exp(Mul(Integer(-1), Integer(2), LambertW(Integer(1))))]",
+  "seconds": 0.066,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_sqrt_pos": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.061,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "mix_two_sqrt_exp": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve sqrt(x) + sqrt(x + 1) - exp(x) for x",
+  "seconds": 0.019,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "sym_xa": {
+  "ok": true,
+  "str": "[2**(1/a)]",
+  "srepr": "[Pow(Integer(2), Pow(Symbol('a'), Integer(-1)))]",
+  "seconds": 0.025,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_x2a": {
+  "ok": true,
+  "str": "[2**(2/y), 3**(2/y)]",
+  "srepr": "[Pow(Integer(2), Mul(Integer(2), Pow(Symbol('y'), Integer(-1)))), Pow(Integer(3), Mul(Integer(2), Pow(Symbol('y'), Integer(-1))))]",
+  "seconds": 0.021,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_xy_x2y": {
+  "ok": true,
+  "str": "[(-1/2 + sqrt(5)/2)**(1/y), (-sqrt(5)/2 - 1/2)**(1/y)]",
+  "srepr": "[Pow(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(5), Rational(1, 2)))), Pow(Symbol('y'), Integer(-1))), Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Integer(5), Rational(1, 2))), Rational(-1, 2)), Pow(Symbol('y'), Integer(-1)))]",
+  "seconds": 0.035,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_xy1": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.024,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_xa_exp": {
+  "ok": true,
+  "str": "[a*LambertW(1/a)]",
+  "srepr": "[Mul(Symbol('a'), LambertW(Pow(Symbol('a'), Integer(-1))))]",
+  "seconds": 0.023,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_sqrt_pow_a": {
+  "ok": true,
+  "str": "[2**(2/a)]",
+  "srepr": "[Pow(Integer(2), Mul(Integer(2), Pow(Symbol('a'), Integer(-1))))]",
+  "seconds": 0.017,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_inv_a": {
+  "ok": true,
+  "str": "[b**a]",
+  "srepr": "[Pow(Symbol('b'), Symbol('a'))]",
+  "seconds": 0.016,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_x1a": {
+  "ok": true,
+  "str": "[2**(1/a) - 1]",
+  "srepr": "[Add(Pow(Integer(2), Pow(Symbol('a'), Integer(-1))), Integer(-1))]",
+  "seconds": 0.023,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_half_a": {
+  "ok": true,
+  "str": "[3**(2/a)]",
+  "srepr": "[Pow(Integer(3), Mul(Integer(2), Pow(Symbol('a'), Integer(-1))))]",
+  "seconds": 0.017,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_a_2a": {
+  "ok": true,
+  "str": "[1, (-2)**(1/a)]",
+  "srepr": "[Integer(1), Pow(Integer(-2), Pow(Symbol('a'), Integer(-1)))]",
+  "seconds": 0.015,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_axb": {
+  "ok": true,
+  "str": "[(y/a)**(1/b)]",
+  "srepr": "[Pow(Mul(Pow(Symbol('a'), Integer(-1)), Symbol('y')), Pow(Symbol('b'), Integer(-1)))]",
+  "seconds": 0.016,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_zx": {
+  "ok": true,
+  "str": "[log(y)/log(z)]",
+  "srepr": "[Mul(log(Symbol('y')), Pow(log(Symbol('z')), Integer(-1)))]",
+  "seconds": 0.014
+ },
+ "sym_y1x": {
+  "ok": true,
+  "str": "[log(y)/log(z)]",
+  "srepr": "[Mul(log(Symbol('y')), Pow(log(Symbol('z')), Integer(-1)))]",
+  "seconds": 0.019
+ },
+ "sym_xx2": {
+  "ok": true,
+  "str": "[exp(LambertW(log(2)))]",
+  "srepr": "[exp(LambertW(log(Integer(2))))]",
+  "seconds": 0.04
+ },
+ "sym_xx_x": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.008,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "sym_x3x2": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.067
+ },
+ "sym_x_x4": {
+  "ok": true,
+  "str": "[-2]",
+  "srepr": "[Integer(-2)]",
+  "seconds": 0.023,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "sym_mx": {
+  "ok": true,
+  "str": "[2]",
+  "srepr": "[Integer(2)]",
+  "seconds": 0.024,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "sym_x2x": {
+  "ok": true,
+  "str": "[2, 4]",
+  "srepr": "[Integer(2), Integer(4)]",
+  "seconds": 0.023
+ },
+ "sym_x_half": {
+  "ok": true,
+  "str": "[2]",
+  "srepr": "[Integer(2)]",
+  "seconds": 0.029,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "sym_x2p1": {
+  "ok": true,
+  "str": "[2]",
+  "srepr": "[Integer(2)]",
+  "seconds": 0.027,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "sym_xo2": {
+  "ok": true,
+  "str": "[4, 8]",
+  "srepr": "[Integer(4), Integer(8)]",
+  "seconds": 0.016
+ },
+ "sym_7xx": {
+  "ok": true,
+  "str": "[-sqrt(log(pi) + I*pi)/sqrt(log(7)), sqrt(log(pi) + I*pi)/sqrt(log(7))]",
+  "srepr": "[Mul(Integer(-1), Pow(Add(log(pi), Mul(I, pi)), Rational(1, 2)), Pow(log(Integer(7)), Rational(-1, 2))), Mul(Pow(Add(log(pi), Mul(I, pi)), Rational(1, 2)), Pow(log(Integer(7)), Rational(-1, 2)))]",
+  "seconds": 0.046
+ },
+ "sym_x11": {
+  "ok": true,
+  "str": "[exp(LambertW(11*log(pi/11) + 11*I*pi))]",
+  "srepr": "[exp(LambertW(Add(Mul(Integer(11), log(Mul(Rational(1, 11), pi))), Mul(Integer(11), I, pi))))]",
+  "seconds": 0.088
+ },
+ "sym_bx": {
+  "ok": true,
+  "str": "[2]",
+  "srepr": "[Integer(2)]",
+  "seconds": 0.012
+ },
+ "sym_neg_sqrt": {
+  "ok": true,
+  "str": "[4, log(2)/(log(2**(1/4)) + I*pi)]",
+  "srepr": "[Integer(4), Mul(Pow(Add(log(Pow(Integer(2), Rational(1, 4))), Mul(I, pi)), Integer(-1)), log(Integer(2)))]",
+  "seconds": 0.112
+ },
+ "sym_sqrt2x": {
+  "ok": true,
+  "str": "[1/2]",
+  "srepr": "[Rational(1, 2)]",
+  "seconds": 0.012
+ },
+ "sym_x2y_param": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.018,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "ts_exp3": {
+  "ok": true,
+  "str": "[log(3)]",
+  "srepr": "[log(Integer(3))]",
+  "seconds": 0.018
+ },
+ "ts_prod": {
+  "ok": true,
+  "str": "[-b/a, log(3)]",
+  "srepr": "[Mul(Integer(-1), Pow(Symbol('a'), Integer(-1)), Symbol('b')), log(Integer(3))]",
+  "seconds": 0.02
+ },
+ "ts_cosh_y": {
+  "ok": true,
+  "str": "[log(y/2 - sqrt(y**2 - 4)/2), log(y/2 + sqrt(y**2 - 4)/2)]",
+  "srepr": "[log(Add(Mul(Rational(1, 2), Symbol('y')), Mul(Integer(-1), Rational(1, 2), Pow(Add(Pow(Symbol('y'), Integer(2)), Integer(-4)), Rational(1, 2))))), log(Add(Mul(Rational(1, 2), Symbol('y')), Mul(Rational(1, 2), Pow(Add(Pow(Symbol('y'), Integer(2)), Integer(-4)), Rational(1, 2)))))]",
+  "seconds": 0.03
+ },
+ "ts_log3": {
+  "ok": true,
+  "str": "[exp(3)]",
+  "srepr": "[exp(Integer(3))]",
+  "seconds": 0.011
+ },
+ "ts_sqrt3x": {
+  "ok": true,
+  "str": "[16/3]",
+  "srepr": "[Rational(16, 3)]",
+  "seconds": 0.012
+ },
+ "ts_3x2": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.022
+ },
+ "ts_x2x": {
+  "ok": true,
+  "str": "[-LambertW(log(2))/log(2)]",
+  "srepr": "[Mul(Integer(-1), Pow(log(Integer(2)), Integer(-1)), LambertW(log(Integer(2))))]",
+  "seconds": 0.02
+ },
+ "ts_log3x": {
+  "ok": true,
+  "str": "[LambertW(2*exp(-19/3)/3)/2 + 2/3]",
+  "srepr": "[Add(Mul(Rational(1, 2), LambertW(Mul(Rational(2, 3), exp(Rational(-19, 3))))), Rational(2, 3))]",
+  "seconds": 0.026
+ },
+ "ts_log4x": {
+  "ok": true,
+  "str": "[LambertW(3/4)/3]",
+  "srepr": "[Mul(Rational(1, 3), LambertW(Rational(3, 4)))]",
+  "seconds": 0.021
+ },
+ "ts_prod8": {
+  "ok": true,
+  "str": "[-4, log(8) + I*pi]",
+  "srepr": "[Integer(-4), Add(log(Integer(8)), Mul(I, pi))]",
+  "seconds": 0.02
+ },
+ "ts_exp34": {
+  "ok": true,
+  "str": "[log(2**(2/3)*3**(1/3)*exp(-4/3)/2), log(-2**(2/3)*3**(1/3)*exp(-4/3)/4 - 2**(2/3)*3**(5/6)*I*exp(-4/3)/4), log(-2**(2/3)*3**(1/3)*exp(-4/3)/4 + 2**(2/3)*3**(5/6)*I*exp(-4/3)/4)]",
+  "srepr": "[log(Mul(Rational(1, 2), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(1, 3)), exp(Rational(-4, 3)))), log(Add(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(1, 3)), exp(Rational(-4, 3))), Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(5, 6)), I, exp(Rational(-4, 3))))), log(Add(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(1, 3)), exp(Rational(-4, 3))), Mul(Rational(1, 4), Pow(Integer(2), Rational(2, 3)), Pow(Integer(3), Rational(5, 6)), I, exp(Rational(-4, 3)))))]",
+  "seconds": 0.023
+ },
+ "ts_log34": {
+  "ok": true,
+  "str": "[-4/3 + exp(3/2)/3]",
+  "srepr": "[Add(Rational(-4, 3), Mul(Rational(1, 3), exp(Rational(3, 2))))]",
+  "seconds": 0.02
+ },
+ "ts_exp1": {
+  "ok": true,
+  "str": "[I*pi]",
+  "srepr": "[Mul(I, pi)]",
+  "seconds": 0.015
+ },
+ "ts_poly7": {
+  "ok": true,
+  "str": "[(-log(2401) - 5*LambertW((1 + sqrt(5) - sqrt(2)*I*sqrt(5 - sqrt(5)))*log(7**(7*3**(1/5)/20))))/(3*log(7)), (-log(2401) - 5*LambertW((1 + sqrt(5) + sqrt(2)*I*sqrt(5 - sqrt(5)))*log(7**(7*3**(1/5)/20))))/(3*log(7)), (-log(2401) - 5*LambertW((-sqrt(5) + 1 - sqrt(2)*I*sqrt(sqrt(5) + 5))*log(7**(7*3**(1/5)/20))))/(3*log(7)), (-log(2401) - 5*LambertW((-sqrt(5) + 1 + sqrt(2)*I*sqrt(sqrt(5) + 5))*log(7**(7*3**(1/5)/20))))/(3*log(7)), (-log(2401) - 5*LambertW(-log(7**(7*3**(1/5)/5))))/(3*log(7))]",
+  "srepr": "[Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Add(Integer(1), Pow(Integer(5), Rational(1, 2)), Mul(Integer(-1), Pow(Integer(2), Rational(1, 2)), I, Pow(Add(Integer(5), Mul(Integer(-1), Pow(Integer(5), Rational(1, 2)))), Rational(1, 2)))), log(Pow(Integer(7), Mul(Rational(7, 20), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1))), Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Add(Integer(1), Pow(Integer(5), Rational(1, 2)), Mul(Pow(Integer(2), Rational(1, 2)), I, Pow(Add(Integer(5), Mul(Integer(-1), Pow(Integer(5), Rational(1, 2)))), Rational(1, 2)))), log(Pow(Integer(7), Mul(Rational(7, 20), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1))), Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Add(Mul(Integer(-1), Pow(Integer(5), Rational(1, 2))), Integer(1), Mul(Integer(-1), Pow(Integer(2), Rational(1, 2)), I, Pow(Add(Pow(Integer(5), Rational(1, 2)), Integer(5)), Rational(1, 2)))), log(Pow(Integer(7), Mul(Rational(7, 20), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1))), Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Add(Mul(Integer(-1), Pow(Integer(5), Rational(1, 2))), Integer(1), Mul(Pow(Integer(2), Rational(1, 2)), I, Pow(Add(Pow(Integer(5), Rational(1, 2)), Integer(5)), Rational(1, 2)))), log(Pow(Integer(7), Mul(Rational(7, 20), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1))), Mul(Rational(1, 3), Add(Mul(Integer(-1), log(Integer(2401))), Mul(Integer(-1), Integer(5), LambertW(Mul(Integer(-1), log(Pow(Integer(7), Mul(Rational(7, 5), Pow(Integer(3), Rational(1, 5))))))))), Pow(log(Integer(7)), Integer(-1)))]",
+  "seconds": 0.524,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "ts_bexp": {
+  "ok": true,
+  "str": "[a/log(y/b)]",
+  "srepr": "[Mul(Symbol('a'), Pow(log(Mul(Pow(Symbol('b'), Integer(-1)), Symbol('y'))), Integer(-1)))]",
+  "seconds": 0.016
+ },
+ "ts_2x10": {
+  "ok": true,
+  "str": "[log(10)/log(2)]",
+  "srepr": "[Mul(Pow(log(Integer(2)), Integer(-1)), log(Integer(10)))]",
+  "seconds": 0.019
+ },
+ "ts_5x2x": {
+  "ok": true,
+  "str": "[0]",
+  "srepr": "[Integer(0)]",
+  "seconds": 0.014
+ },
+ "ts_loop": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve x*(x + 2)**y - 3 for x",
+  "seconds": 0.009,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "ts_sin_sqrt": {
+  "ok": true,
+  "str": "[0, pi**2]",
+  "srepr": "[Integer(0), Pow(pi, Integer(2))]",
+  "seconds": 0.022
+ },
+ "ts_sinh_ni": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve exp(2*x)*exp(-exp(-x))*exp(exp(x)) - 6*exp(x)*exp(-exp(-x)/2)*exp(exp(x)/2) + 1 for x",
+  "seconds": 0.022,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "ts_logcomb": {
+  "ok": true,
+  "str": "[-sqrt(y*(y - exp(z))), sqrt(y*(y - exp(z)))]",
+  "srepr": "[Mul(Integer(-1), Pow(Mul(Symbol('y'), Add(Symbol('y'), Mul(Integer(-1), exp(Symbol('z'))))), Rational(1, 2))), Pow(Mul(Symbol('y'), Add(Symbol('y'), Mul(Integer(-1), exp(Symbol('z'))))), Rational(1, 2))]",
+  "seconds": 0.031
+ },
+ "ts_logcomb2": {
+  "ok": true,
+  "str": "[-3 + sqrt(-12 + exp(3))*exp(3/2)/2 + exp(3)/2, -sqrt(-12 + exp(3))*exp(3/2)/2 - 3 + exp(3)/2]",
+  "srepr": "[Add(Integer(-3), Mul(Rational(1, 2), Pow(Add(Integer(-12), exp(Integer(3))), Rational(1, 2)), exp(Rational(3, 2))), Mul(Rational(1, 2), exp(Integer(3)))), Add(Mul(Integer(-1), Rational(1, 2), Pow(Add(Integer(-12), exp(Integer(3))), Rational(1, 2)), exp(Rational(3, 2))), Integer(-3), Mul(Rational(1, 2), exp(Integer(3))))]",
+  "seconds": 0.041
+ },
+ "ts_logcomb3": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.019
+ },
+ "ts_log_sum": {
+  "ok": true,
+  "str": "[sqrt(10)]",
+  "srepr": "[Pow(Integer(10), Rational(1, 2))]",
+  "seconds": 0.028
+ },
+ "ts_erf": {
+  "ok": true,
+  "str": "[erfinv(y)]",
+  "srepr": "[erfinv(Symbol('y'))]",
+  "seconds": 0.019,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_sub1": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve -6*x + (3*x + log(x))**2 - 2*log(x) + 1 for x",
+  "seconds": 0.015,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "lw_sub2": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve -2*(3*x + log(x))**2 + ((3*x + log(x))**2 - 1)**2 + 3 for x",
+  "seconds": 0.016,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "lw_sub3": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve -6*x + (3*x + log(x))**2 - 2*log(x) - 2 for x",
+  "seconds": 0.02,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "lw_nested": {
+  "ok": true,
+  "str": "[LambertW(3*exp(-LambertW(3)))]",
+  "srepr": "[LambertW(Mul(Integer(3), exp(Mul(Integer(-1), LambertW(Integer(3))))))]",
+  "seconds": 0.074,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_sin_ni": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve x - log(-x + y)*sin(x) for x",
+  "seconds": 0.012,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "lw_x3_3x": {
+  "ok": true,
+  "str": "[3, -3*LambertW((1 - sqrt(3)*I)*log(3)/6)/log(3), -3*LambertW((1 + sqrt(3)*I)*log(3)/6)/log(3), -3*LambertW(-log(3)/3)/log(3)]",
+  "srepr": "[Integer(3), Mul(Integer(-1), Integer(3), Pow(log(Integer(3)), Integer(-1)), LambertW(Mul(Rational(1, 6), Add(Integer(1), Mul(Integer(-1), Pow(Integer(3), Rational(1, 2)), I)), log(Integer(3))))), Mul(Integer(-1), Integer(3), Pow(log(Integer(3)), Integer(-1)), LambertW(Mul(Rational(1, 6), Add(Integer(1), Mul(Pow(Integer(3), Rational(1, 2)), I)), log(Integer(3))))), Mul(Integer(-1), Integer(3), Pow(log(Integer(3)), Integer(-1)), LambertW(Mul(Integer(-1), Rational(1, 3), log(Integer(3)))))]",
+  "seconds": 0.096
+ },
+ "lw_3log": {
+  "ok": true,
+  "str": "[3, -3*LambertW(-log(3)/3)/log(3)]",
+  "srepr": "[Integer(3), Mul(Integer(-1), Integer(3), Pow(log(Integer(3)), Integer(-1)), LambertW(Mul(Integer(-1), Rational(1, 3), log(Integer(3)))))]",
+  "seconds": 0.057
+ },
+ "lw_W": {
+  "ok": true,
+  "str": "[y*exp(y)/2]",
+  "srepr": "[Mul(Rational(1, 2), Symbol('y'), exp(Symbol('y')))]",
+  "seconds": 0.014
+ },
+ "lw_biv1": {
+  "ok": true,
+  "str": "[-1/2 + sqrt(1 + 4*LambertW(1))/2, -sqrt(1 + 4*LambertW(1))/2 - 1/2]",
+  "srepr": "[Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Add(Integer(1), Mul(Integer(4), LambertW(Integer(1)))), Rational(1, 2)))), Add(Mul(Integer(-1), Rational(1, 2), Pow(Add(Integer(1), Mul(Integer(4), LambertW(Integer(1)))), Rational(1, 2))), Rational(-1, 2))]",
+  "seconds": 0.079,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_ax": {
+  "ok": true,
+  "str": "[2*LambertW(-a/2)]",
+  "srepr": "[Mul(Integer(2), LambertW(Mul(Integer(-1), Rational(1, 2), Symbol('a'))))]",
+  "seconds": 0.015
+ },
+ "lw_ax_diff": {
+  "ok": true,
+  "str": "[4*LambertW(-sqrt(2)*sqrt(a)/4), 4*LambertW(sqrt(2)*sqrt(a)/4)]",
+  "srepr": "[Mul(Integer(4), LambertW(Mul(Integer(-1), Rational(1, 4), Pow(Integer(2), Rational(1, 2)), Pow(Symbol('a'), Rational(1, 2))))), Mul(Integer(4), LambertW(Mul(Rational(1, 4), Pow(Integer(2), Rational(1, 2)), Pow(Symbol('a'), Rational(1, 2)))))]",
+  "seconds": 0.021
+ },
+ "lw_xlog": {
+  "ok": true,
+  "str": "[exp(-3 + LambertW(-exp(3)))]",
+  "srepr": "[exp(Add(Integer(-3), LambertW(Mul(Integer(-1), exp(Integer(3))))))]",
+  "seconds": 0.087,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_2x_x2": {
+  "ok": true,
+  "str": "[2, 4, -2*LambertW(log(2)/2)/log(2)]",
+  "srepr": "[Integer(2), Integer(4), Mul(Integer(-1), Integer(2), Pow(log(Integer(2)), Integer(-1)), LambertW(Mul(Rational(1, 2), log(Integer(2)))))]",
+  "seconds": 0.031
+ },
+ "lw_3x5": {
+  "ok": true,
+  "str": "[(-log(33554432) + 3*LambertW(-log(2**(10240*2**(1/3)/3))))/(15*log(2))]",
+  "srepr": "[Mul(Rational(1, 15), Add(Mul(Integer(-1), log(Integer(33554432))), Mul(Integer(3), LambertW(Mul(Integer(-1), log(Pow(Integer(2), Mul(Rational(10240, 3), Pow(Integer(2), Rational(1, 3))))))))), Pow(log(Integer(2)), Integer(-1)))]",
+  "seconds": 0.143
+ },
+ "lw_5x": {
+  "ok": true,
+  "str": "[1/5 + LambertW(-21*exp(3/5)/5)/7]",
+  "srepr": "[Add(Rational(1, 5), Mul(Rational(1, 7), LambertW(Mul(Integer(-1), Rational(21, 5), exp(Rational(3, 5))))))]",
+  "seconds": 0.045
+ },
+ "lw_logsub": {
+  "ok": true,
+  "str": "[-sqrt(-1 + LambertW(1)), sqrt(-1 + LambertW(1))]",
+  "srepr": "[Mul(Integer(-1), Pow(Add(Integer(-1), LambertW(Integer(1))), Rational(1, 2))), Pow(Add(Integer(-1), LambertW(Integer(1))), Rational(1, 2))]",
+  "seconds": 0.041,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_cos": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "could not solve 3**cos(x) - cos(x)**3 for x",
+  "seconds": 0.012,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "lw_uniq": {
+  "ok": true,
+  "str": "[exp(-z + LambertW(2*z**4*exp(2*z))/2)/z]",
+  "srepr": "[Mul(Pow(Symbol('z'), Integer(-1)), exp(Add(Mul(Integer(-1), Symbol('z')), Mul(Rational(1, 2), LambertW(Mul(Integer(2), Pow(Symbol('z'), Integer(4)), exp(Mul(Integer(2), Symbol('z')))))))))]",
+  "seconds": 0.054,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_ax_diff2": {
+  "ok": true,
+  "str": "[6*LambertW((-a)**(1/3)/3), 6*LambertW(-(-a)**(1/3)*(1 - sqrt(3)*I)/6), 6*LambertW(-(-a)**(1/3)*(1 + sqrt(3)*I)/6)]",
+  "srepr": "[Mul(Integer(6), LambertW(Mul(Rational(1, 3), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3))))), Mul(Integer(6), LambertW(Mul(Integer(-1), Rational(1, 6), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3)), Add(Integer(1), Mul(Integer(-1), Pow(Integer(3), Rational(1, 2)), I))))), Mul(Integer(6), LambertW(Mul(Integer(-1), Rational(1, 6), Pow(Mul(Integer(-1), Symbol('a')), Rational(1, 3)), Add(Integer(1), Mul(Pow(Integer(3), Rational(1, 2)), I)))))]",
+  "seconds": 0.052
+ },
+ "lw_23253a": {
+  "ok": true,
+  "str": "[(LambertW(-exp(-2), -1) + 2)**2]",
+  "srepr": "[Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)), Integer(2)), Integer(2))]",
+  "seconds": 0.061,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_23253b": {
+  "ok": true,
+  "str": "[(LambertW(-exp(-2), -1) + 2)**(-2)]",
+  "srepr": "[Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)), Integer(2)), Integer(-2))]",
+  "seconds": 0.071,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_23253c": {
+  "ok": true,
+  "str": "[-sqrt(-2 - LambertW(-exp(-2))), sqrt(-2 - LambertW(-exp(-2))), -sqrt(-2 + LambertW(exp(2))), sqrt(-2 + LambertW(exp(2))), -sqrt(-2 - LambertW(-exp(-2), -1)), sqrt(-2 - LambertW(-exp(-2), -1))]",
+  "srepr": "[Mul(Integer(-1), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2)))))), Rational(1, 2))), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2)))))), Rational(1, 2)), Mul(Integer(-1), Pow(Add(Integer(-2), LambertW(exp(Integer(2)))), Rational(1, 2))), Pow(Add(Integer(-2), LambertW(exp(Integer(2)))), Rational(1, 2)), Mul(Integer(-1), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)))), Rational(1, 2))), Pow(Add(Integer(-2), Mul(Integer(-1), LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)))), Rational(1, 2))]",
+  "seconds": 0.237,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_xexp": {
+  "ok": true,
+  "str": "[LambertW(1)]",
+  "srepr": "[LambertW(Integer(1))]",
+  "seconds": 0.021
+ },
+ "lw_xexp2": {
+  "ok": true,
+  "str": "[exp(-LambertW(2)/2)]",
+  "srepr": "[exp(Mul(Integer(-1), Rational(1, 2), LambertW(Integer(2))))]",
+  "seconds": 0.058,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "lw_logx2": {
+  "ok": true,
+  "str": "[exp(-LambertW(2)/2)]",
+  "srepr": "[exp(Mul(Integer(-1), Rational(1, 2), LambertW(Integer(2))))]",
+  "seconds": 0.067,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "flag_mix_nocheck": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.059,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "flag_mix_dict": {
+  "ok": true,
+  "str": "[{x: LambertW(2)/2}]",
+  "srepr": "[{Symbol('x'): Mul(Rational(1, 2), LambertW(Integer(2)))}]",
+  "seconds": 0.025,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "flag_mix_nosimp": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.062,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "flag_mix_nounrad": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.056,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "flag_mix_eq": {
+  "ok": true,
+  "str": "[LambertW(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), LambertW(Integer(2)))]",
+  "seconds": 0.065,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "flag_23253_nocheck": {
+  "ok": true,
+  "str": "[(2 - LambertW(exp(2)))**2, (LambertW(-exp(-2)) + 2)**2, (LambertW(-exp(-2), -1) + 2)**2]",
+  "srepr": "[Pow(Add(Integer(2), Mul(Integer(-1), LambertW(exp(Integer(2))))), Integer(2)), Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2)))), Integer(2)), Integer(2)), Pow(Add(LambertW(Mul(Integer(-1), exp(Integer(-2))), Integer(-1)), Integer(2)), Integer(2))]",
+  "seconds": 0.049,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ },
+ "flag_sym_noforce": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "solve option 'force' with this value is not implemented",
+  "seconds": 0.006,
+  "python_fallbacks": [
+   "_inverted_solution",
+   "_masked_solution",
+   "_solve_piecewise",
+   "_unrad_solution",
+   "tsolve_step"
+  ]
+ },
+ "flag_lw_dict": {
+  "ok": true,
+  "str": "[{x: LambertW(1)}]",
+  "srepr": "[{Symbol('x'): LambertW(Integer(1))}]",
+  "seconds": 0.02
+ },
+ "flag_sqrt_log_nocheck": {
+  "ok": true,
+  "str": "[exp(-2*LambertW(1/2))]",
+  "srepr": "[exp(Mul(Integer(-1), Integer(2), LambertW(Rational(1, 2))))]",
+  "seconds": 0.052,
+  "python_fallbacks": [
+   "_solve_piecewise",
+   "tsolve_step"
+  ]
+ }
+}

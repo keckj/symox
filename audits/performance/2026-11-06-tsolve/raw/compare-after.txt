@@ -1,0 +1,7 @@
+SUPERSET     lw_x3_3x             sympy=[3, -3*LambertW(-log(3)/3)/log(3)]
+                                   symox=[3, -3*LambertW((1 - sqrt(3)*I)*log(3)/6)/log(3), -3*LambertW((1 + sqrt(3)*I)*log(3)/6)/log(3), -3*LambertW(-log(3)/3)/log(3)]
+SUPERSET     lw_cos               sympy=[acos(3), acos(-3*LambertW(-log(3)/3)/log(3))]
+                                   symox=[acos(3), acos(-3*LambertW((1 - sqrt(3)*I)*log(3)/6)/log(3)), acos(-3*LambertW((1 + sqrt(3)*I)*log(3)/6)/log(3)), acos(-3*LambertW(-log(3)/3)/log(3))]
+DECLINED     flag_sym_noforce     sympy=[2**(2/y), 3**(2/y)]
+                                   symox=NotImplementedError: solve option 'force' with this value is not implemented
+{"DECLINED": 1, "EQUIV": 6, "SAME": 106, "SUPERSET": 2}

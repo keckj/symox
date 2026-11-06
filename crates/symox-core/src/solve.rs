@@ -25,6 +25,7 @@ pub mod checksol;
 mod symbolic_power;
 pub mod unrad;
 mod radical;
+pub mod native_tsolve;
 pub use radical::{take_unsimplified, without_radical_branch, without_unrad};
 
 /// `lhs - rhs` for an equation (`Eq`) or the expression itself.
@@ -284,8 +285,25 @@ fn certified_candidate_sign(value: &Expr) -> Option<i32> {
     else { None }
 }
 
+thread_local! {
+    static ASSUMPTION_FILTER_OFF: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Run `f` as a nested `_vsolve` of the reference: its `_solve` checks the
+/// candidates with `checksol` only; the assumptions of the unknown are
+/// checked by the public `solve` alone. `_tsolve` relies on it when it
+/// solves for a positive Dummy (`bivariate_type`'s `u`, `posify`):
+/// `u**4 - 4*u**2 + 4` gives both `-sqrt(2)` and `sqrt(2)` there.
+pub fn without_assumption_filter<T>(f: impl FnOnce() -> T) -> T {
+    let previous = ASSUMPTION_FILTER_OFF.with(|c| c.replace(true));
+    let r = f();
+    ASSUMPTION_FILTER_OFF.with(|c| c.set(previous));
+    r
+}
+
 fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
     use crate::assumptions as query;
+    if ASSUMPTION_FILTER_OFF.with(std::cell::Cell::get) { return true; }
     let Some(symbol) = variable.as_sym() else { return true; };
     let assumptions = symbol.facts();
     if assumptions.len()==1 { return true; } // default commutativity only
@@ -460,7 +478,8 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         // An incomplete `roots` result with symbolic coefficients is
         // reported by the reference as a partial solution list; the closed
         // forms below are tried before the solver declares it unsupported.
-        return poly_roots(&c).or_else(|| complete_roots(&num, x, &c))
+        let primitive = if degree == 2 { quadratic_primitive(&c) } else { None };
+        return poly_roots(primitive.as_deref().unwrap_or(&c)).or_else(|| complete_roots(&num, x, &c))
             .or_else(|| algebraic::all_roots(&num, x))
             .or_else(|| partial_roots(&num, x));
     }
@@ -491,6 +510,9 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
             return solve_rec(&newf, x, depth + 1).map(|r| r.iter().map(tabulated_atan).collect());
         }
     }
+    if let Some(r) = single_function(&num, x, depth) {
+        return Some(r);
+    }
     if let Some(r) = symbolic_power::solve(&num, x, depth) {
         return Some(r);
     }
@@ -503,6 +525,11 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if let Some(r) = solve_by_generator(&num, x, depth) {
         return Some(r);
     }
+    // the unrad fallback for radicals mixed with other functions of x,
+    // before the `_tsolve` steps below (native `_tsolve` scope only)
+    if let Some(r) = radical::solve_mixed(&num, x, depth) {
+        return Some(r);
+    }
     // isolate the only term depending on x and invert
     if let Some(r) = invert(&num, x, depth) {
         return Some(r);
@@ -510,9 +537,16 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if let Some(r) = lambert::solve(&num, x) {
         return Some(r.iter().map(lambert::simpler_rational).collect());
     }
-    // several logarithms: combine them (log(a) - log(b) = log(a/b))
-    let lc = crate::simp::logcombine(&num, true);
-    if lc != num {
+    // several logarithms: combine them (log(a) - log(b) = log(a/b)). As in
+    // the logcombine step of the reference `_tsolve`, only the terms with
+    // x are combined (`lhs = rhs` after `_invert`), and only a combination
+    // that changes their number of logarithms is taken: `x*log(x**3) = c`
+    // alone would become `x**(3*x) = exp(c)`, which loses the `2*pi*I`
+    // multiples of `c` (the Lambert steps solve it instead).
+    let (indep, dep) = crate::decompose::as_independent(&num, std::slice::from_ref(x), Some(true));
+    let lc_dep = crate::simp::logcombine(&dep, true);
+    if lc_dep != dep && count_logs(&lc_dep) != count_logs(&dep) {
+        let lc = add(&[lc_dep, indep]);
         if let Some(r) = solve_rec(&lc, x, depth + 1) {
             return Some(r);
         }
@@ -534,6 +568,84 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         return solve_rec(&rewritten, x, depth + 1);
     }
     None
+}
+
+/// `_as_base_q` of the reference `_solve`: `(b**e, q)` for a generator
+/// `b**(p*e/q)` whose exponent leads with the Rational `p/q`.
+fn as_base_q(g: &Expr) -> (Expr, Number) {
+    let (b, e) = match g.kind() {
+        Kind::Func(Func::Exp, a) => (Expr::e(), a[0].clone()),
+        _ => crate::ops::as_base_exp(g),
+    };
+    if let Some(n) = e.as_number().filter(|n| n.is_rational()) {
+        return (b, n.denom());
+    }
+    if !e.is_mul() {
+        return (g.clone(), Number::ONE);
+    }
+    let (c, ee) = crate::ops::as_coeff_mul(&e);
+    if c.is_rational() && !c.is_one() {
+        return (pow(&b, &ee), c.denom());
+    }
+    (g.clone(), Number::ONE)
+}
+
+/// The step of the reference `_solve` for several generators with
+/// different bases: when replacing the shallowest function `f1` of the
+/// unknown by a symbol `t` clears the unknown (`3**cos(x) - cos(x)**3`,
+/// `log(x) - log(log(x) - 1) - 3`), the solutions of the equation in `t`
+/// are substituted in the first (`ordered`) inverse of `t = f1`.
+fn single_function(num: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
+    let poly = crate::poly::polyobj::Poly::from_expr(num, &[]).ok()?;
+    let gens: Vec<Expr> = poly.true_gens().iter().filter(|g| has(g, x)).cloned().collect();
+    if gens.len() < 2 {
+        return None;
+    }
+    let mut bases: Vec<Expr> = Vec::new();
+    let mut all_one = true;
+    for g in &gens {
+        let (b, q) = as_base_q(g);
+        all_one &= q.is_one();
+        if !bases.contains(&b) {
+            bases.push(b);
+        }
+    }
+    if bases.len() <= 1 && all_one {
+        return None;
+    }
+    let funcs: Vec<Expr> = bases.into_iter().filter(|b| matches!(b.kind(), Kind::Func(..))).collect();
+    let f1 = crate::simptools::ordered(funcs).into_iter().next()?;
+    let t = Expr::dummy("t", crate::Assumptions::NONE);
+    let ftry = crate::subs::subs1(num, &f1, &t);
+    if has(&ftry, x) {
+        return None;
+    }
+    let cv_sols = solve_rec(&ftry, &t, depth + 1)?;
+    // `_vsolve(t - f1, symbol)`: the native `_solve`, then (inside the
+    // native `_tsolve` scope) its `_tsolve` steps
+    let relation = sub(&t, &f1);
+    let inverse = solve_checked_at(&relation, x, true, depth + 1)
+        .or_else(|| native_tsolve::fallback(&relation, x, Default::default()))?;
+    let cv_inv = crate::simptools::ordered(inverse).into_iter().next()?;
+    let mut out: Vec<Expr> = Vec::new();
+    for s in cv_sols {
+        let v = crate::subs::subs1(&cv_inv, &t, &s);
+        if !out.contains(&v) {
+            out.push(v);
+        }
+    }
+    Some(out)
+}
+
+/// `e.count(log)`.
+fn count_logs(e: &Expr) -> usize {
+    let mut n = 0;
+    crate::traverse::preorder(e, &mut |s| {
+        if matches!(s.kind(), Kind::Func(Func::Log, _)) {
+            n += 1;
+        }
+    });
+    n
 }
 
 fn contains_node(e: &Expr, p: impl Fn(&Expr) -> bool) -> bool {
@@ -637,6 +749,30 @@ fn combined_powers(f: &Expr, x: &Expr) -> Option<Expr> {
         }
         _ => None,
     }
+}
+
+/// The primitive part of a quadratic with polynomial coefficients in other
+/// symbols, as the reference `roots` takes it (`preprocess_roots`:
+/// `poly.primitive()[1]`) before `roots_quadratic`: for
+/// `x**2*y**2 - 2*x*y - x**2*exp(2*C1)` the content `x` is removed and the
+/// roots are `(1 - sqrt(x**2*exp(2*C1) + 1))/x` and its conjugate, where the
+/// closed form on the full coefficients keeps `x**2` under the square root.
+/// None when the content is a number (nothing to remove) or not computed.
+fn quadratic_primitive(c: &[Expr]) -> Option<Vec<Expr>> {
+    use crate::poly::api;
+    if c.iter().all(|t| t.is_number()) {
+        return None;
+    }
+    let mut g = Expr::zero();
+    for t in c.iter().filter(|t| !t.is_zero()) {
+        g = if g.is_zero() { t.clone() } else { api::gcd(&g, t, &[]).ok()? };
+    }
+    if g.is_zero() || g.is_number() {
+        return None;
+    }
+    c.iter()
+        .map(|t| if t.is_zero() { Some(Expr::zero()) } else { api::exquo(t, &g, &[]).ok() })
+        .collect()
 }
 
 /// Whether a quadratic factors in `x` over its coefficient domain; an
