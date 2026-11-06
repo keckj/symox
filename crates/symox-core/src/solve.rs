@@ -24,6 +24,8 @@ pub mod tsolve;
 pub mod checksol;
 mod symbolic_power;
 pub mod unrad;
+mod radical;
+pub use radical::{take_unsimplified, without_radical_branch, without_unrad};
 
 /// `lhs - rhs` for an equation (`Eq`) or the expression itself.
 pub fn as_expr(eq: &Expr) -> Expr {
@@ -78,6 +80,13 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
 }
 
 fn solve_checked(f: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
+    solve_checked_at(f, x, check, 0)
+}
+
+/// `solve_checked` for a nested `_solve`/`_vsolve` call of the reference made
+/// at recursion `depth` (the radical branch solves its radical-free
+/// equations this way).
+fn solve_checked_at(f: &Expr, x: &Expr, check: bool, depth: u32) -> Option<Vec<Expr>> {
     let f = f.clone();
     // The reference `_solve` solves each factor of a product on its own (so
     // each factor keeps its own root forms), then rejects the solutions that
@@ -90,12 +99,12 @@ fn solve_checked(f: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
                 return Some(vec![]);
             }
             if has(&factor, x) {
-                sols.extend(solve_checked(&factor, x, check)?);
+                sols.extend(solve_checked_at(&factor, x, check, depth)?);
             }
         }
         sols
     } else {
-        solve_rec(&f, x, 0)?
+        solve_rec(&f, x, depth)?
     };
     // Infinities reached by log(0), for example, are limiting values rather
     // than finite solutions. This restriction also applies with check=False.
@@ -483,6 +492,11 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         }
     }
     if let Some(r) = symbolic_power::solve(&num, x, depth) {
+        return Some(r);
+    }
+    // the generators of an algebraic equation with radicals of the unknown,
+    // then the unrad branch, before the `_tsolve` steps below
+    if let Some(r) = radical::solve(&num, x, depth) {
         return Some(r);
     }
     // polynomial in a single generator g(x)

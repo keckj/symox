@@ -361,12 +361,18 @@ def _simplified_solutions(solutions,equation,symbol,flags):
     if not as_dict and not all(hasattr(s,'free_symbols') for s in solutions):
         return solutions
     from . import _core
+    # the native unrad branch (and more than two roots of one generator)
+    # leave their solutions unsimplified, as the reference; read before the
+    # checks below, which solve again
+    unrad_values=_core._solve_unsimplified(equation,symbol)
+    unsimplified=set() if 'simplify' in flags else set(unrad_values)
     if 'simplify' in flags or _core._solve_complete_rational_roots(equation,symbol,solutions):
         kept=set()
     else:
         kept=_high_order_roots(equation,symbol,solutions,as_dict)
     if kept is None:
         return solutions
+    kept=set(kept)|unsimplified
     found=[]
     for solution in solutions:
         try:

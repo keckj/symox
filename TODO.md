@@ -52,12 +52,12 @@ Python restent un chantier distinct, hors de ce TODO mathématique.
 
 ## Reprise sur Demeter (état au 6 novembre)
 
-**Résultat faux prioritaire** (relevé par le lot ode) :
-`solve(-2*y/sqrt(y**3) - C1 - x, y)` rend `[]`, c'est-à-dire une absence de
-solution affirmée à tort. Les replis Python de `_solve_relations.py`
-appellent tsolve avant la branche unrad de `_solve` (ordre inverse de
-SymPy). À corriger en portant unrad en Rust ; cela débloque aussi les cas
-EDO fact_13 et fact_16.
+**Résultat faux prioritaire résolu** (vague 41, lot unrad) :
+`solve(-2*y/sqrt(y**3) - C1 - x, y)` rendait `[]` (absence de solution
+affirmée à tort) ; il rend maintenant `[4/(C1**2 + 2*C1*x + x**2)]` comme
+SymPy, par la branche unrad native de `_solve`, atteinte avant les étapes
+`_tsolve` comme dans la référence. Les cas EDO fact_13 et fact_16 sont
+débloqués.
 
 La branche `integrate-wave40-20261106` (main `15e75d3a` + vague 40 :
 ode, limits, prde2) est validée et main y est avancé. Validation
@@ -74,6 +74,34 @@ admet la métaclasse `Singleton` d'origine, que les lots de la vague 40
 rendent atteignable. Sans cela, `test_native_slotfold.py::test_lll_stays_native_with_cached_exception_slotnames`
 échouait ; résultats LLL inchangés. Le corpus d'intégration n'a pas été
 rejoué depuis la vague 37.
+
+Vague 41 (en cours ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes) :
+- unrad (`feat-unrad-20261106`) : branches radicales de `_solve` natives
+  (`crates/symox-core/src/solve/radical.rs`), dans l'ordre de SymPy, avant
+  `_tsolve` :
+  - un seul générateur : racines du polynôme en `g` puis inversion de `g`
+    (`y**(3/2) = x` a ses trois solutions) ;
+  - plusieurs générateurs : `unrad` natif, avec un hôte natif, puis la
+    résolution imbriquée, changement de variable compris ;
+  - vérifications existantes et `check=False` ; `_unrad=False` accepté ;
+    valeurs non simplifiées comme la référence (lues par l'enveloppe
+    Python, aiguillage seul) ;
+  - le `solveset` natif garde son `radical_step` ;
+  - un cas indécis est décliné, jamais `[]`.
+  Corpus de 90 équations radicales (`audits/performance/2026-11-06-unrad/`) :
+  avant 63 SAME, 12 EQUIV, 7 SUBSET, 4 WRONG_EMPTY, 2 DECLINED, 1 SUPERSET,
+  1 EXTRA ; après 87 SAME, 2 EQUIV, 1 EXTRA. Corpus EDO
+  315/287/268 → 315/289/270 (fact_13, fact_16 identiques à SymPy).
+  Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) : suite complète
+  **60 329 réussis, 0 échec** ("SUITE CLEAN", 8 xfail, 45 sautés,
+  60 382 collectés et exécutés, 688 fichiers ;
+  `~/symox-ci/evidence/unrad-20261106-r2`), soit +11 tests nouveaux et
+  3 xfail stricts levés ; cargo test 865 + 1 + 0 + 5, clippy correctness
+  propre. Deux passages antérieurs, sous charge 30 à 56 (agents
+  concurrents), ont échoué uniquement sur des délais : l'OOM du lot
+  `tests/extra` à 6 Go, que le binaire de main atteint aussi, puis deux
+  délais de sous-processus (fuzz 20 s, Dirac 5 s), aussi lents sur main.
 
 Vague 40 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
 enveloppes) :
@@ -220,10 +248,18 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
   d'erreur du casus irreducibilis ; factorable, Bessel, nth_algebraic,
   lie_group. 2F1 natif depuis `feat-ode-20261105` (corpus 315/287/268,
-  contre 315/285/267 sur main) ; fact_13/fact_16 attendent la branche unrad
-  de `_solve` en natif (le repli tsolve rend `[]` à tort pour
-  `-2*y/sqrt(y**3) = C1 + x`) ; `integrate(x/(x**2 - 1))` garde deux
+  contre 315/285/267 sur main) ; fact_13/fact_16 identiques depuis
+  `feat-unrad-20261106` (branche unrad native) ;
+  conserved_03/04 (dsolve par défaut) dépassent la mémoire dans le
+  `checksol` de `_is_special_case_of` (SymPy y dépasse aussi son délai) ;
+  `integrate(x/(x**2 - 1))` garde deux
   logarithmes ([détail](docs/algorithmic-parity.md#ode-2026-11-05-native-2f1-step-upper-limit-integraldoit-fx-solve-recast)).
+- solve (radicaux) : équations mêlant radicaux et fonctions de l'inconnue
+  (`sqrt(x)*exp(x)`, exposants symboliques) hors de la branche native, qui
+  passent encore par les replis Python (`_tsolve` avant unrad) ; option
+  `_take` d'unrad non portée ; formes `cov_not_sym`/`ratio_den` différentes
+  (valeurs égales) ; erreurs de la référence déclinées vers les étapes
+  suivantes ([détail](docs/algorithmic-parity.md#solve-2026-11-06-native-unrad-branch-and-generator-roots-of-radical-equations)).
 - prde : EDR de Risch paramétrique au-dessus du niveau de base sur les
   niveaux tan/non linéaires, `prde_no_cancel_b_small` hors niveau de base,
   `prde_no_cancel_b_equal`, domaines à générateurs non symboles

@@ -1,0 +1,542 @@
+{
+ "ode_fact": {
+  "ok": true,
+  "str": "[4/(C1**2 + 2*C1*x + x**2)]",
+  "srepr": "[Mul(Integer(4), Pow(Add(Pow(Symbol('C1'), Integer(2)), Mul(Integer(2), Symbol('C1'), Symbol('x')), Pow(Symbol('x'), Integer(2))), Integer(-1)))]",
+  "seconds": 0.419
+ },
+ "ode_fact_nocheck": {
+  "ok": true,
+  "str": "[0, 4/(C1**2 + 2*C1*x + x**2)]",
+  "srepr": "[Integer(0), Mul(Integer(4), Pow(Add(Pow(Symbol('C1'), Integer(2)), Mul(Integer(2), Symbol('C1'), Symbol('x')), Pow(Symbol('x'), Integer(2))), Integer(-1)))]",
+  "seconds": 0.15
+ },
+ "ode_fact_dict": {
+  "ok": true,
+  "str": "[{y: 4/(C1**2 + 2*C1*x + x**2)}]",
+  "srepr": "[{Symbol('y'): Mul(Integer(4), Pow(Add(Pow(Symbol('C1'), Integer(2)), Mul(Integer(2), Symbol('C1'), Symbol('x')), Pow(Symbol('x'), Integer(2))), Integer(-1)))}]",
+  "seconds": 0.429
+ },
+ "ode_fact_eq": {
+  "ok": true,
+  "str": "[4/(C1**2 + 2*C1*x + x**2)]",
+  "srepr": "[Mul(Integer(4), Pow(Add(Pow(Symbol('C1'), Integer(2)), Mul(Integer(2), Symbol('C1'), Symbol('x')), Pow(Symbol('x'), Integer(2))), Integer(-1)))]",
+  "seconds": 0.422
+ },
+ "ode_fact_pos": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.227
+ },
+ "ode_fact_num": {
+  "ok": true,
+  "str": "[4/9]",
+  "srepr": "[Rational(4, 9)]",
+  "seconds": 0.128
+ },
+ "ode_fact_num2": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.128
+ },
+ "ode_fact_cube": {
+  "ok": true,
+  "str": "[C1**3 + 3*C1**2*x + 3*C1*x**2 + x**3]",
+  "srepr": "[Add(Pow(Symbol('C1'), Integer(3)), Mul(Integer(3), Pow(Symbol('C1'), Integer(2)), Symbol('x')), Mul(Integer(3), Symbol('C1'), Pow(Symbol('x'), Integer(2))), Pow(Symbol('x'), Integer(3)))]",
+  "seconds": 0.366
+ },
+ "pow32": {
+  "ok": true,
+  "str": "[x**(2/3), (-x**(1/3)/2 - sqrt(3)*I*x**(1/3)/2)**2, (-x**(1/3)/2 + sqrt(3)*I*x**(1/3)/2)**2]",
+  "srepr": "[Pow(Symbol('x'), Rational(2, 3)), Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3)))), Integer(2)), Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3)))), Integer(2))]",
+  "seconds": 0.382
+ },
+ "pow32_nocheck": {
+  "ok": true,
+  "str": "[x**(2/3), (-x**(1/3)/2 - sqrt(3)*I*x**(1/3)/2)**2, (-x**(1/3)/2 + sqrt(3)*I*x**(1/3)/2)**2]",
+  "srepr": "[Pow(Symbol('x'), Rational(2, 3)), Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3)))), Integer(2)), Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3)))), Integer(2))]",
+  "seconds": 0.14
+ },
+ "pow32_pos": {
+  "ok": true,
+  "str": "[x**(2/3), (-x**(1/3)/2 - sqrt(3)*I*x**(1/3)/2)**2, (-x**(1/3)/2 + sqrt(3)*I*x**(1/3)/2)**2]",
+  "srepr": "[Pow(Symbol('x'), Rational(2, 3)), Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3)))), Integer(2)), Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Symbol('x'), Rational(1, 3))), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Symbol('x'), Rational(1, 3)))), Integer(2))]",
+  "seconds": 0.385
+ },
+ "pow32_num": {
+  "ok": true,
+  "str": "[4]",
+  "srepr": "[Integer(4)]",
+  "seconds": 0.165
+ },
+ "pow23": {
+  "ok": true,
+  "str": "[-x**(3/2), x**(3/2)]",
+  "srepr": "[Mul(Integer(-1), Pow(Symbol('x'), Rational(3, 2))), Pow(Symbol('x'), Rational(3, 2))]",
+  "seconds": 0.176
+ },
+ "two_sqrt": {
+  "ok": true,
+  "str": "[9/16]",
+  "srepr": "[Rational(9, 16)]",
+  "seconds": 0.16
+ },
+ "cbrt_lin": {
+  "ok": true,
+  "str": "[1/(3*(sqrt(69)/18 + 1/2)**(1/3)) + (sqrt(69)/18 + 1/2)**(1/3) + 1]",
+  "srepr": "[Add(Mul(Rational(1, 3), Pow(Add(Mul(Rational(1, 18), Pow(Integer(69), Rational(1, 2))), Rational(1, 2)), Rational(-1, 3))), Pow(Add(Mul(Rational(1, 18), Pow(Integer(69), Rational(1, 2))), Rational(1, 2)), Rational(1, 3)), Integer(1))]",
+  "seconds": 0.188
+ },
+ "cbrt_lin_nocheck": {
+  "ok": true,
+  "str": "[1 + (-1/2 - sqrt(3)*I/2)*(sqrt(69)/18 + 1/2)**(1/3) + 1/(3*(-1/2 - sqrt(3)*I/2)*(sqrt(69)/18 + 1/2)**(1/3)), 1 + 1/(3*(-1/2 + sqrt(3)*I/2)*(sqrt(69)/18 + 1/2)**(1/3)) + (-1/2 + sqrt(3)*I/2)*(sqrt(69)/18 + 1/2)**(1/3), 1/(3*(sqrt(69)/18 + 1/2)**(1/3)) + (sqrt(69)/18 + 1/2)**(1/3) + 1]",
+  "srepr": "[Add(Integer(1), Mul(Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Pow(Add(Mul(Rational(1, 18), Pow(Integer(69), Rational(1, 2))), Rational(1, 2)), Rational(1, 3))), Mul(Rational(1, 3), Pow(Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Integer(-1)), Pow(Add(Mul(Rational(1, 18), Pow(Integer(69), Rational(1, 2))), Rational(1, 2)), Rational(-1, 3)))), Add(Integer(1), Mul(Rational(1, 3), Pow(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Integer(-1)), Pow(Add(Mul(Rational(1, 18), Pow(Integer(69), Rational(1, 2))), Rational(1, 2)), Rational(-1, 3))), Mul(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Pow(Add(Mul(Rational(1, 18), Pow(Integer(69), Rational(1, 2))), Rational(1, 2)), Rational(1, 3)))), Add(Mul(Rational(1, 3), Pow(Add(Mul(Rational(1, 18), Pow(Integer(69), Rational(1, 2))), Rational(1, 2)), Rational(-1, 3))), Pow(Add(Mul(Rational(1, 18), Pow(Integer(69), Rational(1, 2))), Rational(1, 2)), Rational(1, 3)), Integer(1))]",
+  "seconds": 0.051
+ },
+ "sqrt_quad": {
+  "ok": true,
+  "str": "[x - sqrt(4*x + 1)/2 + 1/2, x + sqrt(4*x + 1)/2 + 1/2]",
+  "srepr": "[Add(Symbol('x'), Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2)), Add(Symbol('x'), Mul(Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2))]",
+  "seconds": 0.259
+ },
+ "sqrt_quad_nocheck": {
+  "ok": true,
+  "str": "[x - sqrt(4*x + 1)/2 + 1/2, x + sqrt(4*x + 1)/2 + 1/2]",
+  "srepr": "[Add(Symbol('x'), Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2)), Add(Symbol('x'), Mul(Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2))]",
+  "seconds": 0.165
+ },
+ "sqrt_quad_pos": {
+  "ok": true,
+  "str": "[x - sqrt(4*x + 1)/2 + 1/2, x + sqrt(4*x + 1)/2 + 1/2]",
+  "srepr": "[Add(Symbol('x'), Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2)), Add(Symbol('x'), Mul(Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2))]",
+  "seconds": 0.304
+ },
+ "sqrt_quad_num": {
+  "ok": true,
+  "str": "[4]",
+  "srepr": "[Integer(4)]",
+  "seconds": 0.135
+ },
+ "sqrt_quad_simpl": {
+  "ok": true,
+  "str": "[x - sqrt(4*x + 1)/2 + 1/2, x + sqrt(4*x + 1)/2 + 1/2]",
+  "srepr": "[Add(Symbol('x'), Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2)), Add(Symbol('x'), Mul(Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2))]",
+  "seconds": 0.246
+ },
+ "t_eq_nested": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.162
+ },
+ "t_eq_nested_nocheck": {
+  "ok": true,
+  "str": "[0, 9/16]",
+  "srepr": "[Integer(0), Rational(9, 16)]",
+  "seconds": 0.061
+ },
+ "t_eq_nested2": {
+  "ok": true,
+  "str": "[0, 9/16]",
+  "srepr": "[Integer(0), Rational(9, 16)]",
+  "seconds": 0.168
+ },
+ "lamar_a": {
+  "ok": true,
+  "str": "[3]",
+  "srepr": "[Integer(3)]",
+  "seconds": 0.126
+ },
+ "lamar_b": {
+  "ok": true,
+  "str": "[4]",
+  "srepr": "[Integer(4)]",
+  "seconds": 0.128
+ },
+ "lamar_c": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.126
+ },
+ "lamar_d": {
+  "ok": true,
+  "str": "[-1, 2]",
+  "srepr": "[Integer(-1), Integer(2)]",
+  "seconds": 0.126
+ },
+ "lamar_e": {
+  "ok": true,
+  "str": "[5, 13]",
+  "srepr": "[Integer(5), Integer(13)]",
+  "seconds": 0.14
+ },
+ "lamar_f": {
+  "ok": true,
+  "str": "[-6]",
+  "srepr": "[Integer(-6)]",
+  "seconds": 0.16
+ },
+ "purple_a": {
+  "ok": true,
+  "str": "[16]",
+  "srepr": "[Integer(16)]",
+  "seconds": 0.185
+ },
+ "purple_b": {
+  "ok": true,
+  "str": "[-1/2, -1/3]",
+  "srepr": "[Rational(-1, 2), Rational(-1, 3)]",
+  "seconds": 0.186
+ },
+ "purple_c": {
+  "ok": true,
+  "str": "[-8, 2]",
+  "srepr": "[Integer(-8), Integer(2)]",
+  "seconds": 0.131
+ },
+ "purple_d": {
+  "ok": true,
+  "str": "[0]",
+  "srepr": "[Integer(0)]",
+  "seconds": 0.156
+ },
+ "purple_e": {
+  "ok": true,
+  "str": "[5]",
+  "srepr": "[Integer(5)]",
+  "seconds": 0.165
+ },
+ "purple_f": {
+  "ok": true,
+  "str": "[16]",
+  "srepr": "[Integer(16)]",
+  "seconds": 0.145
+ },
+ "purple_g": {
+  "ok": true,
+  "str": "[4]",
+  "srepr": "[Integer(4)]",
+  "seconds": 0.134
+ },
+ "purple_h": {
+  "ok": true,
+  "str": "[0]",
+  "srepr": "[Integer(0)]",
+  "seconds": 0.129
+ },
+ "purple_i": {
+  "ok": true,
+  "str": "[49]",
+  "srepr": "[Integer(49)]",
+  "seconds": 0.142
+ },
+ "purple_j": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.139
+ },
+ "purple_k": {
+  "ok": true,
+  "str": "[10]",
+  "srepr": "[Integer(10)]",
+  "seconds": 0.133
+ },
+ "purple_l": {
+  "ok": true,
+  "str": "[27]",
+  "srepr": "[Integer(27)]",
+  "seconds": 0.146
+ },
+ "purple_m": {
+  "ok": true,
+  "str": "[3]",
+  "srepr": "[Integer(3)]",
+  "seconds": 0.499
+ },
+ "purple_n": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.189
+ },
+ "posify_z": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.051
+ },
+ "posify_z6i": {
+  "ok": true,
+  "str": "[-1/11]",
+  "srepr": "[Rational(-1, 11)]",
+  "seconds": 0.169
+ },
+ "cov_coverage": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.153
+ },
+ "cov_fail": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "multiple generators [(x + 1)**(1/5), sqrt(x), x**(1/3)]\nNo algorithms are implemented to solve equation x**(1/3) + sqrt(x) + (x + 1)**(1/5) - 2",
+  "seconds": 0.085
+ },
+ "cosh_fail": {
+  "ok": false,
+  "error": "NotImplementedError",
+  "str": "multiple generators [x, exp(x)]\nNo algorithms are implemented to solve equation -sqrt(2) + (exp(x)/2 + exp(-x)/2)/x",
+  "seconds": 0.104
+ },
+ "unrad_some": {
+  "ok": true,
+  "str": "[x + (x**(1/3) + x)**(5/2)]",
+  "srepr": "[Add(Symbol('x'), Pow(Add(Pow(Symbol('x'), Rational(1, 3)), Symbol('x')), Rational(5, 2)))]",
+  "seconds": 0.199
+ },
+ "root35": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.736
+ },
+ "three_sqrt_6": {
+  "ok": true,
+  "str": "[4/5, -1484/375 + 172564/(140625*(114*sqrt(12657)/78125 + 12459439/52734375)**(1/3)) + 4*(114*sqrt(12657)/78125 + 12459439/52734375)**(1/3)]",
+  "srepr": "[Rational(4, 5), Add(Rational(-1484, 375), Mul(Rational(172564, 140625), Pow(Add(Mul(Rational(114, 78125), Pow(Integer(12657), Rational(1, 2))), Rational(12459439, 52734375)), Rational(-1, 3))), Mul(Integer(4), Pow(Add(Mul(Rational(114, 78125), Pow(Integer(12657), Rational(1, 2))), Rational(12459439, 52734375)), Rational(1, 3))))]",
+  "seconds": 0.273
+ },
+ "composite_x": {
+  "ok": true,
+  "str": "[-sqrt(y)/(3*(sqrt(y**(3/2)/27 + 1/4) + 1/2)**(1/3)) + (sqrt(y**(3/2)/27 + 1/4) + 1/2)**(1/3), -sqrt(y)/(3*(-1/2 - sqrt(3)*I/2)*(sqrt(y**(3/2)/27 + 1/4) + 1/2)**(1/3)) + (-1/2 - sqrt(3)*I/2)*(sqrt(y**(3/2)/27 + 1/4) + 1/2)**(1/3), -sqrt(y)/(3*(-1/2 + sqrt(3)*I/2)*(sqrt(y**(3/2)/27 + 1/4) + 1/2)**(1/3)) + (-1/2 + sqrt(3)*I/2)*(sqrt(y**(3/2)/27 + 1/4) + 1/2)**(1/3)]",
+  "srepr": "[Add(Mul(Integer(-1), Rational(1, 3), Pow(Symbol('y'), Rational(1, 2)), Pow(Add(Pow(Add(Mul(Rational(1, 27), Pow(Symbol('y'), Rational(3, 2))), Rational(1, 4)), Rational(1, 2)), Rational(1, 2)), Rational(-1, 3))), Pow(Add(Pow(Add(Mul(Rational(1, 27), Pow(Symbol('y'), Rational(3, 2))), Rational(1, 4)), Rational(1, 2)), Rational(1, 2)), Rational(1, 3))), Add(Mul(Integer(-1), Rational(1, 3), Pow(Symbol('y'), Rational(1, 2)), Pow(Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Integer(-1)), Pow(Add(Pow(Add(Mul(Rational(1, 27), Pow(Symbol('y'), Rational(3, 2))), Rational(1, 4)), Rational(1, 2)), Rational(1, 2)), Rational(-1, 3))), Mul(Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Pow(Add(Pow(Add(Mul(Rational(1, 27), Pow(Symbol('y'), Rational(3, 2))), Rational(1, 4)), Rational(1, 2)), Rational(1, 2)), Rational(1, 3)))), Add(Mul(Integer(-1), Rational(1, 3), Pow(Symbol('y'), Rational(1, 2)), Pow(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Integer(-1)), Pow(Add(Pow(Add(Mul(Rational(1, 27), Pow(Symbol('y'), Rational(3, 2))), Rational(1, 4)), Rational(1, 2)), Rational(1, 2)), Rational(-1, 3))), Mul(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Pow(Add(Pow(Add(Mul(Rational(1, 27), Pow(Symbol('y'), Rational(3, 2))), Rational(1, 4)), Rational(1, 2)), Rational(1, 2)), Rational(1, 3))))]",
+  "seconds": 0.038
+ },
+ "composite_y": {
+  "ok": true,
+  "str": "[(-x)**(1/3) + 7*(x + 2)**(1/3)/8, (-x)**(1/3)*(-1/2 - sqrt(3)*I/2) + 7*(x + 2)**(1/3)/8, (-x)**(1/3)*(-1/2 + sqrt(3)*I/2) + 7*(x + 2)**(1/3)/8]",
+  "srepr": "[Add(Pow(Mul(Integer(-1), Symbol('x')), Rational(1, 3)), Mul(Rational(7, 8), Pow(Add(Symbol('x'), Integer(2)), Rational(1, 3)))), Add(Mul(Pow(Mul(Integer(-1), Symbol('x')), Rational(1, 3)), Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I))), Mul(Rational(7, 8), Pow(Add(Symbol('x'), Integer(2)), Rational(1, 3)))), Add(Mul(Pow(Mul(Integer(-1), Symbol('x')), Rational(1, 3)), Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I))), Mul(Rational(7, 8), Pow(Add(Symbol('x'), Integer(2)), Rational(1, 3))))]",
+  "seconds": 0.038
+ },
+ "cov_not_sym": {
+  "ok": true,
+  "str": "[(-1/2 - sqrt(3)*I/2)*(512*x/343 + 512/343)**(1/3) + 4*2**(2/3)*(27*x + 27*sqrt(x**2))**(1/3)/21, (-1/2 + sqrt(3)*I/2)*(512*x/343 + 512/343)**(1/3) + 4*2**(2/3)*(27*x + 27*sqrt(x**2))**(1/3)/21, (512*x/343 + 512/343)**(1/3) + 4*2**(2/3)*(27*x + 27*sqrt(x**2))**(1/3)/21]",
+  "srepr": "[Add(Mul(Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Pow(Add(Mul(Rational(512, 343), Symbol('x')), Rational(512, 343)), Rational(1, 3))), Mul(Rational(4, 21), Pow(Integer(2), Rational(2, 3)), Pow(Add(Mul(Integer(27), Symbol('x')), Mul(Integer(27), Pow(Pow(Symbol('x'), Integer(2)), Rational(1, 2)))), Rational(1, 3)))), Add(Mul(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Pow(Add(Mul(Rational(512, 343), Symbol('x')), Rational(512, 343)), Rational(1, 3))), Mul(Rational(4, 21), Pow(Integer(2), Rational(2, 3)), Pow(Add(Mul(Integer(27), Symbol('x')), Mul(Integer(27), Pow(Pow(Symbol('x'), Integer(2)), Rational(1, 2)))), Rational(1, 3)))), Add(Pow(Add(Mul(Rational(512, 343), Symbol('x')), Rational(512, 343)), Rational(1, 3)), Mul(Rational(4, 21), Pow(Integer(2), Rational(2, 3)), Pow(Add(Mul(Integer(27), Symbol('x')), Mul(Integer(27), Pow(Pow(Symbol('x'), Integer(2)), Rational(1, 2)))), Rational(1, 3))))]",
+  "seconds": 0.051
+ },
+ "four_sqrt": {
+  "ok": true,
+  "str": "[-1/5 + sqrt(-2*(4*sqrt(93)/1125 + 188/3375)**(1/3) - 56/(225*(4*sqrt(93)/1125 + 188/3375)**(1/3)) + 144/(125*sqrt(32/75 + 56/(225*(4*sqrt(93)/1125 + 188/3375)**(1/3)) + 2*(4*sqrt(93)/1125 + 188/3375)**(1/3))) + 64/75)/2 + sqrt(32/75 + 56/(225*(4*sqrt(93)/1125 + 188/3375)**(1/3)) + 2*(4*sqrt(93)/1125 + 188/3375)**(1/3))/2]",
+  "srepr": "[Add(Rational(-1, 5), Mul(Rational(1, 2), Pow(Add(Mul(Integer(-1), Integer(2), Pow(Add(Mul(Rational(4, 1125), Pow(Integer(93), Rational(1, 2))), Rational(188, 3375)), Rational(1, 3))), Mul(Integer(-1), Rational(56, 225), Pow(Add(Mul(Rational(4, 1125), Pow(Integer(93), Rational(1, 2))), Rational(188, 3375)), Rational(-1, 3))), Mul(Rational(144, 125), Pow(Add(Rational(32, 75), Mul(Rational(56, 225), Pow(Add(Mul(Rational(4, 1125), Pow(Integer(93), Rational(1, 2))), Rational(188, 3375)), Rational(-1, 3))), Mul(Integer(2), Pow(Add(Mul(Rational(4, 1125), Pow(Integer(93), Rational(1, 2))), Rational(188, 3375)), Rational(1, 3)))), Rational(-1, 2))), Rational(64, 75)), Rational(1, 2))), Mul(Rational(1, 2), Pow(Add(Rational(32, 75), Mul(Rational(56, 225), Pow(Add(Mul(Rational(4, 1125), Pow(Integer(93), Rational(1, 2))), Rational(188, 3375)), Rational(-1, 3))), Mul(Integer(2), Pow(Add(Mul(Rational(4, 1125), Pow(Integer(93), Rational(1, 2))), Rational(188, 3375)), Rational(1, 3)))), Rational(1, 2))))]",
+  "seconds": 0.862
+ },
+ "fence": {
+  "ok": true,
+  "str": "[2*F/3 - 4*y/3 - sqrt(F**2 - 4*F*y + 7*y**2)/3, 2*F/3 - 4*y/3 + sqrt(F**2 - 4*F*y + 7*y**2)/3]",
+  "srepr": "[Add(Mul(Rational(2, 3), Symbol('F')), Mul(Integer(-1), Rational(4, 3), Symbol('y')), Mul(Integer(-1), Rational(1, 3), Pow(Add(Pow(Symbol('F'), Integer(2)), Mul(Integer(-1), Integer(4), Symbol('F'), Symbol('y')), Mul(Integer(7), Pow(Symbol('y'), Integer(2)))), Rational(1, 2)))), Add(Mul(Rational(2, 3), Symbol('F')), Mul(Integer(-1), Rational(4, 3), Symbol('y')), Mul(Rational(1, 3), Pow(Add(Pow(Symbol('F'), Integer(2)), Mul(Integer(-1), Integer(4), Symbol('F'), Symbol('y')), Mul(Integer(7), Pow(Symbol('y'), Integer(2)))), Rational(1, 2))))]",
+  "seconds": 0.201
+ },
+ "sqrt_cbrt": {
+  "ok": true,
+  "str": "[(-11/(9*(47/54 + sqrt(93)/6)**(1/3)) + 1/3 + (47/54 + sqrt(93)/6)**(1/3))**3]",
+  "srepr": "[Pow(Add(Mul(Integer(-1), Rational(11, 9), Pow(Add(Rational(47, 54), Mul(Rational(1, 6), Pow(Integer(93), Rational(1, 2)))), Rational(-1, 3))), Rational(1, 3), Pow(Add(Rational(47, 54), Mul(Rational(1, 6), Pow(Integer(93), Rational(1, 2)))), Rational(1, 3))), Integer(3))]",
+  "seconds": 0.246
+ },
+ "nested_cbrt": {
+  "ok": true,
+  "str": "[(-sqrt(-2*(-1/16 + sqrt(6913)/16)**(1/3) + 6/(-1/16 + sqrt(6913)/16)**(1/3) + 17/2 + 121/(4*sqrt(-6/(-1/16 + sqrt(6913)/16)**(1/3) + 2*(-1/16 + sqrt(6913)/16)**(1/3) + 17/4)))/2 + sqrt(-6/(-1/16 + sqrt(6913)/16)**(1/3) + 2*(-1/16 + sqrt(6913)/16)**(1/3) + 17/4)/2 + 9/4)**3]",
+  "srepr": "[Pow(Add(Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(-1), Integer(2), Pow(Add(Rational(-1, 16), Mul(Rational(1, 16), Pow(Integer(6913), Rational(1, 2)))), Rational(1, 3))), Mul(Integer(6), Pow(Add(Rational(-1, 16), Mul(Rational(1, 16), Pow(Integer(6913), Rational(1, 2)))), Rational(-1, 3))), Rational(17, 2), Mul(Rational(121, 4), Pow(Add(Mul(Integer(-1), Integer(6), Pow(Add(Rational(-1, 16), Mul(Rational(1, 16), Pow(Integer(6913), Rational(1, 2)))), Rational(-1, 3))), Mul(Integer(2), Pow(Add(Rational(-1, 16), Mul(Rational(1, 16), Pow(Integer(6913), Rational(1, 2)))), Rational(1, 3))), Rational(17, 4)), Rational(-1, 2)))), Rational(1, 2))), Mul(Rational(1, 2), Pow(Add(Mul(Integer(-1), Integer(6), Pow(Add(Rational(-1, 16), Mul(Rational(1, 16), Pow(Integer(6913), Rational(1, 2)))), Rational(-1, 3))), Mul(Integer(2), Pow(Add(Rational(-1, 16), Mul(Rational(1, 16), Pow(Integer(6913), Rational(1, 2)))), Rational(1, 3))), Rational(17, 4)), Rational(1, 2))), Rational(9, 4)), Integer(3))]",
+  "seconds": 0.607
+ },
+ "cbrt_sqrt_nest": {
+  "ok": true,
+  "str": "[(-(81/2 + 3*sqrt(741)/2)**(1/3)/3 + (81/2 + 3*sqrt(741)/2)**(-1/3) + 2)**2]",
+  "srepr": "[Pow(Add(Mul(Integer(-1), Rational(1, 3), Pow(Add(Rational(81, 2), Mul(Rational(3, 2), Pow(Integer(741), Rational(1, 2)))), Rational(1, 3))), Pow(Add(Rational(81, 2), Mul(Rational(3, 2), Pow(Integer(741), Rational(1, 2)))), Rational(-1, 3)), Integer(2)), Integer(2))]",
+  "seconds": 0.353
+ },
+ "exp_sqrt_23707": {
+  "ok": true,
+  "str": "[x - 1]",
+  "srepr": "[Add(Symbol('x'), Integer(-1))]",
+  "seconds": 0.325
+ },
+ "slow_half": {
+  "ok": true,
+  "str": "[1/2]",
+  "srepr": "[Rational(1, 2)]",
+  "seconds": 39.238
+ },
+ "fail_real_root": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.143
+ },
+ "fail_crootof": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 6.828
+ },
+ "checking_a": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.0
+ },
+ "issue_4671": {
+  "ok": true,
+  "str": "[-sqrt(5), sqrt(5)]",
+  "srepr": "[Mul(Integer(-1), Pow(Integer(5), Rational(1, 2))), Pow(Integer(5), Rational(1, 2))]",
+  "seconds": 0.169
+ },
+ "issue_5132": {
+  "ok": true,
+  "str": "[y**2]",
+  "srepr": "[Pow(Symbol('y'), Integer(2))]",
+  "seconds": 0.165
+ },
+ "issue_5335": {
+  "ok": true,
+  "str": "[3]",
+  "srepr": "[Integer(3)]",
+  "seconds": 0.131
+ },
+ "issue_7110": {
+  "ok": true,
+  "str": "[-1/2 - sqrt(-13/(96*(-15/512 + sqrt(1551)/1152)**(1/3)) + 2*(-15/512 + sqrt(1551)/1152)**(1/3) + 1/2)/2 + sqrt(-2*(-15/512 + sqrt(1551)/1152)**(1/3) + 13/(96*(-15/512 + sqrt(1551)/1152)**(1/3)) + 1 + 1/(2*sqrt(-13/(96*(-15/512 + sqrt(1551)/1152)**(1/3)) + 2*(-15/512 + sqrt(1551)/1152)**(1/3) + 1/2)))/2, -sqrt(-2*(-15/512 + sqrt(1551)/1152)**(1/3) + 13/(96*(-15/512 + sqrt(1551)/1152)**(1/3)) + 1 + 1/(2*sqrt(-13/(96*(-15/512 + sqrt(1551)/1152)**(1/3)) + 2*(-15/512 + sqrt(1551)/1152)**(1/3) + 1/2)))/2 - 1/2 - sqrt(-13/(96*(-15/512 + sqrt(1551)/1152)**(1/3)) + 2*(-15/512 + sqrt(1551)/1152)**(1/3) + 1/2)/2]",
+  "srepr": "[Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(-1), Rational(13, 96), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(-1, 3))), Mul(Integer(2), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(1, 3))), Rational(1, 2)), Rational(1, 2))), Mul(Rational(1, 2), Pow(Add(Mul(Integer(-1), Integer(2), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(1, 3))), Mul(Rational(13, 96), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(-1, 3))), Integer(1), Mul(Rational(1, 2), Pow(Add(Mul(Integer(-1), Rational(13, 96), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(-1, 3))), Mul(Integer(2), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(1, 3))), Rational(1, 2)), Rational(-1, 2)))), Rational(1, 2)))), Add(Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(-1), Integer(2), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(1, 3))), Mul(Rational(13, 96), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(-1, 3))), Integer(1), Mul(Rational(1, 2), Pow(Add(Mul(Integer(-1), Rational(13, 96), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(-1, 3))), Mul(Integer(2), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(1, 3))), Rational(1, 2)), Rational(-1, 2)))), Rational(1, 2))), Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(-1), Rational(13, 96), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(-1, 3))), Mul(Integer(2), Pow(Add(Rational(-15, 512), Mul(Rational(1, 1152), Pow(Integer(1551), Rational(1, 2)))), Rational(1, 3))), Rational(1, 2)), Rational(1, 2))))]",
+  "seconds": 1.315
+ },
+ "issue_6056": {
+  "ok": true,
+  "str": "[1/2 - sqrt(5)/6, sqrt(5)/6 + 1/2]",
+  "srepr": "[Add(Rational(1, 2), Mul(Integer(-1), Rational(1, 6), Pow(Integer(5), Rational(1, 2)))), Add(Mul(Rational(1, 6), Pow(Integer(5), Rational(1, 2))), Rational(1, 2))]",
+  "seconds": 0.168
+ },
+ "issue_8828": {
+  "ok": true,
+  "str": "[sqrt(7)/8 + 1/2]",
+  "srepr": "[Add(Mul(Rational(1, 8), Pow(Integer(7), Rational(1, 2))), Rational(1, 2))]",
+  "seconds": 0.189
+ },
+ "issue_12114": {
+  "ok": true,
+  "str": "[-sqrt(1 - x**2), sqrt(1 - x**2)]",
+  "srepr": "[Mul(Integer(-1), Pow(Add(Integer(1), Mul(Integer(-1), Pow(Symbol('x'), Integer(2)))), Rational(1, 2))), Pow(Add(Integer(1), Mul(Integer(-1), Pow(Symbol('x'), Integer(2)))), Rational(1, 2))]",
+  "seconds": 0.252
+ },
+ "issue_17452": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.147
+ },
+ "issue_10933": {
+  "ok": true,
+  "str": "[sqrt(2)/2]",
+  "srepr": "[Mul(Rational(1, 2), Pow(Integer(2), Rational(1, 2)))]",
+  "seconds": 0.137
+ },
+ "param_two": {
+  "ok": true,
+  "str": "[a**2/(4*b**2) - a/2 + b**2/4]",
+  "srepr": "[Add(Mul(Rational(1, 4), Pow(Symbol('a'), Integer(2)), Pow(Symbol('b'), Integer(-2))), Mul(Integer(-1), Rational(1, 2), Symbol('a')), Mul(Rational(1, 4), Pow(Symbol('b'), Integer(2))))]",
+  "seconds": 0.231
+ },
+ "param_two_nocheck": {
+  "ok": true,
+  "str": "[a**2/(4*b**2) - a/2 + b**2/4]",
+  "srepr": "[Add(Mul(Rational(1, 4), Pow(Symbol('a'), Integer(2)), Pow(Symbol('b'), Integer(-2))), Mul(Integer(-1), Rational(1, 2), Symbol('a')), Mul(Rational(1, 4), Pow(Symbol('b'), Integer(2))))]",
+  "seconds": 0.169
+ },
+ "param_cbrt": {
+  "ok": true,
+  "str": "[a - (-1/2 - sqrt(3)*I/2)*(-81*a**3/2 + 27*a*(3*a**2 + 1)/2 + sqrt((-81*a**3 + 27*a*(3*a**2 + 1))**2 + 108)/2)**(1/3)/3 + 1/((-1/2 - sqrt(3)*I/2)*(-81*a**3/2 + 27*a*(3*a**2 + 1)/2 + sqrt((-81*a**3 + 27*a*(3*a**2 + 1))**2 + 108)/2)**(1/3)), a - (-1/2 + sqrt(3)*I/2)*(-81*a**3/2 + 27*a*(3*a**2 + 1)/2 + sqrt((-81*a**3 + 27*a*(3*a**2 + 1))**2 + 108)/2)**(1/3)/3 + 1/((-1/2 + sqrt(3)*I/2)*(-81*a**3/2 + 27*a*(3*a**2 + 1)/2 + sqrt((-81*a**3 + 27*a*(3*a**2 + 1))**2 + 108)/2)**(1/3)), a - (-81*a**3/2 + 27*a*(3*a**2 + 1)/2 + sqrt((-81*a**3 + 27*a*(3*a**2 + 1))**2 + 108)/2)**(1/3)/3 + (-81*a**3/2 + 27*a*(3*a**2 + 1)/2 + sqrt((-81*a**3 + 27*a*(3*a**2 + 1))**2 + 108)/2)**(-1/3)]",
+  "srepr": "[Add(Symbol('a'), Mul(Integer(-1), Rational(1, 3), Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Pow(Add(Mul(Integer(-1), Rational(81, 2), Pow(Symbol('a'), Integer(3))), Mul(Rational(27, 2), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1))), Mul(Rational(1, 2), Pow(Add(Pow(Add(Mul(Integer(-1), Integer(81), Pow(Symbol('a'), Integer(3))), Mul(Integer(27), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1)))), Integer(2)), Integer(108)), Rational(1, 2)))), Rational(1, 3))), Mul(Pow(Add(Rational(-1, 2), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Integer(-1)), Pow(Add(Mul(Integer(-1), Rational(81, 2), Pow(Symbol('a'), Integer(3))), Mul(Rational(27, 2), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1))), Mul(Rational(1, 2), Pow(Add(Pow(Add(Mul(Integer(-1), Integer(81), Pow(Symbol('a'), Integer(3))), Mul(Integer(27), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1)))), Integer(2)), Integer(108)), Rational(1, 2)))), Rational(-1, 3)))), Add(Symbol('a'), Mul(Integer(-1), Rational(1, 3), Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Pow(Add(Mul(Integer(-1), Rational(81, 2), Pow(Symbol('a'), Integer(3))), Mul(Rational(27, 2), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1))), Mul(Rational(1, 2), Pow(Add(Pow(Add(Mul(Integer(-1), Integer(81), Pow(Symbol('a'), Integer(3))), Mul(Integer(27), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1)))), Integer(2)), Integer(108)), Rational(1, 2)))), Rational(1, 3))), Mul(Pow(Add(Rational(-1, 2), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I)), Integer(-1)), Pow(Add(Mul(Integer(-1), Rational(81, 2), Pow(Symbol('a'), Integer(3))), Mul(Rational(27, 2), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1))), Mul(Rational(1, 2), Pow(Add(Pow(Add(Mul(Integer(-1), Integer(81), Pow(Symbol('a'), Integer(3))), Mul(Integer(27), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1)))), Integer(2)), Integer(108)), Rational(1, 2)))), Rational(-1, 3)))), Add(Symbol('a'), Mul(Integer(-1), Rational(1, 3), Pow(Add(Mul(Integer(-1), Rational(81, 2), Pow(Symbol('a'), Integer(3))), Mul(Rational(27, 2), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1))), Mul(Rational(1, 2), Pow(Add(Pow(Add(Mul(Integer(-1), Integer(81), Pow(Symbol('a'), Integer(3))), Mul(Integer(27), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1)))), Integer(2)), Integer(108)), Rational(1, 2)))), Rational(1, 3))), Pow(Add(Mul(Integer(-1), Rational(81, 2), Pow(Symbol('a'), Integer(3))), Mul(Rational(27, 2), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1))), Mul(Rational(1, 2), Pow(Add(Pow(Add(Mul(Integer(-1), Integer(81), Pow(Symbol('a'), Integer(3))), Mul(Integer(27), Symbol('a'), Add(Mul(Integer(3), Pow(Symbol('a'), Integer(2))), Integer(1)))), Integer(2)), Integer(108)), Rational(1, 2)))), Rational(-1, 3)))]",
+  "seconds": 2.108
+ },
+ "param_q": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.134
+ },
+ "param_q_neg": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.164
+ },
+ "real_x": {
+  "ok": true,
+  "str": "[]",
+  "srepr": "[]",
+  "seconds": 0.141
+ },
+ "real_x_nocheck": {
+  "ok": true,
+  "str": "[1]",
+  "srepr": "[Integer(1)]",
+  "seconds": 0.123
+ },
+ "ratio": {
+  "ok": true,
+  "str": "[sqrt(17)/2 + 9/2]",
+  "srepr": "[Add(Mul(Rational(1, 2), Pow(Integer(17), Rational(1, 2))), Rational(9, 2))]",
+  "seconds": 0.151
+ },
+ "ratio_den": {
+  "ok": true,
+  "str": "[1/2 + sqrt(2) + sqrt(5 + 4*sqrt(2))/2]",
+  "srepr": "[Add(Rational(1, 2), Pow(Integer(2), Rational(1, 2)), Mul(Rational(1, 2), Pow(Add(Integer(5), Mul(Integer(4), Pow(Integer(2), Rational(1, 2)))), Rational(1, 2))))]",
+  "seconds": 0.25
+ },
+ "pow52": {
+  "ok": true,
+  "str": "[x**(2/5), (-x**(1/5)/4 + sqrt(5)*x**(1/5)/4 - I*x**(1/5)*sqrt(sqrt(5)/8 + 5/8))**2, (-x**(1/5)/4 + sqrt(5)*x**(1/5)/4 + I*x**(1/5)*sqrt(sqrt(5)/8 + 5/8))**2, (-sqrt(5)*x**(1/5)/4 - x**(1/5)/4 - I*x**(1/5)*sqrt(5/8 - sqrt(5)/8))**2, (-sqrt(5)*x**(1/5)/4 - x**(1/5)/4 + I*x**(1/5)*sqrt(5/8 - sqrt(5)/8))**2]",
+  "srepr": "[Pow(Symbol('x'), Rational(2, 5)), Pow(Add(Mul(Integer(-1), Rational(1, 4), Pow(Symbol('x'), Rational(1, 5))), Mul(Rational(1, 4), Pow(Integer(5), Rational(1, 2)), Pow(Symbol('x'), Rational(1, 5))), Mul(Integer(-1), I, Pow(Symbol('x'), Rational(1, 5)), Pow(Add(Mul(Rational(1, 8), Pow(Integer(5), Rational(1, 2))), Rational(5, 8)), Rational(1, 2)))), Integer(2)), Pow(Add(Mul(Integer(-1), Rational(1, 4), Pow(Symbol('x'), Rational(1, 5))), Mul(Rational(1, 4), Pow(Integer(5), Rational(1, 2)), Pow(Symbol('x'), Rational(1, 5))), Mul(I, Pow(Symbol('x'), Rational(1, 5)), Pow(Add(Mul(Rational(1, 8), Pow(Integer(5), Rational(1, 2))), Rational(5, 8)), Rational(1, 2)))), Integer(2)), Pow(Add(Mul(Integer(-1), Rational(1, 4), Pow(Integer(5), Rational(1, 2)), Pow(Symbol('x'), Rational(1, 5))), Mul(Integer(-1), Rational(1, 4), Pow(Symbol('x'), Rational(1, 5))), Mul(Integer(-1), I, Pow(Symbol('x'), Rational(1, 5)), Pow(Add(Rational(5, 8), Mul(Integer(-1), Rational(1, 8), Pow(Integer(5), Rational(1, 2)))), Rational(1, 2)))), Integer(2)), Pow(Add(Mul(Integer(-1), Rational(1, 4), Pow(Integer(5), Rational(1, 2)), Pow(Symbol('x'), Rational(1, 5))), Mul(Integer(-1), Rational(1, 4), Pow(Symbol('x'), Rational(1, 5))), Mul(I, Pow(Symbol('x'), Rational(1, 5)), Pow(Add(Rational(5, 8), Mul(Integer(-1), Rational(1, 8), Pow(Integer(5), Rational(1, 2)))), Rational(1, 2)))), Integer(2))]",
+  "seconds": 0.918
+ },
+ "pow34": {
+  "ok": true,
+  "str": "[2*2**(1/3)]",
+  "srepr": "[Mul(Integer(2), Pow(Integer(2), Rational(1, 3)))]",
+  "seconds": 0.159
+ },
+ "sqrt_y3_alone": {
+  "ok": true,
+  "str": "[-(x**2)**(1/3)/2 - sqrt(3)*I*(x**2)**(1/3)/2, -(x**2)**(1/3)/2 + sqrt(3)*I*(x**2)**(1/3)/2, (x**2)**(1/3)]",
+  "srepr": "[Add(Mul(Integer(-1), Rational(1, 2), Pow(Pow(Symbol('x'), Integer(2)), Rational(1, 3))), Mul(Integer(-1), Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Pow(Symbol('x'), Integer(2)), Rational(1, 3)))), Add(Mul(Integer(-1), Rational(1, 2), Pow(Pow(Symbol('x'), Integer(2)), Rational(1, 3))), Mul(Rational(1, 2), Pow(Integer(3), Rational(1, 2)), I, Pow(Pow(Symbol('x'), Integer(2)), Rational(1, 3)))), Pow(Pow(Symbol('x'), Integer(2)), Rational(1, 3))]",
+  "seconds": 0.48
+ },
+ "sqrt_y3_minus": {
+  "ok": true,
+  "str": "[0, 1]",
+  "srepr": "[Integer(0), Integer(1)]",
+  "seconds": 0.121
+ },
+ "mixed_set": {
+  "ok": true,
+  "str": "([x], {(9/16,)})",
+  "srepr": "([x], {(9/16,)})",
+  "seconds": 0.136
+ },
+ "mixed_dict": {
+  "ok": true,
+  "str": "[{x: 9/16}]",
+  "srepr": "[{Symbol('x'): Rational(9, 16)}]",
+  "seconds": 0.135
+ },
+ "mixed_force": {
+  "ok": true,
+  "str": "[x - sqrt(4*x + 1)/2 + 1/2, x + sqrt(4*x + 1)/2 + 1/2]",
+  "srepr": "[Add(Symbol('x'), Mul(Integer(-1), Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2)), Add(Symbol('x'), Mul(Rational(1, 2), Pow(Add(Mul(Integer(4), Symbol('x')), Integer(1)), Rational(1, 2))), Rational(1, 2))]",
+  "seconds": 0.257
+ }
+}
