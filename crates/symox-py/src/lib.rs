@@ -70,6 +70,7 @@ mod unrad;
 mod logic;
 mod special;
 mod calculus;
+mod accum;
 mod ask;
 mod recurrences;
 mod transforms;
@@ -4722,6 +4723,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     recurrences::register(m)?;
     transforms::register(m)?;
     series::register(m)?;
+    accum::register(m)?;
     printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())

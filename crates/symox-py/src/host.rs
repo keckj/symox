@@ -82,6 +82,11 @@ pub(crate) struct PyHostHead {
     head: UndefinedFunction,
 }
 
+impl PyHostHead {
+    /// The native head.
+    pub(crate) fn head(&self) -> &UndefinedFunction { &self.head }
+}
+
 /// A Python instance bound to a node it owns. `contents` is the address of
 /// the instance's native payload, which identifies it during collection.
 #[derive(Debug)]

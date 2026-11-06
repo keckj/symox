@@ -16,6 +16,7 @@
 //! bounded oscillating factors (`sin(x)/x` at `oo`) are handled by treating
 //! the oscillating parts as bounded parameters.
 
+pub mod accum;
 pub mod exact_sign;
 pub mod floats;
 pub mod symbolic_power;

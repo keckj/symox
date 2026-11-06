@@ -1,0 +1,232 @@
+..................F....F.X...............x...FF...x..F.................. [ 40%]
+.F.....................................F.......F...............F.F....FF [ 81%]
+...........FF.........F.........                                         [100%]
+=================================== FAILURES ===================================
+________________________________ test_heuristic ________________________________
+
+    def test_heuristic():
+        x = Symbol("x", real=True)
+>       assert heuristics(sin(1/x) + atan(x), x, 0, '+') == AccumBounds(-1, 1)
+
+test_limits.py:882: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = (sin(1/x) + atan(x), x, 0, '+'), k = {}
+
+    def f(*a, **k):
+>       raise NotImplementedError('missing ' + name)
+E       NotImplementedError: missing heuristics
+
+test_limits.py:3: NotImplementedError
+___________________________ test_series_AccumBounds ____________________________
+
+    def test_series_AccumBounds():
+        assert limit(sin(k) - sin(k + 1), k, oo) == AccumBounds(-2, 2)
+        assert limit(cos(k) - cos(k + 1) + 1, k, oo) == AccumBounds(-1, 3)
+    
+        # not the exact bound
+        assert limit(sin(k) - sin(k)*cos(k), k, oo) == AccumBounds(-2, 2)
+    
+        # test for issue #9934
+        lo = (-3 + cos(1))/2
+        hi = (1 + cos(1))/2
+        t1 = Mul(AccumBounds(lo, hi), 1/(-1 + cos(1)), evaluate=False)
+>       assert limit(simplify(Sum(cos(n).rewrite(exp), (n, 0, k)).doit().rewrite(sin)), k, oo) == t1
+E       assert AccumBounds(-2, 2)/(2 - 2*cos(1)) + (1 - cos(1))/(2 - 2*cos(1)) == AccumBounds(-3/2 + cos(1)/2, cos(1)/2 + 1/2)/(-1 + cos(1))
+E        +  where AccumBounds(-2, 2)/(2 - 2*cos(1)) + (1 - cos(1))/(2 - 2*cos(1)) = limit((cos(k) - cos(k + 1) - cos(1) + 1)/(2 - 2*cos(1)), k, oo)
+E        +    where (cos(k) - cos(k + 1) - cos(1) + 1)/(2 - 2*cos(1)) = simplify((-I*sin(k + 1) - cos(k + 1) + 1)/(2*(-cos(1) + 1 - I*sin(1))) + (I*sin(k + 1) - cos(k + 1) + 1)/(2*(-cos(1) + 1 + I*sin(1))))
+E        +      where (-I*sin(k + 1) - cos(k + 1) + 1)/(2*(-cos(1) + 1 - I*sin(1))) + (I*sin(k + 1) - cos(k + 1) + 1)/(2*(-cos(1) + 1 + I*sin(1))) = rewrite(sin)
+E        +        where rewrite = (1 - exp(-I*(k + 1)))/(2*(1 - exp(-I))) + (1 - exp(I*(k + 1)))/(2*(1 - exp(I))).rewrite
+E        +          where (1 - exp(-I*(k + 1)))/(2*(1 - exp(-I))) + (1 - exp(I*(k + 1)))/(2*(1 - exp(I))) = doit()
+E        +            where doit = Sum(exp(I*n)/2 + exp(-I*n)/2, (n, 0, k)).doit
+E        +              where Sum(exp(I*n)/2 + exp(-I*n)/2, (n, 0, k)) = Sum(exp(I*n)/2 + exp(-I*n)/2, (n, 0, k))
+E        +                where exp(I*n)/2 + exp(-I*n)/2 = rewrite(exp)
+E        +                  where rewrite = cos(n).rewrite
+E        +                    where cos(n) = cos(n)
+
+test_limits.py:926: AssertionError
+________________________________ test_rational _________________________________
+
+    def test_rational():
+>       assert limit(1/y - (1/(y + x) + x/(y + x)/y)/z, x, oo) == (z - 1)/(y*z)
+E       assert 1/y - 1/(y*z) == ((z - 1) / (y * z))
+E        +  where 1/y - 1/(y*z) = limit(((1 / y) - (((1 / (y + x)) + ((x / (y + x)) / y)) / z)), x, oo)
+
+test_limits.py:1120: AssertionError
+_______________________________ test_issue_5740 ________________________________
+
+    def test_issue_5740():
+>       assert limit(log(x)*z - log(2*x)*y, x, 0) == oo*sign(y - z)
+E       assert -oo*sign(-y + z) == (oo * sign(y - z))
+E        +  where -oo*sign(-y + z) = limit(((log(x) * z) - (log(2*x) * y)), x, 0)
+E        +    where log(x) = log(x)
+E        +    and   log(2*x) = log((2 * x))
+E        +  and   sign(y - z) = sign((y - z))
+
+test_limits.py:1125: AssertionError
+_______________________________ test_issue_6364 ________________________________
+
+    def test_issue_6364():
+        a = Symbol('a')
+        e = z/(1 - sqrt(1 + z)*sin(a)**2 - sqrt(1 - z)*cos(a)**2)
+>       assert limit(e, z, 0) == 1/(cos(a)**2 - S.Half)
+E       assert 1/(-sin(a)**2/2 + cos(a)**2/2) == (1 / ((cos(a) ** 2) - 1/2))
+E        +  where 1/(-sin(a)**2/2 + cos(a)**2/2) = limit(z/(-sqrt(1 - z)*cos(a)**2 - sqrt(z + 1)*sin(a)**2 + 1), z, 0)
+E        +  and   cos(a) = cos(a)
+E        +  and   1/2 = S.Half
+
+test_limits.py:1221: AssertionError
+_______________________________ test_issue_9205 ________________________________
+
+    def test_issue_9205():
+        x, y, a = symbols('x, y, a')
+        assert Limit(x, x, a).free_symbols == {a}
+        assert Limit(x, x, a, '-').free_symbols == {a}
+>       assert Limit(x + y, x + y, a).free_symbols == {a}
+
+test_limits.py:1338: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'symox.Limit'>, e = x + y, z = x + y, z0 = a, dir = '+'
+
+    def __new__(cls, e, z, z0, dir="+"):
+        _check_limit_dir(dir)
+>       return _core._held_limit(e, z, z0, str(dir))
+E       NotImplementedError: held limits require a symbol variable
+
+/home/keckj/symox-ci/wt/accumb-20261106/python/symox/__init__.py:3400: NotImplementedError
+_______________________________ test_issue_14393 _______________________________
+
+    def test_issue_14393():
+        a, b = symbols('a b')
+>       assert limit((x**b - y**b)/(x**a - y**a), x, y) == b*y**(-a + b)/a
+E       assert b*y**b/(a*y**a) == ((b * (y ** (-a + b))) / a)
+E        +  where b*y**b/(a*y**a) = limit((((x ** b) - (y ** b)) / ((x ** a) - (y ** a))), x, y)
+
+test_limits.py:1544: AssertionError
+_______________________________ test_issue_17751 _______________________________
+
+    def test_issue_17751():
+        a, b, c, x = symbols('a b c x', positive=True)
+>       assert limit((a + 1)*x - sqrt((a + 1)**2*x**2 + b*x + c), x, oo) == -b/(2*a + 2)
+E       assert -a*b/(2*(a + 1)**2) - b/(2*(a + 1)**2) == (-b / ((2 * a) + 2))
+E        +  where -a*b/(2*(a + 1)**2) - b/(2*(a + 1)**2) = limit((((a + 1) * x) - sqrt(b*x + c + x**2*(a + 1)**2)), x, oo)
+E        +    where sqrt(b*x + c + x**2*(a + 1)**2) = sqrt((((((a + 1) ** 2) * (x ** 2)) + (b * x)) + c))
+
+test_limits.py:1584: AssertionError
+_______________________________ test_issue_13715 _______________________________
+
+    def test_issue_13715():
+        n = Symbol('n')
+        p = Symbol('p', zero=True)
+>       assert limit(n + p, n, 0) == 0
+E       assert p == 0
+E        +  where p = limit((n + p), n, 0)
+
+test_limits.py:1670: AssertionError
+_______________________________ test_issue_16708 _______________________________
+
+    def test_issue_16708():
+        m, vi = symbols('m vi', positive=True)
+        B, ti, d = symbols('B ti d')
+>       assert limit((B*ti*vi - sqrt(m)*sqrt(-2*B*d*vi + m*(vi)**2) + m*vi)/(B*vi), B, 0) == (d + ti*vi)/vi
+E       assert d/vi + ti == ((d + (ti * vi)) / vi)
+E        +  where d/vi + ti = limit((((((B * ti) * vi) - (sqrt(m) * sqrt(-2*B*d*vi + m*vi**2))) + (m * vi)) / (B * vi)), B, 0)
+E        +    where sqrt(m) = sqrt(m)
+E        +    and   sqrt(-2*B*d*vi + m*vi**2) = sqrt(((((-2 * B) * d) * vi) + (m * (vi ** 2))))
+
+test_limits.py:1680: AssertionError
+_______________________________ test_issue_19770 _______________________________
+
+    def test_issue_19770():
+        m = Symbol('m')
+        # the result is not 0 for non-real m
+        assert limit(cos(m*x)/x, x, oo) == Limit(cos(m*x)/x, x, oo, dir='-')
+        m = Symbol('m', real=True)
+        # can be improved to give the correct result 0
+>       assert limit(cos(m*x)/x, x, oo) == Limit(cos(m*x)/x, x, oo, dir='-')
+E       AssertionError: assert 0 == Limit(cos(m*x)/x, x, oo, dir='-')
+E        +  where 0 = limit((cos(m*x) / x), x, oo)
+E        +    where cos(m*x) = cos((m * x))
+E        +  and   Limit(cos(m*x)/x, x, oo, dir='-') = Limit((cos(m*x) / x), x, oo, dir='-')
+E        +    where cos(m*x) = cos((m * x))
+
+test_limits.py:1721: AssertionError
+_______________________________ test_issue_7535 ________________________________
+
+    def test_issue_7535():
+>       assert limit(tan(x)/sin(tan(x)), x, pi/2) == Limit(tan(x)/sin(tan(x)), x, pi/2, dir='+')
+E       AssertionError: assert AccumBounds(-oo, oo) == Limit(tan(x)/sin(tan(x)), x, pi/2, dir='+')
+E        +  where AccumBounds(-oo, oo) = limit((tan(x) / sin(tan(x))), x, (pi / 2))
+E        +    where tan(x) = tan(x)
+E        +    and   sin(tan(x)) = sin(tan(x))
+E        +      where tan(x) = tan(x)
+E        +  and   Limit(tan(x)/sin(tan(x)), x, pi/2, dir='+') = Limit((tan(x) / sin(tan(x))), x, (pi / 2), dir='+')
+E        +    where tan(x) = tan(x)
+E        +    and   sin(tan(x)) = sin(tan(x))
+E        +      where tan(x) = tan(x)
+
+test_limits.py:1728: AssertionError
+_______________________________ test_issue_21756 _______________________________
+
+    def test_issue_21756():
+        term = (1 - exp(-2*I*pi*z))/(1 - exp(-2*I*pi*z/5))
+        assert term.limit(z, 0) == 5
+>       assert re(term).limit(z, 0) == 5
+E       AssertionError: assert Limit((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*...in(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2), z, 0, dir='+') == 5
+E        +  where Limit((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*...in(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2), z, 0, dir='+') = <lambda>(z, 0)
+E        +    where <lambda> = (-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/...(2*pi*re(z)/5)*sin(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2).limit
+E        +      where (-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/...(2*pi*re(z)/5)*sin(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2) = re((1 - exp(-2*I*pi*z))/(1 - exp(-2*I*pi*z/5)))
+
+test_limits.py:1815: AssertionError
+_______________________________ test_issue_21785 _______________________________
+
+    def test_issue_21785():
+        a = Symbol('a')
+>       assert sqrt((-a**2 + x**2)/(1 - x**2)).limit(a, 1, '-') == I
+E       AssertionError: assert sqrt(x**2/(1 - x**2) - 1/(1 - x**2)) == I
+E        +  where sqrt(x**2/(1 - x**2) - 1/(1 - x**2)) = <lambda>(a, 1, '-')
+E        +    where <lambda> = sqrt((-a**2 + x**2)/(1 - x**2)).limit
+E        +      where sqrt((-a**2 + x**2)/(1 - x**2)) = sqrt(((-(a ** 2) + (x ** 2)) / (1 - (x ** 2))))
+
+test_limits.py:1820: AssertionError
+_______________________________ test_issue_25230 _______________________________
+
+    def test_issue_25230():
+        a = Symbol('a', real = True)
+        b = Symbol('b', positive = True)
+        c = Symbol('c', negative = True)
+        n = Symbol('n', integer = True)
+>       raises(NotImplementedError, lambda: limit(Mod(x, a), x, a))
+
+test_limits.py:1894: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/keckj/symox-ci/wt/accumb-20261106/python/symox/testing/pytest.py:40: in raises
+    except Failed as error:_did_not_raise(error)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+error = DID NOT RAISE NotImplementedError
+
+    def _did_not_raise(error):
+        # SymPy's own helper reports a missing exception as a bare DID NOT RAISE.
+>       if str(error).startswith('DID NOT RAISE'):raise Failed('DID NOT RAISE') from None
+E       Failed: DID NOT RAISE
+
+/home/keckj/symox-ci/wt/accumb-20261106/python/symox/testing/pytest.py:18: Failed
+=========================== short test summary info ============================
+FAILED test_limits.py::test_heuristic - NotImplementedError: missing heuristics
+FAILED test_limits.py::test_series_AccumBounds - assert AccumBounds(-2, 2)/(2...
+FAILED test_limits.py::test_rational - assert 1/y - 1/(y*z) == ((z - 1) / (y ...
+FAILED test_limits.py::test_issue_5740 - assert -oo*sign(-y + z) == (oo * sig...
+FAILED test_limits.py::test_issue_6364 - assert 1/(-sin(a)**2/2 + cos(a)**2/2...
+FAILED test_limits.py::test_issue_9205 - NotImplementedError: held limits req...
+FAILED test_limits.py::test_issue_14393 - assert b*y**b/(a*y**a) == ((b * (y ...
+FAILED test_limits.py::test_issue_17751 - assert -a*b/(2*(a + 1)**2) - b/(2*(...
+FAILED test_limits.py::test_issue_13715 - assert p == 0
+FAILED test_limits.py::test_issue_16708 - assert d/vi + ti == ((d + (ti * vi)...
+FAILED test_limits.py::test_issue_19770 - AssertionError: assert 0 == Limit(c...
+FAILED test_limits.py::test_issue_7535 - AssertionError: assert AccumBounds(-...
+FAILED test_limits.py::test_issue_21756 - AssertionError: assert Limit((-exp(...
+FAILED test_limits.py::test_issue_21785 - AssertionError: assert sqrt(x**2/(1...
+FAILED test_limits.py::test_issue_25230 - Failed: DID NOT RAISE
+15 failed, 158 passed, 2 xfailed, 1 xpassed in 51.62s
