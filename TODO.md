@@ -85,7 +85,13 @@ l'aiguillage et les enveloppes) :
   `Matrix[i, j]` symbolique en `MatrixElement`, et `ArrayComprehension`
   calculé en Rust (`crates/symox-py/src/array_comprehension.rs`, classe
   Python réduite à l'enveloppe). Tests SymPy de tableaux : 165 → 182
-  sur 201. __VALID__
+  sur 201, sans régression. Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) :
+  suite complète **60 322 réussis, 0 échec** ("SUITE CLEAN", 11 xfail,
+  45 sautés, 60 378 collectés, 688 fichiers ; +7 de
+  `tests/test_native_arrcomp.py` ; preuves dans
+  `~/symox-ci/evidence/arrcomp-20261106`) ; cargo test 865 + 1 + 0 + 5,
+  clippy correctness propre. Écarts délibérés à valider : voir la section
+  arrcomp de docs/algorithmic-parity.md.
 
 Vague 40 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
 enveloppes) :

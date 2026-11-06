@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "passed": 60322,
+    "skipped": 45,
+    "xfailed": 11
+  },
+  "coverage": {
+    "collection_matches": true,
+    "execution_matches": true,
+    "expected": 60378,
+    "collected_in_shards": 60378,
+    "finished": 60378,
+    "files": 688,
+    "files_incomplete": [],
+    "missing": [],
+    "unexpected": []
+  },
+  "failures": [],
+  "elapsed_seconds": 1140.912312746048
+}

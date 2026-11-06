@@ -27,6 +27,19 @@ the deliberate one: `combine_kronecker(KroneckerProduct(X, Y)**x)` stays
 unevaluated in symox. SymPy distributes a symbolic power over the factors,
 which is false for non-invertible factors (see the parity document).
 
+## Validation
+
+- Full suite (`audits/performance/2026-10-30-smallgaps/run_suite.py`, with
+  `XLA_PYTHON_CLIENT_PREALLOCATE=false`): SUITE CLEAN. 60 322 passed,
+  45 skipped and 11 xfailed out of 60 378 collected, in 688 files. Main had
+  60 315 passed out of 60 371 in 687 files; the 7 new tests are
+  `tests/test_native_arrcomp.py`. The summary is in `raw/suite_summary.json`.
+  A first run, made while `cargo test` was building, had 5 subprocess
+  timeouts. Those 5 tests pass alone, and the second run, made alone, is
+  the one reported.
+- `cargo test --release`: 865 passed (1 ignored), plus 1, 0 and 5.
+- Clippy correctness (`-A clippy::all -D clippy::correctness`): no error.
+
 ## Reproduction
 
 From the worktree, with `PY=~/symox-ci/venv/bin/python`:
