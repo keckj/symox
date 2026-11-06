@@ -17549,3 +17549,45 @@ Remaining gaps:
     SymPy; symox answers in 61 ms. This is not compared.
 
 Measured: [audit](../audits/performance/2026-11-06-ratint2/README.md).
+
+## Wave 43 integration (matcher, limits2, ratint2), 2026-11-06
+
+Branch `integrate-wave43-20261106`: main `5038ef02` (wave 42) with
+`feat-matcher-20261106`, `feat-limits2-20261106` and `feat-ratint2-20261106`,
+merged in that order. Only `TODO.md` and this file had conflicts. Both kept
+the sections of all three lots. No code had to be resolved, and no
+integration fix was needed.
+
+Validation of the merged code (`XLA_PYTHON_CLIENT_PREALLOCATE=false`, run one
+after the other):
+
+- Full suite: SUITE CLEAN on the first run. 60 550 passed, 6 xfail and
+  45 skipped, out of 60 601 tests collected and run in 696 files. That is the
+  union of the three lots (+8, +21 and +39 tests and 3 files on main).
+- `cargo test --release`: 872 + 1 + 0 + 5. Clippy correctness is clean.
+- ODE corpus: 315/289/270, with verdicts identical row by row to wave 42.
+- Solve corpora:
+  - tsolve: 106 SAME, 6 EQUIV, 2 SUPERSET, 1 DECLINED and 0 WRONG_EMPTY;
+  - unrad: 87 SAME, 2 EQUIV and 1 EXTRA.
+
+  Both comparisons are identical line by line to wave 42.
+- Lot corpora, replayed on the merged build, are identical to the lots:
+  - matcher: public `Expr.match` 2311/2311. The native port has 2226 equal,
+    0 different and 85 declined. `pattern_match` is 2059/252, with the same
+    differing ids.
+  - limits2: 1211/1293 asserts equal to SymPy, with no status change, 84
+    Gruntz declines and the same categories. This was checked because the
+    public `Expr.match` changed while limits2 touched the series code. Each
+    lot's results are unchanged by the other.
+  - ratint2: 62/75 equal to SymPy, and all 75 results identical to the lot.
+
+Open after this wave (see the lot sections above and the TODO):
+
+- **Wrong result**: the public native `has` ignores the commutative
+  sub-product of a `Mul`, so `(2*x*y*z).has(x*y)` is False where SymPy gives
+  True. This needs a Rust fix in the core `has`.
+- `pattern::pattern_match` is still used by `simp.rs`, meijerint and
+  `poly/collect.rs`. It differs from the reference on 252 corpus calls, and
+  those callers have not been audited.
+- `Order.as_expr_variables` is a Python API envelope added by limits2. It
+  awaits the user's decision under the work rule.

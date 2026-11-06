@@ -1,10 +1,14 @@
 # TODO — Capacités mathématiques et parité SymPy
 
-Mis à jour le **6 novembre 2026**, sur la branche `integrate-wave42-20261106`
-(`main` à **`e4b1d011`**, vague 41, plus les trois lots de la vague 42).
-Référence : **SymPy 1.14.0**. Dernier lot validé sur Demeter le 6 novembre
-(voir « Reprise sur Demeter » ; le paragraphe ci-dessous décrit la suite du
-28 octobre).
+Mis à jour le **6 novembre 2026**, après la vague 43, sur la branche
+`integrate-wave43-20261106` (`main` à **`5038ef02`**, vague 42, plus les
+trois lots de la vague 43 : matcher, limits2, ratint2). Référence : **SymPy
+1.14.0**. État validé sur Demeter le 6 novembre : suite complète **60 550
+réussis, 0 échec** ("SUITE CLEAN", 60 601 collectés, 696 fichiers, 6 xfail,
+45 sautés), cargo test 872 + 1 + 0 + 5, clippy correctness propre, corpus
+EDO **315/289/270**, corpus solve tsolve 106 SAME / 0 WRONG_EMPTY et unrad
+87 SAME (voir « Reprise sur Demeter » ; le paragraphe ci-dessous décrit la
+suite du 28 octobre).
 
 Dernière suite complète : binaire `e2b10b0c`, sources `cc617a4a`
 (**56 311 tests**, Demeter) ; 762 tests Rust, 1 test d’intégration
@@ -50,7 +54,21 @@ Les preuves, sondes et corrections intentionnelles sont dans le
 [contrat de parité](docs/algorithmic-parity.md). Les extensions et sous-classes
 Python restent un chantier distinct, hors de ce TODO mathématique.
 
-## Reprise sur Demeter (état au 6 novembre)
+## Reprise sur Demeter (état au 6 novembre, après la vague 43)
+
+**Règle de travail (à respecter et rappeler à chaque lot)** : le calcul va
+en Rust (`crates/symox-core`, liaison PyO3 dans `crates/symox-py`). Le
+Python ne sert qu'à l'admission, à l'aiguillage vers le natif, aux
+enveloppes d'API et au passage des arguments. On n'ajoute ni n'étend
+d'algorithme Python : un écart de parité qui ne se corrigerait qu'en Python
+est consigné comme lacune, pas corrigé en Python.
+
+**RÉSULTAT FAUX ouvert** (relevé par le lot matcher, non corrigé) : le
+`has` natif public ignore le sous-produit commutatif d'un `Mul` :
+`(2*x*y*z).has(x*y)` vaut False dans symox, True dans SymPy (vérifié sur la
+branche intégrée). Le filtreur de référence natif en a sa propre version
+correcte ; le `has` public reste à corriger en Rust (voir « Lacunes
+ouvertes principales »).
 
 **Résultat faux prioritaire résolu** (vague 41, lot unrad) :
 `solve(-2*y/sqrt(y**3) - C1 - x, y)` rendait `[]` (absence de solution
@@ -66,39 +84,48 @@ corrigé. Restent en Python la chaîne établie après un NotImplementedError
 natif et deux crochets (`nsimplify`, fin d'`equals`) ; voir « Lacunes
 ouvertes principales ».
 
-La branche `integrate-wave42-20261106` (main `e4b1d011` + vague 42 :
-tsolve, ode3, prde3, fusionnés dans cet ordre) est validée, à avancer dans
-main. Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) sur `dfc19715`
-(fusion des trois lots, code identique au commit TODO) : suite complète
-**60 482 réussis, 0 échec** ("SUITE CLEAN", 6 xfail, 45 sautés,
-60 533 collectés et exécutés, 693 fichiers ; preuves dans
-`~/symox-ci/evidence/integ42-20261106`), soit exactement l'union des trois
-lots (+27, +73 et +28 tests collectés et 3 fichiers sur les 60 405 et 690
-de main ; 2 xfail stricts levés par prde3, 8 → 6) ; cargo test
-871 + 1 + 0 + 5, clippy correctness propre ; corpus EDO rejoué sur la
-branche intégrée : **315/289/270**, verdicts identiques ligne à ligne à
-ceux de main (`integ41-20261106`) ; corpus tsolve rejoué : 106 SAME,
-6 EQUIV, 2 SUPERSET, 1 DECLINED, 0 WRONG_EMPTY, comparaison identique
-ligne à ligne à celle du lot ; corpus unrad rejoué : 87 SAME, 2 EQUIV,
-1 EXTRA, identique au lot (preuves dans `.../integ42-20261106/solve`).
-Interactions vérifiées : `nth_algebraic` (ode3) appelle le `solve` public
-modifié par tsolve (lignes algeb du corpus EDO et 73 tests ode3
-inchangés) ; l'ordre global des générateurs de `construct_domain` (prde3)
-ne change aucun verdict des corpus EDO, tsolve et unrad ni aucun test.
-Conflits de fusion limités au texte de `TODO.md` (fusion de prde3 :
-entrées vague 42 d'ode3 et de prde3 gardées toutes deux ; lacunes solve de
-tsolve et prde de prde3, les plus récentes) ; `docs/algorithmic-parity.md`
-fusionné sans conflit (sections ajoutées bout à bout). Aucun correctif
-d'intégration nécessaire. Le corpus d'intégration n'a pas été rejoué
-depuis la vague 37.
+La branche `integrate-wave43-20261106` (main `5038ef02` + vague 43 :
+matcher, limits2, ratint2, fusionnés dans cet ordre par `git merge --no-ff`)
+est validée, à avancer dans main. Validation
+(`XLA_PYTHON_CLIENT_PREALLOCATE=false`) sur `7443def3` (fusion des trois
+lots, code identique au commit TODO) : suite complète **60 550 réussis, 0
+échec** ("SUITE CLEAN" dès la première course, 6 xfail, 45 sautés, 60 601
+collectés et exécutés, 696 fichiers ; preuves dans
+`~/symox-ci/evidence/integ43-20261106/suite-run1`), soit exactement l'union
+des trois lots (+8, +21 et +39 tests collectés et 3 fichiers sur les 60 533
+et 693 de main) ; `cargo test --release` 872 + 1 + 0 + 5 (doctests compilés
+du premier coup), clippy correctness propre ; corpus EDO rejoué sur la
+branche intégrée : **315/289/270**, verdicts identiques ligne à ligne à ceux
+de main (`integ42-20261106`) ; corpus tsolve rejoué : 106 SAME, 6 EQUIV, 2
+SUPERSET, 1 DECLINED, 0 WRONG_EMPTY ; corpus unrad rejoué : 87 SAME, 2
+EQUIV, 1 EXTRA ; comparaisons identiques ligne à ligne à celles de la vague
+42 (preuves dans `.../integ43-20261106/solve`) ; corpus des lots rejoués sur
+la branche intégrée (`.../integ43-20261106/lots`), identiques aux lots :
+matcher 2311 appels, `Expr.match` public 2311/2311, natif 2226 identiques /
+0 différent / 85 déclinés, `pattern_match` 2059/252, mêmes identifiants
+différents (rapport refait contre une course SymPy vive :
+`sympy-results.json.gz` n'a pas le format attendu par `compare.py report`,
+valeurs identiques à la course vive) ; limits2 1211/1293 asserts identiques
+à SymPy, aucun changement de statut par rapport au lot, 84 déclins Gruntz,
+catégories identiques ; ratint2 62/75 identiques à SymPy, 75 résultats
+identiques à ceux du lot. Interactions surveillées : `Expr.match` public
+(matcher) et séries/`Order` (limits2) : aucune dégradation (asserts
+`Order`/séries 1211/1293 inchangés après le changement d'`Expr.match`,
+2311/2311 du filtrage public inchangés après limits2, EDO identiques).
+Conflits de fusion limités au texte de `TODO.md` et de
+`docs/algorithmic-parity.md` (entrées et sections des trois lots gardées ;
+lacunes ratint de ratint2 et Limites de limits2, les plus récentes). Aucun
+correctif d'intégration nécessaire, aucun faux échec de charge rencontré
+(validations lourdes lancées l'une après l'autre). Le corpus d'intégration
+n'a pas été rejoué depuis la vague 37.
 
-La branche `integrate-wave41-20261106` (vague 41 : unrad, accumb,
-arrcomp) est dans main (`e4b1d011`) : suite 60 352 réussis (60 405
-collectés, 690 fichiers, 8 xfail), cargo test 867 + 1 + 0 + 5, corpus EDO
-315/289/270.
+La branche `integrate-wave42-20261106` (vague 42 : tsolve, ode3, prde3)
+est dans main (`5038ef02`) : suite 60 482 réussis (60 533 collectés,
+693 fichiers, 6 xfail), cargo test 871 + 1 + 0 + 5, corpus EDO
+315/289/270, corpus tsolve 106 SAME / 0 WRONG_EMPTY, unrad 87 SAME.
 
-Vague 43 (en cours ; calcul en Rust, Python limité à l'admission,
-l'aiguillage et les enveloppes) :
+Vague 43 (intégrée sur `integrate-wave43-20261106` ; calcul en Rust,
+Python limité à l'admission, l'aiguillage et les enveloppes) :
 - matcher (`feat-matcher-20261106`) : filtreur de référence natif
   (`crates/symox-core/src/matches.rs`, liaison `_core._reference_match`),
   portage du protocole `match` de SymPy 1.14 (`Basic.matches`,
@@ -181,7 +208,7 @@ l'aiguillage et les enveloppes) :
   Suite complète du lot : 60 521 réussis (60 572 collectés, 694 fichiers,
   6 xfail), cargo test 871 + 1 + 0 + 5, clippy correctness propre.
 
-Vague 42 (calcul en Rust, Python limité à l'admission,
+Vague 42 (dans main ; calcul en Rust, Python limité à l'admission,
 l'aiguillage et les enveloppes) :
 - tsolve (`feat-tsolve-20261106`) : repli `_tsolve` de `_solve` natif
   (`crates/symox-core/src/solve/native_tsolve.rs`), dans l'ordre de SymPy :
@@ -416,6 +443,30 @@ Vague 38 (dans main) :
 - prdelog : cas de base de `is_log_deriv_k_t_radical_in_field` en Rust
   (`integrate/prde_log.rs`, 938 appels, 0 écart).
 
+Écarts volontaires de la vague 43 en attente de validation utilisateur :
+- ratint2 : `RootSum(y**3 + y + 1, Lambda(x, log(x)), y)` affiche le
+  générateur `y` (forme `RootSum(y**3 + y + 1, Lambda(x, log(x)))`), là où
+  la course SymPy du corpus affiche `x` ; c'est un effet du cache de SymPy
+  (un `PurePoly` égal en `x` construit plus tôt dans le même processus) :
+  un SymPy neuf rend la forme de symox.
+- limits2 : asserts où symox diffère volontairement de SymPy 1.14 :
+  issue_5172:2 (×2 : SymPy rend 0, symox la valeur attendue par le test
+  SymPy), 19770:2 (0 contre limite gardée par SymPy), 7535 (×3 :
+  `AccumBounds(-oo, oo)` où SymPy garde la limite),
+  gruntz_eval_special_slow:2 (SymPy expire, symox répond),
+  gruntz_eval_special_fail (PoleError contre NotImplementedError de
+  SymPy), order_failing_due_to_solveset (SymPy lève TypeError, symox
+  répond).
+- limits2 : `Order.as_expr_variables` ajouté en Python dans
+  `python/symox/__init__.py` (fusion des variables en tuple, sans calcul) ;
+  enveloppe d'API à la limite de la règle de travail, **soumise à
+  l'arbitrage utilisateur** (à porter dans la liaison Rust si refusée).
+- matcher : coût du filtrage EDO natif : les filtreurs `second.rs`,
+  `liouville.rs`, `reducible.rs` et `bessel.rs` passent par le protocole de
+  référence, environ 1 ms par appel contre 0,06 ms avec l'ancien
+  `pattern_match` (parité de choix de correspondance au prix du temps ;
+  corpus EDO inchangé).
+
 Écarts volontaires de la vague 42 en attente de validation utilisateur :
 - prde3 : ordre global des générateurs de `construct_domain`
   (`polys/constructor.py._infer_domain`) : à plusieurs symboles, l'ordre
@@ -515,6 +566,11 @@ limitsrest r2 identique à SymPy même pour y complexe ; trois asserts de
 UserWarning, flags inconnus ignorés).
 
 Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
+- **RÉSULTAT FAUX** : le `has` natif public rate les sous-produits
+  commutatifs d'un `Mul` : `(2*x*y*z).has(x*y)` vaut False contre True dans
+  SymPy (le `has` de référence teste le sous-ensemble commutatif des
+  facteurs) ; correctif à faire en Rust dans le `has` du cœur (le filtreur
+  `matches.rs` a déjà sa version de référence, à partager).
 - ODE : simplification et intégrales des solutions particulières en
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
   d'erreur du casus irreducibilis ; lie_group (Python, non porté par
@@ -550,6 +606,13 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   natif en a sa propre version. `pattern::pattern_match` (utilisé par
   `simp.rs`, meijerint et `collect`) n'est pas le protocole de référence
   (252 différences sur le corpus) ; ses appelants n'ont pas été audités
+  Ancien `pattern::pattern_match` encore utilisé par `simp.rs`,
+  meijerint (conditions) et `poly/collect.rs` : 252 appels du corpus
+  divergent du protocole de référence, non audités chez ces appelants.
+  `WildFunction` s'affiche comme `Wild` (`srepr` : `Wild('g')`).
+  Déclins du filtreur natif (repli Python, jamais « pas de
+  correspondance ») : non commutatif, `zoo`/`oo`/`-oo`/`nan`, `Sum` et
+  autres nœuds liés, Float face à un côté sans symbole libre
   ([détail](docs/algorithmic-parity.md#matcher-wave-43-native-reference-matcher-2026-11-06)).
 - solve (radicaux, `_tsolve`) : repli `_tsolve` natif depuis la vague 42 ;
   restent en Python `nsimplify` d'un nombre (`mpmath.identify`, crochet)
@@ -594,11 +657,20 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   des étapes d'expand hors produits de radicaux, bruit imaginaire de
   evalf (approché par l'évaluateur double dans l'ordre d'impression). Le
   constructeur RootSum calcule en Rust depuis la vague 43 (ratint2).
+  Précisions (vague 43) : `ratint_logpart` sur `QQ<a>[p]` bute sur les
+  polynômes composites, qui n'ont de support natif que sur ZZ/QQ
+  (`crates/symox-py/src/domains.rs`, branche `ExactDomain::Composite`
+  vers la l. 249 : « other composites have no polynomial backend yet ») ;
+  divisions non rétractables de `QQ<a>(t)` ; normalisation des éléments
+  `EX` par `simplify` (`crates/symox-core/src/poly/domains.rs:413`,
+  `ExactDomain::Expression`).
 - Limites : 82/1293 asserts encore différents (vague 43, lot limits2 ;
   154 avant) ; 84 déclins Gruntz (87 avant), dont 67 oscillants, tous
   repris en Rust (décomposition bornée ou marcheur `AccumBounds` natif,
   vague 41) ou gardés. Restent :
-  - `fps` (26 asserts, domaine Python non porté) ;
+  - formal/`fps` encore en Python (26 asserts, domaine non porté) ;
+  - 16 déclins de symox (NotImplementedError ou limite gardée là où SymPy
+    répond) et 17 déclins Gruntz non oscillants (84 − 67) ;
   - séries à exposants symboliques ou logarithmiques
     (NotImplementedError là où SymPy développe : aseries simple 2, 6, 7,
     bug2, issue 3463, log_power1, 14384:3, 6350) ;
@@ -624,6 +696,10 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `lattice`. Écarts : `oo*sign(AccumBounds(...))` de SymPy rendu
   `AccumBounds(-oo, oo)` (divergence consignée), ordre d'impression de
   `AccumBounds*nan`, LaTeX `\left\langle a, b\right\rangle` absent.
+- Tests : test fragile d'ordre d'alarme,
+  `tests/test_matrix_inexact_native_inverse.py::test_pending_interruption_propagates_from_native_elimination`
+  (SIGALRM attendu pendant l'élimination native ; échoue parfois sous
+  charge, réussit isolément) ; à rendre indépendant de la charge.
 - Matrices : perf lambdarr gamma/poly2.
 - Tableaux : 19/201 tests SymPy de tableaux ne passent pas (vague 41 ;
   36 avant). Les causes sont :
@@ -643,7 +719,24 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   l'ordre des arguments d'`ArrayDiagonal` (arrindex u_int_mul) et le coût
   de `matrix_derivative` par le chemin tableau.
 
-Procédure de validation (leçons du 30 octobre et du 5 novembre) : lancer la
+Procédure de validation (leçons du 30 octobre, des 5 et 6 novembre) :
+validations lourdes (suite, `cargo test`, corpus) **séquentielles**, jamais
+deux à la fois : la charge provoque de faux échecs (OOM du shard 23 sur le
+cgroup de 6 Go, délais des sous-processus fuzz 20 s et Dirac 5 s,
+`test_pending_interruption_propagates_from_native_elimination`) ; un échec
+qui disparaît à la relance du fichier isolé, à faible charge, est consigné
+comme faux échec de charge et la suite est relancée jusqu'à "SUITE CLEAN".
+Ordre suivi pour une intégration : `cargo build --release` (target privé
+`~/symox-ci/targets/<nom>`, `PYO3_PYTHON=~/symox-ci/venv/bin/python`,
+copie de `release/lib_core.so` vers `python/symox/_core.abi3.so` après une
+sortie réussie seulement, pas de maturin) ; suite
+`audits/performance/2026-10-30-smallgaps/run_suite.py` ; `cargo test
+--release` ; `cargo clippy --release -- -A clippy::all -D
+clippy::correctness` ; corpus EDO (`audits/performance/2026-11-05-ode`,
+`run_corpus.sh` puis `score.py`, seuil 315/289/270) ; corpus solve
+(`2026-11-06-tsolve` : 106 SAME / 0 WRONG_EMPTY ; `2026-11-06-unrad` :
+87 SAME) ; corpus des lots de la vague (vague 43 : matcher 2311/2311 en
+`Expr.match` public, limits2 1211/1293, ratint2 62/75). Lancer la
 suite avec `XLA_PYTHON_CLIENT_PREALLOCATE=false` (sinon
 `tests/extra/test_jax_codegen.py::test_custom_functions_and_standalone_source`
 échoue dans le shard 23 par CUDA_ERROR_OUT_OF_MEMORY du sous-processus jax,
