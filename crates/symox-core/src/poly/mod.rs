@@ -34,6 +34,7 @@ pub mod api;
 pub mod collect;
 pub mod resultant;
 pub mod roots;
+pub mod rootsum;
 mod nroots_mp;
 pub mod modgcd;
 pub mod ratfunc;

@@ -935,7 +935,11 @@ class RootSum(metaclass=_ExprType):
         if func is None:
             func = Lambda(poly.gen, poly.gen)
         else:
-            is_func = getattr(func, 'is_Function', False) or isinstance(func, Lambda)
+            from . import _is_function_head
+            # An undefined function head (``Function('f')``) is a function
+            # class in the reference.
+            is_func = (getattr(func, 'is_Function', False) or isinstance(func, Lambda)
+                       or _is_function_head(func))
             if is_func and _accepts_one(func):
                 if not isinstance(func, Lambda):
                     func = Lambda(poly.gen, func(poly.gen))
@@ -944,6 +948,13 @@ class RootSum(metaclass=_ExprType):
                     "expected a univariate function, got %s" % func)
 
         var, expr = func.variables[0], func.expr
+
+        # The constructor computes natively (``_transform`` above, the
+        # constant split, the factor terms and ``_rational_case``); the body
+        # below runs only for an input the native steps decline.
+        built = _core._root_sum_build(coeff, poly, var, expr, auto, quadratic)
+        if built is not None:
+            return _recorded(built)
 
         if coeff is not S.One:
             expr = expr.subs(var, coeff*var)
@@ -994,6 +1005,11 @@ class RootSum(metaclass=_ExprType):
     @classmethod
     def new(cls, poly, func, auto=True):
         """Construct new ``RootSum`` instance. """
+        if len(func.variables) == 1:
+            built = _core._root_sum_new(poly, func.variables[0], func.expr, auto)
+            if built is not None:
+                return _recorded(built)
+
         if not func.expr.has(*func.variables):
             return func.expr
 
@@ -1010,6 +1026,9 @@ class RootSum(metaclass=_ExprType):
         from . import PurePoly
         from .polys.polyroots import preprocess_roots
         poly = PurePoly(expr, x, greedy=False)
+        native = _core._root_sum_transform(poly)
+        if native is not None:
+            return native
         return preprocess_roots(poly)
 
     @classmethod
@@ -1076,6 +1095,16 @@ class RootSum(metaclass=_ExprType):
         return factor(p/q)
 
 
+def _recorded(built):
+    """The value of a native ``RootSum`` construction, with the polynomial
+    and ``auto`` flag of every raw node it made recorded in ``_sums``."""
+    from . import PurePoly
+    value, nodes = built
+    for node, poly, auto in nodes:
+        _sums[node] = PurePoly(poly, expand=False), auto
+    return value
+
+
 def _accepts_one(func):
     nargs = getattr(func, 'nargs', None)
     if nargs is None:
@@ -1135,6 +1164,10 @@ def root_sum_doit(node, **hints):
     if not hints.get('roots', True):
         return node
 
+    value = _core._root_sum_doit(node, node.poly, node.fun)
+    if value is not None:
+        return value
+
     _roots = roots(node.poly, multiple=True)
 
     if len(_roots) < node.poly.degree():
@@ -1147,6 +1180,9 @@ def root_sum_evalf(node, prec):
     from . import Add
     from mpmath.libmp.libmpf import prec_to_dps
     from .polys.polyerrors import DomainError, PolynomialError
+    value = _core._root_sum_evalf(node, node.poly, node.fun, prec)
+    if value is not None:
+        return value
     try:
         _roots = node.poly.nroots(n=prec_to_dps(prec))
     except (DomainError, PolynomialError):

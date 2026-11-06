@@ -1,0 +1,2 @@
+tests [(('_root_sum_build', 'decline'), 1), (('_root_sum_build', 'native'), 202), (('_root_sum_doit', 'native'), 9), (('_root_sum_evalf', 'native'), 28), (('_root_sum_new', 'native'), 7), (('_root_sum_transform', 'decline'), 1), (('_root_sum_transform', 'native'), 207)]
+corpus [(('_root_sum_build', 'native'), 228), (('_root_sum_doit', 'native'), 16), (('_root_sum_evalf', 'native'), 8), (('_root_sum_new', 'native'), 4), (('_root_sum_transform', 'native'), 237)]
