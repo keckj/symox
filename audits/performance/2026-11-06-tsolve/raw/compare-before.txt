@@ -1,0 +1,21 @@
+SUBSET       mix_sqrt_exp_minus   sympy=[log(7 - 4*sqrt(3)), log(4*sqrt(3) + 7)]
+                                   symox=[2*log(sqrt(3) + 2)]
+SUBSET       sym_xx_x             sympy=[-1, 1]
+                                   symox=[1]
+WRONG_EMPTY  sym_x3x2             sympy=[exp(LambertW(-2*log(2)/3 + 2*log(pi)/3 + 2*I*pi/3))]
+                                   symox=[]
+SUBSET       sym_x2y_param        sympy=[0, 1]
+                                   symox=[1]
+DECLINED     lw_sub1              sympy=[LambertW(3*E)/3]
+                                   symox=NotImplementedError: could not solve -6*x + (3*x + log(x))**2 - 2*log(x) + 1 for x
+DECLINED     lw_sub2              sympy=[LambertW(3*exp(-sqrt(2)))/3, LambertW(3*exp(sqrt(2)))/3]
+                                   symox=NotImplementedError: could not solve -2*(3*x + log(x))**2 + ((3*x + log(x))**2 - 1)**2 + 3 for x
+DECLINED     lw_sub3              sympy=[LambertW(3*exp(1 - sqrt(3)))/3, LambertW(3*exp(1 + sqrt(3)))/3]
+                                   symox=NotImplementedError: could not solve -6*x + (3*x + log(x))**2 - 2*log(x) - 2 for x
+SUPERSET     lw_x3_3x             sympy=[3, -3*LambertW(-log(3)/3)/log(3)]
+                                   symox=[3, -3*LambertW((1 - sqrt(3)*I)*log(3)/6)/log(3), -3*LambertW((1 + sqrt(3)*I)*log(3)/6)/log(3), -3*LambertW(-log(3)/3)/log(3)]
+DECLINED     lw_cos               sympy=[acos(3), acos(-3*LambertW(-log(3)/3)/log(3))]
+                                   symox=NotImplementedError: could not solve 3**cos(x) - cos(x)**3 for x
+DECLINED     flag_sym_noforce     sympy=[2**(2/y), 3**(2/y)]
+                                   symox=NotImplementedError: solve option 'force' with this value is not implemented
+{"DECLINED": 5, "EQUIV": 6, "SAME": 99, "SUBSET": 3, "SUPERSET": 1, "WRONG_EMPTY": 1}

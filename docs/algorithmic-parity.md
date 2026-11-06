@@ -16706,6 +16706,120 @@ Remaining gaps:
   integrates a large expression and the worker runs out of memory. SymPy
   also exceeds its deadline on these rows, so they stay unscored.
 
+## solve (2026-11-06, wave 42): native `_tsolve` fallback and unrad before `_tsolve` for mixed equations
+
+Before this lot, every equation that the native `_core.solve` left with
+NotImplementedError went back to Python: `_solve_piecewise`, then
+`_tsolve_steps.tsolve_step` (the Rust `_tsolve` steps with a PyHost whose
+nested `solve` calls re-entered the public Python `solve`), then
+`_masked_solution`, `_inverted_solution` and `_unrad_solution`. The Python
+chain also ran `_tsolve` before unrad for radicals mixed with functions of
+the unknown, the reverse of the reference order.
+
+Now native (`crates/symox-core/src/solve/native_tsolve.rs`, binding in
+`crates/symox-py/src/solve.rs`). The binding runs the native solver inside
+a scope in which:
+
+- `_solve` takes its unrad fallback for radicals of the unknown mixed with
+  other functions of it (`radical::solve_mixed`) after the generator branch
+  and before `_tsolve`: `sqrt(x)*exp(x) - 1` gives `[LambertW(2)/2]`,
+  `exp(sqrt(x)) - 3` gives `[log(3)**2]`;
+- the top-level call and every nested `_vsolve` end with the `_tsolve`
+  steps of `solve/tsolve.rs` with a native host: `_invert`, the `Add`
+  factor/logcombine branches, the `Pow` branch with its rational
+  candidates, `sin`/`cos`/`LambertW`, `rebuild(lhs.rewrite(exp))` (the
+  rewrite is re-evaluated bottom-up as `rl.rebuild` does), the bivariate
+  block and the posify retry;
+- nested `_vsolve` calls check their candidates with `checksol` only, not
+  with the unknown's assumptions, which the reference checks in the public
+  `solve` alone (`solve::without_assumption_filter`). `bivariate_type`
+  solves for a positive Dummy: `(x**2 - 2*x + 1).subs(x, (log(x) + 3*x)**2
+  - 1)` keeps `u = -sqrt(2)` and both `LambertW(3*exp(±sqrt(2)))/3`, and
+  `x**x - x` keeps `-1` from the posify retry;
+- the posify retry passes the flags with `bivariate` popped
+  (`Flags::Popped`), not `bivariate=False`: `lw_sub1` was NotImplementedError
+  and is now `[LambertW(3*E)/3]`.
+
+Native `_solve` also gained two reference steps:
+
+- the multi-generator step (`solve.rs::single_function`): `_as_base_q` of
+  the generators; with several bases or a `q != 1`, the shallowest
+  function (`ordered`) is replaced by a Dummy when that clears the unknown,
+  and the roots are substituted into `ordered(_vsolve(t - f1))[0]`
+  (`3**cos(x) - cos(x)**3`);
+- the logcombine step combines only the terms that depend on the unknown:
+  `solve((x**3)**(x/2) + pi/2, x)` returned `[]` (a WRONG_EMPTY) because
+  `log(-pi/2)` lost its `I*pi`; it is now SymPy's
+  `[exp(LambertW(-2*log(2)/3 + 2*log(pi)/3 + 2*I*pi/3))]`.
+
+The logcombine change made the dsolve row `1st_exact_09` reach the
+polynomial `x**2*y**2 - 2*x*y - x**2*exp(2*C1)` that the reference
+`_tsolve` reaches; the native closed form of an irreducible symbolic
+quadratic kept `x**2` under the square root. The polynomial step now takes
+the primitive part of a quadratic with symbolic coefficients first, as the
+reference `roots` does (`preprocess_roots`, `poly.primitive()[1]`;
+`solve.rs::quadratic_primitive`): `(1 - sqrt(x**2*exp(2*C1) + 1))/x` and
+its conjugate, as SymPy. Routing every symbolic quadratic through the full
+native `roots` instead was tried and rejected: it lost roots and precision
+in seven existing tests (`test_native_unrad_solve.py`,
+`test_solve_rational_coverage.py`, `test_solve_trig_affine_parity.py`,
+...).
+
+`has_radical` (admission of the mixed unrad fallback) uses `_Q` semantics:
+a power whose exponent has a non-integer Rational coefficient
+(`x**(y/2)`), as the reference `unrad` does (`x**(y/2) - x**(y/3)` gives
+`[0, 1]`, it gave `[1]`).
+
+Declines, never `[]`: anything the native host cannot reproduce exactly
+records a decline for the whole call, and the binding reruns the previous
+native solver and leaves the rest to the Python path. Declined: nested
+equations the Python wrapper rewrites first (Floats, hyperbolic functions,
+`Abs`, `Piecewise`, held derivatives, integrals, sums, undefined
+functions); a nested radical equation left unsolved when `unrad` raises
+NotImplementedError (so the established `_unrad_resultant` fallback stays
+reachable); errors other than the PolynomialError the reference catches.
+`SYMOX_TSOLVE_TRACE=1` prints the decline reasons.
+
+Corpus (`audits/performance/2026-11-06-tsolve/`, 115 equations against
+SymPy 1.14): before 99 SAME, 6 EQUIV, 3 SUBSET, 1 SUPERSET, 1 WRONG_EMPTY,
+5 DECLINED; after 106 SAME, 6 EQUIV, 2 SUPERSET, 1 DECLINED. Cases going
+through the Python chain: 66 before, 10 after. The radical corpus of the
+unrad lot is unchanged (87 SAME, 2 EQUIV, 1 EXTRA).
+
+Remaining gaps and deviations:
+
+- Python computations still called back by the native host through hooks:
+  `nsimplify` of a number other than an integer or a small rational
+  (`mpmath.identify`, 12 corpus cases) and the `minimal_polynomial` tail of
+  an undecided `Expr.equals`.
+- After a native NotImplementedError the Python chain still runs
+  (`_solve_piecewise`, the PyHost `tsolve_step`, masking, inversion,
+  `_unrad_solution`, `_unrad_resultant`): these established fallbacks are
+  kept. In the corpus they end with NotImplementedError like SymPy
+  (`cosh(x)/x - sqrt(2)`, `sqrt(x) + sqrt(x + 1) - exp(x)`,
+  `x*(x + 2)**y - 3`, ...). The PyHost `_tsolve` still filters its nested
+  solutions by assumptions (public `solve`), unlike the native host.
+- The Python post-processing of solutions (`_high_order_roots`,
+  `_polynomial_roots`) calls `solve(gen - t, x)`, which then also runs the
+  Python chain (`x**(x + 4) - 4`); the result is unaffected.
+- `force=False` is rejected by the native binding and goes to Python
+  (`flag_sym_noforce` is DECLINED).
+- A public `solve(..., bivariate=False)` is rejected by the binding and
+  goes to Python; only the nested calls of the `_tsolve` steps pass the
+  flag natively (straight to the `_tsolve` steps, as the reference flag
+  only reaches `_tsolve`).
+- `_take` is read only by the public `unrad` (its binding handles it);
+  `solve` ignores it, as in the reference.
+- SUPERSET: `x**3 - 3**x` and `3**cos(x) - cos(x)**3` also return the two
+  complex branches `-3*LambertW((1 ± sqrt(3)*I)*log(3)/6)/log(3)` of the
+  native `lambert::solve` step, which runs before `_tsolve`. These are
+  valid solutions; the deviation predates the lot for `x**3 - 3**x`.
+- `_invert` of a one-argument function class that the native table does
+  not know (`f.inverse()` of a user class, `Host::inverse`) declines.
+- EQUIV forms predating the lot (the native steps before `_tsolve`):
+  `2**x - 10` gives `log(10)/log(2)` for `1 + log(5)/log(2)`, and five
+  others with equal values.
+
 ## accumb (wave 41): native AccumulationBounds arithmetic and oscillating-limit walker, 2026-11-06
 
 What is native (`crates/symox-core/src/limits/accum.rs`, PyO3 binding

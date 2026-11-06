@@ -32,6 +32,9 @@ pub enum Flags {
     Plain,
     /// The flags of the current call with `bivariate=False`.
     NoBivariate,
+    /// The flags of the current call once the bivariate block has popped
+    /// `bivariate` (the posify retry: `bivariate` is back to its default).
+    Popped,
 }
 
 /// Why a step stopped. `NotImplemented` and `Value` are the exceptions the
@@ -550,13 +553,13 @@ pub fn lambert<H: Host>(h: &mut H, eq: &Expr, x: &Expr) -> R<Vec<Expr>, H::Error
     if x1 != x2 {
         return Ok(vec![]);
     }
-    let u = Expr::dummy("rhs", crate::symbol::Assumptions::NONE);
+    let u = Expr::dummy("rhs", crate::Assumptions::NONE);
     let xusolns = h.solve(&sub(&x1, &u), x, Flags::Plain)?;
     let ratio = div(&div(&sub(&mul(&[c.clone(), d.clone()]), &mul(&[b.clone(), f])), &a), &b);
     let (num, den) = crate::simptools::as_numer_denom(&ratio);
     let (p, den) = crate::simptools::as_coeff_mul(&den, false);
     let e = exp(&div(&num, &den));
-    let t = Expr::dummy("t", crate::symbol::Assumptions::NONE);
+    let t = Expr::dummy("t", crate::Assumptions::NONE);
     let rts = crate::poly::roots::roots(&sub(&pow(&t, &p), &e), std::slice::from_ref(&t))?;
     let mut sol = Vec::new();
     let scale = div(&d, &mul(&[a.clone(), b.clone()]));
@@ -586,7 +589,7 @@ pub fn solve_lambert<H: Host>(h: &mut H, f: &Expr, symbol: &Expr, gens: &[Expr])
     if lhs.is_add() || lhs.is_mul() {
         let t = match symbol.as_sym() {
             Some(s) => Expr::from_kind(Kind::Sym(s.fresh_dummy_like("t"))),
-            None => Expr::dummy("t", crate::symbol::Assumptions::NONE),
+            None => Expr::dummy("t", crate::Assumptions::NONE),
         };
         let even = |i: &Expr| -> Option<Expr> {
             match i.kind() {
@@ -623,7 +626,7 @@ pub fn solve_lambert<H: Host>(h: &mut H, f: &Expr, symbol: &Expr, gens: &[Expr])
         lhs = xrep(&lhs, &t, symbol);
     }
     lhs = powsimp(&crate::poly::api::factor_deep(&lhs)?);
-    let r = Expr::dummy("r", crate::symbol::Assumptions::NONE);
+    let r = Expr::dummy("r", crate::Assumptions::NONE);
     let (i, l) = invert(h, &sub(&lhs, &r), symbol)?;
     lhs = l;
     rhs = xrep(&i, &r, &rhs);
@@ -688,8 +691,8 @@ pub fn solve_lambert<H: Host>(h: &mut H, f: &Expr, symbol: &Expr, gens: &[Expr])
 pub fn bivariate_type(f: &Expr, x: &Expr, y: &Expr) -> Result<Option<(Expr, Expr, Expr)>, PolyError> {
     use crate::poly::polyobj::Poly;
     let f = Poly::from_expr(f, &[x.clone(), y.clone()])?.as_expr();
-    let dx = Expr::dummy("_x", crate::symbol::Assumptions::NONE);
-    let dy = Expr::dummy("_y", crate::symbol::Assumptions::NONE);
+    let dx = Expr::dummy("_x", crate::Assumptions::NONE);
+    let dy = Expr::dummy("_y", crate::Assumptions::NONE);
     let fd = subs_dict(&f, &[(x.clone(), dx.clone()), (y.clone(), dy.clone())]);
     let p = Poly::from_expr(&fd, &[dx.clone(), dy.clone()])?;
     let Some((g, q, u)) = bivariate_inner(&p, &dx, &dy) else { return Ok(None) };
@@ -825,7 +828,7 @@ fn bivariate_step<H: Host>(h: &mut H, eq: &Expr, sym: &Expr) -> R<Option<Vec<Exp
     };
     if !spow.is_one() {
         let p = pow(sym, &spow);
-        let u = Expr::dummy("bivariate-cov", crate::symbol::Assumptions::NONE);
+        let u = Expr::dummy("bivariate-cov", crate::Assumptions::NONE);
         let ueq = subs1(eq, &p, &u);
         if !in_free(sym, &ueq) {
             let sol = match h.solve(&ueq, &u, Flags::Same) {
@@ -924,18 +927,13 @@ pub fn tsolve_step<H: Host>(h: &mut H, f: &Expr, sym: &Expr, opts: Options) -> R
     Ok(Some(result.into_iter().filter(|r| checksol(&num, sym, r, opts.numerical, force) != Some(false)).collect()))
 }
 
-fn steps<H: Host>(h: &mut H, f: &Expr, sym: &Expr, opts: Options) -> R<Option<Vec<Expr>>, H::Error> {
-    let (rhs, lhs) = match invert(h, f, sym) {
-        Ok(v) => v,
-        Err(e) if e.is_ni_or_value() => return Ok(None),
-        Err(e) => return Err(e),
-    };
-    if lhs == *sym {
-        return Ok(Some(vec![rhs]));
-    }
+/// The steps of `_tsolve` between `_invert` and the bivariate block: the
+/// `Add` (factor, logcombine), `Pow`, `sin`/`cos`/`LambertW` and
+/// `rewrite(exp)` branches. Ok(None) when none of them returned.
+fn inverted_steps<H: Host>(h: &mut H, f: &Expr, sym: &Expr, lhs: &Expr, rhs: &Expr, opts: Options) -> R<Option<Vec<Expr>>, H::Error> {
     if lhs.is_add() {
         // factoring (after powdenest) may split the equation
-        let g = crate::poly::api::factor(&powdenest(&sub(&lhs, &rhs)))?;
+        let g = crate::poly::api::factor(&powdenest(&sub(lhs, rhs)))?;
         if g.is_mul() {
             let (indep, dep) = as_independent(&g, sym, Some(false));
             if !indep.is_one() && !indep.is_zero() && has(&dep, sym) {
@@ -945,21 +943,211 @@ fn steps<H: Host>(h: &mut H, f: &Expr, sym: &Expr, opts: Options) -> R<Option<Ve
                 return h.solve(&g, sym, Flags::Same).map(Some);
             }
         }
-    }
-    if lhs.is_add() && !rhs.is_zero() && has_pred(&lhs, &is_log) {
-        let g = crate::simp::logcombine(&lhs, opts.force && !no_force());
-        if count(&g, &is_log) != count(&lhs, &is_log) {
-            if is_log(&g) {
-                return h.solve(&sub(&func_args(&g)[0], &exp(&rhs)), sym, Flags::Same).map(Some);
+        if !rhs.is_zero() && has_pred(lhs, &is_log) {
+            let g = crate::simp::logcombine(lhs, opts.force && !no_force());
+            if count(&g, &is_log) != count(lhs, &is_log) {
+                if is_log(&g) {
+                    return h.solve(&sub(&func_args(&g)[0], &exp(rhs)), sym, Flags::Same).map(Some);
+                }
+                return h.solve(&sub(&g, rhs), sym, Flags::Same).map(Some);
             }
-            return h.solve(&sub(&g, &rhs), sym, Flags::Same).map(Some);
+        }
+    } else if let (Kind::Pow(b, e), false) = (lhs.kind(), is_exp(lhs)) {
+        return pow_step(h, f, sym, lhs, rhs, b, e).map(Some);
+    } else if let Kind::Func(func, args) = lhs.kind() {
+        if args.len() == 1 {
+            // `multi_inverses`
+            let inverses = match func {
+                Func::Sin => {
+                    let a = crate::functions::func(Func::Asin, vec![rhs.clone()]);
+                    Some(vec![a.clone(), sub(&Expr::pi(), &a)])
+                }
+                Func::Cos => {
+                    let a = crate::functions::func(Func::Acos, vec![rhs.clone()]);
+                    Some(vec![a.clone(), sub(&mul(&[Expr::int(2), Expr::pi()]), &a)])
+                }
+                _ => None,
+            };
+            if let Some(inverses) = inverses {
+                let mut out = Vec::new();
+                for i in inverses {
+                    out.extend(h.solve(&sub(&args[0], &i), sym, Flags::Same)?);
+                }
+                return Ok(Some(uniq(out)));
+            }
+            if func.name() == "LambertW" {
+                return h.solve(&sub(&args[0], &mul(&[rhs.clone(), exp(rhs)])), sym, Flags::Same).map(Some);
+            }
         }
     }
-    if let Kind::Pow(b, x) = lhs.kind() {
-        if !x.is_integer_number() && !in_free(sym, x) {
-            let r = pow(&rhs, &div(&Expr::one(), x));
-            return h.solve(&sub(b, &r), sym, Flags::Same).map(Some);
+    // `rebuild(lhs.rewrite(exp))`: the rewrite keeps unevaluated nodes
+    // (`exp(log(x)/2)`), which the reference re-evaluates bottom-up.
+    let rewritten = rl_rebuild(&crate::special::rewrite::rewrite(lhs, &[], "exp", true));
+    if rewritten != *lhs {
+        return h.solve(&sub(&rewritten, rhs), sym, Flags::Same).map(Some);
+    }
+    Ok(None)
+}
+
+/// `sympy.strategies.rl.rebuild`: every node rebuilt with the evaluating
+/// constructors, bottom-up.
+fn rl_rebuild(e: &Expr) -> Expr {
+    use crate::expr::{Func, Kind};
+    match e.kind() {
+        Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Rel(..) => {
+            let new: Vec<Expr> = crate::simptools::args(e).iter().map(rl_rebuild).collect();
+            crate::simptools::rebuild(e, &new)
         }
+        Kind::Func(f, _) if !matches!(f, Func::SymbolicDerivative | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..) | Func::Subs | Func::Integral | Func::Sum | Func::Limit) => {
+            let new: Vec<Expr> = crate::simptools::args(e).iter().map(rl_rebuild).collect();
+            crate::simptools::rebuild(e, &new)
+        }
+        _ => e.clone(),
+    }
+}
+
+/// `checksol(f, {sym: s})`, then `f.subs(sym, s).equals(0)` when undecided.
+fn checked<H: Host>(h: &mut H, f: &Expr, sym: &Expr, s: &Expr) -> R<bool, H::Error> {
+    match crate::solve::checksol::checksol(f, sym, s, Default::default()) {
+        Some(v) => Ok(v),
+        None => Ok(h.equals_zero(&subs1(f, sym, s))? == Some(true)),
+    }
+}
+
+/// The `lhs.is_Pow` branch of `_tsolve` for `lhs = b**e` and `rhs`.
+fn pow_step<H: Host>(h: &mut H, f: &Expr, sym: &Expr, lhs: &Expr, rhs: &Expr, b: &Expr, e: &Expr) -> R<Vec<Expr>, H::Error> {
+    if e.is_integer_number() && sub(lhs, rhs) != *f {
+        return h.solve(&sub(lhs, rhs), sym, Flags::Same);
+    }
+    if !in_free(sym, e) {
+        return h.solve(&sub(b, &pow(rhs, &div(&Expr::one(), e))), sym, Flags::Same);
+    }
+    // `_tsolve` calls this with a Dummy before passing the actual number
+    if free_symbols(rhs).iter().any(|s| s.as_sym().is_some_and(|s| s.is_dummy())) {
+        return Err(Fail::ni(""));
+    }
+    if rhs.is_zero() {
+        // f(x)**g(x) = 0 where f(x) = 0 and g(x) != 0
+        let sol_base = h.solve(b, sym, Flags::Same)?;
+        return Ok(sol_base.into_iter().filter(|s| !subs1(e, sym, s).is_zero()).collect());
+    }
+    if !has(b, sym) {
+        if b.is_zero() {
+            return h.solve(e, sym, Flags::Same);
+        }
+        let (rb, re) = crate::ops::as_base_exp(rhs);
+        let mut sol = if *b == rb {
+            h.solve(&sub(e, &re), sym, Flags::Same)?
+        } else {
+            let g = sub(&exp(&mul(&[log(b), e.clone()])), &exp(&log(rhs)));
+            h.solve(&g, sym, Flags::Same)?
+        };
+        // guess a rational exponent
+        let ratio = div(&log(&crate::functions::func(Func::Abs, vec![rhs.clone()])), &log(&crate::functions::func(Func::Abs, vec![b.clone()])));
+        let e_rat = h.nsimplify(&ratio)?;
+        let e_rat = crate::simplify::simplify(&crate::simptools::misc::posify(&e_rat).0);
+        let (n, d) = crate::simptools::radsimp::fraction(&e_rat, false);
+        if crate::expand::expand(&sub(&pow(b, &n), &pow(rhs, &d))).is_zero() {
+            let mut kept = Vec::new();
+            for s in sol {
+                if !equal(h, &subs1(e, sym, &s), &e_rat)? {
+                    kept.push(s);
+                }
+            }
+            sol = kept;
+            sol.extend(h.solve(&sub(e, &e_rat), sym, Flags::Same)?);
+        }
+        return Ok(uniq(sol));
+    }
+    // f(x)**g(x) = c
+    let mut sol = Vec::new();
+    let logform = sub(&mul(&[e.clone(), log(b)]), &log(rhs));
+    if logform != sub(lhs, rhs) {
+        match h.solve(&logform, sym, Flags::Same) {
+            Ok(v) => sol.extend(v),
+            Err(err) if err.is_ni() => {}
+            Err(err) => return Err(err),
+        }
+    }
+    let mut check: Vec<Expr> = Vec::new();
+    if rhs.is_one() {
+        check.extend(h.solve(e, sym, Flags::Same)?);
+        check.extend(h.solve(&sub(b, &Expr::one()), sym, Flags::Same)?);
+        check.extend(h.solve(&add(&[b.clone(), Expr::one()]), sym, Flags::Same)?);
+    } else if let Some(r) = rhs.as_number().filter(|n| n.is_rational()) {
+        use num_traits::Signed;
+        let Some((p, q)) = r.numer_denom() else { return Ok(uniq(sol)) };
+        let one = num_bigint::BigInt::from(1);
+        for dv in crate::ntheory::divisors(&p.abs()) {
+            if dv == one {
+                continue;
+            }
+            let (ex, exact) = crate::ntheory::misc::integer_log(&p, &dv).map_err(|_| Fail::value("integer_log"))?;
+            if !exact {
+                continue;
+            }
+            for sv in crate::ntheory::divisors(&q.abs()) {
+                if num_traits::pow::pow(sv.clone(), ex as usize) == q {
+                    let Some(r) = crate::number::Number::rational(dv.clone(), sv.clone()) else { continue };
+                    let r = Expr::num(r);
+                    check.extend(h.solve(&sub(b, &r), sym, Flags::Same)?);
+                    check.extend(h.solve(&add(&[b.clone(), r]), sym, Flags::Same)?);
+                    check.extend(h.solve(&sub(e, &Expr::int(ex as i64)), sym, Flags::Same)?);
+                }
+            }
+        }
+    } else if crate::assumptions::is_real(rhs) == Some(true) && crate::assumptions::is_rational(rhs) == Some(false) {
+        let (b_l, e_l) = crate::ops::as_base_exp(b);
+        let (_, d) = crate::simplify::numer_denom(&mul(&[e_l.clone(), e.clone()]));
+        let n = crate::simplify::numer_denom(&mul(&[e_l.clone(), e.clone()])).0;
+        let (rb, re) = crate::ops::as_base_exp(&crate::simptools::sqrtdenest::sqrtdenest(rhs, 3));
+        for i in h.solve(&sub(b, &rb), sym, Flags::Same)? {
+            check.push(crate::simptools::sqrtdenest::sqrtdenest(&i, 3));
+        }
+        for i in h.solve(&sub(e, &re), sym, Flags::Same)? {
+            check.push(crate::simptools::sqrtdenest::sqrtdenest(&i, 3));
+        }
+        if !mul(&[e_l.clone(), d.clone()]).is_one() {
+            check.extend(h.solve(&sub(&pow(&b_l, &n), &pow(rhs, &mul(&[e_l, d]))), sym, Flags::Same)?);
+        }
+    }
+    for s in check {
+        if checked(h, f, sym, &s)? {
+            sol.push(s);
+        }
+    }
+    Ok(uniq(sol))
+}
+
+/// The `equal` helper of the reference `_tsolve`.
+fn equal<H: Host>(h: &mut H, a: &Expr, b: &Expr) -> R<bool, H::Error> {
+    let d = Expr::dummy("equal", crate::Assumptions::NONE);
+    match crate::solve::checksol::checksol(&sub(a, &d), &d, b, Default::default()) {
+        Some(v) => Ok(v),
+        None => {
+            if h.nsimplify(a)? != h.nsimplify(b)? {
+                return Ok(false);
+            }
+            Ok(h.equals_zero(&sub(a, b))? == Some(true))
+        }
+    }
+}
+
+fn steps<H: Host>(h: &mut H, f: &Expr, sym: &Expr, opts: Options) -> R<Option<Vec<Expr>>, H::Error> {
+    let (rhs, lhs) = match invert(h, f, sym) {
+        Ok(v) => v,
+        Err(e) if e.is_ni_or_value() => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    if lhs == *sym {
+        return Ok(Some(vec![rhs]));
+    }
+    // the reference wraps these steps in `except NotImplementedError: pass`
+    match inverted_steps(h, f, sym, &lhs, &rhs, opts) {
+        Ok(Some(r)) => return Ok(Some(r)),
+        Ok(None) => {}
+        Err(e) if e.is_ni() => {}
+        Err(e) => return Err(e),
     }
     let mut candidates = vec![(rhs, lhs)];
     if opts.bivariate {
@@ -990,7 +1178,7 @@ fn steps<H: Host>(h: &mut H, f: &Expr, sym: &Expr, opts: Options) -> R<Option<Ve
             }
             let soln = {
                 let _guard = NoForce::enter();
-                h.solve(&pos, &u, Flags::Same)
+                h.solve(&pos, &u, Flags::Popped)
             };
             match soln {
                 Ok(s) => return Ok(Some(s.iter().map(|s| subs_dict(s, &reps)).collect())),

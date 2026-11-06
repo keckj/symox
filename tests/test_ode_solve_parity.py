@@ -91,11 +91,12 @@ def test_solve_logcombine():
     for pt in ({x: Rational(1, 3), C1: Rational(-2, 7)},
                {x: Rational(5, 2), C1: Rational(1, 9)}):
         assert _same(sol[0], ref, pt)
-    # almost_lin_01: three cube roots (SymPy writes exp(3*C1*x + 3)**(1/x),
-    # equal to exp(3*C1 + 3/x) for real C1 and x)
+    # almost_lin_01: three cube roots, SymPy's form: the logcombine step
+    # combines the logs of y only, then `_invert` gives
+    # exp(3*C1*x + 3)**(1/x) (equal to exp(3*C1 + 3/x) for real C1 and x)
     eq = log(y + 1)/3 + log(y**2 - y + 1)/3 - 1/x - C1
     sol = solve(eq, y)
-    w = (exp(3*C1 + 3/x) - 1)**Rational(1, 3)
+    w = (exp(3*C1*x + 3)**(1/x) - 1)**Rational(1, 3)
     assert set(sol) == {w, (-1 - sqrt(3)*I)*w/2, (-1 + sqrt(3)*I)*w/2}
     for s in sol:
         assert _same(((y + 1)*(y**2 - y + 1)).subs(y, s), exp(3*C1 + 3/x),
