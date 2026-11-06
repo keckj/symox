@@ -613,6 +613,13 @@ pub(crate) fn conjugate(a: &Expr) -> Option<Expr> {
             holds(a, "extended_real").then(|| a.clone())
         }
         Kind::Func(Func::Conjugate, args) => Some(args[0].clone()),
+        // Order._eval_conjugate: O(conjugate(expr)) when the expression
+        // has its own conjugate rule.
+        Kind::Func(Func::Order, args) => conjugate(&args[0]).map(|e| {
+            let mut out = args.clone();
+            out[0] = e;
+            crate::series::order::order_from_args(&out)
+        }),
         Kind::Func(
             function @ (Func::Exp
             | Func::ExpPolar

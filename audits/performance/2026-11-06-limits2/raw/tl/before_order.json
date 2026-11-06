@@ -1,0 +1,1052 @@
+{
+"test_order.py:test_O1:1": [
+"O(x)",
+0.0001,
+458
+],
+"test_order.py:test_O1:2": [
+"O(1)",
+0.0,
+459
+],
+"test_order.py:test_add_1:1": [
+"O(x)",
+0.0002,
+350
+],
+"test_order.py:test_add_1:2": [
+"O(x)",
+0.0002,
+351
+],
+"test_order.py:test_add_1:3": [
+"O(1)",
+0.0001,
+352
+],
+"test_order.py:test_add_1:4": [
+"O(1/x)",
+0.0003,
+353
+],
+"test_order.py:test_add_1:5": [
+"O((log(x)**2 + 1)/log(x))",
+0.0021,
+358
+],
+"test_order.py:test_add_1:6": [
+"O(exp(1/x))",
+0.0016,
+359
+],
+"test_order.py:test_add_1:7": [
+"O(exp(1/x))",
+0.0009,
+360
+],
+"test_order.py:test_as_expr_variables:1": [
+"EXC AttributeError",
+0.0001,
+298
+],
+"test_order.py:test_as_expr_variables:2": [
+"EXC AttributeError",
+0.0001,
+299
+],
+"test_order.py:test_as_expr_variables:3": [
+"EXC AttributeError",
+0.0001,
+300
+],
+"test_order.py:test_as_expr_variables:4": [
+"EXC AttributeError",
+0.0001,
+301
+],
+"test_order.py:test_contains_0:1": [
+"False",
+0.0003,
+307
+],
+"test_order.py:test_contains_2:1": [
+"None",
+0.0001,
+326
+],
+"test_order.py:test_contains_3:1": [
+"None",
+0.0012,
+334
+],
+"test_order.py:test_contains_3:2": [
+"None",
+0.0011,
+335
+],
+"test_order.py:test_contains_4:1": [
+"True",
+0.0007,
+339
+],
+"test_order.py:test_contains_4:2": [
+"True",
+0.0005,
+340
+],
+"test_order.py:test_diff:1": [
+"O(x)",
+0.0017,
+472
+],
+"test_order.py:test_eval:1": [
+"1",
+0.0007,
+491
+],
+"test_order.py:test_eval:2": [
+"O(y)",
+0.0003,
+492
+],
+"test_order.py:test_eval:3": [
+"O(x)",
+0.0001,
+493
+],
+"test_order.py:test_eval:4": [
+"O(x + y, (x, -y))",
+0.0005,
+494
+],
+"test_order.py:test_free_symbols:1": [
+"set()",
+0.0,
+220
+],
+"test_order.py:test_free_symbols:2": [
+"{x}",
+0.0,
+221
+],
+"test_order.py:test_free_symbols:3": [
+"{x}",
+0.0,
+222
+],
+"test_order.py:test_free_symbols:4": [
+"{y, x}",
+0.0001,
+223
+],
+"test_order.py:test_free_symbols:5": [
+"{y, x}",
+0.0,
+224
+],
+"test_order.py:test_getO:1": [
+"None",
+0.0002,
+476
+],
+"test_order.py:test_getO:2": [
+"x",
+0.0002,
+477
+],
+"test_order.py:test_getO:3": [
+"O(x)",
+0.0,
+478
+],
+"test_order.py:test_getO:4": [
+"0",
+0.0002,
+479
+],
+"test_order.py:test_getO:5": [
+"O(y) + O(x)",
+0.0002,
+480
+],
+"test_order.py:test_getO:6": [
+"z",
+0.0001,
+481
+],
+"test_order.py:test_getn:1": [
+"1",
+0.0002,
+464
+],
+"test_order.py:test_getn:2": [
+"1",
+0.001,
+465
+],
+"test_order.py:test_getn:3": [
+"2",
+0.0003,
+466
+],
+"test_order.py:test_getn:4": [
+"1",
+0.0002,
+467
+],
+"test_order.py:test_issue_14622:1": [
+"(x**4 + x**5 + x**7 + O(x**2, (x, oo)), x**8)",
+0.0006,
+656
+],
+"test_order.py:test_issue_14622:2": [
+"False",
+0.0004,
+659
+],
+"test_order.py:test_issue_14622:3": [
+"None",
+0.0003,
+660
+],
+"test_order.py:test_issue_14622:4": [
+"None",
+0.0001,
+661
+],
+"test_order.py:test_issue_15539:1": [
+"O(x**(-2), (x, -oo))",
+0.0002,
+666
+],
+"test_order.py:test_issue_15539:2": [
+"O(x**(-4), (x, -oo))",
+0.0003,
+667
+],
+"test_order.py:test_issue_15539:3": [
+"O(exp(-x), (x, -oo))",
+0.001,
+668
+],
+"test_order.py:test_issue_15539:4": [
+"O(-1/x, (x, -oo))",
+0.0044,
+669
+],
+"test_order.py:test_issue_22836:1": [
+"O(factorial(x), (x, oo))",
+0.0017,
+693
+],
+"test_order.py:test_issue_22836:2": [
+"O(exp(x*log(x)), (x, oo))",
+0.0019,
+694
+],
+"test_order.py:test_issue_22836:3": [
+"O(factorial(x), (x, oo))",
+0.0008,
+695
+],
+"test_order.py:test_issue_23231:1": [
+"O(exp(x*log(x)), (x, oo))",
+0.0013,
+682
+],
+"test_order.py:test_issue_23231:2": [
+"O(exp(x*log(x)), (x, oo))",
+0.0008,
+683
+],
+"test_order.py:test_issue_23231:3": [
+"O(exp(x*log(x)), (x, oo))",
+0.0005,
+684
+],
+"test_order.py:test_issue_23231:4": [
+"O(exp(x*log(3)), (x, oo))",
+0.0005,
+685
+],
+"test_order.py:test_issue_4279:1": [
+"O(1, a, b)",
+0.0002,
+500
+],
+"test_order.py:test_issue_4279:2": [
+"O(1, a, b)",
+0.0,
+501
+],
+"test_order.py:test_issue_4279:3": [
+"O(a + b, a, b) + O(1, a, b)",
+0.0003,
+502
+],
+"test_order.py:test_issue_4279:4": [
+"O(1, a, b)",
+0.0,
+503
+],
+"test_order.py:test_issue_4279:5": [
+"O(1, a, b)",
+0.0002,
+504
+],
+"test_order.py:test_issue_4279:6": [
+"O(a + b, a, b) + O(1, a, b)",
+0.0003,
+505
+],
+"test_order.py:test_issue_6753:1": [
+"O(x)",
+0.0002,
+541
+],
+"test_order.py:test_issue_9192:1": [
+"O(1)",
+0.0002,
+642
+],
+"test_order.py:test_issue_9192:2": [
+"O(1)**O(1)",
+0.0,
+643
+],
+"test_order.py:test_issue_9351:1": [
+"exp(10) + O(x - 10, (x, 10))",
+0.0011,
+638
+],
+"test_order.py:test_issue_9910:1": [
+"O(x*log(1/x), (x, oo))",
+0.0014,
+647
+],
+"test_order.py:test_issue_9917:1": [
+"O(x, (x, oo))",
+0.0006,
+689
+],
+"test_order.py:test_leading_order2:1": [
+"{(2, O(1)), (pi, O(1))}",
+0.001,
+436
+],
+"test_order.py:test_leading_order2:2": [
+"{(2*x, O(x)), (pi*x, O(x))}",
+0.0018,
+438
+],
+"test_order.py:test_leading_order:1": [
+"((x**(-5), O(x**(-5))),)",
+0.0092,
+427
+],
+"test_order.py:test_leading_order:2": [
+"((1/x, O(1/x)),)",
+0.0019,
+428
+],
+"test_order.py:test_leading_order:3": [
+"((1, O(1)),)",
+0.0014,
+429
+],
+"test_order.py:test_leading_order:4": [
+"((1, O(1)),)",
+0.0011,
+430
+],
+"test_order.py:test_leading_order:5": [
+"((2, O(1)),)",
+0.0011,
+431
+],
+"test_order.py:test_leading_order:6": [
+"((x, O(x)),)",
+0.0009,
+432
+],
+"test_order.py:test_leading_term:1": [
+"O(1/log(x))",
+0.0021,
+487
+],
+"test_order.py:test_ln_args:1": [
+"O(log(x))",
+0.0015,
+364
+],
+"test_order.py:test_ln_args:2": [
+"O(log(x))",
+0.0003,
+365
+],
+"test_order.py:test_ln_args:3": [
+"O(log(x*y), x, y) + O(log(x) + log(y), x, y)",
+0.0004,
+366
+],
+"test_order.py:test_mixing_order_at_zero_and_infinity:1": [
+"O(x, (x, oo)) + O(x)",
+0.0001,
+590
+],
+"test_order.py:test_mixing_order_at_zero_and_infinity:2": [
+"O(x, (x, oo))",
+0.0,
+591
+],
+"test_order.py:test_multivar_0:1": [
+"x*y",
+0.0002,
+370
+],
+"test_order.py:test_multivar_0:2": [
+"x*y**2",
+0.0001,
+371
+],
+"test_order.py:test_multivar_0:3": [
+"x",
+0.0001,
+372
+],
+"test_order.py:test_multivar_0:4": [
+"y**2",
+0.0002,
+373
+],
+"test_order.py:test_multivar_0:5": [
+"x*y*z",
+0.0002,
+374
+],
+"test_order.py:test_multivar_0:6": [
+"x/y",
+0.0001,
+375
+],
+"test_order.py:test_multivar_0:7": [
+"x*exp(1/y)",
+0.0009,
+376
+],
+"test_order.py:test_multivar_0:8": [
+"exp(x)*exp(1/y)",
+0.0006,
+377
+],
+"test_order.py:test_multivar_0a:1": [
+"exp(1/x)*exp(1/y)",
+0.0003,
+381
+],
+"test_order.py:test_multivar_1:1": [
+"x + y",
+0.0004,
+385
+],
+"test_order.py:test_multivar_1:2": [
+"x + y",
+0.0001,
+386
+],
+"test_order.py:test_multivar_1:3": [
+"EXC AttributeError",
+0.0002,
+387
+],
+"test_order.py:test_multivar_1:4": [
+"x**2 + O(x + y, x, y)",
+0.0002,
+388
+],
+"test_order.py:test_multivar_1:5": [
+"1/x + O(x + y, x, y)",
+0.0001,
+389
+],
+"test_order.py:test_multivar_1:6": [
+"x**2 + x*y",
+0.0004,
+390
+],
+"test_order.py:test_multivar_2:1": [
+"x**2*y + x*y**2",
+0.0003,
+394
+],
+"test_order.py:test_multivar_3:1": [
+"O(x + y, x, y) + O(y) + O(x)",
+0.0005,
+405
+],
+"test_order.py:test_multivar_3:2": [
+"O(x*y, x, y)",
+0.0001,
+409
+],
+"test_order.py:test_multivar_mul_1:1": [
+"O(x*(x + y), x, y)",
+0.0001,
+398
+],
+"test_order.py:test_nan:1": [
+"nan",
+0.0001,
+453
+],
+"test_order.py:test_order_at_infinity:1": [
+"O(x, (x, oo))",
+0.0002,
+545
+],
+"test_order.py:test_order_at_infinity:10": [
+"O(x**2, (x, oo))",
+0.0002,
+555
+],
+"test_order.py:test_order_at_infinity:11": [
+"O(1, (x, oo))",
+0.0001,
+556
+],
+"test_order.py:test_order_at_infinity:12": [
+"O(x**2, (x, oo))",
+0.0016,
+557
+],
+"test_order.py:test_order_at_infinity:13": [
+"O(x**2/log(1/x)**3, (x, oo))",
+0.0029,
+558
+],
+"test_order.py:test_order_at_infinity:14": [
+"x**2 + O(x, (x, oo))",
+0.0002,
+563
+],
+"test_order.py:test_order_at_infinity:15": [
+"O(x, (x, oo))",
+0.0005,
+565
+],
+"test_order.py:test_order_at_infinity:16": [
+"O(x**2, (x, oo))",
+0.0002,
+567
+],
+"test_order.py:test_order_at_infinity:17": [
+"O(x**2, (x, oo))",
+0.0001,
+569
+],
+"test_order.py:test_order_at_infinity:18": [
+"O(x, (x, oo))",
+0.0001,
+570
+],
+"test_order.py:test_order_at_infinity:19": [
+"O(x, (x, oo))",
+0.0001,
+571
+],
+"test_order.py:test_order_at_infinity:2": [
+"O(x, (x, oo))",
+0.0003,
+546
+],
+"test_order.py:test_order_at_infinity:20": [
+"O(x, (x, oo))",
+0.0002,
+573
+],
+"test_order.py:test_order_at_infinity:21": [
+"O(x, (x, oo))",
+0.0001,
+574
+],
+"test_order.py:test_order_at_infinity:22": [
+"O(x**2, (x, oo))",
+0.0001,
+575
+],
+"test_order.py:test_order_at_infinity:23": [
+"O(1, (x, oo))",
+0.0001,
+576
+],
+"test_order.py:test_order_at_infinity:24": [
+"O(x, (x, oo))",
+0.0005,
+577
+],
+"test_order.py:test_order_at_infinity:25": [
+"O(x**3, (x, oo))",
+0.0002,
+578
+],
+"test_order.py:test_order_at_infinity:26": [
+"O(1, (x, oo))",
+0.0001,
+579
+],
+"test_order.py:test_order_at_infinity:27": [
+"x**(-2)",
+0.0001,
+586
+],
+"test_order.py:test_order_at_infinity:3": [
+"O(x, (x, oo))",
+0.0004,
+547
+],
+"test_order.py:test_order_at_infinity:4": [
+"O(x, (x, oo))",
+0.0005,
+548
+],
+"test_order.py:test_order_at_infinity:5": [
+"O(x, (x, oo))",
+0.0003,
+549
+],
+"test_order.py:test_order_at_infinity:6": [
+"O(1, (y, oo))",
+0.0001,
+550
+],
+"test_order.py:test_order_at_infinity:7": [
+"O(1, (x, oo))",
+0.0001,
+551
+],
+"test_order.py:test_order_at_infinity:8": [
+"O(x**2, (x, oo))",
+0.0004,
+552
+],
+"test_order.py:test_order_at_infinity:9": [
+"O(y, (y, oo))",
+0.0001,
+553
+],
+"test_order.py:test_order_at_some_point:1": [
+"O(1, (x, 1))",
+0.0001,
+601
+],
+"test_order.py:test_order_at_some_point:2": [
+"O(x - 1, (x, 1))",
+0.0001,
+602
+],
+"test_order.py:test_order_at_some_point:3": [
+"O(x - 1, (x, 1))",
+0.0001,
+603
+],
+"test_order.py:test_order_at_some_point:4": [
+"O((x - 1)**2, (x, 1))",
+0.0001,
+604
+],
+"test_order.py:test_order_at_some_point:5": [
+"O(x - 2, (x, 2))",
+0.0001,
+605
+],
+"test_order.py:test_order_conjugate_transpose:1": [
+"conjugate(O(x))",
+0.0007,
+520
+],
+"test_order.py:test_order_conjugate_transpose:2": [
+"conjugate(O(y))",
+0.0003,
+521
+],
+"test_order.py:test_order_conjugate_transpose:3": [
+"conjugate(O(x**2))",
+0.001,
+522
+],
+"test_order.py:test_order_conjugate_transpose:4": [
+"conjugate(O(y**2))",
+0.0001,
+523
+],
+"test_order.py:test_order_conjugate_transpose:5": [
+"O(x)",
+0.0004,
+524
+],
+"test_order.py:test_order_conjugate_transpose:6": [
+"O(y)",
+0.0002,
+525
+],
+"test_order.py:test_order_conjugate_transpose:7": [
+"O(x**2)",
+0.0002,
+526
+],
+"test_order.py:test_order_conjugate_transpose:8": [
+"O(y**2)",
+0.0002,
+527
+],
+"test_order.py:test_order_failing_due_to_solveset:1": [
+"O(exp(-3*x**2))",
+0.0019,
+633
+],
+"test_order.py:test_order_leadterm:1": [
+"EXC AttributeError",
+0.0001,
+443
+],
+"test_order.py:test_order_noncommutative:1": [
+"O(1)",
+0.0005,
+532
+],
+"test_order.py:test_order_noncommutative:2": [
+"O(x)*(x*A + A)",
+0.0007,
+533
+],
+"test_order.py:test_order_noncommutative:3": [
+"O(x**2)*A",
+0.0002,
+534
+],
+"test_order.py:test_order_noncommutative:4": [
+"x*A**2 + O(x**2)*A**2",
+0.0006,
+535
+],
+"test_order.py:test_order_noncommutative:5": [
+"x*A**2 + O(x**2)",
+0.0003,
+536
+],
+"test_order.py:test_order_noncommutative:6": [
+"x*A**2 + O(x**2)*A",
+0.0002,
+537
+],
+"test_order.py:test_order_subs_limits:1": [
+"1 + O(1/x, (x, oo))",
+0.0031,
+610
+],
+"test_order.py:test_order_subs_limits:10": [
+"x + O((x + O(x**2))**2) + O(x**2)",
+0.0007,
+623
+],
+"test_order.py:test_order_subs_limits:11": [
+"(x + O(x**2))**(-2) + O((x + O(x**2))**2)",
+0.0007,
+624
+],
+"test_order.py:test_order_subs_limits:12": [
+"1 + O((x + O(x**2))**2)",
+0.0006,
+625
+],
+"test_order.py:test_order_subs_limits:13": [
+"O(x**2, (O(x**2, (x, oo)), oo))",
+0.0005,
+626
+],
+"test_order.py:test_order_subs_limits:14": [
+"O(x**56/416336312719673760153600000000 - x**54/1239096168808552857600000000 + 167*x**52/1239096168808552857600000000 - 1529*x**50/103258014067379404800000000 - x**49*O(x**8)/10325801406737940480000000 + 1009*x**48/842922563815342080000000 + x**47*O(x**8)/35121773492305920000000 - 13267*x**46/175608867461529600000000 - 73*x**45*O(x**8)/17560886746152960000000 + 677627*x**44/175608867461529600000000 + 233*x**43*O(x**8)/585362891538432000000 + x**42*O(x**8)**2/585362891538432000000 - 341321*x**42/2090581755494400000000 - 389*x**41*O(x**8)/13937211703296000000 - x**40*O(x**8)**2/2322868617216000000 + 48611281*x**40/8362327021977600000000 + 5879*x**39*O(x**8)/3871447695360000000 + x**38*O(x**8)**2/18582948937728000 - 1533437*x**38/8710757314560000000 - 1155977*x**37*O(x**8)/17421514629120000000 - 17*x**36*O(x**8)**2/3871447695360000 + 5681803*x**36/1244393902080000000 - x**35*O(x**8)**3/58071715430400000 + 987131*x**35*O(x**8)/414797967360000000 + 1441*x**34*O(x**8)**2/5530639564800000 - 42247*x**34/414797967360000 + x**33*O(x**8)**3/276531978240000 - 1473443*x**33*O(x**8)/20739898368000000 - 3043*x**32*O(x**8)**2/256048128000000 + 40594501*x**32/20739898368000000 - 13*x**31*O(x**8)**3/34566497280000 + 6154997*x**31*O(x**8)/3456649728000000 + 2975027*x**30*O(x**8)**2/6913299456000000 - 399899*x**30/12345177600000 + 73*x**29*O(x**8)**3/2880541440000 - 309787*x**29*O(x**8)/8230118400000 + x**28*O(x**8)**4/9217732608000 - 1081*x**28*O(x**8)**2/85730400000 + 5685133*x**28/12345177600000 - 2021*x**27*O(x**8)**3/1646023680000 + 921611*x**27*O(x**8)/1371686400000 - x**26*O(x**8)**4/54867456000 + 207293*x**26*O(x**8)**2/685843200000 - 57583*x**26/10287648000 + 61787*x**25*O(x**8)**3/1371686400000 - 16637*x**25*O(x**8)/1646023680 + 83*x**24*O(x**8)**4/54867456000 - 27229*x**24*O(x**8)**2/4572288000 + 96991*x**24/1679616000 - 17651*x**23*O(x**8)**3/13716864000 + 124913*x**23*O(x**8)/979776000 - 367*x**22*O(x**8)**4/4572288000 + 62983*x**22*O(x**8)**2/653184000 - 61301*x**22/122472000 - x**21*O(x**8)**5/2286144000 + 9481*x**21*O(x**8)**3/326592000 - 65489*x**21*O(x**8)/48988800 + 1307*x**20*O(x**8)**4/435456000 - 193*x**20*O(x**8)**2/151200 + 146723*x**20/40824000 + x**19*O(x**8)**5/18144000 - 4241*x**19*O(x**8)**3/8164800 + 93917*x**19*O(x**8)/8164800 - x**18*O(x**8)**4/12096 + 111631*x**18*O(x**8)**2/8164800 - 1019*x**18/48600 - 31*x**17*O(x**8)**5/9072000 + 9991*x**17*O(x**8)**3/1360800 - 287*x**17*O(x**8)/3600 + 4651*x**16*O(x**8)**4/2721600 - 151*x**16*O(x**8)**2/1296 + 3133*x**16/32400 + 199*x**15*O(x**8)**5/1512000 - 787*x**15*O(x**8)**3/9720 + 7019*x**15*O(x**8)/16200 + x**14*O(x**8)**6/907200 - 43*x**14*O(x**8)**4/1620 + 1663*x**14*O(x**8)**2/2160 - 64*x**14/189 - 37*x**13*O(x**8)**5/10800 + 1103*x**13*O(x**8)**3/1620 - 479*x**13*O(x**8)/270 - x**12*O(x**8)**6/10800 + 1979*x**12*O(x**8)**4/6480 - 512*x**12*O(x**8)**2/135 + 38*x**12/45 + 37*x**11*O(x**8)**5/600 - 227*x**11*O(x**8)**3/54 + 77*x**11*O(x**8)/15 + 41*x**10*O(x**8)**6/10800 - 68*x**10*O(x**8)**4/27 + 196*x**10*O(x**8)**2/15 - 4*x**10/3 - 41*x**9*O(x**8)**5/54 + 161*x**9*O(x**8)**3/9 - 28*x**9*O(x**8)/3 - 4*x**8*O(x**8)**6/45 + 14*x**8*O(x**8)**4 - 28*x**8*O(x**8)**2 + x**8 - x**7*O(x**8)**7/630 + 91*x**7*O(x**8)**5/15 - 140*x**7*O(x**8)**3/3 + 8*x**7*O(x**8) + 56*x**6*O(x**8)**6/45 - 140*x**6*O(x**8)**4/3 + 28*x**6*O(x**8)**2 + x**5*O(x**8)**7/15 - 28*x**5*O(x**8)**5 + 56*x**5*O(x**8)**3 - 28*x**4*O(x**8)**6/3 + 70*x**4*O(x**8)**4 - 4*x**3*O(x**8)**7/3 + 56*x**3*O(x**8)**5 + 28*x**2*O(x**8)**6 + 8*x*O(x**8)**7 + O(x**8)**8) + O(x**8)",
+0.0048,
+627
+],
+"test_order.py:test_order_subs_limits:15": [
+"O(x**56/416336312719673760153600000000 - x**54/1239096168808552857600000000 + 167*x**52/1239096168808552857600000000 - 1529*x**50/103258014067379404800000000 - x**49*O(x**8)/10325801406737940480000000 + 1009*x**48/842922563815342080000000 + x**47*O(x**8)/35121773492305920000000 - 13267*x**46/175608867461529600000000 - 73*x**45*O(x**8)/17560886746152960000000 + 677627*x**44/175608867461529600000000 + 233*x**43*O(x**8)/585362891538432000000 + x**42*O(x**8)**2/585362891538432000000 - 341321*x**42/2090581755494400000000 - 389*x**41*O(x**8)/13937211703296000000 - x**40*O(x**8)**2/2322868617216000000 + 48611281*x**40/8362327021977600000000 + 5879*x**39*O(x**8)/3871447695360000000 + x**38*O(x**8)**2/18582948937728000 - 1533437*x**38/8710757314560000000 - 1155977*x**37*O(x**8)/17421514629120000000 - 17*x**36*O(x**8)**2/3871447695360000 + 5681803*x**36/1244393902080000000 - x**35*O(x**8)**3/58071715430400000 + 987131*x**35*O(x**8)/414797967360000000 + 1441*x**34*O(x**8)**2/5530639564800000 - 42247*x**34/414797967360000 + x**33*O(x**8)**3/276531978240000 - 1473443*x**33*O(x**8)/20739898368000000 - 3043*x**32*O(x**8)**2/256048128000000 + 40594501*x**32/20739898368000000 - 13*x**31*O(x**8)**3/34566497280000 + 6154997*x**31*O(x**8)/3456649728000000 + 2975027*x**30*O(x**8)**2/6913299456000000 - 399899*x**30/12345177600000 + 73*x**29*O(x**8)**3/2880541440000 - 309787*x**29*O(x**8)/8230118400000 + x**28*O(x**8)**4/9217732608000 - 1081*x**28*O(x**8)**2/85730400000 + 5685133*x**28/12345177600000 - 2021*x**27*O(x**8)**3/1646023680000 + 921611*x**27*O(x**8)/1371686400000 - x**26*O(x**8)**4/54867456000 + 207293*x**26*O(x**8)**2/685843200000 - 57583*x**26/10287648000 + 61787*x**25*O(x**8)**3/1371686400000 - 16637*x**25*O(x**8)/1646023680 + 83*x**24*O(x**8)**4/54867456000 - 27229*x**24*O(x**8)**2/4572288000 + 96991*x**24/1679616000 - 17651*x**23*O(x**8)**3/13716864000 + 124913*x**23*O(x**8)/979776000 - 367*x**22*O(x**8)**4/4572288000 + 62983*x**22*O(x**8)**2/653184000 - 61301*x**22/122472000 - x**21*O(x**8)**5/2286144000 + 9481*x**21*O(x**8)**3/326592000 - 65489*x**21*O(x**8)/48988800 + 1307*x**20*O(x**8)**4/435456000 - 193*x**20*O(x**8)**2/151200 + 146723*x**20/40824000 + x**19*O(x**8)**5/18144000 - 4241*x**19*O(x**8)**3/8164800 + 93917*x**19*O(x**8)/8164800 - x**18*O(x**8)**4/12096 + 111631*x**18*O(x**8)**2/8164800 - 1019*x**18/48600 - 31*x**17*O(x**8)**5/9072000 + 9991*x**17*O(x**8)**3/1360800 - 287*x**17*O(x**8)/3600 + 4651*x**16*O(x**8)**4/2721600 - 151*x**16*O(x**8)**2/1296 + 3133*x**16/32400 + 199*x**15*O(x**8)**5/1512000 - 787*x**15*O(x**8)**3/9720 + 7019*x**15*O(x**8)/16200 + x**14*O(x**8)**6/907200 - 43*x**14*O(x**8)**4/1620 + 1663*x**14*O(x**8)**2/2160 - 64*x**14/189 - 37*x**13*O(x**8)**5/10800 + 1103*x**13*O(x**8)**3/1620 - 479*x**13*O(x**8)/270 - x**12*O(x**8)**6/10800 + 1979*x**12*O(x**8)**4/6480 - 512*x**12*O(x**8)**2/135 + 38*x**12/45 + 37*x**11*O(x**8)**5/600 - 227*x**11*O(x**8)**3/54 + 77*x**11*O(x**8)/15 + 41*x**10*O(x**8)**6/10800 - 68*x**10*O(x**8)**4/27 + 196*x**10*O(x**8)**2/15 - 4*x**10/3 - 41*x**9*O(x**8)**5/54 + 161*x**9*O(x**8)**3/9 - 28*x**9*O(x**8)/3 - 4*x**8*O(x**8)**6/45 + 14*x**8*O(x**8)**4 - 28*x**8*O(x**8)**2 + x**8 - x**7*O(x**8)**7/630 + 91*x**7*O(x**8)**5/15 - 140*x**7*O(x**8)**3/3 + 8*x**7*O(x**8) + 56*x**6*O(x**8)**6/45 - 140*x**6*O(x**8)**4/3 + 28*x**6*O(x**8)**2 + x**5*O(x**8)**7/15 - 28*x**5*O(x**8)**5 + 56*x**5*O(x**8)**3 - 28*x**4*O(x**8)**6/3 + 70*x**4*O(x**8)**4 - 4*x**3*O(x**8)**7/3 + 56*x**3*O(x**8)**5 + 28*x**2*O(x**8)**6 + 8*x*O(x**8)**7 + O(x**8)**8)",
+0.0041,
+628
+],
+"test_order.py:test_order_subs_limits:16": [
+"O(1/x)",
+0.0015,
+629
+],
+"test_order.py:test_order_subs_limits:2": [
+"1",
+0.0007,
+611
+],
+"test_order.py:test_order_subs_limits:3": [
+"1",
+0.0005,
+613
+],
+"test_order.py:test_order_subs_limits:4": [
+"O((y - 1)**2, (y, 1))",
+0.0001,
+615
+],
+"test_order.py:test_order_subs_limits:5": [
+"O(1, (y, 3))",
+0.0001,
+616
+],
+"test_order.py:test_order_subs_limits:6": [
+"O(x)",
+0.0007,
+619
+],
+"test_order.py:test_order_subs_limits:7": [
+"O(x**2)",
+0.0006,
+620
+],
+"test_order.py:test_order_subs_limits:8": [
+"O(x, (O(x, (x, oo)), oo))",
+0.0005,
+621
+],
+"test_order.py:test_order_subs_limits:9": [
+"O(x**2, (O(x, (x, oo)), oo))",
+0.0005,
+622
+],
+"test_order.py:test_order_symbols:1": [
+"O(x*y*sin(x)*Integral(x, (x, 1, 2)), x, y)",
+0.0007,
+448
+],
+"test_order.py:test_order_symbols:2": [
+"O(x*sin(x)*Integral(x, (x, 1, 2)))",
+0.0001,
+449
+],
+"test_order.py:test_performance_of_adding_order:1": [
+"O(1)",
+0.0184,
+653
+],
+"test_order.py:test_simple_1:1": [
+"O(x)",
+0.0001,
+229
+],
+"test_order.py:test_simple_1:10": [
+"1",
+0.0001,
+238
+],
+"test_order.py:test_simple_1:11": [
+"1",
+0.0001,
+239
+],
+"test_order.py:test_simple_1:12": [
+"O(1)",
+0.0001,
+240
+],
+"test_order.py:test_simple_1:13": [
+"O(1)",
+0.0001,
+241
+],
+"test_order.py:test_simple_1:2": [
+"O(x)",
+0.0001,
+230
+],
+"test_order.py:test_simple_1:3": [
+"O(x)",
+0.0001,
+231
+],
+"test_order.py:test_simple_1:4": [
+"O(x)",
+0.0,
+232
+],
+"test_order.py:test_simple_1:5": [
+"O(1)",
+0.0,
+233
+],
+"test_order.py:test_simple_1:6": [
+"O(1)",
+0.0,
+234
+],
+"test_order.py:test_simple_1:7": [
+"O(1)",
+0.0001,
+235
+],
+"test_order.py:test_simple_1:8": [
+"exp(1/x)",
+0.0001,
+236
+],
+"test_order.py:test_simple_1:9": [
+"x*exp(1/x)",
+0.0001,
+237
+],
+"test_order.py:test_simple_2:1": [
+"O(x**2)",
+0.0001,
+247
+],
+"test_order.py:test_simple_2:2": [
+"O(1)",
+0.0008,
+248
+],
+"test_order.py:test_simple_2:3": [
+"O(x**2*exp(1/x))",
+0.0014,
+249
+],
+"test_order.py:test_simple_2:4": [
+"x**2*exp(1/x)/log(x)**3",
+0.0025,
+250
+],
+"test_order.py:test_simple_3:1": [
+"O(x)",
+0.0004,
+254
+],
+"test_order.py:test_simple_3:2": [
+"2 + O(x)",
+0.0004,
+255
+],
+"test_order.py:test_simple_3:3": [
+"O(x)",
+0.0004,
+256
+],
+"test_order.py:test_simple_3:4": [
+"1/x + O(x)",
+0.0004,
+257
+],
+"test_order.py:test_simple_3:5": [
+"x**(-2) + O(1/x)",
+0.0005,
+258
+],
+"test_order.py:test_simple_3:6": [
+"exp(1/x) + O(x)",
+0.0029,
+259
+],
+"test_order.py:test_simple_4:1": [
+"O(x**2)",
+0.0004,
+263
+],
+"test_order.py:test_simple_5:1": [
+"O(x)",
+0.0003,
+267
+],
+"test_order.py:test_simple_5:2": [
+"O(x**(-2))",
+0.0006,
+268
+],
+"test_order.py:test_simple_5:3": [
+"O(1/x)",
+0.0003,
+269
+],
+"test_order.py:test_simple_6:1": [
+"O(x)",
+0.0003,
+273
+],
+"test_order.py:test_simple_6:2": [
+"O(1)",
+0.0003,
+274
+],
+"test_order.py:test_simple_6:3": [
+"O(x)",
+0.0003,
+275
+],
+"test_order.py:test_simple_6:4": [
+"O(1/x)",
+0.0004,
+276
+],
+"test_order.py:test_simple_6:5": [
+"O(exp(1/x))",
+0.0023,
+277
+],
+"test_order.py:test_simple_6:6": [
+"O(exp(2/x))",
+0.0021,
+278
+],
+"test_order.py:test_simple_6:7": [
+"O(exp(2/x))",
+0.0015,
+279
+],
+"test_order.py:test_simple_7:1": [
+"O(1)",
+0.0002,
+283
+],
+"test_order.py:test_simple_7:2": [
+"O(1)",
+0.0001,
+284
+],
+"test_order.py:test_simple_7:3": [
+"O(1)",
+0.0001,
+285
+],
+"test_order.py:test_simple_7:4": [
+"1/x + O(1)",
+0.0005,
+286
+],
+"test_order.py:test_simple_8:1": [
+"O(sqrt(x))",
+0.0017,
+290
+],
+"test_order.py:test_simple_8:2": [
+"O(x**(5/2))",
+0.0007,
+291
+],
+"test_order.py:test_simple_8:3": [
+"O(x**(9/2))",
+0.0006,
+292
+],
+"test_order.py:test_simple_8:4": [
+"O(x**3)",
+0.0012,
+293
+],
+"test_order.py:test_simple_8:5": [
+"O(x*(-2*x)**(I/2))",
+0.0006,
+294
+]
+}

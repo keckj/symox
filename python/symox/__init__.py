@@ -3268,6 +3268,10 @@ def _expr_getn(self):
 
 def _expr_lseries(self, x=None, x0=0, dir="+", logx=None, cdir=0):
     """Lazy iterator over the terms of the expansion (in increasing order)."""
+    if x is not None and sympify(x) not in self.free_symbols:
+        # Expr.series(n=None) of an expression free of x yields it once
+        yield self
+        return
     n = 6
     done = 0
     while True:
@@ -3319,6 +3323,41 @@ Expr.removeO = lambda self: _core._remove_o(self)
 Expr.getO = _expr_getO
 Expr.getn = _expr_getn
 Expr.lseries = _expr_lseries
+
+
+def _expr_eval_as_leading_term(self, x, logx=None, cdir=0):
+    # Order._eval_as_leading_term is the order itself; other terms go to
+    # the native leading term
+    if _core._is_order(self):
+        return self
+    return _expr_as_leading_term(self, x)
+
+
+def _order_as_expr_variables(self, order_symbols):
+    """``Order.as_expr_variables``: the expression with the merged (variable, point) pairs."""
+    if not _core._is_order(self):
+        raise AttributeError("only Order terms have as_expr_variables")
+    own = tuple(zip(self.variables, self.point))
+    if order_symbols is None:
+        return self.expr, own
+    order_symbols = tuple(tuple(o) for o in order_symbols)
+    if (not all(o[1] == order_symbols[0][1] for o in order_symbols)
+            and not all(p == self.point[0] for p in self.point)):
+        raise NotImplementedError('Order at points other than 0 '
+            'or oo not supported, got %s as a point.' % self.point)
+    if order_symbols and self.point and order_symbols[0][1] != self.point[0]:
+        raise NotImplementedError(
+            "Multiplying Order at different points is not supported.")
+    merged = dict(order_symbols)
+    for s, p in own:
+        if s not in merged:
+            merged[s] = p
+    from ._compat import default_sort_key
+    return self.expr, tuple(sorted(merged.items(), key=lambda i: default_sort_key(i[0])))
+
+
+Expr._eval_as_leading_term = _expr_eval_as_leading_term
+Expr.as_expr_variables = _order_as_expr_variables
 
 
 def _add_extract_leading_order(self, symbols, point=None):

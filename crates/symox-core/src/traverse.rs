@@ -171,7 +171,9 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
                 }
             },
             Kind::Func(Func::Limit,args)=>{
-                for symbol in free_symbols(&args[0]).into_iter().filter(|s|*s!=args[1]){
+                // e.free_symbols - z.free_symbols | z0.free_symbols
+                let bound=if args[1].is_symbol(){vec![args[1].clone()]}else{free_symbols(&args[1])};
+                for symbol in free_symbols(&args[0]).into_iter().filter(|s|!bound.contains(s)){
                     if seen.insert(symbol.clone()){out.push(symbol);}
                 }
                 rec(&args[2],seen,out,visited);

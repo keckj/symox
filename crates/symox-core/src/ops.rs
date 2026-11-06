@@ -573,6 +573,14 @@ fn mul_noncommutative(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Opt
     if scalar.is_zero() && product_has_infinite_addend(args) {return Some(Expr::nan());}
     if ordered.is_empty() || scalar.is_zero() || scalar.is_constant(Constant::NaN)
         || scalar.as_number().is_some_and(Number::is_nan) { return Some(scalar); }
+    // Mul.flatten collects the order symbols and returns
+    // `Order(product, *order_symbols)`: the order absorbs the
+    // noncommutative factors (`(A*x)*O(x) = O(x**2)`).
+    if let Some((oe, vars)) = crate::series::order::order_parts(&scalar) {
+        let mut all = vec![oe];
+        all.extend(ordered.iter().cloned());
+        return Some(crate::series::order::order(&mul_with_cache(&all, depth + 1, cache), &vars));
+    }
     let (coefficient, mut factors) = match scalar.kind() {
         Kind::Num(number) => (number.clone(), Vec::new()),
         Kind::Mul(coefficient, factors) => (coefficient.clone(), factors.clone()),

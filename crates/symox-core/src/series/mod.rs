@@ -21,6 +21,7 @@ pub mod asym;
 pub mod coeff;
 pub mod direction;
 pub mod engine;
+pub mod held;
 pub mod nseries_cdir;
 pub mod order;
 pub mod order_diff;
@@ -100,8 +101,81 @@ pub struct LeadTerm {
 /// Leading term `c * (x - x0)**e` of `expr` at `x0` (from the right unless
 /// `minus`).
 pub fn leading_term(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> SRes<LeadTerm> {
+    if x0.is_zero() && !minus {
+        if let Some(r) = held::leading_term_held(e, x) {
+            return r;
+        }
+    }
     let logt = logt_symbol();
-    leading_term_with(e, x, x0, minus, &logt, &crate::functions::log(&small_var(x, x0, minus)))
+    let r = leading_term_with(e, x, x0, minus, &logt, &crate::functions::log(&small_var(x, x0, minus)));
+    if matches!(r, Err(SErr::Unsupported(_))) && x0.is_zero() && !minus {
+        if let Some(lt) = power_sum_lead(e, x) {
+            return Ok(lt);
+        }
+    }
+    r
+}
+
+/// The leading term of a sum of monomials `c*x**a` whose exponents are
+/// real numbers the engine does not expand (`3 + 2*x**(log(3)/log(2) - 1)`
+/// is `(3, 0)`): the terms of the least exponent, decided through the
+/// signs of the exponent differences. `None` when a term is not such a
+/// monomial, an order is undecided, or the least exponent is not rational.
+fn power_sum_lead(e: &Expr, x: &Expr) -> Option<LeadTerm> {
+    let monomial = |t: &Expr| -> Option<(Expr, Expr)> {
+        if !depends(t, x) {
+            return Some((t.clone(), Expr::zero()));
+        }
+        let facs: Vec<Expr> = match t.kind() {
+            Kind::Mul(c, fs) => std::iter::once(Expr::num(c.clone())).chain(fs.iter().map(|(b, p)| mul_factor(b, p))).collect(),
+            _ => vec![t.clone()],
+        };
+        let mut coeff = Vec::new();
+        let mut exp = None;
+        for f in facs {
+            if !depends(&f, x) {
+                coeff.push(f);
+                continue;
+            }
+            let a = if f == *x {
+                Expr::one()
+            } else {
+                match f.kind() {
+                    Kind::Pow(b, a) if b == x && !depends(a, x) => a.clone(),
+                    _ => return None,
+                }
+            };
+            if exp.is_some() || crate::assumptions::is_real(&a) != Some(true) || !crate::symbolic_number::is_symbolic_number(&a) {
+                return None;
+            }
+            exp = Some(a);
+        }
+        Some((mul(&coeff), exp?))
+    };
+    let terms = if e.is_add() { e.args() } else { vec![e.clone()] };
+    let mons: Vec<(Expr, Expr)> = terms.iter().map(monomial).collect::<Option<_>>()?;
+    let mut least = mons.first()?.1.clone();
+    for (_, a) in &mons[1..] {
+        match crate::assumptions::is_positive(&sub(&least, a)) {
+            Some(true) => least = a.clone(),
+            Some(false) => {}
+            None => return None,
+        }
+    }
+    let mut coeffs = Vec::new();
+    for (c, a) in &mons {
+        match crate::assumptions::is_zero(&sub(a, &least)) {
+            Some(true) => coeffs.push(c.clone()),
+            Some(false) => {}
+            None => return None,
+        }
+    }
+    let exp = least.as_number()?.clone();
+    let coeff = add(&coeffs);
+    if crate::assumptions::is_zero(&coeff) != Some(false) {
+        return None;
+    }
+    Some(LeadTerm { coeff: coeff.clone(), coeff_logt: coeff, logt: logt_symbol(), exp })
 }
 
 /// Whether `e` is exactly zero on the one-sided neighbourhood of `x0`
@@ -157,6 +231,11 @@ fn split_log_factor(e: &Expr, x: &Expr) -> Option<(Expr, Expr, i64)> {
 /// order term, or the exact result when the expansion terminates.
 /// `minus` selects `dir='-'`.
 pub fn series(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool) -> SRes<Expr> {
+    if x0.is_zero() && !minus {
+        if let Some(r) = held::series_held(e, x, n) {
+            return r;
+        }
+    }
     if !depends(e, x) {
         return Ok(e.clone());
     }
@@ -168,7 +247,9 @@ pub fn series(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool) -> SRes<Expr> 
                 return Ok(add(&[s, o]));
             }
         }
-        if contains_order(e) {
+        // order terms at `x -> 0` inside the expression are expanded by
+        // the engine (`log(2 + O(x))` is `log(2) + O(x)`)
+        if contains_order(e) && !(x0.is_zero() && orders_at_zero(e, x)) {
             return Err(SErr::Unsupported("series of an expression containing O".into()));
         }
     }
@@ -226,6 +307,7 @@ fn has_undecided_step(e: &Expr, x: &Expr, x0: &Expr, minus: bool, d: i64) -> boo
 fn series_impl(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, logfac: Option<(Expr, i64)>) -> SRes<Expr> {
     let logt = logt_symbol();
     let ((s, extra_logdeg), d) = with_engine(x, x0, minus, &logt, |eng| {
+        eng.generic_taylor = true;
         let target = n.saturating_mul(eng.d);
         let mut m = target;
         let mut s = eng.ser(e, m)?;
@@ -301,6 +383,17 @@ fn series_impl(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, logfac: Optio
         terms.push(order(&oe, &[(x.clone(), x0.clone())]));
     }
     Ok(add(&terms))
+}
+
+/// Whether every order term of `e` is a univariate `O(g, (x, 0))`.
+fn orders_at_zero(e: &Expr, x: &Expr) -> bool {
+    if !e.may_have_order() {
+        return true;
+    }
+    if let Kind::Func(Func::Order, args) = e.kind() {
+        return args.len() == 3 && args[1] == *x && args[2].is_zero() && !contains_order(&args[0]);
+    }
+    e.args().iter().all(|a| orders_at_zero(a, x))
 }
 
 pub(crate) fn contains_order(e: &Expr) -> bool {

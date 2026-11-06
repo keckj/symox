@@ -131,6 +131,41 @@ l'aiguillage et les enveloppes) :
     deux tests sur délai, sans échec du lot) ; cargo test
     872 + 1 + 0 + 5 (+1 : `matches::tests::reference_choices`), clippy
     correctness propre.
+- limits2 (`feat-limits2-20261106`) : écarts limites/séries à SymPy
+  réduits en Rust (`audits/performance/2026-11-06-limits2/`). Asserts
+  des fichiers de test SymPy identiques : 1139 → 1211 sur 1293 (aseries 5
+  → 5, demidovich 53 → 54, formal 59 → 59, gruntz 103 → 103, limits 533 →
+  538, lseries 5 → 5, nseries 165 → 172, order 172 → 205, series 44 →
+  70), 72 corrigés, aucun cassé ; déclins Gruntz 87 → 84. Natif :
+  - formes de `Order` (termes de l'Add développé, facteurs à `x` lié
+    écartés, produit de fonctions gardé sur un pôle), facteurs non
+    commutatifs absorbés (`Mul.flatten`), `conjugate`, `subs` par une
+    valeur portant son propre ordre, renormalisation des ordres par
+    `expand` ;
+  - Subs/Derivative/Integral gardés : `_eval_nseries`, boucle
+    `Expr.series`, `Derivative._eval_as_leading_term`
+    (`series/held.rs`) ;
+  - Taylor générique des fonctions indéfinies (Dummy `xi`), acoth (forme
+    log en ±1 et sur la coupure), terme dominant à exposants réels
+    symboliques ;
+  - limites par un Dummy positif (`limitinf`), valeur prouvée nulle par
+    les hypothèses, `heuristics` de référence avec bornes
+    (`limits/heuristics.rs`), `Limit` à variable non symbole et ses
+    `free_symbols`.
+  Python (admission et API seulement) : `Order.as_expr_variables`,
+  `Expr._eval_as_leading_term`, `lseries` sans `x`, admission
+  `has_free` de `as_leading_term`/`leadterm`. Le test
+  `test_bound_calculus_compat` attendait NotImplementedError pour
+  `Limit(f(x) + y, x, 0).subs(x, 2)` ; SymPy rend `Limit(y + f(2), 2, 0)`,
+  comme symox désormais.
+  Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) : suite complète
+  **60 503 réussis, 0 échec** ("SUITE CLEAN", 6 xfail, 45 sautés,
+  60 554 collectés et exécutés, 694 fichiers ; +21 de
+  `tests/test_native_limits2.py` ; preuves dans
+  `~/symox-ci/evidence/limits2-20261106`) ; cargo test 871 + 1 + 0 + 5 ;
+  clippy correctness propre. Écarts à valider et lacunes : voir la ligne
+  Limites des lacunes ouvertes et la section limits2 de
+  docs/algorithmic-parity.md.
 
 Vague 42 (calcul en Rust, Python limité à l'admission,
 l'aiguillage et les enveloppes) :
@@ -541,14 +576,29 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `EX(a)` Python qui simplifie son élément, ordre des étapes d'expand hors
   produits de radicaux, constructeur RootSum en Python, bruit imaginaire de
   evalf (approché par l'évaluateur double dans l'ordre d'impression).
-- Limites : 154/1293 asserts encore différents ; 87 déclins Gruntz, dont
-  67 oscillants, désormais tous repris en Rust (décomposition bornée ou
-  marcheur `AccumBounds` natif, vague 41) ou gardés, et 10 qui lèvent la
-  NotImplementedError de SymPy. Six asserts différents touchent les
-  bornes, inchangés par la vague 41 : issue 7535 (×3, `AccumBounds(-oo,
-  oo)` où SymPy garde la limite), `test_series_AccumBounds` (×2, même
-  intervalle sous une autre forme, car `simplify` rend une autre forme de
-  la somme) et `test_heuristic` (`heuristics()` non exposé).
+- Limites : 82/1293 asserts encore différents (vague 43, lot limits2 ;
+  154 avant) ; 84 déclins Gruntz (87 avant), dont 67 oscillants, tous
+  repris en Rust (décomposition bornée ou marcheur `AccumBounds` natif,
+  vague 41) ou gardés. Restent :
+  - `fps` (26 asserts, domaine Python non porté) ;
+  - séries à exposants symboliques ou logarithmiques
+    (NotImplementedError là où SymPy développe : aseries simple 2, 6, 7,
+    bug2, issue 3463, log_power1, 14384:3, 6350) ;
+  - puissances de log dans le terme O (3508, 5223:19), `exp(sqrt(x))`
+    (exp_sqrt_1), `sin(x)**y` avec `logx` (5223:12), Taylor générique
+    d'une sous-classe hôte de `Function` (3978:5), 21938 (ordre plus
+    faible mais vrai) ;
+  - 30 différences de forme seule (même valeur) ;
+  - écarts à valider : 5172 (×2, SymPy rend 0, symox la valeur attendue
+    par le test SymPy), 19770:2 (0 contre limite gardée), 7535 (×3,
+    `AccumBounds(-oo, oo)` où SymPy garde la limite),
+    gruntz_eval_special_slow:2 (SymPy expire), gruntz_eval_special_fail
+    (PoleError contre NotImplementedError), order_failing_due_to_solveset
+    (SymPy lève TypeError) ;
+  - `Limit(x + y, x + y, a).doit()` reste gardé (SymPy rend `a`).
+  `test_series_AccumBounds` (×2) garde une autre forme du même intervalle
+  (`simplify` rend une autre forme de la somme) ; `heuristics()` est
+  exposé (natif, vague 43).
   Restent en Python autour des bornes : `oscillating_integral` (aiguillage
   de `integrate` vers les limites de la primitive), la réévaluation des
   bornes par `subs`/`doit` (`_accum_eval._needs`, `reevaluate`), et les

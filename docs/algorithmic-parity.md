@@ -17381,3 +17381,81 @@ protocol itself: `ordered`, `count_ops` and `collect`.
 - `WildFunction` matching is still Python.
 - symox prints a `WildFunction` as `Wild('g')` in `srepr`. This is a
   representation difference only.
+
+## limits2 (wave 43): Order forms, held series, acoth and the reference heuristics in Rust, 2026-11-06
+
+Branch `feat-limits2-20261106`. Measurements are in
+[audits/performance/2026-11-06-limits2](../audits/performance/2026-11-06-limits2/README.md).
+Each assert of the SymPy 1.14 test files for limits and series was replayed
+as a statement against SymPy 1.14.0. Before the lot, 1139 of 1293 printed
+results matched; after it, 1211 do. No assert regressed, and the Gruntz
+declines fell from 87 to 84.
+
+Native now (`crates/symox-core`):
+
+- Order construction (`series/order.rs`):
+  - the expanded Add contributes each term with its order;
+  - a factor that depends on x only through a bound x is dropped (`Integral(x, (x, 1, 2))`);
+  - with several variables, a product of functions with a single-variable pole factor is kept unchanged, as in SymPy's PoleError branch (`O(exp(x)*exp(1/y))`).
+- `Mul.flatten` absorbs noncommutative factors into an order (`ops.rs`).
+- `Order._eval_conjugate` (`complex_parts/evaluate.rs`).
+- `Order.subs` with a value carrying its own order: `O(x).subs(x, O(x, (x, oo)))` and `(x + O(x**2)).subs(x, x + O(x**2))` (`subs.rs`).
+- `expand` renormalizes the orders it rebuilds (`expand.rs::renormalize_orders`).
+- Held operations (`series/held.rs`):
+  - `_eval_nseries` of Subs, Derivative and Integral, and the `Expr.series` loop that the reference runs for them;
+  - `Derivative._eval_as_leading_term`: the first term of the operand's expansion, in increasing order, whose derivative does not vanish;
+  - a held operation free of x is its own leading term.
+- The generic Taylor expansion of an undefined function substitutes a Dummy `xi`, so the result holds `Subs(Derivative(f(xi), xi), xi, x0)` (`series/engine.rs`).
+- acoth expansions (`series/engine.rs::ser_acoth`):
+  - the log form at ±1 and on the real cut `(-1, 1)`;
+  - declined for a negative-order (infinite) argument, so the limit of `acoth(exp(1/x))` keeps its route.
+- Leading term of a sum of monomials with real symbolic exponents (`series/mod.rs::power_sum_lead`). The least exponent is decided with `is_positive` and a vanishing coefficient sum with `is_zero`. Anything undecided is declined.
+- Limits through a positive dummy, as in `limitinf`: `re(1/t)` evaluates to `1/t`. A value that the assumptions prove zero is the limit 0 (`limits/mod.rs`).
+- The reference `heuristics` (`limits/heuristics.rs`):
+  - the limit of each argument, with the oscillating walker of wave 41 as fallback;
+  - the result is rebuilt from AccumBounds arguments with the native bounds arithmetic;
+  - it is exposed as `sympy.series.limits.heuristics` through `_core._limit_heuristics`.
+- A `Limit` with a non-symbol variable is accepted (`Limit.__new__`). Its `free_symbols` are those of the body minus those of the variable, plus those of the point (`traverse.rs`).
+
+Python, admission and API only:
+- `Order.as_expr_variables`: a tuple merge of the variables, no computation;
+- `Expr._eval_as_leading_term`: an order is its own leading term, otherwise the native leading term;
+- `lseries` of an expression free of x yields it once;
+- the admission of `as_leading_term`/`leadterm` tests free occurrences, as `has_free` does, so `Derivative(1, x)` is its own leading term.
+
+Deviations to validate:
+- **issue 5172.** In the SymPy test files this assert is `limit(...) == ...`. SymPy 1.14 itself returns 0, and symox returns the value the test expects.
+- **19770:2.** symox returns 0 where SymPy holds the limit.
+- **7535 ×3.** symox returns `AccumBounds(-oo, oo)` where SymPy holds the limit.
+- **gruntz_eval_special_slow:2.** SymPy times out; symox returns the value.
+- **gruntz_eval_special_fail.** symox raises PoleError where SymPy raises NotImplementedError.
+- **order_failing_due_to_solveset.** SymPy raises TypeError; symox returns `O(exp(-3*x**2))`.
+
+Remaining gaps (still declined or different):
+- **`fps`.** 26 asserts. The formal power series domain is Python and was not ported.
+- **Series with symbolic or log exponents** (NotImplementedError where SymPy expands):
+  - aseries simple 2, 6 and 7;
+  - nseries bug2, issue_3463 and log_power1;
+  - series 14384:3 and 6350.
+- **Log powers inside the O term:** 3508, 5223:19.
+- **Other declines:**
+  - `exp(sqrt(x))` at 0 (exp_sqrt_1);
+  - `sin(x)**y` with `logx` (5223:12);
+  - the generic Taylor expansion of a host `Function` subclass (3978:5);
+  - issue 21938 (a weaker but true order).
+- **Form-only differences (same value).** 30 asserts:
+  - canonical forms of rational, trig or sign expressions;
+  - order-term forms;
+  - `log(x*y)` against `log(x) + log(y)`;
+  - set order;
+  - the printed index of the `xi` Dummy;
+  - `O((-x)**(1 + I/2))` against `O(x*(-2*x)**(I/2))`.
+- **Gruntz declines.** The 67 oscillating "series in mrv variable" declines are unchanged; the oscillating walker of wave 41 handles them. 17 others remain:
+  - sign of `I` (3);
+  - continuity of undefined functions (3);
+  - complex infinity (2);
+  - symbolic parameter signs (6);
+  - a cancellation in a symbolic leading term (1);
+  - `Mod`;
+  - `Integral` in the mrv set.
+- **`Limit(x + y, x + y, a).doit()`** stays held. SymPy returns `a`.

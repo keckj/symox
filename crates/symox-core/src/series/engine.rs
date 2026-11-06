@@ -237,12 +237,16 @@ pub struct Engine {
     pub logval: Option<Expr>,
     memo: FxHashMap<Expr, Ser>,
     depth: u32,
+    /// `Expr.series` context: an undefined function takes the generic
+    /// Taylor expansion of `Function._eval_nseries` (a limit of `f(x)`
+    /// stays held, so the leading-term users leave it off).
+    pub generic_taylor: bool,
 }
 
 impl Engine {
     /// Engine for `x = xser(t)`.
     pub fn new(x: &Expr, xser: Ser, d: i64, logt: &Expr) -> Engine {
-        Engine { x: x.clone(), xser, d, logt: logt.clone(), logval: None, memo: FxHashMap::default(), depth: 0 }
+        Engine { x: x.clone(), xser, d, logt: logt.clone(), logval: None, memo: FxHashMap::default(), depth: 0, generic_taylor: false }
     }
 
     fn constant(&self, e: &Expr) -> SRes<Ser> {
@@ -271,6 +275,9 @@ impl Engine {
         if self.depth > MAX_DEPTH {
             return Err(SErr::Unsupported("expression too deep".into()));
         }
+        if let Kind::Func(Func::Order, args) = e.kind() {
+            return self.ser_order(args, n);
+        }
         self.depth += 1;
         let r = self.ser_impl(e, n);
         self.depth -= 1;
@@ -290,6 +297,22 @@ impl Engine {
             self.memo.insert(e.clone(), r.clone());
         }
         Ok(r.trunc(n))
+    }
+
+    /// An order term `O(g)` at `x -> 0` inside the expression (`exp(log(2)
+    /// + O(x))`): the zero series known to the order of `g`. The leading
+    /// term of `g` must be free of `log(x)`, whose factor a power of `t`
+    /// cannot bound.
+    fn ser_order(&mut self, args: &[Expr], n: i64) -> SRes<Ser> {
+        let at_zero = args.len() == 3 && args[1] == self.x && args[2].is_zero() && self.xser.val > 0;
+        if !at_zero || super::contains_order(&args[0]) {
+            return Err(SErr::Unsupported("order term at another point".into()));
+        }
+        let s = self.ser_nonzero(&args[0], n.max(1))?;
+        if matches!(s.at(s.val), C::E(ref c) if depends(c, &self.logt)) {
+            return Err(SErr::Unsupported("order term with a logarithmic factor".into()));
+        }
+        Ok(Ser::zero_inexact(s.val))
     }
 
     /// Like [`ser`](Self::ser) but keeps increasing the precision until a
@@ -751,6 +774,64 @@ impl Engine {
         Err(SErr::Precision)
     }
 
+    /// `Function._eval_nseries` for a function without its own expansion:
+    /// with `x = xser(xi)` (the point moved to `xi = 0`), the Taylor
+    /// coefficients `diff(e, xi, i).subs(xi, 0)/i!`, each expanded, the
+    /// derivatives of the undefined function kept as
+    /// `Subs(Derivative(f(xi), xi, i), xi, a0)`. Every argument must stay
+    /// finite at the point (the reference otherwise goes to the asymptotic
+    /// expansion, which an undefined function does not have).
+    fn ser_generic_taylor(&mut self, e: &Expr, args: &[Expr], n: i64) -> SRes<Ser> {
+        let unsupported = || SErr::Unsupported(format!("{e}"));
+        for a in args {
+            if !depends(a, &self.x) {
+                continue;
+            }
+            let s = self.ser(a, 1)?;
+            if s.val < 0 || s.c.iter().any(|c| matches!(c, C::E(v) if depends(v, &self.logt))) {
+                return Err(unsupported());
+            }
+        }
+        let fs = crate::traverse::free_symbols(e);
+        // the reference `Dummy('xi')` (a `Subs` prints it `_xi_1`)
+        let xi = Expr::dummy("xi", crate::symbol::Assumptions::NONE);
+        if fs.iter().any(|s| s.to_string() == crate::series::logt_symbol().to_string()) {
+            return Err(unsupported());
+        }
+        if self.xser.val < 0 {
+            return Err(unsupported());
+        }
+        let xval = {
+            let mut terms = Vec::with_capacity(self.xser.c.len());
+            for (i, c) in self.xser.c.iter().enumerate() {
+                if !c.is_zero() {
+                    terms.push(mul2(&c.to_expr(), &pow(&xi, &Expr::int(self.xser.val + i as i64))));
+                }
+            }
+            crate::ops::add(&terms)
+        };
+        let mut cur = crate::expand::expand(&crate::subs::subs1(e, &self.x, &xval));
+        let bad = |v: &Expr| v.is_constant(Constant::NaN) || v.has_nonfinite();
+        let zero = Expr::zero();
+        let term0 = crate::subs::subs1(&cur, &xi, &zero);
+        if bad(&term0) {
+            return Err(SErr::Pole(format!("Cannot expand {e} around 0")));
+        }
+        let mut coeffs = vec![C::from_expr(term0)];
+        let mut fact = Number::ONE;
+        for i in 1..n.max(0) {
+            fact = fact.mul(&Number::int(i));
+            cur = crate::diff::diff(&cur, &xi);
+            let v = crate::subs::subs1(&cur, &xi, &zero);
+            if bad(&v) {
+                return Err(unsupported());
+            }
+            coeffs.push(C::from_expr(crate::expand::expand(&crate::ops::div(&v, &Expr::num(fact.clone())))));
+        }
+        coeffs.truncate(n.max(0) as usize);
+        Ok(Ser::from_coeffs(0, coeffs, n.max(0), false).norm())
+    }
+
     fn ser_func(&mut self, f: &Func, args: &[Expr], n: i64) -> SRes<Ser> {
         if matches!(f,Func::SymbolicDerivative){return Err(SErr::Unsupported("Derivative with symbolic order".into()));}
         if matches!(f, Func::Heaviside | Func::DiracDelta) && !args.is_empty() {
@@ -849,6 +930,11 @@ impl Engine {
                 return Ok(r);
             }
         }
+        if let (Func::Special(crate::special::SpecialFn::Acoth), [arg]) = (f, args) {
+            if let Some(r) = self.ser_acoth(arg, n)? {
+                return Ok(r);
+            }
+        }
         if let Func::Special(s) = f {
             if let Some(res) = self.ser_log_singular(*s, args, n)? {
                 return Ok(res);
@@ -858,6 +944,13 @@ impl Engine {
             }
             if let Some(res) = self.ser_entire_integral(*s, args, n)? {
                 return Ok(res);
+            }
+        }
+        if self.generic_taylor {
+            if let Func::Undefined(head) = f {
+                if head.host().is_none() && !crate::poly::rootof::is_rootof_head(head, args.len()) {
+                    return self.ser_generic_taylor(&func(f.clone(), args.to_vec()), args, n);
+                }
             }
         }
         if args.len() != 1 {
@@ -1295,6 +1388,47 @@ impl Engine {
             a = self.ser(arg, m)?;
         }
         Err(SErr::Precision)
+    }
+
+    /// `acoth._eval_nseries`: at a branch point `+-1`, and on the cut
+    /// `(-1, 1)` approached along the real axis, the expansion of
+    /// `(log(1 + 1/z) - log(1 - 1/z))/2`; elsewhere the Taylor expansion
+    /// (`acoth' = 1/(1 - z**2)`). `None` for an argument without a finite
+    /// value (the other special-function paths take it); a cut approached
+    /// off the real axis, or an undecided one, is not expanded.
+    fn ser_acoth(&mut self, arg: &Expr, n: i64) -> SRes<Option<Ser>> {
+        let a = self.ser(arg, n.max(2))?;
+        if !a.is_zero() && a.val < 0 {
+            // an argument tending to infinity: the special-function paths
+            return Ok(None);
+        }
+        let Ok(c0) = self.analytic_arg(&a, "acoth") else { return Ok(None) };
+        let c0e = c0.to_expr();
+        let log_form = |z: &Expr| {
+            let inv = pow(z, &Expr::minus_one());
+            mul2(&Expr::rational(1, 2), &sub(&fx::log(&add(&[Expr::one(), inv.clone()])), &fx::log(&sub(&Expr::one(), &inv))))
+        };
+        if c0e.is_one() || c0e == Expr::minus_one() {
+            return self.ser(&log_form(arg), n).map(Some);
+        }
+        let real = crate::assumptions::is_real(&c0e);
+        let inside = crate::assumptions::is_positive(&sub(&Expr::one(), &pow(&c0e, &Expr::int(2))));
+        if real == Some(true) && inside == Some(true) {
+            // the direction of the argument leaving c0
+            let rest = a.sub(&Ser::constant(c0.clone()));
+            if rest.is_zero() {
+                if rest.exact {
+                    return self.constant(&func(Func::Special(crate::special::SpecialFn::Acoth), vec![c0e.clone()])).map(Some);
+                }
+                return Err(SErr::Unsupported("acoth on its branch cut".into()));
+            }
+            let lead = rest.lead().unwrap().to_expr();
+            if depends(&lead, &self.logt) || crate::assumptions::is_real(&lead) != Some(true) {
+                return Err(SErr::Unsupported("acoth on its branch cut".into()));
+            }
+            return self.ser(&log_form(arg), n).map(Some);
+        }
+        self.ser_inverse(&Func::Special(crate::special::SpecialFn::Acoth), arg, n).map(Some)
     }
 
     /// `gamma`/`loggamma` at integer points through
