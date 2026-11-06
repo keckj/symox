@@ -1,8 +1,8 @@
 # TODO — Capacités mathématiques et parité SymPy
 
-Mis à jour le **5 novembre 2026**, sur la branche `integrate-wave39-20261105`
-(`main` à **`2e623e66`**, vague 38, plus les trois lots de la vague 39).
-Référence : **SymPy 1.14.0**. Dernier lot validé sur Demeter le 5 novembre
+Mis à jour le **6 novembre 2026**, sur la branche `integrate-wave40-20261106`
+(`main` à **`15e75d3a`**, vague 39, plus les trois lots de la vague 40).
+Référence : **SymPy 1.14.0**. Dernier lot validé sur Demeter le 6 novembre
 (voir « Reprise sur Demeter » ; le paragraphe ci-dessous décrit la suite du
 28 octobre).
 
@@ -50,26 +50,45 @@ Les preuves, sondes et corrections intentionnelles sont dans le
 [contrat de parité](docs/algorithmic-parity.md). Les extensions et sous-classes
 Python restent un chantier distinct, hors de ce TODO mathématique.
 
-## Reprise sur Demeter (état au 5 novembre)
+## Reprise sur Demeter (état au 6 novembre)
 
-La branche `integrate-wave39-20261105` (main `2e623e66` + vague 39 :
-ratintex, arrexpr, prde) est validée ; main n'est pas encore avancé.
-Dernière validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) : suite complète
-**60 211 réussis, 0 échec** ("SUITE CLEAN", 6 xfail, 45 sautés, 60 262
-collectés et exécutés, 684 fichiers ; preuves dans
-`~/symox-ci/evidence/integ39-20261105`), soit exactement l'union des trois
-lots (+37, +19 et +121 tests collectés sur les 60 085 de main) ; cargo test
-859 + 1 + 0 + 5 (852 sur main, +6 tests `prde_tower`, +1 ratintex), clippy
-correctness propre. Fusions sans conflit dans le code Rust (`sortkey.rs` et
-`printing/order.rs` gardent l'ordre des radicaux de ratintex et celui
-d'`ArrayElement` d'arrexpr) ; seuls TODO.md et `docs/algorithmic-parity.md`
-ont été fusionnés à la main. Aucun correctif d'intégration n'a été
-nécessaire. Les corpus intégration et ODE n'ont pas été rejoués sur les
-vagues 38 et 39 (le score ODE 303/279/274/315 ci-dessus est périmé : les
-agents mesurent 315/285/267 sur 21068f42 avec un script reconstruit).
+**Résultat faux prioritaire** (relevé par le lot ode) :
+`solve(-2*y/sqrt(y**3) - C1 - x, y)` rend `[]`, c'est-à-dire une absence de
+solution affirmée à tort. Les replis Python de `_solve_relations.py`
+appellent tsolve avant la branche unrad de `_solve` (ordre inverse de
+SymPy). À corriger en portant unrad en Rust ; cela débloque aussi les cas
+EDO fact_13 et fact_16.
 
-Vague 39 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
+La branche `integrate-wave40-20261106` (main `15e75d3a` + vague 40 :
+ode, limits, prde2) est validée et main y est avancé. Validation
+(`XLA_PYTHON_CLIENT_PREALLOCATE=false`) sur `b53bc23a` : suite complète
+**60 315 réussis, 0 échec** ("SUITE CLEAN", 11 xfail, 45 sautés,
+60 371 collectés et exécutés, 687 fichiers ; preuves dans
+`~/symox-ci/evidence/integ40-20261106`), soit l'union des trois lots
+(+37, +16 et +54 tests collectés sur les 60 262 de main, +2 du correctif
+d'intégration) ; cargo test 865 + 1 + 0 + 5, clippy correctness propre ;
+corpus EDO rejoué sur la branche intégrée : **315/287/268** (identique au
+lot ode). Correctif d'intégration (Rust) : `b53bc23a`, la preuve native du
+graphe de classes LLL froid (`crates/symox-py/src/lll_cold_graph.rs`)
+admet la métaclasse `Singleton` d'origine, que les lots de la vague 40
+rendent atteignable. Sans cela, `test_native_slotfold.py::test_lll_stays_native_with_cached_exception_slotnames`
+échouait ; résultats LLL inchangés. Le corpus d'intégration n'a pas été
+rejoué depuis la vague 37.
+
+Vague 40 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
 enveloppes) :
+- ode (`feat-ode-20261105`) : 2F1 natif (`ode/hypergeometric.rs` :
+  `equivalence_hypergeometric`, `match_2nd_2F1_hypergeometric`,
+  `get_sol_2F1_hypergeometric`), identique à la référence sur les 34 EDO
+  linéaires d'ordre 2 du corpus ; `Integral(F,(u,b)).doit()` garde
+  `Integral(g,(u,b))` (`integrate.rs`, `binders.rs`) ; recast de `f(x)` en
+  Dummy au-delà des équations rationnelles (`solve/recast.rs`). Corpus
+  315/285/267 → 315/287/268, sans régression.
+- limits (`feat-limits-20261105`) : voir le paragraphe limits ci-dessous.
+- prde2 (`feat-prde2-20261105`) : voir le paragraphe prde2 ci-dessous.
+
+Vague 39 (dans main ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes) :
 - ratintex (`feat-ratintex-20261030k`) : logpart sur QQ<a> (un corps, deux
   corps unifiés en QQ<b, a>), log_to_atan sur EX, ordre RootSum, roots
   cas 20, EX numer/denom de référence, ordre d'association des radicaux
@@ -97,6 +116,8 @@ enveloppes) :
   SymPy et du corpus identiques à main. Trace des Dummies du noyau de base,
   `Poly.free_symbols` des domaines composites et boucles d'admission de
   splitfactor (`risch_sf_admission.rs`) en Rust.
+
+Détail des lots limits et prde2 de la vague 40 :
 - limits (`feat-limits-20261105`) : API `sympy.series.gruntz` native
   (`limits/gruntz/api.rs`), `nsimplify` des flottants de `Limit.doit`
   (`limits/floats.rs`), étape terme dominant à exposant symbolique et
@@ -112,7 +133,6 @@ enveloppes) :
   21 corrigés, 0 cassé), test_gruntz 37/38, test_limits 158/173 ; déclins
   Gruntz 90 → 88, dont 10 lèvent maintenant l'erreur de SymPy.
 
-Vague 40 (en cours, branches non fusionnées) :
 - prde2 (`feat-prde2-20261105`, sur cab152e3) : `param_rischDE`,
   `param_poly_rischDE`, `prde_cancel_liouvillian` et `limited_integrate`
   au-dessus du niveau de base, sur les tours exp/primitive, en Rust
@@ -154,6 +174,23 @@ Vague 38 (dans main) :
 - prdelog : cas de base de `is_log_deriv_k_t_radical_in_field` en Rust
   (`integrate/prde_log.rs`, 938 appels, 0 écart).
 
+Écarts volontaires de la vague 40 en attente de validation utilisateur :
+- ode : le recast rend pour une cible `f(x)` les valeurs d'un symbole
+  (`sqrt(f)+f-x` résolu, il levait avant ; forme symox, pas celle de
+  SymPy) ; le 2F1 natif décline plus large (Floats, racines non réelles ou
+  non décidées) au profit du corps de référence.
+- prde2 : trois tests réalignés sur SymPy (QQ unifié par `cancel`) ;
+  raccourcis `from_polys`/`getitem` sans `unify` quand générateurs et
+  domaine sont égaux ; déclin (corps Python d'origine) au lieu de
+  reproduire les erreurs d'origine ; Dummy `z` privé du noyau, absent des
+  résultats comparés.
+- limits : `gruntz()` se replie sur la limite native (étapes heuristiques)
+  quand l'algorithme de Gruntz seul échoue, là où SymPy lève ; un flottant
+  sans petit rationnel à plus de 12 chiffres significatifs (ou hors
+  `[1e-12, 1e15)`) est gardé tel quel dans `Limit.doit` (SymPy peut y
+  trouver une forme close via `identify`) ; `I**x` en `oo` reste non
+  évalué (SymPy rend `nan`).
+
 Écarts volontaires de la vague 39 en attente de validation utilisateur :
 - ratintex : `nested_binomial` de roots (binômes à radicaux imbriqués,
   hypothèses is_extended_real/is_positive) ;
@@ -165,11 +202,6 @@ Vague 38 (dans main) :
 - prde : lire `_core.__dict__` une seule fois par appel de splitfactor
   (au lieu d'environ 395 fois) changerait le contrat d'authentification ;
   non fait, à valider.
-- limits : `gruntz()` se replie sur la limite native (étapes heuristiques)
-  quand l'algorithme de Gruntz seul échoue, là où SymPy lève ; un flottant
-  sans petit rationnel à plus de 12 chiffres significatifs (ou hors
-  `[1e-12, 1e15)`) est gardé tel quel dans `Limit.doit` (SymPy peut y
-  trouver une forme close via `identify`).
 
 Écarts volontaires antérieurs en attente de validation : Markov spec7 1/6,
 conditionnement multi-temps markovrust (22/28 cas où SymPy se trompe) et
