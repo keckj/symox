@@ -17,7 +17,9 @@ def _data(expression, variable, logx, cdir, origin=0):
     if direction.is_positive is True:direction=S.One
     elif direction.is_negative is True:direction=S.NegativeOne
     if expression==0:return S.Zero,S.Zero
-    if not expression.has(variable):return expression,S.Zero
+    # SymPy tests free occurrences (has_free): a bound x, as in
+    # Derivative(1, x), leaves the expression as its own leading term
+    if variable not in expression.free_symbols:return expression,S.Zero
     small=Dummy('leading_t',positive=True)
     marker=Dummy('leading_log')
     translated=expression.subs(variable,origin+direction*small)
@@ -25,7 +27,7 @@ def _data(expression, variable, logx, cdir, origin=0):
     # The native kernel's exponent is in a positive local parameter t.
     # Divide out d**power to return the coefficient of (x-origin)**power.
     coefficient=coefficient.xreplace({log(small):marker-log(direction)})/direction**power
-    if coefficient.has(small):
+    if small in coefficient.free_symbols:
         raise ValueError('Leading coefficient still depends on the expansion variable')
     formal_log=log(variable-origin) if logx is None else sympify(logx)
     return coefficient.xreplace({marker:formal_log}),power

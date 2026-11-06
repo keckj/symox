@@ -1,0 +1,82 @@
+aseries  9  5  5
+demidovich  54  53  54
+formal  85  59  59
+gruntz  107  103  103
+limits  554  533  538
+lseries  5  5  5
+nseries  186  165  172
+order  210  172  205
+series  83  44  70
+total {'before': '1139/1293', 'after': '1211/1293'}
+FIXED | test_demidovich.py:test_leadterm:1 | (3, 0) | EXC NotImplementedError | (3, 0)
+FIXED | test_limits.py:test_heuristic:1 | AccumBounds(-1, 1) | EXC NotImplementedError | AccumBounds(-1, 1)
+FIXED | test_limits.py:test_issue_13715:1 | 0 | p | 0
+FIXED | test_limits.py:test_issue_21756:2 | 5 | Limit((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi* | 5
+FIXED | test_limits.py:test_issue_9205:3 | {a} | EXC NotImplementedError | {a}
+FIXED | test_limits.py:test_issue_9205:4 | {a, y} | EXC NotImplementedError | {a, y}
+FIXED | test_nseries.py:test_expbug4:3 | 2 + O(x) | EXC NotImplementedError | 2 + O(x)
+FIXED | test_nseries.py:test_expbug4:4 | 2 + O(x) | EXC NotImplementedError | 2 + O(x)
+FIXED | test_nseries.py:test_expbug5:2 | 1 + O(x) | EXC NotImplementedError | 1 + O(x)
+FIXED | test_nseries.py:test_hyperbolic:8 | -I*pi/2 + x + x**3/3 + x**5/5 + O(x**6) | EXC NotImplementedError | -I*pi/2 + x + x**3/3 + x**5/5 + O(x**6)
+FIXED | test_nseries.py:test_logbug4:1 | log(2) + O(x) | EXC NotImplementedError | log(2) + O(x)
+FIXED | test_nseries.py:test_seriesbug2:2 | 2 | 2 + O(0) | 2
+FIXED | test_nseries.py:test_seriesbug2c:3 | 2 | 2 + O(0) | 2
+FIXED | test_order.py:test_as_expr_variables:1 | (x, ((x, 0),)) | EXC AttributeError | (x, ((x, 0),))
+FIXED | test_order.py:test_as_expr_variables:2 | (x, ((x, 0),)) | EXC AttributeError | (x, ((x, 0),))
+FIXED | test_order.py:test_as_expr_variables:3 | (y, ((x, 0), (y, 0))) | EXC AttributeError | (y, ((x, 0), (y, 0)))
+FIXED | test_order.py:test_as_expr_variables:4 | (y, ((x, 0), (y, 0))) | EXC AttributeError | (y, ((x, 0), (y, 0)))
+FIXED | test_order.py:test_issue_4279:3 | O(1, a, b) | O(a + b, a, b) + O(1, a, b) | O(1, a, b)
+FIXED | test_order.py:test_issue_4279:6 | O(1, a, b) | O(a + b, a, b) + O(1, a, b) | O(1, a, b)
+FIXED | test_order.py:test_issue_9192:2 | O(1) | O(1)**O(1) | O(1)
+FIXED | test_order.py:test_multivar_1:3 | x + y | EXC AttributeError | x + y
+FIXED | test_order.py:test_multivar_1:4 | O(x + y, x, y) | x**2 + O(x + y, x, y) | O(x + y, x, y)
+FIXED | test_order.py:test_multivar_3:1 | O(x + y, x, y) | O(x + y, x, y) + O(y) + O(x) | O(x + y, x, y)
+FIXED | test_order.py:test_multivar_mul_1:1 | O(x**2 + x*y, x, y) | O(x*(x + y), x, y) | O(x**2 + x*y, x, y)
+FIXED | test_order.py:test_order_at_infinity:6 | O(x, (x, oo), (y, oo)) | O(1, (y, oo)) | O(x, (x, oo), (y, oo))
+FIXED | test_order.py:test_order_conjugate_transpose:1 | O(x) | conjugate(O(x)) | O(x)
+FIXED | test_order.py:test_order_conjugate_transpose:2 | O(y) | conjugate(O(y)) | O(y)
+FIXED | test_order.py:test_order_conjugate_transpose:3 | O(x**2) | conjugate(O(x**2)) | O(x**2)
+FIXED | test_order.py:test_order_conjugate_transpose:4 | O(y**2) | conjugate(O(y**2)) | O(y**2)
+FIXED | test_order.py:test_order_leadterm:1 | O(x**2) | EXC AttributeError | O(x**2)
+FIXED | test_order.py:test_order_noncommutative:2 | O(x) | O(x)*(x*A + A) | O(x)
+FIXED | test_order.py:test_order_noncommutative:3 | O(x**2) | O(x**2)*A | O(x**2)
+FIXED | test_order.py:test_order_noncommutative:4 | x*A**2 + O(x**2) | x*A**2 + O(x**2)*A**2 | x*A**2 + O(x**2)
+FIXED | test_order.py:test_order_noncommutative:6 | x*A**2 + O(x**2) | x*A**2 + O(x**2)*A | x*A**2 + O(x**2)
+FIXED | test_order.py:test_order_subs_limits:10 | x + O(x**2) | x + O((x + O(x**2))**2) + O(x**2) | x + O(x**2)
+FIXED | test_order.py:test_order_subs_limits:11 | (x + O(x**2))**(-2) + O(x**2) | (x + O(x**2))**(-2) + O((x + O(x**2))**2) | (x + O(x**2))**(-2) + O(x**2)
+FIXED | test_order.py:test_order_subs_limits:12 | 1 + O(x**2) | 1 + O((x + O(x**2))**2) | 1 + O(x**2)
+FIXED | test_order.py:test_order_subs_limits:13 | O(x**2, (x, oo)) | O(x**2, (O(x**2, (x, oo)), oo)) | O(x**2, (x, oo))
+FIXED | test_order.py:test_order_subs_limits:14 | x - x**3/3 + x**5/10 - 8*x**7/315 + O(x**8) | O(x**56/416336312719673760153600000000 - x**54/1239096168808 | x - x**3/3 + x**5/10 - 8*x**7/315 + O(x**8)
+FIXED | test_order.py:test_order_subs_limits:15 | 1 - x**2/2 + 5*x**4/24 - 37*x**6/720 + O(x**8) | O(x**56/416336312719673760153600000000 - x**54/1239096168808 | 1 - x**2/2 + 5*x**4/24 - 37*x**6/720 + O(x**8)
+FIXED | test_order.py:test_order_subs_limits:16 | O(1/x, (x, oo)) | O(1/x) | O(1/x, (x, oo))
+FIXED | test_order.py:test_order_subs_limits:8 | O(x, (x, oo)) | O(x, (O(x, (x, oo)), oo)) | O(x, (x, oo))
+FIXED | test_order.py:test_order_subs_limits:9 | O(x**2, (x, oo)) | O(x**2, (O(x, (x, oo)), oo)) | O(x**2, (x, oo))
+FIXED | test_order.py:test_order_symbols:1 | O(x**2*y, x, y) | O(x*y*sin(x)*Integral(x, (x, 1, 2)), x, y) | O(x**2*y, x, y)
+FIXED | test_order.py:test_order_symbols:2 | O(x**2) | O(x*sin(x)*Integral(x, (x, 1, 2))) | O(x**2)
+FIXED | test_order.py:test_simple_1:5 | O(x, x, y) | O(1) | O(x, x, y)
+FIXED | test_series.py:test_issue_11313:1 | x - x**3/6 + x**5/120 + O(x**6) | EXC NotImplementedError | x - x**3/6 + x**5/120 + O(x**6)
+FIXED | test_series.py:test_issue_11313:10 | 1/x | EXC NotImplementedError | 1/x
+FIXED | test_series.py:test_issue_11313:11 | x*(log(x) - 1) | EXC NotImplementedError | x*(log(x) - 1)
+FIXED | test_series.py:test_issue_11313:2 | 1 - x**2/2 + O(x**3) | EXC NotImplementedError | 1 - x**2/2 + O(x**3)
+FIXED | test_series.py:test_issue_11313:3 | 3*x**2 | EXC NotImplementedError | 3*x**2
+FIXED | test_series.py:test_issue_11313:4 | 0 | EXC NotImplementedError | 0
+FIXED | test_series.py:test_issue_11313:5 | 1 | EXC NotImplementedError | 1
+FIXED | test_series.py:test_issue_11313:6 | -x | EXC NotImplementedError | -x
+FIXED | test_series.py:test_issue_11313:7 | Derivative(1, x) | EXC NotImplementedError | Derivative(1, x)
+FIXED | test_series.py:test_issue_11313:8 | 1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + O(x**6) | EXC NotImplementedError | 1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + O(x**6)
+FIXED | test_series.py:test_issue_11313:9 | 1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + O(x**6) | EXC NotImplementedError | 1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + O(x**6)
+FIXED | test_series.py:test_issue_3978:1 | f(0) + x*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 0) + x**2* | EXC NotImplementedError | f(0) + x*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 0) + x**2*
+FIXED | test_series.py:test_issue_3978:3 | f(0) + x**2*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 0) + O( | EXC NotImplementedError | f(0) + x**2*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 0) + O(
+FIXED | test_series.py:test_issue_3978:4 | f(1) + x**2*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 1) + O( | EXC NotImplementedError | f(1) + x**2*Subs(Derivative(f(_xi_1), _xi_1), _xi_1, 1) + O(
+FIXED | test_series.py:test_issue_5223:10 | 4*x - 4 | EXC NotImplementedError | 4*x - 4
+FIXED | test_series.py:test_issue_5223:2 | 0 | EXC StopIteration | 0
+FIXED | test_series.py:test_issue_5223:7 | 12*x*y | EXC NotImplementedError | 12*x*y
+FIXED | test_series.py:test_issue_5223:8 | Derivative(1, x) | EXC NotImplementedError | Derivative(1, x)
+FIXED | test_series.py:test_issue_5223:9 | Derivative(x**3/6, x) + Derivative(x**2/2, x) + Derivative(x | EXC NotImplementedError | Derivative(x**3/6, x) + Derivative(x**2/2, x) + Derivative(x
+FIXED | test_series.py:test_series_of_Subs:1 | Subs(sin(x), x, y) | EXC NotImplementedError | Subs(sin(x), x, y)
+FIXED | test_series.py:test_series_of_Subs:2 | Subs(x**5/120, x, y) + Subs(-x**3/6, x, y) + Subs(x, x, y) + | EXC NotImplementedError | Subs(x**5/120, x, y) + Subs(-x**3/6, x, y) + Subs(x, x, y) +
+FIXED | test_series.py:test_series_of_Subs:3 | Subs(x**5/120, x, y) + Subs(-x**3/6, x, y) + Subs(x, x, y) + | EXC NotImplementedError | Subs(x**5/120, x, y) + Subs(-x**3/6, x, y) + Subs(x, x, y) +
+FIXED | test_series.py:test_series_of_Subs:5 | Subs(sin(x), x, y) + Subs(z**4*sin(x)/24, x, y) + Subs(-z**2 | EXC NotImplementedError | Subs(sin(x), x, y) + Subs(z**4*sin(x)/24, x, y) + Subs(-z**2
+FIXED | test_series.py:test_series_of_Subs:6 | x*y - x**3*y**3/6 + x**5*y**5/120 + O(x**6) | EXC NotImplementedError | x*y - x**3*y**3/6 + x**5*y**5/120 + O(x**6)
+FIXED | test_series.py:test_series_of_Subs:7 | sin(x*y) | EXC NotImplementedError | sin(x*y)
+FIXED | test_series.py:test_series_of_Subs:8 | x + z | EXC NotImplementedError | x + z

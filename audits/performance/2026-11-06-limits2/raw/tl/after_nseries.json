@@ -1,0 +1,932 @@
+{
+"test_nseries.py:test_abs:1": [
+"x",
+0.0002,
+738
+],
+"test_nseries.py:test_abs:2": [
+"x",
+0.0002,
+739
+],
+"test_nseries.py:test_abs:3": [
+"x + 1",
+0.0002,
+740
+],
+"test_nseries.py:test_abs:4": [
+"x - x**3/6 + O(x**4)",
+0.0002,
+741
+],
+"test_nseries.py:test_abs:5": [
+"x - x**3/6 + O(x**4)",
+0.0003,
+742
+],
+"test_nseries.py:test_abs:6": [
+"a*sign(a - 1) - (x - 1)*sign(a - 1) - sign(a - 1)",
+0.0004,
+743
+],
+"test_nseries.py:test_bug2:1": [
+"EXC NotImplementedError",
+0.0011,
+430
+],
+"test_nseries.py:test_bug3:1": [
+"3 - x + x**2 + O(x**3)",
+0.0004,
+448
+],
+"test_nseries.py:test_bug5:1": [
+"(1 + x/l)/w + O(1)",
+0.0008,
+666
+],
+"test_nseries.py:test_bug5:2": [
+"x*log(x)/l**2 + log(x)/l - x/l + (1 + x/l)/w + O(w)",
+0.0008,
+667
+],
+"test_nseries.py:test_cdir:1": [
+"x",
+0.0003,
+757
+],
+"test_nseries.py:test_cdir:2": [
+"-x",
+0.0002,
+758
+],
+"test_nseries.py:test_cdir:3": [
+"2",
+0.0002,
+759
+],
+"test_nseries.py:test_cdir:4": [
+"1",
+0.0002,
+760
+],
+"test_nseries.py:test_cdir:5": [
+"2",
+0.0003,
+761
+],
+"test_nseries.py:test_cdir:6": [
+"3",
+0.0003,
+762
+],
+"test_nseries.py:test_cdir:7": [
+"sin(y) + x*cos(y) - x**2*sin(y)/2 - x**3*cos(y)/6 + x**4*sin(y)/24 + x**5*cos(y)/120 + O(x**6)",
+0.0004,
+763
+],
+"test_nseries.py:test_ceiling:1": [
+"1",
+0.0002,
+726
+],
+"test_nseries.py:test_ceiling:2": [
+"0",
+0.0002,
+727
+],
+"test_nseries.py:test_ceiling:3": [
+"1",
+0.0002,
+728
+],
+"test_nseries.py:test_ceiling:4": [
+"0",
+0.0002,
+729
+],
+"test_nseries.py:test_ceiling:5": [
+"1",
+0.0002,
+730
+],
+"test_nseries.py:test_ceiling:6": [
+"1",
+0.0002,
+731
+],
+"test_nseries.py:test_ceiling:7": [
+"3",
+0.0001,
+732
+],
+"test_nseries.py:test_ceiling:8": [
+"-2",
+0.0001,
+733
+],
+"test_nseries.py:test_dir:1": [
+"x",
+0.0001,
+747
+],
+"test_nseries.py:test_dir:2": [
+"-x",
+0.0002,
+748
+],
+"test_nseries.py:test_dir:3": [
+"2",
+0.0003,
+749
+],
+"test_nseries.py:test_dir:4": [
+"1",
+0.0002,
+750
+],
+"test_nseries.py:test_dir:5": [
+"2",
+0.0003,
+751
+],
+"test_nseries.py:test_dir:6": [
+"3",
+0.0003,
+752
+],
+"test_nseries.py:test_dir:7": [
+"sin(y) + x*cos(y) - x**2*sin(y)/2 - x**3*cos(y)/6 + x**4*sin(y)/24 + x**5*cos(y)/120 + O(x**6)",
+0.0006,
+753
+],
+"test_nseries.py:test_exp2:1": [
+"exp(logw*(1 - log(x)/(log(x) + log(2))))",
+0.0007,
+442
+],
+"test_nseries.py:test_exp:1": [
+"E - E*x/2 + 11*E*x**2/24 + O(x**3)",
+0.0003,
+435
+],
+"test_nseries.py:test_exp_1:1": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + O(x**5)",
+0.0003,
+330
+],
+"test_nseries.py:test_exp_1:2": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + x**6/720 + x**7/5040 + x**8/40320 + x**9/362880 + x**10/3628800 + x**11/39916800 + O(x**12)",
+0.0004,
+331
+],
+"test_nseries.py:test_exp_1:3": [
+"exp(1/x)",
+0.0002,
+334
+],
+"test_nseries.py:test_exp_1:4": [
+"E - E*x + 3*E*x**2/2 - 13*E*x**3/6 + O(x**4)",
+0.0003,
+335
+],
+"test_nseries.py:test_exp_1:5": [
+"exp(2) + x*exp(2) + x**2*exp(2)/2 + x**3*exp(2)/6 + x**4*exp(2)/24 + O(x**5)",
+0.0003,
+337
+],
+"test_nseries.py:test_exp_2:1": [
+"1 + x**3 + x**6/2 + x**9/6 + x**12/24 + O(x**14)",
+0.0003,
+820
+],
+"test_nseries.py:test_exp_sqrt_1:1": [
+"E + E*x/2 + E*x**2/24 + E*sqrt(x) + E*x**(3/2)/6 + E*x**(5/2)/120 + O(x**3)",
+0.0003,
+342
+],
+"test_nseries.py:test_expbug4:1": [
+"log(2) + x*log(2) + O(x**2)",
+0.0004,
+512
+],
+"test_nseries.py:test_expbug4:2": [
+"2 + 2*x*log(2) + O(x**2)",
+0.0004,
+514
+],
+"test_nseries.py:test_expbug4:3": [
+"2 + O(x)",
+0.0004,
+517
+],
+"test_nseries.py:test_expbug4:4": [
+"2 + O(x)",
+0.0004,
+518
+],
+"test_nseries.py:test_expbug5:1": [
+"E - E*x/2 + 11*E*x**2/24 + O(x**3)",
+0.0004,
+526
+],
+"test_nseries.py:test_expbug5:2": [
+"1 + O(x)",
+0.0003,
+528
+],
+"test_nseries.py:test_expsinbug:1": [
+"O(1)",
+0.0002,
+683
+],
+"test_nseries.py:test_expsinbug:2": [
+"1 + O(x)",
+0.0002,
+684
+],
+"test_nseries.py:test_expsinbug:3": [
+"1 + x + O(x**2)",
+0.0002,
+685
+],
+"test_nseries.py:test_expsinbug:4": [
+"1 + x + x**2/2 + O(x**3)",
+0.0002,
+686
+],
+"test_nseries.py:test_expsinbug:5": [
+"1 + x + x**2/2 + O(x**4)",
+0.0002,
+687
+],
+"test_nseries.py:test_expsinbug:6": [
+"1 + x + x**2/2 - x**4/8 + O(x**5)",
+0.0002,
+688
+],
+"test_nseries.py:test_floor:1": [
+"0",
+0.0002,
+693
+],
+"test_nseries.py:test_floor:10": [
+"4",
+0.0002,
+702
+],
+"test_nseries.py:test_floor:11": [
+"2",
+0.0001,
+704
+],
+"test_nseries.py:test_floor:12": [
+"-3",
+0.0001,
+705
+],
+"test_nseries.py:test_floor:13": [
+"1",
+0.0002,
+708
+],
+"test_nseries.py:test_floor:2": [
+"-1",
+0.0002,
+694
+],
+"test_nseries.py:test_floor:3": [
+"0",
+0.0002,
+695
+],
+"test_nseries.py:test_floor:4": [
+"-1",
+0.0002,
+696
+],
+"test_nseries.py:test_floor:5": [
+"0",
+0.0002,
+697
+],
+"test_nseries.py:test_floor:6": [
+"-1",
+0.0002,
+698
+],
+"test_nseries.py:test_floor:7": [
+"0",
+0.0002,
+699
+],
+"test_nseries.py:test_floor:8": [
+"0",
+0.0002,
+700
+],
+"test_nseries.py:test_floor:9": [
+"5",
+0.0002,
+701
+],
+"test_nseries.py:test_frac:1": [
+"x",
+0.0002,
+712
+],
+"test_nseries.py:test_frac:10": [
+"O(x**6)",
+0.0002,
+721
+],
+"test_nseries.py:test_frac:11": [
+"AccumBounds(0, 1) + O(x**6)",
+0.0007,
+722
+],
+"test_nseries.py:test_frac:2": [
+"x + 1",
+0.0002,
+713
+],
+"test_nseries.py:test_frac:3": [
+"2*x",
+0.0003,
+714
+],
+"test_nseries.py:test_frac:4": [
+"2*x + 1",
+0.0003,
+715
+],
+"test_nseries.py:test_frac:5": [
+"x**2",
+0.0002,
+716
+],
+"test_nseries.py:test_frac:6": [
+"x**2",
+0.0002,
+717
+],
+"test_nseries.py:test_frac:7": [
+"x - x**3/6 + x**5/120 + O(x**6)",
+0.0003,
+718
+],
+"test_nseries.py:test_frac:8": [
+"1 + x - x**3/6 + x**5/120 + O(x**6)",
+0.0003,
+719
+],
+"test_nseries.py:test_frac:9": [
+"1/2 + x - x**3/6 + x**5/120 + O(x**6)",
+0.0002,
+720
+],
+"test_nseries.py:test_generalexponent:1": [
+"3 - x + x**2 + O(x**3)",
+0.0004,
+454
+],
+"test_nseries.py:test_generalexponent:2": [
+"2 - x + sqrt(x) + x**(3/2) + O(x**2)",
+0.0004,
+457
+],
+"test_nseries.py:test_generalexponent:3": [
+"sqrt(x) + 1",
+0.0002,
+460
+],
+"test_nseries.py:test_genexp_x2:1": [
+"3 + x + x**2 - sqrt(x) - x**(3/2) - x**(5/2) + O(x**3)",
+0.0005,
+476
+],
+"test_nseries.py:test_genexp_x:1": [
+"1 + x - sqrt(x) - x**(3/2) + O(x**2)",
+0.0003,
+467
+],
+"test_nseries.py:test_geometric_1:1": [
+"1 + x + x**2 + x**3 + x**4 + O(x**5)",
+0.0006,
+319
+],
+"test_nseries.py:test_geometric_1:2": [
+"x + x**2 + x**3 + x**4 + x**5 + O(x**6)",
+0.0004,
+320
+],
+"test_nseries.py:test_geometric_1:3": [
+"x**3 + x**4 + x**5 + x**6 + x**7 + O(x**8)",
+0.0003,
+321
+],
+"test_nseries.py:test_hyperbolic:1": [
+"x + x**3/6 + x**5/120 + O(x**6)",
+0.0002,
+628
+],
+"test_nseries.py:test_hyperbolic:2": [
+"1 + x**2/2 + x**4/24 + O(x**5)",
+0.0002,
+629
+],
+"test_nseries.py:test_hyperbolic:3": [
+"x - x**3/3 + 2*x**5/15 + O(x**6)",
+0.0002,
+630
+],
+"test_nseries.py:test_hyperbolic:4": [
+"1/x + x/3 - x**3/45 + 2*x**5/945 + O(x**6)",
+0.0003,
+631
+],
+"test_nseries.py:test_hyperbolic:5": [
+"x - x**3/6 + 3*x**5/40 + O(x**6)",
+0.0002,
+633
+],
+"test_nseries.py:test_hyperbolic:6": [
+"I*pi/2 - I*x - I*x**3/6 - 3*I*x**5/40 + O(x**6)",
+0.0003,
+634
+],
+"test_nseries.py:test_hyperbolic:7": [
+"x + x**3/3 + x**5/5 + O(x**6)",
+0.0002,
+636
+],
+"test_nseries.py:test_hyperbolic:8": [
+"-I*pi/2 + x + x**3/3 + x**5/5 + O(x**6)",
+0.0003,
+637
+],
+"test_nseries.py:test_issue_3204:1": [
+"x - x**7/18 - x**13/3240 + O(x**17)",
+0.0003,
+543
+],
+"test_nseries.py:test_issue_3224:1": [
+"1 - y/8 - sqrt(y)/2 - y**(3/2)/16 + O(y**2)",
+0.0003,
+548
+],
+"test_nseries.py:test_issue_3258:1": [
+"1 - x/2 + x**2/12 - x**4/720 + O(x**5)",
+0.0003,
+537
+],
+"test_nseries.py:test_issue_3463:1": [
+"EXC NotImplementedError",
+0.0008,
+557
+],
+"test_nseries.py:test_issue_3501:1": [
+"cos(a) - x*sin(a)/2 - x**2*cos(a)/6 + x**3*sin(a)/24 + x**4*cos(a)/120 - x**5*sin(a)/720 + O(x**6)",
+0.0004,
+583
+],
+"test_nseries.py:test_issue_3501:2": [
+"-sin(a) - x*cos(a)/2 + x**2*sin(a)/6 + x**3*cos(a)/24 - x**4*sin(a)/120 - x**5*cos(a)/720 + O(x**6)",
+0.0004,
+586
+],
+"test_nseries.py:test_issue_3502:1": [
+"5/2 + O(x**2)",
+0.0003,
+592
+],
+"test_nseries.py:test_issue_3502:2": [
+"5/2 - 35*x**2/4 + 329*x**4/48 + O(x**6)",
+0.0003,
+593
+],
+"test_nseries.py:test_issue_3503:1": [
+"sin(2)/2 + x*(-sin(2)/4 + cos(2)/2) + O(x**2)",
+0.0003,
+599
+],
+"test_nseries.py:test_issue_3504:1": [
+"(x - 4)*(a/(4*sqrt(1 - 16*a**2)) - asin(4*a)/16) + asin(4*a)/4",
+0.0003,
+769
+],
+"test_nseries.py:test_issue_3505:1": [
+"-1/12 - 7*x**2/288 - 43*x**4/10368 - 1123*x**6/2488320 + 377*x**8/29859840 + O(x**9)",
+0.0008,
+576
+],
+"test_nseries.py:test_issue_3506:1": [
+"-1/4 + 5*x**2/96 + 91*x**4/768 + 11117*x**6/129024 + O(x**7)",
+0.0005,
+604
+],
+"test_nseries.py:test_issue_3507:1": [
+"1/4 + x**2/96 + 19*x**4/5760 + 559*x**6/645120 + 29161*x**8/116121600 + O(x**9)",
+0.0005,
+618
+],
+"test_nseries.py:test_issue_3508:1": [
+"log(x) - x**2/6 - x**4/180 + O(x**5*log(x))",
+0.0003,
+610
+],
+"test_nseries.py:test_issue_3508:2": [
+"log(2) + x*log(2) - 2*x**2/3 - 2*x**3/3 - 4*x**4/45 + O(x**5)",
+0.0003,
+612
+],
+"test_nseries.py:test_issue_3515:1": [
+"8 - 256*x**2/3 + 4096*x**4/15 + O(x**6)",
+0.0003,
+570
+],
+"test_nseries.py:test_issue_3639:1": [
+"sin(1) - x**2*cos(1)/2 + x**4*(-sin(1)/8 + cos(1)/24) + O(x**5)",
+0.0003,
+623
+],
+"test_nseries.py:test_issue_4115:1": [
+"2/x + O(x)",
+0.0004,
+672
+],
+"test_nseries.py:test_issue_4115:2": [
+"2 + O(x)",
+0.0004,
+673
+],
+"test_nseries.py:test_issue_4329:1": [
+"x/3 - pi/6 - 1/(x - pi/2)",
+0.0003,
+784
+],
+"test_nseries.py:test_issue_4329:2": [
+"-x/3 + pi/3 + 1/(x - pi)",
+0.0003,
+786
+],
+"test_nseries.py:test_issue_4329:3": [
+"exp(-1)",
+0.0014,
+788
+],
+"test_nseries.py:test_issue_4441:1": [
+"1 - a*x + a**2*x**2 - a**3*x**3 + a**4*x**4 + O(x**5)",
+0.0002,
+776
+],
+"test_nseries.py:test_issue_4441:2": [
+"1 + x*(-a - b) + x**2*(a**2 + 2*a*b + b**2) + O(x**3)",
+0.0003,
+779
+],
+"test_nseries.py:test_issue_5183:1": [
+"O(x)",
+0.0002,
+792
+],
+"test_nseries.py:test_issue_5183:2": [
+"x + O(x**2)",
+0.0002,
+793
+],
+"test_nseries.py:test_issue_5183:3": [
+"x**2 + 2*x + 1",
+0.0002,
+794
+],
+"test_nseries.py:test_issue_5183:4": [
+"1 + 1/x",
+0.0002,
+795
+],
+"test_nseries.py:test_issue_5183:5": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + O(x**5)",
+0.0007,
+796
+],
+"test_nseries.py:test_issue_5654:1": [
+"-I/(4*a**3*(-I*a + x)) - 1/(4*a**2*(-I*a + x)**2) + O(1, (x, I*a))",
+0.0003,
+802
+],
+"test_nseries.py:test_issue_5654:2": [
+"3/(16*a**4) - I/(4*a**3*(-I*a + x)) - 1/(4*a**2*(-I*a + x)**2) + O(-I*a + x, (x, I*a))",
+0.0004,
+804
+],
+"test_nseries.py:test_issue_5925:1": [
+"0",
+0.0002,
+812
+],
+"test_nseries.py:test_log2:1": [
+"-log(x) + I*pi",
+0.0002,
+374
+],
+"test_nseries.py:test_log3:1": [
+"1/(-l + I*pi)",
+0.0003,
+380
+],
+"test_nseries.py:test_log_power1:1": [
+"EXC NotImplementedError",
+0.0007,
+363
+],
+"test_nseries.py:test_log_series:1": [
+"1/(1 - l)",
+0.0003,
+369
+],
+"test_nseries.py:test_log_singular1:1": [
+"-log(x) + x - x**2/2 + x**3/3 - x**4/4 + O(x**5)",
+0.0003,
+357
+],
+"test_nseries.py:test_logbug4:1": [
+"log(2) + O(x)",
+0.0004,
+522
+],
+"test_nseries.py:test_mul_0:1": [
+"x*log(x)",
+0.0005,
+291
+],
+"test_nseries.py:test_mul_1:1": [
+"x*log(2) + x**2/2 - x**3/8 + x**4/24 + O(x**5)",
+0.0009,
+295
+],
+"test_nseries.py:test_mul_1:2": [
+"x**2 - x**3/2 + x**4/3 + O(x**5)",
+0.0006,
+297
+],
+"test_nseries.py:test_pow_0:1": [
+"x**2",
+0.0003,
+302
+],
+"test_nseries.py:test_pow_0:2": [
+"1/x",
+0.0003,
+303
+],
+"test_nseries.py:test_pow_0:3": [
+"x**(-2)",
+0.0003,
+304
+],
+"test_nseries.py:test_pow_0:4": [
+"x**(2/3)",
+0.0004,
+305
+],
+"test_nseries.py:test_pow_0:5": [
+"x**(3/2)",
+0.0004,
+306
+],
+"test_nseries.py:test_pow_1:1": [
+"x**2 + 2*x + 1",
+0.0004,
+310
+],
+"test_nseries.py:test_pow_1:2": [
+"2*sqrt(x) + x + 1",
+0.0006,
+313
+],
+"test_nseries.py:test_pow_1:3": [
+"2*x**(5/6) + x**(2/3) + x",
+0.0005,
+314
+],
+"test_nseries.py:test_power_x_x1:1": [
+"1 + x*log(x) + x**2*log(x)**2/2 + x**3*log(x)**3/6 + O(x**4*log(x)**4)",
+0.0005,
+347
+],
+"test_nseries.py:test_power_x_x2:1": [
+"1 + x*log(x) + x**2*log(x)**2/2 + x**3*log(x)**3/6 + O(x**4*log(x)**4)",
+0.0004,
+352
+],
+"test_nseries.py:test_series1:1": [
+"O(1)",
+0.0002,
+386
+],
+"test_nseries.py:test_series1:2": [
+"O(x)",
+0.0001,
+387
+],
+"test_nseries.py:test_series1:3": [
+"x + O(x**2)",
+0.0002,
+388
+],
+"test_nseries.py:test_series1:4": [
+"x + O(x**3)",
+0.0002,
+389
+],
+"test_nseries.py:test_series1:5": [
+"x - x**3/6 + O(x**4)",
+0.0002,
+390
+],
+"test_nseries.py:test_series1:6": [
+"1 + x/2 + x**2/6 + O(x**3)",
+0.0003,
+393
+],
+"test_nseries.py:test_series1:7": [
+"x",
+0.0002,
+395
+],
+"test_nseries.py:test_series1_failing:1": [
+"O(1)",
+0.0001,
+400
+],
+"test_nseries.py:test_series1_failing:2": [
+"O(x)",
+0.0001,
+401
+],
+"test_nseries.py:test_series2:1": [
+"-exp(1/x) + w*exp(1/x)/2 - w**2*exp(1/x)/6 + w**3*exp(1/x)/24 + O(w**4)",
+0.0005,
+644
+],
+"test_nseries.py:test_series2x:1": [
+"1 - 2*x + 3*x**2 - 4*x**3 + O(x**4)",
+0.0003,
+410
+],
+"test_nseries.py:test_series2x:10": [
+"x - x**2 + x**3 + O(x**4)",
+0.0003,
+421
+],
+"test_nseries.py:test_series2x:11": [
+"x**2 - x**4 + O(x**6)",
+0.0003,
+422
+],
+"test_nseries.py:test_series2x:2": [
+"1 - x + x**2 - x**3 + O(x**4)",
+0.0003,
+411
+],
+"test_nseries.py:test_series2x:3": [
+"1",
+0.0001,
+412
+],
+"test_nseries.py:test_series2x:4": [
+"x + 1",
+0.0002,
+413
+],
+"test_nseries.py:test_series2x:5": [
+"x**2 + 2*x + 1",
+0.0002,
+414
+],
+"test_nseries.py:test_series2x:6": [
+"1 + 3*x + 3*x**2 + O(x**3)",
+0.0002,
+415
+],
+"test_nseries.py:test_series2x:7": [
+"1 - x + x**2 - x**3 + O(x**4)",
+0.0002,
+417
+],
+"test_nseries.py:test_series2x:8": [
+"3 - 5*x + 12*x**2 - 24*x**3 + O(x**4)",
+0.0003,
+418
+],
+"test_nseries.py:test_series2x:9": [
+"1 + 3/x + 3/x**2 + x**(-3)",
+0.0003,
+420
+],
+"test_nseries.py:test_series3:1": [
+"1/2 + w**2/8 + 13*w**4/240 + 529*w**6/24192 + O(w**8)",
+0.0004,
+650
+],
+"test_nseries.py:test_seriesbug1:1": [
+"1/x",
+0.0002,
+405
+],
+"test_nseries.py:test_seriesbug1:2": [
+"x + 1/x",
+0.0002,
+406
+],
+"test_nseries.py:test_seriesbug2:1": [
+"2 + O(w)",
+0.0002,
+483
+],
+"test_nseries.py:test_seriesbug2:2": [
+"2",
+0.0003,
+484
+],
+"test_nseries.py:test_seriesbug2b:1": [
+"2 - 4*w**2/3 + O(w**3)",
+0.0003,
+491
+],
+"test_nseries.py:test_seriesbug2c:1": [
+"2 + O(w)",
+0.0002,
+504
+],
+"test_nseries.py:test_seriesbug2c:2": [
+"2 + 2*w*log(2) + w**2*(-4/3 + log(2)**2) + O(w**3)",
+0.0003,
+505
+],
+"test_nseries.py:test_seriesbug2c:3": [
+"2",
+0.0003,
+507
+],
+"test_nseries.py:test_seriesbug2d:1": [
+"log(2) - 2*w**2/3 - 4*w**4/45 + O(w**5)",
+0.0003,
+497
+],
+"test_nseries.py:test_simple_1:1": [
+"x",
+0.0011,
+283
+],
+"test_nseries.py:test_simple_1:2": [
+"y",
+0.0002,
+284
+],
+"test_nseries.py:test_simple_1:3": [
+"1/(x*y)",
+0.0008,
+285
+],
+"test_nseries.py:test_simple_1:4": [
+"3/4",
+0.0003,
+286
+],
+"test_nseries.py:test_simple_1:5": [
+"x",
+0.0002,
+287
+],
+"test_nseries.py:test_sin:1": [
+"8*x - 256*x**3/3 + O(x**4)",
+0.0003,
+561
+],
+"test_nseries.py:test_sin:2": [
+"sin(y) + O(x)",
+0.0002,
+562
+],
+"test_nseries.py:test_sin:3": [
+"sin(y) + x*cos(y) + O(x**2)",
+0.0002,
+563
+],
+"test_nseries.py:test_sin:4": [
+"sin(y) + x*cos(y) - x**2*sin(y)/2 - x**3*cos(y)/6 + x**4*sin(y)/24 + O(x**5)",
+0.0003,
+564
+],
+"test_nseries.py:test_sinsinbug:1": [
+"x - x**3/3 + x**5/10 - 8*x**7/315 + O(x**8)",
+0.0003,
+532
+],
+"test_nseries.py:test_sqrt_1:1": [
+"1 + x/2 - x**2/8 + x**3/16 - 5*x**4/128 + O(x**5)",
+0.0003,
+326
+]
+}

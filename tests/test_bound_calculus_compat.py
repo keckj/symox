@@ -44,7 +44,9 @@ def test_limit_is_native_arithmetic_with_exact_public_args_and_scope():
     assert held.is_commutative is None
     assert sm.Function('Limit')(x).is_Limit is False
     assert not isinstance(sm.Function('Limit')(x),sm.Limit)
-    with pytest.raises(NotImplementedError):held.subs(x,2)
+    # SymPy 1.14: Limit.__new__ takes any variable expression, so the
+    # substitution of the variable is a held Limit in 2, not an error
+    assert held.subs(x,2).args==(f(2)+y,sm.Integer(2),0,sm.Symbol('+'))
     with pytest.raises(NotImplementedError):sm.Limit(f(x),x,x)
     with pytest.raises(ValueError):sm.Limit(f(x),x,0,dir='invalid')
 

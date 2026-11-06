@@ -1,0 +1,93 @@
+after: 1211/1293 identical, 82 differ
+    26  formal power series (fps) gaps
+          test_formal.py:test_fps:2
+          test_formal.py:test_fps__Add_expr:3
+          test_formal.py:test_fps__asymptotic:1
+          test_formal.py:test_fps__asymptotic:3
+          test_formal.py:test_fps__asymptotic:5
+          test_formal.py:test_fps__fractional:1
+          test_formal.py:test_fps__fractional:2
+          test_formal.py:test_fps__fractional:3
+          test_formal.py:test_fps__fractional:4
+          test_formal.py:test_fps__fractional:5
+          test_formal.py:test_fps__hyper:10
+          test_formal.py:test_fps__logarithmic_singularity_fail:1
+          test_formal.py:test_fps__operations:1
+          test_formal.py:test_fps__operations:13
+          test_formal.py:test_fps__operations:14
+          test_formal.py:test_fps__operations:2
+          test_formal.py:test_fps__operations:3
+          test_formal.py:test_fps__operations:5
+          test_formal.py:test_fps__operations:6
+          test_formal.py:test_fps__operations:7
+          test_formal.py:test_fps__operations:8
+          test_formal.py:test_fps__operations:9
+          test_formal.py:test_fps_shift:1
+          test_formal.py:test_fps_symbolic:2
+          test_formal.py:test_fps_symbolic:4
+          test_formal.py:test_fps_symbolic:5
+    20  series/nseries: value form or order term differs
+          test_aseries.py:test_simple:5
+          test_nseries.py:test_abs:6
+          test_nseries.py:test_bug5:1
+          test_nseries.py:test_bug5:2
+          test_nseries.py:test_exp2:1
+          test_nseries.py:test_exp_sqrt_1:1
+          test_nseries.py:test_issue_3503:1
+          test_nseries.py:test_issue_3508:1
+          test_nseries.py:test_issue_3639:1
+          test_nseries.py:test_issue_4441:2
+          test_nseries.py:test_series1_failing:1
+          test_nseries.py:test_series1_failing:2
+          test_series.py:test_issue_12791:1
+          test_series.py:test_issue_19534:1
+          test_series.py:test_issue_21245:1
+          test_series.py:test_issue_21938:1
+          test_series.py:test_issue_24266:3
+          test_series.py:test_issue_5223:19
+          test_series.py:test_issue_6318:1
+          test_series.py:test_issue_9173:1
+    11  value form: rational/trig/sign canonical form differs (same value)
+          test_gruntz.py:test_aseries_trig:1
+          test_limits.py:test_issue_14393:1
+          test_limits.py:test_issue_16708:1
+          test_limits.py:test_issue_17751:1
+          test_limits.py:test_issue_21785:1
+          test_limits.py:test_issue_5740:1
+          test_limits.py:test_issue_6364:1
+          test_limits.py:test_rational:1
+          test_limits.py:test_rational:2
+          test_limits.py:test_series_AccumBounds:4
+          test_limits.py:test_series_AccumBounds:5
+     8  series/nseries: symbolic or log exponents (NotImplementedError)
+          test_aseries.py:test_simple:2
+          test_aseries.py:test_simple:6
+          test_aseries.py:test_simple:7
+          test_nseries.py:test_bug2:1
+          test_nseries.py:test_issue_3463:1
+          test_nseries.py:test_log_power1:1
+          test_series.py:test_issue_14384:3
+          test_series.py:test_issue_6350:1
+     5  Order: noncommutative/conjugate/subs/multivariate forms
+          test_order.py:test_free_symbols:4
+          test_order.py:test_free_symbols:5
+          test_order.py:test_ln_args:3
+          test_order.py:test_order_failing_due_to_solveset:1
+          test_order.py:test_simple_8:5
+     4  limit evaluates where SymPy holds (validated or proposed deviation)
+          test_limits.py:test_issue_19770:2
+          test_limits.py:test_issue_7535:1
+          test_limits.py:test_issue_7535:2
+          test_limits.py:test_issue_7535:3
+     3  sympy-better-or-equal: symox value correct, SymPy wrong/timeout
+          test_gruntz.py:test_gruntz_eval_special_slow:2
+          test_gruntz.py:test_issue_5172:2
+          test_limits.py:test_issue_5172:2
+     3  series of undefined functions / Subs / Derivative
+          test_series.py:test_issue_3978:2
+          test_series.py:test_issue_3978:5
+          test_series.py:test_issue_5223:12
+     1  gruntz API: pure gruntz (I*a coefficient -> c0*oo, errors)
+          test_gruntz.py:test_gruntz_eval_special_fail:1
+     1  test not evaluated (statement harness)
+          test_limits.py:test_sympyissue_22986:1

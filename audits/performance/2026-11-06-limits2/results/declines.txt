@@ -1,0 +1,32 @@
+== tl before: 87 declines {'before_aseries.trace.json': 0, 'before_demidovich.trace.json': 0, 'before_formal.trace.json': 0, 'before_gruntz.trace.json': 1, 'before_limits.trace.json': 85, 'before_lseries.trace.json': 0, 'before_nseries.trace.json': 0, 'before_order.trace.json': 1, 'before_series.trace.json': 0}
+    67  series in mrv variable
+     3  continuity of an undefined function is not known
+     3  Result depends on the sign of I
+     2  Limits at complex infinity are not implemented
+     2  zero of a function in symbolic leading term
+     1  cancellation in symbolic leading term
+     1  condition Eq(im(_symox_lim_t)/(re(_symox_lim_t)**2 + im(_symox_lim_t)*
+     1  mrv of Integral(2*_symox_lim_t, _symox_lim_t)
+     1  Result depends on the sign of sign(y)
+     1  Result depends on the sign of -sign(y)
+     1  sign of -c
+     1  Result depends on the sign of -sign(log(c))
+     1  Result depends on the sign of sign(2 - n)
+     1  leading term of Mod(_symox_w1, a)
+     1  Not sure of sign of 3 - w
+== pt before: 0 declines {}
+== tl after: 84 declines {'after_aseries.trace.json': 0, 'after_demidovich.trace.json': 0, 'after_formal.trace.json': 0, 'after_gruntz.trace.json': 1, 'after_limits.trace.json': 82, 'after_lseries.trace.json': 0, 'after_nseries.trace.json': 0, 'after_order.trace.json': 1, 'after_series.trace.json': 0}
+    67  series in mrv variable
+     3  continuity of an undefined function is not known
+     3  Result depends on the sign of I
+     2  Limits at complex infinity are not implemented
+     1  cancellation in symbolic leading term
+     1  mrv of Integral(2*_symox_lim_t, _symox_lim_t)
+     1  Result depends on the sign of sign(y)
+     1  Result depends on the sign of -sign(y)
+     1  sign of -c
+     1  Result depends on the sign of -sign(log(c))
+     1  Result depends on the sign of sign(2 - n)
+     1  leading term of Mod(_symox_w1, a)
+     1  Not sure of sign of 3 - w
+== pt after: 0 declines {}

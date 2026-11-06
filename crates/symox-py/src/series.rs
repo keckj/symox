@@ -238,6 +238,13 @@ fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir
     }
 }
 
+/// The reference `heuristics(e, z, z0, dir)` (`None` for its `None`).
+#[pyfunction]
+fn _limit_heuristics(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str) -> PyResult<Option<PyExpr>> {
+    let d = Dir::parse(dir).ok_or_else(|| PyValueError::new_err("direction must be one of '+', '-' or '+-'"))?;
+    Ok(lm::heuristics::heuristics(&to_expr(e)?, &to_expr(z)?, &to_expr(z0)?, d).map(w))
+}
+
 /// The expression with its floats replaced by exact numbers as
 /// `Limit.doit` does (`nsimplify`), or `None` when it has none or a
 /// replacement is undecided.
@@ -364,6 +371,7 @@ fn _gruntz(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, di
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     symox::subs::register_order_point_host(order_point_host);
     m.add_function(wrap_pyfunction!(_limit, m)?)?;
+    m.add_function(wrap_pyfunction!(_limit_heuristics, m)?)?;
     m.add_function(wrap_pyfunction!(_held_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_limit_trace, m)?)?;
     m.add_function(wrap_pyfunction!(_limit_bounded_affine, m)?)?;

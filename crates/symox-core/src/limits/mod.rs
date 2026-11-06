@@ -22,6 +22,7 @@ pub mod floats;
 pub mod symbolic_power;
 pub mod gruntz;
 mod gamma_heuristic;
+pub mod heuristics;
 mod order_elsewhere;
 pub mod trace;
 
@@ -65,7 +66,9 @@ pub fn validate_held(e:&Expr)->Result<(),String>{
     fn visit(e:&Expr,seen:&mut rustc_hash::FxHashMap<usize,Expr>)->Result<(),String>{
         if seen.insert(e.dag_id(),e.clone()).is_some(){return Ok(());}
         if let Kind::Func(Func::Limit,args)=e.kind(){
-            if args.len()!=4 || !args[1].is_symbol(){return Err("held limits require a symbol variable".into());}
+            // Limit.__new__ takes any expression as the variable
+            // (`Limit(x + y, x + y, a)`); only its doit needs a symbol
+            if args.len()!=4 {return Err("held limits take four arguments".into());}
             if crate::traverse::has(&args[2],&args[1]){return Err("limits approaching a variable point are not supported".into());}
         }
         for arg in crate::inspection::scalar_children(e){visit(&arg,seen)?;}
@@ -234,6 +237,11 @@ fn limit_one_sided(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr> {
     if has_nan(&r) && !has_nan(e) {
         return unknown("indeterminate combination of singular leading values");
     }
+    // a value that the assumptions prove zero is the limit 0 (`n + p` with
+    // `p` zero at `n -> 0`)
+    if !matches!(r.kind(), Kind::Num(_)) && crate::assumptions::is_zero(&r) == Some(true) {
+        return Ok(Expr::zero());
+    }
     Ok(r)
 }
 
@@ -296,19 +304,7 @@ fn limit_one_sided_engine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Ex
     }
     // map to x -> oo
     let t = Expr::symbol("_symox_lim_t");
-    let inv = pow(&t, &Expr::minus_one());
-    let v = if x0.is_constant(Constant::Infinity) {
-        t.clone()
-    } else if x0.is_constant(Constant::NegInfinity) {
-        neg(&t)
-    } else if minus {
-        add(&[x0.clone(), neg(&inv)])
-    } else {
-        add(&[x0.clone(), inv])
-    };
-    let mut m = FxHashMap::default();
-    m.insert(x.clone(), v);
-    let et = xreplace(e, &m);
+    let et = to_infinity(e, x, x0, minus, &t);
     let mut g = gruntz::Gruntz::new(&t);
     let r = match g.limitinf(&et) {
         Ok(r) => Ok(r),
@@ -768,12 +764,18 @@ fn collect_real_oscillating(e: &Expr, t: &Expr, g: &mut gruntz::Gruntz, map: &mu
     }
 }
 
+/// `e` at `x = x0 +- 1/t` (`+-t` at an infinite point). As in the
+/// reference `limitinf`, which replaces the variable by a positive dummy,
+/// the substitution is made with a positive symbol, so that the functions
+/// evaluate for a positive argument (`re(1/t)` is `1/t`), and that symbol
+/// is then renamed `t`.
 fn to_infinity(e: &Expr, x: &Expr, x0: &Expr, minus: bool, t: &Expr) -> Expr {
-    let inv = pow(t, &Expr::minus_one());
+    let p = Expr::dummy("p", crate::symbol::Assumptions::POSITIVE);
+    let inv = pow(&p, &Expr::minus_one());
     let v = if x0.is_constant(Constant::Infinity) {
-        t.clone()
+        p.clone()
     } else if x0.is_constant(Constant::NegInfinity) {
-        neg(t)
+        neg(&p)
     } else if minus {
         add(&[x0.clone(), neg(&inv)])
     } else {
@@ -781,7 +783,10 @@ fn to_infinity(e: &Expr, x: &Expr, x0: &Expr, minus: bool, t: &Expr) -> Expr {
     };
     let mut m = FxHashMap::default();
     m.insert(x.clone(), v);
-    xreplace(e, &m)
+    let ep = xreplace(e, &m);
+    let mut back = FxHashMap::default();
+    back.insert(p, t.clone());
+    xreplace(&ep, &back)
 }
 
 fn singular_use(e: &Expr, params: &[Expr], t: &Expr) -> bool {

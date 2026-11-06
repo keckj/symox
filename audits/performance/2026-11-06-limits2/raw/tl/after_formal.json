@@ -1,0 +1,427 @@
+{
+"test_formal.py:test_fps:1": [
+"1 + x + x**2 + O(x**4)",
+0.0003,
+434
+],
+"test_formal.py:test_fps:2": [
+"EXC AttributeError",
+0.0,
+442
+],
+"test_formal.py:test_fps:3": [
+"x - x**3/6 + x**5/120 + O(x**6)",
+0.0002,
+456
+],
+"test_formal.py:test_fps__Add_expr:1": [
+"x**2/2 - x**4/12 + O(x**6)",
+0.0006,
+582
+],
+"test_formal.py:test_fps__Add_expr:2": [
+"x - 3*x**2/2 - x**4/4 + x**5/5 + O(x**6)",
+0.0006,
+585
+],
+"test_formal.py:test_fps__Add_expr:3": [
+"EXC AttributeError",
+0.0003,
+588
+],
+"test_formal.py:test_fps__Add_expr:4": [
+"-2 - x**2/2 - 7*x**3/6 - 25*x**4/24 - 119*x**5/120 + O(x**6)",
+0.0006,
+591
+],
+"test_formal.py:test_fps__asymptotic:1": [
+"O(x**(-6), (x, -oo))",
+0.0003,
+598
+],
+"test_formal.py:test_fps__asymptotic:2": [
+"1 + O(x**(-6), (x, oo))",
+0.0003,
+601
+],
+"test_formal.py:test_fps__asymptotic:3": [
+"-1 + O(x**(-6), (x, -oo))",
+0.0003,
+602
+],
+"test_formal.py:test_fps__asymptotic:4": [
+"-1/(5*x**5) + 1/(3*x**3) - 1/x + pi/2 + O(x**(-6), (x, oo))",
+0.0006,
+605
+],
+"test_formal.py:test_fps__asymptotic:5": [
+"-1/(5*x**5) + 1/(3*x**3) - 1/x - pi/2 + O(x**(-6), (x, -oo))",
+0.0005,
+607
+],
+"test_formal.py:test_fps__compose:1": [
+"1 + x + x**2/2 - x**4/8 - x**5/15 + O(x**6)",
+0.0003,
+835
+],
+"test_formal.py:test_fps__compose:2": [
+"1 + x + x**2/2 - x**4/8 + O(x**5)",
+0.0003,
+836
+],
+"test_formal.py:test_fps__compose:3": [
+"1 + x + x**2/2 + O(x**4)",
+0.0004,
+843
+],
+"test_formal.py:test_fps__compose:4": [
+"1 + x + x**2/2 - x**4/8 - x**5/15 - x**6/240 + x**7/90 + O(x**8)",
+0.0003,
+844
+],
+"test_formal.py:test_fps__compose:5": [
+"1 + x + x**2/2 - x**4/8 - x**5/15 + O(x**6)",
+0.0003,
+846
+],
+"test_formal.py:test_fps__compose:6": [
+"x - x**3/3 + O(x**4)",
+0.0003,
+849
+],
+"test_formal.py:test_fps__compose:7": [
+"x - x**3/3 + x**5/10 - 8*x**7/315 + O(x**8)",
+0.0003,
+850
+],
+"test_formal.py:test_fps__compose:8": [
+"x - x**3/3 + x**5/10 + O(x**6)",
+0.0003,
+851
+],
+"test_formal.py:test_fps__fractional:1": [
+"EXC AttributeError",
+0.0004,
+621
+],
+"test_formal.py:test_fps__fractional:2": [
+"EXC AttributeError",
+0.0003,
+627
+],
+"test_formal.py:test_fps__fractional:3": [
+"EXC AttributeError",
+0.0004,
+632
+],
+"test_formal.py:test_fps__fractional:4": [
+"EXC AttributeError",
+0.0004,
+638
+],
+"test_formal.py:test_fps__fractional:5": [
+"EXC AttributeError",
+0.0003,
+644
+],
+"test_formal.py:test_fps__hyper:1": [
+"x - x**3/6 + x**5/120 + O(x**6)",
+0.0004,
+517
+],
+"test_formal.py:test_fps__hyper:10": [
+"3**(5/6)*gamma(1/3)/(6*pi) - 3**(1/6)*x**2*gamma(2/3)/(2*pi) + O(x**6)",
+0.0017,
+548
+],
+"test_formal.py:test_fps__hyper:11": [
+"x + x**2 + x**3/3 - x**5/30 + O(x**6)",
+0.0005,
+553
+],
+"test_formal.py:test_fps__hyper:12": [
+"1 + x + x**2/3 - x**4/30 - x**5/90 + O(x**6)",
+0.0006,
+556
+],
+"test_formal.py:test_fps__hyper:13": [
+"x - 2*x**3/3 + 2*x**5/15 + O(x**6)",
+0.0004,
+559
+],
+"test_formal.py:test_fps__hyper:2": [
+"1 - x**2/2 + x**4/24 + O(x**6)",
+0.0005,
+520
+],
+"test_formal.py:test_fps__hyper:3": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + O(x**6)",
+0.0005,
+523
+],
+"test_formal.py:test_fps__hyper:4": [
+"x - x**3/3 + x**5/5 + O(x**6)",
+0.0004,
+527
+],
+"test_formal.py:test_fps__hyper:5": [
+"exp(pi/2) - x*exp(pi/2) + x**2*exp(pi/2)/2 - x**3*exp(pi/2)/3 + 5*x**4*exp(pi/2)/24 - x**5*exp(pi/2)/6 + O(x**6)",
+0.0007,
+530
+],
+"test_formal.py:test_fps__hyper:6": [
+"I + x - I*x**2/2 - I*x**4/8 + O(x**6)",
+0.0006,
+535
+],
+"test_formal.py:test_fps__hyper:7": [
+"pi/2 - x + x**3/3 - x**5/5 + O(x**6)",
+0.0006,
+538
+],
+"test_formal.py:test_fps__hyper:8": [
+"x**2/2 - x**4/12 + O(x**6)",
+0.0006,
+541
+],
+"test_formal.py:test_fps__hyper:9": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 + O(x**6)",
+0.0005,
+544
+],
+"test_formal.py:test_fps__inverse:1": [
+"1 - x + x**2/2 - x**3/6 + x**4/24 - x**5/120 + O(x**6)",
+0.0003,
+867
+],
+"test_formal.py:test_fps__inverse:2": [
+"1 - x + x**2/2 - x**3/6 + x**4/24 + O(x**5)",
+0.0002,
+868
+],
+"test_formal.py:test_fps__inverse:3": [
+"1 - x + x**2/2 - x**3/6 + x**4/24 - x**5/120 + x**6/720 - x**7/5040 + O(x**8)",
+0.0003,
+876
+],
+"test_formal.py:test_fps__inverse:4": [
+"1 + x**2/2 + 5*x**4/24 + O(x**6)",
+0.0003,
+879
+],
+"test_formal.py:test_fps__inverse:5": [
+"1 + x**2/2 + 5*x**4/24 + 61*x**6/720 + O(x**8)",
+0.0003,
+880
+],
+"test_formal.py:test_fps__logarithmic_singularity_fail:1": [
+"asech(x)",
+0.0005,
+661
+],
+"test_formal.py:test_fps__operations:1": [
+"EXC NameError",
+0.0,
+712
+],
+"test_formal.py:test_fps__operations:10": [
+"1 - x**2/2 + x**4/24 + O(x**6)",
+0.0002,
+759
+],
+"test_formal.py:test_fps__operations:11": [
+"-x + x**3/6 - x**5/120 + O(x**6)",
+0.0002,
+763
+],
+"test_formal.py:test_fps__operations:12": [
+"-1 + x**2/2 - x**4/24 + O(x**6)",
+0.0002,
+767
+],
+"test_formal.py:test_fps__operations:13": [
+"EXC AttributeError",
+0.0,
+771
+],
+"test_formal.py:test_fps__operations:14": [
+"EXC NameError",
+0.0,
+782
+],
+"test_formal.py:test_fps__operations:15": [
+"x - x**3/6 + x**5/120 + O(x**6)",
+0.0003,
+786
+],
+"test_formal.py:test_fps__operations:2": [
+"EXC NameError",
+0.0,
+717
+],
+"test_formal.py:test_fps__operations:3": [
+"EXC NameError",
+0.0,
+721
+],
+"test_formal.py:test_fps__operations:4": [
+"-1 + x**2/2 - x**4/24 + O(x**6)",
+0.0003,
+725
+],
+"test_formal.py:test_fps__operations:5": [
+"EXC NameError",
+0.0,
+730
+],
+"test_formal.py:test_fps__operations:6": [
+"EXC NameError",
+0.0,
+735
+],
+"test_formal.py:test_fps__operations:7": [
+"EXC NameError",
+0.0,
+739
+],
+"test_formal.py:test_fps__operations:8": [
+"EXC NameError",
+0.0,
+747
+],
+"test_formal.py:test_fps__operations:9": [
+"EXC NameError",
+0.0,
+752
+],
+"test_formal.py:test_fps__product:1": [
+"x + x**2 + x**3/3 + O(x**4)",
+0.0003,
+804
+],
+"test_formal.py:test_fps__product:2": [
+"x - 2*x**3/3 + O(x**4)",
+0.0003,
+813
+],
+"test_formal.py:test_fps__rational:1": [
+"-1/2 - 5*x/4 - 17*x**2/8 - 49*x**3/16 - 129*x**4/32 - 321*x**5/64 + O(x**6)",
+0.0007,
+468
+],
+"test_formal.py:test_fps__rational:10": [
+"atan(2) - 2/5 - 2*(2 - x)**2/25 - 11*(2 - x)**3/375 - 6*(2 - x)**4/625 - 41*(2 - x)**5/15625 + x/5 + O((x - 2)**6, (x, 2))",
+0.0007,
+503
+],
+"test_formal.py:test_fps__rational:11": [
+"x**2/2 - x**4/12 + O(x**6)",
+0.0006,
+508
+],
+"test_formal.py:test_fps__rational:12": [
+"2*x**3/3 + 2*x**7/7 + O(x**10)",
+0.0006,
+511
+],
+"test_formal.py:test_fps__rational:2": [
+"1/2 + 5*x/4 + 17*x**2/8 + 49*x**3/16 + 113*x**4/32 + 241*x**5/64 + O(x**6)",
+0.0007,
+473
+],
+"test_formal.py:test_fps__rational:3": [
+"x + x**2 + 2*x**3 + 3*x**4 + 5*x**5 + O(x**6)",
+0.0006,
+478
+],
+"test_formal.py:test_fps__rational:4": [
+"1/2 - x/2 + x**2/4 - x**4/8 + x**5/8 + O(x**6)",
+0.0006,
+482
+],
+"test_formal.py:test_fps__rational:5": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 + O(x**6)",
+0.0005,
+486
+],
+"test_formal.py:test_fps__rational:6": [
+"log(3) - 2/3 - (x - 2)**2/18 + (x - 2)**3/81 - (x - 2)**4/324 + (x - 2)**5/1215 + x/3 + O((x - 2)**6, (x, 2))",
+0.0007,
+489
+],
+"test_formal.py:test_fps__rational:7": [
+"log(3) - 2/3 - (2 - x)**2/18 - (2 - x)**3/81 - (2 - x)**4/324 - (2 - x)**5/1215 + x/3 + O((x - 2)**6, (x, 2))",
+0.0007,
+492
+],
+"test_formal.py:test_fps__rational:8": [
+"x - x**3/3 + x**5/5 + O(x**6)",
+0.0004,
+497
+],
+"test_formal.py:test_fps__rational:9": [
+"atan(2) - 2/5 - 2*(x - 2)**2/25 + 11*(x - 2)**3/375 - 6*(x - 2)**4/625 + 41*(x - 2)**5/15625 + x/5 + O((x - 2)**6, (x, 2))",
+0.0009,
+500
+],
+"test_formal.py:test_fps__slow:1": [
+"2*x**2 + 2*x**3 - x**4/3 - x**5 + O(x**6)",
+0.0006,
+704
+],
+"test_formal.py:test_fps_shift:1": [
+"EXC AttributeError",
+0.0007,
+564
+],
+"test_formal.py:test_fps_shift:2": [
+"x**3 - x**5/3 + O(x**6)",
+0.0005,
+568
+],
+"test_formal.py:test_fps_shift:3": [
+"x - x**2/2 + x**3/24 - x**4/720 + x**5/40320 + O(x**6)",
+0.0006,
+572
+],
+"test_formal.py:test_fps_shift:4": [
+"x**2 - x**3/2 + x**4/24 - x**5/720 + O(x**6)",
+0.0005,
+576
+],
+"test_formal.py:test_fps_symbolic:1": [
+"-x**(n + 6)/6 + x**(n + 2) + O(x**(n + 8))",
+0.001,
+666
+],
+"test_formal.py:test_fps_symbolic:2": [
+"EXC NotImplementedError",
+0.0003,
+675
+],
+"test_formal.py:test_fps_symbolic:3": [
+"x**(n + 2)/24 + x**(n - 2) - x**n/2 + O(x**(n + 4))",
+0.001,
+680
+],
+"test_formal.py:test_fps_symbolic:4": [
+"EXC NotImplementedError",
+0.0006,
+684
+],
+"test_formal.py:test_fps_symbolic:5": [
+"EXC NotImplementedError",
+0.0003,
+689
+],
+"test_formal.py:test_fps_symbolic:6": [
+"x**(n/2 + 4)/24 - x**(n/2 + 2)/2 + x**(n/2) + O(x**(n/2 + 6))",
+0.0011,
+694
+],
+"test_formal.py:test_fps_symbolic:7": [
+"x**(m + n + 5)/120 - x**(m + n + 3)/6 + x**(m + n + 1) + O(x**(m + n + 6))",
+0.001,
+698
+]
+}

@@ -290,13 +290,33 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
     let mut expr = expr.clone();
     let mut vars: Vec<(Expr, Expr)> = vars.to_vec();
     if let Some((inner, ivars)) = order_parts(&expr) {
+        // Order.__new__ on an order: the variables of both, the inner ones
+        // appended (`Order(Order(x), y) = O(x, x, y)`).
+        if vars.iter().all(|v| ivars.iter().any(|w| w.0 == v.0)) {
+            return expr;
+        }
         expr = inner;
-        if vars.is_empty() {
-            vars = ivars;
+        for v in ivars {
+            if !vars.iter().any(|w| w.0 == v.0) {
+                vars.push(v);
+            }
         }
     }
     if expr.may_have_order() {
-        expr = remove_o(&expr);
+        // An order term inside the expression (`(x + O(x**2))**2` built by
+        // `O(x**2).subs(x, x + O(x**2))`): the expanded expression with
+        // every order term replaced by its own expression keeps the same
+        // leading terms, as `extract_leading_order` does on the reference.
+        let ex = if expr.is_add() && expr.args().iter().all(|t| is_order(t) || !t.may_have_order()) {
+            expr.clone()
+        } else {
+            crate::expand::expand(&expr)
+        };
+        // (`expand` builds the products of order terms again, so that an
+        // order absorbs its factors: `x*O(x**2)` is `O(x**3)`)
+        let terms: Vec<Expr> = add_args(&ex).into_iter().map(|t| order_parts(&t).map_or(t, |(oe, _)| oe)).collect();
+        let r = add(&terms);
+        expr = if r.may_have_order() { remove_o(&ex) } else { r };
     }
     if vars.is_empty() {
         vars = free_symbols(&expr).into_iter().map(|s| (s, Expr::zero())).collect();
@@ -319,6 +339,14 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
     if vars.len() == 1 {
         let (x, p) = &vars[0];
         let mut e0 = to_zero(&expr, x, p);
+        if let Kind::Mul(_, facs) = e0.kind() {
+            // factors whose `x` is bound (`Integral(x, (x, 1, 2))`) are
+            // constants, dropped by `as_independent` as the free ones
+            let facs: Vec<Expr> = facs.iter().map(|(b, q)| mul_factor(b, q)).collect();
+            if facs.iter().any(|f| depends(f, x) && !free_symbols(f).contains(x)) {
+                e0 = mul(&facs.into_iter().filter(|f| free_symbols(f).contains(x)).collect::<Vec<_>>());
+            }
+        }
         if let Some(d) = drop_bounded_trig(&e0, x) {
             e0 = d;
         }
@@ -334,26 +362,63 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
         };
         return raw(from_zero(&lead, x, p), &vars);
     }
-    // several variables: drop the factors free of all of them
+    // several variables: the expanded expression (points moved to the
+    // origin); in a product the factors free of all variables are dropped
+    // and a factor of a single variable is replaced by its own leading
+    // term (`O(x*y*sin(x)*Integral(x, (x, 1, 2))) = O(x**2*y, x, y)`).
     let syms: Vec<Expr> = vars.iter().map(|v| v.0.clone()).collect();
-    let dep = |f: &Expr| syms.iter().any(|s| depends(f, s));
-    let strip = |t: &Expr| match t.kind() {
-        Kind::Mul(_, facs) => mul(&facs.iter().map(|(b, p)| mul_factor(b, p)).filter(|f| dep(f)).collect::<Vec<_>>()),
-        _ if !dep(t) => Expr::one(),
-        _ => as_coeff_mul(t).1,
+    let used = |f: &Expr| -> Vec<Expr> {
+        if !syms.iter().any(|s| depends(f, s)) {
+            return vec![];
+        }
+        let fs = free_symbols(f);
+        syms.iter().filter(|s| fs.contains(s)).cloned().collect()
     };
-    if !expr.is_add() {
-        return raw(strip(&expr), &vars);
-    }
-    // A sum keeps its leading terms only (reference `extract_leading_order`
-    // on the expanded expression, with every point moved to the origin):
-    // `O(1 + x*y) = O(1)`, `O(x + y + x*y) = O(x + y)`. A term whose ratio
-    // to another is not a monomial is kept.
+    let factor_lead = |f: &Expr| -> Expr {
+        let u = used(f);
+        match u.len() {
+            0 => Expr::one(),
+            1 if monomial_x(f, &u[0]).is_none() && !f.may_have_order() => {
+                order_parts(&order(f, &[(u[0].clone(), Expr::zero())])).map_or_else(|| f.clone(), |(oe, _)| oe)
+            }
+            _ => f.clone(),
+        }
+    };
+    // the reference leading term of the whole product raises `PoleError`
+    // when a factor has none (`exp(1/y)`), and a product of functions is
+    // then kept: `O(exp(x)*exp(1/y)) = O(exp(x)*exp(1/y), x, y)`
+    let pole = |f: &Expr| {
+        let u = used(f);
+        u.len() == 1
+            && monomial_x(f, &u[0]).is_none()
+            && !f.may_have_order()
+            && matches!(super::leading_term(f, &u[0], &Expr::zero(), false), Err(super::ser::SErr::Pole(_)))
+    };
+    let strip = |t: &Expr| match t.kind() {
+        Kind::Mul(_, facs) if facs.iter().all(|(b, p)| matches!(mul_factor(b, p).kind(), Kind::Func(..)) || used(&mul_factor(b, p)).is_empty())
+            && facs.iter().any(|(b, p)| pole(&mul_factor(b, p))) =>
+        {
+            mul(&facs.iter().map(|(b, p)| mul_factor(b, p)).filter(|f| !used(f).is_empty()).collect::<Vec<_>>())
+        }
+        Kind::Mul(_, facs) => mul(&facs.iter().map(|(b, p)| factor_lead(&mul_factor(b, p))).collect::<Vec<_>>()),
+        _ => factor_lead(&as_coeff_mul(t).1),
+    };
     let mut e0 = expr.clone();
     for (x, p) in &vars {
         e0 = to_zero(&e0, x, p);
     }
     let e0 = crate::expand::expand(&e0);
+    if !e0.is_add() {
+        let mut e = strip(&e0);
+        for (x, p) in &vars {
+            e = from_zero(&e, x, p);
+        }
+        return raw(e, &vars);
+    }
+    // A sum keeps its leading terms only (reference `extract_leading_order`
+    // on the expanded expression): `O(1 + x*y) = O(1)`,
+    // `O(x + y + x*y) = O(x + y)`. A term whose ratio to another is not a
+    // monomial is kept.
     let zvars: Vec<(Expr, Expr)> = vars.iter().map(|(x, _)| (x.clone(), Expr::zero())).collect();
     let mut kept: Vec<Expr> = Vec::new();
     for t in add_args(&e0) {
@@ -387,11 +452,84 @@ pub fn contains(o: &Expr, t: &Expr) -> bool {
             if tvars.is_empty() && !vars.is_empty() {
                 return contains_expr(&oe, &vars, &Expr::one());
             }
-            return tvars.is_empty() && vars.is_empty();
+            if tvars.is_empty() && vars.is_empty() {
+                return true;
+            }
+            return contains_multi(&oe, &vars, &te, &tvars, 0) == Some(true);
         }
-        return contains_expr(&oe, &vars, &te);
+        return contains_expr(&oe, &vars, &te) || (vars.len() > 1 && contains_multi(&oe, &vars, &te, &tvars, 0) == Some(true));
     }
-    contains_expr(&oe, &vars, t)
+    contains_expr(&oe, &vars, t) || (vars.len() > 1 && contains_plain_multi(&oe, &vars, t))
+}
+
+fn contains_plain_multi(oe: &Expr, vars: &[(Expr, Expr)], t: &Expr) -> bool {
+    if t.may_have_order() {
+        return false;
+    }
+    match order_parts(&order(t, vars)) {
+        Some((te, tvars)) => contains_multi(oe, vars, &te, &tvars, 0) == Some(true),
+        None => false,
+    }
+}
+
+/// The reference `Order.contains` of an order term for several variables
+/// (or different variable sets): equal expressions compare the variables,
+/// a sum is held term by term, a sum order holds what one of its terms
+/// holds, otherwise `limit(o/t, s, point) != 0` must hold alike for every
+/// common variable `s`. `None` when undecided.
+fn contains_multi(oe: &Expr, ovars: &[(Expr, Expr)], te: &Expr, tvars: &[(Expr, Expr)], depth: u32) -> Option<bool> {
+    if te.is_zero() {
+        return Some(true);
+    }
+    if depth > 4 || oe.may_have_order() || te.may_have_order() {
+        return None;
+    }
+    let point = ovars.first().map_or_else(Expr::zero, |v| v.1.clone());
+    if tvars.iter().chain(ovars).any(|v| v.1 != point) {
+        return None;
+    }
+    if te == oe {
+        return Some(tvars.iter().all(|v| ovars.contains(v)));
+    }
+    if te.is_add() {
+        return Some(te.args().iter().all(|a| match order_parts(&order(a, ovars)) {
+            Some((ae, av)) => contains_multi(oe, ovars, &ae, &av, depth + 1) == Some(true),
+            None => false,
+        }));
+    }
+    if oe.is_add() && point.is_zero() {
+        return Some(oe.args().iter().any(|a| match order_parts(&order(a, ovars)) {
+            Some((ae, av)) => contains_multi(&ae, &av, te, tvars, depth + 1) == Some(true),
+            None => false,
+        }));
+    }
+    let common: Vec<Expr> = if !ovars.is_empty() && !tvars.is_empty() {
+        ovars.iter().filter(|v| tvars.iter().any(|w| w.0 == v.0)).map(|v| v.0.clone()).collect()
+    } else if !ovars.is_empty() {
+        ovars.iter().map(|v| v.0.clone()).collect()
+    } else {
+        tvars.iter().map(|v| v.0.clone()).collect()
+    };
+    if common.is_empty() {
+        return None;
+    }
+    let ratio = div(oe, te);
+    let mut r: Option<bool> = None;
+    for s in &common {
+        let l = reentry_guarded(&CONTAINS_ACTIVE, || {
+            crate::limits::limit(&ratio, s, &point, crate::limits::Dir::Plus).ok()
+        })?;
+        if l.is_func(&Func::Limit) {
+            return None;
+        }
+        let l = !l.is_zero();
+        match r {
+            None => r = Some(l),
+            Some(prev) if prev != l => return None,
+            _ => {}
+        }
+    }
+    r
 }
 
 /// The reference `Order.contains` for terms without a power leading
@@ -483,6 +621,11 @@ pub fn add_hook(args: &[Expr]) -> Option<Expr> {
     }
     let mut kept: Vec<Expr> = Vec::with_capacity(orders.len());
     for o in orders {
+        // Add.flatten: an order of a zero expression (`O(w).subs(w, 0)`)
+        // is dropped
+        if order_parts(&o).is_some_and(|(oe, _)| oe.is_zero()) {
+            continue;
+        }
         if kept.iter().any(|k| *k == o || contains(k, &o)) {
             continue;
         }
@@ -542,6 +685,10 @@ pub fn mul_hook(args: &[Expr]) -> Option<Expr> {
 
 /// `O(e)**k = O(e**k)` for a positive number `k`.
 pub fn pow_hook(b: &Expr, k: &Expr) -> Option<Expr> {
+    // Order._eval_power: `O(e)**O(1) = O(e)`
+    if order_parts(k).is_some_and(|(ke, kv)| ke.is_one() && kv.is_empty()) {
+        return Some(b.clone());
+    }
     let n = k.as_number()?;
     if !n.is_positive() {
         return None;

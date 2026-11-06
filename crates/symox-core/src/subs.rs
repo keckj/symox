@@ -258,6 +258,19 @@ fn order_subs(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Ex
         if syms.len() == 1 || contains_old {
             let var = if contains_old { vars[i].0.clone() } else { syms[0].clone() };
             let start = vars[i].1.clone();
+            // A fixed point reached through an order term of the new value
+            // (`O(x).subs(x, x + O(x**2))`): the order at the point of that
+            // term.
+            if new.may_have_order() {
+                if let Some((ne, nvars)) = crate::series::order::get_o(new).and_then(|o| crate::series::order::order_parts(&o)) {
+                    if let Some((_, npoint)) = nvars.first() {
+                        let dir = if npoint.is_constant(crate::expr::Constant::Infinity) { crate::limits::Dir::Minus } else { crate::limits::Dir::Plus };
+                        if crate::limits::limit(&ne, &var, npoint, dir).is_ok_and(|l| l == start) {
+                            return Some(crate::series::order::order(&new_expr, &[(var, npoint.clone())]));
+                        }
+                    }
+                }
+            }
             let mut point = subs1(new, &var, &start);
             if point != start {
                 // solve old = new(d) for d, then evaluate at old = start
