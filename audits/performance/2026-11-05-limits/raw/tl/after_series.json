@@ -16,12 +16,12 @@
 ],
 "test_series.py:test_issue_11313:10": [
 "EXC NotImplementedError",
-0.0004,
+0.0005,
 331
 ],
 "test_series.py:test_issue_11313:11": [
 "EXC NotImplementedError",
-0.0005,
+0.0004,
 332
 ],
 "test_series.py:test_issue_11313:2": [
@@ -56,7 +56,7 @@
 ],
 "test_series.py:test_issue_11313:8": [
 "EXC NotImplementedError",
-0.0005,
+0.0004,
 328
 ],
 "test_series.py:test_issue_11313:9": [
@@ -86,7 +86,7 @@
 ],
 "test_series.py:test_issue_12791:1": [
 "0.5/(0.5*cos(theta) - 1)**2 - 0.25*cos(theta)/(0.5*cos(theta) - 1)**2 + (beta - 0.5)*(-0.25*varphi*sin(2*theta) - 1.5*cos(theta) + 0.25*cos(2*theta) + 1.25)/(0.5*cos(theta) - 1.0)**3 + 0.25*varphi*sin(theta)/(0.5*cos(theta) - 1)**2 + O((beta - 0.5)**2, (beta, 0.500000000000000))",
-0.0273,
+0.0271,
 495
 ],
 "test_series.py:test_issue_14037:1": [
@@ -131,12 +131,12 @@
 ],
 "test_series.py:test_issue_18842:1": [
 "-180019443780011/5000000000000000",
-0.0263,
+0.0261,
 538
 ],
 "test_series.py:test_issue_19534:1": [
 "-0.00092592592592592596126*dt**7 + 0.0027777777777777783175*dt**6 + 0.016666666666666659496*dt**5 + 0.083333333333333300952*dt**4 + 0.33333333333333331483*dt**3 + 0.99999999999999988898*dt**2 + 1.0*dt + 1.0",
-0.0025,
+0.0026,
 583
 ],
 "test_series.py:test_issue_20697:1": [
@@ -216,7 +216,7 @@
 ],
 "test_series.py:test_issue_5223:1": [
 "1",
-0.0004,
+0.0003,
 257
 ],
 "test_series.py:test_issue_5223:10": [
@@ -231,7 +231,7 @@
 ],
 "test_series.py:test_issue_5223:12": [
 "EXC NotImplementedError",
-0.0005,
+0.0006,
 287
 ],
 "test_series.py:test_issue_5223:13": [
@@ -361,12 +361,12 @@
 ],
 "test_series.py:test_issue_9173:2": [
 "b2*y**2 + b1*y + b0 + O(y**3)",
-0.0083,
+0.0084,
 464
 ],
 "test_series.py:test_issue_9549:1": [
 "x**(-5) - 1/x**4 + x**(-3) + 1/x + O(x**(-6), (x, oo))",
-0.0003,
+0.0002,
 469
 ],
 "test_series.py:test_series_of_Subs:1": [
@@ -376,7 +376,7 @@
 ],
 "test_series.py:test_series_of_Subs:2": [
 "EXC NotImplementedError",
-0.0001,
+0.0002,
 345
 ],
 "test_series.py:test_series_of_Subs:3": [

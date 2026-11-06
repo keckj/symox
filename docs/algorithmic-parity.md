@@ -16297,3 +16297,146 @@ Remaining gaps (still Python, recorded):
   contract (Python code runs between two reads) and needs user validation.
 
 Measured: [audit](../audits/performance/2026-11-05-prde/README.md).
+
+## limits (2026-11-05): native Gruntz API, floats in Limit.doit, symbolic exponents, reference errors
+
+This lot follows limgaps (wave 36). The measurements are in
+[audits/performance/2026-11-05-limits](../audits/performance/2026-11-05-limits/README.md).
+Every value was checked against SymPy 1.14.0. On the statement replay of
+the 9 SymPy limit/series test files, 1139/1293 assertion sides now equal
+SymPy (1118 before; 21 fixed, none broken). The native Gruntz declines go
+from 90 to 88. Of the 88, 10 now raise SymPy's `NotImplementedError`
+where the base returned a held `Limit`.
+
+Native now (crates/symox-core):
+
+- `limits/gruntz/api.rs`: the functions of `sympy.series.gruntz`, on the
+  native engine: `compare`, `sign`, `mrv` (an `MrvSet` with the rewrite
+  map), `rewrite`, `mrv_leadterm`, `limitinf` and `gruntz`. Errors are
+  SymPy's (`ValueError` for a non-comparable `compare`, `PoleError`,
+  `NotImplementedError`). Python keeps the `SubsSet` container and the
+  argument conversion (`python/symox/series/gruntz.py`).
+- `limits/floats.rs`: `Limit.doit` calls `nsimplify(e)` when `e` has a
+  float. Each double becomes the rational that `mpmath.identify` finds
+  first (`p/q` with `|p|, |q| <= 1000` at tolerance `1e-15`), or else the
+  rational of its decimal digits. Only certain decisions are reproduced: a
+  residual near the tolerance, a double with no small rational and more
+  than 12 significant digits (where `identify` may return an algebraic or
+  transcendental closed form), a magnitude outside `[1e-12, 1e15)` and an
+  arbitrary precision float leave the expression unchanged. The limit is
+  then computed with the floats, as before. `limit(0.3*1.0**k, k, oo)` is
+  `3/10` (test_limit_with_Float).
+- `limits/symbolic_power.rs`:
+  - `symbolic_power_limit`: the leading-term step of `Limit.doit` for a
+    finite point and one factor `(x - x0)**p` with `p` free of `x` and not
+    a number. The rest gives its leading term `c*(x - x0)**k`, taken from
+    the left in `x0 - x` (then `k` must be an integer and `c` takes
+    `(-1)**k`). With `ex = p + k`: `ex > 0` gives 0, `ex == 0` gives `c`,
+    `ex < 0` gives `oo*sign(c)` from the right and
+    `-oo*sign(c)*(-1)**(1 + ex)` from the left. An undecided sign raises
+    `NotImplementedError("Not sure of sign of ex")`, as in SymPy. The rest
+    must be elementary (`exp`, `log`, trig, hyperbolic, `atan`, algebraic)
+    with a nonzero finite coefficient; otherwise the step declines.
+  - `infinite_power_limit`: `b**p` at `+-oo` with a symbolic `p` whose sign
+    is undecided, and `b` algebraic or logarithmic. These are the outcomes
+    of SymPy's `heuristics` after `gruntz` raises `ValueError` on the
+    symbolic sign:
+    - a lone power gives `limit(b)**p` when `limit(b)` is `+-oo`
+      (`x**w` at `oo` is `oo**w`);
+    - a product of such factors is held;
+    - `x**n` with an integer `n` at `oo` raises
+      `Not sure of sign of -n`.
+    `exp(x)**w` is not taken: SymPy raises `Result depends on the sign of
+    sign(w)` there, which the rewrite step reproduces.
+  - A value of these two steps is returned first. A held outcome or a
+    reference error stands only when the native engine does not decide
+    either: an engine value is never replaced by an undecided outcome
+    (`(n + 1)**k/((n + 1)**(k + 1) - n**(k + 1))` at `oo` stays
+    `1/(k + 1)`, issue 22334).
+  - `constant_base_power`: SymPy's `Limit.pow_heuristics` for a base `b`
+    free of `x`, `exp(limit(p*log(b)))`, after the native engine does not
+    decide. `exp(c*t)` with `c = +-oo` and a number `t` follows the clause
+    of `exp.eval`: `re(t) == 0` gives `nan`, `re(t) > 0` with
+    `im(t) != 0` gives `zoo`, `re(t) < 0` gives 0. `(I/2)**x` at `oo` is
+    0, `(-2)**x` and `(1 + I)**x` are `zoo`, `a**x` is
+    `exp(oo*sign(log(a)))`. Without it, the rewrite step raised `Result
+    depends on the sign of ...` there, where the base held the limit and
+    SymPy answers. `I**x` (SymPy `nan`) stays held.
+  - Before `pow_heuristics` and a second engine pass, the expression is
+    merged by `powsimp`, as `Limit.doit` does after a failed leading term
+    (`engine_or_pow_heuristics` in `limits/mod.rs`): `2**x*(I/4)**x` is
+    0, and `exp(b*x)*exp(-x)` raises `Result depends on the sign of
+    sign(b - 1)` like SymPy, where it was held. The merged pass replaces
+    the original outcome only when it decides or raises the reference
+    error.
+  - `limitinf` reads the sign of an expanded leading coefficient after
+    `factor_terms` (`limits/gruntz.rs`, `infinity_with_sign_of`): the
+    series gives `b/x - 1/x` where SymPy keeps `(b - 1)/x`, so
+    `limitinf((b*x - x)/log(x))` is `oo*sign(b - 1)` (it raised `sign of
+    b - 1`), and `exp(b*x - x)` reaches the reference `Result depends on
+    the sign` error. `mrv_leadterm` still returns the expanded form. The
+    message of that error shows the sign of the leading coefficient of the
+    exponent, as the reference `sign(g.exp, x)` (`sign(b - 1)` for
+    `x*b - x`).
+- `limits/gruntz.rs`:
+  - The rewrite step raises `Result depends on the sign of sign(...)` with
+    SymPy's text. The limit variable is shown positive, so `sign(x*w)` is
+    written `sign(w)`.
+  - `infinity_with_sign_of`: a leading coefficient `c0` with `c0/I` free
+    of `I` gives `c0*oo` (`limit(I*a*x, x, oo)`, test_gruntz_I).
+  - The sign of a symbolic coefficient writes `exp(I*pi*k)` as `(-1)**k`
+    (`unit_powers`, issue 8634).
+  - Bessel J/Y/I/K at `+-I*oo` (`bessel_imaginary_value` in `limits/mod.rs`
+    for the value, the real check in the engine).
+  - `sinh`, `cosh` and `tanh` of an argument with a finite real limit are
+    kept as functions (issue 26991).
+- `limits/mod.rs`: a `zoo` limit point raises
+  `Limits at complex infinity are not implemented`.
+  `reference_not_implemented` lists the messages that SymPy raises as
+  `NotImplementedError`. The binding `_core._limit(..., raise_nie)`
+  raises them; any other undecided limit is still held.
+
+Python (admission, routing and wrappers only, no algorithm):
+
+- `limit()` and `Limit.doit` call `_core._limit` with `raise_nie` and
+  propagate the reference `NotImplementedError`.
+- `Limit(e, x, x0, dir)` with a `dir` that is neither a string nor a
+  Symbol raises SymPy's `TypeError` (argument admission).
+- `Limit.doit` of a limit the native `doit` holds: the existing
+  oscillating route, then the reference `NotImplementedError` of the
+  native decision (`_core._limit(..., raise_nie=True)`).
+
+Remaining gaps (recorded, not corrected in Python):
+
+- The 68 "series in mrv variable" declines (oscillating `sin`, `cos`,
+  `tan`, `frac`) are answered by the existing Python `AccumBounds` walker
+  or held. A Rust port needs `AccumBounds` arithmetic in Rust.
+- `heuristics()` of `sympy.series.limits` is not exposed.
+- Value forms of the meromorphic leading-term path (`test_rational`,
+  issues 5740, 6364, 14393, 16708, 17751), `series_AccumBounds`,
+  issue 21785 (an unsimplified `I`).
+- `Limit` with a non-symbol variable (issue 9205); `re`/`im` limits
+  (issue 21756).
+- Held where SymPy answers or raises: `I**x` at `oo` (SymPy `nan`);
+  `sin(x)**w` at `0+` (SymPy `Not sure of sign of w`); `(3/x)**w` at `0+`
+  (SymPy `oo**w`); `x**a/(x**a + 1)` at `oo` (SymPy raises `Result
+  depends on the sign of -sign(a)`); `Mod(x, a)` at `a` (SymPy raises
+  `Not sure of sign of 1/a`, issue 25230); `x**n` with an integer `n` at
+  `-oo` (SymPy `(-oo)**n`); `2*(x + 1)**w` at `-oo` (SymPy `2*(-oo)**w`).
+- Some `NotImplementedError` texts differ from SymPy's while the class is
+  the same (`limit((-x/(x + 1))**x, x, oo)`).
+- `test_aseries_trig` (test_gruntz): a `log(pi/2)` cancellation.
+- Order, nseries, fps and undefined-function series: unchanged by this lot.
+
+Deviations for validation:
+
+- `gruntz()` falls back to the native limit (with its heuristic steps)
+  after the pure Gruntz algorithm fails, and raises `PoleError` only if
+  that is undecided too. SymPy's `gruntz` raises directly.
+- The undecided float cases above keep the floats.
+
+Unchanged deviations (they differed before this lot): issue 19770
+(`cos(m*x)/x` at `oo` gives 0, SymPy holds), issue 7535
+(`AccumBounds(-oo, oo)`, SymPy holds), issue 13715 (`p` where SymPy gives
+0), and the validated `factorial(x)/x`, `gamma(x)/x` at `-oo` and
+`subfactorial(x)/factorial(x)` held limits.

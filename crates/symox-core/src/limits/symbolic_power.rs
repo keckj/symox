@@ -192,3 +192,65 @@ fn algebraic_or_log(e: &Expr, x: &Expr) -> bool {
         _ => false,
     }
 }
+
+/// `Limit.pow_heuristics` for a base free of `x` (SymPy 1.14): `b**p` is
+/// `exp(limit(p*log(b)))`. The reference reaches it when the leading term
+/// of `b**p` fails, before `gruntz`; it is taken here only after the
+/// native engine does not decide, so an engine value is kept. Examples:
+/// `(I/2)**x` at `oo` is 0, `(-2)**x` and `(1 + I)**x` are `zoo`. A `nan`
+/// (`I**x`) is still undecided in `limit_one_sided`.
+pub fn constant_base_power(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<LRes<Expr>> {
+    let Kind::Pow(b, p) = e.kind() else { return None };
+    if depends(b, x) || !depends(p, x) || b.is_constant(Constant::E) {
+        return None;
+    }
+    let log_b = crate::functions::func(Func::Log, vec![b.clone()]);
+    let l = super::limit_one_sided(&mul2(p, &log_b), x, x0, minus).ok()?;
+    Some(Ok(exp_of_limit(&l)))
+}
+
+/// `exp(l)` with the clause of SymPy's `exp.eval` for `l = coeff*terms`,
+/// `coeff` in `(oo, -oo)` and `terms` a number: `re(terms) == 0` gives
+/// `nan`, `re(terms) > 0` with `im(terms) != 0` gives `zoo`,
+/// `re(terms) < 0` gives 0 (after `terms -> -terms` for `-oo`). Otherwise
+/// the evaluation of the native `exp`.
+fn exp_of_limit(l: &Expr) -> Expr {
+    let plain = || crate::functions::func(Func::Exp, vec![l.clone()]);
+    let Kind::Mul(c, facs) = l.kind() else { return plain() };
+    let infinite = |b: &Expr| b.is_constant(Constant::Infinity) || b.is_constant(Constant::NegInfinity);
+    let Some(at) = facs.iter().position(|(b, q)| infinite(b) && q.is_one()) else {
+        return plain();
+    };
+    // `terms` up to a positive factor: each `sign(a)` is `a/|a|`
+    let mut rest = vec![Expr::num(c.clone())];
+    if facs[at].0.is_constant(Constant::NegInfinity) {
+        rest.push(Expr::minus_one());
+    }
+    for (i, (b, q)) in facs.iter().enumerate() {
+        if i == at {
+            continue;
+        }
+        match b.kind() {
+            Kind::Func(Func::Sign, a) if q.is_one() && a.len() == 1 => rest.push(a[0].clone()),
+            _ => rest.push(pow(b, q)),
+        }
+    }
+    let terms = mul(&rest);
+    if !crate::traverse::free_symbols(&terms).is_empty() || terms.is_zero() {
+        return plain();
+    }
+    let Ok(Some((re, im))) = crate::complex_parts::as_real_imag_bounded(&terms, true, None) else {
+        return plain();
+    };
+    use crate::assumptions as asm;
+    if asm::is_zero(&re) == Some(true) {
+        return Expr::nan();
+    }
+    if asm::is_positive(&re) == Some(true) && asm::is_zero(&im) == Some(false) {
+        return Expr::zoo();
+    }
+    if asm::is_negative(&re) == Some(true) {
+        return Expr::zero();
+    }
+    plain()
+}

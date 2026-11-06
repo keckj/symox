@@ -97,6 +97,20 @@ enveloppes) :
   SymPy et du corpus identiques à main. Trace des Dummies du noyau de base,
   `Poly.free_symbols` des domaines composites et boucles d'admission de
   splitfactor (`risch_sf_admission.rs`) en Rust.
+- limits (`feat-limits-20261105`) : API `sympy.series.gruntz` native
+  (`limits/gruntz/api.rs`), `nsimplify` des flottants de `Limit.doit`
+  (`limits/floats.rs`), étape terme dominant à exposant symbolique et
+  `b**p` en `±oo` (`limits/symbolic_power.rs`), NotImplementedError de
+  référence (signe, `zoo`), Bessel en `±I*oo`, coefficient `I*a`,
+  `(-1)**k` (8634), hyperboliques (26991), `Limit.pow_heuristics` pour
+  une base constante avec la clause `exp(±oo*t)` d'`exp.eval`
+  (`constant_base_power`, `(I/2)**x` → 0, `(-2)**x` → `zoo`), `powsimp`
+  avant `pow_heuristics` et une seconde passe native
+  (`exp(b*x)*exp(-x)` lève l'erreur de signe de SymPy), signe d'un
+  coefficient dominant développé lu après `factor_terms` : sonde
+  symbolique 48/54 identiques à SymPy (15 avant) ; 1139/1293 asserts (1118 avant,
+  21 corrigés, 0 cassé), test_gruntz 37/38, test_limits 158/173 ; déclins
+  Gruntz 90 → 88, dont 10 lèvent maintenant l'erreur de SymPy.
 
 Vague 38 (dans main) :
 - arr2mat : `convert_array_to_matrix`, ses passes, `_EditArrayContraction`
@@ -128,6 +142,11 @@ Vague 38 (dans main) :
 - prde : lire `_core.__dict__` une seule fois par appel de splitfactor
   (au lieu d'environ 395 fois) changerait le contrat d'authentification ;
   non fait, à valider.
+- limits : `gruntz()` se replie sur la limite native (étapes heuristiques)
+  quand l'algorithme de Gruntz seul échoue, là où SymPy lève ; un flottant
+  sans petit rationnel à plus de 12 chiffres significatifs (ou hors
+  `[1e-12, 1e15)`) est gardé tel quel dans `Limit.doit` (SymPy peut y
+  trouver une forme close via `identify`).
 
 Écarts volontaires antérieurs en attente de validation : Markov spec7 1/6,
 conditionnement multi-temps markovrust (22/28 cas où SymPy se trompe) et
@@ -157,7 +176,10 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `EX(a)` Python qui simplifie son élément, ordre des étapes d'expand hors
   produits de radicaux, constructeur RootSum en Python, bruit imaginaire de
   evalf (approché par l'évaluateur double dans l'ordre d'impression).
-- Limites : 175/1293 asserts encore différents ; 90 déclins Gruntz.
+- Limites : 154/1293 asserts encore différents ; 88 déclins Gruntz, dont
+  68 oscillants (`sin`/`cos`/`tan`/`frac`, marcheur `AccumBounds` Python,
+  portage Rust à faire avec l'arithmétique `AccumBounds`) et 10 qui lèvent
+  la NotImplementedError de SymPy.
 - Matrices : perf lambdarr gamma/poly2.
 - Tableaux : 36/201 tests SymPy de tableaux. Les causes sont :
   - la classe ArrayComprehension, en Python ;
@@ -779,12 +801,24 @@ leurs tests avant de les remettre dans cette liste.
 - [ ] Compléter les séries d'une fonction appliquée à un `Piecewise` et les
   séries en l'infini avec conditions indécidables ; localiser correctement
   le nouveau point limite dans `O(x**2).subs(x, cos(x))`.
+- [ ] Limites (après le lot limits du 5 novembre) : porter en Rust le
+  marcheur oscillant `AccumBounds` (68 déclins « series in mrv variable ») ;
+  formes de valeur du chemin méromorphe (`test_rational`, 5740, 6364,
+  14393, 16708, 17751), `series_AccumBounds`, 21785 ; variable non symbole
+  (9205) ; `re`/`im` (21756) ; lever `Not sure of sign of 1/a` pour
+  `Mod(x, a)` en `a` (25230) ; `x**n` et `2*(x + 1)**w` en `-oo` (SymPy
+  `(-oo)**n`, `2*(-oo)**w`) ; `I**x` en `oo` (SymPy `nan`),
+  `(3/x)**w` en `0+` (SymPy `oo**w`), `sin(x)**w` en `0+` et
+  `x**a/(x**a + 1)` en `oo` (SymPy lève) ; `mrv_leadterm` rend le
+  coefficient développé (`b/x - 1/x` pour `(b - 1)/x`) ; `test_aseries_trig`. Ces cas restent non
+  évalués, jamais faux.
 - [ ] Réconcilier les derniers indices et formes du corpus EDO avec les
   correctifs ultérieurs des solveurs et de `simplify`. Les solutions
   séparables/Riccati auparavant implicites sont maintenant résolues ;
   les différences de forme seules ne sont pas des solutions manquantes.
 
 Preuves : [limrest2](docs/algorithmic-parity.md#limrest2-wave-14),
+[limits](audits/performance/2026-11-05-limits/README.md),
 [limite 22334](tests/test_limwrong_parity.py),
 [Piecewise](docs/algorithmic-parity.md#pw-nc-wave-15-piecewise-and-noncommutative-leftovers)
 et [corpus EDO](docs/algorithmic-parity.md#ode-corpus-forms-and-errors-ode-forms-2026-10-23).

@@ -1,17 +1,17 @@
 {
 "test_limits.py:test_Limit:1": [
 "1",
-0.0003,
+0.0004,
 749
 ],
 "test_limits.py:test_Limit:2": [
 "(x, x, 0, +-)",
-0.0,
+0.0001,
 750
 ],
 "test_limits.py:test_atan:1": [
 "0",
-0.0008,
+0.0007,
 845
 ],
 "test_limits.py:test_atan:2": [
@@ -21,12 +21,12 @@
 ],
 "test_limits.py:test_basic1:1": [
 "oo",
-0.0008,
+0.001,
 610
 ],
 "test_limits.py:test_basic1:10": [
 "oo",
-0.0004,
+0.0005,
 619
 ],
 "test_limits.py:test_basic1:11": [
@@ -36,22 +36,22 @@
 ],
 "test_limits.py:test_basic1:12": [
 "oo",
-0.0003,
+0.0004,
 621
 ],
 "test_limits.py:test_basic1:13": [
 "-oo",
-0.0003,
+0.0004,
 622
 ],
 "test_limits.py:test_basic1:14": [
 "1",
-0.0006,
+0.0007,
 623
 ],
 "test_limits.py:test_basic1:15": [
 "Limit((x + 1)**oo, x, 0, dir='+')",
-0.0002,
+0.0003,
 624
 ],
 "test_limits.py:test_basic1:16": [
@@ -66,27 +66,27 @@
 ],
 "test_limits.py:test_basic1:18": [
 "-oo*sign(y)",
-0.0005,
+0.0006,
 627
 ],
 "test_limits.py:test_basic1:19": [
 "oo*sign(cos(y))",
-0.0004,
+0.0005,
 628
 ],
 "test_limits.py:test_basic1:2": [
 "-oo",
-0.0003,
+0.0004,
 611
 ],
 "test_limits.py:test_basic1:20": [
 "2",
-0.0005,
+0.0006,
 629
 ],
 "test_limits.py:test_basic1:21": [
 "nan",
-0.0003,
+0.0004,
 630
 ],
 "test_limits.py:test_basic1:22": [
@@ -96,12 +96,12 @@
 ],
 "test_limits.py:test_basic1:23": [
 "oo",
-0.0003,
+0.0004,
 632
 ],
 "test_limits.py:test_basic1:24": [
 "-oo",
-0.0003,
+0.0004,
 633
 ],
 "test_limits.py:test_basic1:25": [
@@ -121,7 +121,7 @@
 ],
 "test_limits.py:test_basic1:28": [
 "oo",
-0.0003,
+0.0004,
 637
 ],
 "test_limits.py:test_basic1:29": [
@@ -131,7 +131,7 @@
 ],
 "test_limits.py:test_basic1:3": [
 "-oo",
-0.0003,
+0.0004,
 612
 ],
 "test_limits.py:test_basic1:30": [
@@ -141,22 +141,22 @@
 ],
 "test_limits.py:test_basic1:31": [
 "oo",
-0.0006,
+0.0007,
 640
 ],
 "test_limits.py:test_basic1:32": [
 "-oo",
-0.0006,
+0.0007,
 641
 ],
 "test_limits.py:test_basic1:33": [
 "-oo",
-0.0004,
+0.0005,
 642
 ],
 "test_limits.py:test_basic1:34": [
 "oo",
-0.0004,
+0.0005,
 643
 ],
 "test_limits.py:test_basic1:35": [
@@ -166,27 +166,27 @@
 ],
 "test_limits.py:test_basic1:36": [
 "AccumBounds(-oo, oo)",
-0.001,
+0.0011,
 645
 ],
 "test_limits.py:test_basic1:37": [
 "AccumBounds(-oo, oo)",
-0.001,
+0.0011,
 646
 ],
 "test_limits.py:test_basic1:38": [
 "AccumBounds(-oo, oo)",
-0.0011,
+0.0012,
 647
 ],
 "test_limits.py:test_basic1:39": [
 "1",
-0.0002,
+0.0003,
 650
 ],
 "test_limits.py:test_basic1:4": [
 "oo",
-0.0003,
+0.0004,
 613
 ],
 "test_limits.py:test_basic1:40": [
@@ -206,17 +206,17 @@
 ],
 "test_limits.py:test_basic1:43": [
 "oo",
-0.0003,
+0.0004,
 658
 ],
 "test_limits.py:test_basic1:44": [
 "-oo",
-0.0003,
+0.0004,
 661
 ],
 "test_limits.py:test_basic1:45": [
 "oo",
-0.0003,
+0.0004,
 663
 ],
 "test_limits.py:test_basic1:46": [
@@ -226,32 +226,32 @@
 ],
 "test_limits.py:test_basic1:47": [
 "-oo*I",
-0.0004,
+0.0005,
 665
 ],
 "test_limits.py:test_basic1:48": [
 "0",
-0.0003,
+0.0004,
 666
 ],
 "test_limits.py:test_basic1:49": [
 "0",
-0.0004,
+0.0005,
 667
 ],
 "test_limits.py:test_basic1:5": [
 "-oo",
-0.0003,
+0.0004,
 614
 ],
 "test_limits.py:test_basic1:50": [
 "-oo*(-1)**(1 - pi)",
-0.0004,
+0.0005,
 668
 ],
 "test_limits.py:test_basic1:51": [
 "Limit((cos(x) + 1)**oo, x, 0, dir='+')",
-0.0002,
+0.0003,
 669
 ],
 "test_limits.py:test_basic1:52": [
@@ -261,22 +261,22 @@
 ],
 "test_limits.py:test_basic1:53": [
 "-oo",
-0.0004,
+0.0005,
 673
 ],
 "test_limits.py:test_basic1:54": [
 "oo",
-0.0003,
+0.0004,
 674
 ],
 "test_limits.py:test_basic1:55": [
 "-oo",
-0.0003,
+0.0004,
 675
 ],
 "test_limits.py:test_basic1:56": [
 "oo",
-0.0005,
+0.0006,
 676
 ],
 "test_limits.py:test_basic1:57": [
@@ -286,12 +286,12 @@
 ],
 "test_limits.py:test_basic1:6": [
 "0",
-0.0004,
+0.0005,
 615
 ],
 "test_limits.py:test_basic1:7": [
 "0",
-0.0003,
+0.0004,
 616
 ],
 "test_limits.py:test_basic1:8": [
@@ -311,12 +311,12 @@
 ],
 "test_limits.py:test_basic2:2": [
 "1",
-0.0004,
+0.0005,
 682
 ],
 "test_limits.py:test_basic2:3": [
 "1",
-0.0003,
+0.0004,
 683
 ],
 "test_limits.py:test_basic2:4": [
@@ -336,17 +336,17 @@
 ],
 "test_limits.py:test_basic2:7": [
 "oo",
-0.0005,
+0.0006,
 687
 ],
 "test_limits.py:test_basic2:8": [
 "13",
-0.0004,
+0.0005,
 688
 ],
 "test_limits.py:test_basic3:1": [
 "oo",
-0.0003,
+0.0004,
 692
 ],
 "test_limits.py:test_basic3:2": [
@@ -356,32 +356,32 @@
 ],
 "test_limits.py:test_basic4:1": [
 "0",
-0.0003,
+0.0004,
 697
 ],
 "test_limits.py:test_basic4:2": [
 "y + 2",
-0.0003,
+0.0004,
 698
 ],
 "test_limits.py:test_basic4:3": [
 "512 - y/8",
-0.0004,
+0.0005,
 699
 ],
 "test_limits.py:test_basic4:4": [
 "0",
-0.0005,
+0.0006,
 700
 ],
 "test_limits.py:test_basic5:1": [
 "Limit(my(x), x, oo, dir='-')",
-0.0008,
+0.001,
 740
 ],
 "test_limits.py:test_bessel_functions_at_infinity:1": [
 "0",
-0.0008,
+0.0009,
 942
 ],
 "test_limits.py:test_bessel_functions_at_infinity:10": [
@@ -391,227 +391,227 @@
 ],
 "test_limits.py:test_bessel_functions_at_infinity:11": [
 "0",
-0.001,
+0.0011,
 952
 ],
 "test_limits.py:test_bessel_functions_at_infinity:12": [
 "0",
-0.001,
+0.0011,
 953
 ],
 "test_limits.py:test_bessel_functions_at_infinity:13": [
 "0",
-0.0005,
+0.0006,
 954
 ],
 "test_limits.py:test_bessel_functions_at_infinity:14": [
 "-oo*I",
-0.0007,
+0.0008,
 955
 ],
 "test_limits.py:test_bessel_functions_at_infinity:15": [
 "0",
-0.0014,
+0.0016,
 956
 ],
 "test_limits.py:test_bessel_functions_at_infinity:16": [
 "0",
-0.0016,
+0.0015,
 957
 ],
 "test_limits.py:test_bessel_functions_at_infinity:17": [
 "0",
-0.0005,
+0.0006,
 960
 ],
 "test_limits.py:test_bessel_functions_at_infinity:2": [
 "0",
-0.0008,
+0.001,
 943
 ],
 "test_limits.py:test_bessel_functions_at_infinity:3": [
 "oo*I",
-0.0008,
+0.0009,
 944
 ],
 "test_limits.py:test_bessel_functions_at_infinity:4": [
 "-oo*I",
-0.0008,
+0.0009,
 945
 ],
 "test_limits.py:test_bessel_functions_at_infinity:5": [
 "0",
-0.0008,
+0.0009,
 946
 ],
 "test_limits.py:test_bessel_functions_at_infinity:6": [
 "0",
-0.0011,
+0.0013,
 947
 ],
 "test_limits.py:test_bessel_functions_at_infinity:7": [
 "-oo",
-0.0009,
+0.001,
 948
 ],
 "test_limits.py:test_bessel_functions_at_infinity:8": [
 "-oo",
-0.0009,
+0.001,
 949
 ],
 "test_limits.py:test_bessel_functions_at_infinity:9": [
 "oo",
-0.0005,
+0.0007,
 950
 ],
 "test_limits.py:test_branch_cuts:1": [
 "pi - asin(2)",
-0.0015,
+0.0016,
 1171
 ],
 "test_limits.py:test_branch_cuts:10": [
 "-pi + I*atanh(2)",
-0.0013,
+0.0015,
 1180
 ],
 "test_limits.py:test_branch_cuts:11": [
 "pi - I*atanh(2)",
-0.0015,
+0.0016,
 1181
 ],
 "test_limits.py:test_branch_cuts:12": [
 "-I*atanh(2)",
-0.0009,
+0.001,
 1182
 ],
 "test_limits.py:test_branch_cuts:13": [
 "pi/2",
-0.0004,
+0.0005,
 1183
 ],
 "test_limits.py:test_branch_cuts:14": [
 "-pi/2",
-0.0004,
+0.0005,
 1184
 ],
 "test_limits.py:test_branch_cuts:15": [
 "pi/2",
-0.0003,
+0.0004,
 1185
 ],
 "test_limits.py:test_branch_cuts:16": [
 "-pi/2",
-0.0003,
+0.0004,
 1186
 ],
 "test_limits.py:test_branch_cuts:17": [
 "pi - I*acoth(1/2)",
-0.0014,
+0.0015,
 1187
 ],
 "test_limits.py:test_branch_cuts:18": [
 "-I*acoth(1/2)",
-0.001,
+0.0011,
 1188
 ],
 "test_limits.py:test_branch_cuts:19": [
 "I*acoth(1/2)",
-0.001,
+0.0011,
 1189
 ],
 "test_limits.py:test_branch_cuts:2": [
 "asin(2)",
-0.0008,
+0.001,
 1172
 ],
 "test_limits.py:test_branch_cuts:20": [
 "-pi + I*acoth(1/2)",
-0.0015,
+0.0017,
 1190
 ],
 "test_limits.py:test_branch_cuts:21": [
 "pi/2",
-0.0005,
+0.0007,
 1191
 ],
 "test_limits.py:test_branch_cuts:22": [
 "-pi/2",
-0.0008,
+0.001,
 1192
 ],
 "test_limits.py:test_branch_cuts:23": [
 "asec(1/2)",
-0.0013,
+0.0014,
 1193
 ],
 "test_limits.py:test_branch_cuts:24": [
 "-asec(1/2)",
-0.0014,
+0.0016,
 1194
 ],
 "test_limits.py:test_branch_cuts:25": [
 "2*pi - asec(-1/2)",
-0.0012,
+0.0013,
 1195
 ],
 "test_limits.py:test_branch_cuts:26": [
 "asec(-1/2)",
-0.0008,
+0.001,
 1196
 ],
 "test_limits.py:test_branch_cuts:27": [
 "acsc(1/2)",
-0.0009,
+0.0011,
 1197
 ],
 "test_limits.py:test_branch_cuts:28": [
 "pi - acsc(1/2)",
-0.0013,
+0.0015,
 1198
 ],
 "test_limits.py:test_branch_cuts:29": [
 "-pi + acsc(1/2)",
-0.0015,
+0.0017,
 1199
 ],
 "test_limits.py:test_branch_cuts:3": [
 "-asin(2)",
-0.0009,
+0.0012,
 1173
 ],
 "test_limits.py:test_branch_cuts:30": [
 "-acsc(1/2)",
-0.001,
+0.0011,
 1200
 ],
 "test_limits.py:test_branch_cuts:31": [
 "I*pi",
-0.0011,
+0.0013,
 1202
 ],
 "test_limits.py:test_branch_cuts:32": [
 "-I*pi",
-0.0017,
+0.0018,
 1203
 ],
 "test_limits.py:test_branch_cuts:33": [
 "-I*pi",
-0.0015,
+0.0017,
 1204
 ],
 "test_limits.py:test_branch_cuts:34": [
 "I*pi",
-0.0008,
+0.0009,
 1205
 ],
 "test_limits.py:test_branch_cuts:35": [
 "I",
-0.0007,
+0.0008,
 1207
 ],
 "test_limits.py:test_branch_cuts:36": [
 "-I",
-0.0013,
+0.0014,
 1208
 ],
 "test_limits.py:test_branch_cuts:37": [
@@ -621,17 +621,17 @@
 ],
 "test_limits.py:test_branch_cuts:38": [
 "I",
-0.0007,
+0.0008,
 1210
 ],
 "test_limits.py:test_branch_cuts:39": [
 "(-1)**(1/3)",
-0.0008,
+0.0009,
 1212
 ],
 "test_limits.py:test_branch_cuts:4": [
 "-pi + asin(2)",
-0.0013,
+0.0015,
 1174
 ],
 "test_limits.py:test_branch_cuts:40": [
@@ -651,27 +651,27 @@
 ],
 "test_limits.py:test_branch_cuts:5": [
 "-acos(2)",
-0.0012,
+0.0014,
 1175
 ],
 "test_limits.py:test_branch_cuts:6": [
 "acos(2)",
-0.0009,
+0.001,
 1176
 ],
 "test_limits.py:test_branch_cuts:7": [
 "acos(-2)",
-0.0008,
+0.001,
 1177
 ],
 "test_limits.py:test_branch_cuts:8": [
 "2*pi - acos(-2)",
-0.0013,
+0.0015,
 1178
 ],
 "test_limits.py:test_branch_cuts:9": [
 "I*atanh(2)",
-0.0009,
+0.0011,
 1179
 ],
 "test_limits.py:test_ceiling:1": [
@@ -691,7 +691,7 @@
 ],
 "test_limits.py:test_ceiling:12": [
 "248",
-0.0002,
+0.0003,
 801
 ],
 "test_limits.py:test_ceiling:13": [
@@ -701,7 +701,7 @@
 ],
 "test_limits.py:test_ceiling:14": [
 "AccumBounds(-1/2, 3/2)",
-0.0018,
+0.0019,
 805
 ],
 "test_limits.py:test_ceiling:2": [
@@ -746,42 +746,42 @@
 ],
 "test_limits.py:test_ceiling_requires_robust_assumptions:1": [
 "1",
-0.0003,
+0.0004,
 809
 ],
 "test_limits.py:test_ceiling_requires_robust_assumptions:2": [
 "0",
-0.0003,
+0.0004,
 810
 ],
 "test_limits.py:test_ceiling_requires_robust_assumptions:3": [
 "1",
-0.0003,
+0.0004,
 811
 ],
 "test_limits.py:test_ceiling_requires_robust_assumptions:4": [
 "1",
-0.0003,
+0.0004,
 812
 ],
 "test_limits.py:test_ceiling_requires_robust_assumptions:5": [
 "6",
-0.0003,
+0.0004,
 813
 ],
 "test_limits.py:test_ceiling_requires_robust_assumptions:6": [
 "5",
-0.0003,
+0.0004,
 814
 ],
 "test_limits.py:test_ceiling_requires_robust_assumptions:7": [
 "6",
-0.0003,
+0.0004,
 815
 ],
 "test_limits.py:test_ceiling_requires_robust_assumptions:8": [
 "6",
-0.0003,
+0.0004,
 816
 ],
 "test_limits.py:test_exponential2:1": [
@@ -791,17 +791,17 @@
 ],
 "test_limits.py:test_exponential:1": [
 "exp(x)",
-0.0009,
+0.0008,
 896
 ],
 "test_limits.py:test_exponential:2": [
 "exp(x/2)",
-0.0009,
+0.0008,
 897
 ],
 "test_limits.py:test_exponential:3": [
 "exp(x/2)",
-0.0009,
+0.0008,
 898
 ],
 "test_limits.py:test_exponential:4": [
@@ -821,7 +821,7 @@
 ],
 "test_limits.py:test_extended_real_line:1": [
 "Limit(x - oo, x, oo, dir='-')",
-0.0002,
+0.0003,
 1089
 ],
 "test_limits.py:test_extended_real_line:2": [
@@ -856,57 +856,57 @@
 ],
 "test_limits.py:test_factorial:4": [
 "gamma(-oo)",
-0.0005,
+0.0006,
 1141
 ],
 "test_limits.py:test_floor:1": [
 "-2",
-0.0003,
+0.0004,
 754
 ],
 "test_limits.py:test_floor:10": [
 "1",
-0.0002,
+0.0003,
 763
 ],
 "test_limits.py:test_floor:11": [
 "248",
-0.0002,
+0.0003,
 764
 ],
 "test_limits.py:test_floor:12": [
 "247",
-0.0002,
+0.0003,
 765
 ],
 "test_limits.py:test_floor:13": [
 "3/2",
-0.0005,
+0.0007,
 768
 ],
 "test_limits.py:test_floor:14": [
 "AccumBounds(-1/2, 3/2)",
-0.0018,
+0.0023,
 769
 ],
 "test_limits.py:test_floor:15": [
 "1",
-0.0004,
+0.0007,
 772
 ],
 "test_limits.py:test_floor:16": [
 "-2",
-0.0004,
+0.0005,
 773
 ],
 "test_limits.py:test_floor:17": [
 "2",
-0.0004,
+0.0005,
 774
 ],
 "test_limits.py:test_floor:18": [
 "-1",
-0.0004,
+0.0006,
 775
 ],
 "test_limits.py:test_floor:2": [
@@ -916,177 +916,177 @@
 ],
 "test_limits.py:test_floor:3": [
 "-1",
-0.0002,
+0.0003,
 756
 ],
 "test_limits.py:test_floor:4": [
 "-2",
-0.0002,
+0.0003,
 757
 ],
 "test_limits.py:test_floor:5": [
 "0",
-0.0002,
+0.0003,
 758
 ],
 "test_limits.py:test_floor:6": [
 "-1",
-0.0002,
+0.0003,
 759
 ],
 "test_limits.py:test_floor:7": [
 "1",
-0.0002,
+0.0003,
 760
 ],
 "test_limits.py:test_floor:8": [
 "0",
-0.0002,
+0.0003,
 761
 ],
 "test_limits.py:test_floor:9": [
 "2",
-0.0002,
+0.0003,
 762
 ],
 "test_limits.py:test_floor_requires_robust_assumptions:1": [
 "0",
-0.0003,
+0.0004,
 779
 ],
 "test_limits.py:test_floor_requires_robust_assumptions:2": [
 "-1",
-0.0003,
+0.0004,
 780
 ],
 "test_limits.py:test_floor_requires_robust_assumptions:3": [
 "0",
-0.0003,
+0.0004,
 781
 ],
 "test_limits.py:test_floor_requires_robust_assumptions:4": [
 "0",
-0.0003,
+0.0004,
 782
 ],
 "test_limits.py:test_floor_requires_robust_assumptions:5": [
 "5",
-0.0003,
+0.0004,
 783
 ],
 "test_limits.py:test_floor_requires_robust_assumptions:6": [
 "4",
-0.0003,
+0.0004,
 784
 ],
 "test_limits.py:test_floor_requires_robust_assumptions:7": [
 "5",
-0.0003,
+0.0004,
 785
 ],
 "test_limits.py:test_floor_requires_robust_assumptions:8": [
 "5",
-0.0003,
+0.0004,
 786
 ],
 "test_limits.py:test_frac:1": [
 "AccumBounds(0, 1)",
-0.0011,
+0.0013,
 820
 ],
 "test_limits.py:test_frac:10": [
 "0",
-0.0003,
+0.0004,
 830
 ],
 "test_limits.py:test_frac:11": [
 "1/2",
-0.0002,
+0.0003,
 831
 ],
 "test_limits.py:test_frac:12": [
 "AccumBounds(0, 1)",
-0.0011,
+0.0014,
 832
 ],
 "test_limits.py:test_frac:2": [
 "AccumBounds(0, 1)",
-0.0024,
+0.0026,
 821
 ],
 "test_limits.py:test_frac:3": [
 "AccumBounds(1, oo)",
-0.0024,
+0.0027,
 822
 ],
 "test_limits.py:test_frac:4": [
 "AccumBounds(0, oo)",
-0.002,
+0.0023,
 823
 ],
 "test_limits.py:test_frac:5": [
 "0",
-0.0003,
+0.0004,
 824
 ],
 "test_limits.py:test_frac:6": [
 "1",
-0.0003,
+0.0004,
 825
 ],
 "test_limits.py:test_frac:7": [
 "1",
-0.0002,
+0.0003,
 826
 ],
 "test_limits.py:test_frac:8": [
 "0",
-0.0002,
+0.0003,
 827
 ],
 "test_limits.py:test_frac:9": [
 "1",
-0.0003,
+0.0005,
 829
 ],
 "test_limits.py:test_heuristic:1": [
 "EXC NotImplementedError",
-0.0002,
+0.0001,
 882
 ],
 "test_limits.py:test_heuristic:2": [
 "log(2)",
-0.0033,
+0.0031,
 883
 ],
 "test_limits.py:test_issue_10102:1": [
 "1/2",
-0.0006,
+0.0007,
 1472
 ],
 "test_limits.py:test_issue_10102:2": [
 "7/2",
-0.0006,
+0.0007,
 1473
 ],
 "test_limits.py:test_issue_10102:3": [
 "5/2",
-0.0005,
+0.0007,
 1474
 ],
 "test_limits.py:test_issue_10102:4": [
 "1/2",
-0.0005,
+0.0007,
 1475
 ],
 "test_limits.py:test_issue_10102:5": [
 "-1/2",
-0.0005,
+0.0007,
 1476
 ],
 "test_limits.py:test_issue_10102:6": [
 "-2",
-0.0005,
+0.0007,
 1477
 ],
 "test_limits.py:test_issue_10382:1": [
@@ -1096,47 +1096,47 @@
 ],
 "test_limits.py:test_issue_10610:1": [
 "1/3",
-0.0006,
+0.0008,
 1366
 ],
 "test_limits.py:test_issue_10801:1": [
 "pi",
-0.0034,
+0.0032,
 1322
 ],
 "test_limits.py:test_issue_10868:1": [
 "log(2)",
-0.0005,
+0.0006,
 1370
 ],
 "test_limits.py:test_issue_10868:2": [
 "log(2) + 2*I*pi",
-0.0005,
+0.0006,
 1371
 ],
 "test_limits.py:test_issue_10868:3": [
 "oo",
-0.0005,
+0.0006,
 1373
 ],
 "test_limits.py:test_issue_10868:4": [
 "log(2)",
-0.0004,
+0.0006,
 1374
 ],
 "test_limits.py:test_issue_10868:5": [
 "-oo",
-0.0004,
+0.0006,
 1375
 ],
 "test_limits.py:test_issue_10868:6": [
 "oo",
-0.0004,
+0.0005,
 1377
 ],
 "test_limits.py:test_issue_10976:1": [
 "x",
-0.0005,
+0.0006,
 1327
 ],
 "test_limits.py:test_issue_10978:1": [
@@ -1146,7 +1146,7 @@
 ],
 "test_limits.py:test_issue_11496:1": [
 "2",
-0.0007,
+0.0008,
 1352
 ],
 "test_limits.py:test_issue_11879:1": [
@@ -1156,127 +1156,127 @@
 ],
 "test_limits.py:test_issue_12555:1": [
 "2",
-0.0005,
+0.0006,
 1385
 ],
 "test_limits.py:test_issue_12555:2": [
 "oo",
-0.0007,
+0.0008,
 1386
 ],
 "test_limits.py:test_issue_12564:1": [
 "oo",
-0.0006,
+0.0007,
 1407
 ],
 "test_limits.py:test_issue_12564:2": [
 "oo",
-0.0005,
+0.0006,
 1408
 ],
 "test_limits.py:test_issue_12564:3": [
 "oo",
-0.0006,
+0.0007,
 1409
 ],
 "test_limits.py:test_issue_12564:4": [
 "oo",
-0.0005,
+0.0007,
 1410
 ],
 "test_limits.py:test_issue_12564:5": [
 "oo",
-0.0006,
+0.0007,
 1411
 ],
 "test_limits.py:test_issue_12564:6": [
 "oo",
-0.0005,
+0.0007,
 1412
 ],
 "test_limits.py:test_issue_12571:1": [
 "1",
-0.0007,
+0.0008,
 1535
 ],
 "test_limits.py:test_issue_12769:1": [
 "F0**(2*b)*s0*(b - 1)*(r - 1)**2",
-0.0027,
+0.0028,
 1398
 ],
 "test_limits.py:test_issue_13332:1": [
 "25/36",
-0.002,
+0.0022,
 1402
 ],
 "test_limits.py:test_issue_13382:1": [
 "2",
-0.0005,
+0.0006,
 1425
 ],
 "test_limits.py:test_issue_13403:1": [
 "1",
-0.0006,
+0.0007,
 1429
 ],
 "test_limits.py:test_issue_13416:1": [
 "1",
-0.001,
+0.0012,
 1433
 ],
 "test_limits.py:test_issue_13462:1": [
 "x**3/24 - x**2/8 + x/12",
-0.0008,
+0.0009,
 1437
 ],
 "test_limits.py:test_issue_13571:1": [
 "1",
-0.0009,
+0.001,
 1507
 ],
 "test_limits.py:test_issue_13575:1": [
 "acos(erfi(1))",
-0.0114,
+0.012,
 1511
 ],
 "test_limits.py:test_issue_13715:1": [
 "p",
-0.0003,
+0.0004,
 1670
 ],
 "test_limits.py:test_issue_13750:1": [
 "-1",
-0.0004,
+0.0005,
 1442
 ],
 "test_limits.py:test_issue_13750:2": [
 "-1",
-0.0005,
+0.0006,
 1443
 ],
 "test_limits.py:test_issue_14276:1": [
 "E",
-0.001,
+0.0012,
 1450
 ],
 "test_limits.py:test_issue_14313_comment:1": [
 "oo",
-0.0005,
+0.0006,
 1526
 ],
 "test_limits.py:test_issue_14355:1": [
 "0",
-0.0004,
+0.0006,
 836
 ],
 "test_limits.py:test_issue_14355:2": [
 "0",
-0.0004,
+0.0005,
 837
 ],
 "test_limits.py:test_issue_14355:3": [
 "-2",
-0.0004,
+0.0005,
 839
 ],
 "test_limits.py:test_issue_14355:4": [
@@ -1286,42 +1286,42 @@
 ],
 "test_limits.py:test_issue_14393:1": [
 "b*y**b/(a*y**a)",
-0.0004,
+0.0005,
 1544
 ],
 "test_limits.py:test_issue_14411:1": [
 "-oo",
-0.0009,
+0.001,
 1421
 ],
 "test_limits.py:test_issue_14514:1": [
 "1",
-0.0014,
+0.0016,
 1454
 ],
 "test_limits.py:test_issue_14556:1": [
 "exp(-1)",
-0.0017,
+0.0019,
 1548
 ],
 "test_limits.py:test_issue_14574:1": [
 "0",
-0.0008,
+0.001,
 1468
 ],
 "test_limits.py:test_issue_14590:1": [
 "E",
-0.0007,
+0.0008,
 1539
 ],
 "test_limits.py:test_issue_14793:1": [
 "1/360",
-0.0181,
+0.0177,
 1009
 ],
 "test_limits.py:test_issue_14811:1": [
 "oo",
-0.0016,
+0.0017,
 1552
 ],
 "test_limits.py:test_issue_15055:1": [
@@ -1331,12 +1331,12 @@
 ],
 "test_limits.py:test_issue_15146:1": [
 "1/3",
-0.0008,
+0.0009,
 1487
 ],
 "test_limits.py:test_issue_15202:1": [
 "E",
-0.0016,
+0.0017,
 1492
 ],
 "test_limits.py:test_issue_15202:2": [
@@ -1346,7 +1346,7 @@
 ],
 "test_limits.py:test_issue_15282:1": [
 "-2000",
-0.006,
+0.0065,
 1499
 ],
 "test_limits.py:test_issue_15323:1": [
@@ -1356,37 +1356,37 @@
 ],
 "test_limits.py:test_issue_15984:1": [
 "0",
-0.0008,
+0.001,
 1503
 ],
 "test_limits.py:test_issue_16222:1": [
 "exp(1000000000)",
-0.0003,
+0.0004,
 1556
 ],
 "test_limits.py:test_issue_16708:1": [
 "d/vi + ti",
-0.001,
+0.0012,
 1680
 ],
 "test_limits.py:test_issue_16714:1": [
 "exp(E)",
-0.0033,
+0.0034,
 1560
 ],
 "test_limits.py:test_issue_16722:1": [
 "1/gamma(z + 1)",
-0.0016,
+0.0018,
 1565
 ],
 "test_limits.py:test_issue_16722:2": [
 "1/gamma(z + 1)",
-0.0019,
+0.002,
 1567
 ],
 "test_limits.py:test_issue_17325:1": [
 "1",
-0.0004,
+0.0005,
 1515
 ],
 "test_limits.py:test_issue_17325:2": [
@@ -1401,62 +1401,62 @@
 ],
 "test_limits.py:test_issue_17325:4": [
 "zoo",
-0.0002,
+0.0003,
 1518
 ],
 "test_limits.py:test_issue_17431:1": [
 "0",
-0.0021,
+0.0023,
 1571
 ],
 "test_limits.py:test_issue_17431:2": [
 "0",
-0.0021,
+0.0022,
 1573
 ],
 "test_limits.py:test_issue_17431:3": [
 "0",
-0.0026,
+0.0027,
 1575
 ],
 "test_limits.py:test_issue_17671:1": [
 "EulerGamma",
-0.0007,
+0.0009,
 1579
 ],
 "test_limits.py:test_issue_17751:1": [
 "-a*b/(2*(a + 1)**2) - b/(2*(a + 1)**2)",
-0.0008,
+0.001,
 1584
 ],
 "test_limits.py:test_issue_17792:1": [
 "sqrt(2)*sqrt(pi)",
-0.0018,
+0.0021,
 1588
 ],
 "test_limits.py:test_issue_18118:1": [
 "-1",
-0.0003,
+0.0005,
 1592
 ],
 "test_limits.py:test_issue_18118:2": [
 "1",
-0.0003,
+0.0004,
 1593
 ],
 "test_limits.py:test_issue_18306:1": [
 "1",
-0.0006,
+0.0007,
 1597
 ],
 "test_limits.py:test_issue_18378:1": [
 "3",
-0.001,
+0.0012,
 1601
 ],
 "test_limits.py:test_issue_18399:1": [
 "zoo",
-0.0007,
+0.0008,
 1605
 ],
 "test_limits.py:test_issue_18399:2": [
@@ -1466,77 +1466,77 @@
 ],
 "test_limits.py:test_issue_18442:1": [
 "Limit(tan(x)**(2**(sqrt(pi))), x, oo, dir='-')",
-0.0017,
+0.0019,
 1610
 ],
 "test_limits.py:test_issue_18452:1": [
 "1",
-0.0009,
+0.0011,
 1614
 ],
 "test_limits.py:test_issue_18452:2": [
 "1",
-0.001,
+0.0012,
 1615
 ],
 "test_limits.py:test_issue_18473:1": [
 "Limit(sin(x)**(1/x), x, oo, dir='-')",
-0.0024,
+0.0026,
 1619
 ],
 "test_limits.py:test_issue_18473:10": [
 "AccumBounds(1, oo)",
-0.0029,
+0.0031,
 1629
 ],
 "test_limits.py:test_issue_18473:11": [
 "AccumBounds(1, oo)",
-0.003,
+0.0032,
 1630
 ],
 "test_limits.py:test_issue_18473:12": [
 "AccumBounds(0, oo)",
-0.0033,
+0.0038,
 1631
 ],
 "test_limits.py:test_issue_18473:2": [
 "Limit(cos(x)**(1/x), x, oo, dir='-')",
-0.0024,
+0.0025,
 1620
 ],
 "test_limits.py:test_issue_18473:3": [
 "Limit(tan(x)**(1/x), x, oo, dir='-')",
-0.0022,
+0.0024,
 1621
 ],
 "test_limits.py:test_issue_18473:4": [
 "1",
-0.0026,
+0.0029,
 1622
 ],
 "test_limits.py:test_issue_18473:5": [
 "1",
-0.0026,
+0.0029,
 1623
 ],
 "test_limits.py:test_issue_18473:6": [
 "Limit((cos(x) - 2)**(1/x), x, oo, dir='-')",
-0.0025,
+0.0029,
 1624
 ],
 "test_limits.py:test_issue_18473:7": [
 "AccumBounds(0, 1)",
-0.0026,
+0.003,
 1625
 ],
 "test_limits.py:test_issue_18473:8": [
 "AccumBounds(0, oo)",
-0.0033,
+0.0035,
 1626
 ],
 "test_limits.py:test_issue_18473:9": [
 "AccumBounds(0, 1)",
-0.0029,
+0.0032,
 1627
 ],
 "test_limits.py:test_issue_18482:1": [
@@ -1546,12 +1546,12 @@
 ],
 "test_limits.py:test_issue_18508:1": [
 "sqrt(2)",
-0.0007,
+0.0008,
 1639
 ],
 "test_limits.py:test_issue_18508:2": [
 "sqrt(2)",
-0.0006,
+0.0007,
 1640
 ],
 "test_limits.py:test_issue_18508:3": [
@@ -1561,12 +1561,12 @@
 ],
 "test_limits.py:test_issue_18969:1": [
 "LambertW(b)",
-0.0005,
+0.0006,
 1650
 ],
 "test_limits.py:test_issue_18969:2": [
 "exp(LambertW(b))",
-0.0007,
+0.0008,
 1651
 ],
 "test_limits.py:test_issue_18992:1": [
@@ -1576,27 +1576,27 @@
 ],
 "test_limits.py:test_issue_19067:1": [
 "-1",
-0.0008,
+0.0009,
 1660
 ],
 "test_limits.py:test_issue_19154:1": [
 "2*sqrt(3)*pi/3",
-0.0008,
+0.0009,
 1684
 ],
 "test_limits.py:test_issue_19154:2": [
 "-2*sqrt(3)*pi/3",
-0.0008,
+0.0009,
 1685
 ],
 "test_limits.py:test_issue_19453:1": [
 "0",
-0.0047,
+0.0044,
 1703
 ],
 "test_limits.py:test_issue_19453:2": [
 "0",
-0.0473,
+0.0474,
 1704
 ],
 "test_limits.py:test_issue_19586:1": [
@@ -1606,242 +1606,242 @@
 ],
 "test_limits.py:test_issue_19739:1": [
 "0",
-0.0016,
+0.0018,
 1708
 ],
 "test_limits.py:test_issue_19766:1": [
 "2",
-0.001,
+0.0013,
 1712
 ],
 "test_limits.py:test_issue_19770:1": [
 "Limit(cos(m*x)/x, x, oo, dir='-')",
-0.0017,
+0.002,
 1718
 ],
 "test_limits.py:test_issue_19770:2": [
 "0",
-0.0005,
+0.0007,
 1721
 ],
 "test_limits.py:test_issue_19770:3": [
 "AccumBounds(-1, 1)",
-0.0015,
+0.0016,
 1723
 ],
 "test_limits.py:test_issue_19770:4": [
 "0",
-0.0005,
+0.0007,
 1724
 ],
 "test_limits.py:test_issue_20365:1": [
 "-E/2",
-0.0005,
+0.0007,
 1739
 ],
 "test_limits.py:test_issue_20578:1": [
 "0",
-0.0004,
+0.0006,
 1752
 ],
 "test_limits.py:test_issue_20578:2": [
 "0",
-0.0004,
+0.0006,
 1753
 ],
 "test_limits.py:test_issue_20578:3": [
 "0",
-0.0003,
+0.0005,
 1754
 ],
 "test_limits.py:test_issue_21031:1": [
 "E/2",
-0.0008,
+0.001,
 1743
 ],
 "test_limits.py:test_issue_21038:1": [
 "pi/3",
-0.0005,
+0.0007,
 1747
 ],
 "test_limits.py:test_issue_21227:1": [
 "y",
-0.0002,
+0.0003,
 1760
 ],
 "test_limits.py:test_issue_21227:10": [
 "log(log(-x))",
-0.0003,
+0.0004,
 1778
 ],
 "test_limits.py:test_issue_21227:11": [
 "log(log(x))",
-0.0003,
+0.0004,
 1779
 ],
 "test_limits.py:test_issue_21227:2": [
 "-x",
-0.0002,
+0.0003,
 1761
 ],
 "test_limits.py:test_issue_21227:3": [
 "log(-y)",
-0.0002,
+0.0004,
 1765
 ],
 "test_limits.py:test_issue_21227:4": [
 "log(x)",
-0.0002,
+0.0003,
 1766
 ],
 "test_limits.py:test_issue_21227:5": [
 "log(y)",
-0.0002,
+0.0003,
 1770
 ],
 "test_limits.py:test_issue_21227:6": [
 "log(-x)",
-0.0002,
+0.0003,
 1771
 ],
 "test_limits.py:test_issue_21227:7": [
 "log(x)",
-0.0002,
+0.0003,
 1772
 ],
 "test_limits.py:test_issue_21227:8": [
 "log(log(-y))",
-0.0003,
+0.0004,
 1776
 ],
 "test_limits.py:test_issue_21227:9": [
 "log(log(y))",
-0.0003,
+0.0004,
 1777
 ],
 "test_limits.py:test_issue_21415:1": [
 "0",
-0.0005,
+0.0006,
 1784
 ],
 "test_limits.py:test_issue_21415:2": [
 "0",
-0.0007,
+0.0008,
 1785
 ],
 "test_limits.py:test_issue_21530:1": [
 "E",
-0.0008,
+0.0009,
 1789
 ],
 "test_limits.py:test_issue_21550:1": [
 "sqrt(5)/5",
-0.0007,
+0.0008,
 1794
 ],
 "test_limits.py:test_issue_21701:1": [
 "1/645120",
-0.0005,
+0.0007,
 1803
 ],
 "test_limits.py:test_issue_21721:1": [
 "1/2",
-0.0004,
+0.0005,
 1809
 ],
 "test_limits.py:test_issue_21756:1": [
 "5",
-0.0005,
+0.0007,
 1814
 ],
 "test_limits.py:test_issue_21756:2": [
 "Limit((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)*(-exp(2*pi*im(z))*cos(2*pi*re(z)) + 1)/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2) + exp(12*pi*im(z)/5)*sin(2*pi*re(z)/5)*sin(2*pi*re(z))/((-exp(2*pi*im(z)/5)*cos(2*pi*re(z)/5) + 1)**2 + exp(4*pi*im(z)/5)*sin(2*pi*re(z)/5)**2), z, 0, dir='+')",
-0.0068,
+0.0073,
 1815
 ],
 "test_limits.py:test_issue_21785:1": [
 "sqrt(x**2/(1 - x**2) - 1/(1 - x**2))",
-0.0008,
+0.001,
 1820
 ],
 "test_limits.py:test_issue_22181:1": [
 "0",
-0.0006,
+0.0009,
 1824
 ],
 "test_limits.py:test_issue_22220:1": [
 "-sqrt(30)*pi/60",
-0.0007,
+0.0008,
 1832
 ],
 "test_limits.py:test_issue_22220:2": [
 "-sqrt(30)*pi/30",
-0.0011,
+0.0012,
 1833
 ],
 "test_limits.py:test_issue_22220:3": [
 "sqrt(30)*pi/60",
-0.0006,
+0.0008,
 1835
 ],
 "test_limits.py:test_issue_22220:4": [
 "0",
-0.001,
+0.0012,
 1836
 ],
 "test_limits.py:test_issue_22220:5": [
 "2*I*pi",
-0.0007,
+0.0008,
 1845
 ],
 "test_limits.py:test_issue_22220:6": [
 "0",
-0.0006,
+0.0008,
 1846
 ],
 "test_limits.py:test_issue_22334:1": [
 "1/(k + 1)",
-0.0019,
+0.002,
 1851
 ],
 "test_limits.py:test_issue_22334:2": [
 "1/(k + 1)",
-0.0014,
+0.0015,
 1852
 ],
 "test_limits.py:test_issue_22334:3": [
 "1/(k + 1)",
-0.0014,
+0.0015,
 1853
 ],
 "test_limits.py:test_issue_22836_limit:1": [
 "0",
-0.0009,
+0.0011,
 1857
 ],
 "test_limits.py:test_issue_22982_15323:1": [
 "oo",
-0.0018,
+0.0019,
 1997
 ],
 "test_limits.py:test_issue_22982_15323:2": [
 "1",
-0.0008,
+0.001,
 1998
 ],
 "test_limits.py:test_issue_22982_15323:3": [
 "1",
-0.001,
+0.0011,
 1999
 ],
 "test_limits.py:test_issue_22982_15323:4": [
 "oo",
-0.0015,
+0.0017,
 2000
 ],
 "test_limits.py:test_issue_23231:1": [
 "-1",
-0.0006,
+0.0008,
 1866
 ],
 "test_limits.py:test_issue_23752:1": [
@@ -1851,327 +1851,327 @@
 ],
 "test_limits.py:test_issue_23752:2": [
 "-sqrt(3)*I",
-0.0022,
+0.0024,
 1877
 ],
 "test_limits.py:test_issue_23752:3": [
 "sqrt(3)*I",
-0.0008,
+0.0009,
 1878
 ],
 "test_limits.py:test_issue_23752:4": [
 "-sqrt(3)*I",
-0.0015,
+0.0016,
 1879
 ],
 "test_limits.py:test_issue_24276:1": [
 "2",
-0.0009,
+0.0011,
 1884
 ],
 "test_limits.py:test_issue_24276:2": [
 "2",
-0.0137,
+0.0133,
 1885
 ],
 "test_limits.py:test_issue_24276:3": [
 "2",
-0.0011,
+0.0013,
 1886
 ],
 "test_limits.py:test_issue_24276:4": [
 "2",
-0.0243,
+0.0244,
 1887
 ],
 "test_limits.py:test_issue_25230:1": [
 "0",
-0.0004,
+0.0005,
 1895
 ],
 "test_limits.py:test_issue_25230:2": [
 "b",
-0.0003,
+0.0005,
 1896
 ],
 "test_limits.py:test_issue_25230:3": [
 "c",
-0.0003,
+0.0005,
 1897
 ],
 "test_limits.py:test_issue_25230:4": [
 "0",
-0.0003,
+0.0005,
 1898
 ],
 "test_limits.py:test_issue_25582:1": [
 "-oo*I",
-0.0006,
+0.0007,
 1903
 ],
 "test_limits.py:test_issue_25582:2": [
 "oo*I",
-0.0005,
+0.0007,
 1904
 ],
 "test_limits.py:test_issue_25582:3": [
 "pi/2",
-0.0005,
+0.0006,
 1905
 ],
 "test_limits.py:test_issue_25582:4": [
 "0",
-0.0005,
+0.0007,
 1906
 ],
 "test_limits.py:test_issue_25582:5": [
 "pi/2",
-0.0004,
+0.0006,
 1907
 ],
 "test_limits.py:test_issue_25582:6": [
 "0",
-0.0004,
+0.0006,
 1908
 ],
 "test_limits.py:test_issue_25847:1": [
 "pi/4",
-0.0002,
+0.0004,
 1913
 ],
 "test_limits.py:test_issue_25847:10": [
 "pi/4",
-0.0002,
+0.0003,
 1928
 ],
 "test_limits.py:test_issue_25847:11": [
 "0",
-0.0005,
+0.0007,
 1929
 ],
 "test_limits.py:test_issue_25847:12": [
 "pi/2",
-0.0004,
+0.0006,
 1930
 ],
 "test_limits.py:test_issue_25847:13": [
 "0",
-0.0003,
+0.0005,
 1933
 ],
 "test_limits.py:test_issue_25847:14": [
 "pi/2",
-0.0005,
+0.0007,
 1934
 ],
 "test_limits.py:test_issue_25847:15": [
 "oo*I",
-0.0006,
+0.0008,
 1935
 ],
 "test_limits.py:test_issue_25847:16": [
 "pi/2",
-0.0003,
+0.0005,
 1938
 ],
 "test_limits.py:test_issue_25847:17": [
 "0",
-0.0005,
+0.0007,
 1939
 ],
 "test_limits.py:test_issue_25847:18": [
 "-oo*I",
-0.0006,
+0.0008,
 1940
 ],
 "test_limits.py:test_issue_25847:19": [
 "oo",
-0.0005,
+0.0007,
 1943
 ],
 "test_limits.py:test_issue_25847:2": [
 "pi/2",
-0.0006,
+0.0007,
 1914
 ],
 "test_limits.py:test_issue_25847:20": [
 "-I*pi/2",
-0.0005,
+0.0007,
 1944
 ],
 "test_limits.py:test_issue_25847:21": [
 "0",
-0.0005,
+0.0007,
 1945
 ],
 "test_limits.py:test_issue_25847:22": [
 "log(1 + sqrt(2))",
-0.0003,
+0.0005,
 1948
 ],
 "test_limits.py:test_issue_25847:23": [
 "oo",
-0.0005,
+0.0007,
 1949
 ],
 "test_limits.py:test_issue_25847:24": [
 "0",
-0.0005,
+0.0007,
 1950
 ],
 "test_limits.py:test_issue_25847:25": [
 "0",
-0.0003,
+0.0005,
 1953
 ],
 "test_limits.py:test_issue_25847:26": [
 "oo",
-0.0005,
+0.0008,
 1954
 ],
 "test_limits.py:test_issue_25847:27": [
 "I*pi/2",
-0.0004,
+0.0006,
 1955
 ],
 "test_limits.py:test_issue_25847:28": [
 "oo",
-0.0004,
+0.0006,
 1958
 ],
 "test_limits.py:test_issue_25847:29": [
 "0",
-0.0004,
+0.0006,
 1959
 ],
 "test_limits.py:test_issue_25847:3": [
 "0",
-0.0006,
+0.0007,
 1915
 ],
 "test_limits.py:test_issue_25847:30": [
 "-I*pi/2",
-0.0004,
+0.0006,
 1960
 ],
 "test_limits.py:test_issue_25847:31": [
 "0",
-0.0004,
+0.0005,
 1963
 ],
 "test_limits.py:test_issue_25847:32": [
 "I*pi/2",
-0.0005,
+0.0007,
 1964
 ],
 "test_limits.py:test_issue_25847:33": [
 "oo",
-0.0005,
+0.0007,
 1965
 ],
 "test_limits.py:test_issue_25847:34": [
 "log(1 + sqrt(2))",
-0.0003,
+0.0005,
 1968
 ],
 "test_limits.py:test_issue_25847:35": [
 "0",
-0.0004,
+0.0006,
 1969
 ],
 "test_limits.py:test_issue_25847:36": [
 "oo",
-0.0004,
+0.0007,
 1970
 ],
 "test_limits.py:test_issue_25847:4": [
 "pi/2",
-0.0003,
+0.0004,
 1918
 ],
 "test_limits.py:test_issue_25847:5": [
 "-oo*I",
-0.0006,
+0.0008,
 1919
 ],
 "test_limits.py:test_issue_25847:6": [
 "0",
-0.0006,
+0.0008,
 1920
 ],
 "test_limits.py:test_issue_25847:7": [
 "0",
-0.0003,
+0.0004,
 1923
 ],
 "test_limits.py:test_issue_25847:8": [
 "oo*I",
-0.0005,
+0.0008,
 1924
 ],
 "test_limits.py:test_issue_25847:9": [
 "pi/2",
-0.0004,
+0.0006,
 1925
 ],
 "test_limits.py:test_issue_26040:1": [
 "E",
-0.0006,
+0.0008,
 1974
 ],
 "test_limits.py:test_issue_26250:1": [
 "-1/8",
-0.0016,
+0.0019,
 1982
 ],
 "test_limits.py:test_issue_26513:1": [
 "exp(-1)",
-0.0006,
+0.0008,
 1986
 ],
 "test_limits.py:test_issue_26513:2": [
 "exp(-1)",
-0.0007,
+0.0008,
 1987
 ],
 "test_limits.py:test_issue_26916:1": [
 "0",
-0.0004,
+0.0006,
 1992
 ],
 "test_limits.py:test_issue_26916:2": [
 "0",
-0.0005,
+0.0006,
 1993
 ],
 "test_limits.py:test_issue_26991:1": [
 "1/sinh(1)",
-0.001,
+0.0012,
 2004
 ],
 "test_limits.py:test_issue_27278:1": [
 "1",
-0.0016,
+0.0017,
 2008
 ],
 "test_limits.py:test_issue_2929:1": [
 "0",
-0.0007,
+0.0008,
 972
 ],
 "test_limits.py:test_issue_3792:1": [
 "4 - 4*cos(1/2)",
-0.0005,
+0.0006,
 976
 ],
 "test_limits.py:test_issue_3792:2": [
 "sin(sin(1) + 1)",
-0.0004,
+0.0005,
 977
 ],
 "test_limits.py:test_issue_3792:3": [
 "sin(1) + 1",
-0.0004,
+0.0005,
 978
 ],
 "test_limits.py:test_issue_3871:1": [
@@ -2186,22 +2186,22 @@
 ],
 "test_limits.py:test_issue_3885:1": [
 "x*y + 2*x",
-0.0003,
+0.0005,
 744
 ],
 "test_limits.py:test_issue_3934:1": [
 "1",
-0.0015,
+0.0016,
 1073
 ],
 "test_limits.py:test_issue_3934:2": [
 "5",
-0.0014,
+0.0015,
 1074
 ],
 "test_limits.py:test_issue_4090:1": [
 "1/5",
-0.0004,
+0.0005,
 982
 ],
 "test_limits.py:test_issue_4090:2": [
@@ -2216,7 +2216,7 @@
 ],
 "test_limits.py:test_issue_4090:4": [
 "log(2)/(pi + 4)",
-0.0006,
+0.0007,
 985
 ],
 "test_limits.py:test_issue_4099:1": [
@@ -2231,7 +2231,7 @@
 ],
 "test_limits.py:test_issue_4099:3": [
 "-oo*sign(a)",
-0.0004,
+0.0005,
 1232
 ],
 "test_limits.py:test_issue_4099:4": [
@@ -2246,12 +2246,12 @@
 ],
 "test_limits.py:test_issue_4547:1": [
 "oo",
-0.0003,
+0.0004,
 989
 ],
 "test_limits.py:test_issue_4547:2": [
 "0",
-0.0003,
+0.0004,
 990
 ],
 "test_limits.py:test_issue_5164:1": [
@@ -2276,12 +2276,12 @@
 ],
 "test_limits.py:test_issue_5172:1": [
 "1",
-0.0032,
+0.0031,
 1160
 ],
 "test_limits.py:test_issue_5172:2": [
 "(2*(2/(r + 1))**p + (r - 1)/(r + 1)**p)/(r + 1)",
-0.0104,
+0.0103,
 1161
 ],
 "test_limits.py:test_issue_5184:1": [
@@ -2291,32 +2291,32 @@
 ],
 "test_limits.py:test_issue_5184:2": [
 "pi/2",
-0.0004,
+0.0005,
 1038
 ],
 "test_limits.py:test_issue_5184:3": [
 "oo",
-0.0006,
+0.0007,
 1039
 ],
 "test_limits.py:test_issue_5184:4": [
 "0",
-0.0005,
+0.0006,
 1040
 ],
 "test_limits.py:test_issue_5184:5": [
 "sqrt(pi)",
-0.0004,
+0.0005,
 1041
 ],
 "test_limits.py:test_issue_5184:6": [
 "0",
-0.0005,
+0.0006,
 1044
 ],
 "test_limits.py:test_issue_5229:1": [
 "0",
-0.0005,
+0.0006,
 1048
 ],
 "test_limits.py:test_issue_5383:1": [
@@ -2331,7 +2331,7 @@
 ],
 "test_limits.py:test_issue_5955:1": [
 "1",
-0.0005,
+0.0006,
 1078
 ],
 "test_limits.py:test_issue_5955:2": [
@@ -2346,12 +2346,12 @@
 ],
 "test_limits.py:test_issue_5955:4": [
 "1",
-0.0041,
+0.0042,
 1081
 ],
 "test_limits.py:test_issue_6052:1": [
 "0",
-0.0003,
+0.0004,
 1245
 ],
 "test_limits.py:test_issue_6052:2": [
@@ -2361,7 +2361,7 @@
 ],
 "test_limits.py:test_issue_6364:1": [
 "1/(-sin(a)**2/2 + cos(a)**2/2)",
-0.0034,
+0.0032,
 1221
 ],
 "test_limits.py:test_issue_6366:1": [
@@ -2371,12 +2371,12 @@
 ],
 "test_limits.py:test_issue_6560:1": [
 "5*x**3/4 + 3*x**2/4 - 3*x/4 - 1/4",
-0.0008,
+0.0007,
 1147
 ],
 "test_limits.py:test_issue_6599:1": [
 "1",
-0.0005,
+0.0006,
 1381
 ],
 "test_limits.py:test_issue_6682:1": [
@@ -2391,12 +2391,12 @@
 ],
 "test_limits.py:test_issue_7224:1": [
 "2",
-0.0035,
+0.0034,
 1251
 ],
 "test_limits.py:test_issue_7224:2": [
 "2.00000000000000",
-0.0061,
+0.0058,
 1252
 ],
 "test_limits.py:test_issue_7391_8166:1": [
@@ -2411,47 +2411,47 @@
 ],
 "test_limits.py:test_issue_7535:1": [
 "AccumBounds(-oo, oo)",
-0.0026,
+0.0028,
 1728
 ],
 "test_limits.py:test_issue_7535:2": [
 "AccumBounds(-oo, oo)",
-0.0026,
+0.0029,
 1729
 ],
 "test_limits.py:test_issue_7535:3": [
 "AccumBounds(-oo, oo)",
-0.0035,
+0.0041,
 1730
 ],
 "test_limits.py:test_issue_7535:4": [
 "AccumBounds(-1, 1)",
-0.0011,
+0.0015,
 1731
 ],
 "test_limits.py:test_issue_8208:1": [
 "0",
-0.0006,
+0.0007,
 1263
 ],
 "test_limits.py:test_issue_8229:1": [
 "0",
-0.0008,
+0.0009,
 1267
 ],
 "test_limits.py:test_issue_8433:1": [
 "-1",
-0.0006,
+0.0008,
 1272
 ],
 "test_limits.py:test_issue_8462:1": [
 "oo",
-0.0014,
+0.0015,
 1282
 ],
 "test_limits.py:test_issue_8462:2": [
 "0",
-0.0017,
+0.0018,
 1283
 ],
 "test_limits.py:test_issue_8481:1": [
@@ -2461,42 +2461,42 @@
 ],
 "test_limits.py:test_issue_8634:1": [
 "oo*sign((-1)**n)",
-0.0009,
+0.001,
 1289
 ],
 "test_limits.py:test_issue_8635_18176:1": [
 "0",
-0.0003,
+0.0004,
 1295
 ],
 "test_limits.py:test_issue_8635_18176:2": [
 "oo",
-0.0008,
+0.0009,
 1296
 ],
 "test_limits.py:test_issue_8635_18176:3": [
 "oo",
-0.0009,
+0.0011,
 1297
 ],
 "test_limits.py:test_issue_8635_18176:4": [
 "oo",
-0.001,
+0.0011,
 1298
 ],
 "test_limits.py:test_issue_8635_18176:5": [
 "oo",
-0.0008,
+0.001,
 1300
 ],
 "test_limits.py:test_issue_8635_18176:6": [
 "-oo",
-0.0007,
+0.0009,
 1301
 ],
 "test_limits.py:test_issue_8730:1": [
 "oo",
-0.0003,
+0.0005,
 1305
 ],
 "test_limits.py:test_issue_9041:1": [
@@ -2526,7 +2526,7 @@
 ],
 "test_limits.py:test_issue_9252:1": [
 "0",
-0.0009,
+0.001,
 1311
 ],
 "test_limits.py:test_issue_9471:1": [
@@ -2536,52 +2536,52 @@
 ],
 "test_limits.py:test_issue_9471:2": [
 "27",
-0.0013,
+0.0012,
 1344
 ],
 "test_limits.py:test_issue_9558:1": [
 "0",
-0.0005,
+0.0006,
 1317
 ],
 "test_limits.py:test_issues_14525:1": [
 "AccumBounds(-oo, oo)",
-0.0032,
+0.0035,
 1458
 ],
 "test_limits.py:test_issues_14525:2": [
 "AccumBounds(-oo, oo)",
-0.0031,
+0.0034,
 1459
 ],
 "test_limits.py:test_issues_14525:3": [
 "AccumBounds(-oo, oo)",
-0.0022,
+0.0025,
 1460
 ],
 "test_limits.py:test_issues_14525:4": [
 "AccumBounds(-oo, 1)",
-0.0023,
+0.0026,
 1461
 ],
 "test_limits.py:test_issues_14525:5": [
 "AccumBounds(-oo, 1)",
-0.0022,
+0.0026,
 1462
 ],
 "test_limits.py:test_issues_14525:6": [
 "AccumBounds(-oo, 1)",
-0.0025,
+0.0029,
 1463
 ],
 "test_limits.py:test_issues_14525:7": [
 "AccumBounds(-1, oo)",
-0.0029,
+0.0033,
 1464
 ],
 "test_limits.py:test_limit_with_Float:1": [
 "1",
-0.0003,
+0.0004,
 1361
 ],
 "test_limits.py:test_limit_with_Float:2": [
@@ -2591,52 +2591,52 @@
 ],
 "test_limits.py:test_log:1": [
 "0",
-0.0006,
+0.0007,
 708
 ],
 "test_limits.py:test_log:2": [
 "0",
-0.0006,
+0.0008,
 709
 ],
 "test_limits.py:test_log:3": [
 "pi*tau**3/(tau**2 + 1)**2",
-0.0014,
+0.0016,
 716
 ],
 "test_limits.py:test_newissue:1": [
 "1",
-0.0009,
+0.001,
 1085
 ],
 "test_limits.py:test_order_oo:1": [
 "Limit(oo/(x**2 - 4), x, oo, dir='-')",
-0.0002,
+0.0003,
 1099
 ],
 "test_limits.py:test_piecewise2:1": [
 "1",
-0.0017,
+0.0018,
 729
 ],
 "test_limits.py:test_piecewise2:2": [
 "0",
-0.0006,
+0.0008,
 730
 ],
 "test_limits.py:test_piecewise2:3": [
 "2",
-0.0009,
+0.0011,
 731
 ],
 "test_limits.py:test_piecewise:1": [
 "1/12",
-0.0031,
+0.0036,
 721
 ],
 "test_limits.py:test_polynomial:1": [
 "1",
-0.0039,
+0.0037,
 1113
 ],
 "test_limits.py:test_polynomial:2": [
@@ -2646,7 +2646,7 @@
 ],
 "test_limits.py:test_polynomial:3": [
 "1",
-0.0006,
+0.0007,
 1115
 ],
 "test_limits.py:test_polynomial:4": [
@@ -2676,27 +2676,27 @@
 ],
 "test_limits.py:test_series_AccumBounds:3": [
 "AccumBounds(-2, 2)",
-0.0027,
+0.0026,
 920
 ],
 "test_limits.py:test_series_AccumBounds:4": [
 "AccumBounds(-2, 2)/(2 - 2*cos(1)) + (1 - cos(1))/(2 - 2*cos(1))",
-0.1014,
+0.1062,
 926
 ],
 "test_limits.py:test_series_AccumBounds:5": [
 "AccumBounds(-2, 2)/(2 - 2*cos(1)) + sin(1)/(2 - 2*cos(1))",
-0.0589,
+0.0583,
 929
 ],
 "test_limits.py:test_series_AccumBounds:6": [
 "AccumBounds(0, oo)",
-0.0034,
+0.0032,
 931
 ],
 "test_limits.py:test_series_AccumBounds:7": [
 "AccumBounds(0, oo)",
-0.0026,
+0.0027,
 935
 ],
 "test_limits.py:test_set_signs:1": [
@@ -2706,7 +2706,7 @@
 ],
 "test_limits.py:test_set_signs:10": [
 "oo",
-0.0007,
+0.0006,
 867
 ],
 "test_limits.py:test_set_signs:11": [
@@ -2731,7 +2731,7 @@
 ],
 "test_limits.py:test_set_signs:3": [
 "1",
-0.0004,
+0.0003,
 852
 ],
 "test_limits.py:test_set_signs:4": [
@@ -2741,7 +2741,7 @@
 ],
 "test_limits.py:test_set_signs:5": [
 "sign(y)",
-0.0008,
+0.0007,
 856
 ],
 "test_limits.py:test_set_signs:6": [
@@ -2751,12 +2751,12 @@
 ],
 "test_limits.py:test_set_signs:7": [
 "3",
-0.0012,
+0.0011,
 860
 ],
 "test_limits.py:test_set_signs:8": [
 "oo",
-0.001,
+0.0009,
 863
 ],
 "test_limits.py:test_set_signs:9": [
@@ -2766,7 +2766,7 @@
 ],
 "test_limits.py:test_symoxissue_22986:1": [
 "sqrt(2)",
-0.0005,
+0.0008,
 1861
 ]
 }

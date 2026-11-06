@@ -81,11 +81,13 @@ def test_limit_seq_symbolic_exponent_undecided():
 
 
 def test_limit_symbolic_power_needs_sign_of_exponent():
-    from symox import Limit, limit
-    # The reference gives oo**(b - 1) or raises "Not sure of sign"; these
-    # used to be 0, which is wrong for b > 1.
-    for e in (x**b/x, exp(b*x)*exp(-x)):
-        assert isinstance(limit(e, x, oo), Limit)
+    from symox import limit
+    # These used to be 0, which is wrong for b > 1. The reference gives
+    # oo**(b - 1) for x**b/x and raises for exp(b*x)*exp(-x) (powsimp merges
+    # it into exp(x*(b - 1)), whose rewrite depends on the sign of b - 1).
+    assert limit(x**b/x, x, oo) == oo**(b - 1)
+    with pytest.raises(NotImplementedError, match="Result depends on the sign"):
+        limit(exp(b*x)*exp(-x), x, oo)
     assert limit(x**b*exp(-x), x, oo) == 0
     assert limit(x**b*exp(x), x, oo) == oo
     assert limit(log(x)**b/x, x, oo) == 0

@@ -248,13 +248,48 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
     if x0.is_constant(Constant::ComplexInfinity) || x0.is_constant(Constant::NaN) {
         return unknown("bad limit point");
     }
-    // the reference leading-term step for `(x - x0)**p` with a symbolic `p`
-    if let Some(r) = symbolic_power::symbolic_power_limit(e, x, x0, minus) {
-        return r;
+    // the reference leading-term step for `(x - x0)**p` with a symbolic
+    // `p`, and its heuristics for `b**p` at `+-oo`: a value is the
+    // reference value; a held limit or a reference error stands only when
+    // the native engine does not decide either (its value is kept, never
+    // replaced by an undecided outcome)
+    let rule = symbolic_power::symbolic_power_limit(e, x, x0, minus)
+        .or_else(|| symbolic_power::infinite_power_limit(e, x, x0));
+    match rule {
+        Some(Ok(v)) => Ok(v),
+        Some(Err(err)) => engine_or_pow_heuristics(e, x, x0, minus).or(Err(err)),
+        None => engine_or_pow_heuristics(e, x, x0, minus),
     }
-    if let Some(r) = symbolic_power::infinite_power_limit(e, x, x0) {
-        return r;
+}
+
+/// The native engine, then the reference `pow_heuristics` for a constant
+/// base when the engine does not decide.
+/// The native engine, then the steps of the reference `Limit.doit` after a
+/// failed leading term: `e = powsimp(e)`, `pow_heuristics` for a power of a
+/// constant base, and `gruntz` on the merged expression. The merged
+/// expression only replaces the original error when it decides or raises
+/// the reference `NotImplementedError` (`exp(b*x)*exp(-x)` at `oo` merges
+/// into `exp(x*(b - 1))`, whose rewrite depends on the sign of `b - 1`).
+fn engine_or_pow_heuristics(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr> {
+    let err = match limit_one_sided_engine(e, x, x0, minus) {
+        Ok(v) => return Ok(v),
+        Err(err) => err,
+    };
+    let merged = crate::simptools::powsimp::powsimp(e, &crate::simptools::powsimp::PowsimpOptions::default());
+    if let Some(Ok(v)) = symbolic_power::constant_base_power(&merged, x, x0, minus) {
+        return Ok(v);
     }
+    if merged == *e {
+        return Err(err);
+    }
+    match limit_one_sided_engine(&merged, x, x0, minus) {
+        Ok(v) => Ok(v),
+        Err(LimitError::Unknown(m)) if reference_not_implemented(&m) => Err(LimitError::Unknown(m)),
+        Err(_) => Err(err),
+    }
+}
+
+fn limit_one_sided_engine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr> {
     if let Some(r) = fast_path(e, x, x0, minus).filter(|r| !has_nan(r)) {
         return Ok(r);
     }

@@ -304,7 +304,7 @@
 "Limit(Mod(x, a), x, a, dir='+')"
 ],
 [
-"Result depends on the sign of sign(log(-_symox_lim_t/(_symox_lim_t + 1)))",
+"Result depends on the sign of I",
 "Limit((-x/(x + 1))**x, x, oo, dir='-')"
 ]
 ]

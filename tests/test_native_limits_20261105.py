@@ -139,3 +139,52 @@ def test_symbolic_exponent_at_infinity():
         limit(exp(x)**w, x, oo)
     with pytest.raises(NotImplementedError, match=r'Result depends on the sign of sign\(w\)$'):
         limit(x**w + 1, x, oo)
+
+
+def test_engine_value_is_kept_over_a_held_symbolic_power():
+    # the held/error outcome of the symbolic-power steps stands only when
+    # the native engine does not decide (issue 22334: 1/(k + 1))
+    m = Symbol('m', positive=True)
+    for k in (Symbol('k', positive=True), Symbol('k', nonnegative=True)):
+        e = (m + 1)**k/((m + 1)**(k + 1) - m**(k + 1))
+        assert (limit(e, m, oo) - 1/(k + 1)).simplify() == 0
+    # a held Limit.doit takes the oscillating route, not the whole limit()
+    j = Symbol('j', integer=True)
+    with pytest.raises(NotImplementedError):
+        Limit(j/(j + 1) + (I/2)**j, j, oo).doit()
+
+
+def test_constant_base_pow_heuristics():
+    # Limit.pow_heuristics: b**p with b free of x is exp(limit(p*log(b)))
+    assert limit((I/2)**x, x, oo) == 0
+    assert limit((I/2)**(x**2), x, oo) == 0
+    assert limit((2*I)**x, x, oo) is zoo
+    assert limit((-2)**x, x, oo) is zoo
+    assert limit((1 + I)**x, x, oo) is zoo
+    assert limit((I/2)**(-x), x, oo) is zoo
+    assert limit((I/2)**(1/x), x, 0, '+') == 0
+    assert limit(Rational(-1, 2)**x, x, oo) == 0
+    assert str(limit(a**x, x, oo)) == 'exp(oo*sign(log(a)))'
+    # products and sums go to gruntz, which raises
+    with pytest.raises(NotImplementedError, match="Result depends on the sign"):
+        limit(2*(I/2)**x, x, oo)
+
+
+def test_powsimp_before_gruntz():
+    # Limit.doit merges the product with powsimp before pow_heuristics and
+    # gruntz
+    b = Symbol('b')
+    assert limit(2**x*(I/4)**x, x, oo) == 0
+    assert limit(3**x*Rational(-1, 4)**x, x, oo) == 0
+    for e in (exp(b*x)*exp(-x), x*exp(b*x)*exp(-x), exp(b*x - x)):
+        with pytest.raises(NotImplementedError, match=r"sign of sign\(b - 1\)"):
+            limit(e, x, oo)
+
+
+def test_expanded_parametric_coefficient():
+    # limitinf reads the sign of the leading coefficient factor by factor
+    # (the reference coefficient (b - 1)/x, expanded to b/x - 1/x here)
+    b = Symbol('b')
+    xp = Symbol('xp', positive=True)
+    assert limitinf((b*xp - xp)/log(xp), xp) == oo*_sign(b - 1)
+    assert limitinf(xp*(b - 1)/log(xp), xp) == oo*_sign(b - 1)

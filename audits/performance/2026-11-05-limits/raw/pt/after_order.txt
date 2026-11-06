@@ -342,4 +342,4 @@ FAILED test_order.py::test_order_subs_limits - assert O(x) == O(x)
 FAILED test_order.py::test_issue_9192 - assert (O(1) ** O(1)) == O(1)
 FAILED test_order.py::test_issue_14622 - Failed: DID NOT RAISE
 FAILED test_order.py::test_issue_18606 - assert False
-20 failed, 37 passed, 1 xfailed in 0.71s
+20 failed, 37 passed, 1 xfailed in 0.72s

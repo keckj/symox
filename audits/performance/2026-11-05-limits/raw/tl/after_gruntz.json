@@ -31,7 +31,7 @@
 ],
 "test_gruntz.py:test_gruntz_I:2": [
 "oo*I*y",
-0.0001,
+0.0002,
 660
 ],
 "test_gruntz.py:test_gruntz_I:3": [
@@ -71,7 +71,7 @@
 ],
 "test_gruntz.py:test_gruntz_eval_special:4": [
 "oo",
-0.002,
+0.0021,
 371
 ],
 "test_gruntz.py:test_gruntz_eval_special:5": [
@@ -81,7 +81,7 @@
 ],
 "test_gruntz.py:test_gruntz_eval_special:6": [
 "exp(-1/2)",
-0.0014,
+0.0015,
 373
 ],
 "test_gruntz.py:test_gruntz_eval_special:7": [
@@ -91,7 +91,7 @@
 ],
 "test_gruntz.py:test_gruntz_eval_special:8": [
 "oo",
-0.0005,
+0.0004,
 375
 ],
 "test_gruntz.py:test_gruntz_eval_special:9": [
@@ -106,12 +106,12 @@
 ],
 "test_gruntz.py:test_gruntz_eval_special_slow:1": [
 "oo",
-0.0032,
+0.0031,
 385
 ],
 "test_gruntz.py:test_gruntz_eval_special_slow:2": [
 "0",
-0.0045,
+0.0044,
 387
 ],
 "test_gruntz.py:test_gruntz_evaluation:1": [
@@ -141,7 +141,7 @@
 ],
 "test_gruntz.py:test_gruntz_evaluation:14": [
 "oo",
-0.0114,
+0.0117,
 333
 ],
 "test_gruntz.py:test_gruntz_evaluation:15": [
@@ -181,7 +181,7 @@
 ],
 "test_gruntz.py:test_gruntz_evaluation:4": [
 "oo",
-0.0009,
+0.001,
 306
 ],
 "test_gruntz.py:test_gruntz_evaluation:5": [
@@ -206,7 +206,7 @@
 ],
 "test_gruntz.py:test_gruntz_evaluation:9": [
 "1/3",
-0.0012,
+0.0011,
 320
 ],
 "test_gruntz.py:test_gruntz_evaluation_slow:1": [
@@ -221,7 +221,7 @@
 ],
 "test_gruntz.py:test_gruntz_hyperbolic:1": [
 "oo",
-0.0003,
+0.0004,
 411
 ],
 "test_gruntz.py:test_gruntz_hyperbolic:10": [
@@ -246,7 +246,7 @@
 ],
 "test_gruntz.py:test_gruntz_hyperbolic:3": [
 "oo",
-0.0002,
+0.0003,
 413
 ],
 "test_gruntz.py:test_gruntz_hyperbolic:4": [
@@ -286,7 +286,7 @@
 ],
 "test_gruntz.py:test_intractable:2": [
 "0",
-0.0003,
+0.0002,
 671
 ],
 "test_gruntz.py:test_intractable:3": [
@@ -311,12 +311,12 @@
 ],
 "test_gruntz.py:test_intractable:7": [
 "1",
-0.0003,
+0.0004,
 676
 ],
 "test_gruntz.py:test_intractable:8": [
 "oo",
-0.0006,
+0.0007,
 677
 ],
 "test_gruntz.py:test_issue_24210_25885:1": [
@@ -341,7 +341,7 @@
 ],
 "test_gruntz.py:test_issue_4109:2": [
 "1",
-0.0002,
+0.0003,
 722
 ],
 "test_gruntz.py:test_issue_4190:1": [
@@ -356,27 +356,27 @@
 ],
 "test_gruntz.py:test_issue_5172:1": [
 "1",
-0.0023,
+0.0024,
 714
 ],
 "test_gruntz.py:test_issue_5172:2": [
 "(2*(2/(r + 1))**p + (r - 1)/(r + 1)**p)/(r + 1)",
-0.0096,
+0.0097,
 716
 ],
 "test_gruntz.py:test_issue_6682:1": [
 "exp(2*EulerGamma)",
-0.001,
+0.0011,
 726
 ],
 "test_gruntz.py:test_issue_6843:1": [
 "n/2",
-0.0036,
+0.0038,
 697
 ],
 "test_gruntz.py:test_issue_7096:1": [
 "oo*sign((-1)**(-pi))",
-0.0004,
+0.0005,
 731
 ],
 "test_gruntz.py:test_limit1:1": [
@@ -466,7 +466,7 @@
 ],
 "test_gruntz.py:test_limit2:6": [
 "oo",
-0.0002,
+0.0003,
 630
 ],
 "test_gruntz.py:test_limit2:7": [
@@ -501,7 +501,7 @@
 ],
 "test_gruntz.py:test_limit4:1": [
 "5",
-0.0004,
+0.0005,
 645
 ],
 "test_gruntz.py:test_limit4:2": [

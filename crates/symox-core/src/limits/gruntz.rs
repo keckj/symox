@@ -168,6 +168,16 @@ impl Gruntz {
                         return Ok(mul(&signs));
                     }
                 }
+                // The series expands the coefficient the reference keeps as
+                // a product (`b/x - 1/x` for its `(b - 1)/x`, the leading
+                // term of `(b*x - x)/log(x)`): take the common factors out
+                // and read the signs factor by factor.
+                if matches!(c0.kind(), Kind::Add(..)) {
+                    let f = crate::simptools::exprtools::factor_terms(c0, false, false, true, true);
+                    if f != *c0 && matches!(f.kind(), Kind::Mul(..)) {
+                        return self.infinity_with_sign_of(&f);
+                    }
+                }
                 Err(err)
             }
             Err(err) => {
@@ -1426,6 +1436,13 @@ impl Gruntz {
         let sig = match self.sign(&garg) {
             Ok(s) => s,
             Err(_) => {
+                // the reference `sign(g.exp, x)` of an exponent depending
+                // on x is the sign of its leading coefficient (`b - 1` for
+                // `x*b - x`)
+                let lead = self.prepare(&garg).and_then(|p| self.mrv_leadterm(&p)).ok().map(|(c0, _)| c0);
+                if let Some(c0) = lead.filter(|c0| depends(&garg, &self.x) && !depends(c0, &self.x) && !c0.is_zero()) {
+                    return unknown(format!("{}{}", SIGN_DEPENDENT, crate::functions::sign(&super::unit_powers(&c0))));
+                }
                 // the reference variable is positive: `sign(x*w)` is `sign(w)`
                 let tpos = Expr::symbol_with(&self.x.to_string(), crate::symbol::Assumptions::POSITIVE);
                 let shown = xreplace(&garg, &std::iter::once((self.x.clone(), tpos)).collect());

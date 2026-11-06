@@ -1,7 +1,7 @@
 {
 "test_demidovich.py:test_Limits_simple_0:1": [
 "3",
-0.0014,
+0.0013,
 131
 ],
 "test_demidovich.py:test_Limits_simple_1:1": [
@@ -41,7 +41,7 @@
 ],
 "test_demidovich.py:test_Limits_simple_2:3": [
 "0",
-0.0005,
+0.0004,
 145
 ],
 "test_demidovich.py:test_Limits_simple_2:4": [
@@ -126,7 +126,7 @@
 ],
 "test_demidovich.py:test_Limits_simple_4a:4": [
 "-5/2",
-0.0005,
+0.0006,
 177
 ],
 "test_demidovich.py:test_Limits_simple_4b:1": [
@@ -246,12 +246,12 @@
 ],
 "test_demidovich.py:test_f2:1": [
 "-1/12",
-0.0007,
+0.0008,
 238
 ],
 "test_demidovich.py:test_f2a:1": [
 "0",
-0.0652,
+0.0647,
 234
 ],
 "test_demidovich.py:test_f3:1": [
@@ -261,12 +261,12 @@
 ],
 "test_demidovich.py:test_leadterm:1": [
 "EXC NotImplementedError",
-0.0008,
+0.0007,
 119
 ],
 "test_demidovich.py:test_limits_simple_4aa:1": [
 "1/2",
-0.0004,
+0.0005,
 181
 ]
 }
