@@ -1,0 +1,14 @@
+1 Identity I True
+2 Matrix([
+[1, 0, 0, 0, 0, 0],
+[0, 1, 0, 0, 0, 0],
+[0, 0, 1, 0, 0, 0],
+[0, 0, 0, 1, 0, 0],
+[0, 0, 0, 0, 1, 0],
+[0, 0, 0, 0, 0, 1]]) ImmutableDenseMatrix
+3 -I*(KroneckerProduct(Adjoint(A.T), Adjoint(B.T)))
+4 (KroneckerProduct(X, Y))**x x*(KroneckerProduct(X**2, Y**2))
+5 KroneckerProduct(X, Y) + KroneckerProduct(X, Z) + KroneckerProduct(Y, Y) + KroneckerProduct(Y, Z)
+6 A[Mod(floor(i/o), n), Mod(floor(j/p), m)]*B[Mod(i, o), Mod(j, p)]
+7 A[Mod(floor(i/o), n), Mod(floor(j/p), m)]*B[Mod(i, o), Mod(j, p)]
+8 I

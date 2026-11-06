@@ -141,7 +141,7 @@ def test_trace_of_rectangular_products_keeps_sympy_order_and_explicit_lowering()
     assert sx.det(A*B)==sx.Determinant(A*B)
     n=sx.Symbol('n',integer=True,positive=True)
     with pytest.raises(NotImplementedError): sx.MatrixSymbol('N',n,n).trace_explicit()
-    with pytest.raises(NotImplementedError): sx.MatrixSymbol('N',n,n).determinant_explicit()
+    with pytest.raises(ValueError, match='symbolic shape'): sx.MatrixSymbol('N',n,n).determinant_explicit()
     explicit=sx.MatrixExpr(sx.Matrix([[1,2],[3,4]]))
     assert explicit.trace()==5 and explicit.det()==-2
 

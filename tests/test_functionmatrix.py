@@ -71,7 +71,8 @@ def test_symbolic_shape_free_variables_and_substitution_follow_lambda_scope():
         assert concrete.shape == (2, 3)
         assert concrete[1, 2] == 25
         assert list(concrete.as_explicit()) == [4, 14, 24, 5, 15, 25]
-    with pytest.raises(NotImplementedError, match='finite|integer|dimension'):
+    # SymPy 1.14: MatrixExpr.as_explicit rejects a symbolic shape with ValueError.
+    with pytest.raises(ValueError, match='symbolic shape'):
         value.as_explicit()
     # Lambda application/substitution is simultaneous and permits capture,
     # matching SymPy rather than applying an alpha-renaming convention.

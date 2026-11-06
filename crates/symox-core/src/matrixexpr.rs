@@ -22,6 +22,8 @@ mod expansion;
 mod inspection;
 #[path="matrixexpr/permutation.rs"]
 mod permutation;
+#[path="matrixexpr/kronecker.rs"]
+mod kronecker_rules;
 #[path="matrixexpr/lines.rs"]
 pub mod lines;
 pub(crate) use permutation::label as permutation_label;
@@ -292,6 +294,15 @@ impl MatrixExpr {
     pub fn is_identity_true(&self)->bool{
         match self.kind(){MatrixKind::Identity=>true,MatrixKind::One=>self.rows().is_one()&&self.cols().is_one(),_=>false}
     }
+    /// `is_Identity` of a matrix expression or of an explicit matrix
+    /// (MatrixBase.is_Identity: square with structurally unit diagonal and
+    /// zero off-diagonal entries).
+    pub fn is_identity_structural(&self)->bool{
+        match self.kind(){
+            MatrixKind::Explicit(m)=>m.rows()==m.cols()&&(0..m.rows()).all(|i|(0..m.cols()).all(|j|if i==j{m.get(i,j).is_one()}else{m.get(i,j).is_zero()})),
+            _=>self.is_identity_true(),
+        }
+    }
     pub fn identity(n:Expr)->MResult<Self> { dimension(&n)?;Ok(Self::new(MatrixKind::Identity,n.clone(),n)) }
     pub fn zero(rows:Expr,cols:Expr)->MResult<Self> {dimension(&rows)?;dimension(&cols)?;Ok(Self::new(MatrixKind::Zero,rows,cols))}
     pub fn one(rows:Expr,cols:Expr)->MResult<Self> {dimension(&rows)?;dimension(&cols)?;Ok(Self::new(MatrixKind::One,rows,cols))}
@@ -480,7 +491,15 @@ impl MatrixExpr {
         if factors.is_empty(){return Ok(Self::explicit(Matrix::eye(1)));}
         let rows=crate::ops::mul(&factors.iter().map(|m|m.rows().clone()).collect::<Vec<_>>());
         let cols=crate::ops::mul(&factors.iter().map(|m|m.cols().clone()).collect::<Vec<_>>());
-        if factors.iter().all(|m|matches!(m.kind(),MatrixKind::Identity)){return Self::identity(rows);}
+        // KroneckerProduct.__new__: when every factor's is_Identity is True
+        // the product is Identity(prod(rows)), explicit when every factor
+        // is an explicit matrix.
+        if factors.iter().all(Self::is_identity_structural){
+            if factors.iter().all(|m|matches!(m.kind(),MatrixKind::Explicit(_))){
+                if let Ok(n)=finite_dim(&rows){return Ok(Self::explicit(Matrix::eye(n)));}
+            }
+            return Self::identity(rows);
+        }
         if !evaluate{return Ok(Self::new(MatrixKind::Kronecker(factors.to_vec()),rows,cols));}
         let mut flat=Vec::new();let mut coefficient=Expr::one();
         for factor in factors{match factor.kind(){
@@ -619,6 +638,18 @@ impl MatrixExpr {
                     result.pop();let merged=a.pow(crate::ops::add2(&ae,&be),true)?;
                     if !matches!(merged.kind(),MatrixKind::Identity){result.push(merged);}continue;
                 }
+                // combine_powers: `A_base == B_base.inverse()` merges into
+                // MatPow(A_base, A_exp - B_exp) for a non-explicit B_base
+                // (KroneckerProduct(W, Z)*KroneckerProduct(W.I, Z.I) is I).
+                let square=|m:&Self|is_zero_assume(&sub(m.rows(),m.cols()))!=Some(false);
+                if square(&prev)&&square(&factor)&&!matches!(b.kind(),MatrixKind::Explicit(_)){
+                    if let Ok(inverse)=b.inverse(true){
+                        if inverse==a{
+                            result.pop();let merged=a.pow(sub(&ae,&be),true)?;
+                            if !matches!(merged.kind(),MatrixKind::Identity){result.push(merged);}continue;
+                        }
+                    }
+                }
             }
             result.push(factor);
         }
@@ -636,7 +667,8 @@ impl MatrixExpr {
     pub fn as_base_exp(&self)->(Self,Expr){match self.kind(){MatrixKind::Pow(b,e)=>(b.clone(),e.clone()),MatrixKind::Inverse(b)=>(b.clone(),Expr::minus_one()),_=>(self.clone(),Expr::one())}}
     pub fn pow(&self, exponent:Expr, evaluate:bool)->MResult<Self>{
         if matches!(self.kind(),MatrixKind::GenericIdentity){return Ok(self.clone());}
-        compatible(self.rows(),self.cols())?;
+        // MatPow.__new__: `base.is_square is False` is a NonSquareMatrixError.
+        compatible(self.rows(),self.cols()).map_err(|e|match e{MatrixError::Shape(_)=>MatrixError::NonSquare(format!("Power of non-square matrix {self}")),e=>e})?;
         if evaluate {
             // MatPow.doit combines all nested powers first, whatever the
             // exponents (`exp *= base.args[1]`; an Inverse is a MatPow of
@@ -667,7 +699,8 @@ impl MatrixExpr {
     }
     pub fn inverse(&self,evaluate:bool)->MResult<Self>{
         if matches!(self.kind(),MatrixKind::GenericIdentity){return Ok(self.clone());}
-        compatible(self.rows(),self.cols())?;
+        // Inverse.__new__: `mat.is_square is False` is a NonSquareMatrixError.
+        compatible(self.rows(),self.cols()).map_err(|e|match e{MatrixError::Shape(_)=>MatrixError::NonSquare(format!("Inverse of non-square matrix {self}")),e=>e})?;
         if evaluate {match self.kind(){
             MatrixKind::Dft(inverse)=>return Self::dft(self.rows().clone(),!inverse),
             MatrixKind::Identity=>return Ok(self.clone()),MatrixKind::Zero=>return Err(MatrixError::NonInvertible("Zero matrix is not invertible".into())),
@@ -966,7 +999,9 @@ impl MatrixExpr {
             MatrixKind::Conjugate(b)=>Ok(b.clone()),
             MatrixKind::Inverse(b)=>b.conjugate_sympy()?.inverse(false),
             MatrixKind::Pow(b,e)=>b.conjugate_sympy()?.pow(e.clone(),false),
-            MatrixKind::Kronecker(factors)=>Self::kronecker(&factors.iter().map(Self::conjugate_sympy).collect::<MResult<Vec<_>>>()?,true),
+            // KroneckerProduct._eval_conjugate: KroneckerProduct(*[a.conjugate()
+            // for a in args]).doit().
+            MatrixKind::Kronecker(factors)=>Self::kronecker(&factors.iter().map(Self::conjugate_sympy).collect::<MResult<Vec<_>>>()?,false)?.doit(true),
             _=>{
                 let (r,c)=self.shape();
                 let transpose=Self::new(MatrixKind::Transpose(self.clone()),c.clone(),r.clone());
@@ -1254,11 +1289,14 @@ impl MatrixExpr {
         if crate::relational::lt(index,dim)==fals||crate::relational::ge(index,&crate::ops::neg(dim))==fals{return Err(MatrixError::Index("Matrix index out of range".into()));}
         Ok(())
     }
+    /// KroneckerProduct._entry: `divmod` of the indices by the factor
+    /// shapes from the last factor, `floor(i/n), Mod(i, n)` symbolically.
     fn kronecker_element(&self,factors:&[Self],i:&Expr,j:&Expr)->MResult<Expr>{
-        if factors.iter().any(|m|crate::assumptions::is_positive(m.rows())!=Some(true)||crate::assumptions::is_positive(m.cols())!=Some(true)){return Ok(self.opaque_element(i,j));}
         let split=|index:&Expr,size:&Expr|{
-            if let (Some(i),Some(n))=(index.as_i64(),size.as_i64()){(Expr::int(i.div_euclid(n)),Expr::int(i.rem_euclid(n)))}
-            else{let quotient=func(Func::Floor,vec![crate::ops::div(index,size)]);let remainder=sub(index,&mul2(size,&quotient));(quotient,remainder)}
+            if let (Some(i),Some(n))=(index.as_i64(),size.as_i64()){if n!=0{return (Expr::int(i.div_euclid(n)),Expr::int(i.rem_euclid(n)));}}
+            let quotient=func(Func::Floor,vec![crate::ops::div(index,size)]);
+            let remainder=crate::special::sf(crate::special::SpecialFn::Mod,vec![index.clone(),size.clone()]);
+            (quotient,remainder)
         };
         let mut i=i.clone();let mut j=j.clone();let mut value=Expr::one();
         for factor in factors.iter().rev(){let(quotient_i,row)=split(&i,factor.rows());let(quotient_j,col)=split(&j,factor.cols());value=Self::entry_product(&value,&factor.element(&row,&col)?);i=quotient_i;j=quotient_j;}
@@ -1299,6 +1337,12 @@ impl MatrixExpr {
     pub fn element(&self,i:&Expr,j:&Expr)->MResult<Expr>{
         if self.is_generic(){return Err(self.shapeless_error());}
         Self::validate_index(i,self.rows())?;Self::validate_index(j,self.cols())?;
+        self.entry_unvalidated(i,j)
+    }
+    /// `_entry(i, j)`: the entry of a valid index, without the range and
+    /// integrality checks of `__getitem__`.
+    pub fn entry_unvalidated(&self,i:&Expr,j:&Expr)->MResult<Expr>{
+        if self.is_generic(){return Err(self.shapeless_error());}
         match self.kind(){
             MatrixKind::Permutation(p)=>Self::permutation_entry(p,i,j),
             MatrixKind::Permute(parent,p,axis)=>if *axis==0{parent.element(&permutation::apply(p,i)?,j)}else{parent.element(i,&permutation::apply(p,j)?)},
@@ -1428,9 +1472,26 @@ impl MatrixExpr {
         Self::validate_index(i,self.rows())?;Self::validate_index(j,self.cols())?;
         Ok(self.opaque_element(i,j))
     }
+    /// `RepMatrix.__getitem__` of an explicit matrix at a symbolic index,
+    /// then `MatrixElement(M, i, j)`. SymPy's boundary test `(j < 0) is True`
+    /// (then `j >= cols`, `i < 0`, `i >= rows`) only holds for a host `int`
+    /// (`host_int` flags it per index; a SymPy comparison returns `S.true`,
+    /// never `True`). `MatrixExpr.valid_index` then rejects an index that is
+    /// provably outside `[-n, n)`; it does not test integrality.
+    pub fn explicit_symbolic_element(m:Matrix,i:&Expr,j:&Expr,host_int:(bool,bool))->MResult<Expr>{
+        let (tru,fals)=(Expr::boolean(true),Expr::boolean(false));
+        let (rows,cols)=(Expr::int(m.rows() as i64),Expr::int(m.cols() as i64));
+        let out=|e:&Expr,n:&Expr|crate::relational::lt(e,&Expr::zero())==tru||crate::relational::ge(e,n)==tru;
+        if (host_int.1&&out(j,&cols))||(host_int.0&&out(i,&rows)){return Err(MatrixError::Value("index out of boundary".into()));}
+        let valid=|e:&Expr,n:&Expr|crate::relational::ge(e,&neg(n))!=fals&&crate::relational::lt(e,n)!=fals;
+        if !valid(i,&rows)||!valid(j,&cols){return Err(MatrixError::Index("indices out of range".into()));}
+        Ok(Self::explicit(m).opaque_element(i,j))
+    }
     fn opaque_element(&self,i:&Expr,j:&Expr)->Expr{Expr::from_kind(crate::expr::Kind::Func(Func::MatrixElement(Arc::new(self.clone())),vec![i.clone(),j.clone()]))}
     pub fn as_explicit(&self)->MResult<Matrix>{
         if self.is_generic(){return Err(self.shapeless_error());}
+        // MatrixExpr.as_explicit: a symbolic shape is a ValueError in SymPy.
+        if !self.rows().is_integer_number()||!self.cols().is_integer_number(){return Err(MatrixError::Value("Matrix with symbolic shape cannot be represented explicitly.".into()));}
         let (rows,cols)=(finite_dim(self.rows())?,finite_dim(self.cols())?);
         match self.kind(){
             MatrixKind::Explicit(m)=>Ok(m.clone()),MatrixKind::Identity=>Ok(Matrix::eye(rows)),MatrixKind::Zero=>Ok(Matrix::zeros(rows,cols)),

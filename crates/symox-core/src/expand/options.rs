@@ -14,6 +14,9 @@ pub struct ExpandOptions {
     pub trig: bool,
     pub func: bool,
     pub force: bool,
+    /// SymPy's `kroneckerproduct` hint: distribute KroneckerProduct over
+    /// MatAdd factors (`KroneckerProduct._eval_expand_kroneckerproduct`).
+    pub kroneckerproduct: bool,
 }
 impl Default for ExpandOptions {
     fn default() -> Self {
@@ -28,6 +31,7 @@ impl Default for ExpandOptions {
             trig: false,
             func: false,
             force: false,
+            kroneckerproduct: false,
         }
     }
 }

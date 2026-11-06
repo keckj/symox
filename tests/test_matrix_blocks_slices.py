@@ -71,7 +71,7 @@ def test_dense_materialization_intent_and_scalar_entry_guard():
         with pytest.raises(TypeError, match='scalar entries'):
             sx.Matrix(1, 1, entries)
     n = sx.Symbol('n', integer=True, positive=True)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError, match='symbolic shape'):
         sx.Matrix(sx.MatrixSymbol('N', n, n))
 
 
@@ -119,7 +119,8 @@ def test_slice_nested_negative_element_and_boundaries():
     assert view[1:, 1:].parent == A
     assert view[1:, 1:][0, 0] == A[3, 2]
     assert A[1:3].shape == (2, 6)
-    assert A[-1] == A[4, 5]
+    # SymPy 1.14: a flat key k gives (k // cols, k % cols) without wrapping.
+    assert A[-1] == sx.MatrixElement(A, -1, 5)
     assert A[7] == A[1, 1]
     for row in [slice(0, 0), slice(-7, 2), slice(1, 9), slice(None, None, -2)]:
         selected = list(range(5))[row]

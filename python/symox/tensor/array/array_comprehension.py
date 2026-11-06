@@ -1,141 +1,156 @@
-"""Deferred rectangular comprehensions, expanded with native scalar entries."""
-import inspect
-import itertools
-import math
+"""``ArrayComprehension`` and ``ArrayComprehensionMap`` (SymPy 1.14).
 
-from ._array import ImmutableDenseNDimArray,MAX_ENTRIES,MAX_RANK
+The classes hold their arguments; limit validation, shape, length, free
+symbols, substitution and the expansion of the entries are native
+(``symox._core._array_comprehension_*``).
+"""
+import inspect
+
+from ... import _core
+from ._array import ImmutableDenseNDimArray
+
+
+def _limits(symbols):
+    """``_check_limits_validity``: the sympified triples, checked natively."""
+    from ... import Tuple, sympify
+    if any(len(limit) != 3 or None for limit in symbols):
+        raise ValueError('ArrayComprehension requires values lower and upper bound'
+                         ' for the expression')
+    triples = []
+    for var, inf, sup in symbols:
+        var = sympify(var, strict=True)
+        inf = sympify(inf, strict=True)
+        sup = Tuple(*sup) if isinstance(sup, list) else sympify(sup, strict=True)
+        triples.append((var, inf, sup))
+    return _core._array_comprehension_limits(tuple(triples))
 
 
 class ArrayComprehension:
-    __slots__ = ('_function','_limits')
+    """A comprehension over integer ranges, expanded by ``doit``."""
+    __slots__ = ('_args',)
 
-    def __new__(cls,function,*symbols,**assumptions):
+    def __new__(cls, function, *symbols, **assumptions):
         from ... import sympify
-        from ..._core import Expr
+        if any(len(limit) != 3 or None for limit in symbols):
+            raise ValueError('ArrayComprehension requires values lower and upper bound'
+                             ' for the expression')
+        function = sympify(function)
+        limits = _limits(symbols)
         if assumptions:
-            raise TypeError('Array comprehensions do not accept assumptions')
+            raise TypeError('Basic.__new__() got an unexpected keyword argument %r' % next(iter(assumptions)))
         result = object.__new__(cls)
-        result._function = function if cls is ArrayComprehensionMap else sympify(function)
-        if cls is not ArrayComprehensionMap and not isinstance(result._function,Expr):
-            raise TypeError('A comprehension requires a scalar expression')
-        if len(symbols)>MAX_RANK:
-            raise ValueError('Array rank exceeds 32')
-        limits = []
-        for source in symbols:
-            source = source.args if isinstance(source,Expr) else source
-            if not isinstance(source,(tuple,list)) or len(source)!=3:
-                raise ValueError('Comprehensions require (index, lower, upper) limits')
-            index,lower,upper = map(sympify,source)
-            if not index.is_Symbol or any(index==limit[0] for limit in limits):
-                raise ValueError('Comprehension indices must be distinct symbols')
-            if any(not isinstance(bound,Expr) or bound.is_integer is False
-                   or bound.is_finite is False for bound in (lower,upper)):
-                raise TypeError('Comprehension bounds must be integer expressions')
-            if index in lower.free_symbols|upper.free_symbols:
-                raise ValueError('A comprehension index cannot occur in its own bounds')
-            if (upper-lower).is_negative is True:
-                raise ValueError('Lower bound must not exceed upper bound')
-            limits.append((index,lower,upper))
-        result._limits = tuple(limits)
+        result._args = (function, *limits)
         return result
 
+    _mapped = False
+
     @property
-    def function(self):return self._function
+    def args(self): return self._args
     @property
-    def limits(self):return self._limits
+    def function(self): return self._args[0]
     @property
-    def args(self):return (self.function,*self.limits)
+    def limits(self): return self._args[1:]
     @property
-    def func(self):return type(self)
+    def func(self): return type(self)
     @property
-    def variables(self):return [limit[0] for limit in self.limits]
-    bound_symbols = variables
+    def variables(self): return [limit[0] for limit in self.limits]
     @property
-    def shape(self):return tuple(upper-lower+1 for _,lower,upper in self.limits)
+    def bound_symbols(self): return [limit[0] for limit in self.limits if len(limit) != 1]
     @property
-    def is_shape_numeric(self):
-        return all(bound.is_Integer for limit in self.limits for bound in limit[1:])
+    def shape(self): return _core._array_comprehension_shape(self.limits)
     @property
-    def free_symbols(self):
-        symbols = set() if isinstance(self,ArrayComprehensionMap) else self.function.free_symbols
-        for index,lower,upper in self.limits:
-            symbols = (symbols-{index})|lower.free_symbols|upper.free_symbols
-        return symbols
+    def is_shape_numeric(self): return _core._array_comprehension_is_shape_numeric(self.limits)
+    @property
+    def free_symbols(self): return _core._array_comprehension_free_symbols(self.function, self.limits)
     @property
     def kind(self):
-        from ..._kind import scalar_kind,UndefinedKind
-        from .kind import ArrayKind
-        return ArrayKind(UndefinedKind if isinstance(self,ArrayComprehensionMap)
-                         else scalar_kind(self.function))
-    def rank(self):return len(self.limits)
-    def __len__(self):
-        if not self.is_shape_numeric:
-            raise ValueError('Symbolic comprehension length cannot be evaluated')
-        return math.prod(map(int,self.shape)) if self.shape else 0
-    def _get_element(self,values):
-        from ... import sympify
-        return self.function.xreplace(dict(zip(self.variables,map(sympify,values))))
-    def doit(self,**hints):
-        if not self.is_shape_numeric:
-            return self
-        if len(self)>MAX_ENTRIES:
-            raise ValueError('Comprehension expansion exceeds 100000 positions')
-        ranges = [range(int(lower),int(upper)+1) for _,lower,upper in self.limits]
-        values = [self._get_element(values) for values in itertools.product(*ranges)]
-        return ImmutableDenseNDimArray(values,tuple(map(int,self.shape)))
+        from ..._kind import UndefinedKind
+        return UndefinedKind
+    def rank(self): return len(self.limits)
+    def __len__(self): return _core._array_comprehension_len(self.limits)
+
+    def _callable(self): return self.function
+    def _expand_array(self):
+        entries = _core._array_comprehension_entries(self._callable(), self.limits, self._mapped)
+        return ImmutableDenseNDimArray(entries, self.shape)
+    def doit(self, **hints):
+        return self._expand_array() if self.is_shape_numeric else self
     def tolist(self):
-        if not self.is_shape_numeric:
-            raise ValueError('A symbolic comprehension cannot be expanded to a list')
-        return self.doit().tolist()
+        if self.is_shape_numeric:
+            return self._expand_array().tolist()
+        raise ValueError("A symbolic array cannot be expanded to a list")
     def tomatrix(self):
-        if not self.is_shape_numeric or self.rank()!=2:
-            raise ValueError('Matrix conversion requires a concrete rank-two comprehension')
-        return self.doit().tomatrix()
-    def xreplace(self,rule):
-        if self in rule:return rule[self]
-        function = self.function if isinstance(self,ArrayComprehensionMap) else self.function.xreplace(rule)
-        limits = [tuple(value.xreplace(rule) for value in limit) for limit in self.limits]
-        return type(self)(function,*limits)
-    def subs(self,*args,**options):
-        from ... import Dummy,Symbol,sympify
-        from collections.abc import Mapping
-        pairs = (list(args[0].items()) if len(args)==1 and isinstance(args[0],Mapping)
-                 else list(args[0]) if len(args)==1 else [args])
-        pairs = [(sympify(old),sympify(new)) for old,new in pairs]
-        replacements = set().union(*(new.free_symbols for _,new in pairs)) if pairs else set()
-        rename = {index:Dummy(index.name,integer=True) for index in self.variables if index in replacements}
-        protected = [(old,new) for old,new in pairs if old not in self.variables]
-        function = self.function if isinstance(self,ArrayComprehensionMap) else self.function.xreplace(rename).subs(protected,**options)
-        limits = [(rename.get(index,index),lower.subs(pairs,**options),upper.subs(pairs,**options))
-                  for index,lower,upper in self.limits]
-        return type(self)(function,*limits)
-    def __eq__(self,other):return type(self) is type(other) and self.args==other.args
-    def __hash__(self):return hash((type(self),self.args))
-    def __repr__(self):return '%s(%s)' % (type(self).__name__,', '.join(map(str,self.args)))
-    def __reduce__(self):return type(self),self.args
+        from ...matrices import Matrix
+        if not self.is_shape_numeric:
+            raise ValueError("A symbolic array cannot be expanded to a matrix")
+        if self.rank() != 2:
+            raise ValueError('Dimensions must be of size of 2')
+        return Matrix(self._expand_array().tomatrix())
+
+    def _rebuild(self, function, limits): return type(self)(function, *limits)
+    def xreplace(self, rule):
+        from ... import Tuple
+        if self in rule:
+            return rule[self]
+        if self._mapped:
+            return self._rebuild(None, Tuple(*self.limits).xreplace(rule).args)
+        replaced = Tuple(*self.args).xreplace(rule).args
+        return self._rebuild(replaced[0], replaced[1:])
+    def subs(self, *args, **options):
+        function, limits = _core._array_comprehension_subs(
+            None if self._mapped else self.function, self.limits, args, options or None, self._mapped)
+        return self._rebuild(function, limits)
+
+    def __eq__(self, other): return type(self) is type(other) and self.args == other.args
+    def __ne__(self, other): return not self == other
+    def __hash__(self): return hash((type(self).__name__, self.args))
+    def __repr__(self): return '%s(%s)' % (type(self).__name__, ', '.join(map(str, self.args)))
+    __str__ = __repr__
+    def __reduce__(self): return type(self), self.args
     def to_sympy(self):
         from sympy.tensor.array import ArrayComprehension
         return ArrayComprehension(self.function.to_sympy(),
             *(tuple(value.to_sympy() for value in limit) for limit in self.limits))
 
 
+def _is_lambda(value):
+    """SymPy's ``isLambda``."""
+    return inspect.isfunction(value) and value.__name__ == '<lambda>'
+
+
 class ArrayComprehensionMap(ArrayComprehension):
-    __slots__ = ()
-    def __new__(cls,function,*symbols,**assumptions):
-        if not inspect.isfunction(function) or function.__name__!='<lambda>':
-            raise ValueError('ArrayComprehensionMap requires a lambda')
-        parameters = tuple(inspect.signature(function).parameters.values())
-        if len(parameters)>1 or any(parameter.kind not in (
-                inspect.Parameter.POSITIONAL_ONLY,inspect.Parameter.POSITIONAL_OR_KEYWORD)
-                for parameter in parameters):
-            raise ValueError('A comprehension lambda must accept zero or one argument')
-        return super().__new__(cls,function,*symbols,**assumptions)
-    def _get_element(self,values):
-        return self.function() if not inspect.signature(self.function).parameters else self.function(math.prod(values))
+    """A comprehension whose entries are a lambda of the product of the indices."""
+    __slots__ = ('_lambda',)
+    _mapped = True
+
+    def __new__(cls, function, *symbols, **assumptions):
+        if any(len(limit) != 3 or None for limit in symbols):
+            raise ValueError('ArrayComprehension requires values lower and upper bound'
+                             ' for the expression')
+        if not _is_lambda(function):
+            raise ValueError('Data type not supported')
+        limits = _limits(symbols)
+        if assumptions:
+            raise TypeError('Basic.__new__() got an unexpected keyword argument %r' % next(iter(assumptions)))
+        result = object.__new__(cls)
+        result._args = limits
+        result._lambda = function
+        return result
+
+    # SymPy stores only the limits as args: ``function`` is ``args[0]``.
+    @property
+    def limits(self): return self._args
+    @property
+    def func(self):
+        function = self._lambda
+        return lambda *args, **kwargs: ArrayComprehensionMap(function, *args, **kwargs)
+    def _callable(self): return self._lambda
+    def _rebuild(self, function, limits): return ArrayComprehensionMap(self._lambda, *limits)
+    def __reduce__(self): return ArrayComprehensionMap, (self._lambda, *self.limits)
     def to_sympy(self):
         from sympy.tensor.array import ArrayComprehensionMap
-        return ArrayComprehensionMap(self.function,
+        return ArrayComprehensionMap(self._lambda,
             *(tuple(value.to_sympy() for value in limit) for limit in self.limits))
 
 
-__all__ = ['ArrayComprehension','ArrayComprehensionMap']
+__all__ = ['ArrayComprehension', 'ArrayComprehensionMap']

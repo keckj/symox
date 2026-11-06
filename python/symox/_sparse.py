@@ -254,7 +254,12 @@ class _SparseBase:
         i, j = key
         fancy = isinstance(i, (list, tuple)) or isinstance(j, (list, tuple))
         if not fancy and not isinstance(i, slice) and not isinstance(j, slice):
-            return self._data.get((_index(i, self.rows), _index(j, self.cols)), _ZERO)
+            try:
+                return self._data.get((_index(i, self.rows), _index(j, self.cols)), _ZERO)
+            except TypeError:
+                # A symbolic index: the native explicit indexing builds the
+                # MatrixElement (or re-raises), over the dense entries.
+                return Matrix(self.rows, self.cols, list(self))[i, j]
         if fancy:
             # fancy indexing (a_2nd_key): index lists, repeats allowed, or
             # a mask made only of booleans

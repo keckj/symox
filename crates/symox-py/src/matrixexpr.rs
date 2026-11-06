@@ -294,6 +294,12 @@ fn _matrixexpr_node(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<P
 fn _matrix_element(parent:&Bound<'_,PyAny>,i:&Bound<'_,PyAny>,j:&Bound<'_,PyAny>)->PyResult<PyExpr>{
     let m=to_matrixexpr(parent)?;Ok(wrap(m.element_constructed(&to_expr(i)?,&to_expr(j)?).map_err(|e|error(parent.py(),e))?))
 }
+/// `combine_kronecker(expr)` for a native matrix expression.
+#[pyfunction]
+fn _combine_kronecker(py:Python<'_>,expr:&Bound<'_,PyAny>)->PyResult<PyObject>{
+    let m=to_matrixexpr(expr)?;
+    Ok(matrix_object(py,&m.combine_kronecker().map_err(|e|error(py,e))?)?.unbind())
+}
 #[pyfunction]
 fn _as_matrixexpr(value:&Bound<'_,PyAny>)->PyResult<PyMatrixExpr>{Ok(wrap_matrixexpr(to_matrixexpr(value)?))}
 #[pyfunction]
@@ -421,6 +427,9 @@ impl PyMatrixExpr{
     /// `self * other**-1`, as `MatrixExpr.__truediv__` in the reference: a
     /// matrix divisor is inverted by `MatPow(other, -1).doit()`.
     fn __truediv__(&self,other:&Bound<'_,PyAny>)->PyResult<Self>{if is_matrix(other){let py=other.py();let inverse=to_matrixexpr(other)?.pow(Expr::minus_one(),true).and_then(|m|m.doit(true)).map_err(|e|error(py,e))?;return Ok(wrap_matrixexpr(MatrixExpr::mul(Expr::one(),&[self.m.clone(),inverse],true).and_then(|m|m.doit(true)).map_err(|e|error(py,e))?));}let c=symox::ops::pow(&to_expr(other)?,&Expr::minus_one());Ok(wrap_matrixexpr(MatrixExpr::mul(c,&[self.m.clone()],true).and_then(|m|m.doit(true)).map_err(|e|error(other.py(),e))?))}
+    /// `MatrixExpr.__rtruediv__`: a NotImplementedError for any sympifiable
+    /// numerator, `NotImplemented` otherwise (`_sympifyit`).
+    fn __rtruediv__(&self,other:&Bound<'_,PyAny>)->PyResult<PyObject>{if to_expr(other).is_err(){return Ok(other.py().NotImplemented());}Err(pyo3::exceptions::PyNotImplementedError::new_err(""))}
     fn __pow__(&self,exponent:&Bound<'_,PyAny>,modulo:Option<&Bound<'_,PyAny>>)->PyResult<Self>{if modulo.is_some_and(|m|!m.is_none()){return Err(PyTypeError::new_err("Modular matrix powers are unsupported"));}if is_matrix(exponent){return Err(PyTypeError::new_err("Matrix exponent must be scalar"));}Ok(wrap_matrixexpr(self.m.pow(to_expr(exponent)?,true).and_then(|m|m.doit(true)).map_err(|e|error(exponent.py(),e))?))}
     fn __neg__(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(MatrixExpr::mul(Expr::minus_one(),&[self.m.clone()],true).and_then(|m|m.doit(true)).map_err(|e|error(py,e))?))}
     fn __pos__(&self)->Self{self.clone()}
@@ -590,10 +599,30 @@ impl PyMatrixExpr{
             if row.is_instance_of::<PySlice>()||col.is_instance_of::<PySlice>(){return Ok(wrap_matrixexpr(self.m.slice_normalized(slice_spec(&row,self.m.rows())?,slice_spec(&col,self.m.cols())?).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());}
             return Ok(wrap(self.m.element(&to_expr(&row)?,&to_expr(&col)?).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());
         }
-        let mut index:i64=key.extract().map_err(|_|PyIndexError::new_err("Single matrix indexing requires a concrete integer"))?;
-        let rows=self.m.rows().as_i64();let cols=self.m.cols().as_i64().filter(|n|*n>0).ok_or_else(||PyNotImplementedError::new_err("Single indexing requires a concrete nonempty column dimension"))?;
-        if index<0{index=rows.and_then(|r|r.checked_mul(cols)).and_then(|size|size.checked_add(index)).ok_or_else(||PyIndexError::new_err("Negative single indexing requires concrete finite dimensions"))?;}
-        Ok(wrap(self.m.element(&Expr::int(index.div_euclid(cols)),&Expr::int(index.rem_euclid(cols))).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind())
+        // MatrixExpr.__getitem__ with a single index: a Python or SymPy
+        // integer needs an Integer column count; `i, j = key // cols, key %
+        // cols` must be a valid index, and `_entry(i, j)` is returned.
+        let scalar=to_expr(key).ok();
+        let integer=key.is_instance_of::<pyo3::types::PyInt>()||scalar.as_ref().is_some_and(|e|e.is_integer_number());
+        if !integer{
+            if scalar.is_some(){return Err(PyIndexError::new_err("Only integers may be used when addressing the matrix with a single index."));}
+            return Err(PyIndexError::new_err(format!("Invalid index, wanted {}[i,j]",self.m)));
+        }
+        let key_expr=scalar.ok_or_else(||PyIndexError::new_err("Invalid index"))?;
+        let cols=self.m.cols().clone();
+        if !cols.is_integer_number(){return Err(PyIndexError::new_err("Single indexing is only supported when the number of columns is known."));}
+        if cols.is_zero(){return Err(pyo3::exceptions::PyZeroDivisionError::new_err("integer division or modulo by zero"));}
+        let (i,j)=match (key_expr.as_i64(),cols.as_i64()){
+            (Some(k),Some(c))=>(Expr::int(k.div_euclid(c)),Expr::int(k.rem_euclid(c))),
+            _=>{let q=symox::functions::func(symox::Func::Floor,vec![symox::ops::div(&key_expr,&cols)]);let r=symox::ops::sub(&key_expr,&symox::ops::mul2(&cols,&q));(q,r)},
+        };
+        if MatrixExpr::validate_index(&i,self.m.rows()).is_err()||MatrixExpr::validate_index(&j,&cols).is_err(){return Err(PyIndexError::new_err(format!("Invalid index {key_expr}")));}
+        Ok(wrap(self.m.element(&i,&j).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind())
+    }
+    /// `MatrixExpr._entry(i, j)`: the entry without index validation.
+    #[pyo3(signature=(i,j,**_kwargs))]
+    fn _entry(&self,py:Python<'_>,i:&Bound<'_,PyAny>,j:&Bound<'_,PyAny>,_kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
+        Ok(wrap(self.m.entry_unvalidated(&to_expr(i)?,&to_expr(j)?).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind())
     }
     fn xreplace(&self,rule:&Bound<'_,PyDict>)->PyResult<Self>{let mut matrices=Vec::new();let mut scalars=FxHashMap::default();for (a,b) in rule.iter(){if is_matrix(&a){matrices.push((to_matrixexpr(&a)?,to_matrixexpr(&b)?));}else{scalars.insert(to_expr(&a)?,to_expr(&b)?);}}crate::with_derivative_errors(||Ok(wrap_matrixexpr(self.m.xreplace(&matrices,&scalars).map_err(|e|error(rule.py(),e))?)))}
     #[pyo3(signature=(*args,**kwargs))]
@@ -693,4 +722,4 @@ fn _block_collapse(value:&Bound<'_,PyAny>)->PyResult<PyObject>{
     if value.is_instance_of::<PyBlockGrid>(){return Err(PyTypeError::new_err("Block grids require a BlockMatrix wrapper before collapse"));}
     let expression=to_expr(value)?;crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression).map_err(|e|error(py,e))?)
 }
-pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_function(wrap_pyfunction!(_register_matrixexpr_type,m)?)?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;m.add_function(wrap_pyfunction!(_matrix_dot_product,m)?)?;m.add_function(wrap_pyfunction!(_matrix_lines_derivative,m)?)?;Ok(())}
+pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_function(wrap_pyfunction!(_register_matrixexpr_type,m)?)?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_combine_kronecker,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;m.add_function(wrap_pyfunction!(_matrix_dot_product,m)?)?;m.add_function(wrap_pyfunction!(_matrix_lines_derivative,m)?)?;Ok(())}

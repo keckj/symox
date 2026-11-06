@@ -281,7 +281,12 @@ fn _arrayexpr_a2m(
 #[pyfunction]
 fn _matrix_trace_normalize(py: Python<'_>, m: &Bound<'_, PyAny>) -> PyResult<PyObject> {
     let m = crate::matrixexpr::to_matrixexpr(m)?;
-    let t = trace_normalized_arg(&m).and_then(|a| a.trace_unevaluated().map_err(AErr::from)).map_err(|e| to_pyerr(e, None))?;
+    trace_normalize(py, &m)
+}
+
+/// `Trace(m)._normalize()`: the trace of the cyclically normalized argument.
+pub(crate) fn trace_normalize(py: Python<'_>, m: &symox::matrixexpr::MatrixExpr) -> PyResult<PyObject> {
+    let t = trace_normalized_arg(m).and_then(|a| a.trace_unevaluated().map_err(AErr::from)).map_err(|e| to_pyerr(e, None))?;
     crate::expr_object(py, t)
 }
 

@@ -320,6 +320,21 @@ pub fn to_matrix(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
     from_nested(obj)
 }
 
+/// A scalar matrix index (an integer or a native scalar expression), as
+/// SymPy's `isinstance(i, Expr)` test sees it.
+fn scalar_index(k: &Bound<'_, PyAny>) -> Option<Expr> {
+    if k.downcast::<PySlice>().is_ok() || is_seq(k) || k.is_instance_of::<PyBool>() {
+        return None;
+    }
+    to_expr(k).ok().filter(|e| !matches!(e.kind(), symox::expr::Kind::Bool(_) | symox::expr::Kind::Rel(..) | symox::expr::Kind::Func(symox::Func::MatrixProxy(_), _)))
+}
+
+/// A Python `int` (not a `bool`): the only index type SymPy's `(j < 0) is
+/// True` boundary test can see.
+fn host_int(k: &Bound<'_, PyAny>) -> bool {
+    k.is_instance_of::<PyInt>() && !k.is_instance_of::<PyBool>()
+}
+
 fn is_seq(obj: &Bound<'_, PyAny>) -> bool {
     obj.downcast::<PyList>().is_ok() || obj.downcast::<PyTuple>().is_ok() || is_sequence_row(obj)
 }
@@ -708,8 +723,23 @@ impl PyMatrix {
             if t.len() != 2 {
                 return Err(PyIndexError::new_err("expected (row, col)"));
             }
-            let (ri, rs) = key_indices(&t.get_item(0)?, r)?;
-            let (ci, cs) = key_indices(&t.get_item(1)?, c)?;
+            let (a, b) = (t.get_item(0)?, t.get_item(1)?);
+            let (ri, rs, ci, cs) = match (key_indices(&a, r), key_indices(&b, c)) {
+                (Ok((ri, rs)), Ok((ci, cs))) => (ri, rs, ci, cs),
+                (first, second) => {
+                    let error = first.err().or(second.err()).expect("one index failed");
+                    // A symbolic index gives `MatrixElement(M, i, j)` (SymPy's
+                    // RepMatrix.__getitem__); any other failure is re-raised.
+                    return match (scalar_index(&a), scalar_index(&b)) {
+                        (Some(i), Some(j)) if !i.is_number() || !j.is_number() => {
+                            let element = symox::matrixexpr::MatrixExpr::explicit_symbolic_element(
+                                self.m.clone(), &i, &j, (host_int(&a), host_int(&b))).map_err(|e| err(py, e))?;
+                            Ok(wrap(element).into_pyobject(py)?.into_any().unbind())
+                        }
+                        _ => Err(error),
+                    };
+                }
+            };
             if !rs && !cs {
                 return Ok(wrap(self.m.get(ri[0], ci[0]).clone()).into_pyobject(py)?.into_any().unbind());
             }

@@ -171,7 +171,7 @@ impl Collector {
 
     fn power_base(&mut self,e:&Expr)->Result<Expr,String>{
         if !e.is_pow(){return Ok(e.clone());}
-        let options=crate::expand::ExpandOptions{deep:false,basic:false,mul:false,multinomial:false,power_base:true,power_exp:false,log:false,trig:false,func:false,force:false};
+        let options=crate::expand::ExpandOptions{deep:false,basic:false,mul:false,multinomial:false,power_base:true,power_exp:false,log:false,trig:false,func:false,force:false,kroneckerproduct:false};
         crate::expand::expand_with_options(e,&options,&mut self.power_cache).map_err(|e|e.to_string())
     }
 

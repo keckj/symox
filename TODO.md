@@ -120,6 +120,21 @@ l'aiguillage et les enveloppes) :
   fichiers, `~/symox-ci/evidence/accumb-20261106`) ; cargo test 867 + 1 +
   0 + 5 ; clippy correctness propre. Preuves :
   `audits/performance/2026-11-06-accumb/`.
+- arrcomp (`feat-arrcomp-20261106`) : modèles natifs kronecker
+  (`combine_kronecker`, identités, produit explicite, `expand`, entrée
+  symbolique, conjugué), erreurs matexpr de SymPy (`as_explicit` à forme
+  symbolique, NonSquareMatrixError, `2/B`, clé plate sans repli), `Eq`/`Ne`
+  à dimensions prouvées différentes, attributs `MatrixElement`/`Trace`,
+  `Matrix[i, j]` symbolique en `MatrixElement`, et `ArrayComprehension`
+  calculé en Rust (`crates/symox-py/src/array_comprehension.rs`, classe
+  Python réduite à l'enveloppe). Tests SymPy de tableaux : 165 → 182
+  sur 201, sans régression. Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) :
+  suite complète **60 322 réussis, 0 échec** ("SUITE CLEAN", 11 xfail,
+  45 sautés, 60 378 collectés, 688 fichiers ; +7 de
+  `tests/test_native_arrcomp.py` ; preuves dans
+  `~/symox-ci/evidence/arrcomp-20261106`) ; cargo test 865 + 1 + 0 + 5,
+  clippy correctness propre. Écarts délibérés à valider : voir la section
+  arrcomp de docs/algorithmic-parity.md.
 
 Vague 40 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
 enveloppes) :
@@ -309,11 +324,19 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `AccumBounds(-oo, oo)` (divergence consignée), ordre d'impression de
   `AccumBounds*nan`, LaTeX `\left\langle a, b\right\rangle` absent.
 - Matrices : perf lambdarr gamma/poly2.
-- Tableaux : 36/201 tests SymPy de tableaux. Les causes sont :
-  - la classe ArrayComprehension, en Python ;
-  - les modèles natifs kronecker, matexpr et trace (26 tests) ;
-  - l'ordre de `Sum` ;
-  - `MatrixSymbol.args[0]` en `str`.
+- Tableaux : 19/201 tests SymPy de tableaux ne passent pas (vague 41 ;
+  36 avant). Les causes sont :
+  - `MatrixSymbol.args[0]` en `str` (le `Str` hôte active les chemins hôtes
+    lents) : dérivées de traces, `matrixelement_diff`, `matexpr_subs` ;
+  - l'ordre de `Sum` (`vectors_and_scalars`) ;
+  - les postprocesseurs MatMul/MatAdd de `Mul`/`Add` (aiguillage Python de
+    `_compat.py`, logique à porter en Rust) ;
+  - `applyfunc` (2), `matadd_simplify`, `simplify_matrix_expressions`,
+    `MatrixSet`, numpy, Hadamard `check=False`, `Trace(A).arg is A`,
+    indexation symbolique des tableaux immuables ;
+  - les écarts délibérés à valider : `combine_kronecker` sans la règle de
+    somme ni les puissances non entières (fausses), donc `combine_mul` et
+    `combine_pow`.
 
   À cela s'ajoutent le repli vendu de `convert_array_to_matrix` (6/527),
   l'ordre des arguments d'`ArrayDiagonal` (arrindex u_int_mul) et le coût

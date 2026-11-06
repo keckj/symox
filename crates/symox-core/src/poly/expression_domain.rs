@@ -51,6 +51,7 @@ fn simplify(e: Expr) -> PResult<EX> {
         trig: false,
         func: false,
         force: false,
+        kroneckerproduct: false,
     };
     let expanded = expand_with_options(&cancelled, &options, &mut ExpandBudget::default())
         .map_err(|error| PolyError::Unsupported(error.0))?;

@@ -91,7 +91,7 @@ def test_symbolic_dimensions_substitution_and_shape_errors():
     assert sx.ZeroMatrix(n,m).free_symbols=={n,m}
     assert A.xreplace({n:m,m:p}).shape==(m,p)
     assert A.subs({n:2,m:3}).shape==(2,3)
-    with pytest.raises(NotImplementedError): A.as_explicit()
+    with pytest.raises(ValueError, match="symbolic shape"): A.as_explicit()
     with pytest.raises(sx.ShapeError): sx.MatrixSymbol('C',2,3)*sx.MatrixSymbol('D',4,2)
     with pytest.raises(sx.ShapeError): sx.MatrixSymbol('C',2,3)+sx.MatrixSymbol('D',2,4)
     with pytest.raises(sx.ShapeError): sx.MatrixSymbol('C',2,3).inverse()

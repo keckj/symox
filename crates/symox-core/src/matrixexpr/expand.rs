@@ -129,6 +129,42 @@ impl Context<'_> {
         MatrixExpr::add(&products, true)
     }
 
+    /// `KroneckerProduct._eval_expand_kroneckerproduct`:
+    /// `flatten(canon(typed({KroneckerProduct: distribute(KroneckerProduct,
+    /// MatAdd)})))`. The first MatAdd factor is distributed into an
+    /// unevaluated MatAdd of products, each distributed again, and only the
+    /// outermost sum is flattened one level, as in the reference.
+    fn distributed_kronecker(&mut self, factors: &[MatrixExpr]) -> MResult<MatrixExpr> {
+        let result = self.distribute_kronecker(factors)?;
+        let MatrixKind::Add(terms) = result.kind() else { return Ok(result) };
+        let mut flat = Vec::with_capacity(terms.len());
+        for term in terms {
+            if let MatrixKind::Add(inner) = term.kind() { flat.extend(inner.iter().cloned()); } else { flat.push(term.clone()); }
+        }
+        self.budget.claim_terms(flat.len()).map_err(failure)?;
+        MatrixExpr::add(&flat, false)
+    }
+
+    fn distribute_kronecker(&mut self, factors: &[MatrixExpr]) -> MResult<MatrixExpr> {
+        let Some(position) = factors.iter().position(|f| matches!(f.kind(), MatrixKind::Add(_))) else {
+            return MatrixExpr::kronecker(factors, false);
+        };
+        let MatrixKind::Add(choices) = factors[position].kind() else { unreachable!() };
+        self.budget.claim_terms(choices.len()).map_err(failure)?;
+        self.budget.claim_product(choices.len(), factors.len()).map_err(failure)?;
+        let mut terms = Vec::with_capacity(choices.len());
+        for choice in choices {
+            let mut chain = factors.to_vec();
+            chain[position] = choice.clone();
+            let product = MatrixExpr::kronecker(&chain, false)?;
+            terms.push(match product.kind() {
+                MatrixKind::Kronecker(inner) => { let inner = inner.clone(); self.distribute_kronecker(&inner)? }
+                _ => product,
+            });
+        }
+        MatrixExpr::add(&terms, false)
+    }
+
     fn matrix(&mut self, expression: &MatrixExpr) -> MResult<MatrixExpr> {
         if let Some((_, value)) = self.matrices.get(&expression.dag_id()) { return Ok(value.clone()); }
         if let Some(value) = self.budget.matrix_result(expression, self.options) { return Ok(value); }
@@ -203,6 +239,17 @@ impl Context<'_> {
                         _ => (MatrixKind::Conjugate(mapped.clone()), mapped.rows().clone(), mapped.cols().clone()),
                     };
                     MatrixExpr::new(kind, rows, cols)
+                }
+            }
+            MatrixKind::Kronecker(factors) if self.options.kroneckerproduct => {
+                let mapped = factors.iter().map(|factor| self.matrix_child(factor)).collect::<MResult<Vec<_>>>()?;
+                let node = if MatrixExpr::same_children(&mapped, factors) { expression.clone() } else { MatrixExpr::kronecker(&mapped, false)? };
+                match node.kind() {
+                    MatrixKind::Kronecker(factors) if factors.iter().any(|f| matches!(f.kind(), MatrixKind::Add(_))) => {
+                        let factors = factors.clone();
+                        self.distributed_kronecker(&factors)?
+                    }
+                    _ => node,
                 }
             }
             MatrixKind::HadamardProduct(factors) | MatrixKind::Kronecker(factors) => {

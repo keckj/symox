@@ -16705,6 +16705,7 @@ Remaining gaps:
   solved system in `_is_special_case_of`. The `checksol` that follows
   integrates a large expression and the worker runs out of memory. SymPy
   also exceeds its deadline on these rows, so they stay unscored.
+
 ## accumb (wave 41): native AccumulationBounds arithmetic and oscillating-limit walker, 2026-11-06
 
 What is native (`crates/symox-core/src/limits/accum.rs`, PyO3 binding
@@ -16799,3 +16800,123 @@ Deviations (present before this lot, kept; for validation):
   positional argument: 'cdir'`).
 
 Measured: [audit](../audits/performance/2026-11-06-accumb/README.md).
+
+## arrcomp (wave 41): native Kronecker, matrix-expression, trace and comprehension models, 2026-11-06
+
+SymPy array and matrix-expression test functions (21 files, 201,
+`audits/performance/2026-11-06-arrcomp/`): 165 passing before (main
+`5ebd60c0`), 182 after; no test that passed before fails.
+
+Now native (Rust in `symox-core`, bindings in `symox-py`; Python keeps only
+admission, routing and the class wrappers):
+
+- Kronecker products (`matrixexpr/kronecker.rs`, `matrixexpr.rs`,
+  `matrixexpr/expand.rs`):
+  - `combine_kronecker` (the `exhaust(bottom_up(...))` rewrite of products
+    and integer powers of Kronecker products; `_core._combine_kronecker`,
+    thin wrapper in `matrices/expressions/kronecker.py`);
+  - `KroneckerProduct` of identities is an `Identity`, of explicit
+    matrices the explicit product;
+  - `W⊗Z * W⁻¹⊗Z⁻¹` is the identity through the mul inverse-power merge;
+  - `expand(kroneckerproduct=True)` distributes over the sums;
+  - `conjugate().doit()`;
+  - the symbolic entry `A[Mod(floor(i/o), n), ...]*B[Mod(i, o), ...]`.
+- Matrix-expression errors with SymPy's types and messages:
+  - `as_explicit` of a symbolic shape raises
+    `ValueError('Matrix with symbolic shape cannot be represented explicitly.')`.
+    This also changes `Matrix(MatrixSymbol('N', n, n))` and
+    `determinant_explicit`, which raised NotImplementedError before.
+  - The power and inverse of a non-square matrix raise
+    `NonSquareMatrixError`.
+  - `2/B` raises NotImplementedError (`__rtruediv__`).
+  - A flat key `A[k]` gives `(k // cols, k % cols)` without wrapping:
+    `A[-1]` is `A[-1, 5]`, as in SymPy.
+- `Eq`/`Ne` of matrix expressions whose dimensions provably differ is
+  false/true (`relational.rs`). An undecided difference (`n` against `m`)
+  stays unevaluated; see the deviation below.
+- Attributes:
+  - `MatrixElement.indices` and `.symbol`;
+  - `Trace.as_explicit`, `Trace._normalize` (the native trace
+    normalisation of `arrayexpr_a2m`) and `Trace.doit(deep=False)`.
+
+  They are getters on the native expression and raise AttributeError on
+  other nodes, so `hasattr(x, 'indices')` stays false.
+- Explicit matrices at a symbolic index (`Matrix[i, j]`, `SparseMatrix[i, j]`)
+  give `MatrixElement(M, i, j)`, as `RepMatrix.__getitem__` does
+  (`MatrixExpr::explicit_symbolic_element`). The boundary test raises
+  ValueError('index out of boundary') only for a host `int` index, as SymPy's
+  `(j < 0) is True`. `valid_index` then raises
+  IndexError('indices out of range') for an index provably outside `[-n, n)`.
+- `ArrayComprehension` / `ArrayComprehensionMap`
+  (`crates/symox-py/src/array_comprehension.rs`) compute natively:
+  - the limit validation, with SymPy's messages and order;
+  - `shape`, `__len__`, `is_shape_numeric` and `free_symbols`;
+  - the expansion of the entries (last index fastest, per-variable `subs`;
+    for the map, `co_argcount` 0/1/other as SymPy);
+  - substitution.
+
+  `python/symox/tensor/array/array_comprehension.py` keeps the class
+  wrappers: strict sympify of the limits, `args` and the lambda slot.
+
+Deliberate deviations from SymPy (to validate):
+
+- `combine_kronecker` does not apply SymPy's sum rule
+  (`KP(A, B) + KP(C, D) -> KP(A + C, B + D)`), which is false in general.
+  It distributes only integer powers: `KP(X, Y)**x` stays as it is, whereas
+  SymPy gives `KP(X**x, Y**x)`, which is false for non-integer `x` on the
+  principal branch. Because of this, SymPy's `test_KroneckerProduct_combine_mul`
+  and `test_KroneckerProduct_combine_pow` fail.
+- `Eq(MatrixSymbol('P', n, 1), MatrixSymbol('Q', m, 1))` stays
+  unevaluated; SymPy returns False structurally although `n = m` is
+  possible.
+- `ArrayComprehension.subs` keeps the existing capture-avoiding semantics:
+  - a bound index is not substituted in the function;
+  - an index free in a replacement is renamed to an integer Dummy.
+
+  SymPy's `Basic.subs` substitutes and captures.
+- The expansion is capped at 100 000 entries (the existing dense-array cap),
+  raising ValueError beyond.
+- `SparseMatrix[i, j]` with a symbolic index holds a dense immutable parent
+  (SymPy: the sparse matrix); the entries and printing are the same.
+
+Remaining gaps (recorded, not fixed in Python):
+
+- `MatrixSymbol.args[0]` is a `str`, not a `Str`. Creating the host `Str`
+  enables the slow host paths globally, so it was not changed. This breaks
+  `test_matrix_derivatives_of_traces` and `test_matrixelement_diff` (the
+  Python `_expr_analysis.as_dummy` calls `.args` on it) and
+  `test_matexpr_subs`.
+- `Sum` factor ordering (`test_matrix_derivative_vectors_and_scalars`).
+- `Mul`/`Add` with matrix operands: SymPy's MatMul/MatAdd postprocessors
+  absorb scalars into explicit matrices, give `Mul(M, M) == M**2`,
+  `Add(0, z) == z`, and keep infinities as Add. The dispatch is Python
+  (`_compat.py`); the postprocessor logic would need a native entry point.
+  This breaks `test_MatMul_postprocessor` and `test_MatAdd_postprocessor`.
+- Smaller gaps, one SymPy test each:
+  - `applyfunc` of a matrix expression (`test_applyfunc_matrix`,
+    `test_derivatives_elementwise_applyfunc`);
+  - `matadd_simplify`, `simplify_matrix_expressions` (`gcd_terms` result
+    type) and `MatrixSet`;
+  - numpy conversion;
+  - `HadamardProduct(..., check=False)` canonicalisation;
+  - `Trace(A).arg is A` (an identity artefact);
+  - immutable array symbolic indexing.
+- `convert_array_to_matrix` still uses the vendored stock fallback on 6 of
+  527 cases (arr15, arr34, arr145, arr249, arr308, arr336). Each needs a
+  matrix expression holding an array operand.
+- The `ArrayDiagonal` argument order (arrindex u_int_mul) is unchanged.
+- An explicit matrix at two non-integer numeric indices (`M[1/2, 0]`)
+  raises TypeError where SymPy raises IndexError('Invalid index a[1/2]').
+
+Tests: `tests/test_native_arrcomp.py` checks:
+
+- that the native entry points are taken (spies on
+  `_core._combine_kronecker` and `_core._array_comprehension_entries`);
+- the SymPy results and errors of each item above.
+
+Local tests that asserted the previous non-SymPy errors or results were
+updated to SymPy 1.14's: `test_array_comprehension.py`,
+`test_matrixexpr.py`, `test_functionmatrix.py`, `test_matrix_blocks_slices.py`,
+`test_matrix_calculus.py` and `test_matrix_products.py`.
+
+Measured: [audit](../audits/performance/2026-11-06-arrcomp/README.md).
