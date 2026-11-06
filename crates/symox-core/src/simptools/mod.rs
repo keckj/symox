@@ -602,14 +602,14 @@ pub fn normal(e: &Expr) -> Expr {
 /// hints enabled; resource failures leave the expression unchanged.
 pub fn expand_hints(e: &Expr, mul: bool, multinomial: bool, power_base: bool, power_exp: bool, log: bool, basic: bool) -> Expr {
     use crate::expand::{expand_with_options, ExpandBudget, ExpandOptions};
-    let options = ExpandOptions { deep: true, basic, mul, multinomial, power_base, power_exp, log, trig: false, func: false, force: false };
+    let options = ExpandOptions { deep: true, basic, mul, multinomial, power_base, power_exp, log, trig: false, func: false, force: false, kroneckerproduct: false };
     expand_with_options(e, &options, &mut ExpandBudget::default()).unwrap_or_else(|_| e.clone())
 }
 
 /// `expand_mul(e, deep=False)`.
 pub fn expand_hints_shallow_mul(e: &Expr) -> Expr {
     use crate::expand::{expand_with_options, ExpandBudget, ExpandOptions};
-    let options = ExpandOptions { deep: false, basic: false, mul: true, multinomial: false, power_base: false, power_exp: false, log: false, trig: false, func: false, force: false };
+    let options = ExpandOptions { deep: false, basic: false, mul: true, multinomial: false, power_base: false, power_exp: false, log: false, trig: false, func: false, force: false, kroneckerproduct: false };
     expand_with_options(e, &options, &mut ExpandBudget::default()).unwrap_or_else(|_| e.clone())
 }
 

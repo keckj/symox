@@ -73,12 +73,17 @@ def test_array_kind_is_interned_and_matches_the_elements(values,kind):
 
 def test_invalid_limits_and_materialization_bounds():
     i,n=sx.symbols('i n')
-    for limits in [(i,0),(i,2,1),(i,0,i),(i+1,0,2),(i,0,sx.oo)]:
+    for limits in [(i,0),(i,2,1),(i,0,i),(i,0,sx.oo)]:
         with pytest.raises((TypeError,ValueError)):
             sx.ArrayComprehension(i,limits)
-    with pytest.raises(ValueError):sx.ArrayComprehension(i,(i,0,2),(i,0,2))
+    # SymPy 1.14 checks neither the index type nor repeated indices: the
+    # later index value wins in the sequential substitution.
+    assert sx.ArrayComprehension(i,(i,0,2),(i,0,2)).tolist()==[[0,0,0],[1,1,1],[2,2,2]]
+    assert sx.ArrayComprehension(i,(i+1,0,2)).limits==((i+1,0,2),)
     with pytest.raises(ValueError):sx.ArrayComprehension(i,(i,0,100000)).doit()
-    with pytest.raises(ValueError):sx.ArrayComprehensionMap(lambda a,b:a+b,(i,0,2))
+    # A lambda of several arguments is rejected by the expansion (SympifyError).
+    lazy=sx.ArrayComprehensionMap(lambda a,b:a+b,(i,0,2))
+    with pytest.raises(ValueError):lazy.doit()
     with pytest.raises(ValueError):sx.ArrayComprehensionMap(sx.sin,(i,0,2))
     with pytest.raises(ValueError):sx.ArrayComprehension(i,(i,0,2)).tomatrix()
 

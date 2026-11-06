@@ -26,6 +26,15 @@ fn explicit_matrix_equality(a: &Expr, b: &Expr) -> Option<bool> {
         },
         _ => None,
     };
+    // `_eval_is_eq(MatrixExpr, MatrixExpr)`: `lhs.shape != rhs.shape` is
+    // False. The reference compares the shapes structurally; only a proven
+    // dimension mismatch is decided here (`n` and `m` may be equal).
+    if let (Kind::Func(crate::Func::MatrixProxy(p), _), Kind::Func(crate::Func::MatrixProxy(q), _)) = (a.kind(), b.kind()) {
+        let differ = |u: &Expr, v: &Expr| crate::assumptions::fact(&sub(u, v), "zero") == Some(false);
+        if differ(p.rows(), q.rows()) || differ(p.cols(), q.cols()) {
+            return Some(false);
+        }
+    }
     let (x, y) = (explicit(a)?, explicit(b)?);
     if x.shape() != y.shape() {
         return Some(false);

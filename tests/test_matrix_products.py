@@ -144,7 +144,8 @@ def test_symbolic_shapes_indices_substitutions_and_interchange():
     finite=element.xreplace({n:2,m:3,i:3,j:5})
     assert finite==sx.KroneckerProduct(aa,bb)[3,5]
     raw=sx.KroneckerProduct(sx.MatrixSymbol('Unknown',n,n),sx.MatrixSymbol('MaybeZero',sx.Symbol('k'),sx.Symbol('k')))
-    assert isinstance(raw[i,j],sx.MatrixElement)
+    # SymPy 1.14 expands the Kronecker entry into the factor entries.
+    assert str(raw[i,j])=='MaybeZero[Mod(i, k), Mod(j, k)]*Unknown[Mod(floor(i/k), n), Mod(floor(j/k), n)]'
 
 
 def test_explicit_products_preserve_immutable_values_and_nonfinite_zero_terms():

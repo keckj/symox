@@ -304,9 +304,13 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
             let parents=if deep {a.doit(true).and_then(|a|b.doit(true).map(|b|(a,b)))}else{Ok(((**a).clone(),(**b).clone()))};
             parents.and_then(|(a,b)|crate::matrixcontraction::dot_product(&a,&b,true)).unwrap_or_else(|_|e.clone())
         }
+        // Trace.doit: with deep=False only an explicit matrix is traced
+        // ("_eval_trace would go too deep here"), the held Trace stays.
+        Kind::Func(Func::MatrixTrace(parent), _) if !deep => {
+            if matches!(parent.kind(), crate::matrixexpr::MatrixKind::Explicit(_)) { parent.trace().unwrap_or_else(|_| e.clone()) } else { e.clone() }
+        }
         Kind::Func(Func::MatrixTrace(parent), _) => {
-            let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };
-            parent.and_then(|p| p.trace().ok()).unwrap_or_else(|| e.clone())
+            parent.doit(true).ok().and_then(|p| p.trace().ok()).unwrap_or_else(|| e.clone())
         }
         Kind::Func(Func::MatrixDeterminant(parent), _) => {
             let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };

@@ -33,6 +33,7 @@ mod prde;
 mod matrix_rank_four;
 mod arrayexpr_canon;
 mod arrayexpr_a2m;
+mod array_comprehension;
 mod arrayexpr_index;
 mod prde_frac;
 mod prde_const;
@@ -124,6 +125,14 @@ fn matrix_element_part(e: &Expr, py: Python<'_>, index: usize, name: &str) -> Py
     expr_object(py, args[index - 1].clone())
 }
 
+/// The matrix of a ``Trace`` node, an AttributeError on any other node.
+fn trace_parent(e: &Expr, name: &str) -> PyResult<symox::matrixexpr::MatrixExpr> {
+    match e.kind() {
+        Kind::Func(Func::MatrixTrace(parent), _) => Ok((**parent).clone()),
+        _ => Err(pyo3::exceptions::PyAttributeError::new_err(format!("'{}' object has no attribute '{}'", e.class_name(), name))),
+    }
+}
+
 /// The args of a Tuple node as a Python tuple of expression objects.
 /// The Python hash of a native expression. SymPy's Tuple.__hash__ is
 /// hash(self.args): a Tuple and the Python tuple it equals share dictionary
@@ -164,7 +173,7 @@ fn tuple_items<'py>(py: Python<'py>, arguments: &[Expr]) -> PyResult<Bound<'py, 
 
 /// A substitution result: the matrix object when the whole result is a
 /// matrix operand (as SymPy's `x.subs(x, A)` is `A`), else the expression.
-fn matrix_or_expr(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+pub(crate) fn matrix_or_expr(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     if let Kind::Func(Func::MatrixProxy(parent), _) = e.kind() {
         return Ok(matrixexpr::matrix_object(py, parent)?.unbind());
     }
@@ -416,7 +425,7 @@ fn matrix_proxy(parent: symox::matrixexpr::MatrixExpr) -> Expr {
 /// SymPy's Boolean nodes other than symbols are not ``Expr``: arithmetic
 /// and ordering operators reject them.
 #[derive(Clone, Copy, PartialEq)]
-enum NonExpr {
+pub(crate) enum NonExpr {
     /// ``true``/``false``: BooleanAtom raises for the arithmetic operators.
     Atom,
     /// BooleanFunction (And, Or, Not, ...): it raises for ordering.
@@ -425,7 +434,7 @@ enum NonExpr {
     Other,
 }
 
-fn non_expr(e: &Expr) -> Option<NonExpr> {
+pub(crate) fn non_expr(e: &Expr) -> Option<NonExpr> {
     match e.kind() {
         Kind::Bool(_) => Some(NonExpr::Atom),
         Kind::Func(Func::Logic(_), _) => Some(NonExpr::Function),
@@ -2020,6 +2029,47 @@ impl PyExprNode {
 
     #[getter]
     fn j(&self, py: Python<'_>) -> PyResult<PyObject> { matrix_element_part(&self.e, py, 2, "j") }
+
+    /// ``MatrixElement.indices`` (``args[1:]``) and ``.symbol`` (``args[0]``).
+    #[getter]
+    fn indices(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let (i, j) = (matrix_element_part(&self.e, py, 1, "indices")?, matrix_element_part(&self.e, py, 2, "indices")?);
+        Ok(PyTuple::new(py, [i, j])?.into_any().unbind())
+    }
+
+    #[getter]
+    fn symbol(&self, py: Python<'_>) -> PyResult<PyObject> { matrix_element_part(&self.e, py, 0, "symbol") }
+
+    /// ``Trace._normalize``: a bound method on ``Trace`` nodes only, so that
+    /// ``hasattr(expr, "_normalize")`` stays false for other expressions.
+    #[getter]
+    fn _normalize(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let parent = trace_parent(&self.e, "_normalize")?;
+        let method = pyo3::types::PyCFunction::new_closure(py, Some(c"_normalize"), None,
+            move |args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>| -> PyResult<PyObject> {
+                if !args.is_empty() { return Err(PyTypeError::new_err("_normalize() takes no arguments")); }
+                crate::arrayexpr_a2m::trace_normalize(args.py(), &parent)
+            })?;
+        Ok(method.into_any().unbind())
+    }
+
+    /// ``Trace.as_explicit``: ``Trace(arg.as_explicit()).doit()``, on
+    /// ``Trace`` nodes only (``hasattr(expr, "as_explicit")`` is false for
+    /// scalar expressions).
+    #[getter]
+    fn as_explicit(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let parent = trace_parent(&self.e, "as_explicit")?;
+        let method = pyo3::types::PyCFunction::new_closure(py, Some(c"as_explicit"), None,
+            move |args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>| -> PyResult<PyObject> {
+                let py = args.py();
+                if !args.is_empty() { return Err(PyTypeError::new_err("as_explicit() takes no arguments")); }
+                let trace = parent.as_explicit()
+                    .and_then(|m| symox::matrixexpr::MatrixExpr::explicit(m).trace())
+                    .map_err(|e| crate::matrices::err(py, e))?;
+                expr_object(py, trace)
+            })?;
+        Ok(method.into_any().unbind())
+    }
 
     /// SymPy class name of the node (`Add`, `Mul`, `Symbol`, `sin`, ...).
     #[getter]
@@ -3831,6 +3881,7 @@ pub(crate) fn parse_expand_options(deep:bool,hints:Option<&Bound<'_,PyDict>>)->P
                 "basic"=>&mut options.basic,"mul"=>&mut options.mul,"multinomial"=>&mut options.multinomial,
                 "power_base"=>&mut options.power_base,"power_exp"=>&mut options.power_exp,"log"=>&mut options.log,
                 "trig"=>&mut options.trig,"func"=>&mut options.func,"force"=>&mut options.force,
+                "kroneckerproduct"=>&mut options.kroneckerproduct,
                 _=>return Err(PyNotImplementedError::new_err(format!("expand hint '{name}' is not implemented"))),
             };
             *slot=value.is_truthy()?;
@@ -4685,6 +4736,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
     matrices::register(m)?;
     matrixexpr::register(m)?;
+    array_comprehension::register(m)?;
     matrix_dag::register(m)?;
     linear_solvers::register(m)?;
     poly::register(m)?;
