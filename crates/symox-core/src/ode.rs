@@ -9,6 +9,7 @@
 pub mod classify;
 pub mod linear;
 pub mod second;
+pub mod hypergeometric;
 pub mod reducible;
 pub mod liouville;
 pub mod constcoeff;

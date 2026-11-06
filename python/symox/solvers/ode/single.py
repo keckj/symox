@@ -30,7 +30,7 @@ from ._ode_helpers import _preprocess
 from ._ode_helpers import _lin_eq2dict
 from symox.polys.solvers import PolyNonlinearError
 from .hypergeometric import equivalence_hypergeometric, match_2nd_2F1_hypergeometric, \
-    get_sol_2F1_hypergeometric, match_2nd_hypergeometric
+    get_sol_2F1_hypergeometric, match_2nd_hypergeometric, match_2nd_2F1
 from .nonhomogeneous import _get_euler_characteristic_eq_sols, _get_const_characteristic_eq_sols, \
     _solve_undetermined_coefficients, _solve_variation_of_parameters, _test_term, _undetermined_coefficients_match, \
         _get_simplified_sol
@@ -2098,12 +2098,9 @@ class SecondHypergeometric(SingleODESolver):
         self.match_object = None
         if r:
             A, B = r
-            d = equivalence_hypergeometric(A, B, func)
-            if d:
-                if d['type'] == "2F1":
-                    self.match_object = match_2nd_2F1_hypergeometric(d['I0'], d['k'], d['sing_point'], func)
-                    if self.match_object is not None:
-                        self.match_object.update({'A':A, 'B':B})
+            self.match_object = match_2nd_2F1(A, B, func)
+            if self.match_object is not None:
+                self.match_object.update({'A':A, 'B':B})
             # We can extend it for 1F1 and 0F1 type also.
         return self.match_object is not None
 

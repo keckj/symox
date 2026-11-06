@@ -67,7 +67,11 @@ fn prepare(equations:&[Expr],target:&Expr)->Option<Recast>{
             }
             working=crate::subs::xreplace(&working,&powers);
         }
-        if classify(&working,&[variable.clone()],PolynomialKind::Rational)!=Some(true){return None;}
+        // An undefined application f(x) is an opaque atom, exactly like the
+        // reference Dummy recast: the solver for a plain symbol applies to any
+        // equation in it. Other atoms (exp(x), x**2, ...) carry structure a
+        // non-rational recast could lose, so they stay rational.
+        if !opaque_derivatives&&classify(&working,&[variable.clone()],PolynomialKind::Rational)!=Some(true){return None;}
         // Algebraic substitution may attempt branch-sensitive transforms.
         // Accept the recast only when restoring every atom reconstructs the
         // original exactly, possibly after ordinary ring expansion. No float
@@ -110,6 +114,23 @@ mod tests{
         let reconstructed=crate::subs::xreplace(&recast.equations[0],&recast.restore);
         assert!(crate::expand::expand(&sub(&reconstructed,&equation)).is_zero());
         assert_eq!(recast.restore[&recast.variable],target);
+    }
+
+    #[test]
+    fn undefined_application_recasts_beyond_rational(){
+        // Reference solve(..., f(x)) works on a Dummy, so a radical in f(x)
+        // is solved as for a symbol.
+        let target=p("f(x)");
+        let recast=prepare(&[p("-2*f(x)/sqrt(f(x)**3)-C1+x")],&target).unwrap();
+        let reconstructed=crate::subs::xreplace(&recast.equations[0],&recast.restore);
+        assert_eq!(reconstructed,p("-2*f(x)/sqrt(f(x)**3)-C1+x"));
+        // The values are those of the same equation in a plain symbol.
+        let values=solve_atom(&p("sqrt(f(x))+f(x)-x"),&target,true).unwrap();
+        let symbol=crate::solve::solve_with_check(&p("sqrt(y)+y-x"),&p("y"),true).unwrap();
+        assert_eq!(values,symbol);
+        assert_eq!(values.len(),2);
+        // exp(x) keeps the rational requirement.
+        assert!(prepare(&[p("sqrt(exp(x))-2")],&p("exp(x)")).is_none());
     }
 
     #[test]

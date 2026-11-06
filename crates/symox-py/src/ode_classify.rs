@@ -7,6 +7,7 @@ use pyo3::types::{PyDict, PyList, PyTuple};
 use symox::ode::classify::{self, Hooks, Outcome};
 use symox::ode::linear;
 use symox::ode::second::{self, PowerSeries2};
+use symox::ode::hypergeometric;
 use symox::ode::reducible;
 use symox::ode::liouville;
 use symox::Expr;
@@ -137,6 +138,78 @@ fn ode_match_2nd_hypergeometric(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Boun
     outcome(py, &second::hypergeometric_ab(&eq, &fx, &x, &mut hook), |(a, b)| vec![a.clone(), b.clone()])
 }
 
+/// The public `cancel`, `factor`, `simplify`, `expand` and `roots` of the
+/// 2F1 steps; a Python error or a non-expression result declines.
+struct HyperHooks<'a, 'py> {
+    cancel: &'a Bound<'py, PyAny>,
+    factor: &'a Bound<'py, PyAny>,
+    simplify: &'a Bound<'py, PyAny>,
+    expand: &'a Bound<'py, PyAny>,
+    roots: &'a Bound<'py, PyAny>,
+}
+
+impl hypergeometric::Hooks for HyperHooks<'_, '_> {
+    fn cancel(&mut self, e: &Expr) -> Option<Expr> { call1(self.cancel, e) }
+    fn factor(&mut self, e: &Expr) -> Option<Expr> { call1(self.factor, e) }
+    fn simplify(&mut self, e: &Expr) -> Option<Expr> { call1(self.simplify, e) }
+    fn expand(&mut self, e: &Expr) -> Option<Expr> { call1(self.expand, e) }
+    fn roots(&mut self, e: &Expr, x: &Expr) -> Option<Vec<Expr>> {
+        let found = self.roots.call1((w(e.clone()), w(x.clone()))).ok()?;
+        let found = found.downcast::<PyDict>().ok()?;
+        found.keys().iter().map(|k| to_expr(&k).ok()).collect()
+    }
+}
+
+/// `equivalence_hypergeometric(A, B, f(x))` followed, on its 2F1 answer, by
+/// `match_2nd_2F1_hypergeometric`: `(a, b, c, k, mobius)`, `False` when the
+/// reference match object is `None`, or `None` (not decided).
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn ode_hyper_2f1_match(
+    py: Python<'_>,
+    a: &Bound<'_, PyAny>,
+    b: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    cancel: &Bound<'_, PyAny>,
+    factor: &Bound<'_, PyAny>,
+    simplify: &Bound<'_, PyAny>,
+    expand: &Bound<'_, PyAny>,
+    roots: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let (a, b, x) = (to_expr(a)?, to_expr(b)?, to_expr(x)?);
+    let mut hooks = HyperHooks { cancel, factor, simplify, expand, roots };
+    let r = match hypergeometric::equivalence_hypergeometric(&a, &b, &x, &mut hooks) {
+        Outcome::Match(eqv) => hypergeometric::match_2f1(&eqv, &x, &mut hooks),
+        Outcome::NoMatch => Outcome::NoMatch,
+        Outcome::Decline => Outcome::Decline,
+    };
+    outcome(py, &r, |m| vec![m.a.clone(), m.b.clone(), m.c.clone(), m.k.clone(), m.mobius.clone()])
+}
+
+/// `get_sol_2F1_hypergeometric` with the numbered constants `c0`, `c1`:
+/// `(rhs,)`, `False` for its `None`, or `None` (not decided).
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn ode_hyper_2f1_solution(
+    py: Python<'_>,
+    params: &Bound<'_, PyAny>,
+    a_coeff: &Bound<'_, PyAny>,
+    x: &Bound<'_, PyAny>,
+    c0: &Bound<'_, PyAny>,
+    c1: &Bound<'_, PyAny>,
+    cancel: &Bound<'_, PyAny>,
+    factor: &Bound<'_, PyAny>,
+    simplify: &Bound<'_, PyAny>,
+    expand: &Bound<'_, PyAny>,
+    roots: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let (pa, pb, pc, pk, pm): (Bound<'_, PyAny>, Bound<'_, PyAny>, Bound<'_, PyAny>, Bound<'_, PyAny>, Bound<'_, PyAny>) = params.extract()?;
+    let m = hypergeometric::Match2F1 { a: to_expr(&pa)?, b: to_expr(&pb)?, c: to_expr(&pc)?, k: to_expr(&pk)?, mobius: to_expr(&pm)? };
+    let (a_coeff, x, c0, c1) = (to_expr(a_coeff)?, to_expr(x)?, to_expr(c0)?, to_expr(c1)?);
+    let mut hooks = HyperHooks { cancel, factor, simplify, expand, roots };
+    outcome(py, &hypergeometric::solution_2f1(&m, &a_coeff, &x, &c0, &c1, &mut hooks), |e| vec![e.clone()])
+}
+
 /// The `2nd_linear_airy` match: `(b, m)`, `False` or `None`.
 #[pyfunction]
 fn ode_airy_match(py: Python<'_>, eq: &Bound<'_, PyAny>, fx: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, order: u32, cancel: &Bound<'_, PyAny>) -> PyResult<PyObject> {
@@ -208,6 +281,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ode_second_order_patterns, m)?)?;
     m.add_function(wrap_pyfunction!(ode_nth_order_reducible, m)?)?;
     m.add_function(wrap_pyfunction!(ode_match_2nd_hypergeometric, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_hyper_2f1_match, m)?)?;
+    m.add_function(wrap_pyfunction!(ode_hyper_2f1_solution, m)?)?;
     m.add_function(wrap_pyfunction!(ode_airy_match, m)?)?;
     m.add_function(wrap_pyfunction!(ode_bessel_rejected, m)?)?;
     m.add_function(wrap_pyfunction!(ode_power_series2, m)?)?;

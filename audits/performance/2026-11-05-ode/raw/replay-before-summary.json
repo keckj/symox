@@ -1,0 +1,41 @@
+{
+  "reference_version": "1.14.0",
+  "native_sha256": "6abf29dbccad9918953ec68aef1db4b61479fb9acd1b2843f78551a10b4657e4",
+  "input_sha256": "7fc32f0eb99abff833b8d8faaede0f66ae18bd6f19fcad1705cf8ee59d0752a1",
+  "script_sha256": "badcb0048e01375ac92b53cf450cbec1aa332b505982c9d49bc587e77481882e",
+  "dataset_sha256": "b04be15f0b3ddb439efc8baf98121833988f56247a2379e364d80995cf2c302e",
+  "methods": {
+    "classify": "classify_ode(eq,func)",
+    "hint": "dsolve(eq,func,hint=case_hint,simplify=case_simplify_flag)",
+    "default": "dsolve(eq,func)"
+  },
+  "coverage": {
+    "expected": 945,
+    "finished": 945,
+    "exactly_once": true
+  },
+  "counts": {
+    "classify": {
+      "equal_output": 315
+    },
+    "hint": {
+      "equal_output": 282,
+      "inconclusive_resource_limit": 6,
+      "different_output_review_required": 24,
+      "equal_error_observation": 3
+    },
+    "default": {
+      "equal_output": 264,
+      "inconclusive_resource_limit": 19,
+      "different_output_review_required": 27,
+      "equal_error_observation": 3,
+      "different_error_behavior_review_required": 2
+    }
+  },
+  "elapsed_seconds": 525.3545985221863,
+  "limits": {
+    "timeout_per_backend_call": 60.0,
+    "memory_gib_per_worker": 8
+  },
+  "interpretation": "Exact output/error observations only. Different forms require mathematical review; equal forms do not establish complete solution families. Resource results are inconclusive."
+}
