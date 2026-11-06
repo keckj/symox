@@ -17034,3 +17034,98 @@ updated to SymPy 1.14's: `test_array_comprehension.py`,
 `test_matrix_calculus.py` and `test_matrix_products.py`.
 
 Measured: [audit](../audits/performance/2026-11-06-arrcomp/README.md).
+
+## ode3 (wave 42): native nth_algebraic, factorable and 2nd_linear_bessel, 2026-11-06
+
+Branch `feat-ode3-20261106`. Measurements are in
+[audits/performance/2026-11-06-ode3](../audits/performance/2026-11-06-ode3/README.md).
+Every value was checked against SymPy 1.14.0.
+
+Native now (`crates/symox-core/src/ode/algebraic.rs`, `ode/bessel.rs`,
+bindings in `crates/symox-py/src/ode_classify.rs`, admission in
+`python/symox/solvers/ode/_classify_native.py`):
+
+- `NthAlgebraic._matches` (`algebraic::nth_algebraic`): the bottom-up
+  `Basic.replace` of each derivative in the independent variable by the
+  invertible `diffx` class (the nested `diffx(diffx(f(x)))` of an order-`n`
+  derivative, other variables kept as `Derivative(.., v)`), the call
+  `solve(eq, f(x), simplify=False)` (its `NotImplementedError` counts as
+  no solution), the inverse replacement `diffx -> Derivative(.., x)`, the
+  `simplify` of each value and the `Eq(f(x), sol)` list. The solutions are
+  then those of the reference, including the integration constants of the
+  `diffx` inverse.
+- `Factorable._matches` (`algebraic::factorable`):
+  `collect(eq, f(x), func=cancel)` (native `collect` kernel with the
+  public `cancel` as callback), `fraction(factor(eq))[0]`, the factors of
+  `factor(eq)`, their `as_base_exp`, the split on several factors or an
+  exponent above 1, the `solve(eq, f'(x))` branch with its recursion guard
+  `eqs != [eq_orig]` and the fallback on the factors holding `f(x)`.
+- `Factorable._get_general_solution` (`algebraic::factorable_solutions`):
+  the `dsolve` of each equation, a `NotImplementedError` skipping it, and
+  the reference `NotImplementedError("The given ODE <last> cannot be solved
+  by the factorable group method")` when none is solved.
+- `SecondLinearBessel._matches` (`bessel::bessel_match`): the collected
+  second-order match and its retry on the expanded numerator for
+  non-polynomial coefficients, the leading-coefficient form
+  `a4*(x - b)**b4`, the shift `x -> x + point` with `simplify`, the
+  normalization by `a4*x**(b4 - 2)` with `cancel`, the forms `a4*x`,
+  `a - b` and `c4**2*x**(2*a4)`, and `n` from `d4**2`.
+- `SecondLinearBessel._get_general_solution` (`bessel::bessel_solution`):
+  `x**((1 - c4)/2)*(C1*besselj(n/d4, a4*x**d4/d4) + C2*bessely(...))`
+  with `n = sqrt(n**2 + (c4 - 1)**2/4)`, shifted back by `b4`.
+
+Callables supplied by the binding (`algebraic::Hooks`): the public
+`solve`, `dsolve`, `simplify`, `factor`, `cancel`, `expand` and, for the
+Bessel matcher, `Expr.match`. Their errors propagate as in the reference; a
+result of another type declines. The public `Expr.match` is the reference
+matcher ported in Python (`python/symox/_matching.py`): the native
+`pattern::pattern_match` does not make the same choices (`x**2` against
+`c4**2*x**(2*a4)` is `{a4: 1, c4: 1}` for the reference and no match for
+`pattern_match`), so the Bessel port matches through the public matcher.
+The earlier native ODE matchers (`ode/second.rs`, `liouville.rs`,
+`reducible.rs`) call `pattern_match` directly on linear patterns; their
+equality with the public matcher is assumed, not proven (see the gaps).
+
+Declines (the reference body runs): matrices, host-defined classes,
+symbolic derivatives and noncommutative equations; an empty factor list
+(`roots[0]` raises IndexError) or a non-rational exponent in `factorable`;
+`solve(eq, f'(x))` raising `NotImplementedError` in `factorable`; Floats in
+the Bessel coefficients or singular point; an undecided `!= 0`;
+`factor(b).match(d4**2)` failing (`None[d4]` raises TypeError); a `c4` that
+is not a rational number in the Bessel solution (`Rational(1 - c4, 2)`
+raises on a symbol and rationalizes a Float); a hook result that is not an
+expression or a list of expressions.
+
+Results:
+
+- 17 equations against SymPy 1.14 (`tests/test_native_ode3.py`):
+  `classify_ode` tuples, `dsolve(hint=...)` values and errors identical;
+  the native match objects and solutions equal those of the reference
+  bodies (native kernels hidden) on every row for the three solvers.
+- SymPy `test_single.py` examples, per example: nth_algebraic 23/23, factorable 20/20, 2nd_linear_bessel 12/12 before and after (lie_group, not ported, 18/20 both); the copied `test_single.py`/`test_ode.py` give 53 passed and 20 failed before and after, with the same failures, none for the three hints.
+- Native share on the examples of `test_single.py`: 791 kernel calls over the 315 examples (`classify_ode`, then `dsolve` with the example hint), all decided natively, none declined.
+- ODE corpus (315 rows): 315/289/270 before and after (algeb 23/22/23, fact 20/19/19, bessel 12/12/12, lie_group 20/16/14, unchanged).
+- Full suite 60 425 passed, 0 failed (60 478 collected, 691 files);
+  `cargo test --release` 871 + 1 + 0 + 5; clippy correctness clean.
+
+Remaining gaps (ODE scope):
+
+- The `diffx` class itself (`NthAlgebraic._get_diffx`: `Function` subclass
+  whose `inverse` builds `Integral(.., x) + Dummy('C')`) is still created
+  in Python and its inverse runs when `solve` inverts it (inside the
+  public `solve`, a host function).
+- The matching of the Bessel hint is the Python reference matcher, called
+  from Rust; the native `pattern_match` differs from it (example above).
+  Porting the reference matcher (`sympy/core/{mul,add,power}.py`
+  `matches`) to Rust would let the native ODE matchers drop the hook and
+  remove the unproven assumption of `second.rs`, `liouville.rs` and
+  `reducible.rs`.
+- algeb_04 (`dsolve` with the hint): the order of the two solutions
+  differs, from the order of `solve` on a multi-generator equation (the
+  change-of-variable path of SymPy's `_solve` versus the factor step of
+  the native `_tsolve`); solve domain, not the ODE port.
+- `lie_group` is still Python (lie_group_01/02/03 resource limits,
+  08/09/12 integration forms; lie_group_07 and 09 fail in the copied SymPy
+  tests).
+- Still in Python: simplification of particular solutions, `collect` with
+  partial exponents, vop_013 (above 6 GB).

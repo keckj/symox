@@ -395,6 +395,12 @@ class NthAlgebraic(SingleODESolver):
         # Derivative that solve can handle:
         diffx = self._get_diffx(var)
 
+        from ._classify_native import nth_algebraic
+        native = nth_algebraic(eq, func, var, diffx, solve, simplify)
+        if native is not None:
+            self.solutions = native
+            return len(native) != 0
+
         # Replace derivatives wrt the independent variable with diffx
         def replace(eq, var):
             def expand_diffx(*args):
@@ -882,6 +888,12 @@ class Factorable(SingleODESolver):
         x = self.ode_problem.sym
         df = f(x).diff(x)
         self.eqs = []
+        from ._classify_native import factorable_match
+        native = factorable_match(eq_orig, f(x), x, cancel, factor, solve)
+        if native is not None:
+            if native[0]:
+                self.eqs = native[1]
+            return native[0]
         eq = eq_orig.collect(f(x), func = cancel)
         eq = fraction(factor(eq))[0]
         factors = Mul.make_args(factor(eq))
@@ -907,6 +919,14 @@ class Factorable(SingleODESolver):
         func = self.ode_problem.func.func
         x = self.ode_problem.sym
         eqns = self.eqs
+        from ._classify_native import factorable_solutions
+        native = factorable_solutions(eqns, func(x), dsolve)
+        if native is not None:
+            sols, unsolved = native
+            if unsolved is not None:
+                raise NotImplementedError("The given ODE " + str(unsolved) + " cannot be solved by"
+                    + " the factorable group method")
+            return sols
         sols = []
         for eq in eqns:
             try:
@@ -2767,9 +2787,14 @@ class SecondLinearBessel(SingleODESolver):
         a3 = Wild('a3', exclude=[f, df, f.diff(x, 2)])
         b3 = Wild('b3', exclude=[f, df, f.diff(x, 2)])
         c3 = Wild('c3', exclude=[f, df, f.diff(x, 2)])
-        from ._classify_native import bessel_rejected
+        from ._classify_native import bessel_rejected, bessel_match
         if bessel_rejected(self, eq):
             return False
+        native = bessel_match(self, eq, factor, simplify, cancel, expand)
+        if native is not None:
+            if native[0]:
+                self.rn = native[1]
+            return native[0]
         deq = a3*(f.diff(x, 2)) + b3*df + c3*f
         r = collect(eq,
             [f.diff(x, 2), df, f]).match(deq)
@@ -2830,13 +2855,17 @@ class SecondLinearBessel(SingleODESolver):
     def _get_general_solution(self, *, simplify_flag: bool = True):
         f = self.ode_problem.func.func
         x = self.ode_problem.sym
+        (C1, C2) = self.ode_problem.get_numbered_constants(num=2)
+        from ._classify_native import bessel_solution
+        native = bessel_solution(self.rn, f(x), x, C1, C2)
+        if native is not None:
+            return [native]
         n = self.rn['n']
         a4 = self.rn['a4']
         c4 = self.rn['c4']
         d4 = self.rn['d4']
         b4 = self.rn['b4']
         n = sqrt(n**2 + Rational(1, 4)*(c4 - 1)**2)
-        (C1, C2) = self.ode_problem.get_numbered_constants(num=2)
         return [Eq(f(x), ((x**(Rational(1-c4,2)))*(C1*besselj(n/d4,a4*x**d4/d4)
             + C2*bessely(n/d4,a4*x**d4/d4))).subs(x, x-b4))]
 
