@@ -1,0 +1,20 @@
+.s.ss.x......................x...F....x.....                             [100%]
+=================================== FAILURES ===================================
+______________________________ test_aseries_trig _______________________________
+
+    def test_aseries_trig():
+>       assert cancel(gruntz(1/log(atan(x)), x, oo)
+               - 1/(log(pi) + log(S.Half))) == 0
+E       assert (-log(pi) + log(pi/2) + log(2))/(-log(pi/2)*log(pi) + log(2)*log(pi/2)) == 0
+E        +  where (-log(pi) + log(pi/2) + log(2))/(-log(pi/2)*log(pi) + log(2)*log(pi/2)) = cancel((1/log(pi/2) - (1 / (log(pi) + -log(2)))))
+E        +    where 1/log(pi/2) = gruntz((1 / log(atan(x))), x, oo)
+E        +      where log(atan(x)) = log(atan(x))
+E        +        where atan(x) = atan(x)
+E        +    and   log(pi) = log(pi)
+E        +    and   -log(2) = log(1/2)
+E        +      where 1/2 = S.Half
+
+test_gruntz.py:681: AssertionError
+=========================== short test summary info ============================
+FAILED test_gruntz.py::test_aseries_trig - assert (-log(pi) + log(pi/2) + log...
+1 failed, 37 passed, 3 skipped, 3 xfailed in 1.21s

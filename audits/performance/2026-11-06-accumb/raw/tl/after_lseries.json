@@ -1,0 +1,27 @@
+{
+"test_lseries.py:test_issue_5183:1": [
+"x",
+0.0002,
+110
+],
+"test_lseries.py:test_issue_5183:2": [
+"1",
+0.0004,
+111
+],
+"test_lseries.py:test_issue_5183:3": [
+"x",
+0.0009,
+112
+],
+"test_lseries.py:test_simple:1": [
+"[x]",
+0.0003,
+102
+],
+"test_lseries.py:test_simple:2": [
+"[1]",
+0.0001,
+103
+]
+}

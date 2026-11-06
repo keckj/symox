@@ -16474,7 +16474,8 @@ Remaining gaps (recorded, not corrected in Python):
 
 - The 68 "series in mrv variable" declines (oscillating `sin`, `cos`,
   `tan`, `frac`) are answered by the existing Python `AccumBounds` walker
-  or held. A Rust port needs `AccumBounds` arithmetic in Rust.
+  or held. A Rust port needs `AccumBounds` arithmetic in Rust. (Done in
+  wave 41: see "accumb (wave 41)" below.)
 - `heuristics()` of `sympy.series.limits` is not exposed.
 - Value forms of the meromorphic leading-term path (`test_rational`,
   issues 5740, 6364, 14393, 16708, 17751), `series_AccumBounds`,
@@ -16704,3 +16705,97 @@ Remaining gaps:
   solved system in `_is_special_case_of`. The `checksol` that follows
   integrates a large expression and the worker runs out of memory. SymPy
   also exceeds its deadline on these rows, so they stay unscored.
+## accumb (wave 41): native AccumulationBounds arithmetic and oscillating-limit walker, 2026-11-06
+
+What is native (`crates/symox-core/src/limits/accum.rs`, PyO3 binding
+`crates/symox-py/src/accum.rs`), as a line by line port of
+`sympy/calculus/accumulationbounds.py` and of the former Python modules
+`_accum_limit` and `_accum_eval`:
+
+- `AccumulationBounds.__new__` (the `Only real AccumulationBounds are
+  supported` and `Lower limit should be smaller than upper limit` errors,
+  `AccumBounds(a, a)` is `a`) and every arithmetic method: `__add__`,
+  `__sub__`, `__rsub__`, `__mul__`, `__truediv__`, `__rtruediv__`, `__pow__`,
+  `__rpow__`, `__neg__`, `__abs__`. Python operator dispatch is reproduced
+  inside Rust: bounds on the left call the bounds method, on the right the
+  reflected one, otherwise the `Add`/`Mul`/`Pow` constructors run and the
+  `Add.flatten`/`Mul.flatten` coefficient folding of bounds applies
+  (`fold`). The reference exceptions keep their classes (ValueError,
+  TypeError, NotImplementedError).
+- Comparisons: the three `_eval_is_ge` dispatches, with the reference
+  `Invalid comparison of non-real` / `Invalid NaN comparison` checks; an
+  undecided comparison stays a relational (`AccumBounds(1, 2) < 3/2`).
+- `intersection`, `union`, `__contains__` (`TypeError: input failed to
+  evaluate` when undecided).
+- The `AccumBounds` branches of the function `eval`s: `sin`, `cos`, `tan`,
+  `cot`, `sec`, `csc`, `exp`, `log`, `frac`, the hyperbolic functions at
+  `+-I*oo`, `atan`, `atanh`, `asech` at `zoo`, and the real-infinity values
+  (`sin(oo)` is `AccumBounds(-1, 1)`).
+- The oscillating-limit walker: native bounded decomposition first, then
+  the walk over `Add`, `Mul`, `Pow` and function nodes with the bounds
+  arithmetic, held oscillations (`exp(sin(oo*sign(s)))`), the two-sided
+  case, the fallback to the bounded decomposition when the walk raises.
+  Errors that are not walk failures propagate as in the reference.
+
+Python keeps only admission and routing: `sympify`/`_sympifyit` and the
+`isinstance(other, Expr)` checks of the methods, the reference
+`TypeError` of `intersection`/`union`, the wrapping of native results
+(`FiniteSet`/`EmptySet`, `S.true`/`S.false` from `__contains__`), the scan
+of `Add`/`Mul` arguments for bounds, and the head-name routing of
+`_accum_eval.evaluate`.
+
+Correction (in Rust): `log(AccumBounds(a, b))` with `a` negative or of
+unknown sign is `nan`, as the reference `log.eval`; it was left
+unevaluated. Consequently `limit(log(sin(x)), x, oo)` and
+`limit(log(sin(x) + 1/2), x, oo)` are held as in SymPy (they returned
+`log(AccumBounds(...))`).
+
+Evidence (`audits/performance/2026-11-06-accumb/`): statement harness
+1139/1293 identical before and after (no series, order or nseries
+change); the 38 declined limits the Python walker computed in the SymPy
+test files now go through the native walker; 288/288 replayed
+`oscillating_limit` calls give the same value or exception class as the
+Python walker; two probes of 346 bounds operations give the same output
+as before except the `log` correction; Gruntz declines 88 -> 87 (the
+`nan` of `log(cos(oo))` ends the walk of `sin(log(cos(x)))` before the
+decline, which stays held as in SymPy); the oscillating limits are 1.6 to
+3.7 times faster. Tests:
+`tests/test_native_accumbounds_limits.py` (spies prove the `_core` entry
+points are called; values are SymPy's).
+
+Remaining gaps (recorded, not corrected in Python):
+
+- `oscillating_integral` (routing of `integrate(f, (x, a, oo))` to the
+  limits of the antiderivative) and the re-evaluation of bounds in
+  `subs`/`doit` (`_accum_eval._needs`, `reevaluate`, `install_subs`) are
+  Python glue around native calls.
+- `Min`/`Max` with bounds arguments: the native lattice uses native
+  `Min`/`Max` when every argument is native-admissible; otherwise it calls
+  the public `symox.Min`/`symox.Max` through a hook.
+- Comparisons of bounds with other host objects keep the native relational
+  result; `is_comparable` is approximated by the native number test.
+- Function nodes inside the walker are rebuilt with the native constructors
+  (`functions::func`), not through the public Python classes; undefined
+  function heads make the walk fail (the limit is then held or answered
+  by the bounded decomposition).
+- `evaluate(False)` contexts are not modelled in the native arithmetic.
+- Printing: `latex(AccumBounds(1, 2))` is the generic function form, not
+  `\left\langle 1, 2\right\rangle`; `AccumBounds(1, 2)*nan` prints
+  `nan*AccumBounds(1, 2)` (the `Mul` argument order).
+- Differing asserts that involve bounds, unchanged: issue 7535
+  (`AccumBounds(-oo, oo)`, SymPy holds), `test_series_AccumBounds` (the same
+  interval in another form, from another `simplify` form of the sum),
+  `test_heuristic` (`heuristics()` not exposed).
+
+Deviations (present before this lot, kept; for validation):
+
+- `limit(x*sin(x), x, oo)`, `limit(exp(x)*sin(x), x, oo)`,
+  `limit(x + x*sin(x), x, oo)`, `limit(sin(1/x)/x, x, 0)`: `AccumBounds(-oo,
+  oo)`, and `limit(x*log(2 + sin(x)), x, oo)`: `AccumBounds(0, oo)`; SymPy
+  returns `oo*sign(AccumBounds(...))` (already recorded as intentional).
+- `limit(sin(x)*log(x), x, oo)` is `AccumBounds(-oo, oo)`, and
+  `limit(Max(sin(x), 0), x, oo)`, `limit(x**sin(x), x, oo)` are held, where
+  SymPy raises an internal `TypeError` (`_eval_nseries() missing 1 required
+  positional argument: 'cdir'`).
+
+Measured: [audit](../audits/performance/2026-11-06-accumb/README.md).

@@ -102,6 +102,24 @@ l'aiguillage et les enveloppes) :
   concurrents), ont échoué uniquement sur des délais : l'OOM du lot
   `tests/extra` à 6 Go, que le binaire de main atteint aussi, puis deux
   délais de sous-processus (fuzz 20 s, Dirac 5 s), aussi lents sur main.
+- accumb (`feat-accumb-20261106`) : arithmétique `AccumBounds` native
+  (`limits/accum.rs` : constructeur, opérateurs et opérateurs réfléchis,
+  puissances, `_eval_is_ge`, intersection, union, appartenance, repli des
+  coefficients de `Add`/`Mul`), valeurs des fonctions sur des bornes
+  (`sin`, `cos`, `tan`, `cot`, `exp`, `log`, `frac`, hyperboliques en
+  `±I*oo`) et marcheur des limites oscillantes (`oscillating_limit`) en
+  Rust ; 873 lignes de Python retirées. `log(AccumBounds(a, b))` avec `a`
+  négatif ou de signe inconnu vaut `nan` comme la référence (auparavant
+  laissé tel quel, d'où `limit(log(sin(x)), x, oo)` = `log(AccumBounds(-1,
+  1))` là où SymPy garde la limite). Asserts limites 1139/1293 inchangés,
+  les 38 limites que le marcheur Python calculait passent par le natif,
+  rejeu de 288 appels identique, déclins Gruntz 88 → 87 (la valeur
+  `nan` de `log(cos(oo))` arrête la marche avant le déclin, limite gardée
+  comme SymPy), limites oscillantes 1,6 à 3,7 fois plus rapides. Suite
+  complète du lot : 60 331 réussis, "SUITE CLEAN" (60 387 collectés, 688
+  fichiers, `~/symox-ci/evidence/accumb-20261106`) ; cargo test 867 + 1 +
+  0 + 5 ; clippy correctness propre. Preuves :
+  `audits/performance/2026-11-06-accumb/`.
 
 Vague 40 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
 enveloppes) :
@@ -275,10 +293,21 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `EX(a)` Python qui simplifie son élément, ordre des étapes d'expand hors
   produits de radicaux, constructeur RootSum en Python, bruit imaginaire de
   evalf (approché par l'évaluateur double dans l'ordre d'impression).
-- Limites : 154/1293 asserts encore différents ; 88 déclins Gruntz, dont
-  68 oscillants (`sin`/`cos`/`tan`/`frac`, marcheur `AccumBounds` Python,
-  portage Rust à faire avec l'arithmétique `AccumBounds`) et 10 qui lèvent
-  la NotImplementedError de SymPy.
+- Limites : 154/1293 asserts encore différents ; 87 déclins Gruntz, dont
+  67 oscillants, désormais tous repris en Rust (décomposition bornée ou
+  marcheur `AccumBounds` natif, vague 41) ou gardés, et 10 qui lèvent la
+  NotImplementedError de SymPy. Six asserts différents touchent les
+  bornes, inchangés par la vague 41 : issue 7535 (×3, `AccumBounds(-oo,
+  oo)` où SymPy garde la limite), `test_series_AccumBounds` (×2, même
+  intervalle sous une autre forme, car `simplify` rend une autre forme de
+  la somme) et `test_heuristic` (`heuristics()` non exposé).
+  Restent en Python autour des bornes : `oscillating_integral` (aiguillage
+  de `integrate` vers les limites de la primitive), la réévaluation des
+  bornes par `subs`/`doit` (`_accum_eval._needs`, `reevaluate`), et les
+  `Min`/`Max` à arguments bornes appelés par le natif via le crochet
+  `lattice`. Écarts : `oo*sign(AccumBounds(...))` de SymPy rendu
+  `AccumBounds(-oo, oo)` (divergence consignée), ordre d'impression de
+  `AccumBounds*nan`, LaTeX `\left\langle a, b\right\rangle` absent.
 - Matrices : perf lambdarr gamma/poly2.
 - Tableaux : 36/201 tests SymPy de tableaux. Les causes sont :
   - la classe ArrayComprehension, en Python ;

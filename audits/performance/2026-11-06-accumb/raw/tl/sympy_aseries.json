@@ -1,0 +1,47 @@
+{
+"test_aseries.py:test_hierarchical:1": [
+"-exp(-2*x)*sin(1/x)/2 + exp(-x)*cos(1/x) + sin(1/x) + O(exp(-3*x), (x, oo))",
+0.2188,
+49
+],
+"test_aseries.py:test_hierarchical:2": [
+"exp(-4*x)*sin(x)/24 - exp(-2*x)*sin(x)/2 + sin(x) + O(exp(-6*x), (x, oo))",
+0.1705,
+53
+],
+"test_aseries.py:test_simple:1": [
+"(1/(24*x**4) - 1/(2*x**2) + 1 + O(x**(-6), (x, oo)))*exp(-x)",
+0.2473,
+16
+],
+"test_aseries.py:test_simple:2": [
+"1/(6*x**3) + 1/(2*x**2) + 1/x + 1 + O(x**(-4), (x, oo))",
+0.3596,
+19
+],
+"test_aseries.py:test_simple:3": [
+"exp(exp(x)/(1 - 1/x))",
+0.0637,
+22
+],
+"test_aseries.py:test_simple:4": [
+"(-1/(2*x**3) + 1/x + 1 + O(x**(-4), (x, oo)))*exp(-exp(x))",
+0.5438,
+30
+],
+"test_aseries.py:test_simple:5": [
+"1 + exp(2*x + 2*exp(x))*exp(-2*exp(exp(x)))/2 - exp(2*x + exp(x))*exp(-2*exp(exp(x)))/2 - exp(x + exp(x))*exp(-2*exp(exp(x)))/2 + exp(x + exp(x))*exp(-exp(exp(x))) + O(exp(-3*exp(exp(x))), (x, oo))",
+1.4106,
+34
+],
+"test_aseries.py:test_simple:6": [
+"-1/(2*x**3) + 1/x + 1 + O(x**(-4), (x, oo))",
+0.8213,
+39
+],
+"test_aseries.py:test_simple:7": [
+"exp(exp(sqrt(log(log(n)))*log(log(log(n)))**3)*sqrt(log(n))*log(log(n))**2)*log(n)**2/sqrt(n)",
+0.6076,
+43
+]
+}

@@ -1,0 +1,15 @@
+{
+ "sin(x), oo": 0.48,
+ "sin(1/x), 0": 0.503,
+ "cos(1/x), 0, +-": 0.283,
+ "exp(sin(x)), oo": 0.797,
+ "sin(x)**2, oo": 0.539,
+ "1/(2 + sin(x)), oo": 0.64,
+ "sin(x) + cos(x), oo": 0.51,
+ "frac(x), oo": 0.45,
+ "tan(x), oo": 0.384,
+ "log(2 + sin(x)), oo": 0.82,
+ "x*sin(x), oo": 0.549,
+ "sin(x)**x, oo (held)": 1.027,
+ "bounds arithmetic (29 x 14 ops)": 42.912
+}
