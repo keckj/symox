@@ -1,0 +1,112 @@
+"""Radical-equation corpus for the unrad branch of SymPy 1.14's ``_solve``.
+
+Each case is ``(id, expression, symbols, flags)``; ``expression`` and
+``symbols`` are evaluated in a namespace holding the public API of the
+backend (``symox`` or ``sympy``) and the symbols below. The cases come from
+the lot's task (the ODE reproducer, its neighbours), from SymPy's
+``sympy/solvers/tests/test_solvers.py`` (``test_unrad1``, ``test_unrad_slow``,
+``test_unrad_fail``, ``test_checking``, issues touching unrad) and from
+variations on assumptions and ``check=False``.
+"""
+
+SYMBOLS = "x y z a b t C1 F"
+POSITIVE = "p q"
+
+CASES = [
+    # the ODE reproducer (fact_13 / fact_16) and its neighbours
+    ("ode_fact", "-2*y/sqrt(y**3) - C1 - x", "y", {}),
+    ("ode_fact_nocheck", "-2*y/sqrt(y**3) - C1 - x", "y", {"check": False}),
+    ("ode_fact_dict", "-2*y/sqrt(y**3) - C1 - x", "y", {"dict": True}),
+    ("ode_fact_eq", "Eq(-2*y/sqrt(y**3), C1 + x)", "y", {}),
+    ("ode_fact_pos", "-2*p/sqrt(p**3) - C1 - x", "p", {}),
+    ("ode_fact_num", "-2*y/sqrt(y**3) + 3", "y", {}),
+    ("ode_fact_num2", "-2*y/sqrt(y**3) - 3", "y", {}),
+    ("ode_fact_cube", "y/root(y**2, 3) - C1 - x", "y", {}),
+    # the task's completeness examples
+    ("pow32", "y**Rational(3, 2) - x", "y", {}),
+    ("pow32_nocheck", "y**Rational(3, 2) - x", "y", {"check": False}),
+    ("pow32_pos", "p**Rational(3, 2) - x", "p", {}),
+    ("pow32_num", "y**Rational(3, 2) - 8", "y", {}),
+    ("pow23", "y**Rational(2, 3) - x", "y", {}),
+    ("two_sqrt", "sqrt(x) + sqrt(x + 1) - 2", "x", {}),
+    ("cbrt_lin", "x**Rational(1, 3) - x + 1", "x", {}),
+    ("cbrt_lin_nocheck", "x**Rational(1, 3) - x + 1", "x", {"check": False}),
+    ("sqrt_quad", "sqrt(y) + y - x", "y", {}),
+    ("sqrt_quad_nocheck", "sqrt(y) + y - x", "y", {"check": False}),
+    ("sqrt_quad_pos", "sqrt(p) + p - x", "p", {}),
+    ("sqrt_quad_num", "sqrt(y) + y - 6", "y", {}),
+    ("sqrt_quad_simpl", "sqrt(y) + y - x", "y", {"simplify": False}),
+    # test_unrad1: solve calls
+    ("t_eq_nested", "sqrt(x) + sqrt(x + 1) + sqrt(1 - sqrt(x))", "x", {}),
+    ("t_eq_nested_nocheck", "sqrt(x) + sqrt(x + 1) + sqrt(1 - sqrt(x))", "x", {"check": False}),
+    ("t_eq_nested2", "sqrt(x) - sqrt(x + 1) + sqrt(1 - sqrt(x))", "x", {}),
+    ("lamar_a", "Eq(x, sqrt(x + 6))", "x", {}),
+    ("lamar_b", "Eq(x + sqrt(x - 4), 4)", "x", {}),
+    ("lamar_c", "Eq(1, x + sqrt(2*x - 3))", "x", {}),
+    ("lamar_d", "Eq(sqrt(5*x + 6) - 2, x)", "x", {}),
+    ("lamar_e", "Eq(sqrt(2*x - 1) - sqrt(x - 4), 2)", "x", {}),
+    ("lamar_f", "Eq(sqrt(x + 7) + 2, sqrt(3 - x))", "x", {}),
+    ("purple_a", "(2*x - 5)**Rational(1, 3) - 3", "x", {}),
+    ("purple_b", "x + 1 - root(x**4 + 4*x**3 - x, 4)", "x", {}),
+    ("purple_c", "sqrt(2*x**2 - 7) - (3 - x)", "x", {}),
+    ("purple_d", "sqrt(2*x + 9) - sqrt(x + 1) - sqrt(x + 4)", "x", {}),
+    ("purple_e", "sqrt(x + 4) + sqrt(2*x - 1) - 3*sqrt(x - 1)", "x", {}),
+    ("purple_f", "sqrt(x)*sqrt(x - 7) - 12", "x", {}),
+    ("purple_g", "sqrt(x - 3) + sqrt(x) - 3", "x", {}),
+    ("purple_h", "sqrt(9*x**2 + 4) - (3*x + 2)", "x", {}),
+    ("purple_i", "sqrt(x) - 2 - 5", "x", {}),
+    ("purple_j", "sqrt(x - 3) - sqrt(x) - 3", "x", {}),
+    ("purple_k", "sqrt(x - 1) - x + 7", "x", {}),
+    ("purple_l", "sqrt(x - 2) - 5", "x", {}),
+    ("purple_m", "sqrt(17*x - sqrt(x**2 - 5)) - 7", "x", {}),
+    ("purple_n", "sqrt(x) - sqrt(x - 1) + sqrt(sqrt(x))", "x", {}),
+    ("posify_z", "sqrt(2*x + 1)/sqrt(x) - sqrt(2 + 1/x)", "x", {}),
+    ("posify_z6i", "sqrt(2*x + 1)/sqrt(x) - sqrt(2 + 1/x) + 6*I", "x", {}),
+    ("cov_coverage", "sqrt(x) + root(x, 3) - 2", "x", {}),
+    ("cov_fail", "sqrt(x) + root(x, 3) + root(x + 1, 5) - 2", "x", {}),
+    ("cosh_fail", "-sqrt(2) + cosh(x)/x", "x", {}),
+    ("unrad_some", "sqrt(x + root(x, 3)) + root(x - y, 5)", "y", {}),
+    ("root35", "root(x, 3) + root(x, 5) - 2", "x", {}),
+    ("three_sqrt_6", "sqrt(x) + sqrt(x + 1) + sqrt(1 - x) - 6*sqrt(5)/5", "x", {}),
+    ("composite_x", "sqrt(y)*x + x**3 - 1", "x", {}),
+    ("composite_y", "-512*y**3 + 1344*(x + 2)**Rational(1, 3)*y**2 - 1176*(x + 2)**Rational(2, 3)*y - 169*x + 686", "y", {"_unrad": False}),
+    ("cov_not_sym", "-x + (7*y/8 - (27*x/2 + 27*sqrt(x**2)/2)**Rational(1, 3)/3)**3 - 1", "y", {}),
+    ("four_sqrt", "sqrt(x) + sqrt(x + 1) - sqrt(1 - x) - sqrt(2 + x)", "x", {}),
+    ("fence", "F - (2*x + 2*y + sqrt(x**2 + y**2))", "x", {"check": False}),
+    ("sqrt_cbrt", "sqrt(x + 1) + root(x, 3) - 2", "x", {}),
+    ("nested_cbrt", "sqrt(sqrt(x + 1)) + x**Rational(1, 3) - 2", "x", {}),
+    ("cbrt_sqrt_nest", "sqrt(x) + root(sqrt(x) + 1, 3) - 2", "x", {}),
+    ("exp_sqrt_23707", "sqrt(x - y)*exp(t*sqrt(x - y)) - exp(t*sqrt(x - y))", "y", {}),
+    # test_unrad_slow / test_unrad_fail
+    ("slow_half", "sqrt(1 + sqrt(1 - 4*x**2)) - x*(1 + sqrt(1 + 2*sqrt(1 - 4*x**2)))", "x", {}),
+    ("fail_real_root", "root(x**3 - 3*x**2, 3) + 1 - x", "x", {}),
+    ("fail_crootof", "root(x + 1, 3) + root(x**2 - 2, 5) + 1", "x", {}),
+    # test_checking and other issues touching radicals
+    ("checking_a", "x*(1/x)", "x", {}),
+    ("issue_4671", "sqrt(x**2 - 1) - 2", "x", {}),
+    ("issue_5132", "sqrt(x) - y", "x", {}),
+    ("issue_5335", "sqrt(2*x + 3) - x", "x", {}),
+    ("issue_7110", "2*x**2 + 2*x - sqrt(x**2 + 1)", "x", {}),
+    ("issue_6056", "sqrt(x)*sqrt(1 - x) - Rational(1, 3)", "x", {}),
+    ("issue_8828", "sqrt(x) - sqrt(1 - x) - Rational(1, 2)", "x", {}),
+    ("issue_12114", "sqrt(x**2 + y**2) - 1", "y", {}),
+    ("issue_17452", "x**Rational(1, 3) - 1/x", "x", {}),
+    ("issue_10933", "sqrt(1 - x**2) - x", "x", {}),
+    # parameters, assumptions and flags
+    ("param_two", "sqrt(x + a) - sqrt(x) - b", "x", {}),
+    ("param_two_nocheck", "sqrt(x + a) - sqrt(x) - b", "x", {"check": False}),
+    ("param_cbrt", "root(y, 3) + y - a", "y", {}),
+    ("param_q", "sqrt(q) + q - 2", "q", {}),
+    ("param_q_neg", "sqrt(q) + q + 2", "q", {}),
+    ("real_x", "sqrt(x) + 1", "x", {}),
+    ("real_x_nocheck", "sqrt(x) + 1", "x", {"check": False}),
+    ("ratio", "sqrt(x)/(x - 4) - 1", "x", {}),
+    ("ratio_den", "1/sqrt(x) + 1/sqrt(x + 1) - 1", "x", {}),
+    ("pow52", "y**Rational(5, 2) - x", "y", {}),
+    ("pow34", "y**Rational(3, 4) - 2", "y", {}),
+    ("sqrt_y3_alone", "sqrt(y**3) - x", "y", {}),
+    ("sqrt_y3_minus", "sqrt(y**3) - y", "y", {}),
+    ("mixed_set", "sqrt(x) + sqrt(x + 1) - 2", "x", {"set": True}),
+    ("mixed_dict", "sqrt(x) + sqrt(x + 1) - 2", "x", {"dict": True}),
+    ("mixed_force", "sqrt(y) + y - x", "y", {"force": True}),
+]

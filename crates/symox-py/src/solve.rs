@@ -39,8 +39,9 @@ fn set_result(py: Python<'_>, variables: &[Expr], solutions: Vec<Vec<Expr>>) -> 
     Ok((symbols, PySet::new(py, rows)?).into_pyobject(py)?.into_any().unbind())
 }
 
-fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,symox::poly::roots::RadicalOptions)> {
+fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,symox::poly::roots::RadicalOptions,bool)> {
     let (mut dict, mut set, mut check) = (false, false, true);
+    let mut unrad = true;
     let mut cubics=true;let mut quartics=None;let mut incomplete=true;
     if let Some(flags) = flags {
         for (key, value) in flags.iter() {
@@ -53,6 +54,9 @@ fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,
                 "quartics"=>quartics=Some(value.is_truthy()?),
                 "quintics"=>{},
                 "incomplete"=>incomplete=value.is_truthy()?,
+                // the reference `_unrad=False`: the outermost `_solve` skips
+                // its unrad fallback (the nested calls keep it)
+                "_unrad" => unrad = value.is_truthy()?,
                 // The native solutions are not post-simplified (the
                 // Python layer applies SymPy's linear-path simplify), so
                 // simplify=False keeps them as they are. force=True is the
@@ -66,7 +70,7 @@ fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,
             }
         }
     }
-    Ok((dict, set && !dict, check,symox::poly::roots::RadicalOptions{cubics,quartics:quartics.unwrap_or(cubics),incomplete,trig:false}))
+    Ok((dict, set && !dict, check,symox::poly::roots::RadicalOptions{cubics,quartics:quartics.unwrap_or(cubics),incomplete,trig:false},unrad))
 }
 
 fn expr_list(o: &Bound<'_, PyAny>) -> PyResult<(Vec<Expr>, bool)> {
@@ -135,10 +139,32 @@ fn canonical_key(e:&Expr)->(usize,symox::sortkey::Key){
     (symox::traverse::node_count(e),symox::sortkey::sort_key(e))
 }
 
+thread_local! {
+    /// The equation, unknown and solutions of the last univariate native
+    /// solve that the reference `_solve` leaves unsimplified (see
+    /// `symox::solve::take_unsimplified`).
+    static LAST_UNSIMPLIFIED: std::cell::RefCell<Option<(Expr, Expr, Vec<Expr>)>> = const { std::cell::RefCell::new(None) };
+}
+
+/// The solutions of the last native `solve(equation, symbol)` that the
+/// reference leaves unsimplified when the `simplify` flag is not given
+/// (unrad results, more than two roots of a generator); empty when the last
+/// native solve was for another equation.
+#[pyfunction]
+fn _solve_unsimplified(equation: &Bound<'_, PyAny>, symbol: &Bound<'_, PyAny>) -> PyResult<Vec<crate::PyExpr>> {
+    let (Ok(equation), Ok(symbol)) = (to_expr(equation), to_expr(symbol)) else { return Ok(vec![]) };
+    let equation = sv::as_expr(&equation);
+    Ok(LAST_UNSIMPLIFIED.with(|l| match &*l.borrow() {
+        Some((e, x, values)) if *e == equation && *x == symbol => values.iter().cloned().map(wrap).collect(),
+        _ => vec![],
+    }))
+}
+
 #[pyfunction]
 #[pyo3(signature = (f, *symbols, **flags))]
 fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, flags: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    let (as_dict, as_set, check,root_options) = solve_flags(flags)?;
+    let (as_dict, as_set, check,root_options,unrad) = solve_flags(flags)?;
+    LAST_UNSIMPLIFIED.with(|l| l.borrow_mut().take());
     let (eqs, is_system) = expr_list(f)?;
     let unordered_symbols=symbols.len()==1&&symbols.get_item(0).is_ok_and(|s|
         s.is_instance_of::<PySet>()||s.is_instance_of::<PyFrozenSet>());
@@ -169,10 +195,16 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
     }
     if !is_system && eqs.len() == 1 && vars.len() == 1 {
         let x = &vars[0];
-        let sols = symox::poly::roots::with_radical_options(root_options,||
-            sv::solve_atom(&eqs[0],x,check).or_else(||sv::solve_with_check(&eqs[0],x,check))).ok_or_else(|| {
+        sv::take_unsimplified();
+        let sols = sv::without_unrad(!unrad, || symox::poly::roots::with_radical_options(root_options,||
+            sv::solve_atom(&eqs[0],x,check).or_else(||sv::solve_with_check(&eqs[0],x,check)))).ok_or_else(|| {
+            sv::take_unsimplified();
             PyNotImplementedError::new_err(format!("could not solve {} for {}", eqs[0], x))
         })?;
+        let unsimplified: Vec<Expr> = sv::take_unsimplified().into_iter().filter(|v| sols.contains(v)).collect();
+        if !unsimplified.is_empty() {
+            LAST_UNSIMPLIFIED.with(|l| *l.borrow_mut() = Some((sv::as_expr(&eqs[0]), x.clone(), unsimplified)));
+        }
         if as_set { return set_result(py, &vars, sols.into_iter().map(|s| vec![s]).collect()); }
         if as_dict {
             let l = PyList::empty(py);
@@ -395,6 +427,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_solve_complete_rational_roots, m)?)?;
     m.add_function(wrap_pyfunction!(_nonlinsolve_parametric, m)?)?;
     m.add_function(wrap_pyfunction!(solve, m)?)?;
+    m.add_function(wrap_pyfunction!(_solve_unsimplified, m)?)?;
     m.add_function(wrap_pyfunction!(nsolve, m)?)?;
     Ok(())
 }

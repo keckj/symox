@@ -123,15 +123,11 @@ def test_upper_limit_doit(integral, expected):
 
 # SymPy 1.14: solve recasts an undefined application to a Dummy.
 SOLVE = [
-    # Gap: the single-equation fallbacks after the native solver run
-    # _tsolve before unrad (the reference runs unrad first), and only for a
-    # Symbol; SymPy solves it through unrad.
-    pytest.param(S.Eq(-2*fx/S.sqrt(fx**3), C1 - x), '[4/(C1**2 - 2*C1*x + x**2)]',
-                 marks=pytest.mark.xfail(strict=True, raises=NotImplementedError, reason='solve unrad fallback order')),
+    # the unrad branch of `_solve`, native (solve/radical.rs)
+    (S.Eq(-2*fx/S.sqrt(fx**3), C1 - x), '[4/(C1**2 - 2*C1*x + x**2)]'),
     (S.sqrt(fx) - x, '[x**2]'),
-    # Gap of solve for a plain symbol as well: y**(3/2) = x keeps one root.
-    pytest.param(S.Eq(fx**R(3, 2), x), '[x**(2/3), (-x**(1/3)/2 - sqrt(3)*I*x**(1/3)/2)**2, (-x**(1/3)/2 + sqrt(3)*I*x**(1/3)/2)**2]',
-                 marks=pytest.mark.xfail(strict=True, reason='solve(y**(3/2) - x, y) completeness')),
+    # the roots of the generator sqrt(f(x)), then its inversion
+    (S.Eq(fx**R(3, 2), x), '[x**(2/3), (-x**(1/3)/2 - sqrt(3)*I*x**(1/3)/2)**2, (-x**(1/3)/2 + sqrt(3)*I*x**(1/3)/2)**2]'),
     (S.exp(fx) - x, '[log(x)]'),
 ]
 
@@ -153,8 +149,7 @@ def test_solve_undefined_application_as_symbol():
 # SymPy 1.14 dsolve on the corpus rows fact_12, fact_13 and liouville_08.
 DSOLVE = [
     (S.exp(d1) - fx**2, 'factorable', 'Eq(Integral(1/log(_y**2), (_y, f(x))), C1 + x)'),
-    pytest.param(d1**2 - fx**3, 'factorable', 'Eq(f(x), 4/(C1**2 - 2*C1*x + x**2))',
-                 marks=pytest.mark.xfail(strict=True, reason='solve unrad fallback order')),
+    (d1**2 - fx**3, 'factorable', 'Eq(f(x), 4/(C1**2 - 2*C1*x + x**2))'),
     (x**2*d1 + (fx**2 + n*fx)*d1**2 + d2, 'Liouville',
      'Eq(C1 + C2*lowergamma(1/3, x**3/3) + Integral(exp(_y**3/3)*exp(_y**2*n/2), (_y, f(x))), 0)'),
 ]

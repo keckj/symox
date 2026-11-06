@@ -16342,20 +16342,14 @@ Now native:
 
 Remaining gaps (ODE scope):
 
-- fact_13 / fact_16 (`f'(x)**2 = f(x)**3`): SymPy solves
-  `-2*f/sqrt(f**3) = C1 + x` through the `unrad` branch of `_solve`, which
-  runs before `_tsolve`. symox's single-equation fallbacks
-  (`_solve_relations.py`) run the native tsolve before unrad and only for a
-  Symbol; for `y` the tsolve posify retry returns `[]` on the `C1 + x`
-  branch (a wrong empty answer, also for a plain symbol), and for `f(x)` the
-  call raises NotImplementedError and the factor stays implicit. This needs
-  the `_solve` unrad branch in the native solver; it is not fixed in Python.
+- fact_13 / fact_16 (`f'(x)**2 = f(x)**3`): fixed on 2026-11-06, see
+  [the native unrad branch of `solve`](#solve-2026-11-06-native-unrad-branch-and-generator-roots-of-radical-equations).
 - `integrate(x/(x**2 - 1), x)` gives `log(x - 1)/2 + log(x + 1)/2` (the
   native quadratic-denominator rule) where SymPy gives `log(x**2 - 1)/2`
   (`ratint` gives the reference form); visible in the 2F1 solution of
   `(1 - x**2)*f'' - 2*x*f' + 6*f`. Integration domain.
-- `solve(y**(3/2) - x, y)` keeps one root of three, and `f(x)` targets do
-  not get the `_simplified_solutions` form of a Symbol target.
+- `f(x)` targets do not get the `_simplified_solutions` form of a Symbol
+  target. `solve(y**(3/2) - x, y)` returns all three roots since 2026-11-06.
 - 2nd_2F1_hyper_01/02/03 default: the default hint is a power series whose
   form differs; algeb_04 (order of the Dummy `_C`); lie_group_08/09/12
   (integration forms, resource limits).
@@ -16616,3 +16610,97 @@ Remaining gaps (recorded):
   values on the compared calls (deviation to validate).
 
 Measured: [audit](../audits/performance/2026-11-05-prde2/README.md).
+
+## solve (2026-11-06): native unrad branch and generator roots of radical equations
+
+Wrong result fixed: `solve(-2*y/sqrt(y**3) - C1 - x, y)` returned `[]`.
+SymPy 1.14 returns `[4/(C1**2 + 2*C1*x + x**2)]`. The native solver had no
+unrad branch, so it raised NotImplementedError. The Python wrapper then ran
+the `_tsolve` step, which answered `[]`. The reference order is the reverse:
+`_solve` takes its unrad fallback before `_tsolve`.
+
+Now native (`crates/symox-core/src/solve/radical.rs`, called from
+`solve_rec` after the polynomial, product, trig and symbolic-power steps and
+before `solve_by_generator` / `invert`). Admission: every subexpression
+containing the unknown is the unknown, a sum, a product or a power with a
+Rational exponent, and at least one exponent is not an integer.
+
+- One generator `g` of `Poly(f_num)` contains the unknown:
+  - the native solver finds the roots of the polynomial in `g`;
+  - each root is inverted through `_vsolve(g - t, symbol)` on the reference
+    `tsolve` pass, that is `unrad` and then the `_tsolve` inversion;
+  - so `y**(3/2) = x` has the three solutions `x**(2/3)` and
+    `(x**(1/3)*w)**2`, and `y**(2/3) = x` gives `±x**(3/2)`.
+- Several generators: the unrad fallback.
+  - The native `unrad` runs with a native host (`_vsolve` = the native
+    solver without check).
+  - It is followed by the nested `_vsolve` of the radical-free equation.
+    With a change of variable this is `inv = _vsolve(ieq, symbol)[0]`, then
+    `inv.subs(isym, xi)` for every root of `_solve(eq, isym)`.
+  - Each factor of the nested solve is simplified, as the default `_solve`
+    does, unless it has more than two roots.
+- Checks: the existing `solve_checked` (denominators, the unknown's
+  assumptions, `checksol`). With `check=False`, `-2*y/sqrt(y**3) - C1 - x`
+  keeps `0` as in SymPy. A positive unknown loses the candidate, as in
+  SymPy.
+- The reference leaves unrad results, and more than two generator roots,
+  unsimplified.
+  - They are recorded natively (`solve::take_unsimplified`).
+  - The Python wrapper reads them with `_core._solve_unsimplified(eq, x)`
+    (dispatch only) and does not simplify them.
+- `_unrad=False` is accepted. It disables the fallback of the outermost call
+  only; nested calls keep it.
+- The native `solveset` calls `solve` without these branches
+  (`solve::without_radical_branch`): `_solveset` reaches `_solve_radical`
+  (`radical_step`), where an undecided candidate stays in a ConditionSet.
+
+Undecided cases are declined, never answered `[]`: the branch returns "not
+taken" when `unrad` raises or returns None, or when the radical-free equation
+or the change of variable is not solved, and the later native steps run.
+
+Measured (`audits/performance/2026-11-06-unrad/`, 90 radical equations,
+including the `solve` calls of `test_unrad1`, `test_unrad_slow`,
+`test_unrad_fail` and the radical issues):
+
+| replay | SAME | EQUIV | SUBSET | SUPERSET | WRONG_EMPTY | DECLINED | EXTRA |
+|---|---|---|---|---|---|---|---|
+| before | 63 | 12 | 7 | 1 | 4 | 2 | 1 |
+| after | 87 | 2 | 0 | 0 | 0 | 0 | 1 |
+
+ODE corpus (`audits/performance/2026-11-05-ode`): 315/287/268 before, 315/289/270 after (fact_13 and fact_16, hint and default, now equal to SymPy).
+
+Validation: full suite 60 329 passed, 0 failed ("SUITE CLEAN", 60 382
+collected in 688 files: 11 new tests, 3 strict xfails lifted in
+`tests/test_native_odehyper.py`); cargo test 865 + 1 + 0 + 5; clippy
+correctness clean.
+
+Deviations from SymPy (to validate):
+
+- Where the reference propagates an error, the native branch declines and
+  the later steps run:
+  - `unrad` raising PolynomialError or IndexError;
+  - a NotImplementedError from the change-of-variable solve.
+
+  An established fallback may then answer. For example,
+  `sqrt(x) + root(x, 3) + root(x + 1, 5) - 2`: SymPy raises
+  NotImplementedError, and symox returns the checked `CRootOf` root from the
+  Python `_unrad_resultant` fallback, as before this lot.
+- The unsimplified marking is applied by value equality to the solutions of
+  the same equation. A solution that another branch also produced in
+  simplified form is left as the native branch gave it.
+
+Remaining gaps:
+
+- Equations mixing radicals of the unknown with functions of it
+  (`sqrt(x)*exp(x)`, `cosh(x)/x - sqrt(2)`, symbolic exponents) are not
+  admitted. They keep the previous native steps and then the Python
+  fallbacks (`_masked_solution`, `_inverted_solution`, `_unrad_solution`),
+  which still run `_tsolve` before unrad.
+- The `_take` flag of `unrad` (custom radical selection) is still rejected
+  by the native solve.
+- The printed forms of `cov_not_sym` and `ratio_den` differ (equal values).
+- In the ODE corpus, the default dsolve of
+  `2nd_nonlinear_autonomous_conserved_03/04` now reaches, as SymPy does, a
+  solved system in `_is_special_case_of`. The `checksol` that follows
+  integrates a large expression and the worker runs out of memory. SymPy
+  also exceeds its deadline on these rows, so they stay unscored.

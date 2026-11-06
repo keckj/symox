@@ -1083,7 +1083,7 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         map.insert(g.clone(), t.clone());
         let p = crate::subs::xreplace(&num, &map);
         if !has(&p, x) {
-            let ks = crate::solve::solve(&p, &t)?;
+            let ks = crate::solve::without_radical_branch(|| crate::solve::solve(&p, &t))?;
             let mut occurrences = 0;
             crate::traverse::preorder(&num, &mut |e| if *e == g { occurrences += 1; });
             context.single.set(occurrences == 1 && crate::integrate::poly_coeffs(&p, &t).is_some_and(|c| c.len() == 2));
@@ -1131,7 +1131,9 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         && crate::solve::lambert::solve(&num, x).is_some() {
         return None;
     }
-    let sols = crate::solve::solve(f, x)?;
+    // the radical branches of `_solve` are not `_solveset`'s: its radical
+    // equations go to `_solve_radical` (`radical_step`)
+    let sols = crate::solve::without_radical_branch(|| crate::solve::solve(f, x))?;
     let found = filter_domain(sols, domain);
     // `solve` drops a candidate only when it is provably a pole; the
     // reference `_solveset` subtracts the solutions of the denominator, so
