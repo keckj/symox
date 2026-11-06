@@ -37,14 +37,6 @@ pub trait Hooks {
     fn factor(&mut self, e: &Expr) -> Result<Expr, Self::Error>;
     fn cancel(&mut self, e: &Expr) -> Result<Expr, Self::Error>;
     fn expand(&mut self, e: &Expr) -> Result<Expr, Self::Error>;
-    /// `e.match(pattern)`: the bindings, `None` for no match. The public
-    /// `Expr.match` is the reference matcher (`symox._matching`), whose
-    /// choices the native `pattern_match` does not always make (`x**2`
-    /// against `c4**2*x**(2*a4)`); the default is the native matcher, a
-    /// matcher error counting as no match.
-    fn matches(&mut self, e: &Expr, pattern: &Expr) -> Result<Option<FxHashMap<Expr, Expr>>, Self::Error> {
-        Ok(crate::pattern::pattern_match(e, pattern).ok().flatten())
-    }
 }
 
 /// Content whose rebuilding by `Basic.replace` the port does not model:

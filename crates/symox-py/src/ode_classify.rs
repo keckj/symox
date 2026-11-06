@@ -289,7 +289,6 @@ struct SolverHooks<'a, 'py> {
     factor: Option<&'a Bound<'py, PyAny>>,
     cancel: Option<&'a Bound<'py, PyAny>>,
     expand: Option<&'a Bound<'py, PyAny>>,
-    matcher: Option<&'a Bound<'py, PyAny>>,
     foreign: bool,
 }
 
@@ -342,24 +341,6 @@ impl algebraic::Hooks for SolverHooks<'_, '_> {
     fn factor(&mut self, e: &Expr) -> PyResult<Expr> { self.expr(self.factor, e) }
     fn cancel(&mut self, e: &Expr) -> PyResult<Expr> { self.expr(self.cancel, e) }
     fn expand(&mut self, e: &Expr) -> PyResult<Expr> { self.expr(self.expand, e) }
-    /// The public `Expr.match`: `None` or a dict of expressions.
-    fn matches(&mut self, e: &Expr, pattern: &Expr) -> PyResult<Option<rustc_hash::FxHashMap<Expr, Expr>>> {
-        let Some(f) = self.matcher else { return Err(self.missing()) };
-        let v = f.call1((w(e.clone()), w(pattern.clone())))?;
-        if v.is_none() {
-            return Ok(None);
-        }
-        let Ok(d) = v.downcast::<PyDict>() else {
-            self.foreign = true;
-            return Err(pyo3::exceptions::PyTypeError::new_err("match did not return a dict"));
-        };
-        let mut out = rustc_hash::FxHashMap::default();
-        for (k, v) in d.iter() {
-            let (k, v) = (to_expr(&k).inspect_err(|_| self.foreign = true)?, to_expr(&v).inspect_err(|_| self.foreign = true)?);
-            out.insert(k, v);
-        }
-        Ok(Some(out))
-    }
 }
 
 /// A native result, `None` when a hook result was not modelled, or the
@@ -434,8 +415,8 @@ fn ode_factorable_solutions(py: Python<'_>, eqs: Vec<Bound<'_, PyAny>>, fx: &Bou
 }
 
 /// `SecondLinearBessel._matches`: `(n, a4, c4, d4, b4)` (the reference
-/// `self.rn`), `False` or `None` (not decided). `matcher(e, pattern)` is the
-/// public `Expr.match`.
+/// `self.rn`), `False` or `None` (not decided). The wild matches are the
+/// native port of the reference `Expr.match` (`symox::matches`).
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
 fn ode_bessel_match(
@@ -448,10 +429,9 @@ fn ode_bessel_match(
     simplify: &Bound<'_, PyAny>,
     cancel: &Bound<'_, PyAny>,
     expand: &Bound<'_, PyAny>,
-    matcher: &Bound<'_, PyAny>,
 ) -> PyResult<PyObject> {
     let (eq, fx, x) = (to_expr(eq)?, to_expr(fx)?, to_expr(x)?);
-    let mut hooks = SolverHooks { factor: Some(factor), simplify: Some(simplify), cancel: Some(cancel), expand: Some(expand), matcher: Some(matcher), ..Default::default() };
+    let mut hooks = SolverHooks { factor: Some(factor), simplify: Some(simplify), cancel: Some(cancel), expand: Some(expand), ..Default::default() };
     let r = bessel::bessel_match(&eq, &fx, &x, order, &mut hooks);
     let r = settle(&hooks, r)?.unwrap_or(Outcome::Decline);
     outcome(py, &r, |m| vec![m.n.clone(), m.a4.clone(), m.c4.clone(), m.d4.clone(), m.b4.clone()])

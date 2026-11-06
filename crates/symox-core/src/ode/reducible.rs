@@ -9,7 +9,7 @@
 use crate::diff::derivative_unevaluated;
 use crate::expr::{Expr, Kind};
 use crate::ops::{add, mul, mul2, pow};
-use crate::pattern::pattern_match;
+use crate::matches::reference_match;
 use crate::traverse::{has_structural as has, preorder};
 
 use super::classify::Outcome;
@@ -64,7 +64,7 @@ pub fn riccati_special(collected: &Expr, fx: &Expr, x: &Expr, df: &Expr) -> Outc
         mul(&[c.clone(), fx.clone(), pow(x, &Expr::int(-1))]),
         mul2(&d, &pow(x, &Expr::int(-2))),
     ]);
-    match pattern_match(collected, &pattern) {
+    match reference_match(collected, &pattern, false) {
         Ok(Some(m)) => match (m.get(&a), m.get(&b), m.get(&c), m.get(&d)) {
             (Some(a), Some(b), Some(c), Some(d)) => Outcome::Match([a.clone(), b.clone(), c.clone(), d.clone()]),
             _ => Outcome::Decline,

@@ -11,7 +11,7 @@
 use crate::diff::derivative_unevaluated;
 use crate::expr::Expr;
 use crate::ops::{add, div, mul2, pow};
-use crate::pattern::pattern_match;
+use crate::matches::reference_match;
 
 use super::classify::{blocked, coeff, collected, Hooks, Outcome};
 use super::linear::unmodelled;
@@ -26,7 +26,7 @@ pub struct SecondOrderPatterns {
 }
 
 fn matched<const N: usize>(e: &Expr, pattern: &Expr, wilds: &[Expr; N]) -> Outcome<[Expr; N]> {
-    match pattern_match(e, pattern) {
+    match reference_match(e, pattern, false) {
         Ok(Some(m)) => {
             let mut out = Vec::with_capacity(N);
             for w in wilds {

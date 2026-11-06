@@ -5,15 +5,15 @@
 //! rejection of a constant leading coefficient) and of the order-two power
 //! series hints (`2nd_power_series_ordinary`, `2nd_power_series_regular`).
 //!
-//! The wild matching uses the same matcher as the public `Expr.match`
-//! (`crate::pattern::pattern_match`), the collection the same kernel as the
-//! public `collect`; `cancel` is the public callable supplied by the binding.
+//! The wild matching is the native port of the reference `Expr.match`
+//! (`crate::matches`; a declined match declines), the collection the same
+//! kernel as the public `collect`; `cancel` is the public callable supplied by the binding.
 //! `Decline` leaves the decision to the reference matcher.
 
 use crate::diff::derivative_unevaluated;
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::ops::{add, div, mul2, pow, sub};
-use crate::pattern::pattern_match;
+use crate::matches::reference_match;
 use crate::poly::collect::{self, Collection, Options};
 use crate::traverse::{free_symbols, has_structural as has, preorder};
 
@@ -79,7 +79,7 @@ pub fn deq_match(eq: &Expr, fx: &Expr, x: &Expr) -> Outcome<[Expr; 3]> {
     let names = ["a3", "b3", "c3"];
     let wilds: Vec<Expr> = names.iter().map(|n| Expr::wild(n, exclude.clone())).collect();
     let pattern = add(&[mul2(&wilds[0], &d2), mul2(&wilds[1], &d1), mul2(&wilds[2], fx)]);
-    let m = match pattern_match(&collected, &pattern) {
+    let m = match reference_match(&collected, &pattern, false) {
         Ok(Some(m)) => m,
         Ok(None) => return Outcome::NoMatch,
         Err(_) => return Outcome::Decline,
@@ -145,7 +145,7 @@ pub fn airy(eq: &Expr, fx: &Expr, x: &Expr, order: u32, cancel: Cancel<'_>) -> O
     let a4 = Expr::wild("a4", exclude.clone());
     let b4 = Expr::wild("b4", exclude);
     let pattern = add(&[a4.clone(), mul2(&b4, x)]);
-    match pattern_match(&q, &pattern) {
+    match reference_match(&q, &pattern, false) {
         Ok(Some(r)) => match (r.get(&a4), r.get(&b4)) {
             (Some(b), Some(slope)) => match nonzero(slope) {
                 Some(true) => Outcome::Match((b.clone(), slope.clone())),

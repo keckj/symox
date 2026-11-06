@@ -4676,6 +4676,27 @@ fn py_lambdify(
         exact: pyo3::sync::GILOnceCell::new() })
 }
 
+/// SymPy 1.14's `expr.match(pattern, old)` (symox::matches): `(True,
+/// bindings or None)`, or `(False, reason)` when the native port declines
+/// and the caller must use the reference protocol.
+#[pyfunction]
+#[pyo3(signature = (expr, pattern, old=false))]
+fn _reference_match<'py>(py: Python<'py>, expr: &Bound<'py, PyAny>, pattern: &Bound<'py, PyAny>, old: bool) -> PyResult<(bool, PyObject)> {
+    let (e, p) = (to_expr(expr)?, to_expr(pattern)?);
+    match symox::matches::reference_match_ordered(&e, &p, old) {
+        Ok(None) => Ok((true, py.None())),
+        Ok(Some(bindings)) => {
+            let d = PyDict::new(py);
+            for (k, v) in bindings.into_vec() {
+                d.set_item(wrap(k), wrap(v))?;
+            }
+            Ok((true, d.into_any().unbind()))
+        }
+        Err(symox::matches::Stop::Decline(reason)) => Ok((false, reason.into_pyobject(py)?.into_any().unbind())),
+        Err(symox::matches::Stop::Error(error)) => Err(wildcards::to_python_error(error)),
+    }
+}
+
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyExprNode>()?;
@@ -4699,6 +4720,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_default_sort_key, m)?)?;
     m.add_function(wrap_pyfunction!(_indexed_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(expression_inspection::_native_count_ops, m)?)?;
+    m.add_function(wrap_pyfunction!(_reference_match, m)?)?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(py_dummy, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;

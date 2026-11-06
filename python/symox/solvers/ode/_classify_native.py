@@ -455,7 +455,8 @@ def factorable_solutions(eqs, func, dsolve):
 def bessel_match(solver, eq, factor, simplify, cancel, expand):
     """``SecondLinearBessel._matches`` decided natively: ``(True, rn)``,
     ``(False, None)``, or ``None`` when the reference matcher must run.
-    The wild matches call the public ``Expr.match``."""
+    The wild matches are the native port of ``Expr.match``; a match it
+    declines leaves the decision to the reference matcher."""
     native = getattr(_core, 'ode_bessel_match', None)
     problem = solver.ode_problem
     order = problem.order
@@ -463,7 +464,7 @@ def bessel_match(solver, eq, factor, simplify, cancel, expand):
     if native is None or x is None or x != problem.sym or not isinstance(order, int) or order < 0:
         return None
     try:
-        value = native(eq, problem.func, x, order, factor, simplify, cancel, expand, lambda e, p: e.match(p))
+        value = native(eq, problem.func, x, order, factor, simplify, cancel, expand)
     except Exception:
         return None
     if value is None:
