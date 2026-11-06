@@ -16283,7 +16283,8 @@ Remaining gaps (still Python, recorded):
   (`prde_normal_denom`, `prde_special_denom` exp/primitive,
   `prde_linear_constraints`, `constant_system` over towers, `prde_spde`,
   the no-cancel and cancel cases) is not ported. Most of the corpus prde
-  time is there (native 42.7 s, SymPy 37.1 s).
+  time is there (native 42.7 s, SymPy 37.1 s). Ported on exp/primitive
+  levels since: see "prde (towers, parametric)" below.
 - `z` or `c1` given, and the declines listed above. (On tan levels SymPy
   only raises `NotImplementedError`; the kernel reproduces it, after the
   `residue_reduce` Dummies, on any level.)
@@ -16297,3 +16298,106 @@ Remaining gaps (still Python, recorded):
   contract (Python code runs between two reads) and needs user validation.
 
 Measured: [audit](../audits/performance/2026-11-05-prde/README.md).
+
+## prde (towers, parametric): param_rischDE, param_poly_rischDE, prde_cancel_liouvillian and limited_integrate above the base level in Rust, 2026-11-06
+
+Above the base level (`DE.case` `'exp'` or `'primitive'`, every level below
+exp or primitive, `D[0] = 1`), four functions of `sympy/integrals/prde.py`
+and their substeps are computed in Rust
+(`crates/symox-py/src/prde_param.rs`, `_prde_kernel` kinds
+`param_rischDE_tower`, `param_poly_rischDE_tower`,
+`prde_cancel_liouvillian_tower`, `limited_integrate_tower`):
+- `param_rischDE(fa, fd, G, DE)`: `prde_normal_denom`
+  (`weak_normalizer`, `gcdex_diophantine`), `prde_special_denom` (exp arm
+  with `parametric_log_deriv` one level down, primitive arm), the
+  `prde_linear_constraints` / `constant_system` / `poly_linear_constraints`
+  matrices, the call to `param_poly_rischDE`, the block nullspace and the
+  final `h`, `M`;
+- `param_poly_rischDE(a, b, q, n, DE)`: `prde_spde` recursion,
+  `bound_degree` (base arm, exp arm, primitive arm including the
+  `db == da` branch that calls `limited_integrate` on the level below),
+  `prde_no_cancel_b_large`, `prde_no_cancel_b_small` at the base level,
+  `prde_cancel_liouvillian`;
+- `prde_cancel_liouvillian(b, Q, n, DE)`: the `i` loop, `DecrementLevel`,
+  the lower-level `param_rischDE` (native base kernel of the earlier waves
+  or the tower kernel), `set_gens` and the block matrix;
+- `limited_integrate(fa, fd, G, DE)`: `limited_integrate_reduce`, the
+  `param_rischDE` call and the selection of the solution.
+
+The Rust code is a step-by-step port of the stock bodies: it calls the
+native `symox._core.Poly` / `Expr` methods the stock body calls (`cancel`,
+`div`, `gcd`, `exquo`, `as_poly`, `LC`, ...), in the same order and with the
+same arguments, keeps the PolyMatrix as `(rows, cols, entries, gens,
+domain)` with the stock unification of domains, and computes the
+nullspaces with the Rust `DDM`. Python (`_prde_native._tower`,
+`_tower_matrix`, the hook at the top of the stock
+`prde_cancel_liouvillian`) only checks the argument types, dispatches,
+rebuilds the PolyMatrix, creates the Dummies from the native trace and
+raises the stock exceptions the kernel reports (`NotImplementedError`,
+`ValueError('Length of m should be 1')`, ...). No Python algorithm was added.
+
+Admission: stock Polys in the active `DE.t` over exact domains with plain
+symbol generators (ZZ, QQ, ZZ[...], QQ[...], ZZ(...), QQ(...)); `DE.T`
+plain distinct commutative symbols, `DE.D` stock Polys in their variable;
+`DE.cases` strings with `cases[0] == 'base'`; `G`/`Q` lists of at most 64
+items; `n` an int with `|n| <= 2**20`; at most 16 levels; 10**6 steps.
+
+The kernel declines (the stock body runs, so the stock answer or exception
+is kept) when:
+- the stock body would fail outside a documented exception: the primitive
+  `bound_degree` `db == da - 1` branch (stock `TypeError`), `derivation`
+  meeting a `None` term (stock `TypeError`/`SympifyError`, `risch_prim`
+  below), `limited_integrate` returning `None` inside `bound_degree`
+  (stock `TypeError` on unpacking), `bound_degree` with a non-integer `m`
+  larger than `n`;
+- a tan or nonlinear level, `prde_no_cancel_b_small` above the base level,
+  `prde_no_cancel_b_equal` (stock `NotImplementedError`), `real_roots`
+  that do not reduce to ZZ, a nullspace outside `ground_entries`, a domain
+  `infer_domain` cannot build, `h == 0` where the stock divides by it, a
+  lower kernel that declines;
+- `r == 0` or `m < 0` in `limited_integrate_reduce`, `n < 0` in
+  `prde_cancel_liouvillian`, or a cap above is exceeded;
+- a signal interrupts the computation (the signal is then raised).
+
+Differential comparison against SymPy 1.14
+(`audits/performance/2026-11-05-prde2/`):
+- 584 seeded random calls of the four functions on ten towers (including
+  tan): 536 identical to SymPy, 31 different but identical in the stock
+  symox body (pre-existing, below), 0 differences specific to the native
+  kernels, 17 SymPy timeouts at 20 s (see the audit for the reruns).
+  Native answers in 461 calls. Time without timeouts: SymPy 186.4 s,
+  native 19.2 s, stock 146.8 s.
+- the 142 calls recorded from the SymPy prde/Risch test copies and the 485
+  calls recorded from `risch_integrate` on the integration corpus: 0 result
+  and 0 Dummy-count differences against SymPy. Tests 3.10 s SymPy, 0.55 s
+  native, 2.74 s stock; corpus 37.1 s SymPy, 16.9 s native, 34.3 s stock
+  (42.7 s native on the previous wave). No kernel decline on either set.
+- SymPy test copies (test_prde.py, test_rde.py, test_risch.py): 5 failed,
+  56 passed, same list as the stock bodies.
+- `tests/test_native_prde_param.py`: 27 cases with the SymPy 1.14 result
+  and Dummy count hard-coded, plus a native-answer test; `risch_prim` is a
+  strict xfail.
+
+Differences against SymPy that remain (all shared with the stock body):
+- the generator order of a fraction-field domain of the returned
+  PolyMatrix (`QQ(t0,x)` against `QQ(x,t0)`, equal entries; 12 random
+  calls);
+- `TypeError` messages naming `symox._core.Poly` instead of `Poly` (8);
+- `TypeError('cannot convert object of type NoneType ...')` where SymPy
+  raises `SympifyError: None` from `Poly + None` in `derivation` (5 random
+  calls and `risch_prim`);
+- a differently scaled `h` basis (2) and a different row form of `M` from
+  the stock PolyMatrix nullspace/rref (4).
+
+Remaining gaps (recorded):
+- tan and nonlinear levels, `prde_no_cancel_b_small` above the base level,
+  `prde_no_cancel_b_equal`: stock body;
+- DE whose ground domain has non-symbol generators (`ZZ[x,_t0,log(5)]`,
+  records 119 to 122 of the test calls): rejected at admission, stock body;
+- the declines and caps above;
+- the kernel computes with a private `z` Dummy (index `-2**62`) instead
+  of the stock `Dummy('z')`; the stock Dummies are created from the trace,
+  so the Dummy counts match SymPy, and `z` does not occur in the returned
+  values on the compared calls (deviation to validate).
+
+Measured: [audit](../audits/performance/2026-11-05-prde2/README.md).

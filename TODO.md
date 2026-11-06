@@ -98,6 +98,25 @@ enveloppes) :
   `Poly.free_symbols` des domaines composites et boucles d'admission de
   splitfactor (`risch_sf_admission.rs`) en Rust.
 
+Vague 40 (en cours, branches non fusionnées) :
+- prde2 (`feat-prde2-20261105`, sur cab152e3) : `param_rischDE`,
+  `param_poly_rischDE`, `prde_cancel_liouvillian` et `limited_integrate`
+  au-dessus du niveau de base, sur les tours exp/primitive, en Rust
+  (`symox-py/src/prde_param.rs`) : dénominateurs normal et spécial,
+  contraintes linéaires, `constant_system`, `prde_spde`, `bound_degree`
+  (y compris la branche primitive `db == da` qui appelle
+  `limited_integrate`), b_large, b_small au niveau de base, annulation
+  liouvillienne, `limited_integrate_reduce`. 584 appels aléatoires :
+  0 écart propre au natif (536 identiques, 31 écarts déjà présents dans le
+  corps Python, 17 dépassements SymPy à 20 s) ; appels des tests SymPy
+  (142) et du corpus (485) identiques à SymPy, corpus 16,9 s contre
+  37,1 s SymPy (42,7 s avant). Python : admission, aiguillage, Dummies,
+  exceptions. Test cargo `cancel_include_matches_reference` et test
+  splitfactor hermite_reduce alignés sur SymPy (QQ conservé depuis
+  88545232) ; le test d'atteinte des noyaux de première vague
+  (`test_native_prderust.py`) renvoie aussi les noyaux de tour au corps
+  Python.
+
 Vague 38 (dans main) :
 - arr2mat : `convert_array_to_matrix`, ses passes, `_EditArrayContraction`
   et `_ArgE` natifs (`arrayexpr_a2m.rs`). `Trace(MatMul)` n'est plus
@@ -146,9 +165,13 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
   d'erreur du casus irreducibilis ; factorable, 2F1, Bessel, nth_algebraic,
   lie_group.
-- prde : `limited_integrate`, `param_rischDE`, `prde_cancel_liouvillian` et
-  le reste de l'EDR de Risch paramétrique sur K(t) au-dessus du niveau de
-  base ; erreur kkinv `PolynomialError` de SymPy non reproduite (xfail
+- prde : EDR de Risch paramétrique au-dessus du niveau de base sur les
+  niveaux tan/non linéaires, `prde_no_cancel_b_small` hors niveau de base,
+  `prde_no_cancel_b_equal`, domaines à générateurs non symboles
+  (`log(5)`), déclins listés dans le contrat (corps Python) ; écarts
+  hérités du corps Python (ordre des générateurs du domaine de la
+  PolyMatrix, messages `TypeError`, `SympifyError` de `derivation`, forme
+  de `M`) ; erreur kkinv `PolynomialError` de SymPy non reproduite (xfail
   strict, cas 44 de `tests/test_native_prde_tower.py`) ; surcoût restant de
   l'admission splitfactor sur QQ (2,8 ms contre 1,0 ms SymPy, voir l'écart
   ci-dessus).

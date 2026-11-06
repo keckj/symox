@@ -25,7 +25,9 @@ _ROOT = None
 STATS = {'constant_system_field': 0, 'derivation': 0, 'is_deriv_k': 0,
          'is_log_deriv_k_t_radical_in_field': 0, 'parametric_log_deriv_heu': 0,
          'limited_integrate': 0, 'is_log_deriv_k_t_radical_in_field_tower': 0,
-         'parametric_log_deriv_heu_tower': 0}
+         'parametric_log_deriv_heu_tower': 0, 'param_rischDE_tower': 0,
+         'param_poly_rischDE_tower': 0, 'prde_cancel_liouvillian_tower': 0,
+         'limited_integrate_tower': 0}
 _POLY = _core.Poly
 _EXPR = _core.Expr
 _AS_POLY = None
@@ -323,7 +325,35 @@ def _call(kind, args, fields):
     return _ROOT[0](kind, args, t, d, T, D, level)
 
 
+def _above_base(DE):
+    """True when the active level of ``DE`` is an extension (not 'base')."""
+    root = _ROOT
+    if root is None or _TYPE(DE) is not root[1]:
+        return False
+    try:
+        current = root[2][0][1].__get__(DE, root[1])
+    except AttributeError:
+        return False
+    return _TYPE(current) is _STR and current != 'base'
+
+
+def _tower_matrix(kind, args, DE):
+    """Tower kernels answering ``(list, PolyMatrix)``: ``None`` (stock body)
+    or the stock result, the matrix rebuilt from ``(rows, cols, items, gens,
+    domain)``."""
+    r = _tower(kind, args, DE, kind)
+    if r is None:
+        return None
+    h, (rows, cols, items, gens, domain) = r[0]
+    root = _ROOT
+    return h, root[7](root[6], rows, cols, items, gens, domain)
+
+
 def param_rischDE(fa, fd, G, DE):
+    if _above_base(DE):
+        if _TYPE(G) is not _LIST or _TYPE(fa) is not _POLY or _TYPE(fd) is not _POLY:
+            return None
+        return _tower_matrix('param_rischDE_tower', (fa, fd, G), DE)
     fields = _fields(DE)
     if fields is None:
         return None
@@ -338,6 +368,11 @@ def param_rischDE(fa, fd, G, DE):
 
 
 def param_poly_rischDE(a, b, q, n, DE):
+    if _above_base(DE):
+        if (_TYPE(q) is not _LIST or _TYPE(n) is not _INT or _TYPE(a) is not _POLY
+                or _TYPE(b) is not _POLY):
+            return None
+        return _tower_matrix('param_poly_rischDE_tower', (a, b, q, n), DE)
     fields = _fields(DE)
     if fields is None:
         return None
@@ -654,6 +689,10 @@ def limited_integrate(fa, fd, G, DE):
     """
     if _TYPE(G) is not _LIST:
         return None
+    if _above_base(DE):
+        if _TYPE(fa) is not _POLY or _TYPE(fd) is not _POLY:
+            return None
+        return _tower('limited_integrate_tower', (fa, fd, G), DE, 'limited_integrate_tower')
     fields = _log_fields(fa, fd, DE)
     if fields is None:
         return None
@@ -664,3 +703,14 @@ def limited_integrate(fa, fd, G, DE):
     _create(('z',))
     STATS['limited_integrate'] += 1
     return r
+
+
+def prde_cancel_liouvillian(b, Q, n, DE):
+    """``prde_cancel_liouvillian(b, Q, n, DE)`` on exp/primitive towers: the
+    loop over ``i``, the lower-level ``param_rischDE`` (native base case or
+    tower), ``set_gens`` and the block matrix. Returns ``None`` (stock body)
+    or the stock ``(H, M)``."""
+    if (_TYPE(Q) is not _LIST or _TYPE(n) is not _INT or _TYPE(b) is not _POLY
+            or not _above_base(DE)):
+        return None
+    return _tower_matrix('prde_cancel_liouvillian_tower', (b, Q, n), DE)

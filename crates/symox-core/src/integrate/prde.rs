@@ -798,8 +798,11 @@ mod tests {
         let (p, q) = half.cancel(&tq).unwrap();
         assert_eq!(p, P::new(vec![Rat::from_i64(4), Rat::from_i64(2)], true));
         assert_eq!(q, P::new(vec![Rat::zero(), Rat::from_i64(3)], true));
+        // QQ with ZZ unifies to QQ, as SymPy's
+        // `Poly(1, t, domain=QQ).cancel(Poly(1, t), include=True)`.
         let one = P::new(vec![Rat::one()], true);
-        assert_eq!(one.cancel(&z(&[1])).unwrap(), (z(&[1]), z(&[1])));
+        assert_eq!(one.cancel(&z(&[1])).unwrap(), (one.clone(), one.clone()));
+        assert_eq!(z(&[1]).cancel(&z(&[1])).unwrap(), (z(&[1]), z(&[1])));
     }
     #[test]
     fn zz_gcd_and_lcm_normalize_like_reference() {

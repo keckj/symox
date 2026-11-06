@@ -22,7 +22,7 @@ mod checked_factor_views;
 #[path="poly_structure.rs"]
 mod structural;
 #[path="poly_ddm.rs"]
-mod ddm;
+pub(crate) mod ddm;
 #[path="poly_fraction_free.rs"]
 pub(crate) mod fraction_free;
 #[path="poly_ff_domains.rs"]
@@ -1653,7 +1653,7 @@ impl PyPoly {
     /// (`coeff.as_numer_denom()`), which are integral for a `QQ[gens]`
     /// construction, so the field is `ZZ(gens)`, not `QQ(gens)`. Any other
     /// domain is `to_field()`.
-    fn _construct_field(&self)->PyResult<Self>{
+    pub(crate) fn _construct_field(&self)->PyResult<Self>{
         use symox::poly::domains::ExactDomain;
         if self.p.algebraic.is_none()&&self.p.expression.is_none()&&self.p.base.modulus.is_none(){
             let d=self.domain_descriptor()?;
@@ -1985,7 +1985,7 @@ impl PyPoly {
     fn quo(&self,o:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly>{if let Some((a,b))=self.inexact_ops(o)?{return Ok(PyPoly{p:symox::poly::inexact_ground::div_part(&a,&b,auto,true).map_err(err)?.into()});}let q=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial"))?;Ok(PyPoly{p:self.p.quo_with_options(&q,auto).map_err(err)?})}
 
     #[pyo3(signature=(o,auto=true))]
-    fn exquo(&self, o: &Bound<'_, PyAny>, auto:bool) -> PyResult<PyPoly> {
+    pub(crate) fn exquo(&self, o: &Bound<'_, PyAny>, auto:bool) -> PyResult<PyPoly> {
         if let Some((a,b))=self.inexact_ops(o)?{return Ok(PyPoly{p:symox::poly::inexact_ground::exquo(&a,&b,auto).map_err(err)?.into()});}
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         Ok(PyPoly { p: (self.p.exquo_with_options(&q,auto).map_err(err)?).into() })
