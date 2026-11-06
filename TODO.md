@@ -1,7 +1,7 @@
 # TODO — Capacités mathématiques et parité SymPy
 
-Mis à jour le **6 novembre 2026**, sur la branche `integrate-wave40-20261106`
-(`main` à **`15e75d3a`**, vague 39, plus les trois lots de la vague 40).
+Mis à jour le **6 novembre 2026**, sur la branche `integrate-wave41-20261106`
+(`main` à **`5ebd60c0`**, vague 40, plus les trois lots de la vague 41).
 Référence : **SymPy 1.14.0**. Dernier lot validé sur Demeter le 6 novembre
 (voir « Reprise sur Demeter » ; le paragraphe ci-dessous décrit la suite du
 28 octobre).
@@ -57,26 +57,32 @@ Python restent un chantier distinct, hors de ce TODO mathématique.
 affirmée à tort) ; il rend maintenant `[4/(C1**2 + 2*C1*x + x**2)]` comme
 SymPy, par la branche unrad native de `_solve`, atteinte avant les étapes
 `_tsolve` comme dans la référence. Les cas EDO fact_13 et fact_16 sont
-débloqués.
+débloqués. Réserve : les équations qui mêlent des radicaux de l'inconnue à
+d'autres fonctions de celle-ci (`sqrt(x)*exp(x)`, `cosh(x)/x - sqrt(2)`,
+exposants symboliques) ne sont pas admises par la branche native et
+passent encore par les replis Python qui appellent `_tsolve` avant unrad
+(`_masked_solution`, `_inverted_solution`, `_unrad_solution`) ; voir
+« Lacunes ouvertes principales ».
 
-La branche `integrate-wave40-20261106` (main `15e75d3a` + vague 40 :
-ode, limits, prde2) est validée et main y est avancé. Validation
-(`XLA_PYTHON_CLIENT_PREALLOCATE=false`) sur `b53bc23a` : suite complète
-**60 315 réussis, 0 échec** ("SUITE CLEAN", 11 xfail, 45 sautés,
-60 371 collectés et exécutés, 687 fichiers ; preuves dans
-`~/symox-ci/evidence/integ40-20261106`), soit l'union des trois lots
-(+37, +16 et +54 tests collectés sur les 60 262 de main, +2 du correctif
-d'intégration) ; cargo test 865 + 1 + 0 + 5, clippy correctness propre ;
-corpus EDO rejoué sur la branche intégrée : **315/287/268** (identique au
-lot ode). Correctif d'intégration (Rust) : `b53bc23a`, la preuve native du
-graphe de classes LLL froid (`crates/symox-py/src/lll_cold_graph.rs`)
-admet la métaclasse `Singleton` d'origine, que les lots de la vague 40
-rendent atteignable. Sans cela, `test_native_slotfold.py::test_lll_stays_native_with_cached_exception_slotnames`
-échouait ; résultats LLL inchangés. Le corpus d'intégration n'a pas été
+La branche `integrate-wave41-20261106` (main `5ebd60c0` + vague 41 :
+unrad, accumb, arrcomp) est validée, à avancer dans main. Validation
+(`XLA_PYTHON_CLIENT_PREALLOCATE=false`) sur `86b66430` : suite complète
+**60 352 réussis, 0 échec** ("SUITE CLEAN", 8 xfail, 45 sautés,
+60 405 collectés et exécutés, 690 fichiers ; preuves dans
+`~/symox-ci/evidence/integ41-20261106`), soit exactement l'union des trois
+lots (+11, +16 et +7 tests collectés et 3 fichiers sur les 60 371 et
+687 de main ; 3 xfail stricts levés par unrad) ; cargo test 867 + 1 + 0 + 5,
+clippy correctness propre ; corpus EDO rejoué sur la branche intégrée :
+**315/289/270**, verdicts identiques ligne à ligne à ceux du lot unrad.
+Conflits de fusion limités au texte (`TODO.md`,
+`docs/algorithmic-parity.md`, sections ajoutées bout à bout) ;
+`crates/symox-py/src/lib.rs` fusionné sans conflit avec les modules
+`accum` et `array_comprehension` et leurs deux enregistrements. Aucun
+correctif d'intégration nécessaire. Le corpus d'intégration n'a pas été
 rejoué depuis la vague 37.
 
-Vague 41 (en cours ; calcul en Rust, Python limité à l'admission,
-l'aiguillage et les enveloppes) :
+Vague 41 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
+enveloppes) :
 - unrad (`feat-unrad-20261106`) : branches radicales de `_solve` natives
   (`crates/symox-core/src/solve/radical.rs`), dans l'ordre de SymPy, avant
   `_tsolve` :
@@ -133,11 +139,12 @@ l'aiguillage et les enveloppes) :
   45 sautés, 60 378 collectés, 688 fichiers ; +7 de
   `tests/test_native_arrcomp.py` ; preuves dans
   `~/symox-ci/evidence/arrcomp-20261106`) ; cargo test 865 + 1 + 0 + 5,
-  clippy correctness propre. Écarts délibérés à valider : voir la section
-  arrcomp de docs/algorithmic-parity.md.
+  clippy correctness propre. Écarts délibérés à valider : voir la liste
+  de la vague 41 ci-dessous et la section arrcomp de
+  docs/algorithmic-parity.md.
 
-Vague 40 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
-enveloppes) :
+Vague 40 (dans main ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes) :
 - ode (`feat-ode-20261105`) : 2F1 natif (`ode/hypergeometric.rs` :
   `equivalence_hypergeometric`, `match_2nd_2F1_hypergeometric`,
   `get_sol_2F1_hypergeometric`), identique à la référence sur les 34 EDO
@@ -235,6 +242,37 @@ Vague 38 (dans main) :
 - prdelog : cas de base de `is_log_deriv_k_t_radical_in_field` en Rust
   (`integrate/prde_log.rs`, 938 appels, 0 écart).
 
+Écarts volontaires de la vague 41 en attente de validation utilisateur :
+- unrad : là où la référence propage une erreur (`unrad` qui lève
+  PolynomialError ou IndexError, NotImplementedError du changement de
+  variable), la branche native décline et les étapes suivantes répondent ;
+  un repli établi peut alors donner une valeur (`sqrt(x) + root(x, 3) +
+  root(x + 1, 5) - 2` : SymPy lève NotImplementedError, symox rend la racine
+  `CRootOf` vérifiée du repli `_unrad_resultant`, comme avant le lot) ; le
+  marquage « non simplifié » s'applique par égalité de valeur aux solutions
+  de la même équation (une solution aussi produite sous forme simplifiée
+  par une autre branche reste sous la forme native).
+- accumb (écarts antérieurs au lot, conservés) : `limit(x*sin(x), x, oo)`,
+  `exp(x)*sin(x)`, `x + x*sin(x)` en `oo` et `sin(1/x)/x` en 0 valent
+  `AccumBounds(-oo, oo)`, `x*log(2 + sin(x))` vaut `AccumBounds(0, oo)`, là
+  où SymPy rend `oo*sign(AccumBounds(...))` ; `limit(sin(x)*log(x), x, oo)`
+  vaut `AccumBounds(-oo, oo)` et `Max(sin(x), 0)`, `x**sin(x)` en `oo` sont
+  gardés, là où SymPy lève un `TypeError` interne (`_eval_nseries()` sans
+  `cdir`).
+- arrcomp : `combine_kronecker` sans la règle de somme
+  (`KP(A, B) + KP(C, D) -> KP(A + C, B + D)`, fausse en général) et ne
+  distribuant que les puissances entières (`KP(X, Y)**x` gardé ; SymPy rend
+  `KP(X**x, Y**x)`, faux sur la branche principale), d'où l'échec de
+  `test_KroneckerProduct_combine_mul` et `_combine_pow` ;
+  `Eq(MatrixSymbol('P', n, 1), MatrixSymbol('Q', m, 1))` non évalué (SymPy
+  rend False alors que `n = m` est possible) ; `ArrayComprehension.subs`
+  garde la substitution sans capture (indice lié non substitué, indice
+  libre du remplaçant renommé en Dummy entier ; SymPy substitue et
+  capture) ; développement plafonné à 100 000 entrées (ValueError au-delà,
+  plafond des tableaux denses existant) ; `SparseMatrix[i, j]` à indice
+  symbolique a pour parent une matrice dense immuable (SymPy : la matrice
+  creuse ; entrées et affichage identiques).
+
 Écarts volontaires de la vague 40 en attente de validation utilisateur :
 - ode : le recast rend pour une cible `f(x)` les valeurs d'un symbole
   (`sqrt(f)+f-x` résolu, il levait avant ; forme symox, pas celle de
@@ -280,9 +318,9 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
 - ODE : simplification et intégrales des solutions particulières en
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
   d'erreur du casus irreducibilis ; factorable, Bessel, nth_algebraic,
-  lie_group. 2F1 natif depuis `feat-ode-20261105` (corpus 315/287/268,
-  contre 315/285/267 sur main) ; fact_13/fact_16 identiques depuis
-  `feat-unrad-20261106` (branche unrad native) ;
+  lie_group. 2F1 natif depuis la vague 40 (corpus 315/285/267 →
+  315/287/268) ; fact_13/fact_16 identiques depuis la vague 41 (branche
+  unrad native ; corpus 315/289/270 sur la branche intégrée) ;
   conserved_03/04 (dsolve par défaut) dépassent la mémoire dans le
   `checksol` de `_is_special_case_of` (SymPy y dépasse aussi son délai) ;
   `integrate(x/(x**2 - 1))` garde deux
