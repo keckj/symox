@@ -272,17 +272,43 @@ def has(self, *patterns):
     return bool(tests) and any(test(node) for node in _structural_nodes(self) for test in tests)
 
 
+def _native_reference_match(expr, pattern, old):
+    """The native port of the reference protocol (symox::matches), or
+    NotImplemented when it declines or the input is outside its admission
+    (custom ``matches``, WildFunction, non-scalar operands)."""
+    from ._matching import _custom_matches
+    from ._public_core import _wild_functions
+    if not (isinstance(expr, _core.Expr) and isinstance(pattern, _core.Expr)):
+        return NotImplemented
+    if _custom_matches(pattern) is not None:
+        return NotImplemented
+    if _wild_functions and _native_has(pattern, *_wild_functions):
+        return NotImplemented
+    handled, result = _core._reference_match(expr, pattern, bool(old))
+    return result if handled else NotImplemented
+
+
 def match(self, pattern, old=False):
-    """The reference pattern matching (symox._matching)."""
+    """The reference pattern matching: natively (symox::matches), else the
+    Python protocol of symox._matching."""
     from . import sympify
     from ._matching import matches as structural_matches
-    return structural_matches(sympify(pattern), self, old=old)
+    pattern = sympify(pattern)
+    result = _native_reference_match(self, pattern, old)
+    if result is not NotImplemented:
+        return result
+    return structural_matches(pattern, self, old=old)
 
 
 def matches(self, expr, repl_dict=None, old=False):
     """Match this pattern against expr, extending a copy of repl_dict."""
     from ._matching import matches as structural_matches
-    return structural_matches(self, _core.sympify(expr), repl_dict, old=old)
+    expr = _core.sympify(expr)
+    if not repl_dict:
+        result = _native_reference_match(expr, self, old)
+        if result is not NotImplemented:
+            return result if repl_dict is None or result is None else dict(result)
+    return structural_matches(self, expr, repl_dict, old=old)
 
 
 def is_hypergeometric(self, k):

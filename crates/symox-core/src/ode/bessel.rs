@@ -7,11 +7,11 @@
 //! normalization `a3 -> x**2`, the wild matches of the Bessel form and the
 //! construction of `x**((1 - c4)/2)*(C1*besselj(..) + C2*bessely(..))`.
 //!
-//! The collection is the public `collect` kernel. The wild matches go
-//! through [`Hooks::matches`], the public `Expr.match` (the reference
-//! matcher), as do `factor`, `simplify`, `cancel` and `expand`; their
-//! errors propagate. `Outcome::Decline` leaves the decision to the
-//! reference body.
+//! The collection is the public `collect` kernel. The wild matches are the
+//! native port of the reference `Expr.match` ([`crate::matches`]); an input
+//! it declines is not modelled. `factor`, `simplify`, `cancel` and `expand`
+//! are the public callables of [`Hooks`]; their errors propagate.
+//! `Outcome::Decline` leaves the decision to the reference body.
 
 use crate::expr::{Expr, Kind, RelOp};
 use crate::ops::{add, div, mul2, pow, sqrt, sub};
@@ -52,12 +52,13 @@ fn deq<H: Hooks>(eq: &Expr, fx: &Expr, x: &Expr, hooks: &mut H) -> Result<Matche
     Ok(matched(&collected, &pattern, &[&wilds[0], &wilds[1], &wilds[2]], hooks)?.map(|v| v.map(|v| [v[0].clone(), v[1].clone(), v[2].clone()])))
 }
 
-/// `e.match(pattern)` (the public matcher) read at `wilds`; a missing wild
-/// is not modelled.
-fn matched<H: Hooks>(e: &Expr, pattern: &Expr, wilds: &[&Expr], hooks: &mut H) -> Result<Matched<Vec<Expr>>, H::Error> {
-    Ok(match hooks.matches(e, pattern)? {
-        Some(m) => wilds.iter().map(|w| m.get(*w).cloned().ok_or(())).collect::<Result<Vec<_>, _>>().map(Some),
-        None => Ok(None),
+/// `e.match(pattern)` (the native port of the reference matcher) read at
+/// `wilds`; a declined match or a missing wild is not modelled.
+fn matched<H: Hooks>(e: &Expr, pattern: &Expr, wilds: &[&Expr], _hooks: &mut H) -> Result<Matched<Vec<Expr>>, H::Error> {
+    Ok(match crate::matches::reference_match(e, pattern, false) {
+        Ok(Some(m)) => wilds.iter().map(|w| m.get(*w).cloned().ok_or(())).collect::<Result<Vec<_>, _>>().map(Some),
+        Ok(None) => Ok(None),
+        Err(_) => Err(()),
     })
 }
 

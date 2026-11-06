@@ -17235,3 +17235,149 @@ Remaining gaps (ODE scope):
   tests).
 - Still in Python: simplification of particular solutions, `collect` with
   partial exponents, vop_013 (above 6 GB).
+
+## matcher (wave 43): native reference matcher, 2026-11-06
+
+Branch `feat-matcher-20261106`. Evidence is in
+[audits/performance/2026-11-06-matcher](../audits/performance/2026-11-06-matcher/README.md).
+Every value there was checked against SymPy 1.14.0.
+
+### Native now
+
+The module is `crates/symox-core/src/matches.rs`, exposed through
+`_core._reference_match` in `crates/symox-py/src/lib.rs`. It ports the
+reference protocol of `expr.match(pattern, old)`:
+
+- `Basic.matches`: same class and argument count, then argument by
+  argument, with each binding substituted into the remaining arguments.
+- `Wild.matches`, including:
+  - `exclude`, tested with the reference `has`, which includes the
+    commutative sub-product of a `Mul`;
+  - `properties`, whose errors propagate.
+- `AssocOp._matches_commutative`, including:
+  - the exact/wild split of the arguments;
+  - `_combine_inverse` with the free-symbol check and the `count_ops`
+    guard when `old` is false;
+  - the `ordered` and numeric-first orders;
+  - the reversed loops over the expression terms and the wild terms;
+  - the `Pow -> held Mul` rewriting and the coefficient split;
+  - the `collect` on the free symbols of the wild coefficients;
+  - the `saw` set.
+- `Mul._combine_inverse` (the `I -> Dummy` swap and the `as_powers_dict`
+  subtraction) and `Add._combine_inverse` (subtraction, then `signsimp`).
+- `Pow.matches`: `1` against an exponent of 0, and the `sb**se` shortcut
+  for an integer `se`, using `b**(e/se)` when `e` is rational.
+- `Mul.as_base_exp`: a product whose factors share one integer exponent.
+
+Because the traversal order is the reference's, the first valid match found
+is SymPy's, and so are the binding insertion order and the result when
+several matches exist. For example, `(2*x + 3).match(a*x + b)` gives
+`{a: 2, b: 3}`, and `x**2` against `c4**2*x**(2*a4)` gives
+`{a4: 1, c4: 1}`.
+
+### Callers switched to it
+
+- The public `Expr.match`, and `Expr.matches` without `repl_dict`
+  (`python/symox/_expr_methods.py`). Only admission and dispatch happen in
+  Python. When the native port declines, the call falls back to the Python
+  protocol in `python/symox/_matching.py`.
+- The native ODE matchers:
+  - `ode/second.rs`: the 2nd-order collected match and Airy;
+  - `ode/liouville.rs`;
+  - `ode/reducible.rs`: the special Riccati form;
+  - `ode/bessel.rs`. Its `Hooks::matches` callback into the Python
+    `Expr.match` has been removed from `algebraic::Hooks`,
+    `ode_classify.rs` and `_classify_native.py`.
+
+  In these matchers a decline is "not modelled", and the reference body
+  then runs.
+
+### Declines
+
+A decline is never "no match":
+
+- noncommutative products;
+- `zoo`, `oo`, `-oo` and `nan`;
+- matrix, set, logic, relational and `Piecewise` nodes;
+- `Max` and `Min`;
+- `Order`, `Subs`, `Integral`, `Sum`, `Product` and `Limit`;
+- host classes;
+- symbolic derivatives;
+- a Float facing a side without free symbols in a multiplicative inverse,
+  where the reference compares the two numerically;
+- a `collect` over more than 3 free symbols, because the reference's
+  iteration order over a set depends on hashing (with up to 3 symbols, every
+  order is tried and must agree);
+- a search beyond 200 000 steps.
+
+The public wrapper also leaves these cases to the Python protocol:
+
+- `WildFunction` patterns (a Python class);
+- user classes that define `matches`;
+- calls that pass a `repl_dict`.
+
+### Differential corpus
+
+The corpus has 2311 unique calls:
+
+- 1563 ODE calls, made by SymPy's `classify_ode` and `dsolve(hint)` on the
+  315 cases;
+- 248 calls from `test_match.py`;
+- 500 seeded random calls.
+
+Results:
+
+| implementation | equal | different | declined |
+|---|---|---|---|
+| native `reference_match` | 2226 | **0** | 85 |
+| public `Expr.match`, after | 2311 | 0 | – |
+| public `Expr.match`, before (the Python protocol) | 2309 | 2 | – |
+| `pattern::pattern_match` | 2059 | 252 | – |
+
+Notes on these results:
+
+- **Before this lot, public `Expr.match`.** The two differences were
+  `(y**2*cos(4)**2).match(d**2)` and `(z**2*cos(y)**2).match(d**2)`. The
+  Python protocol gave `-sqrt(y**2)*cos(4)` where SymPy gives `y*cos(4)`,
+  because it lacked `Mul.as_base_exp`. Both are now served natively and
+  agree with SymPy. When the native port declines, the Python fallback
+  still has this defect.
+- **`pattern_match`, ODE calls.** None of its 99 ODE differences comes
+  from a pattern used by `second.rs`, `liouville.rs`, `reducible.rs` or
+  Airy (914 calls in all). They all come from patterns of SymPy solvers
+  that symox did not match natively: Bernoulli, `eq_high_order_free`, and
+  the Bessel patterns that ode3 had routed through the Python matcher.
+  This lot therefore found no wrong ODE answer caused by the old native
+  matchers. Their agreement was only observed on these 914 calls, though;
+  it is proven now only because they no longer use `pattern_match`.
+- **ODE corpus.** The score is 315/289/270, and the verdicts are identical,
+  row by row, to the integrated wave 42 run (`integ42-20261106`).
+- **Validation.** The full suite has 60 490 passed and 0 failed
+  ("SUITE CLEAN"; 60 541 collected, 694 files, 6 xfail).
+  `cargo test --release` gives 872 + 1 + 0 + 5, and clippy correctness is
+  clean.
+
+### Timing
+
+The figures are summed over the corpus while other builds were running.
+SymPy takes 25.9 s and the Python protocol 14.8 s. The native port takes
+1.93 s; the public `Expr.match` takes 1.98 s after this lot, against 14.6 s
+before. `pattern_match` takes 0.12 s.
+
+On the ODE calls, the native port averages about 1 ms per call, against
+0.06 ms for `pattern_match`. The ODE matchers that used `pattern_match` are
+therefore slower per match. The reason is the cost of the reference
+protocol itself: `ordered`, `count_ops` and `collect`.
+
+### Remaining gaps
+
+- Each declined class above still runs the Python protocol.
+- The public native `has` still ignores the commutative sub-product of a
+  `Mul`: `(2*x*y*z).has(x*y)` is False in symox and True in SymPy. The
+  matcher uses its own reference version.
+- `pattern::pattern_match` is still the matcher of `simp.rs`, meijerint
+  conditions and `poly/collect.rs`, and differs from the reference on 252
+  of the 2311 calls. Those callers have not been audited against it.
+- `WildFunction` matching is still Python.
+- symox prints a `WildFunction` as `Wild('g')` in `srepr`. This is a
+  representation difference only.

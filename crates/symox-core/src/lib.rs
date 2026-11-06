@@ -53,6 +53,7 @@ pub mod ops;
 pub mod parser;
 pub mod poly;
 pub mod pattern;
+pub mod matches;
 pub mod printer;
 pub mod printing;
 pub mod products;

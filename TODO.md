@@ -97,6 +97,41 @@ arrcomp) est dans main (`e4b1d011`) : suite 60 352 réussis (60 405
 collectés, 690 fichiers, 8 xfail), cargo test 867 + 1 + 0 + 5, corpus EDO
 315/289/270.
 
+Vague 43 (en cours ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes) :
+- matcher (`feat-matcher-20261106`) : filtreur de référence natif
+  (`crates/symox-core/src/matches.rs`, liaison `_core._reference_match`),
+  portage du protocole `match` de SymPy 1.14 (`Basic.matches`,
+  `Wild.matches`, `AssocOp._matches_commutative`, `_combine_inverse` de
+  `Mul`/`Add`, `Pow.matches`, `Mul.as_base_exp`), mêmes parcours et donc
+  même choix entre plusieurs correspondances valides ; il décline
+  (repli) plutôt que de répondre autrement.
+  - `Expr.match` public (et `matches` sans `repl_dict`) : natif, repli
+    sur `python/symox/_matching.py` quand le natif décline.
+  - filtreurs EDO natifs `second.rs`, `liouville.rs`, `reducible.rs`
+    (auparavant `pattern::pattern_match`) et `bessel.rs` (auparavant le
+    rappel Python `Expr.match`, retiré de `Hooks`, `ode_classify.rs` et
+    `_classify_native.py`) : filtreur de référence natif, déclin = non
+    modélisé.
+  - corpus différentiel (`audits/performance/2026-11-06-matcher`, 2311
+    appels : 1563 EDO, 248 `test_match.py`, 500 aléatoires) : natif 2226
+    identiques à SymPy, 0 différent, 85 déclinés ; `Expr.match` public
+    2309 → 2311 identiques (les deux `d**2` sur `y**2*cos(4)**2`
+    corrigés par `Mul.as_base_exp`) ; `pattern_match` 2059/252. Aucune
+    des 99 différences EDO de `pattern_match` ne vient d'un motif de
+    `second.rs`, `liouville.rs`, `reducible.rs` ou Airy (914 appels) :
+    pas de réponse EDO fausse observée avant le lot. Temps cumulés :
+    SymPy 25,9 s, Python 14,8 s, natif 1,9 s ; les filtreurs EDO natifs
+    passent d'environ 0,06 ms à 1 ms par appel (protocole de référence).
+  - corpus EDO 315/289/270, verdicts identiques ligne à ligne à
+    `integ42-20261106` ; suite **60 490 réussis, 0 échec** ("SUITE
+    CLEAN", 60 541 collectés, 694 fichiers, 6 xfail ; course 3 de
+    `~/symox-ci/evidence/matcher-20261106/suite-run3` ; les courses 1 et
+    2, sous charge 40, avaient perdu le shard 23 sur le cgroup de 6 Go et
+    deux tests sur délai, sans échec du lot) ; cargo test
+    872 + 1 + 0 + 5 (+1 : `matches::tests::reference_choices`), clippy
+    correctness propre.
+
 Vague 42 (calcul en Rust, Python limité à l'admission,
 l'aiguillage et les enveloppes) :
 - tsolve (`feat-tsolve-20261106`) : repli `_tsolve` de `_solve` natif
@@ -344,11 +379,10 @@ Vague 38 (dans main) :
   arithmétique de `Poly` qui n'est pas une expression (et plus seulement
   `None`) lève `SympifyError(o)` comme le `_sympify` strict de
   `_polifyit`, là où l'erreur était un `TypeError` ordinaire.
-- ode3 : le filtrage du `2nd_linear_bessel` natif passe par le
+- ode3 : le filtrage du `2nd_linear_bessel` natif passait par le
   `Expr.match` public (filtreur de référence porté en Python, rappelé
-  depuis Rust) et non par le `pattern_match` natif, qui n'en reproduit pas
-  les choix (voir la lacune ODE ci-dessous) ; décisions identiques à la
-  référence, mais le filtrage n'est pas natif.
+  depuis Rust) ; depuis la vague 43 (lot matcher) il passe par le filtreur
+  de référence natif (`crates/symox-core/src/matches.rs`), sans rappel.
 - tsolve : branches complexes de Lambert en plus (SUPERSET : `x**3 - 3**x`
   et `3**cos(x) - cos(x)**3` rendent aussi
   `-3*LambertW((1 ± sqrt(3)*I)*log(3)/6)/log(3)`, solutions valides ; déjà
@@ -439,8 +473,8 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   d'intégration) ; nth_algebraic, factorable et Bessel natifs depuis la
   vague 42, mais la classe `diffx` de nth_algebraic reste créée en Python
   (son inverse tourne dans le `solve` public, rappel de l'hôte) et le
-  filtrage du Bessel passe par le filtreur de référence Python
-  (`Expr.match`, appelé depuis Rust ; voir la lacune suivante) ; algeb_04
+  filtrage du Bessel est natif depuis la vague 43 (voir la lacune
+  suivante) ; algeb_04
   (ordre des deux solutions de `solve` sur une équation à plusieurs
   générateurs : chemin de changement de variable de `_solve` dans SymPy
   contre l'étape factor de `_tsolve` natif ; domaine solve). 2F1 natif depuis la vague 40 (corpus 315/285/267 →
@@ -450,19 +484,24 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `checksol` de `_is_special_case_of` (SymPy y dépasse aussi son délai) ;
   `integrate(x/(x**2 - 1))` garde deux
   logarithmes ([détail](docs/algorithmic-parity.md#ode-2026-11-05-native-2f1-step-upper-limit-integraldoit-fx-solve-recast)).
-- Filtrage des EDO natives : les filtreurs EDO natifs antérieurs
-  (`crates/symox-core/src/ode/second.rs`, `liouville.rs`, `reducible.rs`)
-  appellent directement `pattern::pattern_match` en supposant qu'il
-  s'accorde avec le `Expr.match` public (filtreur de référence de SymPy
-  porté en Python, `python/symox/_matching.py`). Cette égalité n'est pas
-  prouvée, et ode3 a trouvé un contre-exemple : `x**2` contre
-  `c4**2*x**(2*a4)` donne `{a4: 1, c4: 1}` en Python (comme SymPy) et
-  aucune correspondance en natif. Les motifs linéaires de ces trois
-  filtreurs n'ont pas été audités contre le filtreur de référence ; à
-  faire : porter en Rust les `matches` de référence
-  (`sympy/core/{mul,add,power}.py`) ou prouver l'accord sur ces motifs, ce
-  qui retirerait aussi le rappel `Expr.match` du Bessel
-  ([détail](docs/algorithmic-parity.md#ode3-wave-42-native-nth_algebraic-factorable-and-2nd_linear_bessel-2026-11-06)).
+- Filtrage (vague 43) : `Expr.match` public et filtreurs EDO natifs
+  (`second.rs`, `liouville.rs`, `reducible.rs`, `bessel.rs`) passent par
+  le filtreur de référence natif `matches::reference_match` (protocole
+  SymPy 1.14 porté en Rust), qui décline plutôt que de répondre
+  autrement ; corpus différentiel de 2311 appels (EDO, `test_match.py`,
+  aléatoires) : 2226 identiques à SymPy, 0 différent, 85 déclinés. Restent
+  en Python (repli du public sur `python/symox/_matching.py`) : produits
+  non commutatifs, `zoo`/`oo`/`nan`, `Sum`/`Integral` liés, relationnels et
+  logique, `Piecewise`, matrices, Float face à un côté sans symbole libre
+  dans l'inverse multiplicatif, `collect` à plus de 3 symboles libres de
+  coefficients, `WildFunction` (classe Python), sous-classes hôtes
+  définissant `matches`, appels avec `repl_dict`. Le `has` natif public
+  ignore toujours le sous-ensemble commutatif de `Mul`
+  (`(2*x*y*z).has(x*y)` vaut False contre True dans SymPy) ; le filtreur
+  natif en a sa propre version. `pattern::pattern_match` (utilisé par
+  `simp.rs`, meijerint et `collect`) n'est pas le protocole de référence
+  (252 différences sur le corpus) ; ses appelants n'ont pas été audités
+  ([détail](docs/algorithmic-parity.md#matcher-wave-43-native-reference-matcher-2026-11-06)).
 - solve (radicaux, `_tsolve`) : repli `_tsolve` natif depuis la vague 42 ;
   restent en Python `nsimplify` d'un nombre (`mpmath.identify`, crochet)
   et la fin de `Expr.equals` indécise, `force=False` et `bivariate=False`
