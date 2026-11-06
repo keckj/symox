@@ -16364,7 +16364,10 @@ Differential comparison against SymPy 1.14
 - 584 seeded random calls of the four functions on ten towers (including
   tan): 536 identical to SymPy, 31 different but identical in the stock
   symox body (pre-existing, below), 0 differences specific to the native
-  kernels, 17 SymPy timeouts at 20 s (see the audit for the reruns).
+  kernels, 17 SymPy timeouts at 20 s. Rerun at 300 s, the 10 timeouts
+  the native kernel answers are 9 identical to SymPy and 1 generator-order
+  difference shared with the stock body; the 7 calls over 20 s everywhere
+  were not rerun.
   Native answers in 461 calls. Time without timeouts: SymPy 186.4 s,
   native 19.2 s, stock 146.8 s.
 - the 142 calls recorded from the SymPy prde/Risch test copies and the 485
@@ -16380,8 +16383,8 @@ Differential comparison against SymPy 1.14
 
 Differences against SymPy that remain (all shared with the stock body):
 - the generator order of a fraction-field domain of the returned
-  PolyMatrix (`QQ(t0,x)` against `QQ(x,t0)`, equal entries; 12 random
-  calls);
+  PolyMatrix or Polys (`QQ(t0,x)` against `QQ(x,t0)`, equal entries;
+  13 random calls);
 - `TypeError` messages naming `symox._core.Poly` instead of `Poly` (8);
 - `TypeError('cannot convert object of type NoneType ...')` where SymPy
   raises `SympifyError: None` from `Poly + None` in `derivation` (5 random

@@ -104,7 +104,13 @@ this lot):
 - 4: the constraint matrix `M` differs (47, 241, 407, 573), `h` identical:
   the stock symox PolyMatrix nullspace/rref returns another row form.
 
-TIMEOUT_RERUN
+Reruns with a 300 s limit (`PRDE_ONLY=6,109,197,281,291,299,358,428,535,585`,
+`raw/rp_long_*.json`) of the 10 calls where SymPy timed out and the native
+kernel answered: 9 identical to SymPy (results and Dummy counts), 1
+(rt 281, `limited_integrate`) differs by the generator order of the
+fraction-field domain only (`QQ(t0,x)` against `QQ(x,t0)`), identical in
+the stock body (rerun at 300 s, 35.0 s). SymPy 19.5 to 160.7 s per call,
+native 1.4 to 18.7 s. The 7 calls over 20 s everywhere were not rerun.
 
 ## Handcrafted cases (`raw/cases_*.txt.gz`)
 

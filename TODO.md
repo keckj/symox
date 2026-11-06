@@ -115,7 +115,11 @@ Vague 40 (en cours, branches non fusionnées) :
   splitfactor hermite_reduce alignés sur SymPy (QQ conservé depuis
   88545232) ; le test d'atteinte des noyaux de première vague
   (`test_native_prderust.py`) renvoie aussi les noyaux de tour au corps
-  Python.
+  Python. Validation : suite **60 264 réussis, 0 échec** ("SUITE CLEAN",
+  7 xfail, 45 sautés, 60 316 collectés, 685 fichiers ; +54 =
+  `tests/test_native_prde_param.py`, preuves dans
+  `~/symox-ci/evidence/prde2-20261106`) ; cargo test 859 + 1 + 0 + 5 ;
+  clippy correctness propre.
 
 Vague 38 (dans main) :
 - arr2mat : `convert_array_to_matrix`, ses passes, `_EditArrayContraction`
