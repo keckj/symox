@@ -1,0 +1,75 @@
+RootSum cubic id | 1 chars | 0.0026442540001880843
+RootSum cubic Lambda 1/(x+1) | 1 chars | 0.0037136819992156234
+RootSum cubic Lambda x**2 | 2 chars | 0.0028973119997317553
+RootSum cubic Lambda x/(x**2+2) | 3 chars | 0.004082508999999845
+RootSum cubic log | 40 chars | 0.0005594169997493736
+RootSum cubic y*log(z-y) | 47 chars | 0.0005817979999847012
+RootSum cubic 2+3*log | 53 chars | 0.0005874230000699754
+RootSum cubic exp | 40 chars | 0.0005581349996646168
+RootSum cubic Function f | ValueError: expected a univariate function, got f | None
+RootSum constant Lambda | 2 chars | 0.00041382800009159837
+RootSum quartic a param 1/(x-a) | MultivariatePolynomialError: only univariate polynomials are allowed | None
+RootSum quintic sum x**3 | 1 chars | 0.004469722000067122
+RootSum quintic 1/x | 1 chars | 0.004305151000153273
+RootSum product quad*cubic log | 79 chars | 0.0007701260001340415
+RootSum quadratic=True log | 52 chars | 0.0007465830003638985
+RootSum quadratic=False log | 42 chars | 0.0005872550000276533
+RootSum linear factor log | 49 chars | 0.000807266000265372
+RootSum repeated factor log | 42 chars | 0.0006974020006964565
+RootSum auto=False | 43 chars | 0.0005735439999625669
+RootSum scaled 4*x**3+2 | 44 chars | 0.0005918100005146698
+RootSum integer basis 8 | 44 chars | 0.0007010120007180376
+RootSum integer basis rational | 4 chars | 0.003644104999693809
+RootSum symbolic coeff a | MultivariatePolynomialError: only univariate polynomials are allowed | None
+RootSum symbolic coeff rational | MultivariatePolynomialError: only univariate polynomials are allowed | None
+RootSum param p | MultivariatePolynomialError: only univariate polynomials are allowed | None
+RootSum param rational p | MultivariatePolynomialError: only univariate polynomials are allowed | None
+RootSum sqrt2 coeff log | 48 chars | 0.000606892999712727
+RootSum sqrt2 coeff rational | 10 chars | 0.0028163910001239856
+RootSum x gen keyword | 40 chars | 0.0004258310000295751
+RootSum fraction coeff | 44 chars | 0.0005803899994134554
+RootSum quadratic=True param | MultivariatePolynomialError: only univariate polynomials are allowed | None
+RootSum multivariate error | MultivariatePolynomialError: only univariate polynomials are allowed | None
+RootSum bad func error | ValueError: expected a univariate function, got Lambda((x, y), x + y) | None
+RootSum args | 36 chars | 0.0005926569992880104
+RootSum hash eq | 5 chars | 0.001170956999885675
+RootSum doit cubic | 307 chars | 0.0027193890000489773
+RootSum doit quartic | 1 chars | 0.0036701399994854
+RootSum doit quintic stays | 40 chars | 0.0012308250006753951
+RootSum evalf cubic | 37 chars | 0.0012673679993895348
+RootSum evalf quintic | 31 chars | 0.0016171900006156648
+RootSum evalf symbolic | MultivariatePolynomialError: only univariate polynomials are allowed | None
+RootSum diff | 25 chars | 0.008042959999329469
+RootSum subs | 44 chars | 0.0017394870001226082
+integrate 1/(x**3+x+1) real=False | 81 chars | 0.0016708870007278165
+integrate 1/(x**5+x+1) | 155 chars | 0.01101009099966177
+integrate x**2/(x**5-x+1) | 190 chars | 0.009767323000232864
+integrate 1/(x**3+p*x+1) | 1 chars | 0.031983364999177866
+integrate 1/(x**2+sqrt(2)*x+p) | 1 chars | 0.013779649000753125
+integrate 1/(x**3+sqrt(2)*x+1) | 230 chars | 0.06211029599944595
+integrate 1/(x**2+sqrt(2)*p) | 49 chars | 0.012566455999149184
+integrate x/(x**4+a) | 79 chars | 0.007335041000260389
+integrate 1/(x**4+a*x+1) | 188 chars | 0.05415432000063447
+ratint 1/(x**3+a) real=False | 58 chars | 0.003737925000677933
+logpart extension=True param | 118 chars | 0.007920428999568685
+logpart QQ<s2> 1/(x**3+s2*x+1) | 250 chars | 0.026919081000414735
+logpart QQ<s2>[p] 1/(x**2+s2*p) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented | None
+logpart QQ<s2>[p] x/(x**2+s2*x+p) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented | None
+logpart QQ<s2>[p] 1/(x**2+p) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented | None
+logpart QQ<s2>[p] 1/(x**3+s2*p) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented | None
+logpart QQ<s2>[p] 1/((x-p)(x+s2)) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented | None
+logpart QQ<s2>(t) 1/(x**2+s2*t) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented | None
+logpart QQ<s2>(t) x/(x**2+s2*x+t) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented | None
+logpart QQ<s2>(t) 1/(x**3+t*x+s2) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented | None
+logpart QQ<s2>(t) 1/((x-t)(x+s2)) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented | None
+logpart QQ<s2>(t) (x+1)/(x**2+t*x+s2) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented | None
+apart full 1/(x**3+x+1) | 76 chars | 0.0019647720000648405
+apart full doit 1/(x**3+x+1) | 946 chars | 0.002360813999985112
+apart full x/(x**4+1) | 50 chars | 0.001879899000414298
+apart full 1/(x**2+1)**2 | 99 chars | 0.003032802000234369
+apart full 1/((x-1)(x**3+2)) | 92 chars | 0.002367084000070463
+apart full 1/(x**5-x+1) | 123 chars | 0.0019583349994718446
+apart full a/(x**3+a) | 47 chars | 0.00353167699995538
+apart full 1/(x**2+sqrt(2)) | 61 chars | 0.0028107999996791477
+EX sqrt2*(1+sqrt2) | 15 chars | 0.00036429099964152556
+EX (x+1)**2 | 14 chars | 0.00018371800069871824

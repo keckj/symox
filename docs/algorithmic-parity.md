@@ -16105,7 +16105,8 @@ Still Python (fallback, outside the native domain):
 
 - The RootSum constructor: RootSum is a Python class over an undefined
   function node with a Python side table (`_sums`); there is no Rust RootSum
-  node. About 4% of `ratint(..., real=False)` time.
+  node. About 4% of `ratint(..., real=False)` time. (Its computing steps
+  are native since wave 43, ratint2 section below.)
 - `extension_logpart` drives the stock Poly methods (`sqf_list`, `gcd`,
   `quo`, `invert`, `rem`, all Rust-backed) and the `_from_terms` constructor
   from the binding; the loop itself is Rust.
@@ -17235,3 +17236,92 @@ Remaining gaps (ODE scope):
   tests).
 - Still in Python: simplification of particular solutions, `collect` with
   partial exponents, vop_013 (above 6 GB).
+
+## ratint2: RootSum constructor, doit and evalf in Rust, 2026-11-06
+
+Wave 43, lot ratint2 (`feat-ratint2-20261106`). Scope: the computing steps
+of `sympy.polys.rootoftools.RootSum`.
+
+Native (Rust):
+
+- `crates/symox-py/src/root_sum.rs` (binding orchestration on the native
+  Poly methods):
+  - `_transform`: `preprocess_roots`, which is `clear_denoms(convert=True)`, `primitive`,
+    `retract`, the `inject`/`eval`/`eject` elimination of proportional
+    parameters when every coefficient is a term, and the integer basis
+    over ZZ;
+  - `__new__` after the argument checks: the `coeff*var` substitution, the
+    additive and multiplicative constant split (`as_independent`),
+    `is_rational_function`, `factor_list`, and per factor the linear root,
+    the two quadratic roots (`quadratic=True`), the raw node or the
+    rational case;
+  - `new` (used by the derivative);
+  - `doit`: the native `roots(multiple=True)`; the node when the roots are not all found;
+  - `_eval_evalf`: `nroots` at `prec_to_dps(prec)`, then the
+    `as_real_imag` split of the evalf fallback.
+- `crates/symox-core/src/poly/rootsum.rs`: `_rational_case`. It sums over the
+  symbols `r0..r(n-1)`, applies `together` and `as_numer_denom`, takes the coefficients over `QQ[r...]`,
+  and reduces them with `PolyElement.symmetrize` (lex term order, maximal
+  weighted height, remainder dropped as in the reference). The values come from Viète
+  (`viete`), and the result is `factor(p/q)`.
+- `crates/symox-core/src/poly/roots.rs`: `roots_linear_in` and
+  `roots_quadratic_in`, the reference closed forms with the per-domain
+  simplification (none over a numerical domain, `factor` over a composite
+  one, `simplify` over EX), and `integer_basis_of`.
+
+Still Python:
+
+- Python keeps the class wrapper and the admission: `PurePoly(expr, x, greedy=False)`, the
+  univariate check, the function check, the `_sums` side table filled from
+  the raw nodes the native constructor returns, and `args`/`poly`/`fun`
+  properties.
+- The previous Python bodies remain as fallbacks. They run only when a native step
+  declines: a step that leaves the native representation (floats, a
+  generator built from a root, a non-`Poly` argument). There were no declines
+  on the lot's corpus (237 transforms, 228 constructions, 16 `doit`, 8
+  `evalf`) or on the 34 test files that use RootSum, ratint or apart.
+- The admission of an undefined function head (`RootSum(p, Function('f'))`
+  raised ValueError; SymPy builds `Lambda(x, f(x))`) is fixed in the
+  Python argument check, since it is admission, not computation.
+
+Results:
+
+- Lot corpus (75 cases):
+  - 62/75 printed results identical to SymPy 1.14, against 61/75 before;
+  - RootSum constructor cases take 13 ms in total, against 50 ms before and 47 ms
+    in SymPy;
+  - doit/evalf take 9.1 ms, against 10.5 ms before and 14.0 ms in SymPy.
+- `tests/test_native_ratint2.py` (39 tests): hard-coded SymPy outputs, and
+  stubs of the Python helpers that fail when called, which proves that the
+  native path is taken.
+- Full suite 60 521 passed, 0 failed ("SUITE CLEAN", 60 572 collected,
+  694 files, 6 xfail); `cargo test --release` 871 + 1 + 0 + 5; clippy
+  correctness clean.
+
+Remaining gaps:
+
+- `ratint_logpart` over `QQ<a>[p]` (5 corpus cases) and over `QQ<a>(t)`
+  (5 cases) still raises NotImplementedError at Poly construction, where
+  SymPy returns pairs over `ZZ[p,_t]`/EX. The element level already has
+  `CompositeBase::Algebraic` for rings. The missing piece is a polynomial
+  backend over a composite algebraic ground: `GaussianGround` generalized
+  from `QQ<I>` to any `QQ<a>`, with subresultants, `sqf_list`, `gcd`,
+  `invert` and the EX switches of the reference. This was not attempted
+  in this lot. The NotImplementedError is a decline, not an answer.
+- EX elements: `EX(a)`, `EX.convert(a)` and `EX.from_sympy(a)` simplify
+  their argument in symox, where SymPy stores it as given:
+  `EX(sqrt(2)*(1 + sqrt(2)))` gives `EX(sqrt(2) + 2)` in symox. The
+  arithmetic also differs: SymPy normalizes with `cancel().expand()`
+  (`EX(x)*EX(1 + x)` is `EX(x**2 + x)`), while symox keeps `EX(x*(x + 1))`.
+  The cause is the core `ExactDomain::Expression` normal form
+  (`simplify`), which every EX polynomial uses. Changing it would move
+  every EX coefficient, so it was not attempted.
+- Corpus notes:
+  - `RootSum(y**3 + y + 1, Lambda(x, log(x)), y)` prints with `x` in the
+    SymPy run only because of SymPy's cache: an equal `PurePoly` in `x`
+    was built earlier in the same process. A fresh SymPy gives symox's
+    `RootSum(y**3 + y + 1, Lambda(x, log(x)))`.
+  - `integrate(1/(x**3 + sqrt(2)*x + 1), x)` runs for more than 60 s in
+    SymPy; symox answers in 61 ms. This is not compared.
+
+Measured: [audit](../audits/performance/2026-11-06-ratint2/README.md).

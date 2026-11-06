@@ -1798,3 +1798,73 @@ mod tests {
         assert!(v[1].im < 0.0 && v[2].im > 0.0);
     }
 }
+
+/// The kind of ground domain that the reference `roots_linear` and
+/// `roots_quadratic` read from `f.get_domain()`: nothing is simplified over
+/// a numerical domain, a composite domain uses `factor` and any other
+/// domain (EX) uses `simplify`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RootDomain { Numerical, Composite, Expression }
+
+fn domain_simplified(e: &Expr, domain: RootDomain) -> Expr {
+    match domain {
+        RootDomain::Numerical => e.clone(),
+        RootDomain::Composite => factor(e).unwrap_or_else(|_| e.clone()),
+        RootDomain::Expression => crate::simplify::simplify(e),
+    }
+}
+
+/// The reference `roots_linear(f)` for the coefficients `[a1, a0]` (highest
+/// first) of a polynomial over a domain of the given kind.
+pub fn roots_linear_in(c: &[Expr], domain: RootDomain) -> Vec<Expr> {
+    // `-f.nth(0)/f.nth(1)` is `(-nth(0))/nth(1)`.
+    let r = div(&neg(&c[1]), &c[0]);
+    vec![domain_simplified(&r, domain)]
+}
+
+/// The reference `roots_quadratic(f)` for the coefficients `[a, b, c]` of a
+/// polynomial over a domain of the given kind.
+pub fn roots_quadratic_in(coeffs: &[Expr], domain: RootDomain) -> Vec<Expr> {
+    let (a, b, c) = (coeffs[0].clone(), coeffs[1].clone(), coeffs[2].clone());
+    let numerical = domain == RootDomain::Numerical;
+    if c.is_zero() {
+        let r0 = Expr::zero();
+        let r1 = div(&neg(&b), &a);
+        if !numerical {
+            return vec![r0, domain_simplified(&r1, domain)];
+        }
+        if crate::assumptions::is_negative(&r1) == Some(true) {
+            return vec![r1, r0];
+        }
+        return vec![r0, r1];
+    }
+    if b.is_zero() {
+        let r = domain_simplified(&div(&neg(&c), &a), domain);
+        let rr = sqrt_squares(&r);
+        return vec![neg(&rr), rr];
+    }
+    let mut d = sub(&pow(&b, &Expr::int(2)), &mul(&[Expr::int(4), a.clone(), c.clone()]));
+    let aa = mul(&[Expr::int(2), a.clone()]);
+    let mut bb = div(&neg(&b), &aa);
+    if !numerical {
+        d = domain_simplified(&d, domain);
+        bb = domain_simplified(&bb, domain);
+    }
+    let dd = crate::simptools::exprtools::factor_terms(&div(&sqrt_squares(&d), &aa), false, false, false, true);
+    let mut r0 = sub(&bb, &dd);
+    let mut r1 = add(&[bb, dd]);
+    if crate::assumptions::is_negative(&a) == Some(true) {
+        std::mem::swap(&mut r0, &mut r1);
+    } else if !numerical {
+        r0 = expand_2arg(&r0);
+        r1 = expand_2arg(&r1);
+    }
+    vec![r0, r1]
+}
+
+/// The reference `_integer_basis` (public entry): terms `(degree,
+/// coefficient)` of an integer polynomial, highest degree first.
+pub fn integer_basis_of(terms: &[(u32, num_bigint::BigInt)]) -> Option<num_bigint::BigInt> {
+    if terms.is_empty() { return None; }
+    integer_basis(terms)
+}

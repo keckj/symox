@@ -27,6 +27,8 @@ pub(crate) mod ddm;
 pub(crate) mod fraction_free;
 #[path="poly_ff_domains.rs"]
 pub(crate) mod ff_domains;
+#[path="root_sum.rs"]
+pub(crate) mod root_sum;
 
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
@@ -3912,6 +3914,11 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(subresultants, m)?)?;
     m.add_function(wrap_pyfunction!(degree, m)?)?;
     m.add_function(wrap_pyfunction!(roots, m)?)?;
+    m.add_function(wrap_pyfunction!(root_sum::_root_sum_transform, m)?)?;
+    m.add_function(wrap_pyfunction!(root_sum::_root_sum_new, m)?)?;
+    m.add_function(wrap_pyfunction!(root_sum::_root_sum_build, m)?)?;
+    m.add_function(wrap_pyfunction!(root_sum::_root_sum_doit, m)?)?;
+    m.add_function(wrap_pyfunction!(root_sum::_root_sum_evalf, m)?)?;
     m.add_function(wrap_pyfunction!(nroots, m)?)?;
     m.add_function(wrap_pyfunction!(real_roots, m)?)?;
     m.add_function(wrap_pyfunction!(gcdex, m)?)?;

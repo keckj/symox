@@ -1,0 +1,75 @@
+{"case": "RootSum cubic id", "result": "0", "error": null, "seconds": 0.001940553999702388}
+{"case": "RootSum cubic Lambda 1/(x+1)", "result": "4", "error": null, "seconds": 0.0036089060004087514}
+{"case": "RootSum cubic Lambda x**2", "result": "-2", "error": null, "seconds": 0.001941037000506185}
+{"case": "RootSum cubic Lambda x/(x**2+2)", "result": "5/3", "error": null, "seconds": 0.004480489000343368}
+{"case": "RootSum cubic log", "result": "RootSum(x**3 + x + 1, Lambda(x, log(x)))", "error": null, "seconds": 0.0006074409993743757}
+{"case": "RootSum cubic y*log(z-y)", "result": "RootSum(x**3 + x + 1, Lambda(y, y*log(-y + z)))", "error": null, "seconds": 0.0006936560002941405}
+{"case": "RootSum cubic 2+3*log", "result": "3*RootSum(x**3 + x + 1, Lambda(y, y*log(-y + z))) + 6", "error": null, "seconds": 0.0006963749992792145}
+{"case": "RootSum cubic exp", "result": "RootSum(x**3 + x + 1, Lambda(x, exp(x)))", "error": null, "seconds": 0.0006062029997337959}
+{"case": "RootSum cubic Function f", "result": "RootSum(x**3 + x + 1, Lambda(x, f(x)))", "error": null, "seconds": 0.000622762000602961}
+{"case": "RootSum constant Lambda", "result": "21", "error": null, "seconds": 0.00018662399997992907}
+{"case": "RootSum quartic a param 1/(x-a)", "result": null, "error": "MultivariatePolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "RootSum quintic sum x**3", "result": "0", "error": null, "seconds": 0.002920618999269209}
+{"case": "RootSum quintic 1/x", "result": "1", "error": null, "seconds": 0.003780255000492616}
+{"case": "RootSum product quad*cubic log", "result": "RootSum(x**2 + 1, Lambda(x, log(x))) + RootSum(x**3 + x + 1, Lambda(x, log(x)))", "error": null, "seconds": 0.001380329999847163}
+{"case": "RootSum quadratic=True log", "result": "log(3/2 - sqrt(5)/2) + log(sqrt(5)/2 + 3/2) + 2*I*pi", "error": null, "seconds": 0.0005922970003666705}
+{"case": "RootSum quadratic=False log", "result": "RootSum(x**2 + 3*x + 1, Lambda(x, log(x)))", "error": null, "seconds": 0.00046267800007626647}
+{"case": "RootSum linear factor log", "result": "RootSum(x**3 + x + 1, Lambda(x, log(x))) + log(2)", "error": null, "seconds": 0.001153799000348954}
+{"case": "RootSum repeated factor log", "result": "2*RootSum(x**3 + x + 1, Lambda(x, log(x)))", "error": null, "seconds": 0.000677158000144118}
+{"case": "RootSum auto=False", "result": "RootSum(x**3 + x + 1, Lambda(x, 1/(x + 1)))", "error": null, "seconds": 0.0006321490000118501}
+{"case": "RootSum scaled 4*x**3+2", "result": "RootSum(4*x**3 + 2*x + 3, Lambda(x, log(x)))", "error": null, "seconds": 0.0009869599998637568}
+{"case": "RootSum integer basis 8", "result": "RootSum(x**3 + 2*x + 8, Lambda(x, log(2*x)))", "error": null, "seconds": 0.0005907660006414517}
+{"case": "RootSum integer basis rational", "result": "-1/5", "error": null, "seconds": 0.0036728149998452864}
+{"case": "RootSum symbolic coeff a", "result": null, "error": "MultivariatePolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "RootSum symbolic coeff rational", "result": null, "error": "MultivariatePolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "RootSum param p", "result": null, "error": "MultivariatePolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "RootSum param rational p", "result": null, "error": "MultivariatePolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "RootSum sqrt2 coeff log", "result": "RootSum(x**3 + sqrt(2)*x + 1, Lambda(x, log(x)))", "error": null, "seconds": 0.0009655909998400602}
+{"case": "RootSum sqrt2 coeff rational", "result": "-2*sqrt(2)", "error": null, "seconds": 0.00223606999952608}
+{"case": "RootSum x gen keyword", "result": "RootSum(x**3 + x + 1, Lambda(x, log(x)))", "error": null, "seconds": 0.0006290430001172354}
+{"case": "RootSum fraction coeff", "result": "RootSum(6*x**3 + 3*x + 2, Lambda(x, log(x)))", "error": null, "seconds": 0.0005869050000910647}
+{"case": "RootSum quadratic=True param", "result": null, "error": "MultivariatePolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "RootSum multivariate error", "result": null, "error": "MultivariatePolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "RootSum bad func error", "result": null, "error": "ValueError: expected a univariate function, got Lambda((x, y), x + y)", "seconds": null}
+{"case": "RootSum args", "result": "(x**3 + x + 1, Lambda(x, log(x)), x)", "error": null, "seconds": 0.0006674940004813834}
+{"case": "RootSum hash eq", "result": "False", "error": null, "seconds": 0.0012656489998335019}
+{"case": "RootSum doit cubic", "result": "log(-1/(27/2 + 3*sqrt(93)/2)**(1/3) + (27/2 + 3*sqrt(93)/2)**(1/3)/3) + log(-(-1/2 + sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)/3 + 1/((-1/2 + sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3))) + log(1/((-1/2 - sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)) - (-1/2 - sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)/3) + I*pi", "error": null, "seconds": 0.0024925779998739017}
+{"case": "RootSum doit quartic", "result": "0", "error": null, "seconds": 0.000997452999399684}
+{"case": "RootSum doit quintic stays", "result": "RootSum(x**5 - x + 1, Lambda(x, log(x)))", "error": null, "seconds": 0.0018002059996433672}
+{"case": "RootSum evalf cubic", "result": "1.09861228866811 + 3.14159265358979*I", "error": null, "seconds": 0.002227398999821162}
+{"case": "RootSum evalf quintic", "result": "3.36729582998647402718327203236", "error": null, "seconds": 0.006435057000089728}
+{"case": "RootSum evalf symbolic", "result": null, "error": "MultivariatePolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "RootSum diff", "result": "-(2*z + 3)/(z**3 + z + 1)", "error": null, "seconds": 0.00803299800008972}
+{"case": "RootSum subs", "result": "RootSum(x**3 + x + 1, Lambda(y, log(2 - y)))", "error": null, "seconds": 0.0006810550003137905}
+{"case": "integrate 1/(x**3+x+1) real=False", "result": "RootSum(31*_t**3 - 3*_t - 1, Lambda(_t, _t*log(-62*_t**2/9 + 31*_t/9 + x + 4/9)))", "error": null, "seconds": 0.015179725000052713}
+{"case": "integrate 1/(x**5+x+1)", "result": "RootSum(2869*_t**5 + 160*_t**3 - 80*_t**2 + 15*_t - 1, Lambda(_t, _t*log(183616*_t**4/625 + 45904*_t**3/625 + 21716*_t**2/625 + 309*_t/625 + x + 256/625)))", "error": null, "seconds": 0.07872633499937365}
+{"case": "integrate x**2/(x**5-x+1)", "result": "RootSum(2869*_t**5 + 32*_t**3 + 25*_t**2 - _t - 1, Lambda(_t, _t*log(3293253375*_t**4/9202966 - 165940091*_t**3/9202966 + 254847725*_t**2/9202966 + 9077913*_t/4601483 + x - 812765/9202966)))", "error": null, "seconds": 0.08185632699951384}
+{"case": "integrate 1/(x**3+p*x+1)", "result": "0", "error": null, "seconds": 0.6610098860001017}
+{"case": "integrate 1/(x**2+sqrt(2)*x+p)", "result": "0", "error": null, "seconds": 0.14210356900002807}
+{"case": "integrate 1/(x**3+sqrt(2)*x+1)", "result": null, "error": "CaseTimeout: no result within 60 s", "seconds": null}
+{"case": "integrate 1/(x**2+sqrt(2)*p)", "result": "2**(3/4)*atan(2**(3/4)*x/(2*sqrt(p)))/(2*sqrt(p))", "error": null, "seconds": 0.11531457700039027}
+{"case": "integrate x/(x**4+a)", "result": "-sqrt(-1/a)*log(-a*sqrt(-1/a) + x**2)/4 + sqrt(-1/a)*log(a*sqrt(-1/a) + x**2)/4", "error": null, "seconds": 0.039332917999672645}
+{"case": "integrate 1/(x**4+a*x+1)", "result": "RootSum(_t**4*(27*a**4 - 256) - 18*_t**2*a**2 - 8*_t*a - 1, Lambda(_t, _t*log(-243*_t**3*a**6/64 + 36*_t**3*a**2 + 81*_t**2*a**5/64 - 12*_t**2*a + 135*_t*a**4/64 + 4*_t + 27*a**3/64 + x)))", "error": null, "seconds": 0.4940538369992282}
+{"case": "ratint 1/(x**3+a) real=False", "result": "RootSum(27*_t**3*a**2 - 1, Lambda(_t, _t*log(3*_t*a + x)))", "error": null, "seconds": 0.029188458000135142}
+{"case": "logpart extension=True param", "result": "[(Poly(x + _t*(-2*sqrt(2)*p + sqrt(2)) + sqrt(2)*p, x, domain='EX'), Poly(_t**2 - _t + p/(4*p - 2), _t, domain='EX'))]", "error": null, "seconds": 0.09732201899987558}
+{"case": "logpart QQ<s2> 1/(x**3+s2*x+1)", "result": "[(Poly(x + _t**2*(18630*sqrt(2)/(-4257 + 1944*sqrt(2)) - 8192/(-4257 + 1944*sqrt(2))) + _t*(2048*sqrt(2)/(-4257 + 1944*sqrt(2)) - 9315/(-4257 + 1944*sqrt(2))) + 8/9, x, domain='EX'), Poly((-27 - 8*sqrt(2))*_t**3 + 3*sqrt(2)*_t + 1, _t, domain='EX'))]", "error": null, "seconds": 0.24527774400030466}
+{"case": "logpart QQ<s2>[p] 1/(x**2+s2*p)", "result": "[(Poly(x + 2*sqrt(2)*_t*p, x, domain='EX'), Poly(_t**2 + sqrt(2)/(8*p), _t, domain='EX'))]", "error": null, "seconds": 0.022111737000159337}
+{"case": "logpart QQ<s2>[p] x/(x**2+s2*x+p)", "result": "[(Poly(x + _t*(-2*sqrt(2)*p + sqrt(2)) + sqrt(2)*p, x, domain='EX'), Poly(_t**2 - _t + p/(4*p - 2), _t, domain='EX'))]", "error": null, "seconds": 0.05344735299968306}
+{"case": "logpart QQ<s2>[p] 1/(x**2+p)", "result": "[(Poly(x + 2*_t*p, x, domain='ZZ[p,_t]'), Poly(_t**2 + 1/(4*p), _t, domain='EX'))]", "error": null, "seconds": 0.01315516500017111}
+{"case": "logpart QQ<s2>[p] 1/(x**3+s2*p)", "result": "[(Poly(x + 3*sqrt(2)*_t*p, x, domain='EX'), Poly(-54*p**2*_t**3 + 1, _t, domain='EX'))]", "error": null, "seconds": 0.023402279999572784}
+{"case": "logpart QQ<s2>[p] 1/((x-p)(x+s2))", "result": "[(Poly(x + _t*(-p**2/2 - sqrt(2)*p - 1) - p**3/(2*p**2 + 4*sqrt(2)*p + 4) - sqrt(2)*p**2/(2*p**2 + 4*sqrt(2)*p + 4) + 2*p/(2*p**2 + 4*sqrt(2)*p + 4) + 2*sqrt(2)/(2*p**2 + 4*sqrt(2)*p + 4), x, domain='EX'), Poly((-p**2 - 2*sqrt(2)*p - 2)*_t**2 + 1, _t, domain='EX'))]", "error": null, "seconds": 0.06842697399952158}
+{"case": "logpart QQ<s2>(t) 1/(x**2+s2*t)", "result": "[(Poly(x + 2*sqrt(2)*_t*t, x, domain='EX'), Poly(_t**2 + sqrt(2)/(8*t), _t, domain='EX'))]", "error": null, "seconds": 0.02771549400040385}
+{"case": "logpart QQ<s2>(t) x/(x**2+s2*x+t)", "result": "[(Poly(x + _t*(-2*sqrt(2)*t + sqrt(2)) + sqrt(2)*t, x, domain='EX'), Poly(_t**2 - _t + t/(4*t - 2), _t, domain='EX'))]", "error": null, "seconds": 0.06306868899991969}
+{"case": "logpart QQ<s2>(t) 1/(x**3+t*x+s2)", "result": "[(Poly(x + _t**2*(-4*sqrt(2)*t**4/9 - 6*sqrt(2)*t) + _t*(2*sqrt(2)*t**3/9 + 3*sqrt(2)) + 2*sqrt(2)*t**2/9, x, domain='EX'), Poly(_t**3 - 3*t/(4*t**3 + 54)*_t - 1/(4*t**3 + 54), _t, domain='EX'))]", "error": null, "seconds": 0.3091169560002527}
+{"case": "logpart QQ<s2>(t) 1/((x-t)(x+s2))", "result": "[(Poly(x + _t*(-t**2/2 - sqrt(2)*t - 1) - t**3/(2*t**2 + 4*sqrt(2)*t + 4) - sqrt(2)*t**2/(2*t**2 + 4*sqrt(2)*t + 4) + 2*t/(2*t**2 + 4*sqrt(2)*t + 4) + 2*sqrt(2)/(2*t**2 + 4*sqrt(2)*t + 4), x, domain='EX'), Poly(_t**2 - 1/(t**2 + 2*sqrt(2)*t + 2), _t, domain='EX'))]", "error": null, "seconds": 0.07503508900026645}
+{"case": "logpart QQ<s2>(t) (x+1)/(x**2+t*x+s2)", "result": "[(Poly(x + _t*(t**2/(t - 2) - 4*sqrt(2)/(t - 2)) - t/(t - 2) + 2*sqrt(2)/(t - 2), x, domain='EX'), Poly(_t**2 - _t + t/(t**2 - 4*sqrt(2)) - sqrt(2)/(t**2 - 4*sqrt(2)) - 1/(t**2 - 4*sqrt(2)), _t, domain='EX'))]", "error": null, "seconds": 0.18174512600035087}
+{"case": "apart full 1/(x**3+x+1)", "result": "RootSum(_w**3 + _w + 1, Lambda(_a, (6*_a**2/31 - 9*_a/31 + 4/31)/(-_a + x)))", "error": null, "seconds": 0.003077465999922424}
+{"case": "apart full doit 1/(x**3+x+1)", "result": "(-9/(31*(27/2 + 3*sqrt(93)/2)**(1/3)) + 6*(-(27/2 + 3*sqrt(93)/2)**(1/3)/3 + (27/2 + 3*sqrt(93)/2)**(-1/3))**2/31 + 4/31 + 3*(27/2 + 3*sqrt(93)/2)**(1/3)/31)/(x - 1/(27/2 + 3*sqrt(93)/2)**(1/3) + (27/2 + 3*sqrt(93)/2)**(1/3)/3) + (4/31 + 6*(-(-1/2 + sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)/3 + 1/((-1/2 + sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)))**2/31 - 9/(31*(-1/2 + sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)) + 3*(-1/2 + sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)/31)/(x - 1/((-1/2 + sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)) + (-1/2 + sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)/3) + (4/31 + 3*(-1/2 - sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)/31 - 9/(31*(-1/2 - sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)) + 6*(1/((-1/2 - sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)) - (-1/2 - sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)/3)**2/31)/(x + (-1/2 - sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)/3 - 1/((-1/2 - sqrt(3)*I/2)*(27/2 + 3*sqrt(93)/2)**(1/3)))", "error": null, "seconds": 0.004877270999713801}
+{"case": "apart full x/(x**4+1)", "result": "-RootSum(_w**4 + 1, Lambda(_a, _a**2/(-_a + x)))/4", "error": null, "seconds": 0.0030522959996233112}
+{"case": "apart full 1/(x**2+1)**2", "result": "-RootSum(_w**2 + 1, Lambda(_a, _a/(-_a + x)))/4 - RootSum(_w**2 + 1, Lambda(_a, (-_a + x)**(-2)))/4", "error": null, "seconds": 0.00922296400040068}
+{"case": "apart full 1/((x-1)(x**3+2))", "result": "RootSum(_w**3 + 2, Lambda(_a, (_a**3/9 + _a**2/18 + _a/18 + 1/9)/(-_a + x))) + 1/(3*(x - 1))", "error": null, "seconds": 0.004487148000407615}
+{"case": "apart full 1/(x**5-x+1)", "result": "RootSum(_w**5 - _w + 1, Lambda(_a, (-320*_a**4/2869 - 400*_a**3/2869 - 500*_a**2/2869 - 625*_a/2869 + 256/2869)/(-_a + x)))", "error": null, "seconds": 0.003937088000384392}
+{"case": "apart full a/(x**3+a)", "result": "-RootSum(_w**3 + a, Lambda(_a, _a/(-_a + x)))/3", "error": null, "seconds": 0.008141258000250673}
+{"case": "apart full 1/(x**2+sqrt(2))", "result": "-sqrt(2)*RootSum(_w**2 + sqrt(2), Lambda(_a, _a/(-_a + x)))/4", "error": null, "seconds": 0.009797306000109529}
+{"case": "EX sqrt2*(1+sqrt2)", "result": "EX(sqrt(2)*(1 + sqrt(2)))", "error": null, "seconds": 4.366999746707734e-06}
+{"case": "EX (x+1)**2", "result": "EX((x + 1)**2)", "error": null, "seconds": 5.3520006986218505e-06}

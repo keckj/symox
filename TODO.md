@@ -97,6 +97,23 @@ arrcomp) est dans main (`e4b1d011`) : suite 60 352 réussis (60 405
 collectés, 690 fichiers, 8 xfail), cargo test 867 + 1 + 0 + 5, corpus EDO
 315/289/270.
 
+Vague 43 (en cours ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes) :
+- ratint2 (`feat-ratint2-20261106`) : constructeur `RootSum` natif
+  (`crates/symox-py/src/root_sum.rs`, `symox::poly::rootsum`) :
+  `_transform` (`preprocess_roots`), `__new__` après les contrôles
+  d'arguments, `new`, `_rational_case` (symétrisation et Viète en Rust),
+  `doit`, `_eval_evalf` ; racines linéaire et quadratique de référence
+  par domaine (`roots_linear_in`, `roots_quadratic_in`). Python : classe,
+  admission (`PurePoly`, contrôles, `Function('f')` désormais accepté
+  comme dans SymPy), table `_sums`, corps de repli. Corpus du lot
+  62/75 identiques à SymPy (61 avant) ; constructeur 13 ms contre 50 ms
+  avant et 47 ms SymPy (audit `audits/performance/2026-11-06-ratint2`).
+  Non faits : logpart sur `QQ<a>[p]` / `QQ<a>(t)` (voir lacune
+  ratint/exroots) et éléments `EX`.
+  Suite complète du lot : 60 521 réussis (60 572 collectés, 694 fichiers,
+  6 xfail), cargo test 871 + 1 + 0 + 5, clippy correctness propre.
+
 Vague 42 (calcul en Rust, Python limité à l'admission,
 l'aiguillage et les enveloppes) :
 - tsolve (`feat-tsolve-20261106`) : repli `_tsolve` de `_solve` natif
@@ -498,10 +515,14 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   SymPy) ; surcoût restant de l'admission splitfactor sur QQ (2,8 ms contre
   1,0 ms SymPy, voir l'écart ci-dessus).
 - ratint/exroots : restent ratint_logpart sur `QQ<a>[p]` paramétrique et
-  divisions non rétractables de `QQ<a>(t)` (repli de référence, erreur),
-  `EX(a)` Python qui simplifie son élément, ordre des étapes d'expand hors
-  produits de radicaux, constructeur RootSum en Python, bruit imaginaire de
-  evalf (approché par l'évaluateur double dans l'ordre d'impression).
+  sur `QQ<a>(t)` (NotImplementedError dès la construction du Poly, SymPy
+  rend des paires `ZZ[p,_t]`/EX ; il manque un support polynomial sur
+  sol composite algébrique, `GaussianGround` généralisé à `QQ<a>`),
+  éléments `EX` (forme normale `simplify` du cœur, SymPy garde l'élément
+  tel quel et normalise l'arithmétique par `cancel().expand()`), ordre
+  des étapes d'expand hors produits de radicaux, bruit imaginaire de
+  evalf (approché par l'évaluateur double dans l'ordre d'impression). Le
+  constructeur RootSum calcule en Rust depuis la vague 43 (ratint2).
 - Limites : 154/1293 asserts encore différents ; 87 déclins Gruntz, dont
   67 oscillants, désormais tous repris en Rust (décomposition bornée ou
   marcheur `AccumBounds` natif, vague 41) ou gardés, et 10 qui lèvent la
