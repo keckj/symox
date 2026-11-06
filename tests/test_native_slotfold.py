@@ -204,6 +204,54 @@ def test_lll_stays_native_with_cached_exception_slotnames(slot_caches, monkeypat
     assert [[int(v) for v in row] for row in transform] == [[1, 0, 0], [-4, 1, -5], [0, 0, 1]]
 
 
+_SINGLETON_LLL = r'''
+import sys
+import symox as sx
+from symox.core.singleton import Singleton
+from symox.polys.matrices.ddm import DDM
+z = sx.ZZ
+a = DDM([[z(1), z(0), z(0)], [z(4), z(2), z(15)], [z(0), z(0), z(3)]], (3, 3), z)
+delta = sx.QQ(3, 4)
+if sys.argv[1] == 'custom':
+    class Meta(Singleton):
+        def __instancecheck__(cls, value):
+            return Singleton.__instancecheck__(cls, value)
+else:
+    Meta = Singleton
+
+class LazySingletonLLL(sx.Basic, metaclass=Meta):
+    pass
+
+calls = []
+native = sx._core._ddm_lll_native
+def spy(*args):
+    result = native(*args)
+    calls.append(result is not None)
+    return result
+sx._core._ddm_lll_native = spy
+first = a.lll_transform(delta)
+second = a.lll_transform(delta)
+assert first == second
+assert [[int(v) for v in row] for row in second[0]] == [[1, 0, 0], [0, 2, 0], [0, 0, 3]]
+assert [[int(v) for v in row] for row in second[1]] == [[1, 0, 0], [-4, 1, -5], [0, 0, 1]]
+print(bool(calls) and all(calls))
+'''
+
+
+@pytest.mark.parametrize('kind,native', [('stock', True), ('custom', False)])
+def test_lll_admission_after_a_user_singleton_class(kind, native):
+    # A stock Singleton class (as in test_subclass_fidelity) stays in
+    # Basic.__subclasses__() for the whole process: LLL must stay native.
+    # A metaclass overriding a classifier hook keeps the Python body.
+    import os
+    import subprocess
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join(p for p in sys.path if p))
+    out = subprocess.run([sys.executable, '-c', _SINGLETON_LLL, kind], env=env,
+                         capture_output=True, text=True, timeout=300)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.split()[-1] == str(native)
+
+
 def test_stock_slotnames_matches_copyreg_for_slotted_classes():
     class Base:
         __slots__ = ('a', '__hidden')

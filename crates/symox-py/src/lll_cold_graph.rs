@@ -115,6 +115,53 @@ impl<'py> Context<'py>{
     }
 }
 
+/// The stock `symox.core.singleton.Singleton` metaclass, when it is loaded and
+/// unmodified. Its classes (`class C(Basic, metaclass=Singleton)`, as in
+/// SymPy) stay in `Basic.__subclasses__()` for the whole process; without
+/// this, defining one switched exact LLL to the Python body until exit. Its
+/// bases are `(_ExprType, _BasicMeta)` and its own namespace only adds
+/// `__init__` (run at class creation, never by a subclass or instance
+/// check), so every classifier lookup resolves to the authenticated
+/// `_ExprType`/`_BasicMeta` functions, checked like the other metaclasses.
+/// Any other shape (or a context without the module) returns `None` and the
+/// metaclass stays rejected.
+fn singleton_metaclass<'py>(c:&Context<'py>,type_dict:&Bound<'py,PyAny>,object:&Bound<'py,PyAny>,
+    expr_meta:&Bound<'py,PyAny>,basic_meta:&Bound<'py,PyAny>)->VResult<Option<Bound<'py,PyAny>>>{
+    // A shape this check cannot read keeps the metaclass rejected (None);
+    // only Python errors propagate.
+    match singleton_metaclass_checked(c,type_dict,object,expr_meta,basic_meta){
+        Err(Failure::Decline(_))=>Ok(None),result=>result,
+    }
+}
+fn singleton_metaclass_checked<'py>(c:&Context<'py>,type_dict:&Bound<'py,PyAny>,object:&Bound<'py,PyAny>,
+    expr_meta:&Bound<'py,PyAny>,basic_meta:&Bound<'py,PyAny>)->VResult<Option<Bound<'py,PyAny>>>{
+    let names=PyTuple::new(c.py,["symox.core.singleton"])?;
+    let Some(loaded)=support::_lll_loaded_modules(names.as_any(),c.py)? else{return Ok(None);};
+    let pair=tuple(tuple(loaded.into_bound(c.py))?.get_item(0)?)?;
+    let namespace=dictionary(pair.get_item(1)?)?;
+    let Some(meta)=namespace.get_item("Singleton")? else{return Ok(None);};
+    if meta.downcast_exact::<PyType>().is_err(){return Ok(None);}
+    let state=c.state(&meta)?;
+    if !state.meta.is(&c.py.get_type::<PyType>().into_any())||!same_tuple(&state.bases,&[expr_meta,basic_meta]){return Ok(None);}
+    // A class namespace is a mappingproxy: iterate its keys, all exact str.
+    const OWN:&[&str]=&["__module__","__qualname__","__doc__","__init__","__firstlineno__","__static_attributes__"];
+    for key in state.namespace.try_iter()?{
+        let key=key?;let Ok(key)=key.downcast_exact::<PyString>() else{return Ok(None);};
+        if !OWN.iter().any(|name|key.as_any().eq(*name).unwrap_or(false)){return Ok(None);}
+    }
+    let module=need(&state.namespace,"__module__")?;
+    if module.downcast_exact::<PyString>().is_err()||!module.eq("symox.core.singleton")?{return Ok(None);}
+    for name in ["__getattribute__","__dict__","__name__","__mro__","__subclasses__"]{
+        if !c.effective(&meta,name)?.is(need(type_dict,name)?){return Ok(None);}
+    }
+    if !c.effective(&meta,"__subclasshook__")?.is(need(&c.raw(object)?,"__subclasshook__")?){return Ok(None);}
+    for name in ["__instancecheck__","__subclasscheck__"]{
+        let expected=c.effective(expr_meta,name)?;if !c.effective(&meta,name)?.is(&expected){return Ok(None);}
+    }
+    for parent in state.mro.iter(){if item(&c.raw(&parent)?,"_abc_impl")?.is_some(){return Ok(None);}}
+    Ok(Some(meta))
+}
+
 struct Graph<'py>{count:usize,paths:Vec<Bound<'py,PyString>>,reference_type:Bound<'py,PyType>,basic:Bound<'py,PyAny>,element:Bound<'py,PyAny>,resolve:Bound<'py,PyAny>}
 fn graph<'py>(c:&Context<'py>)->VResult<Graph<'py>>{
     c.builtins(&["type","object","dict","tuple","list","str","bool","int","isinstance","issubclass","getattr","any","super","hash","KeyError","TypeError"])?;
@@ -140,6 +187,7 @@ fn graph<'py>(c:&Context<'py>)->VResult<Graph<'py>>{
         guard!(c.effective(meta,"__subclasshook__")?.is(need(&c.raw(&object)?,"__subclasshook__")?),"metaclass subclass hook");
         for parent in state.mro.iter(){guard!(item(&c.raw(&parent)?,"_abc_impl")?.is_none(),"metaclass ABC data descriptor");}
     }
+    let singleton_meta=singleton_metaclass(c,&type_dict,&object,&expr_meta,&basic_meta)?;
     let mut delegates=Vec::new();for name in ["_abc_instancecheck","_abc_subclasscheck"]{
         let value=c.member("abc",name)?;guard!(value.is(c.member("_abc",name)?)&&c.origin(&value,name,"_abc")?,"ABC native delegate");delegates.push(value);
     }
@@ -190,7 +238,8 @@ fn graph<'py>(c:&Context<'py>)->VResult<Graph<'py>>{
         active.push(class.clone());todo.push((class.clone(),true));
         let state=c.state(&class)?;
         for parent in state.mro.iter(){let namespace=c.raw(&parent)?;for name in ["__subclasses__","__subclasscheck__"]{guard!(item(&namespace,name)?.is_none(),"class ABC dispatch override");}}
-        guard!(state.meta.is(&native_type)||metas.iter().any(|(meta,_)|state.meta.is(*meta)),"custom graph metaclass");
+        guard!(state.meta.is(&native_type)||metas.iter().any(|(meta,_)|state.meta.is(*meta))
+            ||singleton_meta.as_ref().is_some_and(|meta|state.meta.is(meta)),"custom graph metaclass");
         guard!(!class.is(&element)&&!class.is(&object),"positive native subtype");guard!(c.effective(&class,"__subclasshook__")?.is(&default_hook),"custom subclass hook");
         let checker=c.effective(state.meta.as_any(),"__subclasscheck__")?;guard!(allowed_checks.iter().any(|expected|checker.is(*expected)),"custom subclass checker");
         if checker.is(&native_check){continue;}
