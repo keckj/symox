@@ -336,7 +336,10 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
         Kind::Func(Func::Limit,args)=>{
             let body=child(&args[0]);
             let direction=crate::limits::Dir::parse(args[3].as_sym().map(|s|s.name()).unwrap_or("+"));
-            direction.and_then(|dir|crate::limits::limit(&body,&args[1],&args[2],dir).ok())
+            // Limit.doit: nsimplify(e) when e has floats; the limit of the
+            // exact expression, held with the original body when undecided
+            let exact=crate::limits::floats::nsimplify_floats(&body);
+            direction.and_then(|dir|crate::limits::limit(exact.as_ref().unwrap_or(&body),&args[1],&args[2],dir).ok())
                 .unwrap_or_else(||Expr::from_kind(Kind::Func(Func::Limit,vec![body,args[1].clone(),args[2].clone(),args[3].clone()])))
         },
         Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") => child(&args[0]),

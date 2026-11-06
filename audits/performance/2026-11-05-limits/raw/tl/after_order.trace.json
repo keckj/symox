@@ -1,0 +1,6 @@
+[
+[
+"Not sure of sign of 3 - w",
+"Limit(x**(3 - w), x, 0, dir='+')"
+]
+]

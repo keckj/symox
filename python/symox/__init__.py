@@ -3396,7 +3396,13 @@ class _LimitMeta(type):
 class Limit(metaclass=_LimitMeta):
     """Held native limit; ``doit()`` invokes the exact limit engine."""
     def __new__(cls, e, z, z0, dir="+"):
+        _check_limit_dir(dir)
         return _core._held_limit(e, z, z0, str(dir))
+
+
+def _check_limit_dir(dir):
+    if not (isinstance(dir, str) or getattr(dir, 'is_Symbol', False)):
+        raise TypeError("direction must be of type basestring or Symbol, not %s" % type(dir))
 
 
 def _limit_through_positive_dummy(e, z, z0, dir, r):
@@ -3418,8 +3424,15 @@ def limit(e, z, z0, dir="+"):
 
     Returns an unevaluated :class:`Limit` when the limit cannot be computed.
     """
+    _check_limit_dir(dir)
     ee = sympify(e)
     zz0 = sympify(z0)
+    if isinstance(ee, Expr) and ee.has(z):
+        # Limit.doit: nsimplify(e) when e has floats (native).
+        exact = _core._limit_nsimplify(ee)
+        if exact is not None:
+            r = limit(exact, z, z0, dir)
+            return Limit(e, z, z0, dir) if isinstance(r, Limit) else r
     if (isinstance(ee, Expr) and ee.has(z) and zz0.is_infinite and zz0 not in (S.Infinity, S.NegativeInfinity)
             and zz0 is not S.ComplexInfinity and not zz0.free_symbols):
         # Limit.doit at a directed infinity (I*oo): z -> cdir*z, z -> oo.
@@ -3444,7 +3457,13 @@ def limit(e, z, z0, dir="+"):
         if side is not None:
             r = limit(side, z, z0, dir)
             return Limit(e, z, z0, dir) if isinstance(r, Limit) else r
-    r = _core._limit(e, z, z0, str(dir))
+    # The reference raises NotImplementedError for some undecided limits;
+    # it is raised if no other route below gives the value.
+    not_implemented = None
+    try:
+        r = _core._limit(e, z, z0, str(dir), True)
+    except NotImplementedError as exc:
+        r, not_implemented = None, exc
     if (r is None or r is S.NaN) and str(dir) in ("+", "-") and sympify(e).has(arg):
         # The reference approaches z0 through a positive dummy, on which
         # arg(h) is 0: arg(z) -> 0 as z -> 0+ rather than arg(0) = nan.
@@ -3480,6 +3499,8 @@ def limit(e, z, z0, dir="+"):
         # leading terms give accumulation bounds.
         from .calculus._accum_limit import oscillating_limit
         r = oscillating_limit(e, z, z0, str(dir))
+    if r is None and not_implemented is not None:
+        raise not_implemented
     return Limit(e, z, z0, dir) if r is None else r
 
 

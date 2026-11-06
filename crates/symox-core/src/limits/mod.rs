@@ -17,6 +17,8 @@
 //! the oscillating parts as bounded parameters.
 
 pub mod exact_sign;
+pub mod floats;
+pub mod symbolic_power;
 pub mod gruntz;
 mod gamma_heuristic;
 mod order_elsewhere;
@@ -25,7 +27,7 @@ pub mod trace;
 use rustc_hash::FxHashMap;
 
 use crate::expr::{Constant, Expr, Func, Kind};
-use crate::ops::{add, mul2, neg, pow};
+use crate::ops::{add, mul, mul2, neg, pow};
 use crate::series::engine::{degree_in, depends};
 use crate::series::{leading_term_with, LeadTerm};
 use crate::subs::xreplace;
@@ -108,6 +110,15 @@ impl std::fmt::Display for LimitError {
 
 pub type LRes<T> = Result<T, LimitError>;
 
+/// The reference `NotImplementedError` for a limit point `zoo`.
+pub const COMPLEX_INFINITY_POINT: &str = "Limits at complex infinity are not implemented";
+
+/// The undecided limits for which the reference raises `NotImplementedError`
+/// rather than returning the unevaluated `Limit`.
+pub fn reference_not_implemented(msg: &str) -> bool {
+    msg.starts_with(gruntz::SIGN_DEPENDENT) || msg.starts_with(symbolic_power::NOT_SURE_OF_SIGN) || msg == COMPLEX_INFINITY_POINT
+}
+
 pub(crate) fn unknown<T>(s: impl Into<String>) -> LRes<T> {
     Err(LimitError::Unknown(s.into()))
 }
@@ -120,6 +131,10 @@ fn is_infinite(e: &Expr) -> bool {
 /// `limit(e, x, x0, dir)`.
 pub fn limit(e: &Expr, x: &Expr, x0: &Expr, dir: Dir) -> LRes<Expr> {
     if !x.is_symbol(){return unknown("limits with non-symbol variables are not implemented");}
+    if x0.is_constant(Constant::ComplexInfinity) {
+        // Limit.doit raises NotImplementedError before looking at `e`
+        return unknown(COMPLEX_INFINITY_POINT);
+    }
     if !depends(e, x) {
         return Ok(e.clone());
     }
@@ -233,6 +248,48 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
     if x0.is_constant(Constant::ComplexInfinity) || x0.is_constant(Constant::NaN) {
         return unknown("bad limit point");
     }
+    // the reference leading-term step for `(x - x0)**p` with a symbolic
+    // `p`, and its heuristics for `b**p` at `+-oo`: a value is the
+    // reference value; a held limit or a reference error stands only when
+    // the native engine does not decide either (its value is kept, never
+    // replaced by an undecided outcome)
+    let rule = symbolic_power::symbolic_power_limit(e, x, x0, minus)
+        .or_else(|| symbolic_power::infinite_power_limit(e, x, x0));
+    match rule {
+        Some(Ok(v)) => Ok(v),
+        Some(Err(err)) => engine_or_pow_heuristics(e, x, x0, minus).or(Err(err)),
+        None => engine_or_pow_heuristics(e, x, x0, minus),
+    }
+}
+
+/// The native engine, then the reference `pow_heuristics` for a constant
+/// base when the engine does not decide.
+/// The native engine, then the steps of the reference `Limit.doit` after a
+/// failed leading term: `e = powsimp(e)`, `pow_heuristics` for a power of a
+/// constant base, and `gruntz` on the merged expression. The merged
+/// expression only replaces the original error when it decides or raises
+/// the reference `NotImplementedError` (`exp(b*x)*exp(-x)` at `oo` merges
+/// into `exp(x*(b - 1))`, whose rewrite depends on the sign of `b - 1`).
+fn engine_or_pow_heuristics(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr> {
+    let err = match limit_one_sided_engine(e, x, x0, minus) {
+        Ok(v) => return Ok(v),
+        Err(err) => err,
+    };
+    let merged = crate::simptools::powsimp::powsimp(e, &crate::simptools::powsimp::PowsimpOptions::default());
+    if let Some(Ok(v)) = symbolic_power::constant_base_power(&merged, x, x0, minus) {
+        return Ok(v);
+    }
+    if merged == *e {
+        return Err(err);
+    }
+    match limit_one_sided_engine(&merged, x, x0, minus) {
+        Ok(v) => Ok(v),
+        Err(LimitError::Unknown(m)) if reference_not_implemented(&m) => Err(LimitError::Unknown(m)),
+        Err(_) => Err(err),
+    }
+}
+
+fn limit_one_sided_engine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr> {
     if let Some(r) = fast_path(e, x, x0, minus).filter(|r| !has_nan(r)) {
         return Ok(r);
     }
@@ -281,13 +338,16 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
 /// real), so that the argument tends to its limit along the real axis.
 fn function_value(e: &Expr, t: &Expr) -> Option<Expr> {
     use crate::special::{apply, SpecialFn as S};
-    let Kind::Func(Func::Special(s @ (S::Harmonic | S::Subfactorial)), args) = e.kind() else { return None };
     let real_arg = |a: &Expr| {
         !crate::traverse::has(a, &Expr::i())
             && crate::traverse::free_symbols(a)
                 .iter()
                 .all(|v| v == t || crate::assumptions::is_real(v) == Some(true))
     };
+    if let Kind::Func(Func::Special(b @ (S::BesselJ | S::BesselY | S::BesselI | S::BesselK)), args) = e.kind() {
+        return bessel_imaginary_value(*b, args, t, &real_arg);
+    }
+    let Kind::Func(Func::Special(s @ (S::Harmonic | S::Subfactorial)), args) = e.kind() else { return None };
     let arg = &args[0];
     if !depends(arg, t) || args[1..].iter().any(|a| depends(a, t)) || !real_arg(arg) {
         return None;
@@ -315,6 +375,30 @@ fn function_value(e: &Expr, t: &Expr) -> Option<Expr> {
         return None;
     }
     Some(r)
+}
+
+/// A Bessel function whose argument is `+-I*u` with `u` real tending to
+/// `+oo`: the reference heuristics value `f(nu, +-I*oo)`, which is the
+/// limit along the imaginary axis (`J` and `Y` grow as `I(nu, u)`, `I` and
+/// `K` decay as `u**(-1/2)`); kept only when the function evaluates there.
+fn bessel_imaginary_value(b: crate::special::SpecialFn, args: &[Expr], t: &Expr, real_arg: &dyn Fn(&Expr) -> bool) -> Option<Expr> {
+    let [nu, z] = args else { return None };
+    if depends(nu, t) || !depends(z, t) {
+        return None;
+    }
+    let i = Expr::i();
+    let mut g = gruntz::Gruntz::new(t);
+    for sg in [1i64, -1] {
+        let u = crate::expand::expand(&mul(&[Expr::int(-sg), i.clone(), z.clone()]));
+        if !real_arg(&u) || !g.limitinf(&u).ok()?.is_constant(Constant::Infinity) {
+            continue;
+        }
+        let point = mul(&[Expr::int(sg), i.clone(), Expr::oo()]);
+        let r = crate::special::apply(b, vec![nu.clone(), point]);
+        let unevaluated = matches!(r.kind(), Kind::Func(Func::Special(_), _)) || has_nan(&r);
+        return if unevaluated { None } else { Some(r) };
+    }
+    None
 }
 
 /// Value of the limit from a leading term `c * t**e` (with `t -> 0+`
@@ -348,7 +432,7 @@ pub(crate) fn from_leading(lt: &LeadTerm) -> Option<Expr> {
             if crate::traverse::free_symbols(&ck).is_empty() {
                 return None;
             }
-            let s = crate::functions::sign(&ck);
+            let s = crate::functions::sign(&unit_powers(&ck));
             Some(mul2(&mul2(&Expr::int(parity as i64), &s), &Expr::oo()))
         }
     }
@@ -381,6 +465,27 @@ fn fast_path(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<Expr> {
         return None;
     }
     from_leading(&lt)
+}
+
+/// `exp(I*pi*a)` factors of a leading coefficient written `(-1)**a`, the
+/// form of the reference expansions of `(-u)**a`.
+pub(crate) fn unit_powers(c: &Expr) -> Expr {
+    let ipi = mul2(&Expr::i(), &Expr::pi());
+    let conv = |f: &Expr| -> Option<Expr> {
+        let Kind::Func(Func::Exp, a) = f.kind() else { return None };
+        let k = crate::ops::div(&a[0], &ipi);
+        if crate::traverse::has(&k, &Expr::i()) || crate::traverse::has(&k, &Expr::pi()) {
+            return None;
+        }
+        Some(pow(&Expr::minus_one(), &k))
+    };
+    if let Some(r) = conv(c) {
+        return r;
+    }
+    if c.is_mul() {
+        return mul(&c.args().iter().map(|f| conv(f).unwrap_or_else(|| f.clone())).collect::<Vec<_>>());
+    }
+    c.clone()
 }
 
 fn has_bad(e: &Expr) -> bool {
