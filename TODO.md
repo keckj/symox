@@ -1,7 +1,7 @@
 # TODO — Capacités mathématiques et parité SymPy
 
-Mis à jour le **6 novembre 2026**, sur la branche `integrate-wave41-20261106`
-(`main` à **`5ebd60c0`**, vague 40, plus les trois lots de la vague 41).
+Mis à jour le **6 novembre 2026**, sur la branche `integrate-wave42-20261106`
+(`main` à **`e4b1d011`**, vague 41, plus les trois lots de la vague 42).
 Référence : **SymPy 1.14.0**. Dernier lot validé sur Demeter le 6 novembre
 (voir « Reprise sur Demeter » ; le paragraphe ci-dessous décrit la suite du
 28 octobre).
@@ -57,33 +57,80 @@ Python restent un chantier distinct, hors de ce TODO mathématique.
 affirmée à tort) ; il rend maintenant `[4/(C1**2 + 2*C1*x + x**2)]` comme
 SymPy, par la branche unrad native de `_solve`, atteinte avant les étapes
 `_tsolve` comme dans la référence. Les cas EDO fact_13 et fact_16 sont
-débloqués. Réserve : les équations qui mêlent des radicaux de l'inconnue à
-d'autres fonctions de celle-ci (`sqrt(x)*exp(x)`, `cosh(x)/x - sqrt(2)`,
-exposants symboliques) ne sont pas admises par la branche native et
-passent encore par les replis Python qui appellent `_tsolve` avant unrad
-(`_masked_solution`, `_inverted_solution`, `_unrad_solution`) ; la vague 42
-(en cours, ci-dessous) les porte en Rust ; voir « Lacunes ouvertes
-principales ».
+débloqués. La réserve de la vague 41 (radicaux de l'inconnue mêlés à
+d'autres fonctions de celle-ci, `sqrt(x)*exp(x)`, exposants symboliques,
+qui passaient par les replis Python appelant `_tsolve` avant unrad) est
+levée par la vague 42 (lot tsolve) : repli unrad puis `_tsolve` natifs,
+dans l'ordre de SymPy ; le dernier WRONG_EMPTY du corpus tsolve est
+corrigé. Restent en Python la chaîne établie après un NotImplementedError
+natif et deux crochets (`nsimplify`, fin d'`equals`) ; voir « Lacunes
+ouvertes principales ».
 
-La branche `integrate-wave41-20261106` (main `5ebd60c0` + vague 41 :
-unrad, accumb, arrcomp) est validée, à avancer dans main. Validation
-(`XLA_PYTHON_CLIENT_PREALLOCATE=false`) sur `86b66430` : suite complète
-**60 352 réussis, 0 échec** ("SUITE CLEAN", 8 xfail, 45 sautés,
-60 405 collectés et exécutés, 690 fichiers ; preuves dans
-`~/symox-ci/evidence/integ41-20261106`), soit exactement l'union des trois
-lots (+11, +16 et +7 tests collectés et 3 fichiers sur les 60 371 et
-687 de main ; 3 xfail stricts levés par unrad) ; cargo test 867 + 1 + 0 + 5,
-clippy correctness propre ; corpus EDO rejoué sur la branche intégrée :
-**315/289/270**, verdicts identiques ligne à ligne à ceux du lot unrad.
-Conflits de fusion limités au texte (`TODO.md`,
-`docs/algorithmic-parity.md`, sections ajoutées bout à bout) ;
-`crates/symox-py/src/lib.rs` fusionné sans conflit avec les modules
-`accum` et `array_comprehension` et leurs deux enregistrements. Aucun
-correctif d'intégration nécessaire. Le corpus d'intégration n'a pas été
-rejoué depuis la vague 37.
+La branche `integrate-wave42-20261106` (main `e4b1d011` + vague 42 :
+tsolve, ode3, prde3, fusionnés dans cet ordre) est validée, à avancer dans
+main. Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) sur `dfc19715`
+(fusion des trois lots, code identique au commit TODO) : suite complète
+**60 482 réussis, 0 échec** ("SUITE CLEAN", 6 xfail, 45 sautés,
+60 533 collectés et exécutés, 693 fichiers ; preuves dans
+`~/symox-ci/evidence/integ42-20261106`), soit exactement l'union des trois
+lots (+27, +73 et +28 tests collectés et 3 fichiers sur les 60 405 et 690
+de main ; 2 xfail stricts levés par prde3, 8 → 6) ; cargo test
+871 + 1 + 0 + 5, clippy correctness propre ; corpus EDO rejoué sur la
+branche intégrée : **315/289/270**, verdicts identiques ligne à ligne à
+ceux de main (`integ41-20261106`) ; corpus tsolve rejoué : 106 SAME,
+6 EQUIV, 2 SUPERSET, 1 DECLINED, 0 WRONG_EMPTY, comparaison identique
+ligne à ligne à celle du lot ; corpus unrad rejoué : 87 SAME, 2 EQUIV,
+1 EXTRA, identique au lot (preuves dans `.../integ42-20261106/solve`).
+Interactions vérifiées : `nth_algebraic` (ode3) appelle le `solve` public
+modifié par tsolve (lignes algeb du corpus EDO et 73 tests ode3
+inchangés) ; l'ordre global des générateurs de `construct_domain` (prde3)
+ne change aucun verdict des corpus EDO, tsolve et unrad ni aucun test.
+Conflits de fusion limités au texte de `TODO.md` (fusion de prde3 :
+entrées vague 42 d'ode3 et de prde3 gardées toutes deux ; lacunes solve de
+tsolve et prde de prde3, les plus récentes) ; `docs/algorithmic-parity.md`
+fusionné sans conflit (sections ajoutées bout à bout). Aucun correctif
+d'intégration nécessaire. Le corpus d'intégration n'a pas été rejoué
+depuis la vague 37.
 
-Vague 42 (en cours ; calcul en Rust, Python limité à l'admission,
+La branche `integrate-wave41-20261106` (vague 41 : unrad, accumb,
+arrcomp) est dans main (`e4b1d011`) : suite 60 352 réussis (60 405
+collectés, 690 fichiers, 8 xfail), cargo test 867 + 1 + 0 + 5, corpus EDO
+315/289/270.
+
+Vague 42 (calcul en Rust, Python limité à l'admission,
 l'aiguillage et les enveloppes) :
+- tsolve (`feat-tsolve-20261106`) : repli `_tsolve` de `_solve` natif
+  (`crates/symox-core/src/solve/native_tsolve.rs`), dans l'ordre de SymPy :
+  - repli unrad de `_solve` avant `_tsolve` pour les radicaux mêlés à
+    d'autres fonctions de l'inconnue (`radical::solve_mixed`,
+    `sqrt(x)*exp(x) - 1`, `exp(sqrt(x)) - 3`) ;
+  - étapes `_tsolve` (`solve/tsolve.rs`) avec un hôte natif : `_invert`,
+    factor/logcombine, `Pow` (candidats rationnels), `sin`/`cos`/`LambertW`,
+    `rebuild(rewrite(exp))`, bloc bivarié (`_solve_lambert`,
+    `bivariate_type`), reprise posify (drapeaux sans `bivariate`) ;
+  - `_vsolve` imbriqués natifs, sans filtrage par les hypothèses de
+    l'inconnue comme la référence (`u` positif de `bivariate_type`,
+    posify : `x**x - x` garde `-1`) ;
+  - étape multi-générateurs de `_solve` (`_as_base_q`, substitution de la
+    fonction la moins profonde) ; logcombine limité aux termes en `x`
+    (`(x**3)**(x/2) + pi/2` rendait `[]`) ; partie primitive d'une
+    quadratique à coefficients symboliques avant la forme close, comme
+    `preprocess_roots` (`solve.rs::quadratic_primitive`) ;
+  - indécidable natif : déclin et relance, jamais `[]`.
+  Corpus de 115 équations (`audits/performance/2026-11-06-tsolve/`) : avant
+  99 SAME, 6 EQUIV, 3 SUBSET, 1 SUPERSET, 1 WRONG_EMPTY, 5 DECLINED ; après
+  106 SAME, 6 EQUIV, 2 SUPERSET, 1 DECLINED ; cas passant par la chaîne
+  Python 66 → 10. Corpus unrad inchangé (87 SAME, 2 EQUIV, 1 EXTRA).
+  Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) : suite complète
+  **60 379 réussis, 0 échec** ("SUITE CLEAN", 8 xfail, 45 sautés, 60 432
+  collectés, 691 fichiers ; +27 de `tests/test_native_tsolve_fallbacks.py` ;
+  preuves dans `~/symox-ci/evidence/tsolve-20261106`) ; cargo test 867 + 1
+  + 0 + 5 ; clippy correctness propre ; corpus EDO 315/289/270 (inchangé,
+  aucune ligne modifiée). Écarts à valider : branches complexes de Lambert
+  en SUPERSET (`x**3 - 3**x`, `3**cos(x) - cos(x)**3`), `_vsolve`
+  imbriqués sans filtrage par hypothèses, forme de SymPy pour
+  `almost_lin_01` (`tests/test_ode_solve_parity.py`) ; voir la section
+  wave 42 de docs/algorithmic-parity.md.
 - ode3 (`feat-ode3-20261106`) : solveurs EDO `nth_algebraic`,
   `factorable` et `2nd_linear_bessel` natifs, classification et
   construction de la solution (`crates/symox-core/src/ode/algebraic.rs`,
@@ -124,8 +171,8 @@ l'aiguillage et les enveloppes) :
   (691 fichiers, 6 xfail, SUITE CLEAN) ; `cargo test --release`
   867 + 1 + 0 + 5, clippy correctness propre.
 
-Vague 41 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
-enveloppes) :
+Vague 41 (dans main ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes) :
 - unrad (`feat-unrad-20261106`) : branches radicales de `_solve` natives
   (`crates/symox-core/src/solve/radical.rs`), dans l'ordre de SymPy, avant
   `_tsolve` :
@@ -185,41 +232,6 @@ enveloppes) :
   clippy correctness propre. Écarts délibérés à valider : voir la liste
   de la vague 41 ci-dessous et la section arrcomp de
   docs/algorithmic-parity.md.
-
-Vague 42 (en cours ; calcul en Rust, Python limité à l'admission,
-l'aiguillage et les enveloppes) :
-- tsolve (`feat-tsolve-20261106`) : repli `_tsolve` de `_solve` natif
-  (`crates/symox-core/src/solve/native_tsolve.rs`), dans l'ordre de SymPy :
-  - repli unrad de `_solve` avant `_tsolve` pour les radicaux mêlés à
-    d'autres fonctions de l'inconnue (`radical::solve_mixed`,
-    `sqrt(x)*exp(x) - 1`, `exp(sqrt(x)) - 3`) ;
-  - étapes `_tsolve` (`solve/tsolve.rs`) avec un hôte natif : `_invert`,
-    factor/logcombine, `Pow` (candidats rationnels), `sin`/`cos`/`LambertW`,
-    `rebuild(rewrite(exp))`, bloc bivarié (`_solve_lambert`,
-    `bivariate_type`), reprise posify (drapeaux sans `bivariate`) ;
-  - `_vsolve` imbriqués natifs, sans filtrage par les hypothèses de
-    l'inconnue comme la référence (`u` positif de `bivariate_type`,
-    posify : `x**x - x` garde `-1`) ;
-  - étape multi-générateurs de `_solve` (`_as_base_q`, substitution de la
-    fonction la moins profonde) ; logcombine limité aux termes en `x`
-    (`(x**3)**(x/2) + pi/2` rendait `[]`) ; partie primitive d'une
-    quadratique à coefficients symboliques avant la forme close, comme
-    `preprocess_roots` (`solve.rs::quadratic_primitive`) ;
-  - indécidable natif : déclin et relance, jamais `[]`.
-  Corpus de 115 équations (`audits/performance/2026-11-06-tsolve/`) : avant
-  99 SAME, 6 EQUIV, 3 SUBSET, 1 SUPERSET, 1 WRONG_EMPTY, 5 DECLINED ; après
-  106 SAME, 6 EQUIV, 2 SUPERSET, 1 DECLINED ; cas passant par la chaîne
-  Python 66 → 10. Corpus unrad inchangé (87 SAME, 2 EQUIV, 1 EXTRA).
-  Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`) : suite complète
-  **60 379 réussis, 0 échec** ("SUITE CLEAN", 8 xfail, 45 sautés, 60 432
-  collectés, 691 fichiers ; +27 de `tests/test_native_tsolve_fallbacks.py` ;
-  preuves dans `~/symox-ci/evidence/tsolve-20261106`) ; cargo test 867 + 1
-  + 0 + 5 ; clippy correctness propre ; corpus EDO 315/289/270 (inchangé,
-  aucune ligne modifiée). Écarts à valider : branches complexes de Lambert
-  en SUPERSET (`x**3 - 3**x`, `3**cos(x) - cos(x)**3`), `_vsolve`
-  imbriqués sans filtrage par hypothèses, forme de SymPy pour
-  `almost_lin_01` (`tests/test_ode_solve_parity.py`) ; voir la section
-  wave 42 de docs/algorithmic-parity.md.
 
 Vague 40 (dans main ; calcul en Rust, Python limité à l'admission,
 l'aiguillage et les enveloppes) :
@@ -320,6 +332,33 @@ Vague 38 (dans main) :
 - prdelog : cas de base de `is_log_deriv_k_t_radical_in_field` en Rust
   (`integrate/prde_log.rs`, 938 appels, 0 écart).
 
+Écarts volontaires de la vague 42 en attente de validation utilisateur :
+- prde3 : ordre global des générateurs de `construct_domain`
+  (`polys/constructor.py._infer_domain`) : à plusieurs symboles, l'ordre
+  vient maintenant des générateurs natifs de `_construct_composite`
+  (`_sort_gens` de SymPy : `x`, `y`, `z` d'abord, `ZZ[x,a]`, `ZZ(x,t0)`,
+  `ZZ[y,a,b]`) au lieu de `default_sort_key`, conservé seulement quand ces
+  générateurs ne sont pas exactement les symboles libres ; cela change
+  tout `construct_domain` à plusieurs symboles, pas seulement prde ;
+  élargissement de `SympifyError` : toute opérande d'une opération
+  arithmétique de `Poly` qui n'est pas une expression (et plus seulement
+  `None`) lève `SympifyError(o)` comme le `_sympify` strict de
+  `_polifyit`, là où l'erreur était un `TypeError` ordinaire.
+- ode3 : le filtrage du `2nd_linear_bessel` natif passe par le
+  `Expr.match` public (filtreur de référence porté en Python, rappelé
+  depuis Rust) et non par le `pattern_match` natif, qui n'en reproduit pas
+  les choix (voir la lacune ODE ci-dessous) ; décisions identiques à la
+  référence, mais le filtrage n'est pas natif.
+- tsolve : branches complexes de Lambert en plus (SUPERSET : `x**3 - 3**x`
+  et `3**cos(x) - cos(x)**3` rendent aussi
+  `-3*LambertW((1 ± sqrt(3)*I)*log(3)/6)/log(3)`, solutions valides ; déjà
+  le cas avant le lot pour `x**3 - 3**x`) ; filtre par hypothèses abandonné
+  dans les `_vsolve` imbriqués des étapes `_tsolve` natives, comme la
+  référence (`checksol` seul : `u` positif de `bivariate_type`, posify où
+  `x**x - x` garde `-1`), alors que la chaîne PyHost conservée filtre
+  encore (`solve` public) ; forme de SymPy reprise pour `almost_lin_01`
+  dans `tests/test_ode_solve_parity.py`.
+
 Écarts volontaires de la vague 41 en attente de validation utilisateur :
 - unrad : là où la référence propage une erreur (`unrad` qui lève
   PolynomialError ou IndexError, NotImplementedError du changement de
@@ -395,26 +434,48 @@ UserWarning, flags inconnus ignorés).
 Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
 - ODE : simplification et intégrales des solutions particulières en
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
-  d'erreur du casus irreducibilis ; lie_group (Python) ; nth_algebraic,
-  factorable et Bessel natifs depuis la vague 42, mais la classe `diffx`
-  de nth_algebraic reste créée en Python et le filtrage du Bessel passe
-  par le filtreur de référence Python (`Expr.match`, appelé depuis Rust) :
-  le `pattern_match` natif n'en reproduit pas les choix (`x**2` contre
-  `c4**2*x**(2*a4)`), et l'égalité supposée par `ode/second.rs`,
-  `liouville.rs` et `reducible.rs` n'est pas prouvée ; algeb_04 (ordre
-  des solutions de `solve` à plusieurs générateurs). 2F1 natif depuis la vague 40 (corpus 315/285/267 →
+  d'erreur du casus irreducibilis ; lie_group (Python, non porté par
+  ode3 : lie_group_01/02/03 limites de ressources, 08/09/12 formes
+  d'intégration) ; nth_algebraic, factorable et Bessel natifs depuis la
+  vague 42, mais la classe `diffx` de nth_algebraic reste créée en Python
+  (son inverse tourne dans le `solve` public, rappel de l'hôte) et le
+  filtrage du Bessel passe par le filtreur de référence Python
+  (`Expr.match`, appelé depuis Rust ; voir la lacune suivante) ; algeb_04
+  (ordre des deux solutions de `solve` sur une équation à plusieurs
+  générateurs : chemin de changement de variable de `_solve` dans SymPy
+  contre l'étape factor de `_tsolve` natif ; domaine solve). 2F1 natif depuis la vague 40 (corpus 315/285/267 →
   315/287/268) ; fact_13/fact_16 identiques depuis la vague 41 (branche
   unrad native ; corpus 315/289/270 sur la branche intégrée) ;
   conserved_03/04 (dsolve par défaut) dépassent la mémoire dans le
   `checksol` de `_is_special_case_of` (SymPy y dépasse aussi son délai) ;
   `integrate(x/(x**2 - 1))` garde deux
   logarithmes ([détail](docs/algorithmic-parity.md#ode-2026-11-05-native-2f1-step-upper-limit-integraldoit-fx-solve-recast)).
+- Filtrage des EDO natives : les filtreurs EDO natifs antérieurs
+  (`crates/symox-core/src/ode/second.rs`, `liouville.rs`, `reducible.rs`)
+  appellent directement `pattern::pattern_match` en supposant qu'il
+  s'accorde avec le `Expr.match` public (filtreur de référence de SymPy
+  porté en Python, `python/symox/_matching.py`). Cette égalité n'est pas
+  prouvée, et ode3 a trouvé un contre-exemple : `x**2` contre
+  `c4**2*x**(2*a4)` donne `{a4: 1, c4: 1}` en Python (comme SymPy) et
+  aucune correspondance en natif. Les motifs linéaires de ces trois
+  filtreurs n'ont pas été audités contre le filtreur de référence ; à
+  faire : porter en Rust les `matches` de référence
+  (`sympy/core/{mul,add,power}.py`) ou prouver l'accord sur ces motifs, ce
+  qui retirerait aussi le rappel `Expr.match` du Bessel
+  ([détail](docs/algorithmic-parity.md#ode3-wave-42-native-nth_algebraic-factorable-and-2nd_linear_bessel-2026-11-06)).
 - solve (radicaux, `_tsolve`) : repli `_tsolve` natif depuis la vague 42 ;
   restent en Python `nsimplify` d'un nombre (`mpmath.identify`, crochet)
   et la fin de `Expr.equals` indécise, `force=False` et `bivariate=False`
   publics, l'inverse d'une classe de fonction inconnue de la table native,
   la chaîne Python après un NotImplementedError natif (conservée :
-  `_solve_piecewise`, masquage, inversion, `_unrad_resultant`) ; branches
+  `_solve_piecewise`, masquage, inversion, `_unrad_resultant`), dont le
+  `_tsolve` PyHost qui filtre encore ses solutions imbriquées par
+  hypothèses ; équations imbriquées que l'enveloppe Python réécrit d'abord
+  (Floats, hyperboliques, `Abs`, `Piecewise`, dérivées, intégrales, sommes,
+  fonctions indéfinies), déclinées par l'hôte natif ; post-traitement
+  Python (`_high_order_roots`, `_polynomial_roots`) qui appelle
+  `solve(gen - t, x)` et repasse par la chaîne Python (sans effet sur le
+  résultat) ; algeb_04 (ordre des solutions à plusieurs générateurs) ; branches
   complexes LambertW en plus (`x**3 - 3**x`, SUPERSET antérieur) ; formes
   `cov_not_sym`/`ratio_den` différentes (valeurs égales) ; `_take` lu par
   le seul `unrad` public, comme la référence
@@ -424,7 +485,11 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   tests, aucun dans les corpus), `prde_cancel_liouvillian` appelé
   directement sur un niveau tan/non linéaire (`UnboundLocalError` de
   SymPy, message dépendant de la version de Python), `real_roots` hors ZZ
-  et les autres déclins listés dans le contrat (section prde3) ; écarts
+  et les autres déclins listés dans le contrat (section prde3), dont le
+  bras tan qui appelle `parametric_log_deriv_heu` avec le monôme courant
+  dans le domaine des coefficients ; troncature `v == 0` à `W` non vide
+  portée mais jamais rencontrée (la `PolyMatrix` stock lève `ValueError`
+  là où SymPy tronque) ; écarts
   hérités restants : messages `TypeError` nommant `symox._core.Poly`,
   entrées brutes de `M` non simplifiées (formes publiques identiques), base
   `h` d'échelle différente (2 appels), messages `CoercionFailed` /
