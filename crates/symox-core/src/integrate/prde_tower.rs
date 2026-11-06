@@ -36,6 +36,13 @@ pub enum Stop {
     NotImplemented(String),
     /// The stock body raises `ValueError(message)`.
     Value(String),
+    /// The `gcd(a, s**j, *kkinv)` of the stock `residue_reduce` converts
+    /// `a = Poly(lc_t(S), t, field=True)` with the generators `kkinv`
+    /// (`1/v` and `v` for the variables below the level): the coefficients
+    /// of `lc_t(S)` in `z`, the index of `t` and those of the variables. The caller
+    /// builds that conversion and raises its `PolynomialError`, or declines
+    /// when it does not raise.
+    Polynomial(UP, usize, Vec<usize>),
 }
 
 pub type Out<T> = Result<T, Stop>;
@@ -408,7 +415,7 @@ impl<'a> Tower<'a> {
             } else if let Some(sub) = last(1) {
                 let lc = dense::from_mpoly(&sub.lc_in(0), 1);
                 if self.lc_denominator_raises(&lc, k) {
-                    return Err(Stop::Decline);
+                    return Err(Stop::Polynomial(lc, self.levels[k].var, self.lower_vars(k)));
                 }
                 if b {
                     out.push(Entry { s: vec![Rat::one()], sub: Some(sub), symbolic: false });
@@ -428,7 +435,7 @@ impl<'a> Tower<'a> {
                     if let Some(sub) = last(i) {
                         let lc = dense::from_mpoly(&sub.lc_in(0), 1);
                         if self.lc_denominator_raises(&lc, k) {
-                            return Err(Stop::Decline);
+                            return Err(Stop::Polynomial(lc, self.levels[k].var, self.lower_vars(k)));
                         }
                     }
                 }
@@ -441,7 +448,10 @@ impl<'a> Tower<'a> {
             }
             let Some(sub) = last(i) else { continue };
             let lc = dense::from_mpoly(&sub.lc_in(0), 1);
-            if self.lc_denominator_raises(&lc, k) || deg(&dense::gcd_field(&lc, &s)) != 0 {
+            if self.lc_denominator_raises(&lc, k) {
+                return Err(Stop::Polynomial(lc, self.levels[k].var, self.lower_vars(k)));
+            }
+            if deg(&dense::gcd_field(&lc, &s)) != 0 {
                 return Err(Stop::Decline);
             }
             out.push(Entry { s: sq, sub: Some(sub), symbolic });

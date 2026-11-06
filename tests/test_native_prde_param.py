@@ -125,10 +125,10 @@ EXPECTED = {
     'li_prim_eq': ('(((\'P\', "Add(Mul(Symbol(\'t\'), Symbol(\'x\')), Mul(Integer(-1), Symbol(\'x\')))", ("Symbol(\'t\')",), \'ZZ[x]\'), (\'P\', \'Integer(1)\', ("Symbol(\'t\')",), \'QQ\')), ((\'P\', \'Integer(0)\', ("Symbol(\'t\')",), \'QQ\'),))', 11),
 }
 
-# The stock derivation(z) adds None (z rational in x): SymPy raises
-# SympifyError, the symox stock body a TypeError. Recorded gap, the native
-# kernel declines there.
-GAPS = {'risch_prim': 'stock derivation(z) Poly + None: SympifyError vs TypeError'}
+# The stock derivation(z) adds None (z rational in x): Poly + None raises
+# SympifyError as in SymPy (strict sympify of `_polifyit`, since prde3);
+# the native kernel declines there and the stock body raises it.
+GAPS = {}
 
 # Cases left to the stock body by the native kernel: real_roots whose
 # preprocessed polynomial is not over ZZ (the stock NotImplementedError).

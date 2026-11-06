@@ -27,7 +27,8 @@ STATS = {'constant_system_field': 0, 'derivation': 0, 'is_deriv_k': 0,
          'limited_integrate': 0, 'is_log_deriv_k_t_radical_in_field_tower': 0,
          'parametric_log_deriv_heu_tower': 0, 'param_rischDE_tower': 0,
          'param_poly_rischDE_tower': 0, 'prde_cancel_liouvillian_tower': 0,
-         'limited_integrate_tower': 0}
+         'limited_integrate_tower': 0, 'prde_no_cancel_b_large_tower': 0,
+         'prde_no_cancel_b_small_tower': 0}
 _POLY = _core.Poly
 _EXPR = _core.Expr
 _AS_POLY = None
@@ -36,6 +37,7 @@ _DERIV_K = None
 _CASES = None
 _NOT_IMPLEMENTED = NotImplementedError
 _VALUE_ERROR = ValueError
+_POLYNOMIAL_ERROR = None
 
 
 def _state(f):
@@ -140,7 +142,10 @@ def register_root(namespace):
     _DERIV_K = (_public_core.__dict__.get('_evaluation'), _compat.__dict__.get('_accum_fold'),
                 prde.__dict__.get('Dummy'), ext_slots, symox.__dict__, symox.__dict__.get('cancel'),
                 prde.__dict__.get('cancel'), folding, _compat.__dict__)
-    global _CASES
+    global _CASES, _POLYNOMIAL_ERROR
+    # The stock residue_reduce raises the PolynomialError of the polys
+    # package (kkinv gcd, status 3 of the tower kernels).
+    _POLYNOMIAL_ERROR = import_module('symox.polys.polyerrors').PolynomialError
     cases = cls.__dict__.get('cases')
     if _TYPE(cases).__name__ == 'member_descriptor':
         _CASES = cases
@@ -386,20 +391,31 @@ def param_poly_rischDE(a, b, q, n, DE):
 def _no_cancel(kind, b, Q, n, DE):
     if _TYPE(Q) is not _LIST or _TYPE(n) is not _INT:
         return None
-    fields = _fields(DE)
-    if fields is None:
-        return None
-    r = _call(kind, (b, Q, n), fields)
-    if r is None:
-        return None
-    h, spec, final = r
+    if _above_base(DE):
+        if _TYPE(b) is not _POLY:
+            return None
+        r = _tower(kind + '_tower', (b, Q, n), DE, kind + '_tower')
+        if r is None:
+            return None
+        h, (rows, cols, items, gens, domain), final = r[0]
+        root = _ROOT
+        matrix = root[7](root[6], rows, cols, items, gens, domain)
+    else:
+        fields = _fields(DE)
+        if fields is None:
+            return None
+        r = _call(kind, (b, Q, n), fields)
+        if r is None:
+            return None
+        h, spec, final = r
+        matrix = _matrix(spec, (fields[0],))
     if kind == 'prde_no_cancel_b_large':
         ran = n >= 0
     else:
         ran = n >= 1 or (not b.is_zero and b.degree() > 0)
     if ran:
         Q[:] = final
-    return h, _matrix(spec, (fields[0],))
+    return h, matrix
 
 
 def prde_no_cancel_b_large(b, Q, n, DE):
@@ -567,9 +583,10 @@ def _create(trace):
 
 
 def _tower(kind, args, DE, stat):
-    """Tower kernels (exp/primitive levels above the base): ``None`` (stock
-    body) or ``(answer,)``. The stock exceptions of the tan, other and
-    unknown cases are raised here after the Dummies created before them;
+    """Tower kernels (levels above the base): ``None`` (stock body) or
+    ``(answer,)``. The stock NotImplementedError, ValueError and
+    PolynomialError (status 1, 2, 3) are raised here after the Dummies
+    created before them;
     ``STATS[stat]`` counts every native answer, raised ones included."""
     root = _ROOT
     if root is None or _CASES is None or _TYPE(DE) is not root[1]:
@@ -602,6 +619,8 @@ def _tower(kind, args, DE, stat):
         raise _NOT_IMPLEMENTED(payload)
     if status == 2:
         raise _VALUE_ERROR(payload)
+    if status == 3:
+        raise _POLYNOMIAL_ERROR(payload)
     return (payload,)
 
 

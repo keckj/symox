@@ -16612,6 +16612,112 @@ Remaining gaps (recorded):
 
 Measured: [audit](../audits/performance/2026-11-05-prde2/README.md).
 
+## prde3 (tan and non-linear levels, no-cancel cases above the base): the remaining parametric Risch DE paths in Rust, 2026-11-06
+
+The tower kernels of the prde section above
+(`crates/symox-py/src/prde_param.rs`) now also cover the tan
+(hypertangent) and non-linear levels and the no-cancel cases above the
+base level:
+- `param_poly_rischDE` on any level: `prde_no_cancel_b_large`,
+  `prde_no_cancel_b_small` above the base level (the `DE.d.degree() >= 2`
+  arm with the lower `param_rischDE`), the stock
+  `NotImplementedError("prde_no_cancel_b_equal() is not yet implemented.")`
+  and `NotImplementedError("non-linear and hypertangent cases have not yet
+  been implemented")`, `bound_degree` on tan/non-linear levels;
+- `prde_special_denom` tan arm: `real_imag`, `recognize_log_derivative`
+  (with the integrality test of `real_roots`), the two
+  `parametric_log_deriv` calls one level down and `n = min(n, s/2)`;
+  `order_at`; the `ValueError("case must be one of ...")` of other cases;
+  `parametric_log_deriv_heu` on ground arguments (the stock `None` after
+  its `Dummy('c1')`);
+- `param_rischDE` with no polynomial solution (`v == 0`): SymPy's
+  `wl[:m] + wl[-v:]` (the whole `wl`) and `Matrix(len(W), m + v, items)`
+  keeping the first `len(W)*(m + v)` items, then the nullspace of the
+  empty matrix;
+- the public `prde_no_cancel_b_large` / `prde_no_cancel_b_small` above the
+  base level (kinds `prde_no_cancel_b_large_tower`,
+  `prde_no_cancel_b_small_tower`, `Q` written back in place);
+- the kkinv `PolynomialError` of SymPy's `residue_reduce`
+  (`symox-core/src/integrate/prde_tower.rs` `Stop::Polynomial`, status 3
+  of the tower kernels, case 44 of `tests/test_native_prde_tower.py`, whose
+  strict xfail is lifted).
+
+Inherited deviations fixed:
+- generator order of inferred fraction-field domains: the native
+  `infer_domain` sorts with `symox::poly::convert::gen_key` (SymPy
+  `_sort_gens`: `x`, `y`, `z` first), so PolyMatrix domains are `QQ(x,t0)`;
+  the Python `construct_domain` (`polys/constructor.py._infer_domain`)
+  takes its generator order from the native `_construct_composite`
+  generators (`ZZ[x,a]`, `ZZ(x,t0)`, `ZZ[y,a,b]` as SymPy) and keeps the
+  previous `default_sort_key` order when they are not exactly the free
+  symbols (deviation to validate: it changes every `construct_domain`
+  with several symbols);
+- `Poly + None` (and any operand that is not an expression) raises
+  `SympifyError(o)` as SymPy's strict `_sympify` in `_polifyit` (Rust
+  binop of `symox-py/src/poly.rs`), so the stock `derivation` reproduces
+  SymPy's `SympifyError: None` (`risch_prim`, no longer a gap);
+- `M` row forms: the remaining differences are raw uncancelled zeros of the
+  stored entries, every public form is identical (below).
+
+Python only routes: `_prde_native._no_cancel` sends above-base calls to the
+tower kernel, `_tower` raises status 3 as
+`symox.polys.polyerrors.PolynomialError`. No Python algorithm was added.
+
+Admission: as the prde section above (stock Polys, plain symbol generators,
+`DE.cases[0] == 'base'`, caps); every level case (`exp`, `primitive`, `tan`,
+`other_nonlinear`, `other_linear`) is admitted.
+
+The kernel declines (stock body) when:
+- `prde_cancel_liouvillian` is called directly on a tan or non-linear level
+  with `n >= 0`: SymPy raises `UnboundLocalError` (`ba` unbound), whose
+  message depends on the Python version;
+- the tan arm calls `parametric_log_deriv_heu` with the current monomial in
+  the coefficient domain (`real_imag` parts over `ZZ[t0]`) and the base
+  kernel declines (one SymPy answer in the 582 random calls);
+- the declines of the prde section above (`real_roots` not over ZZ,
+  unmodelled stock exceptions, non-polynomial `derivation` terms, caps).
+
+Differential comparison against SymPy 1.14
+(`audits/performance/2026-11-06-prde3/`, before = main e4b1d011):
+- 19 handcrafted tan/non-linear calls and 2 random `v == 0` calls
+  (`tests/test_native_prde3.py`): all identical (results, exception types
+  and messages, Dummy counts), all native.
+- 582 seeded random calls on 12 tan/non-linear towers: native answers in
+  64 calls before, 376 after; identical to SymPy 555 before, 573 after; 0
+  native-only differences; time without timeouts SymPy 138.9 s, native
+  112.8 s before, 12.3 s after, stock 111.2 s. Two SymPy timeouts are
+  answered natively (22.6 s and 3.0 s against 495.8 s and 113.9 s,
+  identical at 600 s).
+- the 584 random calls of the prde section: native answers 461 → 506,
+  identical 536 → 554, 0 native-only differences, native 23.5 s → 17.7 s
+  (SymPy 186.4 s).
+- the 142 recorded test calls and 485 corpus calls: 0 result and 0
+  Dummy-count differences before and after (no tan level there).
+- SymPy test copies (test_prde.py, test_rde.py, test_risch.py): 5 failed,
+  56 passed, natively and with the stock bodies, unchanged.
+
+Differences against SymPy that remain (all shared with the stock body):
+- `TypeError` messages naming `symox._core.Poly` instead of `Poly` (8
+  random calls, 1 non-linear);
+- raw PolyMatrix entries holding uncancelled zeros (5 calls): `to_Matrix`,
+  the domain, `M[i, j]`, equality and repr are identical to SymPy;
+- a differently scaled `h` basis (2);
+- `CoercionFailed` and `PolynomialError` messages on stock paths (3,
+  `t0**(-2)` printed where SymPy prints `1/t0`).
+
+Remaining gaps (recorded):
+- DE whose ground domain has non-symbol generators (`log(5)`, records 119
+  to 122 of the test calls): rejected at admission, stock body;
+- the two declines above (tan arm with `t` in the coefficient domain,
+  `prde_cancel_liouvillian` on tan/non-linear levels);
+- the `v == 0`, `W` non-empty truncation is ported but met by no recorded
+  or random call; the stock symox `PolyMatrix` raises `ValueError` on a
+  list longer than `rows*cols` where SymPy truncates;
+- the stock symox body still computes the kkinv gcd of case 44 (only the
+  native kernel raises SymPy's `PolynomialError`).
+
+Measured: [audit](../audits/performance/2026-11-06-prde3/README.md).
+
 ## solve (2026-11-06): native unrad branch and generator roots of radical equations
 
 Wrong result fixed: `solve(-2*y/sqrt(y**3) - C1 - x, y)` returned `[]`.

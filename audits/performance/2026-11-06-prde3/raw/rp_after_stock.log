@@ -1,0 +1,8 @@
+Exception ignored in: 'NoneType'
+Traceback (most recent call last):
+  File "/home/keckj/symox-ci/wt/prde3-20261106/audits/performance/2026-11-06-prde3/scripts/random_param.py", line 151, in _alarm
+    raise Timeout()
+__main__.Timeout: 
+ran 584
+native {'is_log_deriv_k_t_radical_in_field_tower': 0, 'parametric_log_deriv_heu_tower': 0, 'param_rischDE_tower': 0, 'param_poly_rischDE_tower': 0, 'prde_cancel_liouvillian_tower': 0, 'limited_integrate_tower': 0, 'prde_no_cancel_b_large_tower': 0, 'prde_no_cancel_b_small_tower': 0}
+EXIT 0

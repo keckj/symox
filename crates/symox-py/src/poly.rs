@@ -1270,7 +1270,16 @@ impl PyPoly {
                         return Err(PyTypeError::new_err("incompatible coefficient fields; construct a supported joint extension explicitly"));
                     }
                 }
-                let e = to_expr(o)?;
+                // `_polifyit` sympifies the operand strictly: an object that
+                // is not an expression raises `SympifyError(o)` (a TypeError).
+                let e = match to_expr(o) {
+                    Ok(e) => e,
+                    Err(e) if e.is_instance_of::<PyTypeError>(py) => {
+                        let cls = py.import("symox")?.getattr("SympifyError")?;
+                        return Err(PyErr::from_value(cls.call1((o,))?));
+                    }
+                    Err(e) => return Err(e),
+                };
                 Ok(w(g(&self.p.as_expr(), &e)).into_pyobject(py)?.into_any().unbind())
             }
         }

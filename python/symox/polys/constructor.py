@@ -1,6 +1,22 @@
 """Infer native coefficient domains and convert scalar containers."""
 
 
+def _composite_generators(values, symbols):
+    """The symbols in the order of the native ``_construct_composite``
+    generators (the reference ``_sort_gens``: ``x``, ``y``, ``z`` first),
+    or ``None`` when those generators are not exactly these symbols."""
+    from .. import _core
+    if not symbols:
+        return None
+    try:
+        found = _core._composite_generators(values)
+    except Exception:
+        return None
+    if found is None or len(found[0]) != len(symbols) or set(found[0]) != symbols:
+        return None
+    return list(found[0])
+
+
 def _infer_domain(values, *, field=False, extension=False, **options):
     from .. import (QQ, ZZ, QQ_I, ZZ_I, EXRAW, RealField, ComplexField,
                      Symbol, CoercionFailed, default_sort_key)
@@ -9,7 +25,11 @@ def _infer_domain(values, *, field=False, extension=False, **options):
     if extension is not True and extension not in (False, None):
         generators = extension if isinstance(extension, (list, tuple)) else (extension,)
         return QQ.algebraic_field(*generators)
-    symbols = sorted({s for v in values for s in v.free_symbols if isinstance(s, Symbol)}, key=default_sort_key)
+    symbols = {s for v in values for s in v.free_symbols if isinstance(s, Symbol)}
+    # The reference sorts the generators with ``_sort_gens``; the order
+    # comes from the native ``_construct_composite`` generators.
+    found = _composite_generators(values, symbols)
+    symbols = found if found is not None else sorted(symbols, key=default_sort_key)
     if not symbols and all(v.is_Rational for v in values):
         return QQ if field or any(not v.is_Integer for v in values) else ZZ
     if not symbols:

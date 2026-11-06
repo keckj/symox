@@ -4,7 +4,12 @@
 //! substeps (`weak_normalizer`, `splitfactor`, `gcdex_diophantine`,
 //! `prde_normal_denom`, `prde_special_denom`, `prde_linear_constraints`,
 //! `poly_linear_constraints`, `bound_degree(parametric=True)`, `prde_spde`,
-//! `prde_no_cancel_b_large`, `constant_system`, the PolyMatrix operations).
+//! `prde_no_cancel_b_large`, `prde_no_cancel_b_small`, `constant_system`,
+//! the PolyMatrix operations), with the hypertangent arms of
+//! `prde_special_denom` (`real_imag`, `recognize_log_derivative`) and
+//! `bound_degree`, and the stock exceptions of the unimplemented cases
+//! (`prde_no_cancel_b_equal`, the non-linear and hypertangent cancellation,
+//! the unknown cases of `prde_special_denom`/`bound_degree`).
 //!
 //! The stock bodies are transliterated step by step on native Poly objects
 //! (`symox._core.Poly` methods and operators), with the native derivation,
@@ -13,14 +18,14 @@
 //! `parametric_log_deriv_heu` and `is_log_deriv_k_t_radical_in_field`
 //! (`prde.rs`) and their exp/primitive tower forms (`prde_tower.rs`).
 //!
-//! Every step that the stock body would leave through an exception, every
-//! case it does not implement (tan, nonlinear, `b_small`, `b_equal`), every
-//! lower kernel that declines and every unproved PolyMatrix domain returns
-//! `None`, so the stock Python body runs and reports its own answer or
-//! error. The stock `NotImplementedError`/`ValueError` of the lower tower
-//! kernels are reported with status 1/2 (`bound_degree` catches the first,
-//! as the stock body does). `trace` lists the Dummies the stock body
-//! creates, in its order.
+//! Every step that the stock body would leave through an unmodelled
+//! exception, every lower kernel that declines and every unproved
+//! PolyMatrix domain returns `None`, so the stock Python body runs and
+//! reports its own answer or error. The stock `NotImplementedError`,
+//! `ValueError` and `PolynomialError` raised by the stock body itself or by
+//! the lower tower kernels are reported with status 1/2/3 (`bound_degree`
+//! catches the first, as the stock body does). `trace` lists the Dummies
+//! the stock body creates, in its order.
 use std::cell::{Cell, RefCell};
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
@@ -34,7 +39,7 @@ type O<'py> = Bound<'py, PyAny>;
 enum Stop {
     /// The stock body must run (failure, unsupported or unproved step).
     Decline,
-    /// A stock exception of a lower kernel: 1 NotImplementedError, 2 ValueError.
+    /// A stock exception: 1 NotImplementedError, 2 ValueError, 3 PolynomialError.
     Raise(u8, String),
     /// KeyboardInterrupt and other non-Exception errors.
     Interrupt(PyErr),
@@ -551,7 +556,7 @@ impl<'py> Cx<'py> {
         self.tower_trace(&trace)?;
         match status {
             0 => Ok(payload),
-            1 | 2 => Err(Stop::Raise(status, payload.extract::<String>()?)),
+            1..=3 => Err(Stop::Raise(status, payload.extract::<String>()?)),
             _ => decline(),
         }
     }
@@ -571,6 +576,17 @@ impl<'py> Cx<'py> {
     /// `None` or the first two answer entries.
     fn heu(&self, fa: &O<'py>, fd: &O<'py>, wa: &O<'py>, wd: &O<'py>) -> R<Option<(O<'py>, O<'py>)>> {
         self.tick()?;
+        if self.act.get() == 1 && !self.is_zero(fd)? && !self.is_zero(wd)?
+            && self.ground(fa)? && self.ground(fd)? && self.ground(wa)? && self.ground(wd)? {
+            // Ground in the base variable (the tan arm of
+            // `prde_special_denom` passes `real_imag` parts whose
+            // coefficients may still hold the current monomial): `B = 0`,
+            // `p` and `q` are constants and `z = ls*gcd(ln, ln')` is
+            // constant, so the stock heuristic returns `None` after its
+            // `Dummy('c1')`, whatever the coefficient domain.
+            self.push("c1");
+            return Ok(None);
+        }
         let answer = if self.act.get() == 1 {
             let r = self.base_kernel("parametric_log_deriv_heu", PyTuple::new(self.py, [fa, fd, wa, wd])?)?;
             self.tower_trace(&r.get_item(1)?)?;
@@ -798,29 +814,198 @@ impl<'py> Cx<'py> {
         }
         decline()
     }
+    /// `order_at(f, p, t)` (the multiplicity of `p` in `f`), `None` for `oo`.
+    fn order_at(&self, f: &O<'py>, p: &O<'py>, exp: bool) -> R<Option<i64>> {
+        if exp {
+            return self.order_t(f);
+        }
+        if self.is_zero(f)? {
+            return Ok(None);
+        }
+        let mut f = f.clone();
+        let mut n = 0;
+        loop {
+            self.tick()?;
+            let (q, r) = self.div(&f, p)?;
+            if !self.is_zero(&r)? {
+                return Ok(Some(n));
+            }
+            f = q;
+            n += 1;
+        }
+    }
+    /// `derivation(p, DE, coefficientD=True)` (native stock loop).
+    fn deriv_coef(&self, p: &O<'py>) -> R<O<'py>> {
+        self.tick()?;
+        let args = PyTuple::new(self.py, [p.clone(), true.into_pyobject(self.py)?.to_owned().into_any()])?;
+        let r = crate::prde_const::derivation_poly(self.py, &args, &self.t()?, self.tl.as_any(), self.dl.as_any(), &self.level()?)?;
+        match r {
+            Some(r) => Ok(r.into_bound(self.py)),
+            None => decline(),
+        }
+    }
+    /// `real_imag(ba, bd, gen)` (prde.py): the sums start from the int `0`
+    /// as the stock `sum`, so a part without terms stays an int and its
+    /// `as_poly` is the stock AttributeError (left to the stock body).
+    fn real_imag(&self, ba: &O<'py>, bd: &O<'py>, gen: &O<'py>) -> R<(O<'py>, O<'py>, O<'py>)> {
+        let parts = |p: &O<'py>| -> R<(O<'py>, O<'py>)> {
+            let pp = p.call_method1("as_poly", (gen,))?;
+            if pp.is_none() {
+                return decline();
+            }
+            let dict = pp.call_method0("as_dict")?.downcast_into::<PyDict>()?;
+            let (mut re, mut im) = (self.pyint(0)?, self.pyint(0)?);
+            for (k, v) in dict.iter() {
+                self.tick()?;
+                let zero = self.pyint(0)?;
+                let (r, i) = match k.get_item(0)?.extract::<i64>()?.rem_euclid(4) {
+                    0 => (v.clone(), zero),
+                    1 => (zero, v.clone()),
+                    2 => (v.neg()?, zero),
+                    _ => (zero, v.neg()?),
+                };
+                re = re.add(r)?;
+                im = im.add(i)?;
+            }
+            Ok((re, im))
+        };
+        let (dr, di) = parts(bd)?;
+        let (br, bi) = parts(ba)?;
+        let as_poly = |e: O<'py>| -> R<O<'py>> {
+            let p = e.call_method1("as_poly", (gen,))?;
+            if p.is_none() {
+                return decline();
+            }
+            Ok(p)
+        };
+        let ba0 = as_poly(br.mul(&dr)?.add(bi.mul(&di)?)?)?;
+        let ba1 = as_poly(bi.mul(&dr)?.sub(br.mul(&di)?)?)?;
+        let bdd = as_poly(dr.mul(&dr)?.add(di.mul(&di)?)?)?;
+        Ok((ba0, ba1, bdd))
+    }
+    /// `all(j.is_Integer for j in real_roots(p))`: CRootOf over ZZ after its
+    /// preprocessing (clear_denoms, primitive, retract); any other domain is
+    /// the stock body's ("sorted roots not supported").
+    fn real_roots_integral(&self, p: &O<'py>) -> R<bool> {
+        // Dummy() of CRootOf._get_roots.
+        self.push("");
+        if p.is_none() {
+            return decline();
+        }
+        let gens = p.getattr("gens")?.downcast_into::<PyTuple>()?;
+        if gens.len() != 1 {
+            return decline();
+        }
+        let inner = p.getattr("domain")?.downcast_into::<PyDomain>()?.get().inner.clone();
+        let p = if matches!(inner, symox::poly::domains::ExactDomain::ZZ | symox::poly::domains::ExactDomain::QQ) {
+            p.clone()
+        } else {
+            let kw = PyDict::new(self.py);
+            kw.set_item("convert", true)?;
+            let q = p.call_method("clear_denoms", (), Some(&kw))?.get_item(1)?;
+            let q = q.call_method0("primitive")?.get_item(1)?;
+            let q = self.cls_call(vec![self.ex(&q)?, gens.get_item(0)?], None)?;
+            let qd = q.getattr("domain")?.downcast_into::<PyDomain>()?.get().inner.clone();
+            if !matches!(qd, symox::poly::domains::ExactDomain::ZZ) {
+                return decline();
+            }
+            q
+        };
+        if self.ground(&p)? {
+            return Ok(true);
+        }
+        let fl = p.call_method0("factor_list")?;
+        for fk in fl.get_item(1)?.try_iter()? {
+            self.tick()?;
+            let f = fk?.get_item(0)?;
+            match self.deg(&f)? {
+                Some(1) => {
+                    let root = self.nth(&f, 0)?.neg()?.div(self.nth(&f, 1)?)?;
+                    if !root.getattr("is_Integer")?.is_truthy()? {
+                        return Ok(false);
+                    }
+                }
+                Some(d) if d >= 2 => {
+                    // An irreducible factor of degree >= 2 has no rational
+                    // root: any real root is not an Integer.
+                    if f.call_method0("count_roots")?.ne(0i64)? {
+                        return Ok(false);
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(true)
+    }
+    /// `recognize_log_derivative(a, d, DE)` (risch.py) at the current level,
+    /// with `splitfactor_sqf(r, DE, coefficientD=True, z=z)`.
+    fn recognize_log_derivative(&self, a: &O<'py>, d: &O<'py>) -> R<bool> {
+        self.push("z");
+        let t = self.t()?;
+        let (a, d) = self.cancel(a, d)?;
+        let (_, a) = self.div(&a, &d)?;
+        let pz = self.pt(&self.z)?;
+        let dd = self.deriv(&d)?;
+        let q = a.sub(pz.mul(&dd)?)?;
+        let r = self.m1(&d, "resultant", &q)?;
+        let r = self.cls_call(vec![r, self.z.clone()], None)?;
+        let sqf = r.call_method0("sqf_list_include")?;
+        if self.is_zero(&r)? {
+            return Ok(true);
+        }
+        let zt = PyTuple::new(self.py, [&self.z])?;
+        let mut s = Vec::new();
+        for pk in sqf.try_iter()? {
+            self.tick()?;
+            let pi = pk?.get_item(0)?;
+            let dpi = self.deriv_coef(&pi)?;
+            let (a1, b1) = (pi.call_method1("as_poly", &zt)?, dpi.call_method1("as_poly", &zt)?);
+            if a1.is_none() || b1.is_none() {
+                return decline();
+            }
+            let si = self.gcd(&a1, &b1)?.call_method1("as_poly", (&t,))?;
+            if si.is_none() {
+                return decline();
+            }
+            let pi = self.cls_call(vec![pi, t.clone()], None)?;
+            let si = self.cls_call(vec![si, t.clone()], None)?;
+            self.exquo(&pi, &si)?;
+            if !si.getattr("is_one")?.is_truthy()? {
+                s.push(si);
+            }
+        }
+        for si in &s {
+            if !self.real_roots_integral(&si.call_method1("as_poly", &zt)?)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
     #[allow(clippy::type_complexity)]
     fn special_denom(&self, a: &O<'py>, ba: &O<'py>, bd: &O<'py>, g: Vec<(O<'py>, O<'py>)>) -> R<(O<'py>, O<'py>, Vec<(O<'py>, O<'py>)>, O<'py>)> {
         let case = self.case();
         if case == "primitive" || case == "base" {
             return Ok((a.clone(), self.quo(ba, bd)?, g, self.pti(1)?));
         }
-        if case != "exp" {
-            return decline();
-        }
+        let exp = case == "exp";
         let t = self.t()?;
-        let p = self.pt(&t)?;
+        let p = match case.as_str() {
+            "exp" => self.pt(&t)?,
+            "tan" => self.pt(&t.pow(2, self.py.None())?.add(1)?)?,
+            _ => return Err(Stop::Raise(2, format!("case must be one of {{'exp', 'tan', 'primitive', 'base'}}, not {case}."))),
+        };
         if self.is_zero(bd)? || g.is_empty() {
             return decline();
         }
-        let nb = match self.order_t(ba)? {
+        let nb = match self.order_at(ba, &p, exp)? {
             None => None,
-            Some(x) => Some(x - self.order_t(bd)?.ok_or(Stop::Decline)?),
+            Some(x) => Some(x - self.order_at(bd, &p, exp)?.ok_or(Stop::Decline)?),
         };
         let mut nc: Option<i64> = None;
         for (ga, gd) in &g {
-            let term = match self.order_t(ga)? {
+            let term = match self.order_at(ga, &p, exp)? {
                 None => None,
-                Some(x) => match self.order_t(gd)? {
+                Some(x) => match self.order_at(gd, &p, exp)? {
                     None => return decline(),
                     Some(y) => Some(x - y),
                 },
@@ -833,7 +1018,40 @@ impl<'py> Cx<'py> {
             None => 0,
             Some(c) => 0.min(c - 0.min(nb.unwrap_or(0))),
         };
-        if nb == Some(0) {
+        if nb == Some(0) && !exp {
+            // The hypertangent cancellation: `real_imag` and
+            // `recognize_log_derivative` one level down, then
+            // `n = min(n, s/2)` when both heuristics answer with `Q == 1`.
+            let dcoeff = self.quo(&self.d()?, &p)?;
+            let bda = bd.mul(a)?;
+            let s = self.lower(|cx| {
+                let tl = cx.t()?;
+                let (betaa, alphaa, alphad) = cx.real_imag(ba, &bda, &tl)?;
+                let betad = alphad.clone();
+                let (etaa, etad) = cx.frac_in(&dcoeff, &tl, false)?;
+                if !cx.recognize_log_derivative(&cx.pti(2)?.mul(&betaa)?, &betad)? {
+                    return Ok(None);
+                }
+                let first = cx.heu(&alphaa, &alphad, &etaa, &etad)?;
+                let second = cx.heu(&betaa, &betad, &etaa, &etad)?;
+                match (first, second) {
+                    (Some((q, s)), Some(_)) if q.eq(1i64)? => Ok(Some(s)),
+                    _ => Ok(None),
+                }
+            })?;
+            if let Some(s) = s {
+                if !s.is_instance_of::<crate::PyExprNode>() {
+                    return decline();
+                }
+                let half = s.div(2i64)?;
+                // `min(n, s/2)`: a smaller non-integer bound would leave the
+                // stock body with a rational power of `p`.
+                if half.lt(n)? {
+                    n = self.integer(&half)?;
+                }
+            }
+        }
+        if nb == Some(0) && exp {
             let dcoeff = self.quo(&self.d()?, &p)?;
             let e = ba.call_method1("eval", (0,))?.neg()?.div(bd.call_method1("eval", (0,))?)?.div(a.call_method1("eval", (0,))?)?;
             let m = self.lower(|cx| {
@@ -1012,7 +1230,24 @@ impl<'py> Cx<'py> {
                     Ok(n)
                 })
             }
-            _ => decline(),
+            "tan" | "other_nonlinear" => {
+                let d = self.d()?;
+                let Some(delta) = self.deg(&d)? else { return decline() };
+                let alpha = self.ecancel(&alpha.div(self.lc(&d)?)?)?;
+                let Some(da) = da else { return decline() };
+                let mx = (da + delta - 1).max(db.unwrap_or(i64::MIN));
+                let mut n = dc.map_or(0, |c| 0.max(c - mx));
+                if db == Some(da + delta - 1) && alpha.getattr("is_Integer")?.is_truthy()? {
+                    let al = self.integer(&alpha)?;
+                    n = 0.max(al).max(dc.map_or(i64::MIN, |c| c - (da + delta - 1)));
+                }
+                if n > 1 << 20 {
+                    return decline();
+                }
+                Ok(n)
+            }
+            case => Err(Stop::Raise(2, format!(
+                "case must be one of {{'exp', 'tan', 'primitive', 'other_nonlinear', 'base'}}, not {case}."))),
         }
     }
     #[allow(clippy::type_complexity)]
@@ -1027,7 +1262,8 @@ impl<'py> Cx<'py> {
         let Some(da) = self.deg(a)? else { return decline() };
         Ok((a.clone(), bb, qq, r, n - da))
     }
-    fn b_large(&self, b: &O<'py>, mut q: Vec<O<'py>>, n: i64) -> R<(Vec<O<'py>>, PM<'py>)> {
+    /// `prde_no_cancel_b_large(b, Q, n, DE)`; `Q` is updated in place.
+    fn b_large(&self, b: &O<'py>, q: &mut [O<'py>], n: i64) -> R<(Vec<O<'py>>, PM<'py>)> {
         let Some(db) = self.deg(b)? else { return decline() };
         let m = q.len();
         let mut h = vec![self.pti(0)?; m];
@@ -1044,8 +1280,15 @@ impl<'py> Cx<'py> {
             }
             nn -= 1;
         }
+        Ok((h, self.no_cancel_constraints(q)?))
+    }
+    /// `M = Matrix(dc + 1, m, lambda i, j: Q[j].nth(i))`, `A, u =
+    /// constant_system(M, zeros(dc + 1, 1))` and `A.row_join(zeros(A.rows,
+    /// m)).col_join(eye(m).row_join(-eye(m)))`.
+    fn no_cancel_constraints(&self, q: &[O<'py>]) -> R<PM<'py>> {
+        let m = q.len();
         let mut dc: i64 = -1;
-        for qi in &q {
+        for qi in q {
             if let Some(x) = self.deg(qi)? {
                 dc = dc.max(x);
             }
@@ -1053,23 +1296,23 @@ impl<'py> Cx<'py> {
         let rows = (dc + 1) as usize;
         let mut items = Vec::with_capacity(rows * m);
         for i in 0..rows {
-            for qj in &q {
+            for qj in q {
                 items.push(self.nth(qj, i as i64)?);
             }
         }
         let mm = self.from_exprs(rows, m, items)?;
         let (a, _) = self.constant_system(&mm, &self.zeros(rows, 1)?)?;
         let c = self.eye(m)?;
-        let a = self.col_join(&self.row_join(&a, &self.zeros(a.r, m)?)?, &self.row_join(&c, &self.neg(&c)?)?)?;
-        Ok((h, a))
+        self.col_join(&self.row_join(&a, &self.zeros(a.r, m)?)?, &self.row_join(&c, &self.neg(&c)?)?)
     }
-    /// `prde_no_cancel_b_small(b, Q, n, DE)` in the base case (`b == 0`,
-    /// `D == d/dt`).
-    fn b_small_base(&self, b: &O<'py>, mut q: Vec<O<'py>>, n: i64) -> R<(Vec<O<'py>>, PM<'py>)> {
-        if !self.is_zero(b)? || self.case() != "base" {
+    /// `prde_no_cancel_b_small(b, Q, n, DE)`; `Q` is updated in place. Above
+    /// the base level, `b` in `k` runs `param_rischDE` one level down.
+    fn b_small(&self, b: &O<'py>, q: &mut [O<'py>], n: i64) -> R<(Vec<O<'py>>, PM<'py>)> {
+        let m = q.len();
+        if m == 0 {
+            // `max()` of an empty sequence (or an empty system): stock body.
             return decline();
         }
-        let m = q.len();
         let mut h = vec![self.pti(0)?; m];
         let t = self.t()?;
         let d = self.d()?;
@@ -1084,16 +1327,39 @@ impl<'py> Cx<'py> {
                 q[i] = q[i].sub(self.deriv(&sitn)?)?.sub(b.mul(&sitn)?)?;
             }
         }
-        // b == 0: f = [Poly(1, t, field=True)], B = [[qi.TC() ...] + [0]].
-        let f = self.cls_call(vec![self.int(1)?, t.clone()], Some(&self.fld))?;
-        let mut tcs = Vec::with_capacity(m + 1);
-        for qi in &q {
-            tcs.push(qi.call_method0("TC")?);
+        if let Some(db) = self.deg(b)?.filter(|&x| x > 0) {
+            let lcb = self.lc(b)?;
+            for i in 0..m {
+                self.tick()?;
+                let si = self.pt(&self.nth(&q[i], db)?.div(&lcb)?)?;
+                h[i] = h[i].add(&si)?;
+                q[i] = q[i].sub(self.deriv(&si)?)?.sub(b.mul(&si)?)?;
+            }
+            return Ok((h, self.no_cancel_constraints(q)?));
         }
-        tcs.push(self.int(0)?);
-        let bm = self.from_exprs(1, m + 1, tcs)?;
+        let (f, bm) = if self.case() != "base" {
+            // b in k, deg(qi) < deg(Dt): Dy0 + b*y0 = Sum(ci*qi.TC()) in k.
+            let tcs = q.iter().map(|qi| Ok(qi.call_method0("TC")?)).collect::<R<Vec<_>>>()?;
+            let (f, bm) = self.lower(|cx| {
+                let t0 = cx.t()?;
+                let (ba, bd) = cx.frac_in(b, &t0, true)?;
+                let q0 = tcs.iter().map(|x| cx.frac_in(x, &t0, true)).collect::<R<Vec<_>>>()?;
+                cx.param_risch_at(&ba, &bd, &q0)
+            })?;
+            let f = f.iter().map(|(fa, fd)| self.cls_call(vec![self.ex(fa)?.div(self.ex(fd)?)?, t.clone()], Some(&self.fld))).collect::<R<Vec<_>>>()?;
+            (f, self.set_gens(&bm)?)
+        } else {
+            // Base case: f = [Poly(1, t, field=True)], B = [[qi.TC() ...] + [0]].
+            let f = self.cls_call(vec![self.int(1)?, t.clone()], Some(&self.fld))?;
+            let mut tcs = Vec::with_capacity(m + 1);
+            for qi in q.iter() {
+                tcs.push(qi.call_method0("TC")?);
+            }
+            tcs.push(self.int(0)?);
+            (vec![f], self.from_exprs(1, m + 1, tcs)?)
+        };
         let mut dmax: Option<i64> = None;
-        for qi in &q {
+        for qi in q.iter() {
             dmax = dmax.max(self.deg(qi)?);
         }
         let a = match dmax {
@@ -1101,7 +1367,7 @@ impl<'py> Cx<'py> {
                 let rows = dg as usize;
                 let mut items = Vec::with_capacity(rows * m);
                 for i in 0..rows {
-                    for qj in &q {
+                    for qj in q.iter() {
                         items.push(self.nth(qj, i as i64 + 1)?);
                     }
                 }
@@ -1110,12 +1376,12 @@ impl<'py> Cx<'py> {
             }
             _ => self.pm(0, m, vec![], self.gt()?, self.qq.clone()),
         };
-        let r = 1;
+        let r = f.len();
         let id = self.eye(m)?;
         let a = self.row_join(&a, &self.zeros(a.r, r + m)?)?;
         let bm = self.row_join(&bm, &self.zeros(bm.r, m)?)?;
         let c = self.row_join(&self.row_join(&id, &self.zeros(m, r)?)?, &self.neg(&id)?)?;
-        let mut out = vec![f];
+        let mut out = f;
         out.extend(h);
         Ok((out, self.col_join(&self.col_join(&a, &bm)?, &c)?))
     }
@@ -1203,23 +1469,26 @@ impl<'py> Cx<'py> {
                 return decline();
             }
             let b = self.to_field(b)?.call_method1("exquo_ground", (&c,))?;
-            let q = q.iter().map(|qi| Ok(self.to_field(qi)?.call_method1("exquo_ground", (&c,))?)).collect::<R<Vec<_>>>()?;
-            let Some(dd) = self.deg(&self.d()?)? else { return decline() };
+            let mut q = q.iter().map(|qi| Ok(self.to_field(qi)?.call_method1("exquo_ground", (&c,))?)).collect::<R<Vec<_>>>()?;
+            let d = self.d()?;
+            let Some(dd) = self.deg(&d)? else { return decline() };
             let degb = self.deg(&b)?;
-            let base = self.case() == "base";
+            let case = self.case();
+            let base = case == "base";
             if degb.is_some() && (base || degb.is_some_and(|x| x > 0.max(dd - 1))) {
-                return self.b_large(&b, q, n);
+                return self.b_large(&b, &mut q, n);
             }
-            if degb.is_none_or(|x| x < dd - 1) && base {
-                return self.b_small_base(&b, q, n);
+            if degb.is_none_or(|x| x < dd - 1) && (base || dd >= 2) {
+                return self.b_small(&b, &mut q, n);
             }
-            if dd >= 2 {
-                // prde_no_cancel_b_small / b_equal / hypertangent: stock body.
-                return decline();
+            // `n > -b.LC()/D.LC()`: a Relational truth value is the stock
+            // TypeError (left to it).
+            if dd >= 2 && degb == Some(dd - 1) && self.pyint(n)?.gt(self.lc(&b)?.neg()?.div(self.lc(&d)?)?)? {
+                return Err(Stop::Raise(1, "prde_no_cancel_b_equal() is not yet implemented.".into()));
             }
-            return match self.case().as_str() {
+            return match case.as_str() {
                 "exp" | "primitive" => self.cancel_liouvillian(&b, q, n),
-                _ => decline(),
+                _ => Err(Stop::Raise(1, "non-linear and hypertangent cases have not yet been implemented".into())),
             };
         }
         let mut a = a.clone();
@@ -1313,16 +1582,19 @@ impl<'py> Cx<'py> {
         let am = self.assemble(m, &v, h.len(), &bm)?;
         let w = self.nullspace(&am)?;
         let nv = h.len();
-        if nv == 0 {
-            return decline();
-        }
         let mut items = Vec::new();
         for wl in &w {
             let len = wl.e.len();
             items.extend(self.slice(wl, 0, m)?);
-            items.extend(self.slice(wl, len.saturating_sub(nv), len)?);
+            // `wl[-v:]`: the whole of `wl` when `v == 0`.
+            let lo = if nv == 0 { 0 } else { len.saturating_sub(nv) };
+            items.extend(self.slice(wl, lo, len)?);
         }
-        let mw = self.from_polys(w.len(), m + nv, items)?;
+        // `Matrix(len(W), m + v, items, DE.t)` unifies the domain over all
+        // the items, then keeps the first `len(W)*(m + v)` of them (more
+        // items only when `v == 0`).
+        let mut mw = self.from_polys(w.len(), m + nv, items)?;
+        mw.e.truncate(w.len() * (m + nv));
         let nn = self.nullspace(&mw)?;
         let c = if nn.is_empty() {
             self.pm(0, 0, vec![], self.gt()?, self.qq.clone())
@@ -1446,6 +1718,10 @@ fn small_int(v: &O<'_>) -> Option<i64> {
 /// - `prde_cancel_liouvillian_tower`: `(b, Q, n, cases)` -> `(H, spec)`;
 /// - `limited_integrate_tower`: `(fa, fd, G, cases)` -> `None` or
 ///   `((Ya, Yd), C)`;
+/// - `prde_no_cancel_b_large_tower`, `prde_no_cancel_b_small_tower`:
+///   `(b, Q, n, cases)` -> `(H, spec, Q)` with the updated `Q` (the stock
+///   bodies update the caller's list in place); a stock exception is left
+///   to the stock body, which raises it after its own updates of `Q`.
 ///
 /// `spec = (rows, cols, items, gens, domain)` of the PolyMatrix. Returns
 /// `None` (stock body) or `(status, payload, trace)` as `prde_tower::kernel`.
@@ -1475,7 +1751,8 @@ pub(crate) fn kernel(py: Python<'_>, kind: &str, args: &Bound<'_, PyTuple>, t: &
     }
     let cases_obj = args.get_item(nargs - 1)?;
     let Some(cases) = strings(&cases_obj) else { return Ok(None) };
-    if cases.len() != nt || cases[0] != "base" || !cases[1..act].iter().all(|c| c == "exp" || c == "primitive") {
+    if cases.len() != nt || cases[0] != "base"
+        || !cases[1..act].iter().all(|c| matches!(c.as_str(), "exp" | "primitive" | "tan" | "other_linear" | "other_nonlinear")) {
         return Ok(None);
     }
     let mut t_vars: Vec<Expr> = Vec::with_capacity(act);
@@ -1504,6 +1781,7 @@ pub(crate) fn kernel(py: Python<'_>, kind: &str, args: &Bound<'_, PyTuple>, t: &
         Poly(O<'py>, O<'py>, Vec<O<'py>>, i64),
         Cancel(O<'py>, Vec<O<'py>>, i64),
         Limited(O<'py>, O<'py>, Vec<(O<'py>, O<'py>)>),
+        NoCancel(bool, O<'py>, Vec<O<'py>>, i64),
     }
     let input = match kind {
         "param_rischDE_tower" | "limited_integrate_tower" => {
@@ -1529,6 +1807,14 @@ pub(crate) fn kernel(py: Python<'_>, kind: &str, args: &Bound<'_, PyTuple>, t: &
             }
             let (Some(q), Some(n)) = (polys(&arg(1)?, top)?, small_int(&arg(2)?)) else { return Ok(None) };
             Input::Cancel(b, q, n)
+        }
+        "prde_no_cancel_b_large_tower" | "prde_no_cancel_b_small_tower" => {
+            let b = arg(0)?;
+            if !poly_in(&b, top)? {
+                return Ok(None);
+            }
+            let (Some(q), Some(n)) = (polys(&arg(1)?, top)?, small_int(&arg(2)?)) else { return Ok(None) };
+            Input::NoCancel(kind == "prde_no_cancel_b_large_tower", b, q, n)
         }
         _ => return Ok(None),
     };
@@ -1571,6 +1857,14 @@ pub(crate) fn kernel(py: Python<'_>, kind: &str, args: &Bound<'_, PyTuple>, t: &
             Input::Cancel(b, q, n) => {
                 let (h, c) = cx.cancel_liouvillian(&b, q, n)?;
                 (PyList::new(py, h)?, spec(&c)?).into_pyobject(py)?.into_any().unbind()
+            }
+            Input::NoCancel(large, b, mut q, n) => {
+                let r = if large { cx.b_large(&b, &mut q, n) } else { cx.b_small(&b, &mut q, n) };
+                let (h, c) = match r {
+                    Err(Stop::Raise(..)) => return decline(),
+                    r => r?,
+                };
+                (PyList::new(py, h)?, spec(&c)?, PyList::new(py, q)?).into_pyobject(py)?.into_any().unbind()
             }
             Input::Limited(fa, fd, g) => match cx.limited_integrate(&fa, &fd, &g)? {
                 None => py.None(),

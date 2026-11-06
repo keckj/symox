@@ -1,0 +1,3 @@
+ran 582
+native {'is_log_deriv_k_t_radical_in_field_tower': 1, 'parametric_log_deriv_heu_tower': 4, 'param_rischDE_tower': 77, 'param_poly_rischDE_tower': 129, 'prde_cancel_liouvillian_tower': 34, 'limited_integrate_tower': 136, 'prde_no_cancel_b_large_tower': 0, 'prde_no_cancel_b_small_tower': 0}
+EXIT 0
