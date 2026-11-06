@@ -1,0 +1,3 @@
+replayed 485
+native {'constant_system_field': 0, 'derivation': 200, 'is_deriv_k': 0, 'is_log_deriv_k_t_radical_in_field': 14, 'parametric_log_deriv_heu': 0, 'limited_integrate': 29, 'is_log_deriv_k_t_radical_in_field_tower': 0, 'parametric_log_deriv_heu_tower': 0, 'param_rischDE_tower': 61, 'param_poly_rischDE_tower': 61, 'prde_cancel_liouvillian_tower': 61, 'limited_integrate_tower': 61}
+EXIT 0

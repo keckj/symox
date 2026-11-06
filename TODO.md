@@ -81,6 +81,27 @@ Conflits de fusion limités au texte (`TODO.md`,
 correctif d'intégration nécessaire. Le corpus d'intégration n'a pas été
 rejoué depuis la vague 37.
 
+Vague 42 (en cours) :
+- prde3 (`feat-prde3-20261106`) : EDR de Risch paramétrique en Rust sur les
+  niveaux tan et non linéaires (`crates/symox-py/src/prde_param.rs`) :
+  `prde_no_cancel_b_small` hors niveau de base, `NotImplementedError` de
+  `prde_no_cancel_b_equal` et des cas non linéaires, bras tan de
+  `prde_special_denom` (`real_imag`, `recognize_log_derivative`),
+  `bound_degree` tan/non linéaire, `v == 0` de `param_rischDE`, appels
+  publics `prde_no_cancel_b_*` au-dessus de la base ; `PolynomialError`
+  kkinv de SymPy reproduite (cas 44, xfail strict levé) ; ordre des
+  générateurs `_sort_gens` (`QQ(x,t0)`) dans le noyau et, par aiguillage
+  vers le natif, dans `construct_domain` ; `Poly + None` lève
+  `SympifyError` (liaison Rust, xfail `risch_prim` levé). Python :
+  aiguillage seulement. Mesures (`audits/performance/2026-11-06-prde3/`) :
+  582 appels aléatoires tan/non linéaires, réponses natives 64 → 376,
+  identiques à SymPy 555 → 573, natif 112,8 s → 12,3 s (SymPy 138,9 s) ;
+  584 appels aléatoires du lot prde2, natifs 461 → 506, identiques
+  536 → 554 ; 142 + 485 appels enregistrés identiques avant et après ;
+  aucun écart propre au natif. Suite 60 382 réussis / 60 433 collectés
+  (691 fichiers, 6 xfail, SUITE CLEAN) ; `cargo test --release`
+  867 + 1 + 0 + 5, clippy correctness propre.
+
 Vague 41 (calcul en Rust, Python limité à l'admission, l'aiguillage et les
 enveloppes) :
 - unrad (`feat-unrad-20261106`) : branches radicales de `_solve` natives
@@ -331,16 +352,19 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `_take` d'unrad non portée ; formes `cov_not_sym`/`ratio_den` différentes
   (valeurs égales) ; erreurs de la référence déclinées vers les étapes
   suivantes ([détail](docs/algorithmic-parity.md#solve-2026-11-06-native-unrad-branch-and-generator-roots-of-radical-equations)).
-- prde : EDR de Risch paramétrique au-dessus du niveau de base sur les
-  niveaux tan/non linéaires, `prde_no_cancel_b_small` hors niveau de base,
-  `prde_no_cancel_b_equal`, domaines à générateurs non symboles
-  (`log(5)`), déclins listés dans le contrat (corps Python) ; écarts
-  hérités du corps Python (ordre des générateurs du domaine de la
-  PolyMatrix, messages `TypeError`, `SympifyError` de `derivation`, forme
-  de `M`) ; erreur kkinv `PolynomialError` de SymPy non reproduite (xfail
-  strict, cas 44 de `tests/test_native_prde_tower.py`) ; surcoût restant de
-  l'admission splitfactor sur QQ (2,8 ms contre 1,0 ms SymPy, voir l'écart
-  ci-dessus).
+- prde : restent, en corps Python stock, les domaines de base à générateurs
+  non symboles (`log(5)`, refusés à l'admission ; 4 appels enregistrés des
+  tests, aucun dans les corpus), `prde_cancel_liouvillian` appelé
+  directement sur un niveau tan/non linéaire (`UnboundLocalError` de
+  SymPy, message dépendant de la version de Python), `real_roots` hors ZZ
+  et les autres déclins listés dans le contrat (section prde3) ; écarts
+  hérités restants : messages `TypeError` nommant `symox._core.Poly`,
+  entrées brutes de `M` non simplifiées (formes publiques identiques), base
+  `h` d'échelle différente (2 appels), messages `CoercionFailed` /
+  `PolynomialError` des chemins stock ; le corps stock calcule encore le
+  pgcd kkinv du cas 44 (seul le noyau natif lève la `PolynomialError` de
+  SymPy) ; surcoût restant de l'admission splitfactor sur QQ (2,8 ms contre
+  1,0 ms SymPy, voir l'écart ci-dessus).
 - ratint/exroots : restent ratint_logpart sur `QQ<a>[p]` paramétrique et
   divisions non rétractables de `QQ<a>(t)` (repli de référence, erreur),
   `EX(a)` Python qui simplifie son élément, ordre des étapes d'expand hors

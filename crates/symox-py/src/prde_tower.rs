@@ -12,6 +12,7 @@ use pyo3::types::{PyList, PyString, PyTuple};
 use symox::expr::Expr;
 use symox::integrate::prde_tower::{self as k, Level, Stop, Tower, UP};
 use symox::poly::domains::{DomainElement, ElementValue, ExactDomain};
+use symox::poly::int::Coeff;
 use symox::poly::ratfunc::{Scope, RF};
 use crate::poly::PyPoly;
 
@@ -44,6 +45,39 @@ fn strings(v: &Bound<'_, PyAny>) -> Option<Vec<String>> {
     l.iter().map(|s| if s.is_exact_instance_of::<PyString>() { s.extract::<String>().ok() } else { None }).collect()
 }
 
+/// The `PolynomialError` message of `gcd(a, s**j, *kkinv)` in the stock
+/// `residue_reduce`: `a = Poly(lc, t, field=True)` with `lc` the expression
+/// `sum(c_i*z**i)` of the coefficients, converted with the generators
+/// `kkinv = [1/v for v in lower] + lower` (the first conversion of
+/// `parallel_poly_from_expr`). `None` when that conversion does not raise.
+fn kkinv_error<'py>(py: Python<'py>, lc: &[RF], t: &Bound<'py, PyAny>, lower: &[Bound<'py, PyAny>],
+    expr: &dyn Fn(&RF) -> Expr) -> PyResult<Option<String>> {
+    let z = Expr::dummy_with_index("z", Default::default(), num_bigint::BigInt::from(-(1i64 << 62)));
+    let mut terms = Vec::with_capacity(lc.len());
+    for (i, c) in lc.iter().enumerate() {
+        if !c.is_zero() {
+            terms.push(symox::ops::mul2(&expr(c), &symox::ops::pow(&z, &Expr::int(i as i64))));
+        }
+    }
+    let lc = crate::wrap(symox::ops::add(&terms)).into_pyobject(py)?.into_any();
+    let cls = py.get_type::<PyPoly>();
+    let kw = pyo3::types::PyDict::new(py);
+    kw.set_item("field", true)?;
+    let a = cls.call((lc, t), Some(&kw))?.call_method0("as_expr")?;
+    let one = 1i64.into_pyobject(py)?.into_any();
+    let mut args = vec![a];
+    for v in lower {
+        args.push(one.div(v)?);
+    }
+    args.extend(lower.iter().cloned());
+    let error = py.import("symox.polys.polyerrors")?.getattr("PolynomialError")?;
+    match cls.call1(PyTuple::new(py, args)?) {
+        Ok(_) => Ok(None),
+        Err(e) if e.is_instance(py, &error) => Ok(Some(e.value(py).str()?.extract::<String>()?)),
+        Err(e) => Err(e),
+    }
+}
+
 enum Answer {
     Log(Option<(symox::poly::Int, RF)>),
     Heu(Option<(symox::poly::Int, symox::poly::Int, RF)>),
@@ -52,7 +86,8 @@ enum Answer {
 /// `args = (fa, fd, case, cases)` (`is_log_deriv_tower`) or `(fa, fd, wa,
 /// wd, cases)` (`heu_tower`). Returns `None` (stock body) or `(status,
 /// payload, trace)`: status 0 with the stock answer, 1 with the message of
-/// a `NotImplementedError`, 2 with the message of a `ValueError`; `trace`
+/// a `NotImplementedError`, 2 with the message of a `ValueError`, 3 with the
+/// message of a `PolynomialError`; `trace`
 /// lists the names of the Dummies the stock body creates, in order.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kernel(py: Python<'_>, kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: &Bound<'_, PyAny>,
@@ -178,6 +213,14 @@ pub(crate) fn kernel(py: Python<'_>, kind: &str, args: &Bound<'_, PyTuple>, t: &
         Err(Stop::Decline) => return Ok(None),
         Err(Stop::NotImplemented(m)) => (1, m.into_pyobject(py)?.into_any().unbind()),
         Err(Stop::Value(m)) => (2, m.into_pyobject(py)?.into_any().unbind()),
+        Err(Stop::Polynomial(lc, var, lower)) => {
+            let at = |i: usize| crate::wrap(space[i].clone()).into_pyobject(py).map(|o| o.into_any());
+            let gens = lower.iter().map(|&v| at(v)).collect::<PyResult<Vec<_>>>()?;
+            match kkinv_error(py, &lc, &at(var)?, &gens, &expr)? {
+                Some(m) => (3, m.into_pyobject(py)?.into_any().unbind()),
+                None => return Ok(None),
+            }
+        }
         Ok(Answer::Log(None)) | Ok(Answer::Heu(None)) => (0, py.None()),
         Ok(Answer::Log(Some((n, u)))) => (0, (int(n), cancelled(&u)?).into_pyobject(py)?.into_any().unbind()),
         Ok(Answer::Heu(Some((n, m, v)))) => (0, (int(n), int(m), cancelled(&v)?).into_pyobject(py)?.into_any().unbind()),

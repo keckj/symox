@@ -82,8 +82,11 @@ impl Host for PyHost<'_> {
         if symbols.is_empty() {
             return None;
         }
-        symbols.sort_by_cached_key(symox::sortkey::sort_key);
-        let joint = ExactDomain::functions(true, false, symbols, "lex").ok()?;
+        // The reference `_construct_composite` takes the generators of
+        // `parallel_dict_from_basic`, sorted by `_sort_gens` (`x`, `y`, `z`
+        // first): `QQ(x,t0)`, not the alphabetical `QQ(t0,x)`.
+        symbols.sort_by_cached_key(symox::poly::convert::gen_key);
+        let joint =ExactDomain::functions(true, false, symbols, "lex").ok()?;
         for c in &coefficients {
             joint.convert(c).ok()?;
         }

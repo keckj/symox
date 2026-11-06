@@ -1,0 +1,2 @@
+replayed 142
+native {'constant_system_field': 0, 'derivation': 59, 'is_deriv_k': 0, 'is_log_deriv_k_t_radical_in_field': 10, 'parametric_log_deriv_heu': 14, 'limited_integrate': 6, 'is_log_deriv_k_t_radical_in_field_tower': 7, 'parametric_log_deriv_heu_tower': 5, 'param_rischDE_tower': 13, 'param_poly_rischDE_tower': 9, 'prde_cancel_liouvillian_tower': 10, 'limited_integrate_tower': 5, 'prde_no_cancel_b_large_tower': 0, 'prde_no_cancel_b_small_tower': 0}

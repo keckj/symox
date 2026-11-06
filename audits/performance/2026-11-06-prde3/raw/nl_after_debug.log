@@ -1,0 +1,249 @@
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: 2/x < 3
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param limited_integrate_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: x/(x + 1) < 3
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:570 base kernel parametric_log_deriv_heu
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -1/x < 0
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -3/(x + 1) < 0
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: expected `Rational` object, got x
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: coefficients must be exact rational functions of the declared parameters
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -1/x < 1
+prde_param limited_integrate_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -1/(x + 1) < 0
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: expected `Rational` object, got -x
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:636 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:636 
+prde_param prde_no_cancel_b_small_tower declined at crates/symox-py/src/prde_param.rs:636 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:636 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -3/(x + 1) < 0
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -2/x < 3
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:570 base kernel parametric_log_deriv_heu
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: t0 < 3
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: expected `Rational` object, got -1/(t0 + 2)
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: expected `Rational` object, got 2/x
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: expected `Rational` object, got -2/(x + 2)
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: expected `Rational` object, got -x
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:570 base kernel parametric_log_deriv_heu
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: x/(2*(x + 1)) < 2
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: 2/x < 2
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:570 base kernel parametric_log_deriv_heu
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -2/x < 1
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -2/x < 1
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param limited_integrate_tower declined at crates/symox-py/src/prde_param.rs:136 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:136 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:570 base kernel parametric_log_deriv_heu
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -1/(2*(x + 2)) < 1
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param limited_integrate_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 ExactQuotientFailed: t0 + 1/3 does not divide 1
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:570 base kernel parametric_log_deriv_heu
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: expected `Rational` object, got 2/(x + 1)
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 ExactQuotientFailed: 3*t0 + t1 + 3 does not divide -t1 - 1
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: t0 < 1
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: 2/x < 0
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: 2/x < 0
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -1/(x*(x + 1)) < 2
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 TypeError: cannot determine truth value of Relational: -1/(x + 1) < 3
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param limited_integrate_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 CoercionFailed: expected `Rational` object, got x
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:570 base kernel parametric_log_deriv_heu
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param limited_integrate_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_no_cancel_b_small_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param limited_integrate_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: t0**(-2) contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:757 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param limited_integrate_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param param_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param param_poly_rischDE_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:67 PolynomialError: 1/t0 contains an element of the set of generators.
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+prde_param prde_cancel_liouvillian_tower declined at crates/symox-py/src/prde_param.rs:1394 
+ran 582
+native {'is_log_deriv_k_t_radical_in_field_tower': 1, 'parametric_log_deriv_heu_tower': 4, 'param_rischDE_tower': 77, 'param_poly_rischDE_tower': 129, 'prde_cancel_liouvillian_tower': 34, 'limited_integrate_tower': 136, 'prde_no_cancel_b_large_tower': 0, 'prde_no_cancel_b_small_tower': 0}

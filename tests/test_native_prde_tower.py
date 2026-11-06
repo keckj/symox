@@ -98,14 +98,12 @@ DECLINES = {
     # real_roots over QQ(...) raises in the stock body (kept content of
     # gcd(r, kappa(r)) and a non-integral monic s).
     43: 'stock real_roots NotImplementedError',
-    # the kkinv gcd of residue_reduce raises PolynomialError in SymPy.
-    44: 'kkinv PolynomialError',
     59: 'base branch above the base level with residue terms',
 }
 
-# SymPy raises PolynomialError in the kkinv gcd of residue_reduce
-# (splitfactor_sqf); the symox stock body computes that gcd and goes on.
-GAPS = {44: 'kkinv PolynomialError of SymPy residue_reduce (recorded gap)'}
+# Case 44 (the kkinv PolynomialError of SymPy residue_reduce) is reproduced
+# by the native kernel since 2026-11-06 (prde3); no recorded gap remains.
+GAPS = {}
 
 
 def _make(D, args):

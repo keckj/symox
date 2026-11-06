@@ -227,7 +227,8 @@ pub(crate) fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, 
         }
         return crate::prde_tower::kernel(py, kind, args, t, d, variables, derivations, level);
     }
-    if matches!(kind, "param_rischDE_tower" | "param_poly_rischDE_tower" | "prde_cancel_liouvillian_tower" | "limited_integrate_tower") {
+    if matches!(kind, "param_rischDE_tower" | "param_poly_rischDE_tower" | "prde_cancel_liouvillian_tower" | "limited_integrate_tower"
+        | "prde_no_cancel_b_large_tower" | "prde_no_cancel_b_small_tower") {
         if !stock_poly_type(py) {
             return Ok(None);
         }
