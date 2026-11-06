@@ -238,6 +238,36 @@ fn coefficient_direct(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
     Ok(RF::new(n.scale(&dd), d.scale(&nd)))
 }
 
+
+/// The `RF` coefficients of `p` over `parameters`, remapped onto `gens`,
+/// read directly from its representation when no expression round trip is
+/// needed: a fraction field over the same parameters, or a plain `ZZ`/`QQ`
+/// polynomial whose coefficient generators are among the parameters. An
+/// `RF` is canonical (reduced, positive denominator leading coefficient), so
+/// the result is the one `coefficient(coefficient_expr(..))` builds; `None`
+/// falls back to that round trip.
+fn direct_terms(p:&Polynomial,gens:&[Expr],parameters:&[Expr])->Option<Vec<(Vec<u32>,RF)>>{
+    if p.expression.is_some()||p.algebraic.is_some()||p.base.modulus.is_some()||p.base.domain.is_rr(){return None;}
+    let positions:Vec<usize>=p.true_gens().iter().map(|g|gens.iter().position(|c|c==g)).collect::<Option<_>>()?;
+    let remap=|powers:&[u32]|{let mut r=vec![0;gens.len()];for(i,e)in positions.iter().zip(powers){r[*i]=*e;}r};
+    if let Some(f)=&p.field{
+        if f.parameters!=parameters{return None;}
+        return Some(f.rep.iter().map(|(e,c)|(remap(e),c.clone())).collect());
+    }
+    let ngens=p.base.ngens;
+    let places:Vec<usize>=p.base.domain_gens().iter().map(|g|parameters.iter().position(|c|c==g)).collect::<Option<_>>()?;
+    let mut grouped:BTreeMap<Vec<u32>,Vec<(Vec<u32>,Rat)>>=BTreeMap::new();
+    for(e,c)in p.base.rep.iter(){
+        let mut inner=vec![0;parameters.len()];
+        for(i,k)in places.iter().zip(&e[ngens..]){inner[*i]=*k;}
+        grouped.entry(remap(&e[..ngens])).or_default().push((inner,c.clone()));
+    }
+    Some(grouped.into_iter().map(|(e,values)|{
+        let (d,n)=MPoly::from_terms(parameters.len(),values).clear_denoms();
+        (e,RF::new(n,MPoly::constant(d,parameters.len())))
+    }).collect())
+}
+
 impl FractionPoly {
     pub fn from_expr(e: &Expr, gens: &[Expr], parameters: &[Expr], display: &str) -> PResult<Self> {super::mpoly::checked_operation(||{
         if gens.is_empty() || gens.iter().any(|g| parameters.contains(g)) {
@@ -269,7 +299,18 @@ impl FractionPoly {
                 .push((exponent[gens.len()..].to_vec(), c.clone()));
         }
         let coefficient_gens = &converted.gens[gens.len()..];
+        // Coefficient generators among the parameters: the canonical `RF`
+        // directly, without the expression round trip.
+        let places:Option<Vec<usize>>=coefficient_gens.iter().map(|g|parameters.iter().position(|c|c==g)).collect();
         let mut terms = Vec::new();
+        if let Some(places)=places {
+            for (exponent, values) in grouped {
+                let values=values.into_iter().map(|(e,c)|{let mut inner=vec![0;parameters.len()];for(i,k)in places.iter().zip(&e){inner[*i]=*k;}(inner,c)}).collect();
+                let (d,n)=MPoly::from_terms(parameters.len(),values).clear_denoms();
+                terms.push((exponent,RF::new(n,MPoly::constant(d,parameters.len()))));
+            }
+            grouped=BTreeMap::new();
+        }
         for (exponent, values) in grouped {
             let value = to_expr(
                 &MPoly::from_terms(coefficient_gens.len(), values),
@@ -981,11 +1022,11 @@ impl Polynomial {
         let _scope=Scope::new(parameters.len());
         let convert=|p:&Self|{
             let positions:Vec<_>=p.true_gens().iter().map(|g|gens.iter().position(|candidate|candidate==g).unwrap()).collect();
-            let terms=p.terms().into_iter().map(|(powers,c)|{
+            let terms=if let Some(t)=direct_terms(p,&gens,&parameters){t}else{p.terms().into_iter().map(|(powers,c)|{
                 let mut remapped=vec![0;gens.len()];
                 for (index,exponent) in positions.iter().zip(powers){remapped[*index]=exponent;}
                 Ok((remapped,coefficient(&c,&parameters)?))
-            }).collect::<PResult<Vec<_>>>()?;
+            }).collect::<PResult<Vec<_>>>()?};
             Ok(FractionPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.clone(),parameters:parameters.clone(),display:display.clone(),coefficient_domain:descriptor.clone()})
         };
         Ok(Some((convert(self)?,convert(o)?)))
@@ -1015,11 +1056,11 @@ impl Polynomial {
         let _scope=Scope::new(parameters.len());
         let convert=|p:&Self|{
             let positions:Vec<_>=p.true_gens().iter().map(|g|gens.iter().position(|candidate|candidate==g).unwrap()).collect();
-            let terms=p.terms().into_iter().map(|(powers,c)|{
+            let terms=if let Some(t)=direct_terms(p,&gens,&parameters){t}else{p.terms().into_iter().map(|(powers,c)|{
                 let mut remapped=vec![0;gens.len()];
                 for (index,exponent) in positions.iter().zip(powers){remapped[*index]=exponent;}
                 Ok((remapped,coefficient(&c,&parameters)?))
-            }).collect::<PResult<Vec<_>>>()?;
+            }).collect::<PResult<Vec<_>>>()?};
             Ok::<_,PolyError>(FractionPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.to_vec(),parameters:parameters.clone(),display:display.clone(),coefficient_domain:target.clone()})
         };
         Ok(Some((convert(self)?,convert(o)?)))

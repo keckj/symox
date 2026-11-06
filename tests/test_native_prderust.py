@@ -217,6 +217,9 @@ def test_integrands_reach_every_first_wave_kernel(monkeypatch):
     # The native base-case limited_integrate runs these kernels in Rust;
     # route it to the stock body so the first-wave entries are reached.
     monkeypatch.setattr(native,'limited_integrate',lambda *args:None)
+    # The tower kernels (prde_param.rs) run the recursion above the base
+    # level in Rust without `_call`; route them to the stock bodies too.
+    monkeypatch.setattr(native,'_above_base',lambda DE:False)
     xs=sx.Symbol('x')
     for text in INTEGRANDS[:27]:
         risch.risch_integrate(sx.sympify(text,locals={'x':xs}),xs)

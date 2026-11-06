@@ -38,6 +38,7 @@ mod prde_frac;
 mod prde_const;
 mod prde_deriv;
 mod prde_tower;
+mod prde_param;
 mod risch_sf_admission;
 mod piecewise_fold;
 mod derivative_orders;

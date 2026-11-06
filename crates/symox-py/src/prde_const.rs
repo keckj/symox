@@ -21,7 +21,7 @@ fn plain_symbol(e: &Expr) -> bool {
 }
 
 /// QQ or a fraction field over plain symbols.
-fn admitted(d: &ExactDomain) -> bool {
+pub(crate) fn admitted(d: &ExactDomain) -> bool {
     match d {
         ExactDomain::QQ => true,
         ExactDomain::Functions { ring: false, parameters, .. } => parameters.iter().all(plain_symbol),

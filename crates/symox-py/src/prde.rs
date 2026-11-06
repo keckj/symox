@@ -33,7 +33,7 @@ fn symbol(value: &Bound<'_, PyAny>) -> PyResult<Option<Expr>> {
     Ok(Some(e))
 }
 
-fn stock_poly_type(py: Python<'_>) -> bool {
+pub(crate) fn stock_poly_type(py: Python<'_>) -> bool {
     use pyo3::impl_::pyclass::PyClassImpl;
     let expected = <PyPoly as PyClassImpl>::items_iter().flat_map(|i| i.slots)
         .find(|slot| slot.slot == pyo3::ffi::Py_tp_new).map(|slot| slot.pfunc);
@@ -204,7 +204,7 @@ fn context(t: &Bound<'_, PyAny>, d: &Bound<'_, PyAny>, variables: &Bound<'_, PyA
 
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
-fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: &Bound<'_, PyAny>,
+pub(crate) fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: &Bound<'_, PyAny>,
     variables: &Bound<'_, PyAny>, derivations: &Bound<'_, PyAny>, level: &Bound<'_, PyAny>,
     py: Python<'_>) -> PyResult<Option<PyObject>> {
     py.check_signals()?;
@@ -226,6 +226,12 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
             return Ok(None);
         }
         return crate::prde_tower::kernel(py, kind, args, t, d, variables, derivations, level);
+    }
+    if matches!(kind, "param_rischDE_tower" | "param_poly_rischDE_tower" | "prde_cancel_liouvillian_tower" | "limited_integrate_tower") {
+        if !stock_poly_type(py) {
+            return Ok(None);
+        }
+        return crate::prde_param::kernel(py, kind, args, t, d, variables, derivations, level);
     }
     let Some(cx) = context(t, d, variables, derivations, level)? else { return Ok(None) };
     let arg = |i: usize| args.get_item(i);
@@ -344,7 +350,7 @@ fn _prde_kernel(kind: &str, args: &Bound<'_, PyTuple>, t: &Bound<'_, PyAny>, d: 
 /// DE state: `t` is the matrix generator and `variables` is `DE.T`; both must
 /// be plain stock symbols so `rref`'s ground check and `has(*DE.T)` behave
 /// as proved (ground entries, no derivation step).
-fn constant_system_any(py: Python<'_>, args: &Bound<'_, PyTuple>, gen: &Bound<'_, PyAny>,
+pub(crate) fn constant_system_any(py: Python<'_>, args: &Bound<'_, PyTuple>, gen: &Bound<'_, PyAny>,
     tower: &Bound<'_, PyAny>) -> PyResult<Option<PyObject>> {
     if args.len() != 6 || symbol(gen)?.is_none() {
         return Ok(None);

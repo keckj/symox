@@ -487,13 +487,7 @@ fn _polymatrix_ground(items:&Bound<'_,PyAny>,rows:&Bound<'_,PyAny>,cols:&Bound<'
     let domain=domain.downcast::<super::domains::PyDomain>()?.get().inner.clone();
     if !rows.is_exact_instance_of::<PyInt>()||!cols.is_exact_instance_of::<PyInt>() {return Ok(None);}
     let (Ok(rows),Ok(cols))=(rows.extract::<usize>(),cols.extract::<usize>()) else{return Ok(None)};
-    let parameters=domain.flat_parameters();
-    let rational=domain==ExactDomain::QQ;
-    if !rational && !(domain.is_field()
-        &&matches!(domain.composite_base(),Some(symox::poly::domains::CompositeBase::Rational{..}))
-        &&!parameters.is_empty()
-        &&parameters.iter().all(|p|p.is_symbol()&&!p.has_host()&&!p.has_wild_properties()
-            &&symox::assumptions::fact(p,"commutative")==Some(true))) {return Ok(None);}
+    if !ground_domain(&domain) {return Ok(None);}
     let items=items.downcast::<PyList>()?;
     if rows.checked_mul(cols)!=Some(items.len()) {return Ok(None);}
     let mut entries=Vec::with_capacity(items.len());
@@ -501,13 +495,37 @@ fn _polymatrix_ground(items:&Bound<'_,PyAny>,rows:&Bound<'_,PyAny>,cols:&Bound<'
         if i%64==0 {py.check_signals()?;}
         if !stock.iter().any(|t|value.get_type().is(&t)) {return Ok(None);}
         let Ok(value)=value.extract::<PyRef<'_,crate::PyExprNode>>() else{return Ok(None)};
-        if value.e.has_wild_properties()||!symox::poly::expression_domain::native_coefficient_payload(&value.e) {return Ok(None);}
+        entries.push(value.e.clone());
+    }
+    ground_entries(entries,rows,cols,&domain,basis,py)
+}
+
+/// The domains `_polymatrix_ground` admits: QQ or a fraction field over QQ
+/// of plain commutative symbols.
+fn ground_domain(domain:&ExactDomain)->bool {
+    let parameters=domain.flat_parameters();
+    *domain==ExactDomain::QQ || (domain.is_field()
+        &&matches!(domain.composite_base(),Some(symox::poly::domains::CompositeBase::Rational{..}))
+        &&!parameters.is_empty()
+        &&parameters.iter().all(|p|p.is_symbol()&&!p.has_host()&&!p.has_wild_properties()
+            &&symox::assumptions::fact(p,"commutative")==Some(true)))
+}
+
+/// The native rref (`basis=false`, flat entries) or nullspace (`basis=true`,
+/// one list per vector) of `rows x cols` ground entries over `domain`, as
+/// `_polymatrix_ground` computes them. None requests the original route.
+pub(crate) fn ground_entries(entries:Vec<symox::Expr>,rows:usize,cols:usize,domain:&ExactDomain,basis:bool,
+    py:Python<'_>)->PyResult<Option<(PyObject,Vec<usize>)>> {
+    if !ground_domain(domain) || rows.checked_mul(cols)!=Some(entries.len()) {return Ok(None);}
+    let parameters=domain.flat_parameters();
+    let rational=*domain==ExactDomain::QQ;
+    for value in &entries {
+        if value.has_wild_properties()||!symox::poly::expression_domain::native_coefficient_payload(value) {return Ok(None);}
         let mut floating=false;
-        symox::traverse::preorder(&value.e,&mut |e| {
+        symox::traverse::preorder(value,&mut |e| {
             if e.as_number().is_some_and(symox::Number::is_float) {floating=true;}
         });
         if floating {return Ok(None);}
-        entries.push(value.e.clone());
     }
     if rational {
         let Some(values)=entries.iter().map(|e|e.as_number().and_then(Rat::from_number)).collect::<Option<Vec<_>>>()

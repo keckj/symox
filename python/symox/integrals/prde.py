@@ -484,6 +484,9 @@ def prde_cancel_liouvillian(b, Q, n, DE):
     """
     Pg, 237.
     """
+    native = _prde_native.prde_cancel_liouvillian(b, Q, n, DE)
+    if native is not None:
+        return native
     H = []
 
     # Why use DecrementLevel? Below line answers that:

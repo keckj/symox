@@ -317,16 +317,9 @@ def test_actual_risch_callers_select_splitfactor_with_exact_decomposition(monkey
     actual_signature=signature(flatten(actual));old_signature=signature(flatten(expected))
     reference_signature=signature(flatten(ref))
     assert actual_signature==old_signature
-    if caller=='canonical_representation':assert actual_signature==reference_signature
-    else:
-        # Existing Poly.cancel domain inference in Symox returns this integer
-        # g pair over ZZ, while SymPy retains QQ. Preserve that representative;
-        # the baseline witness is archived separately, rather than weakening
-        # the splitfactor domain comparison or claiming full Hermite parity.
-        assert tuple(row[1]for row in actual_signature[:2])==('ZZ','ZZ')
-        assert tuple(row[1]for row in reference_signature[:2])==('QQ','QQ')
-        assert tuple((row[0],row[2])for row in actual_signature[:2])==tuple((row[0],row[2])for row in reference_signature[:2])
-        assert actual_signature[2:]==reference_signature[2:]
+    # Poly.cancel(include=True) keeps the unified QQ domain as SymPy does
+    # (88545232), so the hermite_reduce g pair is over QQ in both.
+    assert actual_signature==reference_signature
     A,D,tau=dense(a),dense(d),dense(de.d)
     if caller=='canonical_representation':
         q,(b,ds),(c,dn)=actual

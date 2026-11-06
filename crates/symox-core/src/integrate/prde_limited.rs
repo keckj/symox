@@ -2,7 +2,7 @@
 //!
 //! Same `Poly` domain rules as [`crate::integrate::prde`]: products and
 //! differences unify ZZ/QQ, `quo` retracts, `gcd`/`lcm` normalize and
-//! `cancel(include=True)` infers the domain from the coefficients. `None`
+//! `cancel(include=True)` keeps the unified domain. `None`
 //! means the reference would raise or the input is outside the port.
 use crate::integrate::prde::{splitfactor, P};
 

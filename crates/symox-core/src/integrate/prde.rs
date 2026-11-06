@@ -258,9 +258,8 @@ impl P {
         }
         Some(P::new(scale(&h, &c), false))
     }
-    /// `self.cancel(o, include=True)` of the stock `Poly.cancel`: both
-    /// results are in the domain inferred from the coefficients of the two
-    /// inputs (`Poly.from_exprs` in `an_rational::poly_cancel`).
+    /// `self.cancel(o, include=True)` of `Poly.cancel`: both results are in
+    /// the unified domain of the two inputs.
     pub fn cancel(&self, o: &P) -> Option<(P, P)> {
         if o.is_zero() {
             return None;
@@ -296,7 +295,10 @@ impl P {
             cp = cp.neg();
             q = dense::neg(&q);
         }
-        Some((P::new(scale(&p, &int_rat(&cp)), qq), P::new(scale(&q, &int_rat(&cq)), qq)))
+        // The results keep the unified domain (QQ stays QQ), as SymPy's
+        // `dmp_cancel(include=True)`.
+        let unified = qq || self.qq || o.qq;
+        Some((P::new(scale(&p, &int_rat(&cp)), unified), P::new(scale(&q, &int_rat(&cq)), unified)))
     }
     /// `Poly.half_gcdex` (over QQ): `(s, h)` with `s*self = h (mod o)`.
     pub fn half_gcdex(&self, o: &P) -> Option<(P, P)> {
@@ -796,8 +798,11 @@ mod tests {
         let (p, q) = half.cancel(&tq).unwrap();
         assert_eq!(p, P::new(vec![Rat::from_i64(4), Rat::from_i64(2)], true));
         assert_eq!(q, P::new(vec![Rat::zero(), Rat::from_i64(3)], true));
+        // QQ with ZZ unifies to QQ, as SymPy's
+        // `Poly(1, t, domain=QQ).cancel(Poly(1, t), include=True)`.
         let one = P::new(vec![Rat::one()], true);
-        assert_eq!(one.cancel(&z(&[1])).unwrap(), (z(&[1]), z(&[1])));
+        assert_eq!(one.cancel(&z(&[1])).unwrap(), (one.clone(), one.clone()));
+        assert_eq!(z(&[1]).cancel(&z(&[1])).unwrap(), (z(&[1]), z(&[1])));
     }
     #[test]
     fn zz_gcd_and_lcm_normalize_like_reference() {
