@@ -1,0 +1,1322 @@
+{
+"test_exp_re:1": [
+"-r(k) + r(k + 1)",
+true,
+0.001,
+118
+],
+"test_exp_re:2": [
+"r(k) + r(k + 2)",
+true,
+0.0006,
+121
+],
+"test_exp_re:3": [
+"r(k) + r(k + 1) + r(k + 2)",
+true,
+0.0009,
+124
+],
+"test_exp_re:4": [
+"r(k) + r(k + 1)",
+true,
+0.0007,
+127
+],
+"test_exp_re:5": [
+"r(k) + r(k + 2) + r(k + 3)",
+true,
+0.0014,
+130
+],
+"test_fps:1": [
+"1",
+true,
+0.0,
+160
+],
+"test_fps:10": [
+"x**2",
+true,
+0.0008,
+171
+],
+"test_fps:11": [
+"1 + x + x**2 + O(x**4)",
+true,
+0.0072,
+172
+],
+"test_fps:12": [
+"x**2 + x + 1",
+true,
+0.003,
+173
+],
+"test_fps:13": [
+null,
+true,
+0.0,
+176
+],
+"test_fps:14": [
+"log(x + 1)",
+true,
+0.0002,
+177
+],
+"test_fps:15": [
+"FormalPowerSeries(log(x + 1), x, 0, 1, (SeqFormula(-1/((-1)**_k*_k), (_k, 1, oo)), SeqFormula(x**_k, (_k, 0, oo)), 0))",
+true,
+0.0004,
+178
+],
+"test_fps:16": [
+"list(0, x, -x**2/2, x**3/3, -x**4/4)",
+true,
+0.0043,
+179
+],
+"test_fps:17": [
+"x",
+true,
+0.0002,
+180
+],
+"test_fps:18": [
+"x**5/5 - x**4/4 + x**3/3 - x**2/2 + x",
+true,
+0.0041,
+181
+],
+"test_fps:19": [
+"Sum(-x**_k/((-1)**_k*_k), (_k, 1, oo))",
+true,
+0.0008,
+184
+],
+"test_fps:2": [
+"2",
+true,
+0.0,
+161
+],
+"test_fps:20": [
+"-x**4/4",
+true,
+0.0001,
+190
+],
+"test_fps:21": [
+null,
+true,
+0.0,
+193
+],
+"test_fps:22": [
+"x - x**3/6 + x**5/120 + O(x**6)",
+true,
+0.0118,
+194
+],
+"test_fps:23": [
+"EXC NotImplementedError",
+true,
+0.0001,
+196
+],
+"test_fps:24": [
+"EXC ValueError",
+true,
+0.0,
+197
+],
+"test_fps:3": [
+"2",
+true,
+0.0,
+162
+],
+"test_fps:4": [
+"2",
+true,
+0.0,
+163
+],
+"test_fps:5": [
+"1/x + x**(-2)",
+true,
+0.6697,
+164
+],
+"test_fps:6": [
+"log(x + 1)",
+true,
+0.0004,
+165
+],
+"test_fps:7": [
+null,
+true,
+0.0,
+168
+],
+"test_fps:8": [
+"x**2 + x + 1",
+true,
+0.0002,
+169
+],
+"test_fps:9": [
+"1",
+true,
+0.0008,
+170
+],
+"test_fps__Add_expr:1": [
+"x**2/2 - x**4/12 + O(x**6)",
+true,
+0.3539,
+320
+],
+"test_fps__Add_expr:2": [
+"x - 3*x**2/2 - x**4/4 + x**5/5 + O(x**6)",
+true,
+0.1994,
+323
+],
+"test_fps__Add_expr:3": [
+"1/x + x - x**3/6 + x**5/120 + O(x**6)",
+true,
+0.3662,
+326
+],
+"test_fps__Add_expr:4": [
+"-2 - x**2/2 - 7*x**3/6 - 25*x**4/24 - 119*x**5/120 + O(x**6)",
+true,
+0.153,
+329
+],
+"test_fps__asymptotic:1": [
+"exp(x)",
+true,
+0.9351,
+335
+],
+"test_fps__asymptotic:2": [
+"O(x**(-6), (x, oo))",
+true,
+0.1347,
+336
+],
+"test_fps__asymptotic:3": [
+"1 + O(x**(-6), (x, oo))",
+true,
+0.1463,
+339
+],
+"test_fps__asymptotic:4": [
+"-1 + O(x**(-6), (x, oo))",
+true,
+0.1225,
+340
+],
+"test_fps__asymptotic:5": [
+"-1/(5*x**5) + 1/(3*x**3) - 1/x + pi/2 + O(x**(-6), (x, oo))",
+true,
+0.1051,
+343
+],
+"test_fps__asymptotic:6": [
+"-1/(5*x**5) + 1/(3*x**3) - 1/x - pi/2 + O(x**(-6), (x, oo))",
+true,
+0.05,
+345
+],
+"test_fps__asymptotic:7": [
+"FormalPowerSeries(log(x + 1), x, oo, 1, (SeqFormula(-1/((-1)**_k*_k), (_k, 1, oo)), SeqFormula((1/x)**_k, (_k, 0, oo)), -log(1/x)))",
+true,
+0.1325,
+349
+],
+"test_fps__asymptotic:8": [
+"FormalPowerSeries(log(x + 1), x, -oo, 1, (SeqFormula(-1/_k, (_k, 1, oo)), SeqFormula((-1/x)**_k, (_k, 0, oo)), -log(-1/x) + I*pi))",
+true,
+0.0547,
+352
+],
+"test_fps__compose:1": [
+"EXC ValueError",
+true,
+0.0,
+557
+],
+"test_fps__compose:10": [
+"exp(x)",
+true,
+0.0,
+569
+],
+"test_fps__compose:11": [
+"sin(x)",
+true,
+0.0,
+570
+],
+"test_fps__compose:12": [
+"exp(sin(x))",
+true,
+0.0002,
+571
+],
+"test_fps__compose:13": [
+"-x**5/15 - x**4/8 + x**2/2 + x + 1",
+true,
+0.0374,
+572
+],
+"test_fps__compose:14": [
+"1 + x + x**2/2 - x**4/8 - x**5/15 + O(x**6)",
+true,
+0.0287,
+573
+],
+"test_fps__compose:15": [
+"1 + x + x**2/2 - x**4/8 + O(x**5)",
+true,
+0.021,
+574
+],
+"test_fps__compose:16": [
+"EXC NotImplementedError",
+true,
+0.0,
+576
+],
+"test_fps__compose:17": [
+"EXC NotImplementedError",
+true,
+0.0,
+577
+],
+"test_fps__compose:18": [
+"EXC NotImplementedError",
+true,
+0.0,
+578
+],
+"test_fps__compose:19": [
+"EXC NotImplementedError",
+true,
+0.0,
+579
+],
+"test_fps__compose:2": [
+"EXC ValueError",
+true,
+0.0323,
+558
+],
+"test_fps__compose:20": [
+"1 + x + x**2/2 + O(x**4)",
+true,
+0.0126,
+581
+],
+"test_fps__compose:21": [
+"1 + x + x**2/2 - x**4/8 - x**5/15 - x**6/240 + x**7/90 + O(x**8)",
+true,
+0.0634,
+582
+],
+"test_fps__compose:22": [
+"1 + x + x**2/2 - x**4/8 - x**5/15 + O(x**6)",
+true,
+0.0293,
+584
+],
+"test_fps__compose:23": [
+"x - x**3/3 + O(x**4)",
+true,
+0.0146,
+587
+],
+"test_fps__compose:24": [
+"x - x**3/3 + x**5/10 - 8*x**7/315 + O(x**8)",
+true,
+0.0569,
+588
+],
+"test_fps__compose:25": [
+"x - x**3/3 + x**5/10 + O(x**6)",
+true,
+0.029,
+589
+],
+"test_fps__compose:3": [
+"EXC ValueError",
+true,
+0.0453,
+559
+],
+"test_fps__compose:4": [
+"EXC ValueError",
+true,
+0.0359,
+560
+],
+"test_fps__compose:5": [
+"EXC ValueError",
+true,
+0.0004,
+562
+],
+"test_fps__compose:6": [
+"EXC ValueError",
+true,
+0.0002,
+563
+],
+"test_fps__compose:7": [
+null,
+true,
+0.0,
+566
+],
+"test_fps__compose:8": [
+null,
+true,
+0.0,
+567
+],
+"test_fps__compose:9": [
+null,
+true,
+0.0,
+568
+],
+"test_fps__fractional:1": [
+"1/sqrt(x) - sqrt(x)/6 + x**(3/2)/120 - x**(5/2)/5040 + x**(7/2)/362880 - x**(9/2)/39916800 + x**(11/2)/6227020800 + O(x**6)",
+true,
+0.3001,
+359
+],
+"test_fps__fractional:2": [
+"x**(3/2) - x**(5/2)/6 + x**(7/2)/120 - x**(9/2)/5040 + x**(11/2)/362880 + O(x**6)",
+true,
+0.1881,
+365
+],
+"test_fps__fractional:3": [
+"x**(-3/2) - 1/(3*sqrt(x)) + sqrt(x)/5 - x**(3/2)/7 + x**(5/2)/9 - x**(7/2)/11 + x**(9/2)/13 - x**(11/2)/15 + O(x**6)",
+true,
+0.5176,
+370
+],
+"test_fps__fractional:4": [
+"1 + x/2 + x**2/24 + x**3/720 + x**4/40320 + x**5/3628800 + sqrt(x) + x**(3/2)/6 + x**(5/2)/120 + x**(7/2)/5040 + x**(9/2)/362880 + x**(11/2)/39916800 + O(x**6)",
+true,
+0.2756,
+376
+],
+"test_fps__fractional:5": [
+"x + x**2/2 + x**3/24 + x**4/720 + x**5/40320 + x**(3/2) + x**(5/2)/6 + x**(7/2)/120 + x**(9/2)/5040 + x**(11/2)/362880 + O(x**6)",
+true,
+0.264,
+382
+],
+"test_fps__hyper:1": [
+"x - x**3/6 + x**5/120 + O(x**6)",
+true,
+0.0741,
+255
+],
+"test_fps__hyper:10": [
+"3**(5/6)*gamma(1/3)/(6*pi) - 3**(2/3)*x**2/(3*gamma(1/3)) + O(x**6)",
+true,
+0.2431,
+286
+],
+"test_fps__hyper:11": [
+"x + x**2 + x**3/3 - x**5/30 + O(x**6)",
+true,
+0.2343,
+291
+],
+"test_fps__hyper:12": [
+"1 + x + x**2/3 - x**4/30 - x**5/90 + O(x**6)",
+true,
+1.3859,
+294
+],
+"test_fps__hyper:13": [
+"x - 2*x**3/3 + 2*x**5/15 + O(x**6)",
+true,
+0.1511,
+297
+],
+"test_fps__hyper:2": [
+"1 - x**2/2 + x**4/24 + O(x**6)",
+true,
+0.0669,
+258
+],
+"test_fps__hyper:3": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + O(x**6)",
+true,
+0.0372,
+261
+],
+"test_fps__hyper:4": [
+"x - x**3/3 + x**5/5 + O(x**6)",
+true,
+0.1301,
+265
+],
+"test_fps__hyper:5": [
+"exp(pi/2) - x*exp(pi/2) + x**2*exp(pi/2)/2 - x**3*exp(pi/2)/3 + 5*x**4*exp(pi/2)/24 - x**5*exp(pi/2)/6 + O(x**6)",
+true,
+0.281,
+268
+],
+"test_fps__hyper:6": [
+"I + x - I*x**2/2 - I*x**4/8 + O(x**6)",
+true,
+0.296,
+273
+],
+"test_fps__hyper:7": [
+"pi/2 - x + x**3/3 - x**5/5 + O(x**6)",
+true,
+0.2569,
+276
+],
+"test_fps__hyper:8": [
+"x**2/2 - x**4/12 + O(x**6)",
+true,
+0.3149,
+279
+],
+"test_fps__hyper:9": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 + O(x**6)",
+true,
+0.0896,
+282
+],
+"test_fps__inverse:1": [
+"EXC ValueError",
+true,
+0.0004,
+595
+],
+"test_fps__inverse:10": [
+"EXC NotImplementedError",
+true,
+0.0,
+608
+],
+"test_fps__inverse:11": [
+"EXC ValueError",
+true,
+0.0,
+609
+],
+"test_fps__inverse:12": [
+"EXC NotImplementedError",
+true,
+0.0,
+610
+],
+"test_fps__inverse:13": [
+"EXC NotImplementedError",
+true,
+0.0,
+611
+],
+"test_fps__inverse:14": [
+"EXC NotImplementedError",
+true,
+0.0,
+612
+],
+"test_fps__inverse:15": [
+"1 - x + x**2/2 - x**3/6 + x**4/24 - x**5/120 + x**6/720 - x**7/5040 + O(x**8)",
+true,
+0.051,
+614
+],
+"test_fps__inverse:16": [
+"1 + x**2/2 + 5*x**4/24 + O(x**6)",
+true,
+0.0354,
+617
+],
+"test_fps__inverse:17": [
+"1 + x**2/2 + 5*x**4/24 + 61*x**6/720 + O(x**8)",
+true,
+0.0498,
+618
+],
+"test_fps__inverse:2": [
+null,
+true,
+0.0,
+598
+],
+"test_fps__inverse:3": [
+null,
+true,
+0.0,
+599
+],
+"test_fps__inverse:4": [
+"EXC ValueError",
+true,
+0.0,
+600
+],
+"test_fps__inverse:5": [
+"exp(x)",
+true,
+0.0,
+602
+],
+"test_fps__inverse:6": [
+"exp(-x)",
+true,
+0.0001,
+603
+],
+"test_fps__inverse:7": [
+"x**4/24 - x**3/6 + x**2/2 - x + 1",
+true,
+0.0209,
+604
+],
+"test_fps__inverse:8": [
+"1 - x + x**2/2 - x**3/6 + x**4/24 - x**5/120 + O(x**6)",
+true,
+0.0243,
+605
+],
+"test_fps__inverse:9": [
+"1 - x + x**2/2 - x**3/6 + x**4/24 + O(x**5)",
+true,
+0.0151,
+606
+],
+"test_fps__logarithmic_singularity:1": [
+"FormalPowerSeries(log(1 + 1/x), x, 0, 1, (SeqFormula(-1/((-1)**_k*_k), (_k, 1, oo)), SeqFormula(x**_k, (_k, 0, oo)), -log(x)))",
+true,
+0.0282,
+390
+],
+"test_fps__logarithmic_singularity:2": [
+"FormalPowerSeries(log(1 + 1/x), x, 0, 1, (SeqFormula(Piecewise(((-1)**(_k - 1)/_k, Eq(Mod(_k, 1), 0)), (0, True)), (_k, 2, oo)), SeqFormula(x**_k, (_k, 0, oo)), x - log(x)))",
+true,
+0.2899,
+392
+],
+"test_fps__logarithmic_singularity_fail:1": [
+"FormalPowerSeries(asech(x), x, 0, 1, (SeqFormula(Piecewise((-RisingFactorial(3/2, _k/2 - 1)/(4*_k*RisingFactorial(2, _k/2 - 1)), Eq(Mod(_k, 2), 0)), (0, True)), (_k, 3, oo)), SeqFormula(x**_k, (_k, 0, oo)), -x**2/4 - log(x) + log(2)))",
+false,
+0.4327,
+399
+],
+"test_fps__operations:1": [
+"sin(x) + cos(x)",
+true,
+0.0002,
+449
+],
+"test_fps__operations:10": [
+"sin(x) - cos(x)",
+true,
+0.0002,
+467
+],
+"test_fps__operations:11": [
+"-1 + x + x**2/2 - x**3/6 - x**4/24 + x**5/120 + O(x**6)",
+true,
+0.0063,
+468
+],
+"test_fps__operations:12": [
+"sin(x) - 1",
+true,
+0.0002,
+472
+],
+"test_fps__operations:13": [
+"-1 + x - x**3/6 + x**5/120 + O(x**6)",
+true,
+0.0042,
+473
+],
+"test_fps__operations:14": [
+"1 - cos(x)",
+true,
+0.0001,
+476
+],
+"test_fps__operations:15": [
+"x**2/2 - x**4/24 + O(x**6)",
+true,
+0.0037,
+477
+],
+"test_fps__operations:16": [
+"EXC ValueError",
+true,
+0.016,
+479
+],
+"test_fps__operations:17": [
+"EXC ValueError",
+true,
+0.0152,
+480
+],
+"test_fps__operations:18": [
+"3*sin(x)",
+true,
+0.0001,
+484
+],
+"test_fps__operations:19": [
+"3*x - x**3/2 + x**5/40 + O(x**6)",
+true,
+0.007,
+485
+],
+"test_fps__operations:2": [
+"1 + x - x**2/2 - x**3/6 + x**4/24 + x**5/120 + O(x**6)",
+true,
+0.0105,
+450
+],
+"test_fps__operations:20": [
+"3*cos(x)",
+true,
+0.0001,
+489
+],
+"test_fps__operations:21": [
+"3 - 3*x**2/2 + x**4/8 + O(x**6)",
+true,
+0.006,
+490
+],
+"test_fps__operations:22": [
+"FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**(_k/2 - 1/2)/(RisingFactorial(3/2, _k/2 - 1/2)*factorial(_k/2 - 1/2)), Eq(Mod(_k, 2), 1)), (0, True)), (_k, 2, oo)), SeqFormula(x**_k, (_k, 0, oo)), x))*FormalPowerSeries(cos(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**(_k/2)/(RisingFactorial(1/2, _k/2)*factorial(_k/2)), Eq(Mod(_k, 2), 0)), (0, True)), (_k, 1, oo)), SeqFormula(x**_k, (_k, 0, oo)), 1))",
+true,
+0.0014,
+492
+],
+"test_fps__operations:23": [
+"x*FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**(_k/2 - 1/2)/(RisingFactorial(3/2, _k/2 - 1/2)*factorial(_k/2 - 1/2)), Eq(Mod(_k, 2), 1)), (0, True)), (_k, 2, oo)), SeqFormula(x**_k, (_k, 0, oo)), x))",
+true,
+0.0008,
+493
+],
+"test_fps__operations:24": [
+"cos(x)",
+true,
+0.0,
+496
+],
+"test_fps__operations:25": [
+"1 - x**2/2 + x**4/24 + O(x**6)",
+true,
+0.0057,
+497
+],
+"test_fps__operations:26": [
+"-sin(x)",
+true,
+0.0001,
+500
+],
+"test_fps__operations:27": [
+"-x + x**3/6 - x**5/120 + O(x**6)",
+true,
+0.0084,
+501
+],
+"test_fps__operations:28": [
+"-cos(x)",
+true,
+0.0001,
+504
+],
+"test_fps__operations:29": [
+"-1 + x**2/2 - x**4/24 + O(x**6)",
+true,
+0.0059,
+505
+],
+"test_fps__operations:3": [
+"sin(x) + 1",
+true,
+0.0002,
+454
+],
+"test_fps__operations:30": [
+"1/(2*sqrt(x)) + 1/2 + x/12 + x**2/240 + x**3/10080 + x**4/725760 + x**5/79833600 + sqrt(x)/4 + x**(3/2)/48 + x**(5/2)/1440 + x**(7/2)/80640 + x**(9/2)/7257600 + x**(11/2)/958003200 + O(x**6)",
+true,
+0.1064,
+509
+],
+"test_fps__operations:31": [
+"1 - cos(1)",
+true,
+0.0124,
+515
+],
+"test_fps__operations:32": [
+"1 - cos(1)",
+true,
+0.0182,
+516
+],
+"test_fps__operations:33": [
+"-cos(x)",
+true,
+0.0001,
+519
+],
+"test_fps__operations:34": [
+"-1 + x**2/2 - x**4/24 + O(x**6)",
+true,
+0.0062,
+520
+],
+"test_fps__operations:35": [
+"sin(x)",
+true,
+0.0,
+523
+],
+"test_fps__operations:36": [
+"x - x**3/6 + x**5/120 + O(x**6)",
+true,
+0.0069,
+524
+],
+"test_fps__operations:4": [
+"1 + x - x**3/6 + x**5/120 + O(x**6)",
+true,
+0.0057,
+455
+],
+"test_fps__operations:5": [
+"cos(x) + 1",
+true,
+0.0001,
+458
+],
+"test_fps__operations:6": [
+"2 - x**2/2 + x**4/24 + O(x**6)",
+true,
+0.0066,
+459
+],
+"test_fps__operations:7": [
+"x + FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**(_k/2 - 1/2)/(RisingFactorial(3/2, _k/2 - 1/2)*factorial(_k/2 - 1/2)), Eq(Mod(_k, 2), 1)), (0, True)), (_k, 2, oo)), SeqFormula(x**_k, (_k, 0, oo)), x))",
+true,
+0.0014,
+461
+],
+"test_fps__operations:8": [
+"-1 + x**2/2 - x**4/24 + O(x**6)",
+true,
+0.0041,
+463
+],
+"test_fps__operations:9": [
+"0",
+true,
+0.0011,
+464
+],
+"test_fps__product:1": [
+"EXC ValueError",
+true,
+0.0,
+529
+],
+"test_fps__product:10": [
+"exp(x)*sin(x)",
+true,
+0.0002,
+540
+],
+"test_fps__product:11": [
+"x**3/3 + x**2 + x",
+true,
+0.0232,
+541
+],
+"test_fps__product:12": [
+"x + x**2 + x**3/3 + O(x**4)",
+true,
+0.0028,
+542
+],
+"test_fps__product:13": [
+"x**3/3 + x**2 + x",
+true,
+0.0025,
+543
+],
+"test_fps__product:14": [
+"EXC NotImplementedError",
+true,
+0.0,
+545
+],
+"test_fps__product:15": [
+"EXC NotImplementedError",
+true,
+0.0,
+546
+],
+"test_fps__product:16": [
+"EXC NotImplementedError",
+true,
+0.0,
+547
+],
+"test_fps__product:17": [
+"EXC NotImplementedError",
+true,
+0.0,
+548
+],
+"test_fps__product:18": [
+"-2*x**3/3 + x",
+true,
+0.0114,
+550
+],
+"test_fps__product:19": [
+"x - 2*x**3/3 + O(x**4)",
+true,
+0.0031,
+551
+],
+"test_fps__product:2": [
+"EXC ValueError",
+true,
+0.0133,
+530
+],
+"test_fps__product:3": [
+"EXC ValueError",
+true,
+0.0135,
+531
+],
+"test_fps__product:4": [
+"EXC ValueError",
+true,
+0.016,
+532
+],
+"test_fps__product:5": [
+null,
+true,
+0.0,
+535
+],
+"test_fps__product:6": [
+null,
+true,
+0.0,
+536
+],
+"test_fps__product:7": [
+null,
+true,
+0.0,
+537
+],
+"test_fps__product:8": [
+"sin(x)",
+true,
+0.0,
+538
+],
+"test_fps__product:9": [
+"exp(x)",
+true,
+0.0,
+539
+],
+"test_fps__rational:1": [
+"1/x",
+true,
+0.2368,
+202
+],
+"test_fps__rational:10": [
+"log(3) - 2/3 - (2 - x)**2/18 - (2 - x)**3/81 - (2 - x)**4/324 - (2 - x)**5/1215 + x/3 + O((x - 2)**6, (x, 2))",
+true,
+0.0562,
+230
+],
+"test_fps__rational:11": [
+"x - x**3/3 + x**5/5 + O(x**6)",
+true,
+0.0426,
+235
+],
+"test_fps__rational:12": [
+"x - x**3/3 + x**5/5 + O(x**6)",
+true,
+0.0606,
+236
+],
+"test_fps__rational:13": [
+"atan(2) - 2/5 - 2*(x - 2)**2/25 + 11*(x - 2)**3/375 - 6*(x - 2)**4/625 + 41*(x - 2)**5/15625 + x/5 + O((x - 2)**6, (x, 2))",
+true,
+0.3627,
+238
+],
+"test_fps__rational:14": [
+"atan(2) - 2/5 - 2*(2 - x)**2/25 - 11*(2 - x)**3/375 - 6*(2 - x)**4/625 - 41*(2 - x)**5/15625 + x/5 + O((x - 2)**6, (x, 2))",
+true,
+0.2408,
+241
+],
+"test_fps__rational:15": [
+"x**2/2 - x**4/12 + O(x**6)",
+true,
+0.1824,
+246
+],
+"test_fps__rational:16": [
+"2*x**3/3 + 2*x**7/7 + O(x**10)",
+true,
+0.0945,
+249
+],
+"test_fps__rational:2": [
+"(x**2 + x + 1)/x**3",
+true,
+2.0869,
+203
+],
+"test_fps__rational:3": [
+"-1/2 - 5*x/4 - 17*x**2/8 - 49*x**3/16 - 129*x**4/32 - 321*x**5/64 + O(x**6)",
+true,
+0.0596,
+206
+],
+"test_fps__rational:4": [
+"1/2 + 5*x/4 + 17*x**2/8 + 49*x**3/16 + 113*x**4/32 + 241*x**5/64 + O(x**6)",
+true,
+0.042,
+211
+],
+"test_fps__rational:5": [
+"x + x**2 + 2*x**3 + 3*x**4 + 5*x**5 + O(x**6)",
+true,
+0.5246,
+216
+],
+"test_fps__rational:6": [
+"1/2 - x/2 + x**2/4 - x**4/8 + x**5/8 + O(x**6)",
+true,
+0.3156,
+220
+],
+"test_fps__rational:7": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 + O(x**6)",
+true,
+0.0263,
+224
+],
+"test_fps__rational:8": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 + O(x**6)",
+true,
+0.0386,
+226
+],
+"test_fps__rational:9": [
+"log(3) - 2/3 - (x - 2)**2/18 + (x - 2)**3/81 - (x - 2)**4/324 + (x - 2)**5/1215 + x/3 + O((x - 2)**6, (x, 2))",
+true,
+0.0625,
+227
+],
+"test_fps__slow:1": [
+"2*x**2 + 2*x**3 - x**4/3 - x**5 + O(x**6)",
+true,
+1.3399,
+442
+],
+"test_fps_shift:1": [
+"x**(-4) - 1/(6*x**2) + 1/120 - x**2/5040 + x**4/362880 + O(x**6)",
+true,
+0.1768,
+302
+],
+"test_fps_shift:2": [
+"x**3 - x**5/3 + O(x**6)",
+true,
+0.2141,
+306
+],
+"test_fps_shift:3": [
+"x - x**2/2 + x**3/24 - x**4/720 + x**5/40320 + O(x**6)",
+true,
+0.1799,
+310
+],
+"test_fps_shift:4": [
+"x**2 - x**3/2 + x**4/24 - x**5/720 + O(x**6)",
+true,
+0.1636,
+314
+],
+"test_fps_symbolic:1": [
+"-x**(n + 6)/6 + x**(n + 2) + O(x**(n + 8))",
+true,
+0.1464,
+404
+],
+"test_fps_symbolic:2": [
+"Sum(-x**(_k + n)/((-1)**_k*_k), (_k, 1, oo))",
+true,
+0.0012,
+409
+],
+"test_fps_symbolic:3": [
+"(x - 2)**(n + 5)/1215 - (x - 2)**(n + 4)/324 + (x - 2)**(n + 3)/81 - (x - 2)**(n + 2)/18 + (x - 2)**(n + 1)/3 + (x - 2)**n*log(3) + O((x - 2)**(n + 6), (x, 2))",
+true,
+0.0858,
+413
+],
+"test_fps_symbolic:4": [
+"x**(n + 2)/24 + x**(n - 2) - x**n/2 + O(x**(n + 4))",
+true,
+0.0864,
+418
+],
+"test_fps_symbolic:5": [
+"x**(n + 5)/60 + x**(n + 4)/24 + x**(n + 2)/2 + x**(n + 1) + x**(n - 1) + x**n + O(x**(n + 6))",
+true,
+0.1358,
+422
+],
+"test_fps_symbolic:6": [
+"x**(n - 3)/3 - x**(n - 5)/5 + x**n*(pi/2 - 1/x) + O(x**(n - 6), (x, oo))",
+true,
+0.2823,
+427
+],
+"test_fps_symbolic:7": [
+"x**(n/2 + 4)/24 - x**(n/2 + 2)/2 + x**(n/2) + O(x**(n/2 + 6))",
+true,
+0.0839,
+432
+],
+"test_fps_symbolic:8": [
+"x**(m + n + 5)/120 - x**(m + n + 3)/6 + x**(m + n + 1) + O(x**(m + n + 6))",
+true,
+0.0994,
+436
+],
+"test_hyper_re:1": [
+"(k + 1)*(k + 2)*r(k + 2) + r(k)",
+true,
+0.0036,
+135
+],
+"test_hyper_re:2": [
+"(k + 2)*(k + 3)*r(k + 3) - r(k)",
+true,
+0.0039,
+138
+],
+"test_hyper_re:3": [
+"(-2*k - 2)*r(k + 1) + (k + 1)*(k + 2)*r(k + 2) + 2*r(k)",
+true,
+0.0053,
+141
+],
+"test_hyper_re:4": [
+"k*r(k) + 2*n*r(k + 1) + (-k - 2)*r(k + 2)",
+true,
+0.0054,
+145
+],
+"test_hyper_re:5": [
+"(k*(k - 1) + k)*r(k) + (4*k - (k + 9)*(k + 10) + 40)*r(k + 10)",
+true,
+0.0104,
+149
+],
+"test_hyper_re:6": [
+"-k*(k + 1)*(k + 2)*r(k + 2) + (k*(k - 2)*(k - 1) + 3*k*(k - 1) + k)*r(k)",
+true,
+0.0097,
+154
+],
+"test_rational_algorithm:1": [
+"tuple(-2**(-k - 1) + 1 - factorial(k + 1)/factorial(k), 0, 0)",
+true,
+0.0293,
+32
+],
+"test_rational_algorithm:10": [
+"tuple((-I/(2*(-I)**k) + I/(2*I**k))/k, 0, 1)",
+true,
+0.0236,
+62
+],
+"test_rational_algorithm:11": [
+"None",
+true,
+0.0109,
+66
+],
+"test_rational_algorithm:12": [
+"tuple((I*I**(1 - k)/2 - I*(-I)**(1 - k)/2)/(k*(k - 1)), 0, 2)",
+true,
+0.0229,
+67
+],
+"test_rational_algorithm:13": [
+"None",
+true,
+0.036,
+72
+],
+"test_rational_algorithm:14": [
+"tuple((1/2 + I/(2*(-I)**k) - I/(2*I**k) - 1/(2*(-1)**k))/k, 0, 1)",
+true,
+0.1608,
+73
+],
+"test_rational_algorithm:15": [
+"None",
+true,
+0.0033,
+77
+],
+"test_rational_algorithm:2": [
+"tuple(4 - 15*2**(-k - 1), x + 4, 0)",
+true,
+0.0172,
+36
+],
+"test_rational_algorithm:3": [
+"tuple(m**(-k - 1)*z/(-m + y) - y**(-k - 1)*z/(-m + y), 0, 0)",
+true,
+0.0337,
+40
+],
+"test_rational_algorithm:4": [
+"None",
+true,
+0.01,
+44
+],
+"test_rational_algorithm:5": [
+"tuple((-1/2 + sqrt(5)/2)**(-k - 1)*(1/2 - sqrt(5)/10) + (-sqrt(5)/2 - 1/2)**(-k - 1)*(sqrt(5)/10 + 1/2), 0, 0)",
+true,
+0.0268,
+45
+],
+"test_rational_algorithm:6": [
+"None",
+true,
+0.0117,
+52
+],
+"test_rational_algorithm:7": [
+"tuple(-I*(-1 - I)**(-k - 1)/2 + I*(-1 + I)**(-k - 1)/2, 0, 0)",
+true,
+0.0226,
+53
+],
+"test_rational_algorithm:8": [
+"tuple(-1/((-1)**k*k), 0, 1)",
+true,
+0.0079,
+57
+],
+"test_rational_algorithm:9": [
+"None",
+true,
+0.0106,
+61
+],
+"test_rational_independent:1": [
+"list()",
+true,
+0.0,
+82
+],
+"test_rational_independent:2": [
+"list(cos(x), sin(x))",
+true,
+0.0011,
+83
+],
+"test_rational_independent:3": [
+"list(x**3 + x**2, x*sin(x) + sin(x))",
+true,
+0.003,
+84
+],
+"test_rational_independent:4": [
+"list(x + 1, x*log(x) + log(x), sin(x) + sin(x)/x, cos(x))",
+true,
+0.0139,
+86
+],
+"test_simpleDE:1": [
+"tuple(-f(x) + Derivative(f(x), x), 1)",
+true,
+0.0003,
+93
+],
+"test_simpleDE:2": [
+"tuple(f(x) + Derivative(f(x), (x, 2)), 2)",
+true,
+0.0003,
+96
+],
+"test_simpleDE:3": [
+"tuple((x + 1)*Derivative(f(x), (x, 2)) + Derivative(f(x), x), 2)",
+true,
+0.0004,
+99
+],
+"test_simpleDE:4": [
+"tuple(x*Derivative(f(x), x) + (x**2 - 1)*Derivative(f(x), (x, 2)), 2)",
+true,
+0.0005,
+102
+],
+"test_simpleDE:5": [
+"tuple(2*f(x) - 2*Derivative(f(x), x) + Derivative(f(x), (x, 2)), 2)",
+true,
+0.0006,
+106
+],
+"test_simpleDE:6": [
+"tuple(2*n*f(x) + (x**2 - 1)*Derivative(f(x), x), 1)",
+true,
+0.0006,
+109
+],
+"test_simpleDE:7": [
+"tuple(-x*f(x) + Derivative(f(x), (x, 2)), 2)",
+true,
+0.0003,
+112
+]
+}

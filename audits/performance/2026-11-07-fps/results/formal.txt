@@ -1,0 +1,121 @@
+before_formal 220 {"DECLINED": 85, "DIFF": 5, "SAME": 101, "WRONG": 29}
+after_formal 220 {"SAME": 220}
+test_exp_re:1 | DECLINED | SAME | -r(k) + r(k + 1) | EXC NotImplementedError | -r(k) + r(k + 1)
+test_exp_re:2 | DECLINED | SAME | r(k) + r(k + 2) | EXC NotImplementedError | r(k) + r(k + 2)
+test_exp_re:3 | DECLINED | SAME | r(k) + r(k + 1) + r(k + 2) | EXC NotImplementedError | r(k) + r(k + 1) + r(k + 2)
+test_exp_re:4 | DECLINED | SAME | r(k) + r(k + 1) | EXC NotImplementedError | r(k) + r(k + 1)
+test_exp_re:5 | DECLINED | SAME | r(k) + r(k + 2) + r(k + 3) | EXC NotImplementedError | r(k) + r(k + 2) + r(k + 3)
+test_fps:15 | DECLINED | SAME | FormalPowerSeries(log(x + 1), x, 0, 1, (SeqFormula(-1/((-1)**_k*_k), ( | EXC AttributeError | FormalPowerSeries(log(x + 1), x, 0, 1, (SeqFormula(-1/((-1)**_k*_k), (
+test_fps:17 | DECLINED | SAME | x | EXC AttributeError | x
+test_fps:19 | DECLINED | SAME | Sum(-x**_k/((-1)**_k*_k), (_k, 1, oo)) | EXC AttributeError | Sum(-x**_k/((-1)**_k*_k), (_k, 1, oo))
+test_fps:23 | WRONG | SAME | EXC NotImplementedError | EXC ValueError | EXC NotImplementedError
+test_fps__Add_expr:3 | DECLINED | SAME | 1/x + x - x**3/6 + x**5/120 + O(x**6) | EXC AttributeError | 1/x + x - x**3/6 + x**5/120 + O(x**6)
+test_fps__asymptotic:2 | WRONG | SAME | O(x**(-6), (x, oo)) | O(x**(-6), (x, -oo)) | O(x**(-6), (x, oo))
+test_fps__asymptotic:4 | WRONG | SAME | -1 + O(x**(-6), (x, oo)) | -1 + O(x**(-6), (x, -oo)) | -1 + O(x**(-6), (x, oo))
+test_fps__asymptotic:6 | WRONG | SAME | -1/(5*x**5) + 1/(3*x**3) - 1/x - pi/2 + O(x**(-6), (x, oo)) | -1/(5*x**5) + 1/(3*x**3) - 1/x - pi/2 + O(x**(-6), (x, -oo)) | -1/(5*x**5) + 1/(3*x**3) - 1/x - pi/2 + O(x**(-6), (x, oo))
+test_fps__asymptotic:7 | DIFF | SAME | FormalPowerSeries(log(x + 1), x, oo, 1, (SeqFormula(-1/((-1)**_k*_k),  | log(x + 1) | FormalPowerSeries(log(x + 1), x, oo, 1, (SeqFormula(-1/((-1)**_k*_k), 
+test_fps__asymptotic:8 | DIFF | SAME | FormalPowerSeries(log(x + 1), x, -oo, 1, (SeqFormula(-1/_k, (_k, 1, oo | log(x + 1) | FormalPowerSeries(log(x + 1), x, -oo, 1, (SeqFormula(-1/_k, (_k, 1, oo
+test_fps__compose:10 | DECLINED | SAME | exp(x) | EXC AttributeError | exp(x)
+test_fps__compose:11 | DECLINED | SAME | sin(x) | EXC AttributeError | sin(x)
+test_fps__compose:13 | DECLINED | SAME | -x**5/15 - x**4/8 + x**2/2 + x + 1 | EXC AttributeError | -x**5/15 - x**4/8 + x**2/2 + x + 1
+test_fps__compose:16 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__compose:17 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__compose:18 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__compose:19 | WRONG | SAME | EXC NotImplementedError | NO EXC FormalPowerSeries(Integral(exp(sin(x)), x), x, 0, 1) | EXC NotImplementedError
+test_fps__compose:7 | WRONG | SAME | None | None | None
+test_fps__compose:8 | WRONG | SAME | None | None | None
+test_fps__compose:9 | WRONG | SAME | None | None | None
+test_fps__fractional:1 | DECLINED | SAME | 1/sqrt(x) - sqrt(x)/6 + x**(3/2)/120 - x**(5/2)/5040 + x**(7/2)/362880 | EXC AttributeError | 1/sqrt(x) - sqrt(x)/6 + x**(3/2)/120 - x**(5/2)/5040 + x**(7/2)/362880
+test_fps__fractional:2 | DECLINED | SAME | x**(3/2) - x**(5/2)/6 + x**(7/2)/120 - x**(9/2)/5040 + x**(11/2)/36288 | EXC AttributeError | x**(3/2) - x**(5/2)/6 + x**(7/2)/120 - x**(9/2)/5040 + x**(11/2)/36288
+test_fps__fractional:3 | DECLINED | SAME | x**(-3/2) - 1/(3*sqrt(x)) + sqrt(x)/5 - x**(3/2)/7 + x**(5/2)/9 - x**( | EXC AttributeError | x**(-3/2) - 1/(3*sqrt(x)) + sqrt(x)/5 - x**(3/2)/7 + x**(5/2)/9 - x**(
+test_fps__fractional:4 | DECLINED | SAME | 1 + x/2 + x**2/24 + x**3/720 + x**4/40320 + x**5/3628800 + sqrt(x) + x | EXC AttributeError | 1 + x/2 + x**2/24 + x**3/720 + x**4/40320 + x**5/3628800 + sqrt(x) + x
+test_fps__fractional:5 | DECLINED | SAME | x + x**2/2 + x**3/24 + x**4/720 + x**5/40320 + x**(3/2) + x**(5/2)/6 + | EXC AttributeError | x + x**2/2 + x**3/24 + x**4/720 + x**5/40320 + x**(3/2) + x**(5/2)/6 +
+test_fps__hyper:10 | WRONG | SAME | 3**(5/6)*gamma(1/3)/(6*pi) - 3**(2/3)*x**2/(3*gamma(1/3)) + O(x**6) | 3**(5/6)*gamma(1/3)/(6*pi) - 3**(1/6)*x**2*gamma(2/3)/(2*pi) + O(x**6) | 3**(5/6)*gamma(1/3)/(6*pi) - 3**(2/3)*x**2/(3*gamma(1/3)) + O(x**6)
+test_fps__inverse:10 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__inverse:11 | WRONG | SAME | EXC ValueError | EXC AttributeError | EXC ValueError
+test_fps__inverse:12 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__inverse:13 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__inverse:14 | WRONG | SAME | EXC NotImplementedError | NO EXC FormalPowerSeries(-exp(-x), x, 0, 1) | EXC NotImplementedError
+test_fps__inverse:2 | WRONG | SAME | None | None | None
+test_fps__inverse:3 | WRONG | SAME | None | None | None
+test_fps__inverse:4 | WRONG | SAME | EXC ValueError | EXC AttributeError | EXC ValueError
+test_fps__inverse:5 | DECLINED | SAME | exp(x) | EXC AttributeError | exp(x)
+test_fps__inverse:7 | DECLINED | SAME | x**4/24 - x**3/6 + x**2/2 - x + 1 | EXC AttributeError | x**4/24 - x**3/6 + x**2/2 - x + 1
+test_fps__logarithmic_singularity:1 | DIFF | SAME | FormalPowerSeries(log(1 + 1/x), x, 0, 1, (SeqFormula(-1/((-1)**_k*_k), | log(1 + 1/x) | FormalPowerSeries(log(1 + 1/x), x, 0, 1, (SeqFormula(-1/((-1)**_k*_k),
+test_fps__logarithmic_singularity:2 | DIFF | SAME | FormalPowerSeries(log(1 + 1/x), x, 0, 1, (SeqFormula(Piecewise(((-1)** | log(1 + 1/x) | FormalPowerSeries(log(1 + 1/x), x, 0, 1, (SeqFormula(Piecewise(((-1)**
+test_fps__logarithmic_singularity_fail:1 | DIFF | SAME | FormalPowerSeries(asech(x), x, 0, 1, (SeqFormula(Piecewise((-RisingFac | asech(x) | FormalPowerSeries(asech(x), x, 0, 1, (SeqFormula(Piecewise((-RisingFac
+test_fps__operations:1 | DECLINED | SAME | sin(x) + cos(x) | EXC NameError | sin(x) + cos(x)
+test_fps__operations:10 | DECLINED | SAME | sin(x) - cos(x) | EXC NameError | sin(x) - cos(x)
+test_fps__operations:11 | DECLINED | SAME | -1 + x + x**2/2 - x**3/6 - x**4/24 + x**5/120 + O(x**6) | EXC NameError | -1 + x + x**2/2 - x**3/6 - x**4/24 + x**5/120 + O(x**6)
+test_fps__operations:12 | DECLINED | SAME | sin(x) - 1 | EXC NameError | sin(x) - 1
+test_fps__operations:13 | DECLINED | SAME | -1 + x - x**3/6 + x**5/120 + O(x**6) | EXC NameError | -1 + x - x**3/6 + x**5/120 + O(x**6)
+test_fps__operations:14 | DECLINED | SAME | 1 - cos(x) | EXC NameError | 1 - cos(x)
+test_fps__operations:15 | DECLINED | SAME | x**2/2 - x**4/24 + O(x**6) | EXC NameError | x**2/2 - x**4/24 + O(x**6)
+test_fps__operations:16 | WRONG | SAME | EXC ValueError | EXC TypeError | EXC ValueError
+test_fps__operations:17 | WRONG | SAME | EXC ValueError | EXC TypeError | EXC ValueError
+test_fps__operations:18 | DECLINED | SAME | 3*sin(x) | EXC NameError | 3*sin(x)
+test_fps__operations:19 | DECLINED | SAME | 3*x - x**3/2 + x**5/40 + O(x**6) | EXC NameError | 3*x - x**3/2 + x**5/40 + O(x**6)
+test_fps__operations:2 | DECLINED | SAME | 1 + x - x**2/2 - x**3/6 + x**4/24 + x**5/120 + O(x**6) | EXC NameError | 1 + x - x**2/2 - x**3/6 + x**4/24 + x**5/120 + O(x**6)
+test_fps__operations:20 | DECLINED | SAME | 3*cos(x) | EXC NameError | 3*cos(x)
+test_fps__operations:21 | DECLINED | SAME | 3 - 3*x**2/2 + x**4/8 + O(x**6) | EXC NameError | 3 - 3*x**2/2 + x**4/8 + O(x**6)
+test_fps__operations:22 | DECLINED | SAME | FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**(_k/ | EXC TypeError | FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**(_k/
+test_fps__operations:23 | DECLINED | SAME | x*FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**(_ | EXC TypeError | x*FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**(_
+test_fps__operations:3 | DECLINED | SAME | sin(x) + 1 | EXC NameError | sin(x) + 1
+test_fps__operations:30 | DECLINED | SAME | 1/(2*sqrt(x)) + 1/2 + x/12 + x**2/240 + x**3/10080 + x**4/725760 + x** | EXC AttributeError | 1/(2*sqrt(x)) + 1/2 + x/12 + x**2/240 + x**3/10080 + x**4/725760 + x**
+test_fps__operations:31 | DECLINED | SAME | 1 - cos(1) | EXC TypeError | 1 - cos(1)
+test_fps__operations:32 | DECLINED | SAME | 1 - cos(1) | EXC AttributeError | 1 - cos(1)
+test_fps__operations:33 | DECLINED | SAME | -cos(x) | EXC NameError | -cos(x)
+test_fps__operations:34 | DECLINED | SAME | -1 + x**2/2 - x**4/24 + O(x**6) | EXC NameError | -1 + x**2/2 - x**4/24 + O(x**6)
+test_fps__operations:4 | DECLINED | SAME | 1 + x - x**3/6 + x**5/120 + O(x**6) | EXC NameError | 1 + x - x**3/6 + x**5/120 + O(x**6)
+test_fps__operations:5 | DECLINED | SAME | cos(x) + 1 | EXC NameError | cos(x) + 1
+test_fps__operations:6 | DECLINED | SAME | 2 - x**2/2 + x**4/24 + O(x**6) | EXC NameError | 2 - x**2/2 + x**4/24 + O(x**6)
+test_fps__operations:7 | DECLINED | SAME | x + FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)** | EXC TypeError | x + FormalPowerSeries(sin(x), x, 0, 1, (SeqFormula(Piecewise(((-1/4)**
+test_fps__operations:9 | DECLINED | SAME | 0 | EXC TypeError | 0
+test_fps__product:11 | DECLINED | SAME | x**3/3 + x**2 + x | EXC AttributeError | x**3/3 + x**2 + x
+test_fps__product:14 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__product:15 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__product:16 | WRONG | SAME | EXC NotImplementedError | EXC AttributeError | EXC NotImplementedError
+test_fps__product:17 | WRONG | SAME | EXC NotImplementedError | NO EXC FormalPowerSeries(exp(x)*sin(x)/2 - exp(x)*cos(x)/2, x, 0, 1) | EXC NotImplementedError
+test_fps__product:18 | DECLINED | SAME | -2*x**3/3 + x | EXC AttributeError | -2*x**3/3 + x
+test_fps__product:5 | WRONG | SAME | None | None | None
+test_fps__product:6 | WRONG | SAME | None | None | None
+test_fps__product:7 | WRONG | SAME | None | None | None
+test_fps__product:8 | DECLINED | SAME | sin(x) | EXC AttributeError | sin(x)
+test_fps__product:9 | DECLINED | SAME | exp(x) | EXC AttributeError | exp(x)
+test_fps_shift:1 | DECLINED | SAME | x**(-4) - 1/(6*x**2) + 1/120 - x**2/5040 + x**4/362880 + O(x**6) | EXC AttributeError | x**(-4) - 1/(6*x**2) + 1/120 - x**2/5040 + x**4/362880 + O(x**6)
+test_fps_symbolic:2 | DECLINED | SAME | Sum(-x**(_k + n)/((-1)**_k*_k), (_k, 1, oo)) | EXC AttributeError | Sum(-x**(_k + n)/((-1)**_k*_k), (_k, 1, oo))
+test_fps_symbolic:3 | DECLINED | SAME | (x - 2)**(n + 5)/1215 - (x - 2)**(n + 4)/324 + (x - 2)**(n + 3)/81 - ( | EXC NotImplementedError | (x - 2)**(n + 5)/1215 - (x - 2)**(n + 4)/324 + (x - 2)**(n + 3)/81 - (
+test_fps_symbolic:5 | DECLINED | SAME | x**(n + 5)/60 + x**(n + 4)/24 + x**(n + 2)/2 + x**(n + 1) + x**(n - 1) | EXC NotImplementedError | x**(n + 5)/60 + x**(n + 4)/24 + x**(n + 2)/2 + x**(n + 1) + x**(n - 1)
+test_fps_symbolic:6 | DECLINED | SAME | x**(n - 3)/3 - x**(n - 5)/5 + x**n*(pi/2 - 1/x) + O(x**(n - 6), (x, oo | EXC NotImplementedError | x**(n - 3)/3 - x**(n - 5)/5 + x**n*(pi/2 - 1/x) + O(x**(n - 6), (x, oo
+test_hyper_re:1 | DECLINED | SAME | (k + 1)*(k + 2)*r(k + 2) + r(k) | EXC NotImplementedError | (k + 1)*(k + 2)*r(k + 2) + r(k)
+test_hyper_re:2 | DECLINED | SAME | (k + 2)*(k + 3)*r(k + 3) - r(k) | EXC NotImplementedError | (k + 2)*(k + 3)*r(k + 3) - r(k)
+test_hyper_re:3 | DECLINED | SAME | (-2*k - 2)*r(k + 1) + (k + 1)*(k + 2)*r(k + 2) + 2*r(k) | EXC NotImplementedError | (-2*k - 2)*r(k + 1) + (k + 1)*(k + 2)*r(k + 2) + 2*r(k)
+test_hyper_re:4 | DECLINED | SAME | k*r(k) + 2*n*r(k + 1) + (-k - 2)*r(k + 2) | EXC NotImplementedError | k*r(k) + 2*n*r(k + 1) + (-k - 2)*r(k + 2)
+test_hyper_re:5 | DECLINED | SAME | (k*(k - 1) + k)*r(k) + (4*k - (k + 9)*(k + 10) + 40)*r(k + 10) | EXC NotImplementedError | (k*(k - 1) + k)*r(k) + (4*k - (k + 9)*(k + 10) + 40)*r(k + 10)
+test_hyper_re:6 | DECLINED | SAME | -k*(k + 1)*(k + 2)*r(k + 2) + (k*(k - 2)*(k - 1) + 3*k*(k - 1) + k)*r( | EXC NotImplementedError | -k*(k + 1)*(k + 2)*r(k + 2) + (k*(k - 2)*(k - 1) + 3*k*(k - 1) + k)*r(
+test_rational_algorithm:1 | DECLINED | SAME | tuple(-2**(-k - 1) + 1 - factorial(k + 1)/factorial(k), 0, 0) | EXC NotImplementedError | tuple(-2**(-k - 1) + 1 - factorial(k + 1)/factorial(k), 0, 0)
+test_rational_algorithm:10 | DECLINED | SAME | tuple((-I/(2*(-I)**k) + I/(2*I**k))/k, 0, 1) | EXC NotImplementedError | tuple((-I/(2*(-I)**k) + I/(2*I**k))/k, 0, 1)
+test_rational_algorithm:11 | DECLINED | SAME | None | EXC NotImplementedError | None
+test_rational_algorithm:12 | DECLINED | SAME | tuple((I*I**(1 - k)/2 - I*(-I)**(1 - k)/2)/(k*(k - 1)), 0, 2) | EXC NotImplementedError | tuple((I*I**(1 - k)/2 - I*(-I)**(1 - k)/2)/(k*(k - 1)), 0, 2)
+test_rational_algorithm:13 | DECLINED | SAME | None | EXC NotImplementedError | None
+test_rational_algorithm:14 | DECLINED | SAME | tuple((1/2 + I/(2*(-I)**k) - I/(2*I**k) - 1/(2*(-1)**k))/k, 0, 1) | EXC NotImplementedError | tuple((1/2 + I/(2*(-I)**k) - I/(2*I**k) - 1/(2*(-1)**k))/k, 0, 1)
+test_rational_algorithm:15 | DECLINED | SAME | None | EXC NotImplementedError | None
+test_rational_algorithm:2 | DECLINED | SAME | tuple(4 - 15*2**(-k - 1), x + 4, 0) | EXC NotImplementedError | tuple(4 - 15*2**(-k - 1), x + 4, 0)
+test_rational_algorithm:3 | DECLINED | SAME | tuple(m**(-k - 1)*z/(-m + y) - y**(-k - 1)*z/(-m + y), 0, 0) | EXC NotImplementedError | tuple(m**(-k - 1)*z/(-m + y) - y**(-k - 1)*z/(-m + y), 0, 0)
+test_rational_algorithm:4 | DECLINED | SAME | None | EXC NotImplementedError | None
+test_rational_algorithm:5 | DECLINED | SAME | tuple((-1/2 + sqrt(5)/2)**(-k - 1)*(1/2 - sqrt(5)/10) + (-sqrt(5)/2 -  | EXC NotImplementedError | tuple((-1/2 + sqrt(5)/2)**(-k - 1)*(1/2 - sqrt(5)/10) + (-sqrt(5)/2 - 
+test_rational_algorithm:6 | DECLINED | SAME | None | EXC NotImplementedError | None
+test_rational_algorithm:7 | DECLINED | SAME | tuple(-I*(-1 - I)**(-k - 1)/2 + I*(-1 + I)**(-k - 1)/2, 0, 0) | EXC NotImplementedError | tuple(-I*(-1 - I)**(-k - 1)/2 + I*(-1 + I)**(-k - 1)/2, 0, 0)
+test_rational_algorithm:8 | DECLINED | SAME | tuple(-1/((-1)**k*k), 0, 1) | EXC NotImplementedError | tuple(-1/((-1)**k*k), 0, 1)
+test_rational_algorithm:9 | DECLINED | SAME | None | EXC NotImplementedError | None
+test_rational_independent:1 | DECLINED | SAME | list() | EXC NotImplementedError | list()
+test_rational_independent:2 | DECLINED | SAME | list(cos(x), sin(x)) | EXC NotImplementedError | list(cos(x), sin(x))
+test_rational_independent:3 | DECLINED | SAME | list(x**3 + x**2, x*sin(x) + sin(x)) | EXC NotImplementedError | list(x**3 + x**2, x*sin(x) + sin(x))
+test_rational_independent:4 | DECLINED | SAME | list(x + 1, x*log(x) + log(x), sin(x) + sin(x)/x, cos(x)) | EXC NotImplementedError | list(x + 1, x*log(x) + log(x), sin(x) + sin(x)/x, cos(x))
+test_simpleDE:1 | DECLINED | SAME | tuple(-f(x) + Derivative(f(x), x), 1) | - | tuple(-f(x) + Derivative(f(x), x), 1)
+test_simpleDE:2 | DECLINED | SAME | tuple(f(x) + Derivative(f(x), (x, 2)), 2) | - | tuple(f(x) + Derivative(f(x), (x, 2)), 2)
+test_simpleDE:3 | DECLINED | SAME | tuple((x + 1)*Derivative(f(x), (x, 2)) + Derivative(f(x), x), 2) | - | tuple((x + 1)*Derivative(f(x), (x, 2)) + Derivative(f(x), x), 2)
+test_simpleDE:4 | DECLINED | SAME | tuple(x*Derivative(f(x), x) + (x**2 - 1)*Derivative(f(x), (x, 2)), 2) | - | tuple(x*Derivative(f(x), x) + (x**2 - 1)*Derivative(f(x), (x, 2)), 2)
+test_simpleDE:5 | DECLINED | SAME | tuple(2*f(x) - 2*Derivative(f(x), x) + Derivative(f(x), (x, 2)), 2) | - | tuple(2*f(x) - 2*Derivative(f(x), x) + Derivative(f(x), (x, 2)), 2)
+test_simpleDE:6 | DECLINED | SAME | tuple(2*n*f(x) + (x**2 - 1)*Derivative(f(x), x), 1) | - | tuple(2*n*f(x) + (x**2 - 1)*Derivative(f(x), x), 1)
+test_simpleDE:7 | DECLINED | SAME | tuple(-x*f(x) + Derivative(f(x), (x, 2)), 2) | - | tuple(-x*f(x) + Derivative(f(x), (x, 2)), 2)

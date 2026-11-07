@@ -75,6 +75,7 @@ mod calculus;
 mod accum;
 mod ask;
 mod recurrences;
+mod formal;
 mod transforms;
 
 /// A symbolic expression.
@@ -4815,6 +4816,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     recurrences::register(m)?;
     transforms::register(m)?;
     series::register(m)?;
+    formal::register(m)?;
     accum::register(m)?;
     printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

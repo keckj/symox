@@ -45,10 +45,19 @@ def leadterm(self, x, logx=None, cdir=0, **options):
 
 
 def as_leading_term(self, *symbols, logx=None, cdir=0):
-    from . import sympify
+    from . import sympify, _user_hook
     result=self
     for symbol in symbols:
         symbol=sympify(symbol)
+        hook=_user_hook(result,'_eval_as_leading_term')
+        if hook is not None and symbol.is_Symbol and symbol in result.free_symbols:
+            # A host class (FormalPowerSeries) supplies its own leading
+            # term, as Expr.as_leading_term dispatches in the reference.
+            from . import powsimp
+            obj=hook(symbol,logx=logx,cdir=cdir)
+            if obj is not None:
+                result=powsimp(obj,deep=True,combine='exp')
+                continue
         coefficient,power=_data(result,symbol,logx,cdir)
         result=coefficient*symbol**power
     return result

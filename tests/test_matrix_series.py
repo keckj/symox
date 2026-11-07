@@ -6,6 +6,7 @@ import sys
 import pytest
 import sympy as sp
 import symox as sx
+from symox.series.matrix import MatrixFormalPowerSeries
 
 
 @pytest.mark.parametrize('center,direction', [(0, 1), (0, -1), (1, 1), (1, -1)])
@@ -17,7 +18,8 @@ def test_formal_coefficients_and_truncation(center, direction, kind):
               'polynomial': x*x+1}[kind]
     expression = scalar*a+x*b
     formal = expression.fps(x, center, direction)
-    assert isinstance(formal, sx.FormalPowerSeries)
+    # The matrix series keeps its own lazy class (no reference counterpart).
+    assert isinstance(formal, MatrixFormalPowerSeries)
     for n in range(5):
         expected = scalar.diff(x, n).subs(x, center)*(direction**n/sx.factorial(n))*a
         if n == 0:

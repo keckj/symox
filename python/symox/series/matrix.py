@@ -2,7 +2,7 @@
 import copy
 from itertools import islice
 
-from .formal import FormalPowerSeries, _order
+from ._lazy_formal import LazyFormalSeries, _order
 from .fourier import FourierSeries, _index, _MAX_HARMONIC
 from .._matrixexpr_algebra import linear_terms, matrix_sum, coefficient
 from .._matrixexpr_methods import _zero
@@ -29,7 +29,7 @@ def _variable(function, x):
     return x
 
 
-class MatrixFormalPowerSeries(FormalPowerSeries):
+class MatrixFormalPowerSeries(LazyFormalSeries):
     def __init__(self, function, x, x0=0, dir=1, _check=True):
         super().__init__(0, x, x0, dir)
         self.function = function
@@ -161,7 +161,7 @@ def matrix_fps(function, x=None, x0=0, dir=1, hyper=True, order=4, rational=True
     _order(order)
     if x not in function.free_symbols or not (hyper or rational):
         return function
-    from .formal import fps
+    from .formal import fps, FormalPowerSeries
     for scalar, _ in linear_terms(function.expand(), x):
         # Keep Laurent, logarithmic, fractional and essential expansions
         # outside the ordinary formal-power-series interface.

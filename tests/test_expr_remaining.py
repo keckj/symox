@@ -6,6 +6,7 @@ import sys
 
 import pytest
 import sympy as sp
+from sympy.series.formal import FormalPowerSeries
 import symox as sx
 
 
@@ -151,27 +152,32 @@ def test_local_meromorphic(source, point):
                                    'log(1+x)', 'atan(x)', 'x**2+1'])
 @pytest.mark.parametrize('point,direction', [(0,1),(0,-1),(1,1)])
 def test_formal_power_series(source, point, direction):
+    # Same series (and same coefficients) as the reference fps, including
+    # its nonzero-centre forms; a held input stays held.
     x, X = sx.Symbol('x'), sp.Symbol('x')
     function = eval(source, dict(vars(sx), x=x))
     reference = eval(source, dict(vars(sp), x=X))
     native = function.fps(x, point, direction)
-    if point == 1 and source == '1/(1-x)':
-        # An ordinary formal power series cannot represent a pole at its center.
-        assert native == function
+    expected = reference.fps(X, point, direction)
+    if source == 'x**2+1' and point == 1:
+        # Deliberate deviation: the reference reads the coefficients of the
+        # unexpanded shifted polynomial (x + 1)**2 + 1 and returns 1; the
+        # native series keeps the Taylor coefficients.
+        assert native.truncate(7).to_sympy() == \
+            2 + 2*(X - 1) + (X - 1)**2 + sp.Order((X - 1)**7, (X, 1))
+        assert [native[i].to_sympy() for i in range(5)] == [2, 2*(X - 1), (X - 1)**2, 0, 0]
+        return
+    if not isinstance(expected, FormalPowerSeries):
+        assert native.to_sympy() == expected
         return
     assert isinstance(native, sx.FormalPowerSeries)
     assert native.x == x and native.x0 == point and native.dir == direction
-    # Nonzero-center SymPy fps has coefficient bugs (e.g. x**2+1 at 1).
-    # Compare against its independent Taylor engine for all centers.
-    expected = reference.series(X,point,7).removeO()+sp.O((X-point)**7,(X,point))
-    assert native.truncate(7).getO().to_sympy() == expected.getO()
-    equivalent(native.polynomial(7), expected.removeO())
-    t=sp.Dummy('t')
+    assert native.truncate(7).to_sympy() == expected.truncate(7)
+    assert native.polynomial(7).to_sympy() == expected.polynomial(7)
     for index in range(5):
-        coefficient=reference.subs(X,point+direction*t).series(t,0,index+1).removeO().expand().coeff(t,index)
-        equivalent(native[index],coefficient*(direction*(X-point))**index)
-        assert native.ak.coeff(index)*native.xk.coeff(index) == native[index]
-    assert list(itertools.islice(native.truncate(None), 4)) == native[:4]
+        assert native[index].to_sympy() == expected[index]
+    assert [t.to_sympy() for t in itertools.islice(native.truncate(None), 4)] == \
+        list(itertools.islice(expected.truncate(None), 4))
     assert pickle.loads(pickle.dumps(native)).truncate(7) == native.truncate(7)
 
 
@@ -179,9 +185,13 @@ def test_formal_series_composition_product_and_inverse():
     x, X = sx.Symbol('x'), sp.Symbol('x')
     a, b = sx.fps(sx.exp(x), x), sx.fps(sx.sin(x), x)
     A, B = sp.fps(sp.exp(X), X), sp.fps(sp.sin(X), X)
-    assert a.product(b, n=7).truncate().to_sympy() == (sp.exp(X)*sp.sin(X)).series(X,0,7)
-    assert a.compose(b, n=7).truncate().to_sympy() == sp.exp(sp.sin(X)).series(X,0,7)
-    assert a.inverse(n=7).truncate().to_sympy() == sp.exp(-X).series(X,0,7)
+    # The reference product convolves by a symbolic FFT (unsimplified
+    # radicals); the native one is exact: the same values.
+    difference = sp.expand(a.product(b, n=7).truncate().removeO().to_sympy()
+                           - A.product(B, n=7).truncate().removeO())
+    assert all(abs(sp.N(difference.coeff(X, i), 50)) < 1e-40 for i in range(7))
+    assert a.compose(b, n=7).truncate().to_sympy() == A.compose(B, n=7).truncate()
+    assert a.inverse(n=7).truncate().to_sympy() == A.inverse(n=7).truncate()
     assert a.diff().truncate().to_sympy() == A.diff(X).truncate()
     assert b.integrate().truncate().to_sympy() == B.integrate(X).truncate()
     for source in [1/x, sx.sqrt(x), sx.log(x), sx.exp(1/x)]:
@@ -247,7 +257,7 @@ def test_errors_and_constant_series():
         sx.sin(x).is_meromorphic(x+1, 0)
     with pytest.raises(ValueError):
         sx.sin(x).fps(x, dir='invalid')
-    with pytest.raises(ValueError):
+    with pytest.raises(NotImplementedError):  # reference: multivariate
         sx.fps(x+sx.Symbol('y'))
     with pytest.raises(ValueError):
         sx.fourier_series(x, (x,0,0))
