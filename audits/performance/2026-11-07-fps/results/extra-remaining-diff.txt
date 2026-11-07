@@ -1,0 +1,6 @@
+extra:044 fps(exp(x)).product(fps(sin(x))).truncate(8)
+extra:045 fps(exp(x)).product(fps(cos(x)), x, 10).truncate(8)
+extra:046 fps(sin(x)).product(fps(1/(1 - x))).truncate(8)
+extra:047 fps(log(1 + x)).product(fps(exp(-x))).truncate(6)
+extra:065 fps(log(1 + x)).integrate(x).truncate(8)
+extra:076 fps(x**2 + 1, x0=1)

@@ -4348,7 +4348,7 @@ Expr.rewrite = _expr_rewrite
 from . import _expr_methods  # noqa: E402
 exp_polar = _make('exp_polar')
 from .series import (  # noqa: E402
-    series, fps, fourier_series, FormalPowerSeries, FourierSeries, FiniteFourierSeries,
+    series, fps, fourier_series, FourierSeries, FiniteFourierSeries,
     SeqFormula, SeqPer, SeqAdd, SeqMul, EmptySequence, sequence,
     SeqExpr, SeqExprOp, RecursiveSeq,
     approximants, limit_seq, gruntz,
@@ -4812,3 +4812,6 @@ del _register_prde_root
 from ._public_calculus import _snapshot_stock as _pf_snapshot_stock
 _pf_snapshot_stock()
 del _pf_snapshot_stock
+
+# Host expression classes of the formal power series need the finished package.
+from .series.formal import FormalPowerSeries  # noqa: E402

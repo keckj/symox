@@ -18267,3 +18267,106 @@ Remaining gaps:
     level uses fewer Python frames and more levels run before the limit.
 
 Measured: [audit](../audits/performance/2026-11-07-pde/README.md).
+
+## fps (wave 45): SymPy 1.14 formal power series in Rust, 2026-11-07
+
+Wave 45, lot fps (`feat-fps-20261107`). Scope: SymPy 1.14's
+`sympy/series/formal.py`. This supersedes:
+
+- the "formal/`fps` still in Python" entry of the limits2 section;
+- the older `fps` notes of the c-rest section ("`fps(x**n*f(x), x)`…",
+  "`fps(x**n*f(x), x, 1)` is a Taylor expansion…").
+
+Those notes describe the Python implementation this lot replaced.
+
+Native (Rust), in `crates/symox-core/src/series/formal.rs`, bound in
+`crates/symox-py/src/formal.rs`:
+
+- `rational_algorithm`, `rational_independent`, `simpleDE` (as a
+  generator), `exp_re`, `hyper_re`, `rsolve_hypergeometric` with the
+  `_transformation_a/c/e` steps, `solve_de`, `hyper_algorithm`,
+  `_compute_fps`, `compute_fps` and `fps`. They keep the reference order
+  of attempts and the reference exceptions (ValueError,
+  NotImplementedError, TypeError);
+- the `FormalPowerSeries` methods:
+  - `_eval_term` and `__getitem__`;
+  - `polynomial`, `truncate` (as a value and as the `n=None` iterator) and
+    `infinite`;
+  - `zero_coeff`;
+  - `+`, `-` and `*` with expressions and series, with the reference
+    checks;
+  - `product`, `compose` (Bell polynomials) and `inverse`, which return the
+    finite series classes;
+  - `integrate`, `_eval_derivative` and the `as_leading_term` hook;
+- `Coeff.eval`.
+
+The algorithms call the host's public operations, so each one keeps its
+own admission and fallbacks: `simplify`, `limit`, `integrate`, `apart`,
+`factor`, `cancel`, `doit`, `leadterm`, `roots` and `linsolve`. The rest is
+native: `rsolve`, `diff`, `subs`, `collect`, `expand`, `Order`,
+`Piecewise` folding and comparisons.
+
+Python (`python/symox/series/formal.py`) keeps:
+
+- the class envelopes, with `__module__ = 'sympy.series.formal'` so that
+  `to_sympy` and printing match;
+- argument passing;
+- `__reduce__`.
+
+Host wiring:
+
+- `Integral(fps).doit()` reaches `FormalPowerSeries.integrate` through
+  `_eval_Integral`;
+- `as_leading_term` dispatches to a host class's `_eval_as_leading_term`,
+  then applies `powsimp(deep=True, combine='exp')`, as `Expr.as_leading_term`
+  does;
+- the series classes load once the package has finished importing.
+
+Core fix in Rust (`expand.rs`):
+
+- `expand` of `b**(-p/q)` with `p/q > 1` now inverts the expansion of the
+  positive power, as SymPy's `_eval_expand_multinomial` does:
+  `(x + 1)**(-5/2)` becomes `1/((x + 1)**2*sqrt(x + 1))`.
+
+Corpus (`audits/performance/2026-11-07-fps/`), statement-level replay
+against live SymPy 1.14:
+
+| corpus | before (main f7888825) | after |
+| --- | --- | --- |
+| `test_formal.py`, 220 records | SAME 101, DIFF 5, DECLINED 85, WRONG 29 | SAME 220 |
+| extra cases, 127 records | SAME 87, DIFF 30, DECLINED 10 | SAME 121, DIFF 6 |
+
+Deliberate deviations, awaiting the user's decision:
+
+- `product`: SymPy convolves the coefficients by a symbolic FFT and leaves
+  unsimplified radicals; the native product convolves them exactly.
+  - The values are equal to 1e-40, and the native coefficients are
+    rational.
+  - `fps(log(1 + x)).product(fps(exp(-x)))`: the `k = 0` coefficient of
+    `log(1 + x)` is `zoo`, which gives `zoo` terms here and `nan` in SymPy.
+- Polynomials: SymPy reads `Coeff(f, x, k)` and the constant term from the
+  unexpanded polynomial. Symox expands it and keeps the Taylor
+  coefficients.
+
+  | input | SymPy | symox |
+  | --- | --- | --- |
+  | `fps((1 + x)**2).truncate(4)` | `O(x**4)` | `1 + 2*x + x**2 + O(x**4)` |
+  | `fps(x**2 + 1, x, 1)` | `1` | `2 + 2*(x - 1) + (x - 1)**2` |
+  | `fps(x*(x + 1)).truncate()` | `x*(x + 1) + O(x**6)` | `x + x**2 + O(x**6)` |
+- `truncate` with a symbolic order at a finite point keeps every term
+  below the order term.
+  - SymPy's `fps(x**(n + 1)*exp(x)).truncate(3)` drops `x**(n + 3)/2` but
+    claims `O(x**(n + 4))`.
+  - At `+-oo` the reference terms are complete and kept as they are.
+- `rsolve_hypergeometric` with a Python `int` `P`: SymPy raises
+  AttributeError; symox sympifies it.
+
+Remaining gaps:
+
+- `integrate(log(1 + x), x)` gives `(x + 1)*log(x + 1) - x - 1`, so
+  `fps(log(1 + x)).integrate(x)` starts with `-1`. This belongs to
+  `integrate`, not this lot.
+- The public operations called by the algorithms keep whatever Python
+  their own implementations still have.
+- `MatrixFormalPowerSeries` (symox-only, `series/matrix.py` and
+  `_lazy_formal.py`) is still Python.

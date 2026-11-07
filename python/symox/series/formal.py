@@ -1,226 +1,550 @@
-"""Lazy exact formal series over the native Laurent/Puiseux series engine.
+"""Formal power series (reference: ``sympy/series/formal.py``).
 
-Coefficients are computed on demand by the native recurrence engine. This
-does not depend on SymPy or manufacture a closed coefficient formula when
-the native engine cannot establish one.
+The algorithms (``rational_algorithm``, ``rational_independent``,
+``simpleDE``, ``exp_re``, ``hyper_re``, ``rsolve_hypergeometric``,
+``solve_de``, ``hyper_algorithm``, ``compute_fps``) and the term arithmetic
+of the series classes are native (``symox::series::formal``). This module
+holds the API envelopes: argument admission, the class shells and the
+dispatch to the native functions.
+
+A series node stores its coefficient sequences as held ``Sum`` nodes,
+``(function, x, x0, dir, (Sum(ak), Sum(xk), ind))``; ``ak`` and ``xk``
+return the reference ``SeqFormula`` objects.
 """
 import operator
 
 from .. import _core
-from .._expr_analysis import _variable
+from .._expr_facade import Expr
 
-_DEFAULT = object()
-_MAX_ORDER = 256
-
-
-def _order(value):
-    value = operator.index(value)
-    if not 0 <= value <= _MAX_ORDER:
-        raise ValueError('Formal series order must be between 0 and 256')
-    return value
+__all__ = ['FormalPowerSeries', 'FiniteFormalPowerSeries', 'FormalPowerSeriesProduct',
+           'FormalPowerSeriesCompose', 'FormalPowerSeriesInverse', 'Coeff', 'fps',
+           'compute_fps', 'rational_algorithm', 'rational_independent', 'simpleDE',
+           'exp_re', 'hyper_re', 'rsolve_hypergeometric', 'solve_de', 'hyper_algorithm']
 
 
-class _Sequence:
-    def __init__(self, series, powers=False):
-        self._series, self._powers = series, powers
-
-    def coeff(self, index):
-        index = _order(index)
-        if self._powers:
-            return self._series._small**index
-        return self._series.coefficient(index)
-
-    __getitem__ = coeff
+def _sympify(value):
+    from .. import sympify
+    return sympify(value)
 
 
-def _split_symbolic_power(f, x, x0, direction):
-    """``(x**e, g)`` when ``f = x**e*g`` at ``x0 = 0`` from the right with a
-    symbolic exponent ``e`` free of ``x`` (the reference ``_compute_fps``
-    separates such a term as ``symb`` and multiplies it back), else
-    ``(1, f)``."""
-    from .. import S, Mul
-    if x0 != 0 or direction != 1:
-        return S.One, f
-    symb, rest = [], []
-    for factor in (f.args if f.is_Mul else (f,)):
-        if (factor.is_Pow and factor.base == x and not factor.exp.is_number
-                and not factor.exp.has(x)):
-            symb.append(factor)
-        else:
-            rest.append(factor)
-    if not symb:
-        return S.One, f
-    return Mul(*symb), Mul(*rest)
+def _seq(node):
+    """The ``SeqFormula`` encoded by a held ``Sum(formula, (k, start, stop))``."""
+    from .sequences import SeqFormula
+    formula, limits = node.args
+    return SeqFormula(formula, tuple(limits.args))
 
 
-class FormalPowerSeries:
-    """A lazily evaluated formal expansion, with exact finite coefficients."""
-    def __init__(self, function, x, x0=0, dir=1):
-        from .. import S
-        self.function, self.x, self.x0 = map(_core.sympify, (function, x, x0))
-        self.dir = _core.sympify(dir)
-        self._symb, self._rest = _split_symbolic_power(self.function, self.x, self.x0, self.dir)
-        self._default_order = 6
-        self._cache = {}
-        if self.x0 in (S.Infinity, S.NegativeInfinity):
-            self._small = (1 if self.x0 == S.Infinity else -1)/self.x
-        else:
-            self._small = self.dir*(self.x-self.x0)
-        self.ak, self.xk = _Sequence(self), _Sequence(self, powers=True)
+def _held_sum(seq):
+    from .. import Sum
+    return Sum(seq.formula, (seq.variables[0], seq.start, seq.stop))
 
-    @property
-    def free_symbols(self):
-        return self.function.free_symbols | self.x0.free_symbols
 
-    @property
-    def args(self):
-        return self.function, self.x, self.x0, self.dir
+def _parts(value):
+    """The fifth argument as the native ``Tuple(Sum(ak), Sum(xk), ind)``."""
+    from .. import Tuple
+    from .sequences import SeqBase
+    if isinstance(value, (tuple, list)) or (isinstance(value, _core.Expr)
+                                            and getattr(value.func, '__name__', '') == 'Tuple'):
+        items = tuple(value.args if isinstance(value, _core.Expr) else value)
+        if len(items) == 3 and any(isinstance(i, SeqBase) for i in items[:2]):
+            return Tuple(*[_held_sum(i) if isinstance(i, SeqBase) else _sympify(i) for i in items])
+    return _sympify(value)
 
-    def _series(self, n):
-        from .. import O
-        n = _order(n)
-        if n not in self._cache:
-            if self._symb != 1:
-                from .. import Add, expand, powsimp
-                value = expand(self._rest.series(self.x, self.x0, n, '+').removeO())
-                terms = value.args if value.is_Add else (value,)
-                self._cache[n] = (Add(*(powsimp(self._symb*t, combine='exp') for t in terms))
-                                  + O(powsimp(self._symb*self._small**n, combine='exp'), (self.x, self.x0)))
-                return self._cache[n]
-            value = self.function.series(self.x, self.x0, n, '+' if self.dir == 1 else '-')
-            self._cache[n] = value.removeO() + O(self._small**n, (self.x, self.x0))
-        return self._cache[n]
 
-    def _plain_series(self, n):
-        """The expansion of the function without its symbolic power factor."""
-        if self._symb == 1:
-            return self._series(n)
-        from .. import O
-        return (self._rest.series(self.x, self.x0, n, '+').removeO()
-                + O(self._small**n, (self.x, self.x0)))
+def _rebuild(name, args):
+    return globals()[name](*args)
 
-    def truncate(self, n=_DEFAULT):
-        if n is _DEFAULT:
-            n = self._default_order
-        if n is None:
-            return iter(self)
-        return self._series(n)
 
-    def polynomial(self, n=6):
-        return self._series(n).removeO()
+class FormalPowerSeries(Expr):
+    """A formal power series of a function (see the reference docstring)."""
 
-    def coefficient(self, index):
-        from .. import Dummy, S
-        index = _order(index)
-        slot = Dummy('t', positive=True)
-        if self.x0 in (S.Infinity, S.NegativeInfinity):
-            change = (1 if self.x0 == S.Infinity else -1)/slot
-        else:
-            change = self.x0 + self.dir*slot
-        polynomial = self._plain_series(index+1).removeO().subs(self.x, change).expand()
-        return polynomial.coeff(slot, index)
+    _symox_user_hooks = True
+    __module__ = 'sympy.series.formal'
 
-    def term(self, index):
-        index = _order(index)
-        if self._symb != 1:
-            from .. import powsimp
-            return powsimp(self.coefficient(index)*self._symb*self._small**index, combine='exp')
-        return self.coefficient(index)*self._small**index
+    def __new__(cls, *args):
+        args = [_parts(a) if i == 4 else _sympify(a) for i, a in enumerate(args)]
+        return Expr.__new__(cls, *args)
 
-    def __getitem__(self, index):
-        if isinstance(index, slice):
-            if index.stop is None:
-                raise ValueError('A finite stop is required for formal-series slices')
-            return [self.term(i) for i in range(index.start or 0, _order(index.stop), index.step or 1)]
-        return self.term(index)
+    def __reduce__(self):
+        # The class reports the reference module; unpickle through symox's.
+        return (_rebuild, (type(self).__name__, self.args))
 
-    def __iter__(self):
-        index = 0
-        while True:
-            yield self.term(index)
-            index += 1
-
-    def _compatible(self, other, x):
-        if not isinstance(other, FormalPowerSeries):
-            raise ValueError('Expected a FormalPowerSeries')
-        x = self.x if x is None else _core.sympify(x)
-        if self.x != other.x or x != self.x or self.x0 != other.x0 or self.dir != other.dir:
-            raise ValueError('Formal series must have the same variable, point and direction')
-
-    def product(self, other, x=None, n=6):
-        self._compatible(other, x)
-        result = FormalPowerSeries(self.function*other.function, self.x, self.x0, self.dir)
-        result._default_order = _order(n)
-        return result
-
-    def compose(self, other, x=None, n=6):
-        self._compatible(other, x)
-        if other.function.subs(self.x, self.x0) != self.x0:
-            raise ValueError('The inner series must have zero constant term relative to the expansion point')
-        result = FormalPowerSeries(self.function.subs(self.x, other.function), self.x, self.x0, self.dir)
-        result._default_order = _order(n)
-        return result
-
-    def inverse(self, x=None, n=6):
-        x = self.x if x is None else _core.sympify(x)
-        if x != self.x or self.function.subs(self.x, self.x0).is_zero is not False:
-            raise ValueError('Formal inverse requires a nonzero constant coefficient')
-        result = FormalPowerSeries(1/self.function, self.x, self.x0, self.dir)
-        result._default_order = _order(n)
-        return result
-
-    def diff(self, x=None):
-        x = self.x if x is None else _core.sympify(x)
-        return fps(self.function.diff(x), self.x, self.x0, self.dir)
-
-    def integrate(self, x=None):
-        from .. import integrate
-        x = self.x if x is None else _core.sympify(x)
-        function = integrate(self.function, x)
-        return fps(function, self.x, self.x0, self.dir)
+    def _sympystr(self, printer):
+        if len(self.args) != 5:
+            return '%s(%s)' % (type(self).__name__, ', '.join(printer._print(a) for a in self.args))
+        head = ', '.join(printer._print(a) for a in self.args[:4])
+        seqs = []
+        for node in self.args[4].args[:2]:
+            formula, (k, start, stop) = node.args[0], node.args[1].args
+            seqs.append('SeqFormula(%s, (%s, %s, %s))' % tuple(printer._print(e) for e in (formula, k, start, stop)))
+        return 'FormalPowerSeries(%s, (%s, %s, %s))' % (head, seqs[0], seqs[1], printer._print(self.args[4].args[2]))
 
     def to_sympy(self):
         import sympy
-        return sympy.fps(self.function.to_sympy(), self.x.to_sympy(),
-                         self.x0.to_sympy(), dir=int(self.dir))
+        from sympy.series.formal import FormalPowerSeries as F
+        conv = lambda e: e.to_sympy()
+        return F(*map(conv, self.args[:4]), (self.ak.to_sympy(), self.xk.to_sympy(), conv(self.ind)))
 
-    def __repr__(self):
-        return 'FormalPowerSeries(%s, %s, %s, %s)' % self.args
+    @property
+    def function(self):
+        return self.args[0]
+
+    @property
+    def x(self):
+        return self.args[1]
+
+    @property
+    def x0(self):
+        return self.args[2]
+
+    @property
+    def dir(self):
+        return self.args[3]
+
+    @property
+    def ak(self):
+        return _seq(self.args[4].args[0])
+
+    @property
+    def xk(self):
+        return _seq(self.args[4].args[1])
+
+    @property
+    def ind(self):
+        return self.args[4].args[2]
+
+    @property
+    def interval(self):
+        from .. import Interval, oo
+        return Interval(0, oo)
+
+    @property
+    def start(self):
+        return self.interval.inf
+
+    @property
+    def stop(self):
+        return self.interval.sup
+
+    @property
+    def length(self):
+        from .. import oo
+        return oo
+
+    @property
+    def variables(self):
+        return ()
+
+    @property
+    def ak_seq(self):
+        from .. import oo
+        from .sequences import sequence
+        ak = self.ak
+        return sequence(ak.formula, (ak.variables[0], 1, oo))
+
+    @property
+    def fact_seq(self):
+        from .. import factorial, oo
+        from .sequences import sequence
+        k = self.ak.variables[0]
+        return sequence(factorial(k), (k, 1, oo))
+
+    @property
+    def bell_coeff_seq(self):
+        return self.ak_seq*self.fact_seq
+
+    @property
+    def sign_seq(self):
+        from .. import oo
+        from .sequences import sequence
+        return sequence((-1, 1), (self.ak.variables[0], 1, oo))
+
+    def coeff_bell(self, n):
+        from .. import Dummy, bell, oo
+        from .sequences import sequence
+        inner = [bell(n, j, tuple(self.bell_coeff_seq[:n-j+1])) for j in range(1, n+1)]
+        return sequence(tuple(inner), (Dummy('k'), 1, oo))
+
+    @property
+    def infinite(self):
+        return _core.fps_infinite(self)
+
+    def _series(self, function, parts):
+        return self.func(function, self.x, self.x0, self.dir, parts)
+
+    def polynomial(self, n=6):
+        return _core.fps_polynomial(self, _sympify(n))
+
+    def truncate(self, n=6):
+        if n is None:
+            return iter(self)
+        return _core.fps_truncate(self, _sympify(n))
+
+    def zero_coeff(self):
+        return self._eval_term(0)
+
+    def _eval_term(self, pt):
+        return _core.fps_term(self, _sympify(pt))
+
+    def term(self, pt):
+        if pt < self.start or pt > self.stop:
+            raise IndexError("Index %s out of bounds %s" % (pt, self.interval))
+        return self._eval_term(pt)
+
+    def _ith_point(self, i):
+        return self.start + i
+
+    def __iter__(self):
+        i = 0
+        while i < self.length:
+            yield self.term(self._ith_point(i))
+            i += 1
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return self.term(self._ith_point(index))
+        elif isinstance(index, slice):
+            start, stop = index.start, index.stop
+            if start is None:
+                start = 0
+            if stop is None:
+                stop = self.length
+            return [self.term(self._ith_point(i)) for i in range(start, stop, index.step or 1)]
+
+    def _eval_subs(self, old, new):
+        if old.has(self.x):
+            return self
+
+    def _eval_as_leading_term(self, x, logx=None, cdir=0):
+        return _core.fps_leading_term(self)
+
+    def _eval_derivative(self, x):
+        return self._series(*_core.fps_derivative(self, x))
+
+    def _eval_Integral(self, *limits, **kwargs):
+        # The reference Integral.doit hands a formal power series to its
+        # integrate method (one limit only).
+        from .. import Tuple
+        if not limits:
+            free = self.free_symbols
+            if len(free) != 1:
+                raise ValueError('specify dummy variables for %s' % self)
+            limits = tuple(free)
+        if len(limits) > 1:
+            raise NotImplementedError
+        xab = limits[0]
+        if isinstance(xab, (tuple, list, Tuple)):
+            if len(xab) > 1:
+                return self.integrate(tuple(xab), **kwargs)
+            xab = xab[0]
+        return self.integrate(xab, **kwargs)
+
+    def integrate(self, x=None, **kwargs):
+        from .. import integrate
+        from ..utilities.iterables import iterable
+        if x is None:
+            x = self.x
+        elif iterable(x):
+            return integrate(self.function, x)
+        return self._series(*_core.fps_integrate(self, _sympify(x)))
+
+    def product(self, other, x=None, n=6):
+        if n is None:
+            return iter(self)
+        other = _sympify(other)
+        if not isinstance(other, FormalPowerSeries):
+            raise ValueError('Both series should be an instance of FormalPowerSeries class.')
+        _core.fps_check_pair(self, other, False)
+        return FormalPowerSeriesProduct(self, other)
+
+    def compose(self, other, x=None, n=6):
+        if n is None:
+            return iter(self)
+        other = _sympify(other)
+        if not isinstance(other, FormalPowerSeries):
+            raise ValueError('Both series should be an instance of FormalPowerSeries class.')
+        _core.fps_check_pair(self, other, True)
+        return FormalPowerSeriesCompose(self, other)
+
+    def inverse(self, x=None, n=6):
+        if n is None:
+            return iter(self)
+        _core.fps_check_inverse(self)
+        return FormalPowerSeriesInverse(self)
+
+    def __add__(self, other):
+        from .. import Add
+        other = _sympify(other)
+        if isinstance(other, FormalPowerSeries):
+            r = _core.fps_add_fps(self, other)
+            return r[0] if len(r) == 1 else self._series(*r)
+        r = _core.fps_add_expr(self, other)
+        return Add(self, other) if r is None else self._series(*r)
+
+    def __radd__(self, other):
+        # The reference reaches ``__radd__`` only from Python numbers; an
+        # expression on the left builds ``Add`` (``Expr.__add__``).
+        if isinstance(other, _core.Expr):
+            from .. import Add
+            return Add(other, self)
+        return self.__add__(other)
+
+    def __neg__(self):
+        return self._series(*_core.fps_neg(self))
+
+    def __sub__(self, other):
+        return self.__add__(-other)
+
+    def __rsub__(self, other):
+        if isinstance(other, _core.Expr):
+            from .. import Add
+            return Add(other, -self)
+        return (-self).__add__(other)
+
+    def __mul__(self, other):
+        from .. import Mul
+        other = _sympify(other)
+        r = _core.fps_mul_expr(self, other)
+        return Mul(self, other) if r is None else self._series(*r)
+
+    def __rmul__(self, other):
+        if isinstance(other, _core.Expr):
+            from .. import Mul
+            return Mul(other, self)
+        return self.__mul__(other)
+
+
+class FiniteFormalPowerSeries(FormalPowerSeries):
+    """Base of the series obtained by operations on formal power series."""
+
+    _symox_user_hooks = True
+    __module__ = 'sympy.series.formal'
+    _kind = None
+
+    def _sympystr(self, printer):
+        return '%s(%s)' % (type(self).__name__, ', '.join(printer._print(a) for a in self.args))
+
+    def to_sympy(self):
+        import sympy.series.formal as F
+        return getattr(F, type(self).__name__)(*(a.to_sympy() for a in self.args))
+
+    @property
+    def ffps(self):
+        return self.args[0]
+
+    @property
+    def gfps(self):
+        return self.args[1]
+
+    @property
+    def f(self):
+        return self.ffps.function
+
+    @property
+    def g(self):
+        return self.gfps.function
+
+    @property
+    def infinite(self):
+        raise NotImplementedError('No infinite version for an object of FiniteFormalPowerSeries class.')
+
+    def _eval_terms(self, n):
+        if self._kind is None:
+            raise NotImplementedError('(%s)._eval_terms()' % self)
+        gfps = self.ffps if self._kind == 'inverse' else self.gfps
+        return _core.fps_finite_terms(self._kind, self.ffps, gfps, operator.index(n))
+
+    def _eval_term(self, pt):
+        raise NotImplementedError('By the current logic, one can get termsupto a certain order, instead of getting term by term.')
+
+    def polynomial(self, n):
+        return self._eval_terms(n)
+
+    def truncate(self, n=6):
+        return _core.fps_finite_truncate(self.ffps, self.polynomial(n), _sympify(n))
+
+    def _eval_derivative(self, x):
+        raise NotImplementedError
+
+    def integrate(self, x):
+        raise NotImplementedError
+
+
+class FormalPowerSeriesProduct(FiniteFormalPowerSeries):
+    """The product of two formal power series, computed up to an order."""
+
+    _symox_user_hooks = True
+    __module__ = 'sympy.series.formal'
+    _kind = 'product'
+
+    @property
+    def coeff1(self):
+        from .. import oo
+        from .sequences import sequence
+        ak = self.ffps.ak
+        return sequence(ak.formula, (ak.variables[0], 0, oo))
+
+    @property
+    def coeff2(self):
+        from .. import oo
+        from .sequences import sequence
+        ak = self.gfps.ak
+        return sequence(ak.formula, (ak.variables[0], 0, oo))
+
+    @property
+    def function(self):
+        return self.f*self.g
+
+
+class FormalPowerSeriesCompose(FiniteFormalPowerSeries):
+    """The composition of two formal power series, computed up to an order."""
+
+    _symox_user_hooks = True
+    __module__ = 'sympy.series.formal'
+    _kind = 'compose'
+
+    @property
+    def function(self):
+        f, g, x = self.f, self.g, self.ffps.x
+        return f.subs(x, g)
+
+
+class FormalPowerSeriesInverse(FiniteFormalPowerSeries):
+    """The multiplicative inverse of a formal power series, up to an order."""
+
+    _symox_user_hooks = True
+    __module__ = 'sympy.series.formal'
+    _kind = 'inverse'
+
+    @property
+    def aux_seq(self):
+        from .. import oo
+        from .sequences import sequence
+        ffps = self.ffps
+        k = ffps.xk.variables[0]
+        inv_seq = sequence(ffps.zero_coeff()**(-(k + 1)), (k, 1, oo))
+        return ffps.sign_seq*ffps.fact_seq*inv_seq
+
+    @property
+    def function(self):
+        return 1/self.f
+
+    @property
+    def g(self):
+        raise ValueError('Only one function is considered while performing'
+                         'inverse of a formal power series.')
+
+    @property
+    def gfps(self):
+        raise ValueError('Only one function is considered while performing'
+                         'inverse of a formal power series.')
+
+
+def _coeff_base():
+    from .. import Function
+    return Function
+
+
+class Coeff(_coeff_base()):
+    """Coefficient of the ``n``-th power of ``x`` in the polynomial ``p``."""
+
+    _symox_user_hooks = True
+    __module__ = 'sympy.series.formal'
+
+    @classmethod
+    def eval(cls, p, x, n):
+        return _core.fps_coeff_eval(p, x, n)
+
+    def __reduce__(self):
+        return (_rebuild, ('Coeff', self.args))
+
+
+def rational_algorithm(f, x, k, order=4, full=False):
+    """Rational algorithm for the formula of the coefficients (native)."""
+    return _core.fps_rational_algorithm(_sympify(f), _sympify(x), _sympify(k),
+                                        operator.index(order), bool(full))
+
+
+def rational_independent(terms, x):
+    """Group the terms that are rational multiples of each other (native)."""
+    return _core.fps_rational_independent([_sympify(t) for t in terms], _sympify(x))
+
+
+def simpleDE(f, x, g, order=4):
+    """Generate simple differential equations satisfied by ``f`` (native, lazy)."""
+    x = _sympify(x)
+    return _core.FpsSimpleDe(_sympify(f), x, g(x), operator.index(order))
+
+
+def exp_re(DE, r, k):
+    """Recurrence for the coefficients of the exponential series (native)."""
+    k = _sympify(k)
+    return _core.fps_exp_re(_sympify(DE), r(k), k)
+
+
+def hyper_re(DE, r, k):
+    """Recurrence for the coefficients of the hypergeometric series (native)."""
+    k = _sympify(k)
+    return _core.fps_hyper_re(_sympify(DE), r(k), k)
+
+
+def rsolve_hypergeometric(f, x, P, Q, k, m):
+    """Solve the hypergeometric recurrence ``Q*r(k + m) = P*r(k)`` (native)."""
+    return _core.fps_rsolve_hypergeometric(*map(_sympify, (f, x, P, Q, k, m)))
+
+
+def solve_de(f, x, DE, order, g, k):
+    """Solve the differential equation ``DE`` for the coefficients (native)."""
+    x = _sympify(x)
+    return _core.fps_solve_de(_sympify(f), x, _sympify(DE), operator.index(order), g(x), _sympify(k))
+
+
+def hyper_algorithm(f, x, k, order=4):
+    """Hypergeometric algorithm for the formula of the coefficients (native)."""
+    return _core.fps_hyper_algorithm(_sympify(f), _sympify(x), _sympify(k), operator.index(order))
+
+
+def _compute(f, x, x0, dir, hyper, order, rational, full):
+    from .. import S
+    f, x = _sympify(f), _sympify(x)
+    if not f.has(x):
+        return None
+    x0 = _sympify(x0)
+    if dir == '+':
+        dir = S.One
+    elif dir == '-':
+        dir = -S.One
+    elif dir not in [S.One, -S.One]:
+        raise ValueError("Dir must be '+' or '-'")
+    else:
+        dir = _sympify(dir)
+    return _core.fps_compute(f, x, x0, dir, bool(hyper), operator.index(order), bool(rational), bool(full))
+
+
+def compute_fps(f, x, x0=0, dir=1, hyper=True, order=4, rational=True, full=False):
+    """``(ak, xk, ind)`` of the formal power series of ``f``, or ``None`` (native)."""
+    result = _compute(f, x, x0, dir, hyper, order, rational, full)
+    if result is None:
+        return None
+    ak, xk, ind = result
+    return _seq(ak), _seq(xk), ind
 
 
 def fps(f, x=None, x0=0, dir=1, hyper=True, order=4, rational=True, full=False):
-    """Construct an exact lazy formal expansion where native series succeed.
-
-    Algorithm-selection hints are validated; either enabled strategy uses the
-    native recurrence engine. With both strategies disabled the input is held.
-    """
-    from .. import S, Dummy
+    """The formal power series of ``f`` about ``x0``, or ``f`` when none is found."""
     if getattr(f, 'is_MatrixExpr', False):
         from .matrix import matrix_fps
         return matrix_fps(f, x, x0, dir, hyper, order, rational, full)
-    f = _core.sympify(f)
-    x = _variable(f, x)
-    x0 = _core.sympify(x0)
-    if dir in ('+', 1):
-        direction = 1
-    elif dir in ('-', -1):
-        direction = -1
-    else:
-        raise ValueError("dir must be 1, -1, '+' or '-'")
-    _order(order)
-    if x not in f.free_symbols or not (hyper or rational):
-        return f
-    # A fractional power, logarithm of the local variable or essential
-    # singularity does not have an ordinary integer-power formal expansion.
-    probe = _split_symbolic_power(f, x, x0, direction)[1]
-    if x not in probe.free_symbols:
-        return f
-    probe = probe.series(x, x0, 3, '+' if direction == 1 else '-')
-    slot = Dummy('t', positive=True)
-    change = (1/slot if x0 == S.Infinity else -1/slot) if x0 in (S.Infinity, S.NegativeInfinity) else x0+direction*slot
-    polynomial = probe.removeO().subs(x, change).expand()
-    for term in polynomial.args if polynomial.is_Add else (polynomial,):
-        coefficient, exponent = term.as_coeff_exponent(slot)
-        if slot in coefficient.free_symbols or not exponent.is_Integer or exponent.is_negative:
+    f = _sympify(f)
+    if x is None:
+        free = f.free_symbols
+        if len(free) == 1:
+            x = free.pop()
+        elif not free:
             return f
-    return FormalPowerSeries(f, x, x0, direction)
+        else:
+            raise NotImplementedError('multivariate formal power series')
+    result = _compute(f, x, x0, dir, hyper, order, rational, full)
+    if result is None:
+        return f
+    return FormalPowerSeries(f, x, x0, dir, result)

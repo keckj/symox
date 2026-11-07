@@ -1,0 +1,764 @@
+{
+"extra:000 fps(exp(x))": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + x**6/720 + x**7/5040 + O(x**8)",
+true,
+0.0445,
+0
+],
+"extra:001 fps(sin(x))": [
+"x - x**3/6 + x**5/120 - x**7/5040 + O(x**8)",
+true,
+0.0526,
+1
+],
+"extra:002 fps(cos(x))": [
+"1 - x**2/2 + x**4/24 - x**6/720 + O(x**8)",
+true,
+0.0436,
+2
+],
+"extra:003 fps(tan(x))": [
+"EXC HELD tan(x)",
+false,
+0.02,
+3
+],
+"extra:004 fps(log(1 + x))": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 - x**6/6 + x**7/7 + O(x**8)",
+true,
+0.0162,
+4
+],
+"extra:005 fps(atan(x))": [
+"x - x**3/3 + x**5/5 - x**7/7 + O(x**8)",
+true,
+0.0538,
+5
+],
+"extra:006 fps(asin(x))": [
+"x + x**3/6 + 3*x**5/40 + 5*x**7/112 + O(x**8)",
+true,
+0.0725,
+6
+],
+"extra:007 fps(acos(x))": [
+"pi/2 - x - x**3/6 - 3*x**5/40 - 5*x**7/112 + O(x**8)",
+true,
+0.0721,
+7
+],
+"extra:008 fps(sinh(x))": [
+"x + x**3/6 + x**5/120 + x**7/5040 + O(x**8)",
+true,
+0.042,
+8
+],
+"extra:009 fps(cosh(x))": [
+"1 + x**2/2 + x**4/24 + x**6/720 + O(x**8)",
+true,
+0.0436,
+9
+],
+"extra:010 fps(atanh(x))": [
+"x + x**3/3 + x**5/5 + x**7/7 + O(x**8)",
+true,
+0.0146,
+10
+],
+"extra:011 fps(asinh(x))": [
+"x - x**3/6 + 3*x**5/40 - 5*x**7/112 + O(x**8)",
+true,
+0.0549,
+11
+],
+"extra:012 fps(sqrt(1 + x))": [
+"1 + x/2 - x**2/8 + x**3/16 - 5*x**4/128 + 7*x**5/256 - 21*x**6/1024 + 33*x**7/2048 + O(x**8)",
+true,
+0.0365,
+12
+],
+"extra:013 fps((1 + x)**Rational(1, 3))": [
+"1 + x/3 - x**2/9 + 5*x**3/81 - 10*x**4/243 + 22*x**5/729 - 154*x**6/6561 + 374*x**7/19683 + O(x**8)",
+true,
+0.0375,
+13
+],
+"extra:014 fps(exp(2*x))": [
+"1 + 2*x + 2*x**2 + 4*x**3/3 + 2*x**4/3 + 4*x**5/15 + 4*x**6/45 + 8*x**7/315 + O(x**8)",
+true,
+0.0166,
+14
+],
+"extra:015 fps(exp(-x**2))": [
+"1 - x**2 + x**4/2 - x**6/6 + O(x**8)",
+true,
+0.0203,
+15
+],
+"extra:016 fps(sin(x)**2)": [
+"x**2 - x**4/3 + 2*x**6/45 + O(x**8)",
+true,
+0.0804,
+16
+],
+"extra:017 fps(sin(x)*cos(x))": [
+"x - 2*x**3/3 + 2*x**5/15 - 4*x**7/315 + O(x**8)",
+true,
+0.073,
+17
+],
+"extra:018 fps(erf(x))": [
+"2*x/sqrt(pi) - 2*x**3/(3*sqrt(pi)) + x**5/(5*sqrt(pi)) - x**7/(21*sqrt(pi)) + O(x**8)",
+true,
+0.0485,
+18
+],
+"extra:019 fps(Si(x))": [
+"x - x**3/18 + x**5/600 - x**7/35280 + O(x**8)",
+true,
+0.0596,
+19
+],
+"extra:020 fps(cos(sqrt(x)))": [
+"1 - x/2 + x**2/24 - x**3/720 + x**4/40320 - x**5/3628800 + x**6/479001600 - x**7/87178291200 + O(x**8)",
+true,
+0.0632,
+20
+],
+"extra:021 fps(exp(x) - 1)": [
+"x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + x**6/720 + x**7/5040 + O(x**8)",
+true,
+0.0176,
+21
+],
+"extra:022 fps(log(1 - x)/x)": [
+"-1 - x/2 - x**2/3 - x**3/4 - x**4/5 - x**5/6 - x**6/7 - x**7/8 + O(x**8)",
+true,
+0.0542,
+22
+],
+"extra:023 fps(1/sqrt(1 - x**2))": [
+"1 + x**2/2 + 3*x**4/8 + 5*x**6/16 + O(x**8)",
+true,
+0.0369,
+23
+],
+"extra:024 fps(x*exp(x)**2)": [
+"x + 2*x**2 + 2*x**3 + 4*x**4/3 + 2*x**5/3 + 4*x**6/15 + 4*x**7/45 + O(x**8)",
+true,
+0.0326,
+24
+],
+"extra:025 fps(1/(1 - x))": [
+"1 + x + x**2 + x**3 + x**4 + x**5 + x**6 + x**7 + O(x**8)",
+true,
+0.0091,
+25
+],
+"extra:026 fps(1/(1 + x**2))": [
+"1 - x**2 + x**4 - x**6 + O(x**8)",
+true,
+0.0287,
+26
+],
+"extra:027 fps((x + 1)/(x**2 - 5*x + 6))": [
+"1/6 + 11*x/36 + 49*x**2/216 + 179*x**3/1296 + 601*x**4/7776 + 1931*x**5/46656 + 6049*x**6/279936 + 18659*x**7/1679616 + O(x**8)",
+true,
+0.0118,
+27
+],
+"extra:028 fps(x/(1 - x - x**2))": [
+"x + x**2 + 2*x**3 + 3*x**4 + 5*x**5 + 8*x**6 + 13*x**7 + O(x**8)",
+true,
+0.8228,
+28
+],
+"extra:029 fps(1/(x**2 + x + 1))": [
+"1 - x + x**2 - x**3 + x**4 - x**5 + x**6 - x**7 + O(x**8)",
+true,
+0.009,
+29
+],
+"extra:030 fps(1/(x**2 + x + 1), full=True)": [
+"1 - x + x**3 - x**4 + x**6 - x**7 + O(x**8)",
+true,
+0.3632,
+30
+],
+"extra:031 fps(1/(1 - x)**3)": [
+"1 + 3*x + 6*x**2 + 10*x**3 + 15*x**4 + 21*x**5 + 28*x**6 + 36*x**7 + O(x**8)",
+true,
+0.0133,
+31
+],
+"extra:032 fps((2*x + 3)/(x**3 - 1))": [
+"-3 - 2*x - 3*x**3 - 2*x**4 - 3*x**6 - 2*x**7 + O(x**8)",
+true,
+1.055,
+32
+],
+"extra:033 fps(1/(x**2 + 1), full=True)": [
+"1 - x**2 + x**4 - x**6 + O(x**8)",
+true,
+0.044,
+33
+],
+"extra:034 fps(1/(x**4 + 1), full=True)": [
+"1 - x**4 + O(x**8)",
+true,
+0.3445,
+34
+],
+"extra:035 fps(x**3/(1 - x))": [
+"x**3 + x**4 + x**5 + x**6 + x**7 + O(x**8)",
+true,
+0.0135,
+35
+],
+"extra:036 fps(1/(1 - x) + x**2)": [
+"1 + x + 2*x**2 + x**3 + x**4 + x**5 + x**6 + x**7 + O(x**8)",
+true,
+0.019,
+36
+],
+"extra:037 fps(exp(x)*sin(x))": [
+"x + x**2 + x**3/3 - x**5/30 - x**6/90 - x**7/630 + O(x**8)",
+true,
+0.2344,
+37
+],
+"extra:038 fps(x*exp(x))": [
+"x + x**2 + x**3/2 + x**4/6 + x**5/24 + x**6/120 + x**7/720 + O(x**8)",
+true,
+0.0458,
+38
+],
+"extra:039 fps(x**2*cos(x))": [
+"x**2 - x**4/2 + x**6/24 + O(x**8)",
+true,
+0.0806,
+39
+],
+"extra:040 fps(exp(x)*log(1 + x))": [
+"EXC HELD exp(x)*log(x + 1)",
+false,
+0.3076,
+40
+],
+"extra:041 fps(exp(x)/(1 - x))": [
+"EXC HELD exp(x)/(1 - x)",
+false,
+0.3637,
+41
+],
+"extra:042 fps(sin(x)/x)": [
+"1 - x**2/6 + x**4/120 - x**6/5040 + O(x**8)",
+true,
+0.0881,
+42
+],
+"extra:043 fps((1 + x)*log(1 + x))": [
+"x + x**2/2 - x**3/6 + x**4/12 - x**5/20 + x**6/30 - x**7/42 + O(x**8)",
+true,
+0.0231,
+43
+],
+"extra:044 fps(exp(x)).product(fps(sin(x))).truncate(8)": [
+"x + x**2 + x**3/3 - x**5/30 - x**6/90 - x**7/630 + O(x**8)",
+true,
+0.0942,
+44
+],
+"extra:045 fps(exp(x)).product(fps(cos(x)), x, 10).truncate(8)": [
+"1 + x - x**3/3 - x**4/6 - x**5/30 + x**7/630 + O(x**8)",
+true,
+0.1373,
+45
+],
+"extra:046 fps(sin(x)).product(fps(1/(1 - x))).truncate(8)": [
+"x + x**2 + 5*x**3/6 + 5*x**4/6 + 101*x**5/120 + 101*x**6/120 + 4241*x**7/5040 + O(x**8)",
+true,
+0.0646,
+46
+],
+"extra:047 fps(log(1 + x)).product(fps(exp(-x))).truncate(6)": [
+"zoo + zoo*x + zoo*x**2 + zoo*x**3 + zoo*x**4 + zoo*x**5 + O(x**6)",
+true,
+0.0352,
+47
+],
+"extra:048 fps(exp(sin(x)))": [
+"EXC HELD exp(sin(x))",
+false,
+0.0294,
+48
+],
+"extra:049 fps(sin(sin(x)))": [
+"EXC HELD sin(sin(x))",
+false,
+0.0238,
+49
+],
+"extra:050 fps(log(cos(x)))": [
+"EXC HELD log(cos(x))",
+false,
+0.0172,
+50
+],
+"extra:051 fps(exp(exp(x)))": [
+"EXC HELD exp(exp(x))",
+false,
+0.0146,
+51
+],
+"extra:052 fps(exp(x)).compose(fps(sin(x))).truncate(8)": [
+"1 + x + x**2/2 - x**4/8 - x**5/15 - x**6/240 + x**7/90 + O(x**8)",
+true,
+0.0619,
+52
+],
+"extra:053 fps(cos(x)).compose(fps(log(1 + x))).truncate(6)": [
+"1 - x**2/2 + x**3/2 - 5*x**4/12 + x**5/3 + O(x**6)",
+true,
+0.0655,
+53
+],
+"extra:054 fps(1/(1 - x)).compose(fps(x*exp(x))).truncate(6)": [
+"1 + x + 2*x**2 + 7*x**3/2 + 37*x**4/6 + 87*x**5/8 + O(x**6)",
+true,
+0.0511,
+54
+],
+"extra:055 fps(exp(x)).inverse().truncate(8)": [
+"1 - x + x**2/2 - x**3/6 + x**4/24 - x**5/120 + x**6/720 - x**7/5040 + O(x**8)",
+true,
+0.0267,
+55
+],
+"extra:056 fps(cos(x)).inverse().truncate(8)": [
+"1 + x**2/2 + 5*x**4/24 + 61*x**6/720 + O(x**8)",
+true,
+0.0563,
+56
+],
+"extra:057 fps(1 + x + x**2).inverse().truncate(6)": [
+"1 - x + x**3 - x**4 + O(x**6)",
+true,
+0.0082,
+57
+],
+"extra:058 (fps(exp(x)) + fps(sin(x))).truncate(8)": [
+"1 + 2*x + x**2/2 + x**4/24 + x**5/60 + x**6/720 + O(x**8)",
+true,
+0.0618,
+58
+],
+"extra:059 (fps(exp(x)) - fps(log(1 + x))).truncate(8)": [
+"1 + x**2 - x**3/6 + 7*x**4/24 - 23*x**5/120 + 121*x**6/720 - 719*x**7/5040 + O(x**8)",
+true,
+0.0339,
+59
+],
+"extra:060 (3*fps(sin(x))).truncate(8)": [
+"3*x - x**3/2 + x**5/40 - x**7/1680 + O(x**8)",
+true,
+0.0503,
+60
+],
+"extra:061 (fps(sin(x)) + 1).truncate(8)": [
+"1 + x - x**3/6 + x**5/120 - x**7/5040 + O(x**8)",
+true,
+0.0484,
+61
+],
+"extra:062 (-fps(cos(x))).truncate(8)": [
+"-1 + x**2/2 - x**4/24 + x**6/720 + O(x**8)",
+true,
+0.0534,
+62
+],
+"extra:063 fps(sin(x)).diff(x).truncate(8)": [
+"1 - x**2/2 + x**4/24 - x**6/720 + O(x**8)",
+true,
+0.0544,
+63
+],
+"extra:064 fps(exp(x)).integrate().truncate(8)": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + x**6/720 + x**7/5040 + O(x**8)",
+true,
+0.032,
+64
+],
+"extra:065 fps(log(1 + x)).integrate(x).truncate(8)": [
+"-1 + x**2/2 - x**3/6 + x**4/12 - x**5/20 + x**6/30 - x**7/42 + O(x**8)",
+true,
+0.021,
+65
+],
+"extra:066 fps(atan(x)).diff(x).truncate(8)": [
+"1 - x**2 + x**4 - x**6 + O(x**8)",
+true,
+0.0685,
+66
+],
+"extra:067 fps(sin(x)).polynomial(8)": [
+"-x**7/5040 + x**5/120 - x**3/6 + x",
+true,
+0.0459,
+67
+],
+"extra:068 fps(exp(x)).infinite": [
+"Sum(Piecewise((x**_k/factorial(_k), Eq(Mod(_k, 1), 0)), (0, True)), (_k, 1, oo)) + 1",
+true,
+0.0203,
+68
+],
+"extra:069 fps(cos(x)).as_leading_term(x)": [
+"1",
+true,
+0.0541,
+69
+],
+"extra:070 fps(sin(x))[0:6]": [
+"list(0, x, 0, -x**3/6, 0, x**5/120)",
+true,
+0.0436,
+70
+],
+"extra:071 fps(exp(x)).zero_coeff()": [
+"1",
+true,
+0.0304,
+71
+],
+"extra:072 fps(sin(x), x0=1)": [
+"sin(1) + (x - 1)*cos(1) - (x - 1)**2*sin(1)/2 - (x - 1)**3*cos(1)/6 + (x - 1)**4*sin(1)/24 + (x - 1)**5*cos(1)/120 - (x - 1)**6*sin(1)/720 - (x - 1)**7*cos(1)/5040 + O((x - 1)**8, (x, 1))",
+true,
+0.2147,
+72
+],
+"extra:073 fps(exp(x), x0=2)": [
+"exp(2) + (x - 2)*exp(2) + (x - 2)**2*exp(2)/2 + (x - 2)**3*exp(2)/6 + (x - 2)**4*exp(2)/24 + (x - 2)**5*exp(2)/120 + (x - 2)**6*exp(2)/720 + (x - 2)**7*exp(2)/5040 + O((x - 2)**8, (x, 2))",
+true,
+0.0686,
+73
+],
+"extra:074 fps(log(x), x0=1)": [
+"-1 - (x - 1)**2/2 + (x - 1)**3/3 - (x - 1)**4/4 + (x - 1)**5/5 - (x - 1)**6/6 + (x - 1)**7/7 + x + O((x - 1)**8, (x, 1))",
+true,
+0.0181,
+74
+],
+"extra:075 fps(1/x, x0=1)": [
+"2 + (x - 1)**2 - (x - 1)**3 + (x - 1)**4 - (x - 1)**5 + (x - 1)**6 - (x - 1)**7 - x + O((x - 1)**8, (x, 1))",
+true,
+0.0111,
+75
+],
+"extra:076 fps(x**2 + 1, x0=1)": [
+"(x - 1)**2 + 2*x + O((x - 1)**8, (x, 1))",
+true,
+0.0077,
+76
+],
+"extra:077 fps(cos(x), x0=pi)": [
+"-1 + (x - pi)**2/2 - (x - pi)**4/24 + (x - pi)**6/720 + O((x - pi)**8, (x, pi))",
+true,
+0.0556,
+77
+],
+"extra:078 fps(1/(1 - x), x0=2)": [
+"-3 - (x - 2)**2 + (x - 2)**3 - (x - 2)**4 + (x - 2)**5 - (x - 2)**6 + (x - 2)**7 + x + O((x - 2)**8, (x, 2))",
+true,
+0.0107,
+78
+],
+"extra:079 fps(atan(x), x0=1)": [
+"EXC HELD atan(x)",
+false,
+0.3485,
+79
+],
+"extra:080 fps(exp(x), x0=-1, dir=-1)": [
+"exp(-1) - (-x - 1)*exp(-1) + (-x - 1)**2*exp(-1)/2 - (-x - 1)**3*exp(-1)/6 + (-x - 1)**4*exp(-1)/24 - (-x - 1)**5*exp(-1)/120 + (-x - 1)**6*exp(-1)/720 - (-x - 1)**7*exp(-1)/5040 + O((x + 1)**8, (x, -1))",
+true,
+0.049,
+80
+],
+"extra:081 fps(exp(1/x), x0=oo)": [
+"1/(5040*x**7) + 1/(720*x**6) + 1/(120*x**5) + 1/(24*x**4) + 1/(6*x**3) + 1/(2*x**2) + 1/x + 1 + O(x**(-8), (x, oo))",
+true,
+0.0163,
+81
+],
+"extra:082 fps(1/(1 + x), x0=oo)": [
+"x**(-7) - 1/x**6 + x**(-5) - 1/x**4 + x**(-3) - 1/x**2 + 1/x + O(x**(-8), (x, oo))",
+true,
+0.0069,
+82
+],
+"extra:083 fps(log(1 + 1/x), x0=oo)": [
+"1/(7*x**7) - 1/(6*x**6) + 1/(5*x**5) - 1/(4*x**4) + 1/(3*x**3) - 1/(2*x**2) + 1/x + O(x**(-8), (x, oo))",
+true,
+0.0076,
+83
+],
+"extra:084 fps(x/(x + 1), x0=oo)": [
+"-1/x**7 + x**(-6) - 1/x**5 + x**(-4) - 1/x**3 + x**(-2) - 1/x + 1 + O(x**(-8), (x, oo))",
+true,
+0.0038,
+84
+],
+"extra:085 fps(sin(1/x), x0=-oo)": [
+"-1/(5040*x**7) + 1/(120*x**5) - 1/(6*x**3) + 1/x + O(x**(-8), (x, oo))",
+true,
+0.0317,
+85
+],
+"extra:086 fps(atan(x), x0=oo)": [
+"1/(7*x**7) - 1/(5*x**5) + 1/(3*x**3) - 1/x + pi/2 + O(x**(-8), (x, oo))",
+true,
+0.036,
+86
+],
+"extra:087 fps(log(1 + x), x0=oo)": [
+"1/(7*x**7) - 1/(6*x**6) + 1/(5*x**5) - 1/(4*x**4) + 1/(3*x**3) - 1/(2*x**2) + 1/x - log(1/x) + O(x**(-8), (x, oo))",
+true,
+0.0066,
+87
+],
+"extra:088 fps(1/(x**2 + 1), x0=-oo)": [
+"x**(-6) - 1/x**4 + x**(-2) + O(x**(-8), (x, oo))",
+true,
+0.0142,
+88
+],
+"extra:089 fps(sin(x), dir=-1)": [
+"x - x**3/6 + x**5/120 - x**7/5040 + O(x**8)",
+true,
+0.022,
+89
+],
+"extra:090 fps(log(1 + x), dir=-1)": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 - x**6/6 + x**7/7 + O(x**8)",
+true,
+0.0053,
+90
+],
+"extra:091 fps(exp(x), x0=1, dir=-1)": [
+"E - E*(1 - x) + E*(1 - x)**2/2 - E*(1 - x)**3/6 + E*(1 - x)**4/24 - E*(1 - x)**5/120 + E*(1 - x)**6/720 - E*(1 - x)**7/5040 + O((x - 1)**8, (x, 1))",
+true,
+0.0194,
+91
+],
+"extra:092 fps(1/(1 - x), dir=-1)": [
+"1 + x + x**2 + x**3 + x**4 + x**5 + x**6 + x**7 + O(x**8)",
+true,
+0.0033,
+92
+],
+"extra:093 fps(sin(x), dir='-')": [
+"EXC SympifyError",
+false,
+0.0378,
+93
+],
+"extra:094 fps(sin(x), dir='+')": [
+"EXC SympifyError",
+false,
+0.0219,
+94
+],
+"extra:095 fps(sin(x), dir=2)": [
+"EXC ValueError",
+false,
+0.0003,
+95
+],
+"extra:096 fps(x, dir='-')": [
+"EXC SympifyError",
+false,
+0.0054,
+96
+],
+"extra:097 compute_fps(sin(x), x, dir='-')[2]": [
+"x",
+true,
+0.0146,
+97
+],
+"extra:098 fps(sin(x), hyper=False)": [
+"EXC HELD sin(x)",
+false,
+0.0006,
+98
+],
+"extra:099 fps(log(1 + x), hyper=False)": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 - x**6/6 + x**7/7 + O(x**8)",
+true,
+0.0051,
+99
+],
+"extra:100 fps(atan(x), hyper=False)": [
+"EXC HELD atan(x)",
+false,
+0.0012,
+100
+],
+"extra:101 fps(exp(x), rational=False)": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + x**6/720 + x**7/5040 + O(x**8)",
+true,
+0.0049,
+101
+],
+"extra:102 fps(log(1 + x), rational=False)": [
+"x - x**2/2 + x**3/3 - x**4/4 + x**5/5 - x**6/6 + x**7/7 + O(x**8)",
+true,
+0.0144,
+102
+],
+"extra:103 fps(sin(x), hyper=False, rational=False)": [
+"EXC HELD sin(x)",
+false,
+0.0003,
+103
+],
+"extra:104 fps(exp(x), order=1)": [
+"1 + x + x**2/2 + x**3/6 + x**4/24 + x**5/120 + x**6/720 + x**7/5040 + O(x**8)",
+true,
+0.0039,
+104
+],
+"extra:105 fps(sin(x), order=1)": [
+"EXC HELD sin(x)",
+false,
+0.0005,
+105
+],
+"extra:106 fps(sin(x), order=2)": [
+"x - x**3/6 + x**5/120 - x**7/5040 + O(x**8)",
+true,
+0.0089,
+106
+],
+"extra:107 fps(cos(x)**2, order=2)": [
+"EXC HELD cos(x)**2",
+false,
+0.0012,
+107
+],
+"extra:108 fps(log(1 + x**2), full=True)": [
+"x**2 - x**4/2 + x**6/3 + O(x**8)",
+true,
+0.0203,
+108
+],
+"extra:109 fps(atan(x), full=True)": [
+"x - x**3/3 + x**5/5 - x**7/7 + O(x**8)",
+true,
+0.0169,
+109
+],
+"extra:110 fps(1/(x**3 - 2), full=True)": [
+"-1/2 - x**3/4 - x**6/8 + O(x**8)",
+true,
+1.1396,
+110
+],
+"extra:111 fps(x**n*sin(x))": [
+"EXC NotImplementedError",
+false,
+0.0054,
+111
+],
+"extra:112 fps(exp(a*x), x)": [
+"EXC HELD exp(a*x)",
+false,
+0.0387,
+112
+],
+"extra:113 fps(1/(1 - a*x), x)": [
+"EXC HELD 1/(-a*x + 1)",
+false,
+0.0149,
+113
+],
+"extra:114 fps(sin(a*x), x)": [
+"EXC HELD sin(a*x)",
+false,
+0.0097,
+114
+],
+"extra:115 fps(x**a*exp(x), x)": [
+"x**(a + 7)/5040 + x**(a + 6)/720 + x**(a + 5)/120 + x**(a + 4)/24 + x**(a + 3)/6 + x**(a + 2)/2 + x**(a + 1) + x**a + O(x**(a + 8))",
+true,
+0.0181,
+115
+],
+"extra:116 fps(y*x)": [
+"EXC NotImplementedError",
+false,
+0.0008,
+116
+],
+"extra:117 fps(x + y, x)": [
+"y + x + O(x**8)",
+true,
+0.0038,
+117
+],
+"extra:118 fps(3)": [
+"EXC HELD 3",
+false,
+0.0004,
+118
+],
+"extra:119 fps(x)": [
+"x + O(x**8)",
+true,
+0.0026,
+119
+],
+"extra:120 fps(x**3 + 2*x)": [
+"2*x + x**3 + O(x**8)",
+true,
+0.0147,
+120
+],
+"extra:121 fps(1/x)": [
+"EXC HELD 1/x",
+false,
+0.0338,
+121
+],
+"extra:122 fps(sqrt(x))": [
+"EXC HELD sqrt(x)",
+false,
+0.0778,
+122
+],
+"extra:123 fps(log(x))": [
+"EXC HELD log(x)",
+false,
+0.0894,
+123
+],
+"extra:124 fps(exp(1/x))": [
+"EXC HELD exp(1/x)",
+false,
+0.1449,
+124
+],
+"extra:125 fps(abs(x))": [
+"EXC HELD Abs(x)",
+false,
+0.2756,
+125
+],
+"extra:126 fps(gamma(x))": [
+"EXC HELD gamma(x)",
+false,
+0.0275,
+126
+]
+}

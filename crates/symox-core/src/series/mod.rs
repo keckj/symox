@@ -21,6 +21,7 @@ pub mod asym;
 pub mod coeff;
 pub mod direction;
 pub mod engine;
+pub mod formal;
 pub mod held;
 pub mod nseries_cdir;
 pub mod order;

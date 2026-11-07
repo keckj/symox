@@ -383,6 +383,13 @@ fn expand_pow(
                     // when the independent multiplication hint is disabled.
                     return expand_product(&factors);
                 }
+                if k <= -2 {
+                    // SymPy's _eval_expand_multinomial: a negative rational
+                    // exponent of magnitude above 1 inverts the expansion of
+                    // the positive power, (x+1)**(-5/2) -> 1/((x+1)**2*sqrt(x+1)).
+                    let positive = expand_pow(b, &Expr::num(n.neg()), cache, options, opaque);
+                    return pow(&positive, &Expr::minus_one());
+                }
             }
         }
     }

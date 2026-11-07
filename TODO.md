@@ -1214,6 +1214,62 @@ Lacunes restantes :
     et 50 s à la vague 44, car moins de cadres Python par niveau laissent
     plus de niveaux avant la limite.
 
+## Lot fps (vague 45, `feat-fps-20261107`)
+
+Séries formelles de SymPy 1.14 (`sympy/series/formal.py`) portées en Rust
+(`crates/symox-core/src/series/formal.rs`, liaison
+`crates/symox-py/src/formal.rs`). Cela remplace la ligne « formal/`fps`
+encore en Python » de la section Limites ci-dessus, et les anciennes
+notes `fps` du document de parité (vers les lignes 6327–6358).
+
+Calcul en Rust :
+- `rational_algorithm`, `rational_independent`, `simpleDE`, `exp_re`,
+  `hyper_re`, `rsolve_hypergeometric`, `solve_de`, `hyper_algorithm`,
+  `_compute_fps`, `compute_fps` et `fps` ;
+- les méthodes de `FormalPowerSeries` :
+  - `truncate`, `polynomial`, `infinite` et `__getitem__` ;
+  - `+`, `-` et `*` ;
+  - `product`, `compose` et `inverse` ;
+  - `integrate`, `diff` et `zero_coeff` ;
+  - le crochet `as_leading_term` ;
+- `Coeff.eval`.
+
+En Python ne restent que les enveloppes de classe, le passage des
+arguments et le pickling.
+
+Corpus (`audits/performance/2026-11-07-fps/`) :
+- `test_formal.py` : 220/220 SAME après le lot, contre SAME 101, DIFF 5,
+  DECLINED 85 et WRONG 29 avant ;
+- 127 cas supplémentaires : SAME 121 et DIFF 6, contre SAME 87, DIFF 30
+  et DECLINED 10 avant.
+
+Écarts délibérés, à arbitrer :
+- produit : le produit natif convolue exactement. SymPy convolue par une
+  FFT symbolique et laisse des radicaux non simplifiés ; les valeurs sont
+  égales. Pour `log(1 + x)·exp(-x)`, le coefficient `zoo` de `k = 0`
+  donne `zoo` chez nous et `nan` chez SymPy ;
+- polynôme non développé : SymPy lit `Coeff` et le terme constant sur le
+  polynôme non développé, ce qui donne `fps((1 + x)**2) = O(x**4)` et
+  `fps(x**2 + 1, x, 1) = 1`. Symox développe et rend les coefficients de
+  Taylor ;
+- `truncate` à ordre symbolique en un point fini : `x**(n + 3)/2` est
+  gardé (`fps(x**(n + 1)*exp(x)).truncate(3)`). SymPy l'abandonne mais
+  annonce `O(x**(n + 4))` ;
+- `rsolve_hypergeometric` avec un `P` entier Python : SymPy lève
+  AttributeError, symox sympifie.
+
+Lacunes restantes :
+- `integrate(log(1 + x), x)` de symox a une autre constante, d'où
+  `fps(log(1 + x)).integrate(x)` commence par `-1`. Cette lacune relève
+  d'`integrate`, pas du lot ;
+- les opérations publiques qu'appellent les algorithmes passent par
+  l'API de symox, avec son admission et ses replis :
+  - `simplify`, `limit`, `integrate`, `apart`, `factor`, `cancel` ;
+  - `doit`, `leadterm`, `roots`, `linsolve` ;
+  - leur part encore en Python reste celle de ces fonctions ;
+- `MatrixFormalPowerSeries` (`series/matrix.py`, `_lazy_formal.py`) est
+  une extension propre à symox, absente de SymPy, et reste en Python.
+
 ## État des preuves et prochaine étape
 
 Le critère de clôture du tri de l'audit, décidé le 22 octobre, reste : ne
