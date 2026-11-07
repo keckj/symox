@@ -24,7 +24,7 @@ use rustc_hash::FxHashSet;
 use crate::diff::{diff, diff_n};
 use crate::expr::{Expr, Func, Kind, RelOp};
 use crate::functions::{func, undefined};
-use crate::matches::{reference_has, reference_match};
+use crate::matches::reference_match;
 use crate::ops::{add, add2, div, inv, mul, mul2, neg, pow, sub};
 use crate::poly::collect::{self, Collection, Options};
 use crate::relational::rel;
@@ -138,8 +138,10 @@ fn diff2(e: &Expr, v: &Expr) -> Expr {
     crate::simptools::exprtools::factor_terms(&crate::simptools::misc::signsimp(&r, true), false, false, false, true)
 }
 
+/// `Basic.has` of the reference: since hasmatch, `traverse::has_structural`
+/// follows `AssocOp._has_matcher` (sub-sums and sub-products).
 fn has(e: &Expr, s: &Expr) -> bool {
-    reference_has(e, s)
+    crate::traverse::has_structural(e, s)
 }
 
 fn exp(e: &Expr) -> Expr {
