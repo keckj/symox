@@ -17943,3 +17943,104 @@ Remaining gaps:
 - `pdsolve` and its `dsolve` recursion remain in Python (see above).
 
 Measured: [audit](../audits/performance/2026-11-06-liegroup/README.md).
+
+## Wave 44 integration (hasmatch, algpoly, liegroup), 2026-11-07
+
+Branch `integrate-wave44-20261107`: main `583315a8` (wave 43) with
+`feat-hasmatch-20261106`, `feat-algpoly-20261106` and
+`feat-liegroup-20261106`, merged in that order with `git merge --no-ff`.
+Only `TODO.md` and this file had textual conflicts; both keep the sections
+of all three lots. `crates/symox-py/src/lib.rs` merged cleanly with the
+registrations of all three lots (`_has_matcher`, `mod ode_lie` and
+`ode_lie::register`).
+
+One integration fix, in Rust (`1666ce3f`): hasmatch removed the duplicate
+`matches::reference_has`, and the file now holds only a private wrapper
+over `traverse::has_structural`. liegroup still imported the old public
+function, so the merged tree did not compile (E0603). `ode/lie_group.rs`
+now calls `traverse::has_structural` directly. This is the reference
+`Basic.has` that hasmatch ported, with `AssocOp._has_matcher` sub-sums and
+sub-products. The old function only handled sub-products of a `Mul`, so
+lie_group's `has` now follows the reference on sub-sums too. The lie_group
+corpus changes only in one deadline-boundary case, and the native
+lie_group tests pass (below).
+
+Validation of the merged code (`XLA_PYTHON_CLIENT_PREALLOCATE=false`, each
+heavy step run one after the other under `flock ~/symox-ci/heavy.lock`):
+
+- Full suite: SUITE CLEAN on the second run. 60 821 passed, 13 xfail and
+  45 skipped, out of 60 879 tests collected and run in 700 files. That is
+  the union of the three lots (+27, +39 and +212 tests and 4 files on
+  main's 60 601 and 696). The lots had 14 xfail together. The missing one
+  is the non-strict, hash-seed-dependent
+  `test_checkinfsol_matches_sympy[x*(f(x).diff(x)) + 1 - f(x)**2]`, which
+  XPASSed under this run's seed.
+  - The first run lost shard 23 (`tests/extra`) to the cgroup OOM killer
+    (6 GB peak). Run alone, the shard was OOM-killed with both this build
+    and main's wave-43 `.so`. That makes it environmental: since the
+    machine restarted on 7 November, this shard reaches the 6 GB cap,
+    where it peaked near 5.3 GB before. On the second run it passed.
+- `cargo test --release`: 876 + 1 + 0 + 5. Clippy correctness is clean.
+- ODE corpus: 315/289/270, with verdicts identical row by row to wave 43.
+- Solve corpora, both identical line by line to wave 43:
+  - tsolve: 106 SAME, 6 EQUIV, 2 SUPERSET, 1 DECLINED and 0 WRONG_EMPTY;
+  - unrad: 87 SAME, 2 EQUIV and 1 EXTRA.
+- Lot corpora replayed on the merged build:
+  - hasmatch: `has` 1255/1255 SAME;
+  - algpoly: 134 SAME, 5 DIFF, 0 DECLINED and 0 WRONG, with the same
+    per-case verdicts as the lot;
+  - liegroup: 412 SAME, 14 DIFF, 2 DECLINED and 0 WRONG, against 413/13/2/0
+    for the lot. The only case that changes is `dsolve:fsum`
+    (`hint='lie_group'`). In the lot, both sides ran past the 120 s deadline
+    (symox 125.6 s), an equality that showed no parity. Here symox ended at
+    107.8 s with NotImplementedError ("cannot be solved by the lie group
+    method"). Run alone, both the merged build and the lot's own build raise
+    that NotImplementedError after 116 s (evidence `lots/fsum/`), so this is
+    a deadline-boundary effect, not an interaction. Run without a deadline,
+    SymPy 1.14 raises the same NotImplementedError with the same message
+    after 371 s (`lots/fsum/sympy-longrun.txt`), so the case is at parity,
+    beyond the corpus deadline;
+  - ratint2: 73/75 equal to SymPy;
+  - matcher: public `Expr.match` 2311/2311. The native port has 2226 equal
+    and 85 declined, and `pattern_match` has 2059 equal and 252 different.
+    The report is identical to wave 43, timings aside;
+  - limits2: 1211/1293, with the same per-file counts and categories as
+    the lot, and the same 84 Gruntz declines.
+
+Interactions checked:
+
+- hasmatch changes the public `has`, and `collect` now falls back to
+  `reference_match`. lie_group uses `has`, match and collect heavily. Its
+  corpus is unchanged apart from the `fsum` deadline case above, and the
+  212 native lie_group tests pass.
+- algpoly changes EX normalization and domain unification. The ODE
+  corpus, the solve corpora, ratint2 and the full suite are unchanged.
+
+Open after this wave (see the lot sections above and the TODO):
+
+- `has`: `FockState` (a Python physics class) and the `srepr` of
+  `WildFunction`.
+- Matcher: native ODE matching costs about 1 ms per call. The native
+  matcher still declines on Float, `zoo`/`oo` and `Sum`.
+- Algebraic extensions:
+  - native `factor_list` with `sqrt(2)` fails the reconstruction
+    certificate in `poly/checked_factors.rs`;
+  - `cancel(greedy=False)` with `sqrt(2)` returns its argument unchanged;
+  - `real_roots`/`all_roots` on a multivariate Poly with an extension;
+  - `CRootOf` extensions.
+- lie_group:
+  - `pdsolve` and `pde_1st_linear_variable_coeff` are still Python, and
+    the native `lie_group` calls them back;
+  - the Python `_symmetry_*` helpers are kept for `_native_fallback`.
+- Found through lie_group, outside its scope:
+  - `integrate` splits `log` of a product;
+  - `Mul` simplifies `exp(x + y)*exp(-x - y)` to 1;
+  - `cancel` with `zoo` keeps `y` where SymPy gives `nan`;
+  - `solve` returns roots in another form. In case uu3, `default` then
+    runs past 120 s, where SymPy answers in 4.7 s.
+- Deliberate deviations awaiting the user's decision:
+  - hasmatch: `simp.rs` keeps `pattern_match`;
+  - algpoly: the numerator/denominator representative, two exception
+    classes and the `ANP(1)` print;
+  - liegroup: the prefix atom order, and user `xi`/`eta` are tried once;
+  - wave 43: `Order.as_expr_variables` is still a Python API envelope.
