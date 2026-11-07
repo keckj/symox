@@ -66,6 +66,104 @@ allhints = (
     )
 
 
+# symox: the reference methods are ported natively (``symox::ode::pde``);
+# the functions below admit the arguments, call the native port and keep
+# the reference body when it declines (``None``).
+_PDSOLVE_KWARGS = frozenset(('prep', 'ics', 'xi', 'eta', 'x0', 'n'))
+
+
+def _native(name):
+    from symox.solvers.ode.lie_group import _native as native
+    return native(name)
+
+
+def _hooks():
+    from symox.solvers.ode.lie_group import _hooks as hooks
+    return hooks()
+
+
+def _solvefun_sample(solvefun):
+    """A sample application of ``solvefun`` for the native port, or
+    ``None`` when it is not an undefined function."""
+    from symox.core.function import UndefinedFunction
+    if not isinstance(solvefun, UndefinedFunction):
+        return None
+    try:
+        return solvefun(Dummy())
+    except (TypeError, ValueError):
+        return None
+
+
+def _default_solvefun(eq):
+    solvefun = Function('F')
+    # symox: SymPy reuses a function F of the equation as the arbitrary
+    # function, which loses the general solution of u_x + u_y = F(x - y).
+    # A free name is taken only in that case.
+    names = {a.func.__name__ for a in eq.atoms(AppliedUndef)} if hasattr(eq, 'atoms') else set()
+    name = 'F'
+    while name in names:
+        name += '_'
+    if name != 'F':
+        solvefun = Function(name)
+    return solvefun
+
+
+def _isotropic_fallback(eq, func, dict, solvefun, kwargs, result):
+    # symox: the constant coefficient formulas divide by b**2 + c**2,
+    # which vanishes for isotropic complex characteristics (u_x +
+    # I*u_y); the reference result is then nan and the Eq False.
+    # The native characteristic solver handles that case.
+    from ._native_pde import pdsolve as native_pdsolve
+    try:
+        return native_pdsolve(eq, func, dict=dict, solvefun=solvefun, **kwargs)
+    except (NotImplementedError, ValueError, TypeError):
+        return result
+
+
+def _native_pdsolve(eq, func, hint, dict, solvefun, kwargs):
+    native = _native('pde_pdsolve')
+    if native is None or not isinstance(hint, str) or not set(kwargs) <= _PDSOLVE_KWARGS:
+        return None
+    sample = None
+    if solvefun:
+        sample = _solvefun_sample(solvefun)
+        if sample is None:
+            return None
+    value = native(eq, func, hint, bool(kwargs.get('prep', True)), sample, _hooks())
+    if value is None:
+        return None
+    tag, body = value
+    if tag == 'all':
+        return (body,)
+    if not solvefun:
+        solvefun = _default_solvefun(eq)
+    if tag == 'one':
+        if hint == 'default' and not isinstance(body, Equality):
+            return (_isotropic_fallback(eq, func, dict, solvefun, kwargs, body),)
+        return (body,)
+    try:
+        raise NotImplementedError(body)
+    except NotImplementedError:
+        if hint != 'default':
+            raise
+        return (_native_fallback(eq, func, dict, solvefun, kwargs),)
+
+
+def _native_solve_hint(hint, eq, func, match, solvefun):
+    native = _native('pde_solve_hint')
+    if native is None:
+        return None
+    sample = _solvefun_sample(solvefun)
+    if sample is None:
+        return None
+    try:
+        b, c, d = match[match['b']], match[match['c']], match[match['d']]
+        e = match[match['e']] if 'e' in match else None
+    except (KeyError, TypeError):
+        return None
+    return native(hint, eq, func, b, c, d, e, sample, _hooks())
+
+
 def pdsolve(eq, func=None, hint='default', dict=False, solvefun=None, **kwargs):
     """
     Solves any (supported) kind of partial differential equation.
@@ -168,17 +266,12 @@ def pdsolve(eq, func=None, hint='default', dict=False, solvefun=None, **kwargs):
 
     """
 
+    native = _native_pdsolve(eq, func, hint, dict, solvefun, kwargs)
+    if native is not None:
+        return native[0]
+
     if not solvefun:
-        solvefun = Function('F')
-        # symox: SymPy reuses a function F of the equation as the arbitrary
-        # function, which loses the general solution of u_x + u_y = F(x - y).
-        # A free name is taken only in that case.
-        names = {a.func.__name__ for a in eq.atoms(AppliedUndef)} if hasattr(eq, 'atoms') else set()
-        name = 'F'
-        while name in names:
-            name += '_'
-        if name != 'F':
-            solvefun = Function(name)
+        solvefun = _default_solvefun(eq)
 
     # See the docstring of _desolve for more details.
     try:
@@ -214,15 +307,7 @@ def pdsolve(eq, func=None, hint='default', dict=False, solvefun=None, **kwargs):
         result = _helper_simplify(eq, hints['hint'], hints['func'],
                                   hints['order'], hints[hints['hint']], solvefun)
         if hint == 'default' and not isinstance(result, Equality):
-            # symox: the constant coefficient formulas divide by b**2 + c**2,
-            # which vanishes for isotropic complex characteristics (u_x +
-            # I*u_y); the reference result is then nan and the Eq False.
-            # The native characteristic solver handles that case.
-            from ._native_pde import pdsolve as native_pdsolve
-            try:
-                return native_pdsolve(eq, hints['func'], dict=dict, solvefun=solvefun, **kwargs)
-            except (NotImplementedError, ValueError, TypeError):
-                return result
+            return _isotropic_fallback(eq, hints['func'], dict, solvefun, kwargs, result)
         return result
 
 
@@ -291,6 +376,12 @@ def classify_pde(eq, func=None, dict=False, *, prep=True, **kwargs):
     >>> classify_pde(eq)
     ('1st_linear_constant_coeff_homogeneous',)
     """
+
+    native = _native('pde_classify')
+    if native is not None:
+        value = native(eq, func, bool(dict), bool(prep), _hooks())
+        if value is not None:
+            return value
 
     if func and len(func.args) != 2:
         raise NotImplementedError("Right now only partial "
@@ -435,6 +526,15 @@ def checkpdesol(pde, sol, func=None, solve_for_func=True):
     (False, (x*F(4*x - 3*y) - 6*F(4*x - 3*y)/25 + 4*Subs(Derivative(F(_xi_1), _xi_1), _xi_1, 4*x - 3*y))*exp(-6*x/25 - 8*y/25))
     """
 
+    native = _native('pde_checkpdesol')
+    if native is not None:
+        seq = is_sequence(sol, set)
+        items = list(sol) if seq else sol
+        if not seq or not any(is_sequence(i, set) for i in items):
+            value = native(pde, items, seq, func, bool(solve_for_func), _hooks())
+            if value is not None:
+                return type(sol)(value) if seq else value
+
     # Converting the pde into an equation
     if not isinstance(pde, Equality):
         pde = Eq(pde, 0)
@@ -574,6 +674,10 @@ def pde_1st_linear_constant_coeff_homogeneous(eq, func, order, match, solvefun):
       Math 124A - Fall 2010, pp.7
 
     """
+    native = _native_solve_hint('1st_linear_constant_coeff_homogeneous', eq, func, match, solvefun)
+    if native is not None:
+        return native
+
     # TODO : For now homogeneous first order linear PDE's having
     # two variables are implemented. Once there is support for
     # solving systems of ODE's, this can be extended to n variables.
@@ -664,6 +768,10 @@ def pde_1st_linear_constant_coeff(eq, func, order, match, solvefun):
 
     """
 
+    native = _native_solve_hint('1st_linear_constant_coeff', eq, func, match, solvefun)
+    if native is not None:
+        return native
+
     # TODO : For now homogeneous first order linear PDE's having
     # two variables are implemented. Once there is support for
     # solving systems of ODE's, this can be extended to n variables.
@@ -747,6 +855,10 @@ def pde_1st_linear_variable_coeff(eq, func, order, match, solvefun):
       Math 124A - Fall 2010, pp.7
 
     """
+    native = _native_solve_hint('1st_linear_variable_coeff', eq, func, match, solvefun)
+    if native is not None:
+        return native
+
     from symox.solvers.ode import dsolve
 
     eta = symbols("eta")
@@ -909,6 +1021,17 @@ def pde_separate(eq, fun, sep, strategy='mul'):
         do_add = False
     else:
         raise ValueError('Unknown strategy: %s' % strategy)
+
+    native = _native('pde_separate')
+    if native is not None:
+        try:
+            args = list(sep)
+        except TypeError:
+            args = None
+        if args is not None:
+            value = native(eq, fun, args, strategy, _hooks())
+            if value is not None:
+                return value[0]
 
     if isinstance(eq, Equality):
         if eq.rhs != 0:

@@ -13,8 +13,9 @@
 //! coordinates, the quadrature equation and the heuristic order. `collect`,
 //! `Expr.match`, `separatevars`, `powsimp`, `factor_terms`, `Poly`,
 //! `as_numer_denom`, `diff`, `subs` and `doit` are the native ones.
-//! `simplify`, `expand`, `cancel`, `integrate`, `solve`, `div` and `pdsolve`
-//! are the public callables supplied by the binding through [`Hooks`]; an
+//! `simplify`, `expand`, `cancel`, `integrate`, `solve`, `div`, `doit` and
+//! `dsolve` are the public callables supplied by the binding through
+//! [`Hooks`]; `pdsolve` is the native [`super::pde::pdsolve`]; an
 //! error they raise propagates unchanged, and the `except` clauses of the
 //! reference catch it by class ([`Hooks::exc`]). [`LieError::Decline`] leaves
 //! the computation to the reference body.
@@ -54,6 +55,7 @@ pub enum Exc {
     Type,
     Index,
     UnboundLocal,
+    Key,
     Other,
 }
 
@@ -82,8 +84,16 @@ pub trait Hooks {
     fn solve_system(&mut self, eqs: &[Expr], syms: &[Expr], unpacked_set: bool) -> Result<Solved, Self::Error>;
     /// `div(f, g)`: `(q, r)`.
     fn div(&mut self, f: &Expr, g: &Expr) -> Result<(Expr, Expr), Self::Error>;
-    /// `pdsolve(eq, func=fxy).rhs`.
-    fn pdsolve(&mut self, eq: &Expr, fxy: &Expr) -> Result<Expr, Self::Error>;
+    /// `e.doit()`.
+    fn doit(&mut self, e: &Expr) -> Result<Expr, Self::Error>;
+    /// `dsolve(eq, func)`, or `dsolve(eq, func, hint=hint)`.
+    fn dsolve(&mut self, eq: &Expr, func: &Expr, hint: Option<&str>) -> Result<Dsolved, Self::Error>;
+}
+
+/// The result of `dsolve`: one equation or a list of them.
+pub enum Dsolved {
+    One(Expr),
+    Many(Vec<Expr>),
 }
 
 /// An error of the reference body: a hook error, an exception the reference
@@ -97,9 +107,9 @@ pub enum LieError<E> {
     Decline(&'static str),
 }
 
-type R<T, H> = Result<T, LieError<<H as Hooks>::Error>>;
+pub(crate) type R<T, H> = Result<T, LieError<<H as Hooks>::Error>>;
 
-fn class<H: Hooks>(hooks: &H, e: &LieError<H::Error>) -> Exc {
+pub(crate) fn class<H: Hooks>(hooks: &H, e: &LieError<H::Error>) -> Exc {
     match e {
         LieError::Hook(e) => hooks.exc(e),
         LieError::Raise(k, _) => *k,
@@ -108,7 +118,7 @@ fn class<H: Hooks>(hooks: &H, e: &LieError<H::Error>) -> Exc {
 }
 
 /// `try: v = call() except NotImplementedError: None`.
-fn unless_nie<H: Hooks, T>(hooks: &H, r: Result<T, H::Error>) -> R<Option<T>, H> {
+pub(crate) fn unless_nie<H: Hooks, T>(hooks: &H, r: Result<T, H::Error>) -> R<Option<T>, H> {
     match r {
         Ok(v) => Ok(Some(v)),
         Err(e) if hooks.exc(&e) == Exc::NotImplemented => Ok(None),
@@ -116,12 +126,12 @@ fn unless_nie<H: Hooks, T>(hooks: &H, r: Result<T, H::Error>) -> R<Option<T>, H>
     }
 }
 
-fn hk<H: Hooks, T>(r: Result<T, H::Error>) -> R<T, H> {
+pub(crate) fn hk<H: Hooks, T>(r: Result<T, H::Error>) -> R<T, H> {
     r.map_err(LieError::Hook)
 }
 
 /// The reference truth value of an expression: false only for a numeric zero.
-fn truthy(e: &Expr) -> bool {
+pub(crate) fn truthy(e: &Expr) -> bool {
     match e.kind() {
         Kind::Num(n) => !n.is_zero(),
         _ => true,
@@ -140,21 +150,21 @@ fn diff2(e: &Expr, v: &Expr) -> Expr {
 
 /// `Basic.has` of the reference: since hasmatch, `traverse::has_structural`
 /// follows `AssocOp._has_matcher` (sub-sums and sub-products).
-fn has(e: &Expr, s: &Expr) -> bool {
+pub(crate) fn has(e: &Expr, s: &Expr) -> bool {
     crate::traverse::has_structural(e, s)
 }
 
-fn exp(e: &Expr) -> Expr {
+pub(crate) fn exp(e: &Expr) -> Expr {
     func(Func::Exp, vec![e.clone()])
 }
 
-fn index_error<E>() -> LieError<E> {
+pub(crate) fn index_error<E>() -> LieError<E> {
     LieError::Raise(Exc::Index, "list index out of range".into())
 }
 
 /// Content the port does not model: matrices, host classes and symbolic
 /// derivatives.
-fn unmodelled(e: &Expr) -> bool {
+pub(crate) fn unmodelled(e: &Expr) -> bool {
     e.has_matrix() || e.has_host() || e.has_symbolic_derivative()
 }
 
@@ -216,7 +226,7 @@ impl LieMatch {
     }
 }
 
-fn dummy(name: &str) -> Expr {
+pub(crate) fn dummy(name: &str) -> Expr {
     Expr::dummy(name, Assumptions::default())
 }
 
@@ -966,10 +976,26 @@ pub fn lie_group_split(eq: &Expr, fx: &Expr, x: &Expr, y: &Expr) -> Result<Optio
 }
 
 /// The function `f` of `f(x)` applied to `args`.
-fn apply_same(fx: &Expr, args: Vec<Expr>) -> Option<Expr> {
+pub(crate) fn apply_same(fx: &Expr, args: Vec<Expr>) -> Option<Expr> {
     match fx.kind() {
         Kind::Func(head @ Func::Undefined(_), _) => Some(func(head.clone(), args)),
         _ => None,
+    }
+}
+
+/// `pdsolve(eq, func=fxy).rhs` by the native port of `pdsolve`, with the
+/// default arbitrary function of the binding (`F`, or a free name when the
+/// equation applies a function `F`). The reference `_native_fallback` of an
+/// unclassified equation and the fallback of a non-`Equality` result stay
+/// with the reference body (decline).
+fn native_pdsolve_rhs<H: Hooks>(eq: &Expr, fxy: &Expr, hooks: &mut H) -> R<Expr, H> {
+    let solvefun = super::pde::default_solvefun(eq, fxy);
+    match super::pde::pdsolve(eq, Some(fxy), "default", true, &solvefun, hooks)? {
+        super::pde::Pdsolved::One(sol) => match sol.kind() {
+            Kind::Rel(RelOp::Eq, _, rhs) => Ok(rhs.clone()),
+            _ => Err(LieError::Decline("pdsolve result")),
+        },
+        _ => Err(LieError::Decline("pdsolve result")),
     }
 }
 
@@ -994,8 +1020,8 @@ fn try_heuristic<H: Hooks>(name: &str, fx: &Expr, x: &Expr, h: &Expr, y: &Expr, 
             continue;
         }
         let rpde = add2(&mul2(&diff(&fxy, x), &xiinf), &mul2(&diff(&fxy, y), &etainf));
-        let r = hk::<H, _>(hooks.pdsolve(&rpde, &fxy))?;
-        let s = hk::<H, _>(hooks.pdsolve(&sub(&rpde, &Expr::one()), &fxy))?;
+        let r = native_pdsolve_rhs(&rpde, &fxy, hooks)?;
+        let s = native_pdsolve_rhs(&sub(&rpde, &Expr::one()), &fxy, hooks)?;
         let rcoord = lie_group_remove(&r);
         let scoord = lie_group_remove(&s);
         let (rd, sd) = (dummy("r"), dummy("s"));

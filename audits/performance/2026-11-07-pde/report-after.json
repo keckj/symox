@@ -1,0 +1,8341 @@
+{
+ "counts": {
+  "SAME": 716,
+  "DIFF": 75
+ },
+ "by_kind": {
+  "classify": {
+   "SAME": 106
+  },
+  "pdsolve": {
+   "SAME": 282,
+   "DIFF": 36
+  },
+  "all": {
+   "SAME": 180,
+   "DIFF": 32
+  },
+  "check": {
+   "SAME": 74,
+   "DIFF": 5
+  },
+  "method": {
+   "SAME": 34,
+   "DIFF": 2
+  },
+  "extra": {
+   "SAME": 17
+  },
+  "separate": {
+   "SAME": 23
+  }
+ },
+ "cases": {
+  "classify:c1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.128,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:c1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.059,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:c1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.019,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.01,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.032,
+   "symox_s": 0.006,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c1:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.029,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:c1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.53,
+   "symox_s": 0.04,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:c2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.017,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:c2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.027,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:c2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.011,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c2:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:c2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.034,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:c3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:c3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.025,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:c3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.015,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.021,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c3:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:c3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.193,
+   "symox_s": 0.05,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:v4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.113,
+   "symox_s": 0.027,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:v4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.094,
+   "symox_s": 0.017,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.461,
+   "symox_s": 0.098,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:v4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.248,
+   "symox_s": 0.095,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.098,
+   "symox_s": 0.024,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.099,
+   "symox_s": 0.013,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.095,
+   "symox_s": 0.025,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.328,
+   "symox_s": 0.075,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.324,
+   "symox_s": 0.092,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.283,
+   "symox_s": 0.074,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.332,
+   "symox_s": 0.073,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v4:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.095,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:v4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.187,
+   "symox_s": 0.068,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:v5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.187,
+   "symox_s": 0.019,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:v5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.177,
+   "symox_s": 0.022,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.294,
+   "symox_s": 0.066,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:v5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.255,
+   "symox_s": 0.063,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.183,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.182,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.181,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.276,
+   "symox_s": 0.064,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.472,
+   "symox_s": 0.071,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.482,
+   "symox_s": 0.068,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.49,
+   "symox_s": 0.07,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v5:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.185,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:v5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.412,
+   "symox_s": 0.056,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:v6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.094,
+   "symox_s": 0.02,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:v6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.078,
+   "symox_s": 0.011,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.628,
+   "symox_s": 0.108,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:v6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.492,
+   "symox_s": 0.108,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.097,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.079,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.124,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.454,
+   "symox_s": 0.091,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.532,
+   "symox_s": 0.113,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.533,
+   "symox_s": 0.113,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.542,
+   "symox_s": 0.096,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:v6:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.083,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:v6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.542,
+   "symox_s": 0.107,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:c5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:c5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.021,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:c5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.012,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.01,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c5:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:c5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.03,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:c6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:c6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.019,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:c6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.012,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.017,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:c6:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:c6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.025,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:sf1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:sf1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.026,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:sf1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.011,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.004,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:sf1:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.004,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:sf1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.036,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:h1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:h1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h1:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.021,
+   "symox_s": 0.007,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:h2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.026,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:h2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.01,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.011,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.018,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.017,
+   "symox_s": 0.011,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.017,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h2:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.198,
+   "symox_s": 0.033,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:h3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.013,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.035,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:h3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:h3:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.031,
+   "symox_s": 0.016,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:k1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.021,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:k1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.01,
+   "symox_s": 0.01,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k1": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.903,
+   "symox_s": 0.034,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:k1": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.853,
+   "symox_s": 0.018,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:k1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.022,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k1:1st_linear_constant_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.12,
+   "symox_s": 0.031,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:k1:1st_linear_constant_coeff_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.035,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:k1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.015,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k1:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.547,
+   "symox_s": 0.032,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k1:all_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.036,
+   "symox_s": 0.006,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k1:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.558,
+   "symox_s": 0.036,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k1:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.016,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:k1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.584,
+   "symox_s": 0.033,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:k2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:k2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.545,
+   "symox_s": 0.035,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:k2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.577,
+   "symox_s": 0.035,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k2:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.016,
+   "symox_s": 0.003,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k2:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.563,
+   "symox_s": 0.038,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k2:1st_linear_constant_coeff_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.05,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:k2:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.015,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k2:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.565,
+   "symox_s": 0.037,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k2:all_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.054,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k2:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.539,
+   "symox_s": 0.038,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k2:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.017,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:k2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.697,
+   "symox_s": 0.049,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:k3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.017,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:k3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.012,
+   "symox_s": 0.054,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:k3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.857,
+   "symox_s": 0.048,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.014,
+   "symox_s": 0.011,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.799,
+   "symox_s": 0.054,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.032,
+   "symox_s": 0.027,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.012,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.875,
+   "symox_s": 0.046,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.049,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.966,
+   "symox_s": 0.037,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k3:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.019,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:k3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.954,
+   "symox_s": 0.046,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:k4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:k4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k4": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.592,
+   "symox_s": 0.05,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:k4": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.616,
+   "symox_s": 0.033,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:k4:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k4:1st_linear_constant_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.646,
+   "symox_s": 0.048,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:k4:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.052,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k4:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.014,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k4:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.633,
+   "symox_s": 0.055,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k4:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.037,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k4:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.577,
+   "symox_s": 0.044,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k4:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:k4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.463,
+   "symox_s": 0.053,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:k5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.01,
+   "symox_s": 0.005,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:k5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.01,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k5": {
+   "verdict": "DIFF",
+   "sympy": "TypeError",
+   "symox": "ok",
+   "sympy_s": 20.045,
+   "symox_s": 1.148,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:k5": {
+   "verdict": "DIFF",
+   "sympy": "TypeError",
+   "symox": "ok",
+   "sympy_s": 13.138,
+   "symox_s": 1.113,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:k5:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.014,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k5:1st_linear_constant_coeff": {
+   "verdict": "DIFF",
+   "sympy": "TypeError",
+   "symox": "ok",
+   "sympy_s": 12.232,
+   "symox_s": 1.117,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:k5:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.028,
+   "symox_s": 0.016,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k5:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:k5:all": {
+   "verdict": "DIFF",
+   "sympy": "TypeError",
+   "symox": "ok",
+   "sympy_s": 13.477,
+   "symox_s": 1.28,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k5:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.043,
+   "symox_s": 0.017,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:k5:best": {
+   "verdict": "DIFF",
+   "sympy": "TypeError",
+   "symox": "ok",
+   "sympy_s": 14.159,
+   "symox_s": 1.155,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:k5:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:k5": {
+   "verdict": "DIFF",
+   "sympy": "TypeError",
+   "symox": "ok",
+   "sympy_s": 14.491,
+   "symox_s": 4.078,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "classify:all1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:all1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:all1": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.787,
+   "symox_s": 0.046,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:all1": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.147,
+   "symox_s": 0.024,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:all1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:all1:1st_linear_constant_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.321,
+   "symox_s": 0.045,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:all1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.063,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:all1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.03,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:all1:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.161,
+   "symox_s": 0.043,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:all1:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.03,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:all1:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 3.337,
+   "symox_s": 0.05,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:all1:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:all1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.229,
+   "symox_s": 0.044,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:vc1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.286,
+   "symox_s": 0.031,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:vc1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.252,
+   "symox_s": 0.03,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.577,
+   "symox_s": 0.081,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:vc1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.53,
+   "symox_s": 0.081,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.266,
+   "symox_s": 0.03,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.261,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.257,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.393,
+   "symox_s": 0.084,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.711,
+   "symox_s": 0.1,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.8,
+   "symox_s": 0.114,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.793,
+   "symox_s": 0.106,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc1:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.277,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:vc1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.603,
+   "symox_s": 0.104,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:vc2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.214,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:vc2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.199,
+   "symox_s": 0.023,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.355,
+   "symox_s": 0.076,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:vc2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.277,
+   "symox_s": 0.076,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.188,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.191,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.191,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.249,
+   "symox_s": 0.075,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.432,
+   "symox_s": 0.079,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.432,
+   "symox_s": 0.096,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.433,
+   "symox_s": 0.085,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc2:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.192,
+   "symox_s": 0.009,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:vc2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.34,
+   "symox_s": 0.089,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:vc3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.083,
+   "symox_s": 0.022,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:vc3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.177,
+   "symox_s": 0.021,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.664,
+   "symox_s": 0.133,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:vc3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.695,
+   "symox_s": 0.113,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.099,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.104,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.109,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.795,
+   "symox_s": 0.123,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.684,
+   "symox_s": 0.148,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.556,
+   "symox_s": 0.112,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.568,
+   "symox_s": 0.114,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc3:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.084,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:vc3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.575,
+   "symox_s": 0.113,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:vc4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.092,
+   "symox_s": 0.017,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:vc4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.099,
+   "symox_s": 0.017,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.131,
+   "symox_s": 0.019,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:vc4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.126,
+   "symox_s": 0.018,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.088,
+   "symox_s": 0.014,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.09,
+   "symox_s": 0.016,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.096,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.114,
+   "symox_s": 0.02,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.2,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.199,
+   "symox_s": 0.022,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.197,
+   "symox_s": 0.019,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc4:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.081,
+   "symox_s": 0.014,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:vc4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.117,
+   "symox_s": 0.022,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:vc5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.072,
+   "symox_s": 0.02,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:vc5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.069,
+   "symox_s": 0.019,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.305,
+   "symox_s": 0.109,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:vc5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 2.573,
+   "symox_s": 0.094,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.078,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.076,
+   "symox_s": 0.014,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.069,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.478,
+   "symox_s": 0.106,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.57,
+   "symox_s": 0.115,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.572,
+   "symox_s": 0.109,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.571,
+   "symox_s": 0.117,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:vc5:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.074,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:vc5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.65,
+   "symox_s": 0.11,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.01,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.005,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.007,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.017,
+   "symox_s": 0.007,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m1:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.022,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.018,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.464,
+   "symox_s": 0.031,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.392,
+   "symox_s": 0.033,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.302,
+   "symox_s": 0.029,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.035,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.01,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.326,
+   "symox_s": 0.031,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.027,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.358,
+   "symox_s": 0.027,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m2:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.013,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.321,
+   "symox_s": 0.034,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.021,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m3": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.792,
+   "symox_s": 0.063,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:m3": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.279,
+   "symox_s": 0.063,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m3:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m3:1st_linear_constant_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.134,
+   "symox_s": 0.062,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m3:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.027,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m3:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m3:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.228,
+   "symox_s": 0.064,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m3:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.032,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m3:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.246,
+   "symox_s": 0.064,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m3:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.012,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 2.217,
+   "symox_s": 0.089,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.003,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.01,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 10.026,
+   "symox_s": 0.051,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 7.908,
+   "symox_s": 0.058,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m4:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.013,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m4:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 7.444,
+   "symox_s": 0.053,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m4:1st_linear_constant_coeff_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.032,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m4:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.011,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m4:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 7.798,
+   "symox_s": 0.054,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m4:all_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.027,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m4:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 6.605,
+   "symox_s": 0.051,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m4:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.012,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 8.173,
+   "symox_s": 0.054,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.294,
+   "symox_s": 0.027,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.246,
+   "symox_s": 0.024,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.015,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.245,
+   "symox_s": 0.026,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.026,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.262,
+   "symox_s": 0.029,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.029,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.275,
+   "symox_s": 0.026,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m5:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.003,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.263,
+   "symox_s": 0.028,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.005,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.01,
+   "symox_s": 0.005,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m6:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m7": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.113,
+   "symox_s": 0.027,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m7": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.1,
+   "symox_s": 0.028,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.11,
+   "symox_s": 0.035,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m7": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.102,
+   "symox_s": 0.035,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.102,
+   "symox_s": 0.026,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.101,
+   "symox_s": 0.028,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.102,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.102,
+   "symox_s": 0.029,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7:all": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.101,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.1,
+   "symox_s": 0.03,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7:best": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.103,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m7:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.106,
+   "symox_s": 0.029,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m7": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.105,
+   "symox_s": 0.036,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m8": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.015,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m8": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.328,
+   "symox_s": 0.028,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m8": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.248,
+   "symox_s": 0.027,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.242,
+   "symox_s": 0.026,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.245,
+   "symox_s": 0.028,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.018,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.244,
+   "symox_s": 0.028,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m8:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.003,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m8": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.316,
+   "symox_s": 0.035,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m9": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.089,
+   "symox_s": 0.015,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m9": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.079,
+   "symox_s": 0.024,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.232,
+   "symox_s": 0.068,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m9": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.187,
+   "symox_s": 0.065,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.082,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.08,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.087,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.357,
+   "symox_s": 0.067,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.261,
+   "symox_s": 0.071,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.262,
+   "symox_s": 0.073,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.259,
+   "symox_s": 0.057,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m9:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.08,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m9": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.184,
+   "symox_s": 0.067,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m10": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.085,
+   "symox_s": 0.011,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m10": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.078,
+   "symox_s": 0.022,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.221,
+   "symox_s": 0.067,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m10": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.184,
+   "symox_s": 0.051,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.081,
+   "symox_s": 0.009,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.084,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.093,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.196,
+   "symox_s": 0.068,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.26,
+   "symox_s": 0.072,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.26,
+   "symox_s": 0.071,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.307,
+   "symox_s": 0.074,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m10:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.083,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m10": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.222,
+   "symox_s": 0.069,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.06,
+   "symox_s": 0.016,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.054,
+   "symox_s": 0.018,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.886,
+   "symox_s": 0.133,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.419,
+   "symox_s": 0.139,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.061,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.052,
+   "symox_s": 0.016,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.053,
+   "symox_s": 0.011,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.497,
+   "symox_s": 0.137,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.342,
+   "symox_s": 0.134,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.297,
+   "symox_s": 0.173,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.562,
+   "symox_s": 0.179,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m11:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.058,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 3.493,
+   "symox_s": 0.212,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m12": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.054,
+   "symox_s": 0.011,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m12": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.048,
+   "symox_s": 0.023,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.154,
+   "symox_s": 0.075,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m12": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.118,
+   "symox_s": 0.06,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.049,
+   "symox_s": 0.016,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.048,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.047,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.117,
+   "symox_s": 0.062,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.165,
+   "symox_s": 0.063,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.168,
+   "symox_s": 0.06,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.169,
+   "symox_s": 0.078,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m12:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.048,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m12": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.143,
+   "symox_s": 0.076,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.513,
+   "symox_s": 0.027,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.501,
+   "symox_s": 0.027,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.797,
+   "symox_s": 0.091,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.707,
+   "symox_s": 0.088,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.5,
+   "symox_s": 0.026,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.491,
+   "symox_s": 0.026,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.493,
+   "symox_s": 0.029,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.607,
+   "symox_s": 0.091,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.09,
+   "symox_s": 0.104,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.167,
+   "symox_s": 0.086,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.153,
+   "symox_s": 0.086,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m13:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.498,
+   "symox_s": 0.012,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.697,
+   "symox_s": 0.079,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.046,
+   "symox_s": 0.015,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.042,
+   "symox_s": 0.015,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.125,
+   "symox_s": 0.061,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.124,
+   "symox_s": 0.058,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.049,
+   "symox_s": 0.012,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.057,
+   "symox_s": 0.009,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.046,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.138,
+   "symox_s": 0.058,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.146,
+   "symox_s": 0.048,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.144,
+   "symox_s": 0.063,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.142,
+   "symox_s": 0.062,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m14:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.042,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.111,
+   "symox_s": 0.06,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m15": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m15": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.005,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m15": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.005,
+   "symox_s": 0.026,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:m15": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m15:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.005,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m15:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m15:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m15:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m15:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.007,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m15:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m15:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m15:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m15": {
+   "verdict": "DIFF",
+   "sympy": "AttributeError",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.026,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "classify:m16": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m16": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m16": {
+   "verdict": "DIFF",
+   "sympy": "NotImplementedError",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.032,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:m16": {
+   "verdict": "DIFF",
+   "sympy": "NotImplementedError",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.033,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m16:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m16:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m16:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m16:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m16:all": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m16:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m16:best": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m16:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m16": {
+   "verdict": "DIFF",
+   "sympy": "NotImplementedError",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.039,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "classify:m17": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m17": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.011,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m17": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.267,
+   "symox_s": 0.03,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:m17": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.249,
+   "symox_s": 0.029,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m17:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m17:1st_linear_constant_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.213,
+   "symox_s": 0.029,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m17:1st_linear_constant_coeff_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m17:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m17:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.233,
+   "symox_s": 0.03,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m17:all_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.019,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m17:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.225,
+   "symox_s": 0.028,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m17:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m17": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.214,
+   "symox_s": 0.03,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m18": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m18": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m18": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.236,
+   "symox_s": 0.023,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:m18": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.223,
+   "symox_s": 0.027,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m18:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m18:1st_linear_constant_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.376,
+   "symox_s": 0.027,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m18:1st_linear_constant_coeff_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m18:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m18:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.209,
+   "symox_s": 0.029,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m18:all_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.018,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m18:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.222,
+   "symox_s": 0.017,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m18:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m18": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.254,
+   "symox_s": 0.026,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "classify:m19": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.168,
+   "symox_s": 0.03,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m19": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.116,
+   "symox_s": 0.031,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m19": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 45.401,
+   "symox_s": 3.078,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve_func:m19": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 37.306,
+   "symox_s": 1.76,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m19:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.124,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m19:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.137,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m19:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.112,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m19:1st_linear_variable_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 34.277,
+   "symox_s": 2.186,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m19:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 34.583,
+   "symox_s": 1.975,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m19:all_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 33.037,
+   "symox_s": 1.917,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m19:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 33.651,
+   "symox_s": 1.351,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m19:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.126,
+   "symox_s": 0.031,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m19": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 34.428,
+   "symox_s": 10.614,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "classify:m20": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.052,
+   "symox_s": 0.014,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m20": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.044,
+   "symox_s": 0.014,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.044,
+   "symox_s": 0.023,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m20": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.044,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.044,
+   "symox_s": 0.013,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.043,
+   "symox_s": 0.013,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.049,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.043,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20:all": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.043,
+   "symox_s": 0.014,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.043,
+   "symox_s": 0.014,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20:best": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.042,
+   "symox_s": 0.013,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m20:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.041,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m20": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.043,
+   "symox_s": 0.023,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m21": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m21": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.005,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.006,
+   "symox_s": 0.015,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m21": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.005,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.004,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.004,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.004,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21:all": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.004,
+   "symox_s": 0.004,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.004,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21:best": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.004,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m21:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.005,
+   "symox_s": 0.004,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m21": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.005,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m22": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify_dict:m22": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.0,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m22": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.001,
+   "symox_s": 0.004,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22:all": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22:best": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m22:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m22": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:m23": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.051,
+   "symox_s": 0.018,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m23": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.044,
+   "symox_s": 0.019,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m23": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 9.203,
+   "symox_s": 2.142,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve_func:m23": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 6.597,
+   "symox_s": 2.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m23:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.048,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m23:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.044,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m23:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.043,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m23:1st_linear_variable_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 6.435,
+   "symox_s": 2.147,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m23:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 6.699,
+   "symox_s": 2.004,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m23:all_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 6.554,
+   "symox_s": 2.077,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m23:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 6.707,
+   "symox_s": 2.107,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m23:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.059,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m23": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 7.429,
+   "symox_s": 2.084,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m24": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.045,
+   "symox_s": 0.015,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m24": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.04,
+   "symox_s": 0.017,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.104,
+   "symox_s": 0.051,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m24": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.076,
+   "symox_s": 0.042,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.042,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.041,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.04,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.07,
+   "symox_s": 0.05,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.109,
+   "symox_s": 0.035,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.108,
+   "symox_s": 0.053,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.11,
+   "symox_s": 0.05,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m24:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.041,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m24": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.075,
+   "symox_s": 0.047,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m25": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.085,
+   "symox_s": 0.024,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m25": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.077,
+   "symox_s": 0.025,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.331,
+   "symox_s": 0.101,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m25": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.218,
+   "symox_s": 0.083,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.08,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.079,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.079,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.214,
+   "symox_s": 0.094,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.281,
+   "symox_s": 0.101,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.29,
+   "symox_s": 0.084,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.282,
+   "symox_s": 0.083,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m25:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.079,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m25": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.277,
+   "symox_s": 0.093,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m26": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m26": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.02,
+   "symox_s": 0.009,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m26": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.012,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.009,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.011,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.011,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.018,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.011,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m26:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.007,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m26": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.027,
+   "symox_s": 0.018,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m27": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.01,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m27": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.01,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.551,
+   "symox_s": 0.045,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m27": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.481,
+   "symox_s": 0.061,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.01,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.434,
+   "symox_s": 0.045,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.025,
+   "symox_s": 0.006,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.008,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.441,
+   "symox_s": 0.035,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.072,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.515,
+   "symox_s": 0.038,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m27:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.012,
+   "symox_s": 0.003,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m27": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.516,
+   "symox_s": 0.045,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m28": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m28": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m28": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.913,
+   "symox_s": 0.039,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m28": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.434,
+   "symox_s": 0.019,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m28:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.01,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m28:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.462,
+   "symox_s": 0.027,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m28:1st_linear_constant_coeff_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.038,
+   "symox_s": 0.014,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "pdsolve:m28:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m28:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.47,
+   "symox_s": 0.039,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m28:all_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.028,
+   "symox_s": 0.013,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m28:best": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.406,
+   "symox_s": 0.035,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "pdsolve:m28:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.003,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m28": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.374,
+   "symox_s": 0.03,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m29": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.046,
+   "symox_s": 0.016,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m29": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.04,
+   "symox_s": 0.014,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.097,
+   "symox_s": 0.047,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m29": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.084,
+   "symox_s": 0.052,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.04,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.04,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.041,
+   "symox_s": 0.013,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.081,
+   "symox_s": 0.039,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.12,
+   "symox_s": 0.058,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.121,
+   "symox_s": 0.057,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.129,
+   "symox_s": 0.041,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m29:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.04,
+   "symox_s": 0.006,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m29": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.091,
+   "symox_s": 0.05,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:m30": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.086,
+   "symox_s": 0.011,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify_dict:m30": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.079,
+   "symox_s": 0.021,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.179,
+   "symox_s": 0.061,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve_func:m30": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.153,
+   "symox_s": 0.061,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.082,
+   "symox_s": 0.014,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.08,
+   "symox_s": 0.013,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.079,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.144,
+   "symox_s": 0.064,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.223,
+   "symox_s": 0.065,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30:all_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.254,
+   "symox_s": 0.065,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30:best": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.253,
+   "symox_s": 0.052,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "pdsolve:m30:foo": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.083,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:m30": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.182,
+   "symox_s": 0.063,
+   "native": {
+    "pde_pdsolve:native": 1,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:h1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.018,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:h1:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.007,
+   "symox_s": 0.005,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:h1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:h1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:c1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.023,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:c1:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.007,
+   "symox_s": 0.005,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:c1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:c1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:k1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.021,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:k1:1st_linear_constant_coeff": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.048,
+   "symox_s": 0.017,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "method:k1:1st_linear_constant_coeff_Integral": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.035,
+   "symox_s": 0.015,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "method:k1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.012,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:k4:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.009,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:k4:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.026,
+   "symox_s": 0.013,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:k4:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.014,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:k4:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.007,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m3:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.011,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m3:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.036,
+   "symox_s": 0.016,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m3:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.023,
+   "symox_s": 0.014,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m3:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.007,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:vc1:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.272,
+   "symox_s": 0.03,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:vc1:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.257,
+   "symox_s": 0.015,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:vc1:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.253,
+   "symox_s": 0.032,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:vc1:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.533,
+   "symox_s": 0.08,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:vc3:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.079,
+   "symox_s": 0.008,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:vc3:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.079,
+   "symox_s": 0.021,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:vc3:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.07,
+   "symox_s": 0.019,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:vc3:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.509,
+   "symox_s": 0.108,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m9:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.092,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m9:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.081,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m9:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.081,
+   "symox_s": 0.021,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m9:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.215,
+   "symox_s": 0.065,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m11:1st_linear_constant_coeff_homogeneous": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.052,
+   "symox_s": 0.016,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m11:1st_linear_constant_coeff": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.048,
+   "symox_s": 0.009,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m11:1st_linear_constant_coeff_Integral": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.048,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "method:m11:1st_linear_variable_coeff": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.582,
+   "symox_s": 0.129,
+   "native": {
+    "pde_classify:native": 1,
+    "pde_solve_hint:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:3var": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.001,
+   "symox_s": 0.003,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "err:1var": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.001,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "err:nofunc": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.0,
+   "symox_s": 0.002,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "err:twofunc": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.003,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "err:eq_dict": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.006,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:eq_zero_dict": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.007,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:pow": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.006,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:hint_pow": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.267,
+   "symox_s": 0.022,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:orderkw": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.005,
+   "symox_s": 0.008,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:derivexpr": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.334,
+   "symox_s": 0.068,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:derivexpr_c": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.068,
+   "symox_s": 0.019,
+   "native": {
+    "pde_classify:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:sfun": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.01,
+   "native": {
+    "pde_pdsolve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:checkfunc": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.001,
+   "symox_s": 0.003,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "err:checkfunc2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.004,
+   "symox_s": 0.011,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "err:check_nosolve": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.007,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "err:check_sol4": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 0.355,
+   "symox_s": 0.108,
+   "native": {
+    "pde_pdsolve:native": 2
+   },
+   "validated_by_sympy": null
+  },
+  "check:list45": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.211,
+   "symox_s": 0.024,
+   "native": {
+    "pde_pdsolve:native": 2,
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:0:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.011,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:0:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.004,
+   "symox_s": 0.012,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:1:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.003,
+   "symox_s": 0.011,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:1:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.003,
+   "symox_s": 0.012,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:2:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.005,
+   "symox_s": 0.012,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:2:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.004,
+   "symox_s": 0.012,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:3:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.002,
+   "symox_s": 0.009,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:3:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.001,
+   "symox_s": 0.009,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:4:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.002,
+   "symox_s": 0.01,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:4:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.002,
+   "symox_s": 0.009,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:5:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.001,
+   "symox_s": 0.011,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:5:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.002,
+   "symox_s": 0.007,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:6:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.003,
+   "symox_s": 0.011,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:6:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.002,
+   "symox_s": 0.011,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:7:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.026,
+   "symox_s": 0.025,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:7:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.019,
+   "symox_s": 0.023,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:8:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.019,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:8:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.007,
+   "symox_s": 0.019,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:9:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.062,
+   "symox_s": 0.024,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:9:m1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.048,
+   "symox_s": 0.028,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:10:k1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.04,
+   "symox_s": 0.016,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:10:k1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.017,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:11:m2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.013,
+   "symox_s": 0.012,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:11:m2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.003,
+   "symox_s": 0.011,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand:12:m3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.012,
+   "symox_s": 0.016,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "checkhand_nofunc:12:m3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.017,
+   "native": {
+    "pde_checkpdesol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:0": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.076,
+   "symox_s": 0.02,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:1": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "separate:2": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.003,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "separate:3": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "separate:4": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.0,
+   "symox_s": 0.005,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "separate:5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.06,
+   "symox_s": 0.033,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.054,
+   "symox_s": 0.034,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:7": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.042,
+   "symox_s": 0.031,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:8": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.101,
+   "symox_s": 0.041,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:9": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.108,
+   "symox_s": 0.026,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:10": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.072,
+   "symox_s": 0.024,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.049,
+   "symox_s": 0.016,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:12": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.026,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.026,
+   "symox_s": 0.028,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.008,
+   "symox_s": 0.026,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:15": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.032,
+   "symox_s": 0.018,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:16": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.027,
+   "symox_s": 0.015,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:17": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.04,
+   "symox_s": 0.029,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:18": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.03,
+   "symox_s": 0.026,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:19": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.001,
+   "symox_s": 0.004,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "separate:20": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.03,
+   "symox_s": 0.022,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:21": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.016,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "separate:22": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.03,
+   "symox_s": 0.016,
+   "native": {
+    "pde_separate:native": 1
+   },
+   "validated_by_sympy": null
+  }
+ },
+ "native": {
+  "pde_classify:native": 144,
+  "pde_pdsolve:native": 372,
+  "pde_checkpdesol:native": 77,
+  "pde_solve_hint:native": 12,
+  "pde_separate:native": 18
+ }
+}

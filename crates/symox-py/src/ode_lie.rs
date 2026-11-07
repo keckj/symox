@@ -1,7 +1,7 @@
 //! Bindings of the native `lie_group` solver (`symox::ode::lie_group`).
 //!
 //! The public callables `simplify`, `expand`, `cancel`, `integrate`,
-//! `solve`, `div` and `pdsolve` arrive in a dict; an error they raise
+//! `solve`, `div`, `doit` and `dsolve` arrive in a dict; an error they raise
 //! propagates unchanged. A result the port does not model (or a native
 //! decline) makes the binding return `None`, and the caller keeps the
 //! reference body.
@@ -10,14 +10,14 @@ use pyo3::exceptions::{PyIndexError, PyKeyError, PyNotImplementedError, PyTypeEr
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySet, PyTuple};
 use symox::functions::undefined;
-use symox::ode::lie_group::{self, Exc, Hooks, Inf, LieError, LieMatch, Params, Solved};
+use symox::ode::lie_group::{self, Dsolved, Exc, Hooks, Inf, LieError, LieMatch, Params, Solved};
 use symox::Expr;
 
 use crate::{to_expr, wrap as w};
 
-struct LieHooks<'a, 'py> {
-    d: &'a Bound<'py, PyDict>,
-    foreign: bool,
+pub(crate) struct LieHooks<'a, 'py> {
+    pub(crate) d: &'a Bound<'py, PyDict>,
+    pub(crate) foreign: bool,
 }
 
 impl<'py> LieHooks<'_, 'py> {
@@ -87,6 +87,8 @@ impl Hooks for LieHooks<'_, '_> {
                 Exc::Index
             } else if e.is_instance_of::<PyUnboundLocalError>(py) {
                 Exc::UnboundLocal
+            } else if e.is_instance_of::<PyKeyError>(py) {
+                Exc::Key
             } else {
                 Exc::Other
             }
@@ -159,20 +161,30 @@ impl Hooks for LieHooks<'_, '_> {
         let r = v.extract::<(Bound<'_, PyAny>, Bound<'_, PyAny>)>().and_then(|(q, r)| Ok((to_expr(&q)?, to_expr(&r)?)));
         self.foreign(r)
     }
-    fn pdsolve(&mut self, eq: &Expr, fxy: &Expr) -> PyResult<Expr> {
-        let f = self.get("pdsolve")?;
+    fn doit(&mut self, e: &Expr) -> PyResult<Expr> {
+        self.one("doit", e)
+    }
+    fn dsolve(&mut self, eq: &Expr, func: &Expr, hint: Option<&str>) -> PyResult<Dsolved> {
+        let f = self.get("dsolve")?;
         let py = f.py();
-        let kw = PyDict::new(py);
-        kw.set_item("func", w(fxy.clone()))?;
-        let v = f.call((w(eq.clone()),), Some(&kw))?;
-        let rhs = v.getattr("rhs")?;
-        self.expr_of(&rhs)
+        let v = match hint {
+            Some(h) => {
+                let kw = PyDict::new(py);
+                kw.set_item("hint", h)?;
+                f.call((w(eq.clone()), w(func.clone())), Some(&kw))?
+            }
+            None => f.call1((w(eq.clone()), w(func.clone())))?,
+        };
+        if v.downcast::<PyList>().is_ok() {
+            return Ok(Dsolved::Many(self.exprs(&v)?));
+        }
+        Ok(Dsolved::One(self.expr_of(&v)?))
     }
 }
 
 /// The value of a native result: `Ok(None)` for a decline or a hook result
 /// the port does not model, else the reference exception.
-fn settle<T>(hooks: &LieHooks<'_, '_>, r: Result<T, LieError<PyErr>>) -> PyResult<Option<T>> {
+pub(crate) fn settle<T>(hooks: &LieHooks<'_, '_>, r: Result<T, LieError<PyErr>>) -> PyResult<Option<T>> {
     match r {
         Ok(v) => Ok(Some(v)),
         Err(_) if hooks.foreign => Ok(None),
@@ -185,6 +197,7 @@ fn settle<T>(hooks: &LieHooks<'_, '_>, r: Result<T, LieError<PyErr>>) -> PyResul
             Exc::Type => PyTypeError::new_err(msg),
             Exc::Index => PyIndexError::new_err(msg),
             Exc::UnboundLocal => PyUnboundLocalError::new_err(msg),
+            Exc::Key => PyKeyError::new_err(msg),
             Exc::Other => return Ok(None),
         }),
     }
