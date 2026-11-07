@@ -263,6 +263,17 @@ fn parse_factor(e:&Expr)->Result<ParsedFactor,String>{
     Ok(ParsedFactor{base,exponent,symbolic,derivative:derivative.map(|(_,variable,order)|(variable,order))})
 }
 
+/// `term.match(elem) is not None` of the reference `parse_expression`:
+/// the native port of the reference matcher, or the structural matcher
+/// where that port declines (noncommutative, infinite or bound operands).
+fn matches(term:&Expr,elem:&Expr)->Result<bool,crate::pattern::MatchError>{
+    match crate::matches::reference_match(term,elem,false){
+        Ok(found)=>Ok(found.is_some()),
+        Err(crate::matches::Stop::Error(error))=>Err(error),
+        Err(crate::matches::Stop::Decline(_))=>Ok(crate::pattern::pattern_match(term,elem)?.is_some()),
+    }
+}
+
 /// Match product factors without substituting Wilds into the expression.
 /// Each factor comparison has its own bindings, as in reference collect;
 /// the actual matched factors, not the pattern, become the dictionary key.
@@ -275,9 +286,10 @@ fn match_factors<E>(factors:&[Expr],parsed:&[ParsedFactor],pattern:&Expr,exact:b
         if pattern.base.is_number()&&pattern.exponent.is_one()&&pattern.symbolic.is_none(){continue;}
         let mut found=None;
         for(index,term)in parsed.iter().enumerate(){
-            if taken[index]||crate::pattern::pattern_match(&term.base,&pattern.base)?.is_none(){continue;}
+            if taken[index]{continue;}
+            if !matches(&term.base,&pattern.base)?{continue;}
             let symbolic=match (&term.symbolic,&pattern.symbolic){
-                (None,None)=>true,(Some(a),Some(b))=>crate::pattern::pattern_match(a,b)?.is_some(),_=>false,
+                (None,None)=>true,(Some(a),Some(b))=>matches(a,b)?,_=>false,
             };
             if symbolic&&(!exact||term.exponent==pattern.exponent&&term.derivative==pattern.derivative){found=Some(index);break;}
         }

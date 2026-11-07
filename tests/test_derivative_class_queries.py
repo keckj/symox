@@ -36,11 +36,9 @@ def test_has_find_and_count_keep_the_public_derivative_class_protocol(count):
     assert expr.has(sx.Derivative)==E.has(sp.Derivative)
     assert expr.has(machine,other)==E.has(M,O)
     assert expr.has(sx.Derivative,sx.Symbol)==E.has(sp.Derivative,sp.Symbol)
-    # Existing tuple-query gap: the old native snapshot also refuses this
-    # literal. Keep that refusal explicit; this patch changes class atoms only.
+    # A tuple literal is skipped by the reference (strict ``_sympify``).
     assert E.has((sp.Derivative,sp.Symbol)) is False
-    with pytest.raises(TypeError,match='cannot convert object of type tuple'):
-        expr.has((sx.Derivative,sx.Symbol))
+    assert expr.has((sx.Derivative,sx.Symbol)) is False
     assert foreign(expr.find(sx.Derivative))==E.find(sp.Derivative)
     assert {k.to_sympy():v for k,v in expr.find(sx.Derivative,group=True).items()}==E.find(sp.Derivative,group=True)
     assert expr.count(sx.Derivative)==E.count(sp.Derivative)==2

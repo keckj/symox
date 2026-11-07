@@ -17591,3 +17591,75 @@ Open after this wave (see the lot sections above and the TODO):
   those callers have not been audited.
 - `Order.as_expr_variables` is a Python API envelope added by limits2. It
   awaits the user's decision under the work rule.
+
+## hasmatch (wave 44): reference `has` and the `pattern_match` callers, 2026-11-07
+
+Branch `feat-hasmatch-20261106`. Evidence is in
+[audits/performance/2026-11-06-hasmatch](../audits/performance/2026-11-06-hasmatch/README.md).
+Every value there was checked against SymPy 1.14.0.
+
+### `has`, `has_free`, `has_xfree` (Rust)
+
+`traverse::has` and `has_structural` follow `Basic._has` with
+`AssocOp._has_matcher`:
+
+- A pattern of class `Add`, `Mul`, `Max`, `Min`, `Union`, `Intersection`,
+  `And` or `Or` is found in a node of the same class when:
+  - its arguments with `is_commutative is True` are a subset of the node's
+    arguments;
+  - its other arguments are a consecutive run of the node's other
+    arguments, in the reference order.
+- Sets other than `Union`/`Intersection`, relationals, `true`/`false` and
+  `Tuple` leave commutativity unknown, as in SymPy, so they take the
+  ordered rule.
+- Examples:
+  - `(2*x*y*z).has(x*y)`, `(-x*y).has(x*y)`, `exp(x*y*z).has(x*z)` and
+    `Max(x, y, z).has(Max(x, z))` are True;
+  - `(A + B + C).has(A + C)` is False for noncommutative symbols.
+- `has_free` calls the same code through `_core._has_matcher`.
+- Admission follows the reference. The Python side checks admission only:
+  - strings and plain containers are skipped by `has`;
+  - a single non-Basic iterable or an unhashable pattern raises TypeError
+    in `has_free`.
+- A dynamic audit of the internal Rust callers of `has` (SymPy test
+  copies, ODE corpus, full suite) found no changed answer from an internal
+  caller. The 129 answers that changed in the suite all came from the
+  public `has` bindings.
+- The matcher's private duplicate `matches::reference_has` is removed. The
+  wave-43 matcher corpus is unchanged: 2311 calls, with the same results
+  for all four implementations.
+
+Corpus of 1255 cases:
+
+| | SAME | DIFF | DECLINED | WRONG |
+|---|---|---|---|---|
+| before | 1117 | 6 | 0 | 132 |
+| after | 1255 | 0 | 0 | 0 |
+
+### Callers of the old `pattern::pattern_match`
+
+- `poly/collect.rs` (Rust):
+  - `match_factors` now goes through `matches::reference_match`. It falls
+    back to `pattern_match` only when the port declines.
+  - Wrong results fixed. One example is
+    `collect((x - 2)*y + z, -x + a, evaluate=False)`: it was
+    `{y: x - 2, z: 1}` and is now `{1: y*(x - 2) + z}`, as in SymPy.
+- meijerint `_condsimp` (Rust, `conds.rs`):
+  - Relationals of the same class are matched argument by argument, as
+    `Basic.matches` does. Each argument goes through `reference_match`.
+  - `And(Ne(X, 1), X > 1)` now reduces to `X > 1` through the rule
+    `p**2 > 1` with `p = sqrt(X)`.
+  - The old matcher missed 3 of 1057 distinct calls.
+- `simp.rs` keeps `pattern_match`. This is a deliberate deviation.
+  - Its rules are symox's own trigonometric identities, with no SymPy
+    counterpart.
+  - Every old binding that differs from the reference protocol was checked
+    sound with SymPy.
+
+### Remaining gaps
+
+- `FockState((x, y)).has(x)` is False. It is a Python physics class.
+- `srepr(WildFunction('F'))` prints `Wild('F')`. Fixing this needs a native
+  WildFunction flag.
+- The cost of ODE matching, and the native matcher's declines (Float,
+  `zoo`/`oo`, `Sum`), are not addressed in this lot.

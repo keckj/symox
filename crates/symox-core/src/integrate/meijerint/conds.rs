@@ -379,6 +379,44 @@ fn rel_touchup(rel: &Expr, p: &Expr, q: &Expr) -> Expr {
     rel.clone()
 }
 
+type Binding = rustc_hash::FxHashMap<Expr, Expr>;
+
+/// `expr.match(pattern)` through the native port of `matches`, falling back
+/// to the structural matcher only where the port declines.
+fn one_match(e: &Expr, pattern: &Expr) -> Option<Binding> {
+    match crate::matches::reference_match(e, pattern, false) {
+        Ok(found) => found,
+        Err(crate::matches::Stop::Error(_)) => None,
+        Err(crate::matches::Stop::Decline(_)) => crate::pattern::pattern_match(e, pattern).ok().flatten(),
+    }
+}
+
+/// `arg1.match(pattern)` in `_condsimp`: `Basic.matches` pairs the arguments
+/// of two relationals of the same class in order, each one with the bindings
+/// of the previous ones substituted.  The native port declines relationals
+/// as a whole, so the pairing is done here (`X > 1` matches `p**2 > 1` with
+/// `p = sqrt(X)`, as in the reference).
+fn cond_match(e: &Expr, pattern: &Expr) -> Option<Binding> {
+    let (Kind::Rel(op, l, r), Kind::Rel(pop, pl, pr)) = (e.kind(), pattern.kind()) else {
+        return one_match(e, pattern);
+    };
+    if op != pop {
+        return None;
+    }
+    let mut d = Binding::default();
+    for (arg, other) in [(pl, l), (pr, r)] {
+        if arg == other {
+            continue;
+        }
+        let arg = subs_map(arg, &d);
+        if &arg == other {
+            continue;
+        }
+        d.extend(one_match(other, &arg)?);
+    }
+    Some(d)
+}
+
 /// `_condsimp(cond, first)`.
 pub(crate) fn condsimp(cond: &Expr, first: bool) -> Expr {
     let cond = if first { replace_rel(cond, &crate::summation::canonical_coeff) } else { cond.clone() };
@@ -397,7 +435,7 @@ pub(crate) fn condsimp(cond: &Expr, first: bool) -> Expr {
                 continue;
             }
             for (n, arg1) in args.iter().enumerate() {
-                let Ok(Some(m)) = crate::pattern::pattern_match(arg1, &rule.args[0]) else { continue };
+                let Some(m) = cond_match(arg1, &rule.args[0]) else { continue };
                 if m.is_empty() && arg1 != &rule.args[0] {
                     continue;
                 }
@@ -444,4 +482,21 @@ pub(crate) fn eval_cond(cond: &Expr) -> Expr {
 /// `_my_unpolarify`.
 pub(crate) fn my_unpolarify(f: &Expr) -> Expr {
     eval_cond(&unpolarify(f, false))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `_condsimp(And(Ne(X, 1), X > 1))` is `X > 1` in the reference: `X > 1`
+    /// matches `p**2 > 1` with `p = sqrt(X)` and `Ne(p**2, 1)` becomes `Ne(X, 1)`.
+    #[test]
+    fn condsimp_merges_square_rule_through_relational_matching() {
+        let (s, a) = (Expr::symbol("s"), Expr::symbol("a"));
+        let x = add(&[re(&s), re(&a)]);
+        let gt1 = raw_rel(RelOp::Gt, x.clone(), Expr::one());
+        let cond = build(LogicOp::And, vec![raw_rel(RelOp::Ne, x.clone(), Expr::one()), gt1.clone()]);
+        assert_eq!(condsimp(&cond, false), gt1);
+        assert_eq!(cond_match(&gt1, &raw_rel(RelOp::Lt, x, Expr::one())), None);
+    }
 }

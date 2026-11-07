@@ -814,25 +814,18 @@ def _has_xfree(self, s):
     return any(a in s for a in _iterfreeargs(self))
 
 
-def _has_matcher(pattern):
-    cls = pattern.func
-    c = set(pattern.args)
-
-    def is_in(expr):
-        if expr.func == cls:
-            return expr == pattern or (c & set(expr.args)) == c
-        return False
-    return is_in
-
-
 def _has_free(self, *patterns):
-    from . import Add, Mul
     if not patterns:
         return False
+    from . import Set, ImmutableDenseMatrix, ImmutableSparseMatrix
     p0 = patterns[0]
-    if len(patterns) == 1 and hasattr(p0, "__iter__") and not isinstance(p0, (Expr, str)):
+    # Reference admission: a single non-Basic iterable is refused and the
+    # patterns must be hashable (``set(patterns)``).
+    if len(patterns) == 1 and hasattr(p0, "__iter__") and not isinstance(
+            p0, (Expr, str, Set, ImmutableDenseMatrix, ImmutableSparseMatrix)):
         raise TypeError("Expecting 1 or more Basic args, not a single non-Basic iterable. "
                         "Don't forget to unpack iterables: `eq.has_free(*patterns)`")
+    set(patterns)
     types, values = [], set()
     for p in patterns:
         if _head_name(p):
@@ -852,10 +845,10 @@ def _has_free(self, *patterns):
     for i in _iterfreeargs(self):
         if i in values or (types and isinstance(i, types)):
             return True
+    # AssocOp patterns: the native AssocOp._has_matcher.
     for p in values:
-        if isinstance(p, (Add, Mul)):
-            match = _has_matcher(p)
-            if any(match(a) for a in _iterfreeargs(self)):
+        if isinstance(p, Expr):
+            if any(isinstance(a, Expr) and _core._has_matcher(p, a) for a in _iterfreeargs(self)):
                 return True
     return False
 

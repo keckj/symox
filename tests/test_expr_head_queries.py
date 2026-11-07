@@ -38,7 +38,8 @@ def test_mixed_queries_literals_and_algebraic_subexpressions():
     assert expression.has(f,sx.cos,x)
     assert expression.has(sx.sin,z)
     assert not expression.has(f,sx.cos,sx.Derivative)
-    assert expression.has('x')
+    # A string pattern is skipped by the reference (strict ``_sympify``).
+    assert not expression.has('x')
     assert not expression.has()
     assert f(x).has(sx.Function)
     assert sx.Derivative(f(x),x,2).has(sx.Integer)

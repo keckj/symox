@@ -1,0 +1,158 @@
+{"counts": {"SAME": 1255}, "total": 1255}
+  sub-products         {"SAME": 52}
+  sub-sums             {"SAME": 24}
+  non commutative      {"SAME": 24}
+  powers               {"SAME": 14}
+  functions and classes {"SAME": 38}
+  Wild                 {"SAME": 9}
+  multiple arguments   {"SAME": 19}
+  derivatives          {"SAME": 11}
+  integrals            {"SAME": 18}
+  relationals, piecewise, logic {"SAME": 26}
+  matrices             {"SAME": 21}
+  mixed                {"SAME": 35}
+  has_free             {"SAME": 26}
+  has_xfree            {"SAME": 8}
+  lattice and boolean operators {"SAME": 25}
+  random               {"SAME": 630}
+  random-free          {"SAME": 105}
+  random-nc            {"SAME": 170}
+changed vs before: 138
+  (2*x*y*z).has(x*y)  before=False after=True
+  (2*x*y*z).has(2*x)  before=False after=True
+  (2*x*y*z).has(2*y*z)  before=False after=True
+  (-x*y).has(x*y)  before=False after=True
+  (-x*y*z).has(-x*y)  before=False after=True
+  (-2*x*y).has(-2*x)  before=False after=True
+  (x*y*z).has(x*y)  before=False after=True
+  (x**2*y*z).has(x**2*z)  before=False after=True
+  (x*y*sin(x*y*z)).has(x*z)  before=False after=True
+  exp(x*y*z).has(x*z)  before=False after=True
+  (x**2+x*y*z).has(x*z)  before=False after=True
+  (sqrt(2)*x*y).has(sqrt(2)*x)  before=False after=True
+  (I*x*y).has(I*x)  before=False after=True
+  (pi*x*y).has(pi*y)  before=False after=True
+  (E*x*y).has(E*x)  before=False after=True
+  (Rational(1,2)*x*y).has(x/2)  before=False after=True
+  (x*y/z).has(x/z)  before=False after=True
+  (x*y/z).has(y/z)  before=False after=True
+  (x*y/z).has(x*y)  before=False after=True
+  (x/(y*z)).has(1/(y*z))  before=False after=True
+  (x*y*exp(z)).has(x*exp(z))  before=False after=True
+  (x*y*f(z)).has(y*f(z))  before=False after=True
+  (x*sin(y)*cos(z)).has(sin(y)*cos(z))  before=False after=True
+  (2.0*x*y).has(2.0*x)  before=False after=True
+  (oo*x*y).has(oo*x)  before=False after=True
+  (x*y*z*w).has(x*w)  before=False after=True
+  (A+B+C).has(A+C)  before=True after=False
+  (x*A + B + y*C).has(B + y*C)  before=True after=False
+  (x**(2*y*z)).has(2*y)  before=False after=True
+  (x*y*a).has(x*a)  before=False after=True
+  (x*y*z).has(w, x*z)  before=False after=True
+  x.has('x')  before=True after=False
+  x.has([x])  before=EXC TypeError after=False
+  x.has((x,))  before=EXC TypeError after=False
+  Derivative(x*y*f(x),x).has(x*f(x))  before=False after=True
+  (2*Derivative(f(x),x)*x).has(2*Derivative(f(x),x))  before=False after=True
+  Integral(x*y*z,(x,0,1)).has(x*z)  before=False after=True
+  Sum(x*y*n,(n,0,10)).has(x*n)  before=False after=True
+  Product(n*x*y,(n,1,y)).has(n*y)  before=False after=True
+  Limit(x*y*z,x,0).has(y*z)  before=False after=True
+  Limit(x*y*z,x,0).has(x*z)  before=False after=True
+  Subs(f(x)*y*z, x, 0).has(y*z)  before=False after=True
+  Subs(f(x)*y*z, x, 0).has(f(x)*z)  before=False after=True
+  Lambda(x, x*y*z).has(y*z)  before=False after=True
+  Lambda(x, x*y*z).has(x*z)  before=False after=True
+  Eq(x*y*z,1).has(x*z)  before=False after=True
+  (x*y*z > 1).has(x*z)  before=False after=True
+  Piecewise((x*y*z,x>0),(1,True)).has(x*z)  before=False after=True
+  Max(x,y,z).has(Max(x,z))  before=False after=True
+  Min(x,y,z).has(Min(x,z))  before=False after=True
+  Max(x,y,z,1).has(Max(x,1))  before=False after=True
+  Max(x*y*z,w).has(x*z)  before=False after=True
+  Interval(x*y*z, 1).has(x*z)  before=False after=True
+  FiniteSet(x*y*z, 1).has(x*z)  before=False after=True
+  Tuple(x*y*z, 1).has(x*z)  before=False after=True
+  Matrix([[x*y*z]]).has(x*z)  before=False after=True
+  ImmutableMatrix([[x*y*z]]).has(x*z)  before=False after=True
+  (x*M[0,1]*y).has(x*M[0,1])  before=False after=True
+  (x*y*z + sin(x*y*z)).has(x*z)  before=False after=True
+  log(x*y*z).has(x*z)  before=False after=True
+  (x*y*z*w).has(x*z*w)  before=False after=True
+  cos(2*x*y).has(2*x)  before=False after=True
+  cos(2*x*y).has(x*y)  before=False after=True
+  ((x+y)*(x+z)*w).has((x+y)*w)  before=False after=True
+  Abs(x*y*z).has(x*z)  before=False after=True
+  re(x*y*z).has(x*z)  before=False after=True
+  (x*y*z + O(x**4)).has(x*z)  before=False after=True
+  binomial(x*y*z, 2).has(x*z)  before=False after=True
+  factorial(x*y*z).has(x*z)  before=False after=True
+  gamma(2*x*y).has(2*x)  before=False after=True
+  hyper([x*y*z],[1],x).has(x*z)  before=False after=True
+  meijerg([[x*y*z],[]],[[],[]],x).has(x*z)  before=False after=True
+  KroneckerDelta(x*y*z, 0).has(x*z)  before=False after=True
+  Heaviside(x*y*z).has(x*z)  before=False after=True
+  DiracDelta(x*y*z).has(x*z)  before=False after=True
+  UnevaluatedExpr(x*y*z).has(x*z)  before=False after=True
+  (UnevaluatedExpr(x)*y*z).has(y*z)  before=False after=True
+  (A*B*C).has_free(A*C)  before=True after=False
+  (x & y & z).has(x & z)  before=False after=True
+  (x | y | z).has(x | z)  before=False after=True
+  (x & y & (x > 1)).has(x & (x > 1))  before=False after=True
+  (x & y & (x > 1)).has(y & (x > 1))  before=False after=True
+  (x & (x > 1) & (y > 1)).has((x > 1) & (y > 1))  before=False after=True
+  Or(x, y, Eq(x, 1)).has(Or(x, Eq(x, 1)))  before=False after=True
+  And(x, y, Not(z)).has(And(x, Not(z)))  before=False after=True
+  And(x, y, Not(z)).has(And(y, Not(z)))  before=False after=True
+  Union(Interval(0,1),Interval(2,3),Interval(4,5)).has(Union(Interval(0,1),Interval(2,3)))  before=False after=True
+  Union(Interval(0,1),Interval(2,3),Interval(4,5)).has(Union(Interval(2,3),Interval(4,5)))  before=False after=True
+  Union(Interval(0,1),FiniteSet(7),Interval(4,5)).has(Union(Interval(0,1),Interval(4,5)))  before=False after=True
+  Max(x, y, sin(z)).has(Max(x, sin(z)))  before=False after=True
+  Min(x, y, sin(z), 2).has(Min(2, sin(z)))  before=False after=True
+  Max(x, Min(y, z, w)).has(Min(y, w))  before=False after=True
+  (x & y & z).has_free(x & z)  before=False after=True
+  Max(x, y, z).has_free(Max(x, z))  before=False after=True
+  x.has_free(y, [])  before=False after=EXC TypeError
+  Piecewise((FiniteSet(1, 2), x > 3), (4, True)).has_free(FiniteSet(1, 2))  before=EXC TypeError after=True
+  Piecewise((1, x > 3), (4, True)).has_free(FiniteSet(1, 2))  before=EXC TypeError after=False
+  x.has_free(ImmutableMatrix([[x]]))  before=EXC TypeError after=False
+  (z**3*(x**3 - x**2*y)*(w + x + z + 2*f(x) + exp(y) + 3)/2).has(-x**2)  before=False after=True
+  (x + y + pi*(sin(x) + pi)*(y + z + sqrt(2) + I)*f(x) + sqrt(2) + 9).has(pi*(sin(x) + pi)*f(x))  before=False after=True
+  (I*sqrt(pi)*w*sqrt(x)*sin(x)*sin(y**2)).has(w*sqrt(x)*sin(x))  before=False after=True
+  (-2*x*z*g(3*w*y*f(x))*exp(2)*exp(y)*sin(x)**2*cos(w)).has(x*z*exp(2)*exp(y))  before=False after=True
+  (-2*x*z*g(3*w*y*f(x))*exp(2)*exp(y)*sin(x)**2*cos(w)).has(y*f(x))  before=False after=True
+  (w + x/2 + y*f(x)*exp(y) + f(1/2) + I*f(x) + log(sqrt(2)) + sqrt(log(pi)) + sqrt(2) + 5/2).has(y*exp(y))  before=False after=True
+  (-12*sqrt(2)*I*z*(f(x) + log(y) - 1)*f(1/2)*f(x)*exp(y)).has(-12*z*exp(y))  before=False after=True
+  (3*sqrt(2)*I*f(w)*exp(y)*sin(x)/2).has(3*I*f(w)*exp(y)*sin(x)/2)  before=False after=True
+  (w*exp(y)*sin(4)).has(w*sin(4))  before=False after=True
+  (-27*I*(2*exp(y) + 6)**3/8).has(-27*I/8)  before=False after=True
+  (pi*w**2*x*exp(y) + 2*y*f(x)*f(exp(y))*sin(3)).has(y*f(x)*f(exp(y))*sin(3))  before=False after=True
+  (I*(exp(y) + sqrt(2))*f(x)*exp(y)*sin(x)/2 + log(exp(y) + sin(x))).has(exp(y)*sin(x))  before=False after=True
+  ((-z - f(x))*(-3*x - 3*f(x) - 3*exp(y) - 3*sqrt(2))*sin(x)).has((-z - f(x))*sin(x))  before=False after=True
+  (-w*f(1/2)*f(3)*f(x) + 2 + B + 1/(3*z + 3)).has(-w*f(1/2))  before=False after=True
+  (I**(y/2)*z*exp(y)/(2*y*f(x))).has(1/(y*f(x)))  before=False after=True
+  (3*sqrt(2)*sqrt(y)*f(x)**2*exp(f(x))/4).has(3*f(x)**2/4)  before=False after=True
+  (log(pi*w*f(x)*exp(y) + 4*x - 1 + cos(3) + pi)).has(pi*w*f(x))  before=False after=True
+  (sqrt(2)*I*x**y).has(sqrt(2)*x**y)  before=False after=True
+  ((w**y - z/2)*(y + exp(x) + sin(2))*exp(y)).has((w**y - z/2)*exp(y))  before=False after=True
+  (3*sqrt(2)*I*x*y*z*(x + z + 2*f(x) + sin(x) + 1)*f(x)*sin(f(x) + 2 + I)).has(sqrt(2)*I*x*y*z*f(x)*sin(f(x) + 2 + I))  before=False after=True
+  (log(x - sqrt(2)*pi*z + z + f(x) + sin(x) + 1/2 + sqrt(2) - I)).has(sqrt(2)*z)  before=False after=True
+  (-sqrt(2)*x*sin(x)/2 + exp(-1/2 + sqrt(2)) + 1/(x + f(x) + 3)).has(sqrt(2)*x*sin(x))  before=False after=True
+  (-sqrt(2)*I*pi*z**2*(y + exp(y) + 3) + (2*x + 3 + pi)**y + pi + 5).has(-pi)  before=False after=True
+  (2**y*w**3*sin(x)/f(x)).has(2**y*w**3/f(x))  before=False after=True
+  (-2*I*x*y*z*sin(x) + pi).has(-2*I*x*sin(x))  before=False after=True
+  (x*y + sqrt(2)*pi*y*exp(y) + z + g(f(x)) + sin(x) - 3.0*sqrt(2) + I).has(sqrt(2)*pi*exp(y))  before=False after=True
+  (1/(sqrt(2)*w*y + pi)).has(w*y)  before=False after=True
+  (8/(pi*y*sin(x))).has(8/pi)  before=False after=True
+  (2*sqrt(2)*I*pi**3*x**6*(z + f(x) - 2)**3*sin(x)**3).has(2*I*(z + f(x) - 2)**3)  before=False after=True
+  (sqrt(2)*w*exp(y) + w + sqrt(x) - 2*x*(f(x) + 1/2 + sqrt(2))*f(x)*exp(2*y) + f(x) + C + f(w*x*C) + 4*sqrt(2)*f(x)/w).has(4*sqrt(2))  before=False after=True
+  (sqrt(2)*w*exp(y) + w + sqrt(x) - 2*x*(f(x) + 1/2 + sqrt(2))*f(x)*exp(2*y) + f(x) + C + f(w*x*C) + 4*sqrt(2)*f(x)/w).has(-2*x*(f(x) + 1/2 + sqrt(2)))  before=False after=True
+  (9*(-1)**(2*y)*y**4).has(9*(-1)**(2*y))  before=False after=True
+  (2*sqrt(2)*w*x*(z - 1)*f(x) + I*pi**2*x*z*f(x)).has(I*pi**2)  before=False after=True
+  (2*sqrt(2)*w*x*(z - 1)*f(x) + I*pi**2*x*z*f(x)).has(I*pi**2*z)  before=False after=True
+  (g(sqrt(2)*pi**2*f(x)**3/2)).has(sqrt(2)*pi**2*f(x)**3)  before=False after=True
+  (-x*y*(3*z*exp(y)*sin(x) + f(x) + sqrt(2) + 3 + exp(2))*g(1/2)).has(z*exp(y))  before=False after=True
+  (3*sqrt(2)*w*y*z**2*(y + exp(y) + sin(x))*(f(x) + 2 + I)*(3*f(x) + 3*pi + 12)*(sin(x) + sqrt(2) + pi)*f(sin(x))*sin(x)).has(sqrt(2)*(y + exp(y) + sin(x))*(sin(x) + sqrt(2) + pi)*f(sin(x)))  before=False after=True
+  (3*sqrt(2)*w*y*z**2*(y + exp(y) + sin(x))*(f(x) + 2 + I)*(3*f(x) + 3*pi + 12)*(sin(x) + sqrt(2) + pi)*f(sin(x))*sin(x)).has(3*sin(x))  before=False after=True
+  (3*I*pi*x*y*z*f(x)*exp(y)*sqrt(sin(x)) - pi*y*(x + z + 2*pi)*(w + x + y + sin(x))*sin(x) + I).has(pi*sin(x))  before=False after=True
+  (-4*(9*sin(x) + sqrt(2))*sin(x)*sqrt(cos(y))).has(-4*(9*sin(x) + sqrt(2))*sin(x))  before=False after=True
