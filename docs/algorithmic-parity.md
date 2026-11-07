@@ -17812,6 +17812,100 @@ heavy lock):
 
 Measured: [audit](../audits/performance/2026-11-06-algpoly/README.md).
 
+## algfactor (wave 45): factorization and cancel with algebraic numbers, 2026-11-07
+
+Wave 45, lot algfactor (`feat-algfactor-20261107`, based on main f7888825).
+Scope: the gaps that algpoly left open:
+
+- natural `factor_list`/`sqf_list` whose generators include algebraic
+  numbers;
+- `greedy=False` for `cancel`/`gcd`/`lcm`/`cofactors`;
+- `real_roots`/`all_roots` with `extension=True` on a multivariate Poly;
+- `CRootOf` extensions;
+- the exception classes of `factor(..., extension=)` and of polynomial ring
+  conversions.
+
+Native (Rust):
+
+- `crates/symox-core/src/poly/checked_factors.rs`. Some factor lists have
+  algebraic numbers among their generators (`Poly(x - sqrt(2))` has the
+  generators `(x, sqrt(2))`). When the generator certificate cannot decide
+  such a list, `verify_expression_factors` falls back to an exact
+  certificate by expansion: `expand(c*prod(f**k)) - expand(f)` must expand
+  to 0. Resource-limit errors are still raised.
+- `crates/symox-core/src/poly/api.rs`:
+  - `checked_natural_factor_list` factors each component of `Mul.args` in
+    public order, as `_symbolic_factor_list` does;
+  - for `sqf_list`, it multiplies the components of equal multiplicity;
+  - `checked_constant_factor_list` handles a constant product
+    (`(1 - sqrt(2))*(1 + sqrt(2))`), which SymPy factors component by
+    component over the generator `sqrt(2)`.
+- `crates/symox-py/src/poly_checked_factors.rs`:
+  - global and fraction lists, for factor and sqf alike, go through the
+    componentwise route;
+  - with `frac=True`, numeric generators are allowed;
+  - a non-polynomial without `frac` raises
+    `PolynomialError("a polynomial expected, got ...")`;
+  - `constant_component_list` handles constant products (it honors
+    `polys=True`).
+- `crates/symox-core/src/poly/convert.rs` (`nongreedy_generators`) and
+  `crates/symox-py/src/poly.rs`. With `greedy=False`, the algebraic and
+  transcendental coefficients stay in the ground domain (`EX`), as in the
+  reference `parallel_poly_from_expr`. This covers `gcd`, `lcm`,
+  `cofactors` and `cancel`. A constant `cancel` returns `f.expand()`.
+- `crates/symox-core/src/poly/algebraic.rs` (`coefficient_failure`). A
+  coefficient proven outside `QQ<a>` raises `CoercionFailed`, with the
+  reference messages ("expected `Rational` object, got ..." or "... is not
+  a valid algebraic number in QQ<...>").
+- `crates/symox-core/src/poly/domains.rs` and
+  `crates/symox-py/src/domains.rs`. A ring call or `from_sympy` raises
+  `ValueError("expected an expression convertible to a polynomial in
+  Polynomial ring in t over ZZ with lex order, got 1/t")`, and `convert`
+  raises `CoercionFailed`. Both now also hold for `QQ_I[t]`.
+
+Python (admission and routing only, no algorithm). In
+`python/symox/polys/polytools.py`, `_univariate_for_roots` follows the
+reference when `extension` is set: a Poly whose domain is not algebraic is
+rebuilt from its expression with `extension=True`, whatever extension was
+given.
+
+`CRootOf` extensions already matched SymPy on main (35 corpus cases kept).
+
+Deliberate deviations (to arbitrate):
+
+- `sqf_list` of a product is no longer globally square-free when SymPy's is
+  not (`sqf_list((x**2 - 1)*(x + 1))` is `(1, [(x**3 + x**2 - x - 1, 1)])`).
+  `sqf` already behaved this way. One assertion of
+  `tests/test_fraction_factor_lists.py` now compares live with SymPy.
+- `minimal_polynomial(r*rc)` for two conjugate `CRootOf` of `x**3 + x + 3`:
+  SymPy does not answer within 60 s, and symox gives `y**3 - y**2 - 9`
+  (checked by hand).
+
+Remaining gaps:
+
+- algpoly item 5 (representatives of the pair over `QQ<a>[t]`/`QQ<a>(t)`);
+- `real_roots` over gaussian grounds sorts through the Python
+  `which_real_roots`;
+- `EX[t](1/t)` and `GF(p)[t](1/t)` raise NotImplementedError;
+- the gaussian `CoercionFailed` message differs from SymPy's wording;
+- three uninterruptible native computations: `factor_large#9`,
+  `cancel#80`, `minimal_polynomial_sq#9`;
+- general polytools gaps: `gcd_list`/`lcm_list` edge cases, `cofactors(8, 6)`,
+  `gcdex(auto=False)`, `deep=True`, `Piecewise` in `cancel`, private
+  ring APIs.
+
+Measured:
+
+- algfactor corpus, 249 cases (SAME/DIFF/DECLINED/WRONG): 179/64/3/3 →
+  248/1/0/0;
+- upstream statements: 948 → 955 of 1362 (SymPy 1360), with no regression;
+- `tests/test_algfactor_parity.py`: 73 live comparisons;
+- the 9054 tests of the related files pass.
+
+Validation: the suite is SUITE CLEAN on the first run: 60 893 passed, 14 xfailed and 45 skipped, out of 60 952 collected in 701 files (the wave-44 baseline 60 821 / 60 879 / 700, plus the 73 tests of `tests/test_algfactor_parity.py`). The one baseline pass that is now xfailed is `test_native_liegroup::test_checkinfsol_matches_sympy[x*(f(x).diff(x)) + 1 - f(x)**2]`. It is marked `xfail(strict=False)` as hash-seed dependent. `cargo test --release` gives 876 + 1 + 0 + 5. Clippy correctness is clean. ODE corpus: 315/289/270.
+
+Measured: [audit](../audits/performance/2026-11-07-algfactor/README.md).
+
 ## liegroup (wave 44): the lie_group ODE solver in Rust, 2026-11-06
 
 Wave 44, lot liegroup (`feat-liegroup-20261106`). Scope: SymPy 1.14's

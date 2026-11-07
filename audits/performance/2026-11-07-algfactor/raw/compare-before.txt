@@ -1,0 +1,250 @@
+DIFF     | fl (x-s2)(x+s2)
+DIFF     | fl (x-s2*t)**2
+DIFF     | fl (x-s2*pi)(x+s2*pi)
+DIFF     | fl (x-s2*pi)(x+s2*pi) x
+DIFF     | fl (x+1)(x-s2)**2
+DIFF     | fl (x-s2)**2(x+s2)
+SAME     | fl x**2-2
+SAME     | fl expanded (x-s2)**2
+SAME     | fl 2x-2s2
+SAME     | fl s2*x+2
+DIFF     | fl (s2x+1)(x-s3)
+DIFF     | fl (x-s2)(y+s3)
+SAME     | fl (x-cbrt2)(x+1)
+DIFF     | fl (x-I)(x+I)
+SAME     | fl (x-s2*I)(x+1)
+DIFF     | fl (x-s2)**3
+SAME     | fl x(x-s2)(x**2-3)
+DECLINED | fl frac (x-s2)/(x+1)
+DECLINED | fl frac (x-s2)/(x+s2)**2
+SAME     | factor (x-s2)(x+s2)
+SAME     | factor expanded (x-s2)**2
+SAME     | factor (x-s2*t)**2
+SAME     | factor (x-s2*pi)(x+s2*pi)
+DIFF     | fl (x-s2)(x+s2) x
+SAME     | fl (x-s2*t)**2 x
+SAME     | fl (x-s2*t)**2 x t
+SAME     | fl (x-pi)**2(x+pi)
+SAME     | fl (xy-s2)(x+y)
+DIFF     | fl polys (x-s2)**2(x+1)
+DIFF     | fl 3(x-s2)**2
+DIFF     | fl -(x-s2)(x+s2)
+SAME     | fl s2*(x-1)**2
+DIFF     | fl (x-s2)**2*(x-s3)**3
+DIFF     | fl (x-s2*y)**2*(x+y)
+SAME     | factor (x-s2*y)**2*(x+y)
+SAME     | fl xy-s2x+y-s2
+SAME     | factor xy-s2x+y-s2
+DIFF     | fl (x-s2)(x+s2)(x-pi)
+DIFF     | fl (x+s2)**2 x**2
+SAME     | fl (x-1/s2)(x+1)
+DIFF     | fl (2x-s2)(x+s2)
+SAME     | fl ((x-s2)**2-3)
+DIFF     | fl (1-s2)(1+s2)
+DIFF     | fl (1-s2)(1+s2) polys
+SAME     | fl (1-s2)(1+s2) x
+DIFF     | fl s2(1-s2)
+DIFF     | fl (1-s3)**2(1+s3)**2
+DIFF     | fl (s2-s3)(s2+s3)
+SAME     | fl (1+pi)(1-pi)
+DIFF     | fl (s2+pi)**2
+DIFF     | sqfl (1-s2)(1+s2)
+DIFF     | sqfl (1-s2)**2(1+s2)
+SAME     | factor (1-s2)(1+s2)
+DIFF     | sqfl (x+1)(x-s2)**2
+DIFF     | sqfl (x-s2)**2(x+s2)
+DIFF     | sqfl (x-s2*t)**2
+DIFF     | sqfl (x**2-1)(x+1)
+SAME     | sqfl (x-1)**2(x+1)
+DIFF     | sqfl (x**2-1)**2(x+1)
+SAME     | sqf (x-s2)**2(x+1)
+SAME     | sqf (x**2-1)(x+1)
+SAME     | sqfl (x-s2)(x+s2)
+SAME     | sqfl expanded
+SAME     | sqfl (x-pi)**2(x+1)
+DIFF     | sqfl 3(x-s2)**2(x+1)**2
+DIFF     | sqfl (x-s2*pi)**2
+SAME     | sqfl (x-s2)**2 x
+SAME     | sqfl (x-y)**2(x+y)
+DIFF     | sqfl (x**2-y**2)(x+y)
+SAME     | sqfl x**2(x+1)**2
+DIFF     | sqfl (x-s2)**2(x-s3)**3
+SAME     | sqf (x-s2*t)**2
+SAME     | P fl (x-s2)(x+s2)
+SAME     | P sqfl (x-s2)**2(x+1)
+SAME     | P fl expanded (x-s2)**2
+SAME     | P fl (x-s2*t)**2
+SAME     | P fl x,s2 explicit
+SAME     | factor x**2-2 ext s2
+SAME     | fl x**2-2 ext s2
+SAME     | factor x**2-2t**2 ext s2
+DIFF     | factor x**2-2t**2 x ext s2
+SAME     | fl x**2-2t**2 ext s2
+SAME     | fl x**2-2t**2 x ext s2
+SAME     | sqfl x**2-2t**2 x ext s2
+SAME     | factor x**2-2y**2 ext s2
+SAME     | factor x**4-4 ext s2
+SAME     | factor x**4+4 ext I
+SAME     | factor x**2+1 gaussian
+SAME     | factor x**2+y**2 gaussian
+SAME     | fl x**2+y**2 gaussian
+SAME     | factor x**4-1 ext I
+SAME     | factor x**4-1 ext [s2,I]
+SAME     | factor x**4-5x**2+6 ext [s2,s3]
+SAME     | factor x**2-3 ext s2
+SAME     | factor (x-s2y)**2 ext s2
+SAME     | sqfl expanded ext s2
+SAME     | sqfl (x-s2)**2(x+1) ext s2
+SAME     | factor (x-s2)**2(x+1) ext True
+SAME     | factor expanded ext True
+SAME     | fl expanded ext True
+SAME     | factor x**3-2 ext cbrt2
+SAME     | factor x**6-2 ext cbrt2
+SAME     | factor x**2y**2-2 ext s2
+SAME     | factor x**2-2y**2z**2 ext s2
+SAME     | fl x**2-2 gaussian
+SAME     | P fl x**2-2 ext s2
+SAME     | P fl x**2-2y**2 ext s2
+SAME     | P fl x**4+1 ext s2
+SAME     | factor x**4+1 ext s2
+SAME     | factor x**4+1 ext [s2,I]
+SAME     | P fl x**2+y**2 gaussian
+SAME     | P sqfl (x-s2)**2(x-1) ext s2
+SAME     | factor x**2-2 x ext s2
+SAME     | factor x**2-2pi**2 ext s2
+DIFF     | factor x**2-2pi**2 x ext s2
+SAME     | factor s2x**2+2x+s2/2 ext True
+SAME     | fl s2x**2+2x+s2/2 ext True
+SAME     | factor x**2+2Ix-1 ext True
+SAME     | factor x**2-2 ext s3
+SAME     | factor x**2y-2y ext s2
+SAME     | factor (x**2-2)/(x**2-8) ext s2
+SAME     | sqf expanded ext s2
+SAME     | factor x**3y-2xy ext s2
+SAME     | factor x**4-4y**4 ext [s2,I]
+SAME     | factor x**2+2y**2 ext s2*I
+SAME     | factor x**2-3y**2t**2 ext s3
+SAME     | fl x**2+y**2 ext I
+SAME     | sqfl (x-s2y)**2(x+y) ext s2
+SAME     | factor (x-s2y)**2(x+y) ext s2
+SAME     | factor x**2-2y**2+x-s2y ext s2
+SAME     | factor xy-s2x+y-s2 ext s2
+SAME     | factor x**2y+s2xy ext True
+SAME     | fl (x**2-2)(y**2-2) ext s2
+SAME     | factor x**2-2 ext [s2,s3]
+SAME     | factor x**2-6 ext [s2,s3]
+DIFF     | cancel greedy=False x+s2
+DIFF     | cancel greedy=False x-s2
+DIFF     | cancel greedy=False t
+SAME     | cancel greedy=False pi
+SAME     | cancel default x+s2
+SAME     | cancel ext True x+s2
+DIFF     | cancel greedy=False gens x
+DIFF     | cancel greedy=False x**3-2x
+DIFF     | cancel greedy=False s3
+SAME     | cancel greedy=False I
+DIFF     | cancel greedy=False 2x+2s2
+DIFF     | cancel greedy=False +1
+DIFF     | cancel greedy=False y
+SAME     | cancel greedy=True x+s2
+DIFF     | cancel greedy=False s2x+2
+SAME     | cancel gens x x+s2
+SAME     | cancel greedy=False no gens
+DIFF     | cancel greedy=False tuple
+DIFF     | cancel greedy=False cbrt
+DIFF     | cancel greedy=False s2 s3
+WRONG    | gcd greedy=False
+WRONG    | lcm greedy=False
+SAME     | gcd default
+SAME     | gcd ext True
+SAME     | lcm ext True
+WRONG    | gcd greedy=False t
+DIFF     | cofactors greedy=False
+SAME     | div greedy=False
+SAME     | quo greedy=False
+SAME     | rem greedy=False
+SAME     | gcd gens x
+SAME     | lcm gens x
+SAME     | P cancel ZZ EX
+SAME     | resultant greedy=False
+SAME     | gcd greedy=False pi
+SAME     | gcd greedy=False I
+SAME     | lcm greedy=False I
+SAME     | real_roots x**2-s2 ext
+DIFF     | real_roots P(x**2-s2) ext
+SAME     | real_roots P(x**2-s2,ext) 
+SAME     | all_roots x**2+s2 ext
+DIFF     | all_roots P(x**2+s2) ext
+SAME     | all_roots P(x**2+s2,x) ext
+SAME     | real_roots x**2-s2
+SAME     | all_roots x**2+s2
+SAME     | all_roots P(x**2+s2,x)
+SAME     | real_roots P(xy-s2) ext
+SAME     | all_roots P(x**2-2y) ext
+SAME     | nroots x**2-s2
+SAME     | nroots P(x**2-s2)
+SAME     | nroots P(x**2-s2,x)
+SAME     | nroots P(x**2-s2,ext)
+SAME     | nroots x**2-s2*I
+SAME     | real_roots x**3-s2x ext
+SAME     | all_roots x**2-I ext
+SAME     | all_roots x**2-s2*I ext
+SAME     | real_roots x**2-2 mult=False ext
+SAME     | ground_roots expanded ext
+SAME     | roots expanded
+SAME     | P real_roots ext
+SAME     | P all_roots ext
+SAME     | P nroots ext
+SAME     | real_roots P(x**2-s2,x,EX) ext
+DIFF     | all_roots P(x**4-s2*x**2) ext
+DECLINED | real_roots P(x**2-s3, gaussian) ext
+SAME     | real_roots P(x**2-pi) ext
+SAME     | K QQ<r>
+SAME     | K QQ<r> ext
+SAME     | K QQ<r> mod
+SAME     | K QQ<r2,s2>
+SAME     | K QQ<s2,r2> ext
+SAME     | K QQ<r> from r**3
+SAME     | K QQ<r> roundtrip
+SAME     | minpoly r
+SAME     | minpoly rootof5
+SAME     | minpoly r+1
+SAME     | minpoly r**2
+SAME     | minpoly r+s2
+SAME     | minpoly rc
+DIFF     | minpoly r*rc
+SAME     | minpoly CRootOf(x**4-2,1)
+SAME     | minpoly r2 polys
+SAME     | primitive_element [r,s2]
+SAME     | primitive_element [r2,s3]
+SAME     | primitive_element [r,q2]
+SAME     | to_number_field r**2 r
+SAME     | to_number_field r r
+SAME     | to_number_field r+1 r
+SAME     | to_number_field q2 s2
+SAME     | to_number_field s2 q2
+SAME     | to_number_field r2**2 r2
+SAME     | field_isomorphism r r
+SAME     | AlgebraicNumber r minpoly
+SAME     | AlgebraicNumber r coeffs
+SAME     | Poly r*y+1 ext True
+SAME     | Poly r ext True
+SAME     | factor y**3+y+3 ext r
+SAME     | factor y**3-2 ext r2
+SAME     | fl y**3-2 ext r2
+SAME     | factor y**2-2 ext q2
+SAME     | Poly y-r2 ext True fl
+DIFF     | exc factor x ext s2
+DIFF     | exc ZZ[t](1/t)
+SAME     | exc QQ_I[t](1/t)
+SAME     | exc ZZ_I[t](1/t)
+DIFF     | exc QQ[t](1/t)
+SAME     | exc QQ<s2>[t](1/t)
+DIFF     | exc ZZ[t](s2)
+DIFF     | ZZ[t](t/2)
+DIFF     | exc gcd x ext s2
+DIFF     | exc Poly x-s2t x ext s2
+DIFF     | exc ZZ[t](1/(t+1))
+SAME     | exc QQ_I[t](I/t)
+SAME     | exc factor x**2-2pi**2 x ext s2 list
+SAME=179 DIFF=64 DECLINED=3 WRONG=3 total=249

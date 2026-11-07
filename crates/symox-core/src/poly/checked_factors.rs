@@ -579,10 +579,39 @@ pub fn verify_expression_factors(prototype:&Polynomial,coefficient:&Expr,factors
             let p=super::polyobj::Poly::from_expr(e,&prototype.base.gens)?;
             Ok(prototype.base.with_rep(p.rep).into())
         };
-        let unit=convert(coefficient)?;
-        let factors=factors.iter().map(|(p,k)|Ok((convert(&p.as_expr())?,*k))).collect::<PResult<_>>()?;
-        verify(prototype,&Factorization{unit,factors})
+        let typed=(||{
+            let unit=convert(coefficient)?;
+            let factors=factors.iter().map(|(p,k)|Ok((convert(&p.as_expr())?,*k))).collect::<PResult<_>>()?;
+            verify(prototype,&Factorization{unit,factors})
+        })();
+        match typed {
+            Ok(())=>Ok(()),
+            // The components are polynomials in their own generators. When
+            // these are algebraic numbers (`sqrt(2)`) or radicals of other
+            // generators, the typed product treats them as independent
+            // indeterminates although the expanded source has already used
+            // their relations (`sqrt(2)**2 = 2`): `(x - sqrt(2))*(x + sqrt(2))`
+            // is `x**2 - 2` in the generators `x`, but `x**2 - s**2` in
+            // `x, s`. Certify those factorizations on the canonical expanded
+            // expressions instead, where the relations are applied.
+            Err(error@(PolyError::Unsupported(_)|PolyError::Failed(_)|PolyError::Generator(_)))
+                if !error.to_string().contains("resource limit")
+                    && expression_certificate(prototype,coefficient,factors)? => Ok(()),
+            Err(error)=>Err(error),
+        }
     })
+}
+/// Whether `coefficient*prod(f**k)` and the prototype expand to the same
+/// canonical expression; a structural zero difference is an exact proof.
+fn expression_certificate(prototype:&Polynomial,coefficient:&Expr,factors:&[(Polynomial,u32)])->PResult<bool>{
+    let mut product=vec![coefficient.clone()];
+    for (p,k) in factors {
+        if *k==0 { return Ok(false); }
+        product.push(crate::ops::pow(&p.as_expr(),&Expr::int(*k as i64)));
+    }
+    let product=crate::expand::expand(&crate::ops::mul(&product));
+    let source=crate::expand::expand(&prototype.as_expr());
+    Ok(crate::expand::expand(&crate::ops::sub(&product,&source)).is_zero())
 }
 pub fn include(
     p: &Polynomial,

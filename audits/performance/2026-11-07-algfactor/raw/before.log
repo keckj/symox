@@ -1,0 +1,249 @@
+fl (x-s2)(x+s2) | ValueError: factorization failed its exact reconstruction certificate
+fl (x-s2*t)**2 | ValueError: factorization failed its exact reconstruction certificate
+fl (x-s2*pi)(x+s2*pi) | ValueError: factorization failed its exact reconstruction certificate
+fl (x-s2*pi)(x+s2*pi) x | ValueError: factorization failed its exact reconstruction certificate
+fl (x+1)(x-s2)**2 | ValueError: factorization failed its exact reconstruction certificate
+fl (x-s2)**2(x+s2) | ValueError: factorization failed its exact reconstruction certificate
+fl x**2-2 | (1, [(x**2 - 2, 1)])
+fl expanded (x-s2)**2 | (1, [(x**2 - 2*sqrt(2)*x + 2, 1)])
+fl 2x-2s2 | (2, [(x - sqrt(2), 1)])
+fl s2*x+2 | (1, [(sqrt(2)*x + 2, 1)])
+fl (s2x+1)(x-s3) | ValueError: factorization failed its exact reconstruction certificate
+fl (x-s2)(y+s3) | ValueError: factorization failed its exact reconstruction certificate
+fl (x-cbrt2)(x+1) | (1, [(x + 1, 1), (x - 2**(1/3), 1)])
+fl (x-I)(x+I) | ValueError: factorization failed its exact reconstruction certificate
+fl (x-s2*I)(x+1) | (1, [(x + 1, 1), (x - sqrt(2)*I, 1)])
+fl (x-s2)**3 | ValueError: factorization failed its exact reconstruction certificate
+fl x(x-s2)(x**2-3) | (1, [(x, 1), (x - sqrt(2), 1), (x**2 - 3, 1)])
+fl frac (x-s2)/(x+1) | NotImplementedError: natural fractional factor lists with noninteger or symbolic power multiplicities are not implemented; use a Poly with explicit formal generators
+fl frac (x-s2)/(x+s2)**2 | NotImplementedError: natural fractional factor lists with noninteger or symbolic power multiplicities are not implemented; use a Poly with explicit formal generators
+factor (x-s2)(x+s2) | (x - sqrt(2))*(x + sqrt(2))
+factor expanded (x-s2)**2 | x**2 - 2*sqrt(2)*x + 2
+factor (x-s2*t)**2 | (-sqrt(2)*t + x)**2
+factor (x-s2*pi)(x+s2*pi) | (x - sqrt(2)*pi)*(x + sqrt(2)*pi)
+fl (x-s2)(x+s2) x | ValueError: factorization failed its exact reconstruction certificate
+fl (x-s2*t)**2 x | (1, [(-sqrt(2)*t + x, 2)])
+fl (x-s2*t)**2 x t | (1, [(-sqrt(2)*t + x, 2)])
+fl (x-pi)**2(x+pi) | (1, [(x + pi, 1), (x - pi, 2)])
+fl (xy-s2)(x+y) | (1, [(x + y, 1), (x*y - sqrt(2), 1)])
+fl polys (x-s2)**2(x+1) | ValueError: factorization failed its exact reconstruction certificate
+fl 3(x-s2)**2 | ValueError: factorization failed its exact reconstruction certificate
+fl -(x-s2)(x+s2) | ValueError: factorization failed its exact reconstruction certificate
+fl s2*(x-1)**2 | (sqrt(2), [(x - 1, 2)])
+fl (x-s2)**2*(x-s3)**3 | ValueError: factorization failed its exact reconstruction certificate
+fl (x-s2*y)**2*(x+y) | ValueError: factorization failed its exact reconstruction certificate
+factor (x-s2*y)**2*(x+y) | (x + y)*(x - sqrt(2)*y)**2
+fl xy-s2x+y-s2 | (1, [(y - sqrt(2), 1), (x + 1, 1)])
+factor xy-s2x+y-s2 | (x + 1)*(y - sqrt(2))
+fl (x-s2)(x+s2)(x-pi) | ValueError: factorization failed its exact reconstruction certificate
+fl (x+s2)**2 x**2 | ValueError: factorization failed its exact reconstruction certificate
+fl (x-1/s2)(x+1) | (1/2, [(x + 1, 1), (2*x - sqrt(2), 1)])
+fl (2x-s2)(x+s2) | ValueError: factorization failed its exact reconstruction certificate
+fl ((x-s2)**2-3) | (1, [(x**2 - 2*sqrt(2)*x - 1, 1)])
+fl (1-s2)(1+s2) | PolificationFailed: Cannot construct a polynomial from -1
+fl (1-s2)(1+s2) polys | PolificationFailed: Cannot construct a polynomial from -1
+fl (1-s2)(1+s2) x | ((1 - sqrt(2))*(1 + sqrt(2)), [])
+fl s2(1-s2) | ValueError: factorization failed its exact reconstruction certificate
+fl (1-s3)**2(1+s3)**2 | PolificationFailed: Cannot construct a polynomial from 4
+fl (s2-s3)(s2+s3) | PolificationFailed: Cannot construct a polynomial from -1
+fl (1+pi)(1-pi) | (-1, [(-1 + pi, 1), (1 + pi, 1)])
+fl (s2+pi)**2 | ValueError: factorization failed its exact reconstruction certificate
+sqfl (1-s2)(1+s2) | PolificationFailed: Cannot construct a polynomial from -1
+sqfl (1-s2)**2(1+s2) | (1, [(-1 + sqrt(2), 1)])
+factor (1-s2)(1+s2) | -(-1 + sqrt(2))*(1 + sqrt(2))
+sqfl (x+1)(x-s2)**2 | (1, [(x**3 - 2*sqrt(2)*x**2 + x**2 - 2*sqrt(2)*x + 2*x + 2, 1)])
+sqfl (x-s2)**2(x+s2) | (1, [(x**3 - sqrt(2)*x**2 - 2*x + 2*sqrt(2), 1)])
+sqfl (x-s2*t)**2 | (1, [(2*t**2 - 2*sqrt(2)*t*x + x**2, 1)])
+sqfl (x**2-1)(x+1) | (1, [(x - 1, 1), (x + 1, 2)])
+sqfl (x-1)**2(x+1) | (1, [(x + 1, 1), (x - 1, 2)])
+sqfl (x**2-1)**2(x+1) | (1, [(x - 1, 2), (x + 1, 3)])
+sqf (x-s2)**2(x+1) | (x + 1)*(x - sqrt(2))**2
+sqf (x**2-1)(x+1) | x**3 + x**2 - x - 1
+sqfl (x-s2)(x+s2) | (1, [(x**2 - 2, 1)])
+sqfl expanded | (1, [(x**3 - sqrt(2)*x**2 - 2*x + 2*sqrt(2), 1)])
+sqfl (x-pi)**2(x+1) | (1, [(x + 1, 1), (x - pi, 2)])
+sqfl 3(x-s2)**2(x+1)**2 | (3, [(x**2 - 2*sqrt(2)*x + 2, 1), (x + 1, 2)])
+sqfl (x-s2*pi)**2 | (1, [(x**2 - 2*sqrt(2)*pi*x + 2*pi**2, 1)])
+sqfl (x-s2)**2 x | (1, [(x - sqrt(2), 2)])
+sqfl (x-y)**2(x+y) | (1, [(x + y, 1), (x - y, 2)])
+sqfl (x**2-y**2)(x+y) | (1, [(x - y, 1), (x + y, 2)])
+sqfl x**2(x+1)**2 | (1, [(x**2 + x, 2)])
+sqfl (x-s2)**2(x-s3)**3 | (1, [(x**5 - 3*sqrt(3)*x**4 - 2*sqrt(2)*x**4 + 11*x**3 + 6*sqrt(6)*x**3 - 18*sqrt(2)*x**2 - 9*sqrt(3)*x**2 + 6*sqrt(6)*x + 18*x - 6*sqrt(3), 1)])
+sqf (x-s2*t)**2 | (-sqrt(2)*t + x)**2
+P fl (x-s2)(x+s2) | (1, [(Poly(x**2 - 2, x, domain='ZZ'), 1)])
+P sqfl (x-s2)**2(x+1) | (1, [(Poly(x**3 - 2*x**2*(sqrt(2)) + x**2 - 2*x*(sqrt(2)) + 2*x + 2, x, sqrt(2), domain='ZZ'), 1)])
+P fl expanded (x-s2)**2 | (1, [(Poly(x**2 - 2*x*(sqrt(2)) + 2, x, sqrt(2), domain='ZZ'), 1)])
+P fl (x-s2*t)**2 | (1, [(Poly(x**2 - 2*x*t*(sqrt(2)) + 2*t**2, x, t, sqrt(2), domain='ZZ'), 1)])
+P fl x,s2 explicit | (1, [(Poly(x**2 - 2*x*(sqrt(2)) + 2, x, sqrt(2), domain='ZZ'), 1)])
+factor x**2-2 ext s2 | (x - sqrt(2))*(x + sqrt(2))
+fl x**2-2 ext s2 | (1, [(x - sqrt(2), 1), (x + sqrt(2), 1)])
+factor x**2-2t**2 ext s2 | (-sqrt(2)*t + x)*(sqrt(2)*t + x)
+factor x**2-2t**2 x ext s2 | ValueError: coefficient is not in the selected algebraic number field
+fl x**2-2t**2 ext s2 | (1, [(-sqrt(2)*t + x, 1), (sqrt(2)*t + x, 1)])
+fl x**2-2t**2 x ext s2 | CoercionFailed: coefficient is not in the selected algebraic number field
+sqfl x**2-2t**2 x ext s2 | CoercionFailed: coefficient is not in the selected algebraic number field
+factor x**2-2y**2 ext s2 | (x - sqrt(2)*y)*(x + sqrt(2)*y)
+factor x**4-4 ext s2 | (x - sqrt(2))*(x + sqrt(2))*(x**2 + 2)
+factor x**4+4 ext I | (x - 1 - I)*(x - 1 + I)*(x + 1 - I)*(x + 1 + I)
+factor x**2+1 gaussian | (x - I)*(x + I)
+factor x**2+y**2 gaussian | (x - I*y)*(x + I*y)
+fl x**2+y**2 gaussian | (1, [(x - I*y, 1), (x + I*y, 1)])
+factor x**4-1 ext I | (x - 1)*(x + 1)*(x - I)*(x + I)
+factor x**4-1 ext [s2,I] | (x - 1)*(x + 1)*(x - I)*(x + I)
+factor x**4-5x**2+6 ext [s2,s3] | (x - sqrt(2))*(x + sqrt(2))*(x - sqrt(3))*(x + sqrt(3))
+factor x**2-3 ext s2 | x**2 - 3
+factor (x-s2y)**2 ext s2 | (x - sqrt(2)*y)**2
+sqfl expanded ext s2 | (1, [(x + sqrt(2), 1), (x - sqrt(2), 2)])
+sqfl (x-s2)**2(x+1) ext s2 | (1, [(x + 1, 1), (x - sqrt(2), 2)])
+factor (x-s2)**2(x+1) ext True | (x + 1)*(x - sqrt(2))**2
+factor expanded ext True | (x - sqrt(2))**2
+fl expanded ext True | (1, [(x - sqrt(2), 2)])
+factor x**3-2 ext cbrt2 | (x - 2**(1/3))*(x**2 + 2**(1/3)*x + 2**(2/3))
+factor x**6-2 ext cbrt2 | (x**2 - 2**(1/3))*(x**4 + 2**(1/3)*x**2 + 2**(2/3))
+factor x**2y**2-2 ext s2 | (x*y - sqrt(2))*(x*y + sqrt(2))
+factor x**2-2y**2z**2 ext s2 | (x - sqrt(2)*y*z)*(x + sqrt(2)*y*z)
+fl x**2-2 gaussian | (1, [(x**2 - 2, 1)])
+P fl x**2-2 ext s2 | (1, [(Poly(x - sqrt(2), x, domain='QQ<sqrt(2)>'), 1), (Poly(x + sqrt(2), x, domain='QQ<sqrt(2)>'), 1)])
+P fl x**2-2y**2 ext s2 | (1, [(Poly(x - sqrt(2)*y, x, y, domain='QQ<sqrt(2)>'), 1), (Poly(x + sqrt(2)*y, x, y, domain='QQ<sqrt(2)>'), 1)])
+P fl x**4+1 ext s2 | (1, [(Poly(x**2 - sqrt(2)*x + 1, x, domain='QQ<sqrt(2)>'), 1), (Poly(x**2 + sqrt(2)*x + 1, x, domain='QQ<sqrt(2)>'), 1)])
+factor x**4+1 ext s2 | (x**2 - sqrt(2)*x + 1)*(x**2 + sqrt(2)*x + 1)
+factor x**4+1 ext [s2,I] | (x - sqrt(2)/2 - sqrt(2)*I/2)*(x - sqrt(2)/2 + sqrt(2)*I/2)*(x + sqrt(2)/2 - sqrt(2)*I/2)*(x + sqrt(2)/2 + sqrt(2)*I/2)
+P fl x**2+y**2 gaussian | (1, [(Poly(x - I*y, x, y, domain='QQ_I'), 1), (Poly(x + I*y, x, y, domain='QQ_I'), 1)])
+P sqfl (x-s2)**2(x-1) ext s2 | (1, [(Poly(x - 1, x, domain='QQ<sqrt(2)>'), 1), (Poly(x - sqrt(2), x, domain='QQ<sqrt(2)>'), 2)])
+factor x**2-2 x ext s2 | (x - sqrt(2))*(x + sqrt(2))
+factor x**2-2pi**2 ext s2 | (x - sqrt(2)*pi)*(x + sqrt(2)*pi)
+factor x**2-2pi**2 x ext s2 | ValueError: pi does not seem to be an algebraic element
+factor s2x**2+2x+s2/2 ext True | sqrt(2)*(x + sqrt(2)/2)**2
+fl s2x**2+2x+s2/2 ext True | (sqrt(2), [(x + sqrt(2)/2, 2)])
+factor x**2+2Ix-1 ext True | (x + I)**2
+factor x**2-2 ext s3 | x**2 - 2
+factor x**2y-2y ext s2 | y*(x - sqrt(2))*(x + sqrt(2))
+factor (x**2-2)/(x**2-8) ext s2 | (x - sqrt(2))*(x + sqrt(2))/((x - 2*sqrt(2))*(x + 2*sqrt(2)))
+sqf expanded ext s2 | (x - sqrt(2))**2*(x + sqrt(2))
+factor x**3y-2xy ext s2 | x*y*(x - sqrt(2))*(x + sqrt(2))
+factor x**4-4y**4 ext [s2,I] | (x - sqrt(2)*y)*(x + sqrt(2)*y)*(x - sqrt(2)*I*y)*(x + sqrt(2)*I*y)
+factor x**2+2y**2 ext s2*I | (x - sqrt(2)*I*y)*(x + sqrt(2)*I*y)
+factor x**2-3y**2t**2 ext s3 | (-sqrt(3)*t*y + x)*(sqrt(3)*t*y + x)
+fl x**2+y**2 ext I | (1, [(x - I*y, 1), (x + I*y, 1)])
+sqfl (x-s2y)**2(x+y) ext s2 | (1, [(x + y, 1), (x - sqrt(2)*y, 2)])
+factor (x-s2y)**2(x+y) ext s2 | (x + y)*(x - sqrt(2)*y)**2
+factor x**2-2y**2+x-s2y ext s2 | (x - sqrt(2)*y)*(x + sqrt(2)*y + 1)
+factor xy-s2x+y-s2 ext s2 | (x + 1)*(y - sqrt(2))
+factor x**2y+s2xy ext True | x*y*(x + sqrt(2))
+fl (x**2-2)(y**2-2) ext s2 | (1, [(x - sqrt(2), 1), (y - sqrt(2), 1), (x + sqrt(2), 1), (y + sqrt(2), 1)])
+factor x**2-2 ext [s2,s3] | (x - sqrt(2))*(x + sqrt(2))
+factor x**2-6 ext [s2,s3] | (x - sqrt(6))*(x + sqrt(6))
+cancel greedy=False x+s2 | (x**2 - 2)/(x + sqrt(2))
+cancel greedy=False x-s2 | (x**2 - 2)/(x - sqrt(2))
+cancel greedy=False t | (-2*t**2 + x**2)/(sqrt(2)*t + x)
+cancel greedy=False pi | (x**2 - pi)/(x + sqrt(pi))
+cancel default x+s2 | (x**2 - 2)/(x + sqrt(2))
+cancel ext True x+s2 | x - sqrt(2)
+cancel greedy=False gens x | (x**2 - 2)/(x + sqrt(2))
+cancel greedy=False x**3-2x | (x**2 - 2)/(x + sqrt(2))
+cancel greedy=False s3 | (x**2 - 3)/(x - sqrt(3))
+cancel greedy=False I | x + I
+cancel greedy=False 2x+2s2 | (x**2 - 2)/(2*x + 2*sqrt(2))
+cancel greedy=False +1 | (x**2 + x - 2 + sqrt(2))/(x + sqrt(2))
+cancel greedy=False y | (x**2 - 2*y**2)/(x + sqrt(2)*y)
+cancel greedy=True x+s2 | (x**2 - 2)/(x + sqrt(2))
+cancel greedy=False s2x+2 | (sqrt(2)*x + 2)/(x + sqrt(2))
+cancel gens x x+s2 | x - sqrt(2)
+cancel greedy=False no gens | sqrt(2)/(1 + sqrt(2))
+cancel greedy=False tuple | (1, x**2 - 2, x + sqrt(2))
+cancel greedy=False cbrt | (x**3 - 2)/(x - 2**(1/3))
+cancel greedy=False s2 s3 | (x**2 - 5 - 2*sqrt(6))/(x - sqrt(3) - sqrt(2))
+gcd greedy=False | 1
+lcm greedy=False | x**3 + sqrt(2)*x**2 - 2*x - 2*sqrt(2)
+gcd default | 1
+gcd ext True | x + sqrt(2)
+lcm ext True | x**2 - 2
+gcd greedy=False t | 1
+cofactors greedy=False | (1, x**2 - 2, x + sqrt(2))
+div greedy=False | (x - sqrt(2), 0)
+quo greedy=False | x - sqrt(2)
+rem greedy=False | 0
+gcd gens x | x + sqrt(2)
+lcm gens x | x**2 - 2
+P cancel ZZ EX | (1, Poly(x - sqrt(2), x, domain='EX'), Poly(1, x, domain='EX'))
+resultant greedy=False | 0
+gcd greedy=False pi | 1
+gcd greedy=False I | x + I
+lcm greedy=False I | x**2 + 1
+real_roots x**2-s2 ext | [-2**(1/4), 2**(1/4)]
+real_roots P(x**2-s2) ext | PolynomialError: only univariate polynomials are allowed
+real_roots P(x**2-s2,ext)  | [-2**(1/4), 2**(1/4)]
+all_roots x**2+s2 ext | [-2**(1/4)*I, 2**(1/4)*I]
+all_roots P(x**2+s2) ext | PolynomialError: only univariate polynomials are allowed
+all_roots P(x**2+s2,x) ext | [-2**(1/4)*I, 2**(1/4)*I]
+real_roots x**2-s2 | NotImplementedError: sorted roots not supported over EX
+all_roots x**2+s2 | NotImplementedError: sorted roots not supported over EX
+all_roots P(x**2+s2,x) | NotImplementedError: sorted roots not supported over EX
+real_roots P(xy-s2) ext | PolynomialError: only univariate polynomials are allowed
+all_roots P(x**2-2y) ext | PolynomialError: only univariate polynomials are allowed
+nroots x**2-s2 | [-1.18920711500272, 1.18920711500272]
+nroots P(x**2-s2) | MultivariatePolynomialError: Cannot compute numerical roots of Poly(x**2 - (sqrt(2)), x, sqrt(2), domain='ZZ')
+nroots P(x**2-s2,x) | [-1.18920711500272, 1.18920711500272]
+nroots P(x**2-s2,ext) | [-1.18920711500272, 1.18920711500272]
+nroots x**2-s2*I | [-0.840896415253715 - 0.840896415253715*I, 0.840896415253715 + 0.840896415253715*I]
+real_roots x**3-s2x ext | [-2**(1/4), 0, 2**(1/4)]
+all_roots x**2-I ext | [-sqrt(2)/2 - sqrt(2)*I/2, sqrt(2)/2 + sqrt(2)*I/2]
+all_roots x**2-s2*I ext | [-2**(3/4)/2 - 2**(3/4)*I/2, 2**(3/4)/2 + 2**(3/4)*I/2]
+real_roots x**2-2 mult=False ext | [(-sqrt(2), 1), (sqrt(2), 1)]
+ground_roots expanded ext | {sqrt(2): 2}
+roots expanded | {sqrt(2): 2}
+P real_roots ext | [-2**(1/4), 2**(1/4)]
+P all_roots ext | [-2**(1/4), 2**(1/4)]
+P nroots ext | [-1.18920711500272, 1.18920711500272]
+real_roots P(x**2-s2,x,EX) ext | [-2**(1/4), 2**(1/4)]
+all_roots P(x**4-s2*x**2) ext | PolynomialError: only univariate polynomials are allowed
+real_roots P(x**2-s3, gaussian) ext | NotImplementedError: root counting not supported over QQ_I
+real_roots P(x**2-pi) ext | PolynomialError: only univariate polynomials are allowed
+K QQ<r> | QQ<CRootOf(x**3 + x + 3, 0)>
+K QQ<r> ext | CRootOf(x**3 + x + 3, 0)
+K QQ<r> mod | DMP_Python([MPQ(1,1), MPQ(0,1), MPQ(1,1), MPQ(3,1)], QQ)
+K QQ<r2,s2> | QQ<CRootOf(x**3 - 2, 0) + sqrt(2)>
+K QQ<s2,r2> ext | CRootOf(x**3 - 2, 0) + sqrt(2)
+K QQ<r> from r**3 | ANP([MPQ(-1,1), MPQ(-3,1)], [MPQ(1,1), MPQ(0,1), MPQ(1,1), MPQ(3,1)], QQ)
+K QQ<r> roundtrip | 1 + CRootOf(x**3 + x + 3, 0)**2
+minpoly r | y**3 + y + 3
+minpoly rootof5 | y**5 - y - 1
+minpoly r+1 | y**3 - 3*y**2 + 4*y + 1
+minpoly r**2 | y**3 + 2*y**2 + y - 9
+minpoly r+s2 | y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9
+minpoly rc | y**3 + y + 3
+minpoly r*rc | y**3 - y**2 - 9
+minpoly CRootOf(x**4-2,1) | y**4 - 2
+minpoly r2 polys | Poly(y**3 - 2, y, domain='QQ')
+primitive_element [r,s2] | (y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9, [1, 1])
+primitive_element [r2,s3] | (y**6 - 9*y**4 - 4*y**3 + 27*y**2 - 36*y - 23, [1, 1])
+primitive_element [r,q2] | (y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9, [1, 1])
+to_number_field r**2 r | CRootOf(x**3 + x + 3, 0)**2
+to_number_field r r | CRootOf(x**3 + x + 3, 0)
+to_number_field r+1 r | CRootOf(x**3 + x + 3, 0) + 1
+to_number_field q2 s2 | sqrt(2)
+to_number_field s2 q2 | CRootOf(x**2 - 2, 1)
+to_number_field r2**2 r2 | CRootOf(x**3 - 2, 0)**2
+field_isomorphism r r | [1, 0]
+AlgebraicNumber r minpoly | PurePoly(_x**3 + _x + 3, _x, domain='QQ')
+AlgebraicNumber r coeffs | CRootOf(x**3 + x + 3, 0) + 2
+Poly r*y+1 ext True | Poly(CRootOf(x**3 + x + 3, 0)*y + 1, y, domain='QQ<CRootOf(x**3 + x + 3, 0)>')
+Poly r ext True | Poly(CRootOf(x**3 + x + 3, 0), y, domain='QQ<CRootOf(x**3 + x + 3, 0)>')
+factor y**3+y+3 ext r | (y - CRootOf(x**3 + x + 3, 0))*(y**2 + y*CRootOf(x**3 + x + 3, 0) + 1 + CRootOf(x**3 + x + 3, 0)**2)
+factor y**3-2 ext r2 | (y - CRootOf(x**3 - 2, 0))*(y**2 + y*CRootOf(x**3 - 2, 0) + CRootOf(x**3 - 2, 0)**2)
+fl y**3-2 ext r2 | (1, [(y - CRootOf(x**3 - 2, 0), 1), (y**2 + y*CRootOf(x**3 - 2, 0) + CRootOf(x**3 - 2, 0)**2, 1)])
+factor y**2-2 ext q2 | (y - CRootOf(x**2 - 2, 1))*(y + CRootOf(x**2 - 2, 1))
+Poly y-r2 ext True fl | (1, [(Poly(y - CRootOf(x**3 - 2, 0), y, domain='QQ<CRootOf(x**3 - 2, 0)>'), 1)])
+exc factor x ext s2 | ValueError: coefficient is not in the selected algebraic number field
+exc ZZ[t](1/t) | CoercionFailed: coefficient does not belong to this polynomial ring
+exc QQ_I[t](1/t) | ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over QQ_I with lex order, got 1/t
+exc ZZ_I[t](1/t) | ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over ZZ_I with lex order, got 1/t
+exc QQ[t](1/t) | CoercionFailed: coefficient does not belong to this polynomial ring
+exc QQ<s2>[t](1/t) | ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over QQ<sqrt(2)> with lex order, got 1/t
+exc ZZ[t](s2) | CoercionFailed: coefficients must be exact rational functions of the declared parameters
+ZZ[t](t/2) | CoercionFailed: coefficient does not belong to this polynomial ring
+exc gcd x ext s2 | ValueError: coefficient is not in the selected algebraic number field
+exc Poly x-s2t x ext s2 | ValueError: coefficient is not in the selected algebraic number field
+exc ZZ[t](1/(t+1)) | CoercionFailed: coefficient does not belong to this polynomial ring
+exc QQ_I[t](I/t) | ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over QQ_I with lex order, got I/t
+exc factor x**2-2pi**2 x ext s2 list | CoercionFailed: pi does not seem to be an algebraic element

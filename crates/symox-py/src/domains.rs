@@ -309,6 +309,18 @@ impl PyDomain {
             }
         }
     },||crate::poly::err(symox::poly::mpoly::exponent_limit_error()))}
+    /// `PolyRing.from_expr` and `FracField.from_expr`: a CoercionFailed of
+    /// the `_rebuild_expr` walk of an expression is the reference
+    /// ValueError naming the ring or field.
+    fn rebuild_error(&self, obj: &Bound<'_, PyAny>, error: PyErr) -> PyErr {
+        let py = obj.py();
+        let Some(ring) = self.inner.is_polynomial_ring() else { return error };
+        if !error.get_type(py).is(&py.get_type::<CoercionFailed>()) { return error; }
+        let Ok(node) = obj.downcast::<crate::PyExprNode>() else { return error };
+        let shown = symox::printer::to_str(&node.get().e);
+        let (kind, name) = if ring { ("polynomial", self.inner.polynomial_ring_name()) } else { ("rational function", self.inner.fraction_field_name()) };
+        PyValueError::new_err(format!("expected an expression convertible to a {kind} in {name}, got {shown}"))
+    }
     fn element(
         &self,
         obj: &Bound<'_, PyAny>,
@@ -588,7 +600,7 @@ impl PyDomain {
         value: &Bound<'_, PyAny>,
         denominator: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyDomainElement> {
-        let a = self.element(value, None)?;
+        let a = self.element(value, None).map_err(|error|self.rebuild_error(value,error))?;
         if let Some(d) = denominator {
             if self.is_CC() || self.is_ZZ_I() || self.is_QQ_I() {
                 let b=self.element(d,None)?;
@@ -610,11 +622,21 @@ impl PyDomain {
         element: &Bound<'_, PyAny>,
         base: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyDomainElement> {
-        self.element(element, base)
+        self.element(element, base).map_err(|error|{
+            // `Domain.convert` turns the ValueError of `from_sympy` (and its
+            // CoercionFailed) into its own CoercionFailed.
+            if base.is_some()||self.inner.is_polynomial_ring().is_none()||element.downcast::<crate::PyExprNode>().is_err(){return error;}
+            let error=self.rebuild_error(element,error);
+            if !error.get_type(element.py()).is(&element.py().get_type::<PyValueError>())||!error.to_string().contains("expected an expression convertible to a"){return error;}
+            let shown=element.str().map(|s|s.to_string()).unwrap_or_default();
+            let kind=element.get_type().repr().map(|s|s.to_string()).unwrap_or_default();
+            coercion(format!("Cannot convert {shown} of type {kind} to {}",self.inner))
+        })
     }
     #[pyo3(signature=(*args,**kwargs))]
     fn from_sympy(&self, args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>) -> PyResult<PyDomainElement> {
-        self.element(&conversion_argument(args,kwargs,"expr")?, None)
+        let value=conversion_argument(args,kwargs,"expr")?;
+        self.element(&value, None).map_err(|error|self.rebuild_error(&value,error))
     }
     #[pyo3(signature=(*args,**kwargs))]
     fn to_sympy(&self, args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>) -> PyResult<PyExpr> {

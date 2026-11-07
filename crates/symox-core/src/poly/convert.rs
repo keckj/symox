@@ -122,6 +122,33 @@ pub fn sort_gens(gens: &mut [Expr]) {
     gens.sort_by_cached_key(gen_key);
 }
 
+/// The generators of `_parallel_dict_from_expr_no_gens` with
+/// `greedy=False`: after expansion every multiplicative factor that is a
+/// number (`sqrt(2)`, `pi`, `CRootOf(...)`) stays in the coefficients and
+/// every other factor contributes its `decompose_power` base, so
+/// `x - sqrt(2)*t` has the generators `t, x`.
+pub fn nongreedy_generators(expressions: &[Expr]) -> Vec<Expr> {
+    let mut gens: Vec<Expr> = Vec::new();
+    for e in expressions {
+        let e = expand(e);
+        let terms = if e.is_add() { e.args() } else { vec![e] };
+        for t in terms {
+            let factors = if t.is_mul() { t.args() } else { vec![t] };
+            for f in factors {
+                if crate::functions::is_numeric_value(&f) {
+                    continue;
+                }
+                let base = decompose_factor(&f).0;
+                if !gens.contains(&base) {
+                    gens.push(base);
+                }
+            }
+        }
+    }
+    sort_gens(&mut gens);
+    gens
+}
+
 // ----------------------------------------------------------------------
 // decomposition of terms
 // ----------------------------------------------------------------------

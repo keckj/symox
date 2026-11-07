@@ -132,12 +132,15 @@ def test_common_factors_are_not_cancelled_and_squarefree_groups_are_certified(op
     assert sm.expand(expression_product(result[1])-(x*x-1)) == 0
     assert expression_product(result[2]) == x-1
     certify(f,result)
-    # SymPy's component-wise sqf_list can retain a repeated factor in its
-    # multiplicity-one group. Our groups are genuinely square-free globally.
+    # SymPy's component-wise sqf_list multiplies the components of equal
+    # multiplicity, so its multiplicity-one group can retain a repeated
+    # factor: `x**3 + 4*x**2 + 5*x + 2` is `(x + 1)**2*(x + 2)`. symox
+    # follows it (wave 45, lot algfactor), as `sqf` already did.
+    import sympy as sy
     f=(x+1)*sm.expand((x+1)*(x+2))/(x-3)
     result=getattr(sm,op)(f,x,frac=True,polys=True)
-    for factor,_ in result[1]+result[2]:
-        assert factor.gcd(factor.diff()).degree() == 0
+    oracle=getattr(sy,op)(sm.to_sympy(f),sm.to_sympy(x),frac=True,polys=True)
+    assert [(str(a.as_expr()),k) for a,k in result[1]+result[2]] == [(str(a.as_expr()),k) for a,k in oracle[1]+oracle[2]]
     certify(f,result)
 
 

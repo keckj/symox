@@ -354,15 +354,31 @@ impl ExactDomain {
     }
     /// The reference `FracField` name used in conversion errors.
     pub fn fraction_field_name(&self) -> String {
-        let Self::Composite { ground, parameters, order, .. } = self else { return self.to_string() };
-        let symbols = parameters.iter().map(crate::printer::to_str).collect::<Vec<_>>().join(", ");
+        let Some((ground, symbols, order)) = self.reference_name_parts() else { return self.to_string() };
         format!("Rational function field in {symbols} over {ground} with {order} order")
     }
     /// The reference `PolyRing` name used in conversion errors.
     pub fn polynomial_ring_name(&self) -> String {
-        let Self::Composite { ground, parameters, order, .. } = self else { return self.to_string() };
-        let symbols = parameters.iter().map(crate::printer::to_str).collect::<Vec<_>>().join(", ");
+        let Some((ground, symbols, order)) = self.reference_name_parts() else { return self.to_string() };
         format!("Polynomial ring in {symbols} over {ground} with {order} order")
+    }
+    /// Ground, symbols and order of a polynomial ring or fraction field.
+    fn reference_name_parts(&self) -> Option<(String, String, String)> {
+        let (ground, parameters, order) = match self {
+            Self::Composite { ground, parameters, order, .. } => (ground.to_string(), parameters, order),
+            Self::Functions { integral, parameters, order, .. } => ((if *integral { "ZZ" } else { "QQ" }).to_string(), parameters, order),
+            _ => return None,
+        };
+        let symbols = parameters.iter().map(crate::printer::to_str).collect::<Vec<_>>().join(", ");
+        Some((ground, symbols, order.to_string()))
+    }
+    /// Whether this is a polynomial ring (`ZZ[t]`, `QQ<a>[t]`) rather than a
+    /// fraction field; `None` for the other domains.
+    pub fn is_polynomial_ring(&self) -> Option<bool> {
+        match self {
+            Self::Composite { ring, .. } | Self::Functions { ring, .. } => Some(*ring),
+            _ => None,
+        }
     }
     pub fn convert(&self, e: &Expr) -> PResult<DomainElement> {super::mpoly::checked_operation(||{
         let value=match self {

@@ -554,8 +554,12 @@ pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototyp
         let(numerator,denominator)=as_numer_denom(&together);
         super::factor_preflight::check(&numerator,limits)?;
         super::factor_preflight::check(&denominator,limits)?;
-        let(cp,fp)=symbolic_factor_list_with(&numerator,squarefree,None,gens,Some(limits))?;
-        let(cq,fq)=symbolic_factor_list_with(&denominator,squarefree,None,gens,Some(limits))?;
+        // Components in the order of the public `Mul.args` (equal sort keys
+        // keep it: `factor_list((x - sqrt(2))*(x - pi))` lists `x - pi`
+        // first, as `Mul.args` does).
+        let drop=|(c,f):(Expr,Vec<(FItem,Expr,bool)>)|(c,f.into_iter().map(|(f,k,_)|(f,k)).collect::<Vec<_>>());
+        let(cp,fp)=drop(symbolic_factor_list_tracked(&numerator,squarefree,None,gens,Some(limits),true)?);
+        let(cq,fq)=drop(symbolic_factor_list_tracked(&denominator,squarefree,None,gens,Some(limits),true)?);
         if !fq.is_empty(){return Err(PolyError::Failed("a polynomial expected: denominator factors require frac=True".into()));}
         let coefficient=div(&cp,&cq);
         let mut factors=Vec::new();
@@ -564,17 +568,53 @@ pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototyp
             let poly=match f{FItem::P(p)=>p,FItem::E(e)=>Poly::from_expr(&e,gens)?};
             factors.push((poly,k));
         }
-        // Exactly the generic factor-list key. Equal keys retain the order
-        // of components from canonical Mul.args and the inner factor engine.
-        factors.sort_by(|(a,ka),(b,kb)|{
-            let degree=a.rep.degree(0).cmp(&b.rep.degree(0));
-            let generators=a.ngens.cmp(&b.ngens);
-            let main=if squarefree{ka.cmp(kb).then(degree).then(generators)}else{degree.then(generators).then(ka.cmp(kb))};
-            main.then_with(||a.domain_str().cmp(&b.domain_str())).then_with(||super::polyobj::rep_cmp(&a.rep,&b.rep,0))
-        });
+        sort_checked_factors(&mut factors,squarefree);
         let factors:Vec<_>=factors.into_iter().map(|(p,k)|(p.into(),k)).collect();
         super::checked_factors::verify_expression_factors(prototype,&coefficient,&factors,limits)?;
         Ok((coefficient,factors))
+    })
+})}
+/// Exactly the generic factor-list key. Equal keys retain the order of
+/// components from canonical Mul.args and the inner factor engine.
+fn sort_checked_factors(factors:&mut [(Poly,u32)],squarefree:bool){
+    factors.sort_by(|(a,ka),(b,kb)|{
+        let degree=a.rep.degree(0).cmp(&b.rep.degree(0));
+        let generators=a.ngens.cmp(&b.ngens);
+        let main=if squarefree{ka.cmp(kb).then(degree).then(generators)}else{degree.then(generators).then(ka.cmp(kb))};
+        main.then_with(||a.domain_str().cmp(&b.domain_str())).then_with(||super::polyobj::rep_cmp(&a.rep,&b.rep,0))
+    });
+}
+/// The reference `_symbolic_factor_list` of a number whose expansion leaves
+/// no generator, so that no prototype polynomial exists:
+/// `factor_list((1 - sqrt(2))*(1 + sqrt(2)))` is
+/// `(-1, [(-1 + sqrt(2), 1), (1 + sqrt(2), 1)])`, each component being a
+/// polynomial in its own algebraic generators. The result is certified on
+/// the canonical expansion of `c*prod(f**k) - e`; a number with a
+/// denominator component is declined (Unsupported).
+pub fn checked_constant_factor_list(e:&Expr,squarefree:bool,limits:super::factor_budget::Limits)->PResult<(Expr,Vec<(super::fraction::Polynomial,u32)>)> {super::mpoly::checked_operation(||{
+    super::factor_budget::run(limits,||{
+        super::factor_preflight::check(e,limits)?;
+        guard_symbolic_factor_work(e,limits)?;
+        let together=together(e);
+        let(numerator,denominator)=as_numer_denom(&together);
+        let drop=|(c,f):(Expr,Vec<(FItem,Expr,bool)>)|(c,f.into_iter().map(|(f,k,_)|(f,k)).collect::<Vec<_>>());
+        let(cp,fp)=drop(symbolic_factor_list_tracked(&numerator,squarefree,None,&[],Some(limits),true)?);
+        let(cq,fq)=drop(symbolic_factor_list_tracked(&denominator,squarefree,None,&[],Some(limits),true)?);
+        if !fq.is_empty(){return Err(PolyError::Unsupported("constant factor lists with denominator components are not implemented".into()));}
+        let coefficient=div(&cp,&cq);
+        let mut factors=Vec::new();
+        for(f,k)in fp{
+            let k=k.as_i64().filter(|&k|k>0&&k<=limits.degree as i64).ok_or_else(||PolyError::Unsupported("checked factor lists require positive integer multiplicities".into()))? as u32;
+            let poly=match f{FItem::P(p)=>p,FItem::E(e)=>Poly::from_expr(&e,&[])?};
+            factors.push((poly,k));
+        }
+        sort_checked_factors(&mut factors,squarefree);
+        let mut product=vec![coefficient.clone()];
+        for(p,k)in &factors{product.push(pow(&p.as_expr(),&Expr::int(*k as i64)));}
+        if !expand(&crate::ops::sub(&expand(&mul(&product)),&expand(e))).is_zero(){
+            return Err(PolyError::Failed("factorization failed its exact reconstruction certificate".into()));
+        }
+        Ok((coefficient,factors.into_iter().map(|(p,k)|(p.into(),k)).collect()))
     })
 })}
 /// Whether a multiplicative component of `together(e)` is a power with a
