@@ -2,7 +2,7 @@
 from .._differential import equation, dependent, nodes, linear_data, fresh_constant
 from ..deutils import ode_order
 from ._constants import constantsimp
-from .lie_group import infinitesimals, checkinfsol, solve_lie
+from .lie_group import _symmetry_infinitesimals as infinitesimals, _symmetry_checkinfsol as checkinfsol, solve_lie
 
 allhints = ('separable', '1st_exact', '1st_linear', 'Bernoulli',
             'lie_group',

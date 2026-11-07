@@ -126,7 +126,7 @@ def _residual(h, x, y, xi, eta):
     return value if value==0 else _simplify(powsimp(value.expand()))
 
 
-def checkinfsol(eq, infinitesimals, func=None, order=None):
+def _symmetry_checkinfsol(eq, infinitesimals, func=None, order=None):
     """Check each supplied generator by its exact determining residual."""
     from ... import Function, sympify
     expression,func,x,y,h = _problem(eq,func,order)
@@ -422,7 +422,7 @@ _HEURISTICS = {'abaco1_simple':_simple,'abaco1_product':_product,
                'abaco2_unique_general':_general,'function_sum':_function_sum}
 
 
-def infinitesimals(eq, func=None, order=None, hint='default', match=None):
+def _symmetry_infinitesimals(eq, func=None, order=None, hint='default', match=None):
     """Find and verify first-order point symmetry generators.
 
     Named heuristics search their respective ansatz; ``all`` combines the
@@ -486,7 +486,7 @@ def solve_lie(eq,func=None,xi=None,eta=None,ics=None):
         def generated():
             for heuristic in lie_heuristics:
                 try:
-                    found = infinitesimals(expression,func,hint=heuristic)
+                    found = _symmetry_infinitesimals(expression,func,hint=heuristic)
                 except (ValueError,NotImplementedError):
                     continue
                 for candidate in found:
@@ -544,6 +544,124 @@ def solve_lie(eq,func=None,xi=None,eta=None,ics=None):
             return solutions[0] if len(solutions)==1 else solutions
         return Eq(_at(potential,y,func,{}),chosen)
     raise NotImplementedError('No verified symmetry produced an integrable first integral')
+
+
+# Reference API of ``sympy/solvers/ode/lie_group.py`` (SymPy 1.14). The
+# heuristics, ``infinitesimals``, ``_lie_group_remove`` and the solver run in
+# ``symox::ode::lie_group``; this module admits the arguments, hands over the
+# public callables and keeps the reference body (``_lie_heuristics``) for a
+# native decline.
+
+def _native(name):
+    from ... import _core
+    return getattr(_core, name, None)
+
+
+def _expr_args(*values):
+    from ... import _core
+    return all(isinstance(v, _core.Expr) for v in values)
+
+
+def _hooks():
+    from . import _lie_heuristics as ref
+    return {'simplify': ref.simplify, 'expand': ref.expand, 'cancel': ref.cancel,
+            'integrate': ref.integrate, 'solve': ref.solve, 'div': ref.div,
+            'pdsolve': ref.pdsolve}
+
+
+def infinitesimals(eq, func=None, order=None, hint='default', match=None):
+    from . import _lie_heuristics as ref
+    from ...core.relational import Equality
+    from ._ode_helpers import _preprocess
+    if isinstance(eq, Equality):
+        eq = eq.lhs - eq.rhs
+    if not func:
+        eq, func = _preprocess(eq)
+    variables = func.args
+    if len(variables) != 1:
+        raise ValueError("ODE's have only one independent variable")
+    x = variables[0]
+    if not order:
+        order = ode_order(eq, func)
+    if order != 1:
+        raise NotImplementedError("Infinitesimals for only "
+            "first order ODE's have been implemented")
+    native = _native('ode_lie_infinitesimals')
+    if native is not None and isinstance(hint, str) and _expr_args(eq, func, x):
+        given = (None, None)
+        if match:
+            given = (match.get('h'), match.get('y'))
+        if (given[0] is None) == (given[1] is None) and (not match or _expr_args(*given)):
+            value = native(eq, func, x, hint, given[0], given[1], _hooks())
+            if value is not None:
+                return value
+    return ref.infinitesimals(eq, func, order, hint, match)
+
+
+def _heuristic(name, match, comp):
+    from . import _lie_heuristics as ref
+    native = _native('ode_lie_heuristic')
+    if native is not None and isinstance(match, dict):
+        keys = ('h', 'hx', 'hy', 'y', 'hinv', 'func')
+        if all(k in match for k in keys) and _expr_args(*(match[k] for k in keys)) \
+                and len(match['func'].args) == 1:
+            value = native(name, *(match[k] for k in keys), match['func'].args[0],
+                           bool(comp), _hooks())
+            if value is not None:
+                return value[0]
+    return getattr(ref, 'lie_heuristic_' + name)(match, comp)
+
+
+def lie_heuristic_abaco1_simple(match, comp=False):
+    return _heuristic('abaco1_simple', match, comp)
+
+
+def lie_heuristic_abaco1_product(match, comp=False):
+    return _heuristic('abaco1_product', match, comp)
+
+
+def lie_heuristic_bivariate(match, comp=False):
+    return _heuristic('bivariate', match, comp)
+
+
+def lie_heuristic_chi(match, comp=False):
+    return _heuristic('chi', match, comp)
+
+
+def lie_heuristic_function_sum(match, comp=False):
+    return _heuristic('function_sum', match, comp)
+
+
+def lie_heuristic_abaco2_similar(match, comp=False):
+    return _heuristic('abaco2_similar', match, comp)
+
+
+def lie_heuristic_abaco2_unique_unknown(match, comp=False):
+    return _heuristic('abaco2_unique_unknown', match, comp)
+
+
+def lie_heuristic_abaco2_unique_general(match, comp=False):
+    return _heuristic('abaco2_unique_general', match, comp)
+
+
+def lie_heuristic_linear(match, comp=False):
+    return _heuristic('linear', match, comp)
+
+
+def _lie_group_remove(coords):
+    from . import _lie_heuristics as ref
+    native = _native('ode_lie_group_remove')
+    if native is not None and _expr_args(coords):
+        return native(coords)
+    return ref._lie_group_remove(coords)
+
+
+def __getattr__(name):
+    # checkinfsol is the reference one of ``ode.py``
+    if name == 'checkinfsol':
+        from .ode import checkinfsol
+        return checkinfsol
+    raise AttributeError(name)
 
 
 __all__ = ['infinitesimals','checkinfsol','lie_heuristics']

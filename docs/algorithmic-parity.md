@@ -17811,3 +17811,135 @@ heavy lock):
 - ODE corpus: 315/289/270.
 
 Measured: [audit](../audits/performance/2026-11-06-algpoly/README.md).
+
+## liegroup (wave 44): the lie_group ODE solver in Rust, 2026-11-06
+
+Wave 44, lot liegroup (`feat-liegroup-20261106`). Scope: SymPy 1.14's
+`sympy/solvers/ode/lie_group.py`, the `LieGroup` class of `single.py`,
+`infinitesimals` and `checkinfsol`.
+
+Native (Rust):
+
+- `crates/symox-core/src/ode/lie_group.rs`, bound in
+  `crates/symox-py/src/ode_lie.rs`:
+  - `infinitesimals`: the `h` of the first-order equation, the `default`/`all`/named
+    hint dispatch, and the nine heuristics in SymPy's order:
+    `abaco1_simple`, `abaco1_product`, `bivariate`, `chi`, `abaco2_similar`,
+    `function_sum`, `abaco2_unique_unknown`, `abaco2_unique_general` and
+    `linear`. The reference exceptions keep their class and message (the
+    `TypeError` of `abaco2_unique_general` and of `all` on `f' = f`, and
+    the `ValueError`s);
+  - the public `lie_heuristic_*` functions with a caller's `match` dict;
+  - `checkinfsol`, which returns `(True, 0)` with the Python int `0` as
+    the reference does;
+  - `_lie_group_remove`;
+  - the `LieGroup._matches` split (`collect(eq, df, exact=True)` and the
+    `d + e*df` match), which `classify_ode` uses to list `lie_group`;
+  - `_get_general_solution`: the solve for `df`, each heuristic's
+    infinitesimals tried in the reference order, the canonical coordinates
+    `r` and `s` through the host `pdsolve`, the change of variables, the
+    separable integration, and the `_lie_group_remove` of the constants.
+    A user-given `xi`/`eta` is checked by `checkinfsol`, then tried.
+  - `diff2`: a derivative of order 2 ends with
+    `factor_terms(signsimp(expr))`, as SymPy's `Derivative.__new__` does.
+    `function_sum` and `abaco2_similar` separate that form; without it,
+    `function_sum` of `x**(n*(m + 1) - m)*f' - a*f**n - b*x**(n*(m + 1))`
+    raised ValueError where SymPy returns a `Piecewise` generator.
+- The public calls of the reference stay host callbacks: `simplify`,
+  `expand`, `cancel`, `integrate`, `solve` (including the dict and
+  system forms), `div` and `pdsolve`. A step that leaves the modelled
+  expressions returns `Decline`, and the native call returns `None`.
+
+Still Python:
+
+- Admission and dispatch: `infinitesimals`, the nine `lie_heuristic_*`
+  wrappers and `_lie_group_remove` in `python/symox/solvers/ode/lie_group.py`;
+  `_lie_group_split`/`_lie_group_solve` in `single.py`;
+  `_native_checkinfsol` in `ode.py`. These check the argument types, build
+  the hook table and fall back to the reference body
+  (`_lie_heuristics.py`) when the native call declines. The corpus had no
+  declines (counts below).
+- `pdsolve` (the canonical coordinates) runs through the public host call.
+  `pde_1st_linear_variable_coeff` is not ported.
+- The previous `_symmetry_infinitesimals`/`_symmetry_checkinfsol` bodies are
+  kept for `_native_fallback` in `ode.py`, the native solver tried after
+  the reference methods fail (`_native_ode.py`). They are not on the
+  reference path.
+
+Results:
+
+- Lot corpus (`audits/performance/2026-11-06-liegroup`, 428 cases against
+  live SymPy 1.14: `infinitesimals` for every hint, `checkinfsol`,
+  `classify_ode` and `dsolve(hint='lie_group')`):
+  - before (the previous symox search in Python): 319 SAME, 96 DIFF,
+    11 DECLINED and 2 WRONG;
+  - after: **413 SAME, 13 DIFF, 2 DECLINED and 0 WRONG**.
+  - SymPy's `checkinfsol` validates every `infinitesimals` DIFF. The DIFFs
+    have three causes: the `integrate` log form, the hash-seed generator
+    of bivariate/chi, and the `dsolve` cases listed below.
+  - Native calls: 108 `infinitesimals`, 15 `checkinfsol`, 176 splits and
+    19 solves, with no decline.
+  - 13 SAME cases only show that both sides ran past the 120 s deadline.
+  - On the other 400 SAME cases, symox takes 161.8 s in total, against
+    772.6 s in SymPy and 790.9 s before.
+- `tests/test_native_liegroup.py` runs 212 tests against live SymPy. It
+  also checks that no native call declines. Hash-dependent results are
+  compared up to a constant factor and checked with SymPy's
+  `checkinfsol`. With `tests/test_ode_symmetry_and_constants.py` and
+  `PYTHONHASHSEED` 11, 12 and 13, 266 tests pass. There are 7 strict
+  xfails, which are the gaps below, and 1 non-strict xfail that follows
+  the hash seed.
+- ODE corpus 315/289/270, with verdicts identical row by row to the
+  wave 43 integration.
+- `cargo test --release`: 875 + 1 + 0 + 5, including three lie_group unit
+  tests. Clippy correctness is clean.
+- Full suite: SUITE CLEAN on the first run. 60 754 passed, 14 xfail
+  and 45 skipped, out of 60 813 tests collected and run in 697 files. On
+  main that is +212 tests and 1 file (`tests/test_native_liegroup.py`):
+  +204 passed and +8 xfail.
+
+Intentional divergences:
+
+- `atoms_where` takes the atoms in first preorder order. SymPy iterates a
+  set, so its order follows the hash seed. Only `abaco2_unique_unknown`
+  depends on it, and the corpus gives the same answers.
+- When the user gives `xi`/`eta`, SymPy runs `checkinfsol` once and then
+  makes the same attempt once per heuristic name, because
+  `_ode_lie_group_try_heuristic` ignores the name when an infinitesimal is
+  given. symox makes that attempt once. The result and the error are the
+  same.
+
+Remaining gaps:
+
+- Outside the lot:
+  - `integrate` splits the logarithm of a product
+    (`log(y - 1) + log(y + 1)` for `log(y**2 - 1)`, `log(2*p)/2` for
+    `log(p)/2`). This gives valid but differently written generators for
+    `abaco1_simple` on h1_eq4 and h1_eq7.
+  - `Mul` cancels `exp(x + y)*exp(-x - y)` to 1, where SymPy keeps the
+    product. `abaco1_simple` of `f' = exp(x + f)` then finds
+    `eta = exp(f)`, while SymPy finds nothing.
+  - `cancel` of an expression with `zoo` keeps `y`, where SymPy gives
+    `nan`. This affects the public `lie_heuristic_abaco2_similar` on
+    `x**2*f + f/x`.
+  - `solve` writes roots in another form:
+    - `dsolve` of `(1 + 2*x)*f' + 2 - 4*exp(-f)` gives an equal root
+      written differently;
+    - for `(x*f' + f + 2*x)**2 - 4*x*f - 4*x**2 - 4*a`, `solve(eq, df)`
+      gives `sqrt(x**2*(a + x**2 + x*f))/x**2`, where SymPy gives
+      `sqrt(a + x**2 + x*f)/x`. `abaco2_unique_unknown` then raises
+      ValueError, where SymPy answers. `default` goes on to
+      `abaco2_unique_general` and runs past the 120 s deadline, where
+      SymPy answers in 4.7 s.
+- Reference behaviour that is reproduced:
+  - SymPy's `bivariate`/`chi` results (their sign, scale and duplicate
+    removal in `all`) follow the hash seed. The tests compare them up to a
+    constant factor and check them with SymPy's `checkinfsol`.
+  - `dsolve(hint='lie_group')` of lie_group_01 and lie_group_03 raises
+    RecursionError in SymPy after 6 min 22 s and 8 min 10 s, through
+    `pdsolve` → `pde_1st_linear_variable_coeff` → `dsolve` →
+    `lie_group`. symox raises the same error after 67 s and 50 s. The
+    corpus compares them only up to its 120 s deadline.
+- `pdsolve` and its `dsolve` recursion remain in Python (see above).
+
+Measured: [audit](../audits/performance/2026-11-06-liegroup/README.md).

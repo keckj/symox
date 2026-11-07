@@ -1,0 +1,4246 @@
+{
+ "counts": {
+  "SAME": 413,
+  "DIFF": 13,
+  "DECLINED": 2
+ },
+ "by_kind": {
+  "inf": {
+   "SAME": 329,
+   "DIFF": 10,
+   "DECLINED": 2
+  },
+  "check": {
+   "SAME": 31
+  },
+  "classify": {
+   "SAME": 31
+  },
+  "dsolve": {
+   "DIFF": 3,
+   "SAME": 22
+  }
+ },
+ "cases": {
+  "inf:h1_eq:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.162,
+   "symox_s": 0.018,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.333,
+   "symox_s": 0.052,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.017,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.012,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.022,
+   "symox_s": 0.02,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.012,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.06,
+   "symox_s": 0.025,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.016,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.01,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.128,
+   "symox_s": 0.029,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.073,
+   "symox_s": 0.012,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h1_eq": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.326,
+   "symox_s": 0.053,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h1_eq": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.183,
+   "symox_s": 0.04,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.039,
+   "symox_s": 0.007,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:all": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.051,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.018,
+   "symox_s": 0.012,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.043,
+   "symox_s": 0.018,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.023,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.017,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.02,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.034,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.083,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.018,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq1:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.018,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h1_eq1": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.049,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:h1_eq1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.412,
+   "symox_s": 0.039,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.064,
+   "symox_s": 0.022,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.564,
+   "symox_s": 0.057,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.033,
+   "symox_s": 0.01,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.07,
+   "symox_s": 0.025,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.243,
+   "symox_s": 0.03,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.034,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.165,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.066,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.115,
+   "symox_s": 0.025,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.023,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq2:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.022,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h1_eq2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.584,
+   "symox_s": 0.053,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h1_eq2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.586,
+   "symox_s": 0.039,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.06,
+   "symox_s": 0.022,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:all": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.094,
+   "symox_s": 0.016,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.046,
+   "symox_s": 0.023,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.043,
+   "symox_s": 0.013,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.045,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.023,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 1.439,
+   "symox_s": 0.24,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:linear": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.162,
+   "symox_s": 0.02,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.052,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.024,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq3:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.024,
+   "symox_s": 0.011,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h1_eq3": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.087,
+   "symox_s": 0.025,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:h1_eq3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.495,
+   "symox_s": 0.052,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.036,
+   "symox_s": 0.018,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:all": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 1.917,
+   "symox_s": 0.469,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:abaco1_simple": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.064,
+   "symox_s": 0.481,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:h1_eq4:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.041,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.024,
+   "symox_s": 0.012,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.02,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.033,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.369,
+   "symox_s": 0.041,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.046,
+   "symox_s": 0.011,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.021,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq4:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.021,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h1_eq4": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 1.083,
+   "symox_s": 0.461,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:h1_eq4": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.861,
+   "symox_s": 0.127,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.083,
+   "symox_s": 0.022,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.99,
+   "symox_s": 0.092,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.045,
+   "symox_s": 0.022,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.1,
+   "symox_s": 0.024,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.47,
+   "symox_s": 0.055,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.047,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.244,
+   "symox_s": 0.049,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.081,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.142,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.034,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq5:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.033,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h1_eq5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.913,
+   "symox_s": 0.092,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h1_eq5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.55,
+   "symox_s": 0.059,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.128,
+   "symox_s": 0.025,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.306,
+   "symox_s": 0.145,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.046,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.112,
+   "symox_s": 0.027,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.177,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.046,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.929,
+   "symox_s": 0.12,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.079,
+   "symox_s": 0.029,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.204,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.046,
+   "symox_s": 0.012,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq6:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.035,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h1_eq6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.378,
+   "symox_s": 0.16,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h1_eq6": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.509,
+   "symox_s": 0.068,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq7:default": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.041,
+   "symox_s": 0.02,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:h1_eq7:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.436,
+   "symox_s": 0.066,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:h1_eq7:abaco1_simple": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.062,
+   "symox_s": 0.02,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:h1_eq7:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.02,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq7:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.018,
+   "symox_s": 0.021,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq7:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.015,
+   "symox_s": 0.016,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq7:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.207,
+   "symox_s": 0.05,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq7:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.045,
+   "symox_s": 0.011,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq7:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.019,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h1_eq7:bivariate": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.104,
+   "symox_s": 0.034,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:h1_eq7:chi": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.06,
+   "symox_s": 0.029,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "check:h1_eq7": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.512,
+   "symox_s": 0.073,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h1_eq7": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.259,
+   "symox_s": 0.049,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:default": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.801,
+   "symox_s": 0.055,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:all": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.758,
+   "symox_s": 0.056,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.03,
+   "symox_s": 0.007,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.088,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.138,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.025,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.573,
+   "symox_s": 0.053,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:linear": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.058,
+   "symox_s": 0.01,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.16,
+   "symox_s": 0.025,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.093,
+   "symox_s": 0.027,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq1:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.074,
+   "symox_s": 0.014,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h3_eq1": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.757,
+   "symox_s": 0.06,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:h3_eq1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.584,
+   "symox_s": 0.049,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.096,
+   "symox_s": 0.101,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.252,
+   "symox_s": 0.128,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.035,
+   "symox_s": 0.008,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.124,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.204,
+   "symox_s": 0.037,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.036,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.024,
+   "symox_s": 0.024,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.08,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.088,
+   "symox_s": 0.026,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.66,
+   "symox_s": 0.099,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:h3_eq2:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.3,
+   "symox_s": 0.035,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:h3_eq2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.318,
+   "symox_s": 0.151,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:h3_eq2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.657,
+   "symox_s": 0.062,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:fsum:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 46.137,
+   "symox_s": 21.13,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:fsum:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 55.689,
+   "symox_s": 21.161,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:fsum:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.109,
+   "symox_s": 0.031,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:fsum:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.315,
+   "symox_s": 0.021,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:fsum:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 3.263,
+   "symox_s": 0.095,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:fsum:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.135,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:fsum:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 58.009,
+   "symox_s": 20.694,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:fsum:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.397,
+   "symox_s": 0.052,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:fsum:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.907,
+   "symox_s": 0.039,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:fsum:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.099,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:fsum:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.072,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:fsum": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 57.583,
+   "symox_s": 21.48,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:fsum": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.559,
+   "symox_s": 0.093,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:sim1:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.298,
+   "symox_s": 0.012,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:sim1:all": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 1.074,
+   "symox_s": 0.083,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim1:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.029,
+   "symox_s": 0.022,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim1:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.074,
+   "symox_s": 0.014,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim1:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.073,
+   "symox_s": 0.022,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:sim1:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.029,
+   "symox_s": 0.018,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:sim1:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 1.048,
+   "symox_s": 0.071,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim1:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.044,
+   "symox_s": 0.009,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim1:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.131,
+   "symox_s": 0.019,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim1:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.026,
+   "symox_s": 0.016,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim1:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.023,
+   "symox_s": 0.01,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:sim1": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 1.301,
+   "symox_s": 0.077,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:sim1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.5,
+   "symox_s": 0.044,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:sim2:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.742,
+   "symox_s": 0.039,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:sim2:all": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.038,
+   "symox_s": 130.063,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim2:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.214,
+   "symox_s": 0.031,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim2:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.268,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim2:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.778,
+   "symox_s": 0.053,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:sim2:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.17,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim2:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.236,
+   "symox_s": 130.065,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim2:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 1.883,
+   "symox_s": 0.051,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim2:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.972,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim2:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.443,
+   "symox_s": 0.031,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:sim2:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.553,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:sim2": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.023,
+   "symox_s": 130.138,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:sim2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 22.595,
+   "symox_s": 0.099,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:uu1:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 3.643,
+   "symox_s": 0.095,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:uu1:all": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.55,
+   "symox_s": 130.658,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu1:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.404,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu1:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.63,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu1:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 2.952,
+   "symox_s": 0.087,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu1:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 7.877,
+   "symox_s": 0.036,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:uu1:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 129.621,
+   "symox_s": 130.576,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu1:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.487,
+   "symox_s": 0.035,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu1:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 1.326,
+   "symox_s": 0.028,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu1:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.22,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu1:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.169,
+   "symox_s": 0.03,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:uu1": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 126.532,
+   "symox_s": 130.889,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:uu1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 3.87,
+   "symox_s": 0.098,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:uu2:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 13.486,
+   "symox_s": 0.217,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:uu2:all": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.014,
+   "symox_s": 127.498,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu2:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.135,
+   "symox_s": 0.037,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu2:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.464,
+   "symox_s": 0.026,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu2:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 6.993,
+   "symox_s": 0.131,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu2:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.215,
+   "symox_s": 0.12,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:uu2:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.002,
+   "symox_s": 130.263,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu2:linear": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.204,
+   "symox_s": 0.041,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:uu2:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.784,
+   "symox_s": 0.052,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu2:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.067,
+   "symox_s": 0.036,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu2:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.062,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:uu2": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.001,
+   "symox_s": 130.456,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:uu2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 6.164,
+   "symox_s": 0.525,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:uu3:default": {
+   "verdict": "DECLINED",
+   "sympy": "ok",
+   "symox": "DEADLINE",
+   "sympy_s": 4.707,
+   "symox_s": 130.238,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:all": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.021,
+   "symox_s": 130.842,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.135,
+   "symox_s": 0.117,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.307,
+   "symox_s": 0.133,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 3.968,
+   "symox_s": 0.254,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:abaco2_unique_unknown": {
+   "verdict": "DECLINED",
+   "sympy": "ok",
+   "symox": "ValueError",
+   "sympy_s": 0.259,
+   "symox_s": 0.216,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 121.704,
+   "symox_s": 130.203,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.236,
+   "symox_s": 0.092,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.593,
+   "symox_s": 0.118,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.111,
+   "symox_s": 0.072,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:uu3:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.09,
+   "symox_s": 0.062,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:uu3": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.728,
+   "symox_s": 130.173,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:uu3": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.689,
+   "symox_s": 0.132,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lin1:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 53.601,
+   "symox_s": 6.721,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lin1:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 60.983,
+   "symox_s": 5.297,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lin1:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.067,
+   "symox_s": 0.044,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lin1:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.242,
+   "symox_s": 0.059,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lin1:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 13.092,
+   "symox_s": 1.524,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lin1:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.065,
+   "symox_s": 0.041,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lin1:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 52.015,
+   "symox_s": 3.922,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lin1:linear": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.184,
+   "symox_s": 0.056,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lin1:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.744,
+   "symox_s": 0.233,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lin1:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.06,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lin1:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.046,
+   "symox_s": 0.037,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lin1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 66.921,
+   "symox_s": 7.216,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:lin1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 4.017,
+   "symox_s": 0.145,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:kamke:default": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 1.648,
+   "symox_s": 0.458,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:all": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 2.163,
+   "symox_s": 0.451,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.109,
+   "symox_s": 0.041,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.529,
+   "symox_s": 0.049,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 1.078,
+   "symox_s": 0.413,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.129,
+   "symox_s": 0.048,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.127,
+   "symox_s": 0.048,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.288,
+   "symox_s": 0.057,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.572,
+   "symox_s": 0.049,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.09,
+   "symox_s": 0.042,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:kamke:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.066,
+   "symox_s": 0.045,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:kamke": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 1.407,
+   "symox_s": 0.485,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:kamke": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.453,
+   "symox_s": 0.143,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:riccati:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.075,
+   "symox_s": 0.042,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:riccati:all": {
+   "verdict": "SAME",
+   "sympy": "UnboundLocalError",
+   "symox": "UnboundLocalError",
+   "sympy_s": 0.141,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:riccati:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.071,
+   "symox_s": 0.037,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:riccati:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.045,
+   "symox_s": 0.031,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:riccati:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.33,
+   "symox_s": 0.038,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:riccati:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.031,
+   "symox_s": 0.028,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:riccati:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.022,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:riccati:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.041,
+   "symox_s": 0.04,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:riccati:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.023,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:riccati:bivariate": {
+   "verdict": "SAME",
+   "sympy": "UnboundLocalError",
+   "symox": "UnboundLocalError",
+   "sympy_s": 0.063,
+   "symox_s": 0.051,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:riccati:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.271,
+   "symox_s": 0.049,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:riccati": {
+   "verdict": "SAME",
+   "sympy": "UnboundLocalError",
+   "symox": "UnboundLocalError",
+   "sympy_s": 0.149,
+   "symox_s": 0.045,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:riccati": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.832,
+   "symox_s": 0.086,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg01:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 9.745,
+   "symox_s": 0.693,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg01:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 14.327,
+   "symox_s": 0.882,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg01:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.066,
+   "symox_s": 0.053,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg01:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.232,
+   "symox_s": 0.068,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg01:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.406,
+   "symox_s": 0.064,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg01:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.178,
+   "symox_s": 0.039,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg01:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 6.374,
+   "symox_s": 1.291,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg01:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.875,
+   "symox_s": 0.068,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg01:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 1.403,
+   "symox_s": 0.112,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg01:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.741,
+   "symox_s": 0.11,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg01:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.858,
+   "symox_s": 0.077,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg01": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 11.077,
+   "symox_s": 1.489,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:lg01": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.885,
+   "symox_s": 0.117,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg03:default": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 15.522,
+   "symox_s": 0.694,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:lg03:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 17.148,
+   "symox_s": 0.826,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:lg03:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.174,
+   "symox_s": 0.034,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg03:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.587,
+   "symox_s": 0.064,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg03:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.629,
+   "symox_s": 0.06,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg03:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.062,
+   "symox_s": 0.047,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg03:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 5.63,
+   "symox_s": 0.388,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg03:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.362,
+   "symox_s": 0.042,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg03:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.698,
+   "symox_s": 0.046,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg03:bivariate": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 2.586,
+   "symox_s": 0.294,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:lg03:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 1.02,
+   "symox_s": 0.177,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg03": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 9.38,
+   "symox_s": 0.902,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:lg03": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.698,
+   "symox_s": 0.143,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg04:default": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 2.646,
+   "symox_s": 0.256,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:all": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 3.562,
+   "symox_s": 0.262,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.065,
+   "symox_s": 0.039,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.157,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.744,
+   "symox_s": 0.056,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.064,
+   "symox_s": 0.028,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 1.342,
+   "symox_s": 0.207,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.134,
+   "symox_s": 0.044,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.245,
+   "symox_s": 0.04,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.06,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg04:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.043,
+   "symox_s": 0.034,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg04": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 3.439,
+   "symox_s": 0.249,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:lg04": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.766,
+   "symox_s": 0.121,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg05:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.002,
+   "symox_s": 0.016,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg05:all": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.006,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg05:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.002,
+   "symox_s": 0.022,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg05:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.002,
+   "symox_s": 0.018,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg05:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.005,
+   "symox_s": 0.015,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg05:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.002,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg05:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.002,
+   "symox_s": 0.017,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg05:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.006,
+   "symox_s": 0.018,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg05:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.002,
+   "symox_s": 0.016,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg05:bivariate": {
+   "verdict": "SAME",
+   "sympy": "UnboundLocalError",
+   "symox": "UnboundLocalError",
+   "sympy_s": 0.007,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg05:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.004,
+   "symox_s": 0.024,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg05": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.006,
+   "symox_s": 0.023,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:lg05": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.123,
+   "symox_s": 0.072,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg11:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.017,
+   "symox_s": 0.032,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg11:all": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.267,
+   "symox_s": 0.066,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:lg11:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.02,
+   "symox_s": 0.027,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg11:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.018,
+   "symox_s": 0.02,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg11:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.014,
+   "symox_s": 0.032,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg11:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.016,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg11:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.103,
+   "symox_s": 0.044,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg11:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.022,
+   "symox_s": 0.034,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg11:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.016,
+   "symox_s": 0.031,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg11:bivariate": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.049,
+   "symox_s": 0.031,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": true
+  },
+  "inf:lg11:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.094,
+   "symox_s": 0.048,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.283,
+   "symox_s": 0.075,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:lg11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.303,
+   "symox_s": 0.084,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg13:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.083,
+   "symox_s": 0.032,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg13:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 2.789,
+   "symox_s": 0.223,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg13:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.115,
+   "symox_s": 0.032,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg13:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.203,
+   "symox_s": 0.039,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg13:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.482,
+   "symox_s": 0.051,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg13:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.145,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg13:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 2.67,
+   "symox_s": 0.198,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg13:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.069,
+   "symox_s": 0.044,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg13:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.168,
+   "symox_s": 0.052,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg13:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.041,
+   "symox_s": 0.04,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg13:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.041,
+   "symox_s": 0.041,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 3.263,
+   "symox_s": 0.245,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:lg13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.44,
+   "symox_s": 0.103,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg14:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.135,
+   "symox_s": 0.046,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg14:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 4.369,
+   "symox_s": 0.263,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg14:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.063,
+   "symox_s": 0.043,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg14:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.107,
+   "symox_s": 0.049,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg14:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.257,
+   "symox_s": 0.06,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg14:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.064,
+   "symox_s": 0.041,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg14:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 2.601,
+   "symox_s": 0.269,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg14:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.183,
+   "symox_s": 0.052,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg14:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.244,
+   "symox_s": 0.044,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg14:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.153,
+   "symox_s": 0.042,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg14:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.096,
+   "symox_s": 0.039,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 3.827,
+   "symox_s": 0.255,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:lg14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.284,
+   "symox_s": 0.114,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg15:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.056,
+   "symox_s": 0.043,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg15:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.621,
+   "symox_s": 0.117,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg15:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.052,
+   "symox_s": 0.043,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg15:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.102,
+   "symox_s": 0.048,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg15:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.334,
+   "symox_s": 0.052,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg15:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.135,
+   "symox_s": 0.031,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg15:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.228,
+   "symox_s": 0.075,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg15:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.076,
+   "symox_s": 0.046,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg15:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.209,
+   "symox_s": 0.047,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg15:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.085,
+   "symox_s": 0.039,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg15:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.086,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg15": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.219,
+   "symox_s": 0.105,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:lg15": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.736,
+   "symox_s": 0.096,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg16:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.036,
+   "symox_s": 0.043,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg16:all": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.476,
+   "symox_s": 0.084,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg16:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.037,
+   "symox_s": 0.036,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg16:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.082,
+   "symox_s": 0.041,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg16:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.181,
+   "symox_s": 0.041,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg16:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.036,
+   "symox_s": 0.035,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg16:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.168,
+   "symox_s": 0.057,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg16:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.056,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg16:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.102,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg16:bivariate": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.026,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg16:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.024,
+   "symox_s": 0.03,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg16": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.544,
+   "symox_s": 0.076,
+   "native": {
+    "ode_lie_infinitesimals:native": 1,
+    "ode_lie_checkinfsol:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "classify:lg16": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 2.829,
+   "symox_s": 0.083,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg17:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.042,
+   "symox_s": 0.031,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg17:all": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.092,
+   "symox_s": 0.04,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg17:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.044,
+   "symox_s": 0.038,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg17:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.032,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg17:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.044,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg17:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.03,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg17:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.029,
+   "symox_s": 0.035,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg17:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.035,
+   "symox_s": 0.029,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg17:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.018,
+   "symox_s": 0.039,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg17:bivariate": {
+   "verdict": "SAME",
+   "sympy": "UnboundLocalError",
+   "symox": "UnboundLocalError",
+   "sympy_s": 0.063,
+   "symox_s": 0.037,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg17:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.074,
+   "symox_s": 0.035,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg17": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 0.064,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:lg17": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.487,
+   "symox_s": 0.055,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg18:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.029,
+   "symox_s": 0.035,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg18:all": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.133,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg18:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.025,
+   "symox_s": 0.03,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg18:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.016,
+   "symox_s": 0.035,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg18:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.028,
+   "symox_s": 0.028,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg18:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.015,
+   "symox_s": 0.029,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg18:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.015,
+   "symox_s": 0.026,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg18:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.022,
+   "symox_s": 0.035,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg18:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.019,
+   "symox_s": 0.039,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg18:bivariate": {
+   "verdict": "SAME",
+   "sympy": "UnboundLocalError",
+   "symox": "UnboundLocalError",
+   "sympy_s": 0.036,
+   "symox_s": 0.038,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg18:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.024,
+   "symox_s": 0.029,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg18": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.027,
+   "symox_s": 0.033,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:lg18": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.423,
+   "symox_s": 0.064,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg20:default": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.011,
+   "symox_s": 0.044,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg20:all": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.013,
+   "symox_s": 0.043,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg20:abaco1_simple": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.009,
+   "symox_s": 0.04,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg20:abaco1_product": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.01,
+   "symox_s": 0.034,
+   "native": {
+    "ode_lie_infinitesimals:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "inf:lg20:abaco2_similar": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.013,
+   "symox_s": 0.034,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg20:abaco2_unique_unknown": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.032,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg20:abaco2_unique_general": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.027,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg20:linear": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.013,
+   "symox_s": 0.031,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg20:function_sum": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.009,
+   "symox_s": 0.03,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg20:bivariate": {
+   "verdict": "SAME",
+   "sympy": "UnboundLocalError",
+   "symox": "UnboundLocalError",
+   "sympy_s": 0.015,
+   "symox_s": 0.035,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "inf:lg20:chi": {
+   "verdict": "SAME",
+   "sympy": "ValueError",
+   "symox": "ValueError",
+   "sympy_s": 0.01,
+   "symox_s": 0.029,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "check:lg20": {
+   "verdict": "SAME",
+   "sympy": "KeyError",
+   "symox": "KeyError",
+   "sympy_s": 0.014,
+   "symox_s": 0.036,
+   "native": {},
+   "validated_by_sympy": null
+  },
+  "classify:lg20": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.164,
+   "symox_s": 0.065,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg01": {
+   "verdict": "DIFF",
+   "sympy": "DEADLINE",
+   "symox": "RecursionError",
+   "sympy_s": 120.001,
+   "symox_s": 79.099,
+   "native": {
+    "ode_lie_group_split:native": 61
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg03": {
+   "verdict": "DIFF",
+   "sympy": "DEADLINE",
+   "symox": "RecursionError",
+   "sympy_s": 120.014,
+   "symox_s": 50.307,
+   "native": {
+    "ode_lie_group_split:native": 61
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg04": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 3.069,
+   "symox_s": 0.24,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg05": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.224,
+   "symox_s": 0.039,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:h1_eq": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.451,
+   "symox_s": 0.081,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:h1_eq1": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.729,
+   "symox_s": 0.184,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:h1_eq2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.37,
+   "symox_s": 0.082,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:h1_eq3": {
+   "verdict": "DIFF",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.722,
+   "symox_s": 0.136,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": false
+  },
+  "dsolve:h1_eq5": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.826,
+   "symox_s": 0.113,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg11": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.587,
+   "symox_s": 0.069,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg13": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 11.883,
+   "symox_s": 9.445,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg14": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 11.662,
+   "symox_s": 13.618,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg15": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.389,
+   "symox_s": 0.107,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg16": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.237,
+   "symox_s": 0.087,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg17": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.349,
+   "symox_s": 0.094,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg18": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.349,
+   "symox_s": 0.077,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:lg20": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.366,
+   "symox_s": 0.075,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:h1_eq6": {
+   "verdict": "SAME",
+   "sympy": "NotImplementedError",
+   "symox": "NotImplementedError",
+   "sympy_s": 1.967,
+   "symox_s": 0.163,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:h1_eq7": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 1.617,
+   "symox_s": 0.077,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:h3_eq1": {
+   "verdict": "SAME",
+   "sympy": "TypeError",
+   "symox": "TypeError",
+   "sympy_s": 1.592,
+   "symox_s": 0.057,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:riccati": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.373,
+   "symox_s": 0.038,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:fsum": {
+   "verdict": "SAME",
+   "sympy": "DEADLINE",
+   "symox": "DEADLINE",
+   "sympy_s": 120.126,
+   "symox_s": 125.633,
+   "native": {
+    "ode_lie_group_split:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:sim2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 2.655,
+   "symox_s": 0.72,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:user": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.714,
+   "symox_s": 0.067,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  },
+  "dsolve:user2": {
+   "verdict": "SAME",
+   "sympy": "ok",
+   "symox": "ok",
+   "sympy_s": 0.503,
+   "symox_s": 0.061,
+   "native": {
+    "ode_lie_group_split:native": 1,
+    "ode_lie_group_solve:native": 1
+   },
+   "validated_by_sympy": null
+  }
+ },
+ "native": {
+  "ode_lie_infinitesimals:native": 108,
+  "ode_lie_checkinfsol:native": 15,
+  "ode_lie_group_split:native": 176,
+  "ode_lie_group_solve:native": 19
+ }
+}
