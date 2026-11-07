@@ -1,0 +1,249 @@
+{"case": "fl (x-s2)(x+s2)", "result": "(1, [(x - sqrt(2), 1), (x + sqrt(2), 1)])", "value": "(1)*(x - sqrt(2))**(1)*(x + sqrt(2))**(1)", "error": null, "seconds": 0.000711805001628818}
+{"case": "fl (x-s2*t)**2", "result": "(1, [(-sqrt(2)*t + x, 2)])", "value": "(1)*(-sqrt(2)*t + x)**(2)", "error": null, "seconds": 0.0005315960006555542}
+{"case": "fl (x-s2*pi)(x+s2*pi)", "result": "(1, [(x - sqrt(2)*pi, 1), (x + sqrt(2)*pi, 1)])", "value": "(1)*(x - sqrt(2)*pi)**(1)*(x + sqrt(2)*pi)**(1)", "error": null, "seconds": 0.0005409259974840097}
+{"case": "fl (x-s2*pi)(x+s2*pi) x", "result": "(1, [(x - sqrt(2)*pi, 1), (x + sqrt(2)*pi, 1)])", "value": "(1)*(x - sqrt(2)*pi)**(1)*(x + sqrt(2)*pi)**(1)", "error": null, "seconds": 0.0007389029997284524}
+{"case": "fl (x+1)(x-s2)**2", "result": "(1, [(x + 1, 1), (x - sqrt(2), 2)])", "value": "(1)*(x + 1)**(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.0005512489988177549}
+{"case": "fl (x-s2)**2(x+s2)", "result": "(1, [(x + sqrt(2), 1), (x - sqrt(2), 2)])", "value": "(1)*(x + sqrt(2))**(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.000527373998920666}
+{"case": "fl x**2-2", "result": "(1, [(x**2 - 2, 1)])", "value": "(1)*(x**2 - 2)**(1)", "error": null, "seconds": 0.00025192199973389506}
+{"case": "fl expanded (x-s2)**2", "result": "(1, [(x**2 - 2*sqrt(2)*x + 2, 1)])", "value": "(1)*(x**2 - 2*sqrt(2)*x + 2)**(1)", "error": null, "seconds": 0.00038958699951763265}
+{"case": "fl 2x-2s2", "result": "(2, [(x - sqrt(2), 1)])", "value": "(2)*(x - sqrt(2))**(1)", "error": null, "seconds": 0.0003057389985769987}
+{"case": "fl s2*x+2", "result": "(1, [(sqrt(2)*x + 2, 1)])", "value": "(1)*(sqrt(2)*x + 2)**(1)", "error": null, "seconds": 0.0003141550005238969}
+{"case": "fl (s2x+1)(x-s3)", "result": "(1, [(x - sqrt(3), 1), (sqrt(2)*x + 1, 1)])", "value": "(1)*(x - sqrt(3))**(1)*(sqrt(2)*x + 1)**(1)", "error": null, "seconds": 0.0006455889997596387}
+{"case": "fl (x-s2)(y+s3)", "result": "(1, [(x - sqrt(2), 1), (y + sqrt(3), 1)])", "value": "(1)*(x - sqrt(2))**(1)*(y + sqrt(3))**(1)", "error": null, "seconds": 0.0005708099997718818}
+{"case": "fl (x-cbrt2)(x+1)", "result": "(1, [(x + 1, 1), (x - 2**(1/3), 1)])", "value": "(1)*(x + 1)**(1)*(x - 2**(1/3))**(1)", "error": null, "seconds": 0.00042544999814708717}
+{"case": "fl (x-I)(x+I)", "result": "(1, [(x - I, 1), (x + I, 1)])", "value": "(1)*(x - I)**(1)*(x + I)**(1)", "error": null, "seconds": 0.000363872000889387}
+{"case": "fl (x-s2*I)(x+1)", "result": "(1, [(x + 1, 1), (x - sqrt(2)*I, 1)])", "value": "(1)*(x + 1)**(1)*(x - sqrt(2)*I)**(1)", "error": null, "seconds": 0.000774144002207322}
+{"case": "fl (x-s2)**3", "result": "(1, [(x - sqrt(2), 3)])", "value": "(1)*(x - sqrt(2))**(3)", "error": null, "seconds": 0.00043284099956508726}
+{"case": "fl x(x-s2)(x**2-3)", "result": "(1, [(x, 1), (x - sqrt(2), 1), (x**2 - 3, 1)])", "value": "(1)*(x)**(1)*(x - sqrt(2))**(1)*(x**2 - 3)**(1)", "error": null, "seconds": 0.000459388000308536}
+{"case": "fl frac (x-s2)/(x+1)", "result": "(1, [(x - sqrt(2), 1)], [(x + 1, 1)])", "value": "(1, ((x - sqrt(2), 1,),), ((x + 1, 1,),),)", "error": null, "seconds": 0.0005607060011243448}
+{"case": "fl frac (x-s2)/(x+s2)**2", "result": "(1, [(x - sqrt(2), 1)], [(x + sqrt(2), 2)])", "value": "(1, ((x - sqrt(2), 1,),), ((x + sqrt(2), 2,),),)", "error": null, "seconds": 0.0006501050011138432}
+{"case": "factor (x-s2)(x+s2)", "result": "(x - sqrt(2))*(x + sqrt(2))", "value": "(x - sqrt(2))*(x + sqrt(2))", "error": null, "seconds": 0.000127085000713123}
+{"case": "factor expanded (x-s2)**2", "result": "x**2 - 2*sqrt(2)*x + 2", "value": "x**2 - 2*sqrt(2)*x + 2", "error": null, "seconds": 0.00011356699906173162}
+{"case": "factor (x-s2*t)**2", "result": "(-sqrt(2)*t + x)**2", "value": "(-sqrt(2)*t + x)**2", "error": null, "seconds": 7.613299749209546e-05}
+{"case": "factor (x-s2*pi)(x+s2*pi)", "result": "(x - sqrt(2)*pi)*(x + sqrt(2)*pi)", "value": "(x - sqrt(2)*pi)*(x + sqrt(2)*pi)", "error": null, "seconds": 0.00013369899897952564}
+{"case": "fl (x-s2)(x+s2) x", "result": "(1, [(x - sqrt(2), 1), (x + sqrt(2), 1)])", "value": "(1)*(x - sqrt(2))**(1)*(x + sqrt(2))**(1)", "error": null, "seconds": 0.000433802000770811}
+{"case": "fl (x-s2*t)**2 x", "result": "(1, [(-sqrt(2)*t + x, 2)])", "value": "(1)*(-sqrt(2)*t + x)**(2)", "error": null, "seconds": 0.00025902299967128783}
+{"case": "fl (x-s2*t)**2 x t", "result": "(1, [(-sqrt(2)*t + x, 2)])", "value": "(1)*(-sqrt(2)*t + x)**(2)", "error": null, "seconds": 0.00023043100009090267}
+{"case": "fl (x-pi)**2(x+pi)", "result": "(1, [(x + pi, 1), (x - pi, 2)])", "value": "(1)*(x + pi)**(1)*(x - pi)**(2)", "error": null, "seconds": 0.0004069179994985461}
+{"case": "fl (xy-s2)(x+y)", "result": "(1, [(x + y, 1), (x*y - sqrt(2), 1)])", "value": "(1)*(x + y)**(1)*(x*y - sqrt(2))**(1)", "error": null, "seconds": 0.00047078200077521615}
+{"case": "fl polys (x-s2)**2(x+1)", "result": "(1, [(Poly(x + 1, x, domain='ZZ'), 1), (Poly(x - (sqrt(2)), x, sqrt(2), domain='ZZ'), 2)])", "value": "(1)*(x + 1)**(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.0005565950013988186}
+{"case": "fl 3(x-s2)**2", "result": "(3, [(x - sqrt(2), 2)])", "value": "(3)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.00043174500024178997}
+{"case": "fl -(x-s2)(x+s2)", "result": "(-1, [(x - sqrt(2), 1), (x + sqrt(2), 1)])", "value": "(-1)*(x - sqrt(2))**(1)*(x + sqrt(2))**(1)", "error": null, "seconds": 0.0004113970026082825}
+{"case": "fl s2*(x-1)**2", "result": "(sqrt(2), [(x - 1, 2)])", "value": "(sqrt(2))*(x - 1)**(2)", "error": null, "seconds": 0.0003814060000877362}
+{"case": "fl (x-s2)**2*(x-s3)**3", "result": "(1, [(x - sqrt(2), 2), (x - sqrt(3), 3)])", "value": "(1)*(x - sqrt(2))**(2)*(x - sqrt(3))**(3)", "error": null, "seconds": 0.0009539540005789604}
+{"case": "fl (x-s2*y)**2*(x+y)", "result": "(1, [(x + y, 1), (x - sqrt(2)*y, 2)])", "value": "(1)*(x + y)**(1)*(x - sqrt(2)*y)**(2)", "error": null, "seconds": 0.000619456001004437}
+{"case": "factor (x-s2*y)**2*(x+y)", "result": "(x + y)*(x - sqrt(2)*y)**2", "value": "(x + y)*(x - sqrt(2)*y)**2", "error": null, "seconds": 0.00013557299826061353}
+{"case": "fl xy-s2x+y-s2", "result": "(1, [(y - sqrt(2), 1), (x + 1, 1)])", "value": "(1)*(y - sqrt(2))**(1)*(x + 1)**(1)", "error": null, "seconds": 0.0004462450015125796}
+{"case": "factor xy-s2x+y-s2", "result": "(x + 1)*(y - sqrt(2))", "value": "(x + 1)*(y - sqrt(2))", "error": null, "seconds": 0.00014429400107474066}
+{"case": "fl (x-s2)(x+s2)(x-pi)", "result": "(1, [(x - pi, 1), (x - sqrt(2), 1), (x + sqrt(2), 1)])", "value": "(1)*(x - pi)**(1)*(x - sqrt(2))**(1)*(x + sqrt(2))**(1)", "error": null, "seconds": 0.0005219989980105311}
+{"case": "fl (x+s2)**2 x**2", "result": "(1, [(x, 2), (x + sqrt(2), 2)])", "value": "(1)*(x)**(2)*(x + sqrt(2))**(2)", "error": null, "seconds": 0.0004535449988907203}
+{"case": "fl (x-1/s2)(x+1)", "result": "(1/2, [(x + 1, 1), (2*x - sqrt(2), 1)])", "value": "(1/2)*(x + 1)**(1)*(2*x - sqrt(2))**(1)", "error": null, "seconds": 0.0004513179992500227}
+{"case": "fl (2x-s2)(x+s2)", "result": "(1, [(x + sqrt(2), 1), (2*x - sqrt(2), 1)])", "value": "(1)*(x + sqrt(2))**(1)*(2*x - sqrt(2))**(1)", "error": null, "seconds": 0.00048591300219413824}
+{"case": "fl ((x-s2)**2-3)", "result": "(1, [(x**2 - 2*sqrt(2)*x - 1, 1)])", "value": "(1)*(x**2 - 2*sqrt(2)*x - 1)**(1)", "error": null, "seconds": 0.0004286740004317835}
+{"case": "fl (1-s2)(1+s2)", "result": "(-1, [(-1 + sqrt(2), 1), (1 + sqrt(2), 1)])", "value": "(-1)*(-1 + sqrt(2))**(1)*(1 + sqrt(2))**(1)", "error": null, "seconds": 0.0002526200005377177}
+{"case": "fl (1-s2)(1+s2) polys", "result": "(-1, [(Poly((sqrt(2)) - 1, sqrt(2), domain='ZZ'), 1), (Poly((sqrt(2)) + 1, sqrt(2), domain='ZZ'), 1)])", "value": "(-1)*(-1 + sqrt(2))**(1)*(1 + sqrt(2))**(1)", "error": null, "seconds": 0.0002671570000529755}
+{"case": "fl (1-s2)(1+s2) x", "result": "((1 - sqrt(2))*(1 + sqrt(2)), [])", "value": "((1 - sqrt(2))*(1 + sqrt(2)))", "error": null, "seconds": 0.000479026999528287}
+{"case": "fl s2(1-s2)", "result": "(-sqrt(2), [(-1 + sqrt(2), 1)])", "value": "(-sqrt(2))*(-1 + sqrt(2))**(1)", "error": null, "seconds": 0.00037823900129296817}
+{"case": "fl (1-s3)**2(1+s3)**2", "result": "(1, [(-1 + sqrt(3), 2), (1 + sqrt(3), 2)])", "value": "(1)*(-1 + sqrt(3))**(2)*(1 + sqrt(3))**(2)", "error": null, "seconds": 0.000277587998425588}
+{"case": "fl (s2-s3)(s2+s3)", "result": "(1, [(-sqrt(3) + sqrt(2), 1), (sqrt(2) + sqrt(3), 1)])", "value": "(1)*(-sqrt(3) + sqrt(2))**(1)*(sqrt(2) + sqrt(3))**(1)", "error": null, "seconds": 0.0003148659998259973}
+{"case": "fl (1+pi)(1-pi)", "result": "(-1, [(-1 + pi, 1), (1 + pi, 1)])", "value": "(-1)*(-1 + pi)**(1)*(1 + pi)**(1)", "error": null, "seconds": 0.0003331990010337904}
+{"case": "fl (s2+pi)**2", "result": "(1, [(sqrt(2) + pi, 2)])", "value": "(1)*(sqrt(2) + pi)**(2)", "error": null, "seconds": 0.000356743999873288}
+{"case": "sqfl (1-s2)(1+s2)", "result": "(-1, [(1, 1)])", "value": "(-1)*(1)**(1)", "error": null, "seconds": 0.0002172679996874649}
+{"case": "sqfl (1-s2)**2(1+s2)", "result": "(1, [(1 + sqrt(2), 1), (-1 + sqrt(2), 2)])", "value": "(1)*(1 + sqrt(2))**(1)*(-1 + sqrt(2))**(2)", "error": null, "seconds": 0.00042838100125663914}
+{"case": "factor (1-s2)(1+s2)", "result": "-(-1 + sqrt(2))*(1 + sqrt(2))", "value": "-(-1 + sqrt(2))*(1 + sqrt(2))", "error": null, "seconds": 0.000104669998108875}
+{"case": "sqfl (x+1)(x-s2)**2", "result": "(1, [(x + 1, 1), (x - sqrt(2), 2)])", "value": "(1)*(x + 1)**(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.00052794400107814}
+{"case": "sqfl (x-s2)**2(x+s2)", "result": "(1, [(x + sqrt(2), 1), (x - sqrt(2), 2)])", "value": "(1)*(x + sqrt(2))**(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.0005361670009733643}
+{"case": "sqfl (x-s2*t)**2", "result": "(1, [(-sqrt(2)*t + x, 2)])", "value": "(1)*(-sqrt(2)*t + x)**(2)", "error": null, "seconds": 0.0004325760019128211}
+{"case": "sqfl (x**2-1)(x+1)", "result": "(1, [(x**3 + x**2 - x - 1, 1)])", "value": "(1)*(x**3 + x**2 - x - 1)**(1)", "error": null, "seconds": 0.00034178900023107417}
+{"case": "sqfl (x-1)**2(x+1)", "result": "(1, [(x + 1, 1), (x - 1, 2)])", "value": "(1)*(x + 1)**(1)*(x - 1)**(2)", "error": null, "seconds": 0.0003183230001013726}
+{"case": "sqfl (x**2-1)**2(x+1)", "result": "(1, [(x + 1, 1), (x**2 - 1, 2)])", "value": "(1)*(x + 1)**(1)*(x**2 - 1)**(2)", "error": null, "seconds": 0.0003298539995739702}
+{"case": "sqf (x-s2)**2(x+1)", "result": "(x + 1)*(x - sqrt(2))**2", "value": "(x + 1)*(x - sqrt(2))**2", "error": null, "seconds": 0.0001222020000568591}
+{"case": "sqf (x**2-1)(x+1)", "result": "x**3 + x**2 - x - 1", "value": "x**3 + x**2 - x - 1", "error": null, "seconds": 7.321999873965979e-05}
+{"case": "sqfl (x-s2)(x+s2)", "result": "(1, [(x**2 - 2, 1)])", "value": "(1)*(x**2 - 2)**(1)", "error": null, "seconds": 0.0003588129984564148}
+{"case": "sqfl expanded", "result": "(1, [(x**3 - sqrt(2)*x**2 - 2*x + 2*sqrt(2), 1)])", "value": "(1)*(x**3 - sqrt(2)*x**2 - 2*x + 2*sqrt(2))**(1)", "error": null, "seconds": 0.00043726800140575506}
+{"case": "sqfl (x-pi)**2(x+1)", "result": "(1, [(x + 1, 1), (x - pi, 2)])", "value": "(1)*(x + 1)**(1)*(x - pi)**(2)", "error": null, "seconds": 0.000395254999602912}
+{"case": "sqfl 3(x-s2)**2(x+1)**2", "result": "(3, [(x**2 - sqrt(2)*x + x - sqrt(2), 2)])", "value": "(3)*(x**2 - sqrt(2)*x + x - sqrt(2))**(2)", "error": null, "seconds": 0.0006532080005854368}
+{"case": "sqfl (x-s2*pi)**2", "result": "(1, [(x - sqrt(2)*pi, 2)])", "value": "(1)*(x - sqrt(2)*pi)**(2)", "error": null, "seconds": 0.00043890300003113225}
+{"case": "sqfl (x-s2)**2 x", "result": "(1, [(x - sqrt(2), 2)])", "value": "(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.00043134799852850847}
+{"case": "sqfl (x-y)**2(x+y)", "result": "(1, [(x + y, 1), (x - y, 2)])", "value": "(1)*(x + y)**(1)*(x - y)**(2)", "error": null, "seconds": 0.0003757920021598693}
+{"case": "sqfl (x**2-y**2)(x+y)", "result": "(1, [(x**3 + x**2*y - x*y**2 - y**3, 1)])", "value": "(1)*(x**3 + x**2*y - x*y**2 - y**3)**(1)", "error": null, "seconds": 0.0003638440030044876}
+{"case": "sqfl x**2(x+1)**2", "result": "(1, [(x**2 + x, 2)])", "value": "(1)*(x**2 + x)**(2)", "error": null, "seconds": 0.00032257899874821305}
+{"case": "sqfl (x-s2)**2(x-s3)**3", "result": "(1, [(x - sqrt(2), 2), (x - sqrt(3), 3)])", "value": "(1)*(x - sqrt(2))**(2)*(x - sqrt(3))**(3)", "error": null, "seconds": 0.0010080430001835339}
+{"case": "sqf (x-s2*t)**2", "result": "(-sqrt(2)*t + x)**2", "value": "(-sqrt(2)*t + x)**2", "error": null, "seconds": 9.215400132234208e-05}
+{"case": "P fl (x-s2)(x+s2)", "result": "(1, [(Poly(x**2 - 2, x, domain='ZZ'), 1)])", "value": "(1)*(x**2 - 2)**(1)", "error": null, "seconds": 0.00017466999997850507}
+{"case": "P sqfl (x-s2)**2(x+1)", "result": "(1, [(Poly(x**3 - 2*x**2*(sqrt(2)) + x**2 - 2*x*(sqrt(2)) + 2*x + 2, x, sqrt(2), domain='ZZ'), 1)])", "value": "(1)*(x**3 - 2*sqrt(2)*x**2 + x**2 - 2*sqrt(2)*x + 2*x + 2)**(1)", "error": null, "seconds": 0.00022816799901193008}
+{"case": "P fl expanded (x-s2)**2", "result": "(1, [(Poly(x**2 - 2*x*(sqrt(2)) + 2, x, sqrt(2), domain='ZZ'), 1)])", "value": "(1)*(x**2 - 2*sqrt(2)*x + 2)**(1)", "error": null, "seconds": 0.00018886999896494672}
+{"case": "P fl (x-s2*t)**2", "result": "(1, [(Poly(x**2 - 2*x*t*(sqrt(2)) + 2*t**2, x, t, sqrt(2), domain='ZZ'), 1)])", "value": "(1)*(2*t**2 - 2*sqrt(2)*t*x + x**2)**(1)", "error": null, "seconds": 0.00018652799917617813}
+{"case": "P fl x,s2 explicit", "result": "(1, [(Poly(x**2 - 2*x*(sqrt(2)) + 2, x, sqrt(2), domain='ZZ'), 1)])", "value": "(1)*(x**2 - 2*sqrt(2)*x + 2)**(1)", "error": null, "seconds": 0.0001906180004880298}
+{"case": "factor x**2-2 ext s2", "result": "(x - sqrt(2))*(x + sqrt(2))", "value": "(x - sqrt(2))*(x + sqrt(2))", "error": null, "seconds": 0.00046625100003439}
+{"case": "fl x**2-2 ext s2", "result": "(1, [(x - sqrt(2), 1), (x + sqrt(2), 1)])", "value": "(1)*(x - sqrt(2))**(1)*(x + sqrt(2))**(1)", "error": null, "seconds": 0.0004085469990968704}
+{"case": "factor x**2-2t**2 ext s2", "result": "(-sqrt(2)*t + x)*(sqrt(2)*t + x)", "value": "(-sqrt(2)*t + x)*(sqrt(2)*t + x)", "error": null, "seconds": 0.0006902130007802043}
+{"case": "factor x**2-2t**2 x ext s2", "result": null, "value": null, "error": "CoercionFailed: expected `Rational` object, got -2*t**2", "seconds": null}
+{"case": "fl x**2-2t**2 ext s2", "result": "(1, [(-sqrt(2)*t + x, 1), (sqrt(2)*t + x, 1)])", "value": "(1)*(-sqrt(2)*t + x)**(1)*(sqrt(2)*t + x)**(1)", "error": null, "seconds": 0.0006547500015585683}
+{"case": "fl x**2-2t**2 x ext s2", "result": null, "value": null, "error": "CoercionFailed: expected `Rational` object, got -2*t**2", "seconds": null}
+{"case": "sqfl x**2-2t**2 x ext s2", "result": null, "value": null, "error": "CoercionFailed: expected `Rational` object, got -2*t**2", "seconds": null}
+{"case": "factor x**2-2y**2 ext s2", "result": "(x - sqrt(2)*y)*(x + sqrt(2)*y)", "value": "(x - sqrt(2)*y)*(x + sqrt(2)*y)", "error": null, "seconds": 0.0006144630024209619}
+{"case": "factor x**4-4 ext s2", "result": "(x - sqrt(2))*(x + sqrt(2))*(x**2 + 2)", "value": "(x - sqrt(2))*(x + sqrt(2))*(x**2 + 2)", "error": null, "seconds": 0.0004908539995085448}
+{"case": "factor x**4+4 ext I", "result": "(x - 1 - I)*(x - 1 + I)*(x + 1 - I)*(x + 1 + I)", "value": "(x - 1 - I)*(x - 1 + I)*(x + 1 - I)*(x + 1 + I)", "error": null, "seconds": 0.0005023519988753833}
+{"case": "factor x**2+1 gaussian", "result": "(x - I)*(x + I)", "value": "(x - I)*(x + I)", "error": null, "seconds": 0.0002801709997584112}
+{"case": "factor x**2+y**2 gaussian", "result": "(x - I*y)*(x + I*y)", "value": "(x - I*y)*(x + I*y)", "error": null, "seconds": 0.0005134079983690754}
+{"case": "fl x**2+y**2 gaussian", "result": "(1, [(x - I*y, 1), (x + I*y, 1)])", "value": "(1)*(x - I*y)**(1)*(x + I*y)**(1)", "error": null, "seconds": 0.0005377400011639111}
+{"case": "factor x**4-1 ext I", "result": "(x - 1)*(x + 1)*(x - I)*(x + I)", "value": "(x - 1)*(x + 1)*(x - I)*(x + I)", "error": null, "seconds": 0.0004983700018783566}
+{"case": "factor x**4-1 ext [s2,I]", "result": "(x - 1)*(x + 1)*(x - I)*(x + I)", "value": "(x - 1)*(x + 1)*(x - I)*(x + I)", "error": null, "seconds": 0.0019552839985408355}
+{"case": "factor x**4-5x**2+6 ext [s2,s3]", "result": "(x - sqrt(2))*(x + sqrt(2))*(x - sqrt(3))*(x + sqrt(3))", "value": "(x - sqrt(2))*(x + sqrt(2))*(x - sqrt(3))*(x + sqrt(3))", "error": null, "seconds": 0.0019412619985814672}
+{"case": "factor x**2-3 ext s2", "result": "x**2 - 3", "value": "x**2 - 3", "error": null, "seconds": 0.00026634399910108186}
+{"case": "factor (x-s2y)**2 ext s2", "result": "(x - sqrt(2)*y)**2", "value": "(x - sqrt(2)*y)**2", "error": null, "seconds": 0.00039727699913783}
+{"case": "sqfl expanded ext s2", "result": "(1, [(x + sqrt(2), 1), (x - sqrt(2), 2)])", "value": "(1)*(x + sqrt(2))**(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.00044443200022215024}
+{"case": "sqfl (x-s2)**2(x+1) ext s2", "result": "(1, [(x + 1, 1), (x - sqrt(2), 2)])", "value": "(1)*(x + 1)**(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.0005023470002925023}
+{"case": "factor (x-s2)**2(x+1) ext True", "result": "(x + 1)*(x - sqrt(2))**2", "value": "(x + 1)*(x - sqrt(2))**2", "error": null, "seconds": 0.0006781949996366166}
+{"case": "factor expanded ext True", "result": "(x - sqrt(2))**2", "value": "(x - sqrt(2))**2", "error": null, "seconds": 0.0003345559998706449}
+{"case": "fl expanded ext True", "result": "(1, [(x - sqrt(2), 2)])", "value": "(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.0003866180013574194}
+{"case": "factor x**3-2 ext cbrt2", "result": "(x - 2**(1/3))*(x**2 + 2**(1/3)*x + 2**(2/3))", "value": "(x - 2**(1/3))*(x**2 + 2**(1/3)*x + 2**(2/3))", "error": null, "seconds": 0.0005310669985192362}
+{"case": "factor x**6-2 ext cbrt2", "result": "(x**2 - 2**(1/3))*(x**4 + 2**(1/3)*x**2 + 2**(2/3))", "value": "(x**2 - 2**(1/3))*(x**4 + 2**(1/3)*x**2 + 2**(2/3))", "error": null, "seconds": 0.0010732830014603678}
+{"case": "factor x**2y**2-2 ext s2", "result": "(x*y - sqrt(2))*(x*y + sqrt(2))", "value": "(x*y - sqrt(2))*(x*y + sqrt(2))", "error": null, "seconds": 0.0008244339987868443}
+{"case": "factor x**2-2y**2z**2 ext s2", "result": "(x - sqrt(2)*y*z)*(x + sqrt(2)*y*z)", "value": "(x - sqrt(2)*y*z)*(x + sqrt(2)*y*z)", "error": null, "seconds": 0.0008010989986360073}
+{"case": "fl x**2-2 gaussian", "result": "(1, [(x**2 - 2, 1)])", "value": "(1)*(x**2 - 2)**(1)", "error": null, "seconds": 0.00024149100136128254}
+{"case": "P fl x**2-2 ext s2", "result": "(1, [(Poly(x - sqrt(2), x, domain='QQ<sqrt(2)>'), 1), (Poly(x + sqrt(2), x, domain='QQ<sqrt(2)>'), 1)])", "value": "(1)*(x - sqrt(2))**(1)*(x + sqrt(2))**(1)", "error": null, "seconds": 0.0003568130014173221}
+{"case": "P fl x**2-2y**2 ext s2", "result": "(1, [(Poly(x - sqrt(2)*y, x, y, domain='QQ<sqrt(2)>'), 1), (Poly(x + sqrt(2)*y, x, y, domain='QQ<sqrt(2)>'), 1)])", "value": "(1)*(x - sqrt(2)*y)**(1)*(x + sqrt(2)*y)**(1)", "error": null, "seconds": 0.0006503179974970408}
+{"case": "P fl x**4+1 ext s2", "result": "(1, [(Poly(x**2 - sqrt(2)*x + 1, x, domain='QQ<sqrt(2)>'), 1), (Poly(x**2 + sqrt(2)*x + 1, x, domain='QQ<sqrt(2)>'), 1)])", "value": "(1)*(x**2 - sqrt(2)*x + 1)**(1)*(x**2 + sqrt(2)*x + 1)**(1)", "error": null, "seconds": 0.00048169299770961516}
+{"case": "factor x**4+1 ext s2", "result": "(x**2 - sqrt(2)*x + 1)*(x**2 + sqrt(2)*x + 1)", "value": "(x**2 - sqrt(2)*x + 1)*(x**2 + sqrt(2)*x + 1)", "error": null, "seconds": 0.000532487996679265}
+{"case": "factor x**4+1 ext [s2,I]", "result": "(x - sqrt(2)/2 - sqrt(2)*I/2)*(x - sqrt(2)/2 + sqrt(2)*I/2)*(x + sqrt(2)/2 - sqrt(2)*I/2)*(x + sqrt(2)/2 + sqrt(2)*I/2)", "value": "(x - sqrt(2)/2 - sqrt(2)*I/2)*(x - sqrt(2)/2 + sqrt(2)*I/2)*(x + sqrt(2)/2 - sqrt(2)*I/2)*(x + sqrt(2)/2 + sqrt(2)*I/2)", "error": null, "seconds": 0.0018223690021841321}
+{"case": "P fl x**2+y**2 gaussian", "result": "(1, [(Poly(x - I*y, x, y, domain='QQ_I'), 1), (Poly(x + I*y, x, y, domain='QQ_I'), 1)])", "value": "(1)*(x - I*y)**(1)*(x + I*y)**(1)", "error": null, "seconds": 0.0005723870017391164}
+{"case": "P sqfl (x-s2)**2(x-1) ext s2", "result": "(1, [(Poly(x - 1, x, domain='QQ<sqrt(2)>'), 1), (Poly(x - sqrt(2), x, domain='QQ<sqrt(2)>'), 2)])", "value": "(1)*(x - 1)**(1)*(x - sqrt(2))**(2)", "error": null, "seconds": 0.00034564000088721514}
+{"case": "factor x**2-2 x ext s2", "result": "(x - sqrt(2))*(x + sqrt(2))", "value": "(x - sqrt(2))*(x + sqrt(2))", "error": null, "seconds": 0.0002519820009183604}
+{"case": "factor x**2-2pi**2 ext s2", "result": "(x - sqrt(2)*pi)*(x + sqrt(2)*pi)", "value": "(x - sqrt(2)*pi)*(x + sqrt(2)*pi)", "error": null, "seconds": 0.0006219239985512104}
+{"case": "factor x**2-2pi**2 x ext s2", "result": null, "value": null, "error": "CoercionFailed: -2*pi**2 is not a valid algebraic number in QQ<sqrt(2)>", "seconds": null}
+{"case": "factor s2x**2+2x+s2/2 ext True", "result": "sqrt(2)*(x + sqrt(2)/2)**2", "value": "sqrt(2)*(x + sqrt(2)/2)**2", "error": null, "seconds": 0.00045087299804436043}
+{"case": "fl s2x**2+2x+s2/2 ext True", "result": "(sqrt(2), [(x + sqrt(2)/2, 2)])", "value": "(sqrt(2))*(x + sqrt(2)/2)**(2)", "error": null, "seconds": 0.00045689900071010925}
+{"case": "factor x**2+2Ix-1 ext True", "result": "(x + I)**2", "value": "(x + I)**2", "error": null, "seconds": 0.0002922749990830198}
+{"case": "factor x**2-2 ext s3", "result": "x**2 - 2", "value": "x**2 - 2", "error": null, "seconds": 0.00023607299954164773}
+{"case": "factor x**2y-2y ext s2", "result": "y*(x - sqrt(2))*(x + sqrt(2))", "value": "y*(x - sqrt(2))*(x + sqrt(2))", "error": null, "seconds": 0.0003874260000884533}
+{"case": "factor (x**2-2)/(x**2-8) ext s2", "result": "(x - sqrt(2))*(x + sqrt(2))/((x - 2*sqrt(2))*(x + 2*sqrt(2)))", "value": "(x - sqrt(2))*(x + sqrt(2))/((x - 2*sqrt(2))*(x + 2*sqrt(2)))", "error": null, "seconds": 0.0005727079987991601}
+{"case": "sqf expanded ext s2", "result": "(x - sqrt(2))**2*(x + sqrt(2))", "value": "(x - sqrt(2))**2*(x + sqrt(2))", "error": null, "seconds": 0.0003943449992220849}
+{"case": "factor x**3y-2xy ext s2", "result": "x*y*(x - sqrt(2))*(x + sqrt(2))", "value": "x*y*(x - sqrt(2))*(x + sqrt(2))", "error": null, "seconds": 0.0004768489998241421}
+{"case": "factor x**4-4y**4 ext [s2,I]", "result": "(x - sqrt(2)*y)*(x + sqrt(2)*y)*(x - sqrt(2)*I*y)*(x + sqrt(2)*I*y)", "value": "(x - sqrt(2)*y)*(x + sqrt(2)*y)*(x - sqrt(2)*I*y)*(x + sqrt(2)*I*y)", "error": null, "seconds": 0.005229382997640641}
+{"case": "factor x**2+2y**2 ext s2*I", "result": "(x - sqrt(2)*I*y)*(x + sqrt(2)*I*y)", "value": "(x - sqrt(2)*I*y)*(x + sqrt(2)*I*y)", "error": null, "seconds": 0.0006778639981348533}
+{"case": "factor x**2-3y**2t**2 ext s3", "result": "(-sqrt(3)*t*y + x)*(sqrt(3)*t*y + x)", "value": "(-sqrt(3)*t*y + x)*(sqrt(3)*t*y + x)", "error": null, "seconds": 0.0007982569986779708}
+{"case": "fl x**2+y**2 ext I", "result": "(1, [(x - I*y, 1), (x + I*y, 1)])", "value": "(1)*(x - I*y)**(1)*(x + I*y)**(1)", "error": null, "seconds": 0.0005755780002800748}
+{"case": "sqfl (x-s2y)**2(x+y) ext s2", "result": "(1, [(x + y, 1), (x - sqrt(2)*y, 2)])", "value": "(1)*(x + y)**(1)*(x - sqrt(2)*y)**(2)", "error": null, "seconds": 0.0006261550006456673}
+{"case": "factor (x-s2y)**2(x+y) ext s2", "result": "(x + y)*(x - sqrt(2)*y)**2", "value": "(x + y)*(x - sqrt(2)*y)**2", "error": null, "seconds": 0.0005487330017786007}
+{"case": "factor x**2-2y**2+x-s2y ext s2", "result": "(x - sqrt(2)*y)*(x + sqrt(2)*y + 1)", "value": "(x - sqrt(2)*y)*(x + sqrt(2)*y + 1)", "error": null, "seconds": 0.0006799089969717897}
+{"case": "factor xy-s2x+y-s2 ext s2", "result": "(x + 1)*(y - sqrt(2))", "value": "(x + 1)*(y - sqrt(2))", "error": null, "seconds": 0.0005997019979986362}
+{"case": "factor x**2y+s2xy ext True", "result": "x*y*(x + sqrt(2))", "value": "x*y*(x + sqrt(2))", "error": null, "seconds": 0.0006992899980104994}
+{"case": "fl (x**2-2)(y**2-2) ext s2", "result": "(1, [(x - sqrt(2), 1), (y - sqrt(2), 1), (x + sqrt(2), 1), (y + sqrt(2), 1)])", "value": "(1)*(x - sqrt(2))**(1)*(y - sqrt(2))**(1)*(x + sqrt(2))**(1)*(y + sqrt(2))**(1)", "error": null, "seconds": 0.0005904179997742176}
+{"case": "factor x**2-2 ext [s2,s3]", "result": "(x - sqrt(2))*(x + sqrt(2))", "value": "(x - sqrt(2))*(x + sqrt(2))", "error": null, "seconds": 0.0008551739992981311}
+{"case": "factor x**2-6 ext [s2,s3]", "result": "(x - sqrt(6))*(x + sqrt(6))", "value": "(x - sqrt(6))*(x + sqrt(6))", "error": null, "seconds": 0.0007912920009403024}
+{"case": "cancel greedy=False x+s2", "result": "x - sqrt(2)", "value": "x - sqrt(2)", "error": null, "seconds": 0.0006332209995889571}
+{"case": "cancel greedy=False x-s2", "result": "x + sqrt(2)", "value": "x + sqrt(2)", "error": null, "seconds": 0.0005292519999784417}
+{"case": "cancel greedy=False t", "result": "-sqrt(2)*t + x", "value": "-sqrt(2)*t + x", "error": null, "seconds": 0.0007734669998171739}
+{"case": "cancel greedy=False pi", "result": "(x**2 - pi)/(x + sqrt(pi))", "value": "(x**2 - pi)/(x + sqrt(pi))", "error": null, "seconds": 0.00043861499943886884}
+{"case": "cancel default x+s2", "result": "(x**2 - 2)/(x + sqrt(2))", "value": "(x**2 - 2)/(x + sqrt(2))", "error": null, "seconds": 0.0003039029979845509}
+{"case": "cancel ext True x+s2", "result": "x - sqrt(2)", "value": "x - sqrt(2)", "error": null, "seconds": 0.00030988100115791894}
+{"case": "cancel greedy=False gens x", "result": "x - sqrt(2)", "value": "x - sqrt(2)", "error": null, "seconds": 0.00044925899783265777}
+{"case": "cancel greedy=False x**3-2x", "result": "x - sqrt(2)", "value": "x - sqrt(2)", "error": null, "seconds": 0.0005218229998718016}
+{"case": "cancel greedy=False s3", "result": "x + sqrt(3)", "value": "x + sqrt(3)", "error": null, "seconds": 0.0004773359978571534}
+{"case": "cancel greedy=False I", "result": "x + I", "value": "x + I", "error": null, "seconds": 0.00033767800050554797}
+{"case": "cancel greedy=False 2x+2s2", "result": "x/2 - sqrt(2)/2", "value": "x/2 - sqrt(2)/2", "error": null, "seconds": 0.0005467480004881509}
+{"case": "cancel greedy=False +1", "result": "x - sqrt(2) + 1", "value": "x - sqrt(2) + 1", "error": null, "seconds": 0.0012126949986850377}
+{"case": "cancel greedy=False y", "result": "x - sqrt(2)*y", "value": "x - sqrt(2)*y", "error": null, "seconds": 0.0007258570003614295}
+{"case": "cancel greedy=True x+s2", "result": "(x**2 - 2)/(x + sqrt(2))", "value": "(x**2 - 2)/(x + sqrt(2))", "error": null, "seconds": 0.00022954700034460984}
+{"case": "cancel greedy=False s2x+2", "result": "sqrt(2)", "value": "sqrt(2)", "error": null, "seconds": 0.00036528100099531}
+{"case": "cancel gens x x+s2", "result": "x - sqrt(2)", "value": "x - sqrt(2)", "error": null, "seconds": 0.00043345700032659806}
+{"case": "cancel greedy=False no gens", "result": "sqrt(2)/(1 + sqrt(2))", "value": "sqrt(2)/(1 + sqrt(2))", "error": null, "seconds": 0.00021746299898950383}
+{"case": "cancel greedy=False tuple", "result": "(1, x - sqrt(2), 1)", "value": "(1, x - sqrt(2), 1,)", "error": null, "seconds": 0.0002677200027392246}
+{"case": "cancel greedy=False cbrt", "result": "x**2 + 2**(1/3)*x + 2**(2/3)", "value": "x**2 + 2**(1/3)*x + 2**(2/3)", "error": null, "seconds": 0.0005924489996687043}
+{"case": "cancel greedy=False s2 s3", "result": "x + sqrt(2) + sqrt(3)", "value": "x + sqrt(2) + sqrt(3)", "error": null, "seconds": 0.001220651000039652}
+{"case": "gcd greedy=False", "result": "x + sqrt(2)", "value": "x + sqrt(2)", "error": null, "seconds": 0.00023255799897015095}
+{"case": "lcm greedy=False", "result": "x**2 - 2", "value": "x**2 - 2", "error": null, "seconds": 0.0002948040018964093}
+{"case": "gcd default", "result": "1", "value": "1", "error": null, "seconds": 5.706700176233426e-05}
+{"case": "gcd ext True", "result": "x + sqrt(2)", "value": "x + sqrt(2)", "error": null, "seconds": 0.00019120900105917826}
+{"case": "lcm ext True", "result": "x**2 - 2", "value": "x**2 - 2", "error": null, "seconds": 0.00017178000052808784}
+{"case": "gcd greedy=False t", "result": "sqrt(2)*t + x", "value": "sqrt(2)*t + x", "error": null, "seconds": 0.000429414001700934}
+{"case": "cofactors greedy=False", "result": "(x + sqrt(2), x - sqrt(2), 1)", "value": "(x + sqrt(2), x - sqrt(2), 1,)", "error": null, "seconds": 0.00021835500228917226}
+{"case": "div greedy=False", "result": "(x - sqrt(2), 0)", "value": "(x - sqrt(2), 0,)", "error": null, "seconds": 0.0007940760006022174}
+{"case": "quo greedy=False", "result": "x - sqrt(2)", "value": "x - sqrt(2)", "error": null, "seconds": 0.0006258380017243326}
+{"case": "rem greedy=False", "result": "0", "value": "0", "error": null, "seconds": 0.0006327369992504828}
+{"case": "gcd gens x", "result": "x + sqrt(2)", "value": "x + sqrt(2)", "error": null, "seconds": 0.00022556199837708846}
+{"case": "lcm gens x", "result": "x**2 - 2", "value": "x**2 - 2", "error": null, "seconds": 0.0003013560017279815}
+{"case": "P cancel ZZ EX", "result": "(1, Poly(x - sqrt(2), x, domain='EX'), Poly(1, x, domain='EX'))", "value": "(1, x - sqrt(2), 1,)", "error": null, "seconds": 0.0004146760002186056}
+{"case": "resultant greedy=False", "result": "0", "value": "0", "error": null, "seconds": 0.0006004299975757021}
+{"case": "gcd greedy=False pi", "result": "1", "value": "1", "error": null, "seconds": 9.435399988433346e-05}
+{"case": "gcd greedy=False I", "result": "x + I", "value": "x + I", "error": null, "seconds": 0.00010144900079467334}
+{"case": "lcm greedy=False I", "result": "x**2 + 1", "value": "x**2 + 1", "error": null, "seconds": 9.392599895363674e-05}
+{"case": "real_roots x**2-s2 ext", "result": "[-2**(1/4), 2**(1/4)]", "value": "(-2**(1/4), 2**(1/4),)", "error": null, "seconds": 0.004434859998582397}
+{"case": "real_roots P(x**2-s2) ext", "result": "[-2**(1/4), 2**(1/4)]", "value": "(-2**(1/4), 2**(1/4),)", "error": null, "seconds": 0.0030463409966614563}
+{"case": "real_roots P(x**2-s2,ext) ", "result": "[-2**(1/4), 2**(1/4)]", "value": "(-2**(1/4), 2**(1/4),)", "error": null, "seconds": 0.0028874509989691433}
+{"case": "all_roots x**2+s2 ext", "result": "[-2**(1/4)*I, 2**(1/4)*I]", "value": "(-2**(1/4)*I, 2**(1/4)*I,)", "error": null, "seconds": 0.005083587999251904}
+{"case": "all_roots P(x**2+s2) ext", "result": "[-2**(1/4)*I, 2**(1/4)*I]", "value": "(-2**(1/4)*I, 2**(1/4)*I,)", "error": null, "seconds": 0.0037642700008291285}
+{"case": "all_roots P(x**2+s2,x) ext", "result": "[-2**(1/4)*I, 2**(1/4)*I]", "value": "(-2**(1/4)*I, 2**(1/4)*I,)", "error": null, "seconds": 0.003918547998182476}
+{"case": "real_roots x**2-s2", "result": null, "value": null, "error": "NotImplementedError: sorted roots not supported over EX", "seconds": null}
+{"case": "all_roots x**2+s2", "result": null, "value": null, "error": "NotImplementedError: sorted roots not supported over EX", "seconds": null}
+{"case": "all_roots P(x**2+s2,x)", "result": null, "value": null, "error": "NotImplementedError: sorted roots not supported over EX", "seconds": null}
+{"case": "real_roots P(xy-s2) ext", "result": null, "value": null, "error": "PolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "all_roots P(x**2-2y) ext", "result": null, "value": null, "error": "PolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "nroots x**2-s2", "result": "[-1.18920711500272, 1.18920711500272]", "value": "(-1.18920711500272, 1.18920711500272,)", "error": null, "seconds": 0.0010291580001648981}
+{"case": "nroots P(x**2-s2)", "result": null, "value": null, "error": "MultivariatePolynomialError: Cannot compute numerical roots of Poly(x**2 - (sqrt(2)), x, sqrt(2), domain='ZZ')", "seconds": null}
+{"case": "nroots P(x**2-s2,x)", "result": "[-1.18920711500272, 1.18920711500272]", "value": "(-1.18920711500272, 1.18920711500272,)", "error": null, "seconds": 0.0008213410001189914}
+{"case": "nroots P(x**2-s2,ext)", "result": "[-1.18920711500272, 1.18920711500272]", "value": "(-1.18920711500272, 1.18920711500272,)", "error": null, "seconds": 0.00097981900034938}
+{"case": "nroots x**2-s2*I", "result": "[-0.840896415253715 - 0.840896415253715*I, 0.840896415253715 + 0.840896415253715*I]", "value": "(-0.840896415253715 - 0.840896415253715*I, 0.840896415253715 + 0.840896415253715*I,)", "error": null, "seconds": 0.001275480000913376}
+{"case": "real_roots x**3-s2x ext", "result": "[-2**(1/4), 0, 2**(1/4)]", "value": "(-2**(1/4), 0, 2**(1/4),)", "error": null, "seconds": 0.0036666300002252683}
+{"case": "all_roots x**2-I ext", "result": "[-sqrt(2)/2 - sqrt(2)*I/2, sqrt(2)/2 + sqrt(2)*I/2]", "value": "(-sqrt(2)/2 - sqrt(2)*I/2, sqrt(2)/2 + sqrt(2)*I/2,)", "error": null, "seconds": 0.0090663629998744}
+{"case": "all_roots x**2-s2*I ext", "result": "[-2**(3/4)/2 - 2**(3/4)*I/2, 2**(3/4)/2 + 2**(3/4)*I/2]", "value": "(-2**(3/4)/2 - 2**(3/4)*I/2, 2**(3/4)/2 + 2**(3/4)*I/2,)", "error": null, "seconds": 0.04602987600082997}
+{"case": "real_roots x**2-2 mult=False ext", "result": "[(-sqrt(2), 1), (sqrt(2), 1)]", "value": "((-sqrt(2), 1,), (sqrt(2), 1,),)", "error": null, "seconds": 0.0016597220019320957}
+{"case": "ground_roots expanded ext", "result": "{sqrt(2): 2}", "value": "((sqrt(2), 2,),)", "error": null, "seconds": 0.00032217799889622256}
+{"case": "roots expanded", "result": "{sqrt(2): 2}", "value": "((sqrt(2), 2,),)", "error": null, "seconds": 0.000540450000698911}
+{"case": "P real_roots ext", "result": "[-2**(1/4), 2**(1/4)]", "value": "(-2**(1/4), 2**(1/4),)", "error": null, "seconds": 0.003130122000584379}
+{"case": "P all_roots ext", "result": "[-2**(1/4), 2**(1/4)]", "value": "(-2**(1/4), 2**(1/4),)", "error": null, "seconds": 0.00403142499999376}
+{"case": "P nroots ext", "result": "[-1.18920711500272, 1.18920711500272]", "value": "(-1.18920711500272, 1.18920711500272,)", "error": null, "seconds": 0.0008930289986892603}
+{"case": "real_roots P(x**2-s2,x,EX) ext", "result": "[-2**(1/4), 2**(1/4)]", "value": "(-2**(1/4), 2**(1/4),)", "error": null, "seconds": 0.003031023999938043}
+{"case": "all_roots P(x**4-s2*x**2) ext", "result": "[-2**(1/4), 0, 0, 2**(1/4)]", "value": "(-2**(1/4), 0, 0, 2**(1/4),)", "error": null, "seconds": 0.0062625370010209735}
+{"case": "real_roots P(x**2-s3, gaussian) ext", "result": "[-sqrt(2), sqrt(2)]", "value": "(-sqrt(2), sqrt(2),)", "error": null, "seconds": 0.0012464219980756752}
+{"case": "real_roots P(x**2-pi) ext", "result": null, "value": null, "error": "PolynomialError: only univariate polynomials are allowed", "seconds": null}
+{"case": "K QQ<r>", "result": "QQ<CRootOf(x**3 + x + 3, 0)>", "value": null, "error": null, "seconds": 0.00011223799810977653}
+{"case": "K QQ<r> ext", "result": "CRootOf(x**3 + x + 3, 0)", "value": "CRootOf(x**3 + x + 3, 0)", "error": null, "seconds": 0.00013769900033366866}
+{"case": "K QQ<r> mod", "result": "DMP_Python([MPQ(1,1), MPQ(0,1), MPQ(1,1), MPQ(3,1)], QQ)", "value": null, "error": null, "seconds": 0.00038820500049041584}
+{"case": "K QQ<r2,s2>", "result": "QQ<CRootOf(x**3 - 2, 0) + sqrt(2)>", "value": null, "error": null, "seconds": 0.00038730799860786647}
+{"case": "K QQ<s2,r2> ext", "result": "CRootOf(x**3 - 2, 0) + sqrt(2)", "value": "CRootOf(x**3 - 2, 0) + sqrt(2)", "error": null, "seconds": 0.0005020889984734822}
+{"case": "K QQ<r> from r**3", "result": "ANP([MPQ(-1,1), MPQ(-3,1)], [MPQ(1,1), MPQ(0,1), MPQ(1,1), MPQ(3,1)], QQ)", "value": "-3 - CRootOf(x**3 + x + 3, 0)", "error": null, "seconds": 0.0006468780011346098}
+{"case": "K QQ<r> roundtrip", "result": "1 + CRootOf(x**3 + x + 3, 0)**2", "value": "1 + CRootOf(x**3 + x + 3, 0)**2", "error": null, "seconds": 0.0003837100011878647}
+{"case": "minpoly r", "result": "y**3 + y + 3", "value": "y**3 + y + 3", "error": null, "seconds": 3.9047001337166876e-05}
+{"case": "minpoly rootof5", "result": "y**5 - y - 1", "value": "y**5 - y - 1", "error": null, "seconds": 0.0014169290006975643}
+{"case": "minpoly r+1", "result": "y**3 - 3*y**2 + 4*y + 1", "value": "y**3 - 3*y**2 + 4*y + 1", "error": null, "seconds": 9.70149994827807e-05}
+{"case": "minpoly r**2", "result": "y**3 + 2*y**2 + y - 9", "value": "y**3 + 2*y**2 + y - 9", "error": null, "seconds": 8.074200013652444e-05}
+{"case": "minpoly r+s2", "result": "y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9", "value": "y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9", "error": null, "seconds": 0.00011123100193799473}
+{"case": "minpoly rc", "result": "y**3 + y + 3", "value": "y**3 + y + 3", "error": null, "seconds": 3.425799877732061e-05}
+{"case": "minpoly r*rc", "result": "y**3 - y**2 - 9", "value": "y**3 - y**2 - 9", "error": null, "seconds": 0.00046743300117668696}
+{"case": "minpoly CRootOf(x**4-2,1)", "result": "y**4 - 2", "value": "y**4 - 2", "error": null, "seconds": 0.0007834619973436929}
+{"case": "minpoly r2 polys", "result": "Poly(y**3 - 2, y, domain='QQ')", "value": "y**3 - 2", "error": null, "seconds": 0.00013971500084153377}
+{"case": "primitive_element [r,s2]", "result": "(y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9, [1, 1])", "value": "(y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9, (1, 1,),)", "error": null, "seconds": 0.00026427900229464285}
+{"case": "primitive_element [r2,s3]", "result": "(y**6 - 9*y**4 - 4*y**3 + 27*y**2 - 36*y - 23, [1, 1])", "value": "(y**6 - 9*y**4 - 4*y**3 + 27*y**2 - 36*y - 23, (1, 1,),)", "error": null, "seconds": 0.0002198450019932352}
+{"case": "primitive_element [r,q2]", "result": "(y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9, [1, 1])", "value": "(y**6 - 4*y**4 + 6*y**3 + 13*y**2 + 42*y - 9, (1, 1,),)", "error": null, "seconds": 0.0009713429972180165}
+{"case": "to_number_field r**2 r", "result": "CRootOf(x**3 + x + 3, 0)**2", "value": "CRootOf(x**3 + x + 3, 0)**2", "error": null, "seconds": 9.828700058278628e-05}
+{"case": "to_number_field r r", "result": "CRootOf(x**3 + x + 3, 0)", "value": "CRootOf(x**3 + x + 3, 0)", "error": null, "seconds": 6.330399992293678e-05}
+{"case": "to_number_field r+1 r", "result": "CRootOf(x**3 + x + 3, 0) + 1", "value": "CRootOf(x**3 + x + 3, 0) + 1", "error": null, "seconds": 0.00021588899835478514}
+{"case": "to_number_field q2 s2", "result": "sqrt(2)", "value": "sqrt(2)", "error": null, "seconds": 0.00022382299721357413}
+{"case": "to_number_field s2 q2", "result": "CRootOf(x**2 - 2, 1)", "value": "CRootOf(x**2 - 2, 1)", "error": null, "seconds": 0.0002119130003848113}
+{"case": "to_number_field r2**2 r2", "result": "CRootOf(x**3 - 2, 0)**2", "value": "CRootOf(x**3 - 2, 0)**2", "error": null, "seconds": 7.96429994807113e-05}
+{"case": "field_isomorphism r r", "result": "[1, 0]", "value": "(1, 0,)", "error": null, "seconds": 0.0002559450003900565}
+{"case": "AlgebraicNumber r minpoly", "result": "PurePoly(_x**3 + _x + 3, _x, domain='QQ')", "value": "_x**3 + _x + 3", "error": null, "seconds": 8.609399810666218e-05}
+{"case": "AlgebraicNumber r coeffs", "result": "CRootOf(x**3 + x + 3, 0) + 2", "value": "CRootOf(x**3 + x + 3, 0) + 2", "error": null, "seconds": 0.00016517899712198414}
+{"case": "Poly r*y+1 ext True", "result": "Poly(CRootOf(x**3 + x + 3, 0)*y + 1, y, domain='QQ<CRootOf(x**3 + x + 3, 0)>')", "value": "y*CRootOf(x**3 + x + 3, 0) + 1", "error": null, "seconds": 0.0002989450003951788}
+{"case": "Poly r ext True", "result": "Poly(CRootOf(x**3 + x + 3, 0), y, domain='QQ<CRootOf(x**3 + x + 3, 0)>')", "value": "CRootOf(x**3 + x + 3, 0)", "error": null, "seconds": 0.0001811219990486279}
+{"case": "factor y**3+y+3 ext r", "result": "(y - CRootOf(x**3 + x + 3, 0))*(y**2 + y*CRootOf(x**3 + x + 3, 0) + 1 + CRootOf(x**3 + x + 3, 0)**2)", "value": "(y - CRootOf(x**3 + x + 3, 0))*(y**2 + y*CRootOf(x**3 + x + 3, 0) + 1 + CRootOf(x**3 + x + 3, 0)**2)", "error": null, "seconds": 0.0014131400021142326}
+{"case": "factor y**3-2 ext r2", "result": "(y - CRootOf(x**3 - 2, 0))*(y**2 + y*CRootOf(x**3 - 2, 0) + CRootOf(x**3 - 2, 0)**2)", "value": "(y - CRootOf(x**3 - 2, 0))*(y**2 + y*CRootOf(x**3 - 2, 0) + CRootOf(x**3 - 2, 0)**2)", "error": null, "seconds": 0.0011630299995886162}
+{"case": "fl y**3-2 ext r2", "result": "(1, [(y - CRootOf(x**3 - 2, 0), 1), (y**2 + y*CRootOf(x**3 - 2, 0) + CRootOf(x**3 - 2, 0)**2, 1)])", "value": "(1)*(y - CRootOf(x**3 - 2, 0))**(1)*(y**2 + y*CRootOf(x**3 - 2, 0) + CRootOf(x**3 - 2, 0)**2)**(1)", "error": null, "seconds": 0.0008800849973340519}
+{"case": "factor y**2-2 ext q2", "result": "(y - CRootOf(x**2 - 2, 1))*(y + CRootOf(x**2 - 2, 1))", "value": "(y - CRootOf(x**2 - 2, 1))*(y + CRootOf(x**2 - 2, 1))", "error": null, "seconds": 0.0007212889977381565}
+{"case": "Poly y-r2 ext True fl", "result": "(1, [(Poly(y - CRootOf(x**3 - 2, 0), y, domain='QQ<CRootOf(x**3 - 2, 0)>'), 1)])", "value": "(1)*(y - CRootOf(x**3 - 2, 0))**(1)", "error": null, "seconds": 0.0003544829996826593}
+{"case": "exc factor x ext s2", "result": null, "value": null, "error": "CoercionFailed: expected `Rational` object, got -2*t**2", "seconds": null}
+{"case": "exc ZZ[t](1/t)", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over ZZ with lex order, got 1/t", "seconds": null}
+{"case": "exc QQ_I[t](1/t)", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over QQ_I with lex order, got 1/t", "seconds": null}
+{"case": "exc ZZ_I[t](1/t)", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over ZZ_I with lex order, got 1/t", "seconds": null}
+{"case": "exc QQ[t](1/t)", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over QQ with lex order, got 1/t", "seconds": null}
+{"case": "exc QQ<s2>[t](1/t)", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over QQ<sqrt(2)> with lex order, got 1/t", "seconds": null}
+{"case": "exc ZZ[t](s2)", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over ZZ with lex order, got sqrt(2)", "seconds": null}
+{"case": "ZZ[t](t/2)", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over ZZ with lex order, got t/2", "seconds": null}
+{"case": "exc gcd x ext s2", "result": null, "value": null, "error": "CoercionFailed: expected `Rational` object, got -2*t**2", "seconds": null}
+{"case": "exc Poly x-s2t x ext s2", "result": null, "value": null, "error": "CoercionFailed: expected `Rational` object, got -sqrt(2)*t", "seconds": null}
+{"case": "exc ZZ[t](1/(t+1))", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over ZZ with lex order, got 1/(t + 1)", "seconds": null}
+{"case": "exc QQ_I[t](I/t)", "result": null, "value": null, "error": "ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over QQ_I with lex order, got I/t", "seconds": null}
+{"case": "exc factor x**2-2pi**2 x ext s2 list", "result": null, "value": null, "error": "CoercionFailed: -2*pi**2 is not a valid algebraic number in QQ<sqrt(2)>", "seconds": null}

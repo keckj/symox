@@ -982,6 +982,66 @@ calcul est en Rust ; aucun source Python n'a été ajouté ni étendu.
   - clippy correctness propre ;
   - corpus EDO : 315/289/270.
 
+### Vague 45, lot algfactor (`feat-algfactor-20261107`, 7 novembre)
+
+Factorisation et `cancel` avec nombres algébriques. Ce lot reprend les
+lacunes laissées par algpoly. Tout le calcul est en Rust. Seule
+l'admission de `real_roots`/`all_roots` avec `extension` a changé en
+Python, sans aucun algorithme.
+
+- **Listes naturelles** (Rust).
+  - Le certificat de reconstruction se replie sur un certificat par
+    expansion quand le certificat par générateurs ne conclut pas
+    (`poly/checked_factors.rs`). C'est le cas quand des nombres algébriques
+    sont des générateurs.
+  - `factor_list`/`sqf_list` procèdent composante par composante, dans
+    l'ordre public de `Mul.args`. Pour sqf, les composantes de même
+    multiplicité sont multipliées entre elles
+    (`checked_natural_factor_list`, `poly/api.rs`).
+  - Les produits constants (`(1-sqrt(2))*(1+sqrt(2))`) sont traités par
+    `checked_constant_factor_list`.
+  - `frac=True` accepte les générateurs numériques.
+  - Un non-polynôme sans `frac` lève `PolynomialError`
+    (`symox-py/src/poly_checked_factors.rs`).
+- **`greedy=False`** (Rust) pour `gcd`, `lcm`, `cofactors` et `cancel` : les
+  coefficients algébriques et transcendants restent dans le sol `EX`
+  (`poly/convert.rs::nongreedy_generators`, `symox-py/src/poly.rs`).
+- **Exceptions** (Rust).
+  - `factor(x**2-2*t**2, x, extension=sqrt(2))` lève CoercionFailed
+    (`poly/algebraic.rs`).
+  - `ZZ[t](1/t)` et `QQ_I[t](1/t)` lèvent ValueError, et `convert` lève
+    CoercionFailed (`poly/domains.rs`, `symox-py/src/domains.rs`).
+- **Racines** (Python, aiguillage seulement) : `_univariate_for_roots`
+  reconstruit le Poly avec `extension=True`, comme la référence.
+- **Extensions `CRootOf`** : elles étaient déjà conformes sur main. Les
+  35 cas du corpus restent comme garde.
+- **Mesures** (`audits/performance/2026-11-07-algfactor`).
+  - Corpus algfactor (249 cas), SAME/DIFF/DECLINED/WRONG : 179/64/3/3 →
+    248/1/0/0. Le seul DIFF est `minimal_polynomial` de `r*rc`, où SymPy
+    dépasse 60 s.
+  - Instructions amont (test_polytools, test_factortools,
+    test_rootoftools, numberfields) : 948 → 955 sur 1362 (SymPy 1360),
+    sans régression.
+  - `tests/test_algfactor_parity.py` : 73 comparaisons en direct.
+- **Écarts délibérés** (à arbitrer).
+  - `sqf_list` d'un produit suit SymPy : il n'est plus globalement sans
+    carré quand celui de SymPy ne l'est pas. Une assertion de
+    `tests/test_fraction_factor_lists.py` compare désormais en direct.
+  - `minimal_polynomial(r*rc)` : symox répond `y**3 - y**2 - 9` (vérifié à
+    la main) alors que SymPy ne répond pas.
+- **Lacunes restantes**.
+  - Item 5 d'algpoly : représentant de la paire numérateur/dénominateur
+    sur `QQ<a>[t]` et `QQ<a>(t)`.
+  - `real_roots` sur sol gaussien trie par `which_real_roots` en Python.
+  - `EX[t](1/t)` et `GF(p)[t](1/t)` lèvent NotImplementedError.
+  - Le message de CoercionFailed sur sol gaussien diffère.
+  - Trois calculs natifs non interruptibles : `test_factor_large#9`,
+    `test_cancel#80`, `test_minimal_polynomial_sq#9`.
+  - Lacunes générales de polytools : `gcd_list`/`lcm_list` aux bords,
+    `cofactors(8, 6)`, `gcdex(auto=False)`, `deep=True`, `Piecewise` dans
+    `cancel`, API privées des anneaux.
+- **Validation** : suite SUITE CLEAN à la 1re passe : 60 893 réussis, 14 xfail, 45 sautés, sur 60 952 collectés et 701 fichiers (base vague 44 : 60 821 / 60 879 / 700, plus les 73 tests de `tests/test_algfactor_parity.py`). Le seul réussi de la base devenu xfail est `test_native_liegroup::test_checkinfsol_matches_sympy[x*(f(x).diff(x)) + 1 - f(x)**2]`, marqué `xfail(strict=False)` car il dépend de la graine de hachage. `cargo test --release` : 876 + 1 + 0 + 5. clippy correctness propre. Corpus EDO : 315/289/270.
+
 ## Lot liegroup (vague 44, `feat-liegroup-20261106`)
 
 Solveur EDO `lie_group` de SymPy 1.14 porté en Rust

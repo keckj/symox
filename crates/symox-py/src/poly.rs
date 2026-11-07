@@ -2948,6 +2948,33 @@ fn inapplicable_extension<'py>(py:Python<'py>,f:&Bound<'py,PyAny>,g:Option<&Boun
     Ok(Some(copy))
 }
 
+/// Whether `greedy=False` is the only keyword option. It changes nothing
+/// once generators are given; without generators the reference
+/// `_parallel_dict_from_expr_no_gens` keeps every number factor (`sqrt(2)`,
+/// `pi`) in the coefficients instead of making it a generator.
+fn only_nongreedy(kwargs:Option<&Bound<'_,PyDict>>)->PyResult<bool>{
+    let Some(k)=kwargs else{return Ok(false)};
+    if k.len()!=1{return Ok(false);}
+    let Some(v)=k.get_item("greedy")? else{return Ok(false)};
+    Ok(v.is_instance_of::<pyo3::types::PyBool>()&&!v.extract::<bool>()?)
+}
+
+/// The polynomials of `parallel_poly_from_expr(exprs, greedy=False)` when
+/// the joint `construct_domain` over the non-greedy coefficients selects
+/// `EX` (an algebraic number among them); `None` when generators are given,
+/// for Polys and sequences, and for the other domains, where the greedy
+/// generators give the same result.
+fn nongreedy_polys(exprs:&[Expr],gens:&Bound<'_,PyTuple>)->Option<Vec<ExpressionPoly>>{
+    if !gens.is_empty()||exprs.iter().any(rational_function_blocker){return None;}
+    let gv=symox::poly::convert::nongreedy_generators(exprs);
+    if gv.is_empty(){return None;}
+    symox::poly::expression_domain::joint_selection(exprs,&gv)
+}
+fn nongreedy_pair(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Option<(ExpressionPoly,ExpressionPoly)>>{
+    if !only_nongreedy(kwargs)?||f.downcast::<PyPoly>().is_ok()||g.downcast::<PyPoly>().is_ok()||list_items(f)?.is_some(){return Ok(None);}
+    Ok(nongreedy_polys(&[to_expr(f)?,to_expr(g)?],gens).map(|mut v|{let b=v.pop().unwrap();(v.pop().unwrap(),b)}))
+}
+
 /// Compute the greatest common divisor of expressions or polynomials.
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
@@ -2958,6 +2985,10 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
     if modulus.is_none()&&gens.is_empty()&&_kwargs.is_none_or(|k|k.is_empty()){if let (Ok(p),Some(Ok(q)))=(f.downcast_exact::<PyPoly>(),g.map(|g|g.downcast_exact::<PyPoly>())){
         if p.get().p.true_gens()==q.get().p.true_gens()&&!p.get().p.true_gens().is_empty(){return poly_obj(py,p.get().gcd(q.as_any())?.p);}
     }}
+    if let (Some(q),None)=(g,modulus){if let Some((a,b))=nongreedy_pair(f,q,gens,_kwargs)? {
+        return Ok(w(a.gcd(&b).map_err(err)?.as_expr()).into_pyobject(py)?.into_any().unbind());
+    }}
+    let _kwargs=if only_nongreedy(_kwargs)?{None}else{_kwargs};
     let stripped=inapplicable_extension(py,f,g,gens,_kwargs)?;let _kwargs=stripped.as_ref().or(_kwargs);
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
         let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some()||v.expression.as_ref().is_some_and(|e|e.ground.is_some());
@@ -3019,6 +3050,10 @@ fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
     if modulus.is_none()&&gens.is_empty()&&_kwargs.is_none_or(|k|k.is_empty()){if let (Ok(p),Some(Ok(q)))=(f.downcast_exact::<PyPoly>(),g.map(|g|g.downcast_exact::<PyPoly>())){
         if p.get().p.true_gens()==q.get().p.true_gens()&&!p.get().p.true_gens().is_empty(){return poly_obj(py,p.get().lcm(q.as_any())?.p);}
     }}
+    if let (Some(q),None)=(g,modulus){if let Some((a,b))=nongreedy_pair(f,q,gens,_kwargs)? {
+        return Ok(w(a.lcm(&b).map_err(err)?.as_expr()).into_pyobject(py)?.into_any().unbind());
+    }}
+    let _kwargs=if only_nongreedy(_kwargs)?{None}else{_kwargs};
     let stripped=inapplicable_extension(py,f,g,gens,_kwargs)?;let _kwargs=stripped.as_ref().or(_kwargs);
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
         let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some()||v.expression.as_ref().is_some_and(|e|e.ground.is_some());
@@ -3073,6 +3108,11 @@ fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
 fn cofactors<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
     if let Some(p)=gaussian_poly_argument(f,gens,None,_kwargs){return p.cofactors(py,g);}
+    if let Some((a,b))=nongreedy_pair(f,g,gens,_kwargs)? {
+        let(h,a,b)=a.cofactors(&b).map_err(err)?;
+        return PyTuple::new(py,[w(h.as_expr()),w(a.as_expr()),w(b.as_expr())]);
+    }
+    let _kwargs=if only_nongreedy(_kwargs)?{None}else{_kwargs};
     if f.downcast::<PyPoly>().is_err(){if let Some(p)=algebraic_option_polys(f,&[to_expr(g)?],gens,_kwargs)? {
         let q=p.convert(&to_expr(g)?).map_err(err)?;
         let(h,a,b)=p.cofactors(&q);
@@ -3098,9 +3138,39 @@ pub(crate) fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: O
         let(p,q)=p.ring_cancel(&q).map_err(err)?;
         return Ok(w(symox::ops::div(&p.as_expr(),&q.as_expr())).into_pyobject(py)?.into_any().unbind());
     }
+    // `sring((p, q), greedy=False)`: number factors stay in the
+    // coefficients; no generator at all expands the expression.
+    if only_nongreedy(_kwargs)?&&gens.is_empty()&&f.downcast::<PyPoly>().is_err()&&f.downcast::<PyTuple>().is_err(){
+        let e=symox::simptools::misc::signsimp(&to_expr(f)?,true);
+        if matches!(e.kind(),symox::expr::Kind::Num(_)){return Ok(w(e).into_pyobject(py)?.into_any().unbind());}
+        if !rational_function_blocker(&e){
+            let e=symox::simptools::exprtools::factor_terms(&e,true,false,false,true);
+            let(n,d)=api::as_numer_denom(&e);
+            let pair=[n,d];
+            if symox::poly::convert::nongreedy_generators(&pair).is_empty(){return Ok(w(symox::expand::expand(&e)).into_pyobject(py)?.into_any().unbind());}
+            if let Some(mut v)=nongreedy_polys(&pair,gens){
+                let q=v.pop().unwrap();let p=v.pop().unwrap();
+                let(p,q)=p.ring_cancel(&q).map_err(err)?;
+                return Ok(w(symox::ops::div(&p.as_expr(),&q.as_expr())).into_pyobject(py)?.into_any().unbind());
+            }
+        }
+    }
+    let nongreedy=only_nongreedy(_kwargs)?;
+    let _kwargs=if nongreedy{None}else{_kwargs};
     if let Some(result)=an_rational::cancel_input(py,f,gens,_kwargs)?{return Ok(result);}
     if let Ok(pair)=f.downcast::<PyTuple>() {
         if pair.len()!=2{return Err(PyValueError::new_err("cancel expects a numerator/denominator pair"));}
+        if nongreedy&&gens.is_empty()&&pair.iter().all(|x|x.downcast::<PyPoly>().is_err()){
+            let sides=[symox::simptools::misc::signsimp(&to_expr(&pair.get_item(0)?)?,true),symox::simptools::misc::signsimp(&to_expr(&pair.get_item(1)?)?,true)];
+            if symox::poly::convert::nongreedy_generators(&sides).is_empty(){
+                let[n,d]=sides;return Ok(PyTuple::new(py,[w(Expr::one()),w(n),w(d)])?.into_any().unbind());
+            }
+            if let Some(mut v)=nongreedy_polys(&sides,gens){
+                let q=v.pop().unwrap();let p=v.pop().unwrap();
+                let(p,q)=p.ring_cancel(&q).map_err(err)?;
+                return Ok(PyTuple::new(py,[w(Expr::one()),w(p.as_expr()),w(q.as_expr())])?.into_any().unbind());
+            }
+        }
         let result=api::cancel(&symox::ops::div(&to_expr(&pair.get_item(0)?)?,&to_expr(&pair.get_item(1)?)?)).map_err(err)?;
         let(n,d)=api::as_numer_denom(&result);
         return Ok(PyTuple::new(py,[w(Expr::one()),w(n),w(d)])?.into_any().unbind());

@@ -486,6 +486,24 @@ impl AN {
         Ok(out)
     }
 }
+/// The reference `AlgebraicField.from_sympy` failure of a coefficient
+/// proven outside the field: `QQ.from_sympy` rejects a coefficient with
+/// free symbols, and `to_number_field` a number of another field or a
+/// transcendental one, both as CoercionFailed. An undecided membership
+/// keeps its own error.
+fn coefficient_failure(value: &Expr, field: &Arc<NumberField>, error: PolyError) -> PolyError {
+    let message = error.to_string();
+    if !super::embedding::is_absence(&error) && !message.ends_with("does not seem to be an algebraic element") {
+        return error;
+    }
+    let shown = crate::printer::to_str(value);
+    let message = if crate::traverse::free_symbols(value).is_empty() {
+        format!("{shown} is not a valid algebraic number in {}", super::domains::ExactDomain::Algebraic(field.clone()))
+    } else {
+        format!("expected `Rational` object, got {shown}")
+    };
+    PolyError::Reference { kind: "CoercionFailed", message }
+}
 fn unsupported() -> PolyError {
     PolyError::Unsupported("coefficient is not in the selected algebraic number field".into())
 }
@@ -843,7 +861,8 @@ impl AlgebraicPoly {
                 &MPoly::from_terms(c.gens.len() - gens.len(), ts),
                 &c.gens[gens.len()..],
             );
-            terms.push((e, AN::from_expr(&value, field.clone())?));
+            let coefficient = AN::from_expr(&value, field.clone()).map_err(|error| coefficient_failure(&value, &field, error))?;
+            terms.push((e, coefficient));
         }
         Ok(Self {
             rep: MPoly::from_terms(gens.len(), terms),

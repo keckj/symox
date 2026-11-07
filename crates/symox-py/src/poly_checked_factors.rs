@@ -277,6 +277,57 @@ fn symbolic_multiplicity_list<'py>(
     }
     Ok(Some(PyTuple::new(py, [w(coefficient).into_pyobject(py)?.into_any(), result.into_any()])?.into_any().unbind()))
 }
+/// The reference `_symbolic_factor_list` of a number whose expansion
+/// cancels every generator, so that the whole-expression conversion fails:
+/// `factor_list((1 - sqrt(2))*(1 + sqrt(2)))` is
+/// `(-1, [(-1 + sqrt(2), 1), (1 + sqrt(2), 1)])`. `None` (keep the
+/// conversion error) for explicit generators or options, and when the
+/// native list declines.
+fn constant_component_list<'py>(
+    f: &Bound<'py, PyAny>,
+    gens: &Bound<'py, PyTuple>,
+    modulus: Option<u64>,
+    kwargs: Option<&Bound<'py, PyDict>>,
+    squarefree: bool,
+    error: &PyErr,
+) -> PyResult<Option<PyObject>> {
+    let py = f.py();
+    let failed = py.import("symox.polys.polyerrors")?.getattr("PolificationFailed")?;
+    if !error.is_instance(py, &failed) || f.downcast::<PyPoly>().is_ok() || modulus.is_some() || !gens.is_empty() {
+        return Ok(None);
+    }
+    let mut polys = false;
+    if let Some(kw) = kwargs {
+        for name in ["domain", "extension", "modulus", "gaussian", "field", "greedy", "symmetric", "gens"] {
+            if kw.get_item(name)?.is_some_and(|v| !v.is_none()) {
+                return Ok(None);
+            }
+        }
+        if let Some(value) = kw.get_item("polys")? {
+            polys = division::boolean(&value, "polys")? == Some(true);
+        }
+    }
+    let Ok(expression) = crate::to_expr(f) else { return Ok(None) };
+    if !(expression.is_mul() || expression.is_pow()) || !symox::functions::is_numeric_value(&expression) {
+        return Ok(None);
+    }
+    let (coefficient, factors) = match symox::poly::api::checked_constant_factor_list(&expression, squarefree, Limits::default()) {
+        Ok(list) => list,
+        Err(symox::poly::convert::PolyError::Unsupported(_)) => return Ok(None),
+        Err(error) => return Err(err(error)),
+    };
+    let result = pyo3::types::PyList::empty(py);
+    for (p, k) in factors {
+        let p = super::domains::normalize_poly(p)?;
+        let value = if polys {
+            PyPoly { p }.into_pyobject(py)?.into_any().unbind()
+        } else {
+            w(p.as_expr()).into_pyobject(py)?.into_any().unbind()
+        };
+        result.append(PyTuple::new(py, [value, k.into_pyobject(py)?.into_any().unbind()])?)?;
+    }
+    Ok(Some(PyTuple::new(py, [w(coefficient).into_pyobject(py)?.into_any(), result.into_any()])?.into_any().unbind()))
+}
 pub(super) fn global_list<'py>(
     f: &Bound<'py, PyAny>,
     gens: &Bound<'py, PyTuple>,
@@ -296,6 +347,9 @@ pub(super) fn global_list<'py>(
             // reference factors its components.
             if !error.is_instance_of::<division::OptionError>(f.py()) {
                 if let Some(list) = symbolic_multiplicity_list(f, gens, modulus, kwargs, squarefree)? {
+                    return Ok(list);
+                }
+                if let Some(list) = constant_component_list(f, gens, modulus, kwargs, squarefree, &error)? {
                     return Ok(list);
                 }
             }
@@ -354,29 +408,24 @@ pub(super) fn global_list<'py>(
         symox::expr::Kind::Func(symox::expr::Func::Exp, args) => args.first().is_some_and(negative),
         _ => false,
     }) {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "a polynomial expected; denominator factors require frac=True",
+        // The reference `_generic_factor_list` raises PolynomialError (a
+        // ValueError subclass here) when the denominator is not constant.
+        return Err(super::structural::polynomial_error(
+            f.py(),
+            "PolynomialError",
+            format!("a polynomial expected, got {}", symox::printer::to_str(&crate::to_expr(f)?)),
         ));
     }
     if (p.algebraic.is_some() || p.expression.is_some()) && f.downcast::<PyPoly>().is_err() && modulus.is_none() {
         return domain_list(f, gens, kwargs, squarefree, polys);
     }
     if symbolic {
-        // Over `RR` the reference `_symbolic_factor_list` builds each
-        // multiplicative component on its own domain (`2.0*(x - y)**2`
-        // gives `(2.0, [(x - y, 2)])`): take the component route of
-        // `factor_list`.
-        let inexact = p.field.is_none()
-            && p.algebraic.is_none()
-            && p.expression.is_none()
-            && matches!(p.base.domain, symox::poly::polyobj::Domain::RR(_));
-        if squarefree && !inexact {
-            let (factors, denominator) =
-                native::symbolic_list(&p, true, Limits::default()).map_err(err)?;
-            return Ok(render_list(factors, denominator, f.py(), polys)?
-                .into_any()
-                .unbind());
-        }
+        // The reference `_symbolic_factor_list` factors every multiplicative
+        // component on its own (its own generators and domain, `2.0*(x - y)**2`
+        // is `(2.0, [(x - y, 2)])`) and, for `sqf`, multiplies the factors of
+        // equal multiplicity: `sqf_list((x + 1)*(x - sqrt(2))**2)` is
+        // `(1, [(x + 1, 1), (x - sqrt(2), 2)])` and `sqf_list((x**2 - 1)*(x + 1))`
+        // keeps the product of its two components of multiplicity one.
         let mut component_gens = super::gens_of(gens)?;
         if component_gens.is_empty() {
             if let Some(g) = kwargs
@@ -475,7 +524,7 @@ fn prepare_fraction_side(
     if natural
         && p.true_gens()
             .iter()
-            .any(|g| matches!(g.kind(),symox::expr::Kind::Pow(_,e) if !e.is_integer_number()))
+            .any(|g| matches!(g.kind(),symox::expr::Kind::Pow(_,e) if !e.is_integer_number()) && !symox::functions::is_numeric_value(g))
     {
         return Err(pyo3::exceptions::PyNotImplementedError::new_err("natural fractional factor lists with noninteger or symbolic power multiplicities are not implemented; use a Poly with explicit formal generators"));
     }
@@ -498,15 +547,12 @@ fn fraction_side(
 ) -> symox::poly::convert::PResult<(symox::Expr, Vec<(PolyValue, u32)>)> {
     let limits = Limits::default();
     if natural {
-        if squarefree {
-            let (factors, denominator) = native::symbolic_list(p, true, limits)?;
-            return Ok((
-                symox::ops::div(&factors.unit.as_expr(), &denominator),
-                factors.factors,
-            ));
-        }
+        // As in `global_list`, the reference factors each multiplicative
+        // component of the side on its own and, for `sqf`, multiplies the
+        // factors of equal multiplicity: the numerator of
+        // `(x**2 - 1)*(x + 1)/(x + 2)` stays `x**3 + x**2 - x - 1`.
         let (c, factors) = symox::poly::api::checked_natural_factor_list(
-            expression, generators, false, p, limits,
+            expression, generators, squarefree, p, limits,
         )?;
         let factors = factors
             .into_iter()

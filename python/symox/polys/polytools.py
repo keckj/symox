@@ -505,10 +505,14 @@ def _univariate_for_roots(f, extension):
     # SymPy builds Poly(f, greedy=False): algebraic or transcendental
     # coefficients stay in the ground domain (EX, ZZ[pi]) instead of becoming
     # generators, so sorting the roots fails with NotImplementedError.
-    kwargs = {'extension': extension} if extension else {'greedy': False}
+    # With ``extension`` set the reference rebuilds a Poly over a
+    # non-algebraic domain from its expression with ``extension=True``,
+    # whatever extension was given: the natural generators of
+    # ``Poly(x - sqrt(2))`` are ``(x, sqrt(2))``.
+    kwargs = {'extension': True} if extension else {'greedy': False}
     try:
         if isinstance(f, Poly):
-            F = Poly(f, **kwargs) if extension else f
+            F = Poly(f.as_expr(), **kwargs) if extension and not f.domain.is_AlgebraicField else f
         else:
             F = Poly(sympify(f), **kwargs)
     except ValueError as exc:
