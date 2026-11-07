@@ -1,0 +1,139 @@
+{"case": "R str", "result": "QQ<sqrt(2)>[t]", "value": null, "error": null, "seconds": 5.5082000471884385e-05}
+{"case": "F str", "result": "QQ<sqrt(2)>(t)", "value": null, "error": null, "seconds": 5.34199716639705e-06}
+{"case": "R element", "result": "ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)", "value": "sqrt(2)*t + 1", "error": null, "seconds": 0.025987616998463636}
+{"case": "R element repr", "result": "ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 + ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)", "value": null, "error": null, "seconds": 0.00017070099784177728}
+{"case": "R element sqrt2/2", "result": "ANP([MPQ(1,2), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t", "value": "sqrt(2)*t/2", "error": null, "seconds": 0.0002285189984831959}
+{"case": "R mul", "result": "ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 - t - ANP([MPQ(-1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)", "value": "sqrt(2)*t**2 - t - sqrt(2)", "error": null, "seconds": 0.00014004100012243725}
+{"case": "R add", "result": "ANP([MPQ(1,1), MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)", "value": "t*(1 + sqrt(2)) + sqrt(2)", "error": null, "seconds": 8.327699833898805e-05}
+{"case": "R pow", "result": "ANP([MPQ(2,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**3 + ANP([MPQ(6,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 + ANP([MPQ(3,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)", "value": "2*sqrt(2)*t**3 + 6*t**2 + 3*sqrt(2)*t + 1", "error": null, "seconds": 9.366000085719861e-05}
+{"case": "R exquo", "result": "ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t - ANP([MPQ(-2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)", "value": "sqrt(2)*t - 2", "error": null, "seconds": 0.0001890299972728826}
+{"case": "R exquo fails", "result": null, "value": null, "error": "ExactQuotientFailed: t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ) does not divide t in QQ<sqrt(2)>[t]", "seconds": null}
+{"case": "R gcd", "result": "t + ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)", "value": "t + sqrt(2)", "error": null, "seconds": 0.0002055590011877939}
+{"case": "R gcd monomial", "result": "t", "value": "t", "error": null, "seconds": 0.00013038899851380847}
+{"case": "R lcm", "result": "t**2 - ANP([MPQ(-2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)", "value": "t**2 - 2", "error": null, "seconds": 9.147500168182887e-05}
+{"case": "R from 1/t fails", "result": null, "value": null, "error": "CoercionFailed: 1/t contains an element of the set of generators.", "seconds": null}
+{"case": "R is_negative", "result": "True", "value": "True", "error": null, "seconds": 0.000571109998418251}
+{"case": "F element", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F element inverse", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F element sqrt2/t", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F element scaled", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F element sum", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F element power", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F add", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F sub", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F mul", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F div", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F div 2", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F div by zero", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F pow", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F gcd", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F lcm", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F numer denom", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F from x fails", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "F of R element", "result": null, "value": null, "error": "NotImplementedError: fraction fields over algebraic ground domains are not implemented", "seconds": null}
+{"case": "PR str", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR domain", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR as_expr", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR add", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR mul", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR pow", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR LC", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR diff", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR eval", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR exquo", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR div", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR rem", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR pdiv", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR prem", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR gcd", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR gcd 2", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR lcm", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR cofactors", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR cancel", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR cancel signs", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR content", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR primitive", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR resultant", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR resultant includePRS", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR discriminant", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR sqf_list", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR sqf_part", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR factor_list", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR factor_list 2", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR to_field", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR monic fails", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR clear_denoms", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR multivariate gcd", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PR set_domain EX", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "PF str", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF domain", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF as_expr", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF add", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF mul", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF LC", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF monic", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF div", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF rem", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF exquo", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF gcd", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF lcm", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF cofactors", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF cancel", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF content", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF primitive", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF clear_denoms", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF resultant", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF discriminant", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF sqf_list", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF factor_list", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF to_ring fails", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF invert", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF gcdex", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "PF set_domain EX", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "construct_domain ext poly", "result": "(EX, [EX(sqrt(2)*t), EX(1)])", "value": null, "error": null, "seconds": 0.0068368860011105426}
+{"case": "construct_domain ext frac", "result": "(EX, [EX(sqrt(2)/t), EX(1)])", "value": null, "error": null, "seconds": 0.0010001239970733877}
+{"case": "construct_domain ext field", "result": "(EX, [EX(sqrt(2)*t), EX(1)])", "value": null, "error": null, "seconds": 0.0007234590011648834}
+{"case": "Poly extension ring", "result": "Poly(sqrt(2)*t*x + 1, x, domain='EX')", "value": "sqrt(2)*t*x + 1", "error": null, "seconds": 0.0003069589984079357}
+{"case": "Poly extension frac", "result": "Poly(sqrt(2)/(2*t)*x + 1, x, domain='EX')", "value": "1 + sqrt(2)*x/(2*t)", "error": null, "seconds": 0.0002111650028382428}
+{"case": "Poly extension domain", "result": "EX", "value": null, "error": null, "seconds": 0.00017503799972473644}
+{"case": "unify R with ZZ[y]", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify R with QQ", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify R with A", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify R with F", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify R with ZZ(y)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify R generator clash", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify R with QQ<sqrt3>", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify R with QQ_I", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify F with ZZ_I[y]", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "unify R with RR", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "unify F with EX", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "unify R with QQ<sqrt3>(y)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented", "seconds": null}
+{"case": "domain unify R F", "result": "QQ<sqrt(2)>(t)", "value": null, "error": null, "seconds": 4.6766999730607495e-05}
+{"case": "domain unify R ZZ[y]", "result": "QQ<sqrt(2)>[t,y]", "value": null, "error": null, "seconds": 1.1038002412533388e-05}
+{"case": "cancel extension", "result": "sqrt(2)*t + x", "value": "sqrt(2)*t + x", "error": null, "seconds": 0.0009868910019577015}
+{"case": "factor extension param", "result": null, "value": null, "error": "ValueError: coefficient is not in the selected algebraic number field", "seconds": null}
+{"case": "gcd extension param", "result": "sqrt(2)*t + x", "value": "sqrt(2)*t + x", "error": null, "seconds": 0.0009050170010596048}
+{"case": "resultant extension param", "result": "t**2 + sqrt(2)*t", "value": "t**2 + sqrt(2)*t", "error": null, "seconds": 0.0014732939998793881}
+{"case": "sqf_list extension param", "result": "(1, [(x + 1, 1), (sqrt(2)*t + x, 2)])", "value": "(1, ((x + 1, 1,), (sqrt(2)*t + x, 2,),),)", "error": null, "seconds": 0.0012894520004920196}
+{"case": "factor_list extension param", "result": "(1, [(-2*t**2 + x**2, 1)])", "value": "(1, ((-2*t**2 + x**2, 1,),),)", "error": null, "seconds": 0.0009584069994161837}
+{"case": "discriminant extension param", "result": "2*t**2 - 4", "value": "2*t**2 - 4", "error": null, "seconds": 0.0014886609969835263}
+{"case": "EX sqrt2*(1+sqrt2)", "result": "EX(sqrt(2) + 2)", "value": "sqrt(2) + 2", "error": null, "seconds": 0.0005920969997532666}
+{"case": "EX (x+1)**2", "result": "EX((x + 1)**2)", "value": "(x + 1)**2", "error": null, "seconds": 0.0003895049994753208}
+{"case": "EX add", "result": "EX(x + 1/x)", "value": "x + 1/x", "error": null, "seconds": 0.00044680500286631286}
+{"case": "EX mul numbers", "result": "EX(2/3)", "value": "2/3", "error": null, "seconds": 6.633999873884022e-05}
+{"case": "EX mul", "result": "EX(x**2 - 1)", "value": "x**2 - 1", "error": null, "seconds": 0.0006557769993378315}
+{"case": "EX div", "result": "EX(x - 1)", "value": "x - 1", "error": null, "seconds": 0.0006623209992540069}
+{"case": "EX pow", "result": "EX((1 + sqrt(2))**2)", "value": "(1 + sqrt(2))**2", "error": null, "seconds": 0.0009231270014424808}
+{"case": "EX sub zero", "result": "EX(-x - 1)", "value": "-x - 1", "error": null, "seconds": 0.0003803969993896317}
+{"case": "EX add zero", "result": "EX(sqrt(2) + 2)", "value": "sqrt(2) + 2", "error": null, "seconds": 0.0006771949992980808}
+{"case": "EX convert", "result": "EX(sqrt(2) + 2)", "value": "sqrt(2) + 2", "error": null, "seconds": 0.000623615000222344}
+{"case": "logpart QQ<s2>[p] 1/(x**2+s2*p)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>[p] x/(x**2+s2*x+p)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>[p] 1/(x**2+p)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>[p] 1/(x**3+s2*p)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>[p] 1/((x-p)(x+s2))", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>(t) 1/(x**2+s2*t)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>(t) x/(x**2+s2*x+t)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>(t) 1/(x**3+t*x+s2)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>(t) 1/((x-t)(x+s2))", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}
+{"case": "logpart QQ<s2>(t) (x+1)/(x**2+t*x+s2)", "result": null, "value": null, "error": "NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented", "seconds": null}

@@ -11,12 +11,12 @@
 //! factorization, square-free decomposition) follow the reference dense
 //! algorithms over the composite domain on a flattened `QQ<I>` polynomial
 //! in the generators followed by the symbols.
-use super::algebraic::{AlgebraicPoly, AlgebraicScope, AN};
+use super::algebraic::{AlgebraicPoly, AlgebraicScope, NumberField, AN};
 use super::convert::{PResult, PolyError};
 use super::domains::ExactDomain;
 use super::expression_domain::ExpressionPoly;
 use super::gaussian as gi;
-use super::int::{Field, Rat};
+use super::int::{Coeff, Field, Rat};
 use super::mpoly::MPoly;
 use crate::expr::Expr;
 use std::collections::BTreeMap;
@@ -34,6 +34,9 @@ pub struct GaussianGround {
     /// `RealField(p)`/`ComplexField(p)` in place of the Gaussian ground
     /// (`integral` is then false).
     pub inexact: Option<super::inexact_ground::Inexact>,
+    /// An algebraic field `QQ<a>` in place of the Gaussian ground
+    /// (`integral` is then false): `QQ<a>[y...]` and `QQ<a>(y...)`.
+    pub algebraic: Option<Arc<NumberField>>,
 }
 
 fn scope() -> AlgebraicScope {
@@ -94,6 +97,44 @@ fn exact(a: &P, b: &P) -> PResult<P> {
     super::algebraic_multi::exact(a, b)
 }
 
+/// `PolyElement.cofactors` over `QQ<a>`: the zero and monomial shortcuts
+/// (`QQ<a>.gcd` is one, `is_nonnegative` the sign of the leading
+/// coordinate), otherwise the monic `dmp_inner_gcd` over the field.
+fn algebraic_cofactors(f: &P, g: &P) -> PResult<(P, P, P)> {
+    let n = f.nvars;
+    let (zero, one) = (MPoly::zero(n), MPoly::one(n));
+    let zero_gcd = |g: &P| if g.lc().is_negative() { (g.neg(), zero.clone(), one.neg()) } else { (g.clone(), zero.clone(), one.clone()) };
+    if f.is_zero() && g.is_zero() {
+        return Ok((zero.clone(), zero.clone(), zero));
+    }
+    if f.is_zero() {
+        return Ok(zero_gcd(g));
+    }
+    if g.is_zero() {
+        let (h, cfg, cff) = zero_gcd(f);
+        return Ok((h, cff, cfg));
+    }
+    let monom = |f: &P, g: &P| -> PResult<(P, P, P)> {
+        let mut mgcd = f.lm().to_vec();
+        for (e, _) in g.iter() {
+            for (x, &y) in mgcd.iter_mut().zip(e) {
+                *x = (*x).min(y);
+            }
+        }
+        let h = MPoly::monomial(&mgcd, AN::one());
+        Ok((h.clone(), exact(f, &h)?, exact(g, &h)?))
+    };
+    if f.len() == 1 {
+        return monom(f, g);
+    }
+    if g.len() == 1 {
+        let (h, cfg, cff) = monom(g, f)?;
+        return Ok((h, cff, cfg));
+    }
+    let h = field_poly_gcd(f, g)?;
+    Ok((h.clone(), exact(f, &h)?, exact(g, &h)?))
+}
+
 /// Drop the first `k` variables of a polynomial that does not involve them.
 fn drop_vars(p: &P, k: usize) -> P {
     MPoly::from_terms(p.nvars - k, p.iter().map(|(e, c)| (e[k..].to_vec(), c.clone())).collect())
@@ -142,7 +183,10 @@ impl GaussianGround {
         let ground = match self.inexact {
             Some(k) if k.precision == 53 && !k.complex => ExactDomain::RR,
             Some(k) => ExactDomain::Inexact { precision: k.precision, complex: k.complex },
-            None => ExactDomain::Gaussian { integral: self.integral },
+            None => match &self.algebraic {
+                Some(k) => ExactDomain::Algebraic(k.clone()),
+                None => ExactDomain::Gaussian { integral: self.integral },
+            },
         };
         if self.symbols.is_empty() {
             // the plain inexact field `CC` (or `ComplexField(prec)`)
@@ -167,7 +211,7 @@ impl GaussianGround {
     /// The plain field `ComplexField(precision)` as a ground without
     /// symbols.
     pub fn complex_field(precision: u32) -> Self {
-        Self { integral: false, ring: true, symbols: Vec::new(), inexact: Some(super::inexact_ground::Inexact { precision, complex: true }) }
+        Self { integral: false, ring: true, symbols: Vec::new(), inexact: Some(super::inexact_ground::Inexact { precision, complex: true }), algebraic: None }
     }
     /// Whether this is the plain field `CC` (no domain symbols).
     pub fn is_scalar(&self) -> bool {
@@ -184,10 +228,186 @@ impl GaussianGround {
             _ => None,
         };
         if let Some(k) = inexact {
-            return Some(Self { integral: false, ring: *ring, symbols: parameters.clone(), inexact: Some(k) });
+            return Some(Self { integral: false, ring: *ring, symbols: parameters.clone(), inexact: Some(k), algebraic: None });
+        }
+        if let ExactDomain::Algebraic(k) = ground.as_ref() {
+            if gi::is_gaussian_field(k) {
+                return None;
+            }
+            return Some(Self { integral: false, ring: *ring, symbols: parameters.clone(), inexact: None, algebraic: Some(k.clone()) });
         }
         let ExactDomain::Gaussian { integral } = ground.as_ref() else { return None };
-        Some(Self { integral: *integral, ring: *ring, symbols: parameters.clone(), inexact: None })
+        Some(Self { integral: *integral, ring: *ring, symbols: parameters.clone(), inexact: None, algebraic: None })
+    }
+    /// The coefficient field: `QQ<I>` for the Gaussian grounds.
+    pub fn field(&self) -> Arc<NumberField> {
+        self.algebraic.clone().unwrap_or_else(gi::field)
+    }
+    pub(crate) fn scope(&self) -> AlgebraicScope {
+        AlgebraicScope::new(self.field())
+    }
+    /// `e` as a polynomial in the symbols over the coefficient field.
+    fn parse(&self, e: &Expr) -> PResult<P> {
+        match &self.algebraic {
+            None => gaussian_poly(e, &self.symbols),
+            Some(k) => Ok(AlgebraicPoly::from_expr(e, &self.symbols, k.clone())?.rep),
+        }
+    }
+    /// `K.canonical_unit`: a unit of the Gaussian ground, or the sign of
+    /// the leading coordinate (`AlgebraicField.is_negative`).
+    fn unit(&self, a: &AN) -> AN {
+        if self.algebraic.is_some() {
+            if a.is_negative() { AN::one().neg() } else { AN::one() }
+        } else {
+            gi::canonical_unit(a)
+        }
+    }
+    /// `PolyElement.cancel` of two ground ring elements followed by the
+    /// canonical unit of the denominator, as `FracElement.new` does.
+    pub fn cancel_pair(&self, f: &P, g: &P) -> PResult<(P, P)> {
+        if self.algebraic.is_none() {
+            return gi::expr_cancel(f, g);
+        }
+        if g.is_zero() {
+            return Err(PolyError::Reference { kind: "ZeroDivisionError", message: String::new() });
+        }
+        let _s = self.scope();
+        if f.is_zero() {
+            return Ok((f.clone(), MPoly::one(f.nvars)));
+        }
+        // QQ<a> has no associated ring: `_, p, q = f.cofactors(g)`.
+        let (_, p, q) = algebraic_cofactors(f, g)?;
+        if q.lc().is_negative() {
+            Ok((p.neg(), q.neg()))
+        } else {
+            Ok((p, q))
+        }
+    }
+    /// `FracField.from_expr` over `QQ<a>`: the reference `_rebuild_expr`,
+    /// whose `FracElement` operations cancel at each step (and whose
+    /// powers do not), so the stored numerator and denominator are those of
+    /// the reference element.
+    fn rebuild(&self, e: &Expr) -> PResult<(P, P)> {
+        let m = self.m();
+        let k = self.algebraic.clone().expect("algebraic ground");
+        #[derive(Clone)]
+        enum R {
+            Ground(AN),
+            Frac(P, P),
+        }
+        let frac = |r: R| -> (P, P) {
+            match r {
+                R::Ground(c) => (MPoly::constant(c, m), MPoly::one(m)),
+                R::Frac(p, q) => (p, q),
+            }
+        };
+        fn walk(g: &GaussianGround, e: &Expr, k: &Arc<NumberField>, m: usize) -> PResult<R> {
+            if let Some(i) = g.symbols.iter().position(|s| s == e) {
+                let mut x = vec![0u32; m];
+                x[i] = 1;
+                return Ok(R::Frac(MPoly::monomial(&x, AN::one()), MPoly::one(m)));
+            }
+            let as_frac = |r: R| -> (P, P) {
+                match r {
+                    R::Ground(c) => (MPoly::constant(c, m), MPoly::one(m)),
+                    R::Frac(p, q) => (p, q),
+                }
+            };
+            if e.is_add() || e.is_mul() {
+                let add = e.is_add();
+                let mut acc: Option<R> = None;
+                for a in e.args() {
+                    let b = walk(g, &a, k, m)?;
+                    acc = Some(match acc {
+                        None => b,
+                        Some(R::Ground(x)) if matches!(b, R::Ground(_)) => {
+                            let R::Ground(y) = b else { unreachable!() };
+                            R::Ground(if add { x.add(&y) } else { x.mul(&y) })
+                        }
+                        Some(R::Frac(p, q)) if matches!(b, R::Frac(..)) => {
+                            let R::Frac(c, d) = b else { unreachable!() };
+                            if add {
+                                // FracElement.__add__: zero operands are
+                                // returned as they are.
+                                if c.is_zero() {
+                                    R::Frac(p, q)
+                                } else if p.is_zero() {
+                                    R::Frac(c, d)
+                                } else if q == d {
+                                    let (x, y) = g.cancel_pair(&p.add(&c), &q)?;
+                                    R::Frac(x, y)
+                                } else {
+                                    let (x, y) = g.cancel_pair(&p.mul(&d).add(&q.mul(&c)), &q.mul(&d))?;
+                                    R::Frac(x, y)
+                                }
+                            } else if p.is_zero() || c.is_zero() {
+                                R::Frac(MPoly::zero(m), MPoly::one(m))
+                            } else {
+                                let (x, y) = g.cancel_pair(&p.mul(&c), &q.mul(&d))?;
+                                R::Frac(x, y)
+                            }
+                        }
+                        Some(other) => {
+                            // a ground element with a fraction, in either
+                            // order: `FracElement.__radd__`/`__rmul__`.
+                            let (c, (p, q)) = match (other, b) {
+                                (R::Ground(c), f) | (f, R::Ground(c)) => (c, as_frac(f)),
+                                _ => unreachable!(),
+                            };
+                            if !add && (p.is_zero() || c.is_zero()) {
+                                R::Frac(MPoly::zero(m), MPoly::one(m))
+                            } else {
+                                let numer = if add { p.add(&q.scale(&c)) } else { p.scale(&c) };
+                                let (x, y) = g.cancel_pair(&numer, &q)?;
+                                R::Frac(x, y)
+                            }
+                        }
+                    });
+                }
+                return acc.ok_or_else(|| g.coercion(e));
+            }
+            if e.is_pow() {
+                let args = e.args();
+                if let Some(n) = args[1].as_i64().filter(|n| *n != 1) {
+                    let n32 = u32::try_from(n.unsigned_abs()).map_err(|_| g.coercion(e))?;
+                    return Ok(match walk(g, &args[0], k, m)? {
+                        R::Ground(c) => {
+                            if c.is_zero() && n < 0 {
+                                return Err(g.coercion(e));
+                            }
+                            R::Ground(c.pow(n))
+                        }
+                        R::Frac(p, q) => {
+                            // FracElement.__pow__: raw_new, no cancellation
+                            if n >= 0 {
+                                R::Frac(p.pow(n32), q.pow(n32))
+                            } else if p.is_zero() {
+                                return Err(PolyError::Reference { kind: "ZeroDivisionError", message: String::new() });
+                            } else {
+                                R::Frac(q.pow(n32), p.pow(n32))
+                            }
+                        }
+                    });
+                }
+            }
+            let inverse = crate::ops::div(&Expr::one(), e);
+            if let Some(i) = g.symbols.iter().position(|s| *s == inverse) {
+                let mut x = vec![0u32; m];
+                x[i] = 1;
+                return Ok(R::Frac(MPoly::one(m), MPoly::monomial(&x, AN::one())));
+            }
+            if !crate::traverse::free_symbols(e).is_empty() {
+                return Err(g.coercion(e));
+            }
+            AN::from_expr(e, k.clone()).map(R::Ground).map_err(|_| g.coercion(e))
+        }
+        let _s = self.scope();
+        let r = walk(self, e, &k, m)?;
+        Ok(match r {
+            // FracField.field_new of a ground element: `new(c)`
+            R::Ground(c) => self.cancel_pair(&MPoly::constant(c, m), &MPoly::one(m))?,
+            r => frac(r),
+        })
     }
     fn m(&self) -> usize {
         self.symbols.len()
@@ -205,11 +425,14 @@ impl GaussianGround {
     /// The normal form `(p, q)` of the ground element `e`; `q` is one for a
     /// polynomial ring.
     pub fn element(&self, e: &Expr) -> PResult<(P, P)> {
-        let _s = scope();
+        if self.algebraic.is_some() && !self.ring {
+            return self.rebuild(e);
+        }
+        let _s = self.scope();
         let m = self.m();
         let (n, d) = super::api::as_numer_denom(e);
-        let num = gaussian_poly(&n, &self.symbols).map_err(|_| self.coercion(e))?;
-        let den = gaussian_poly(&d, &self.symbols).map_err(|_| self.coercion(e))?;
+        let num = self.parse(&n).map_err(|_| self.coercion(e))?;
+        let den = self.parse(&d).map_err(|_| self.coercion(e))?;
         if den.is_zero() {
             return Err(self.coercion(e));
         }
@@ -217,7 +440,7 @@ impl GaussianGround {
             return Ok((MPoly::zero(m), MPoly::one(m)));
         }
         if self.ring {
-            let (p, q) = if den.is_constant() { (num, den) } else { gi::expr_cancel(&num, &den)? };
+            let (p, q) = if den.is_constant() { (num, den) } else { self.cancel_pair(&num, &den)? };
             if !q.is_constant() {
                 return Err(self.coercion(e));
             }
@@ -230,22 +453,26 @@ impl GaussianGround {
         gi::expr_cancel(&num, &den)
     }
     fn poly_expr(&self, p: &P) -> Expr {
-        AlgebraicPoly { rep: p.clone(), gens: self.symbols.clone(), number_field: gi::field(), gaussian: Some(false) }.as_expr()
+        let gaussian = if self.algebraic.is_some() { None } else { Some(false) };
+        AlgebraicPoly { rep: p.clone(), gens: self.symbols.clone(), number_field: self.field(), gaussian }.as_expr()
     }
     pub fn element_expr(&self, p: &P, q: &P) -> Expr {
+        let _algebraic_scope = self.scope();
         if q.is_one() {
             self.poly_expr(p)
         } else {
             crate::ops::div(&self.poly_expr(p), &self.poly_expr(q))
         }
     }
-    fn reduce(&self, e: &Expr) -> PResult<Expr> {
+    pub(crate) fn reduce(&self, e: &Expr) -> PResult<Expr> {
+        let _algebraic_scope = self.scope();
         let (p, q) = self.element(e)?;
         Ok(self.element_expr(&p, &q))
     }
     /// Convert every coefficient of `p` into this ground, failing with the
     /// reference `CoercionFailed`.
     pub fn convert_poly(&self, p: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::convert_poly(self, p);
         }
@@ -261,6 +488,7 @@ impl GaussianGround {
         Ok(out)
     }
     pub fn convert_expr(&self, e: &Expr, gens: &[Expr]) -> PResult<ExpressionPoly> {
+        let _algebraic_scope = self.scope();
         let p = ExpressionPoly::from_expr(e, gens)?;
         self.convert_poly(&p)
     }
@@ -272,14 +500,15 @@ impl GaussianGround {
     /// `(num, den)`: `p = num/den` with `num` over the generators followed
     /// by the symbols and `den` the lcm of the coefficient denominators.
     pub fn flatten(&self, p: &ExpressionPoly) -> PResult<(P, P)> {
-        let _s = scope();
+        let _algebraic_scope = self.scope();
+        let _s = self.scope();
         let (k, m) = (p.gens.len(), self.m());
         let mut elements = Vec::new();
         let mut den = MPoly::one(m);
         for (mono, c) in p.terms() {
             let (a, b) = self.element(&c)?;
             if !b.is_one() {
-                den = gi::ring_lcm(&den, &b)?;
+                den = if self.algebraic.is_some() { self.to_ring().elcm(&den, &b)? } else { gi::ring_lcm(&den, &b)? };
             }
             elements.push((mono, a, b));
         }
@@ -296,6 +525,7 @@ impl GaussianGround {
     }
     /// Inverse of [`flatten`].
     pub fn eject(&self, num: &P, den: &P, gens: &[Expr]) -> PResult<ExpressionPoly> {
+        let _algebraic_scope = self.scope();
         let (k, m) = (gens.len(), self.m());
         let mut groups: BTreeMap<Vec<u32>, Vec<(Vec<u32>, AN)>> = BTreeMap::new();
         for (e, c) in num.iter() {
@@ -314,7 +544,10 @@ impl GaussianGround {
 
     /// The ground domain gcd `ZZ_I.gcd`/`QQ_I.gcd`.
     fn scalar_gcd(&self, a: &AN, b: &AN) -> AN {
-        if self.integral {
+        if self.algebraic.is_some() {
+            // `Field.gcd` without an associated ring
+            AN::one()
+        } else if self.integral {
             gi::gcd(a, b)
         } else {
             gi::field_gcd(a, b)
@@ -323,11 +556,14 @@ impl GaussianGround {
     /// `PolyElement.gcd` in `ZZ_I[y...]`/`QQ_I[y...]`. Gaussian elements are
     /// never nonnegative, so `gcd(0, g) = -g`.
     fn egcd(&self, a: &P, b: &P) -> PResult<P> {
+        // `_gcd_zero`: `g` when `g.is_nonnegative`, which over `QQ<a>` is
+        // the sign of the leading coordinate of the leading coefficient.
+        let signed = |g: &P| if self.algebraic.is_some() && !g.is_zero() && !g.lc().is_negative() { g.clone() } else { g.neg() };
         if a.is_zero() {
-            return Ok(b.neg());
+            return Ok(signed(b));
         }
         if b.is_zero() {
-            return Ok(a.neg());
+            return Ok(signed(a));
         }
         if a.len() == 1 || b.len() == 1 {
             let (mono, single, other) = if a.len() == 1 { (a.lm().to_vec(), a, b) } else { (b.lm().to_vec(), b, a) };
@@ -404,7 +640,9 @@ impl GaussianGround {
     /// A gcd of two flattened polynomials over `ZZ_I`, defined up to a
     /// ground factor.
     fn flat_gcd(&self, f: &P, g: &P) -> PResult<P> {
-        if self.integral {
+        if self.algebraic.is_some() {
+            field_poly_gcd(f, g)
+        } else if self.integral {
             Ok(gi::cofactors(f, g)?.0)
         } else {
             let (df, f) = gi::clear_denoms(f);
@@ -418,6 +656,11 @@ impl GaussianGround {
     }
     /// `dup_rr_prs_gcd`/`dmp_rr_prs_gcd` over the ring ground.
     fn ring_gcd(&self, f: &P, g: &P, k: usize) -> PResult<P> {
+        if self.algebraic.is_some() {
+            // `dmp_inner_gcd` over `QQ<a>[y...]`, which is neither `ZZ` nor
+            // a field: the subresultant gcd with its own content scaling.
+            return Ok(super::rr_prs_gcd::ground_inner_gcd(f, g, k)?.0);
+        }
         if f.is_zero() {
             return Ok(g.neg());
         }
@@ -444,7 +687,7 @@ impl GaussianGround {
         let (gc, gg) = self.ring_primitive(g, k)?;
         let c = self.elcm(&fc, &gc)?;
         let h = exact(&ff.mul(&gg), &self.ring_gcd(&ff, &gg, k)?)?;
-        let c = if k == 1 { c.scale(&gi::canonical_unit(&lc_ground(&h, k).lc())) } else { c };
+        let c = if k == 1 { c.scale(&self.unit(&lc_ground(&h, k).lc())) } else { c };
         Ok(h.mul(&lift(&c, k)))
     }
 
@@ -459,20 +702,48 @@ impl GaussianGround {
     }
     /// `dmp_ground_monic` through `EX`, renormalized in the fraction field.
     pub fn monic(&self, p: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::monic(&self.marked(p));
         }
         let field = self.to_field();
+        if self.algebraic.is_some() {
+            return field.algebraic_monic(p);
+        }
         field.convert_poly(&p.monic()?)
     }
+    /// `dmp_ground_monic` over `QQ<a>(y...)` (after `to_field`): every
+    /// coefficient is the `FracElement` quotient `c/lc`, that is
+    /// `cancel(c.numer*lc.denom, c.denom*lc.numer)`, kept as that pair
+    /// rather than renormalized from its expression.
+    fn algebraic_monic(&self, p: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        let _algebraic_scope = self.scope();
+        if p.is_zero() {
+            return Ok(self.marked(p));
+        }
+        let (ln, ld) = self.element(&p.lc())?;
+        if ln.is_one() && ld.is_one() {
+            return self.convert_poly(p);
+        }
+        let mut terms = Vec::new();
+        for (m, c) in p.terms() {
+            let (cn, cd) = self.element(&c)?;
+            let (a, b) = self.cancel_pair(&cn.mul(&ld), &cd.mul(&ln))?;
+            terms.push((m, self.element_expr(&a, &b)));
+        }
+        let mut out = ExpressionPoly::from_terms(terms, &p.gens)?;
+        out.ground = Some(self.clone());
+        Ok(out)
+    }
     pub fn gcd(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::gcd(&self.marked(f), &self.marked(g));
         }
         let k = f.gens.len();
         let (nf, _) = self.flatten(f)?;
         let (ng, _) = self.flatten(g)?;
-        let _s = scope();
+        let _s = self.scope();
         let one = MPoly::one(self.m());
         if self.ring {
             return self.eject(&self.ring_gcd(&nf, &ng, k)?, &one, &f.gens);
@@ -490,13 +761,14 @@ impl GaussianGround {
         self.monic(&self.eject(&h, &one, &f.gens)?)
     }
     pub fn lcm(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::lcm(&self.marked(f), &self.marked(g));
         }
         let k = f.gens.len();
         let (nf, _) = self.flatten(f)?;
         let (ng, _) = self.flatten(g)?;
-        let _s = scope();
+        let _s = self.scope();
         let one = MPoly::one(self.m());
         if self.ring {
             return self.eject(&self.ring_lcm(&nf, &ng, k)?, &one, &f.gens);
@@ -508,6 +780,7 @@ impl GaussianGround {
         self.monic(&self.eject(&h, &one, &f.gens)?)
     }
     pub fn cofactors(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(ExpressionPoly, ExpressionPoly, ExpressionPoly)> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::cofactors(&self.marked(f), &self.marked(g));
         }
@@ -521,6 +794,7 @@ impl GaussianGround {
     }
     /// `dmp_ground_content` over the ground domain, as an expression.
     pub fn content(&self, p: &ExpressionPoly) -> PResult<Expr> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::content(&self.marked(p));
         }
@@ -528,10 +802,10 @@ impl GaussianGround {
         let m = self.m();
         if self.ring {
             let (n, _) = self.flatten(p)?;
-            let _s = scope();
+            let _s = self.scope();
             return Ok(self.element_expr(&self.ring_content(&n, k)?, &MPoly::one(m)));
         }
-        let _s = scope();
+        let _s = self.scope();
         let (c, d) = self.field_content(p)?;
         Ok(self.element_expr(&c, &d))
     }
@@ -551,8 +825,13 @@ impl GaussianGround {
             };
             let num = ring.egcd(&cont.0, &a)?;
             let den = ring.elcm(&cont.1, &b)?;
-            let e = self.element_expr(&num, &den);
-            cont = self.element(&e)?;
+            cont = if self.algebraic.is_some() {
+                // `self.convert(p, ring)/q`: `FracElement.new(p, q)`
+                self.cancel_pair(&num, &den)?
+            } else {
+                let e = self.element_expr(&num, &den);
+                self.element(&e)?
+            };
             if cont.0.is_one() && cont.1.is_one() {
                 break;
             }
@@ -560,6 +839,7 @@ impl GaussianGround {
         Ok(cont)
     }
     pub fn primitive(&self, p: &ExpressionPoly) -> PResult<(Expr, ExpressionPoly)> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::primitive(&self.marked(p));
         }
@@ -572,6 +852,7 @@ impl GaussianGround {
     }
     /// `Poly.clear_denoms()`.
     pub fn clear_denoms(&self, p: &ExpressionPoly) -> PResult<(Expr, ExpressionPoly)> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::clear_denoms(&self.marked(p));
         }
@@ -580,7 +861,7 @@ impl GaussianGround {
         }
         let m = self.m();
         let ring = self.to_ring();
-        let _s = scope();
+        let _s = self.scope();
         let mut common = MPoly::one(m);
         for (_, c) in p.terms() {
             let (_, d) = self.element(&c)?;
@@ -591,6 +872,7 @@ impl GaussianGround {
     }
     /// `dmp_factor_list` over the composite ground.
     pub fn factor_list(&self, p: &ExpressionPoly) -> PResult<(Expr, Vec<(ExpressionPoly, usize)>)> {
+        let _algebraic_scope = self.scope();
         if self.is_scalar() {
             // `dup_factor_list` raises DomainError over `CC` (its exact
             // domain `QQ_I` has the ring `ZZ_I`, which is neither `ZZ` nor
@@ -606,14 +888,15 @@ impl GaussianGround {
         let k = p.gens.len();
         let m = self.m();
         let (num, den) = self.flatten(p)?;
-        let _s = scope();
+        let _s = self.scope();
         let one = MPoly::one(m);
         if num.is_zero() {
             return Ok((Expr::zero(), Vec::new()));
         }
         let mut all_gens = p.gens.clone();
         all_gens.extend(self.symbols.iter().cloned());
-        let flat = AlgebraicPoly { rep: num.clone(), gens: all_gens, number_field: gi::field(), gaussian: Some(self.integral) };
+        let gaussian = if self.algebraic.is_some() { None } else { Some(self.integral) };
+        let flat = AlgebraicPoly { rep: num.clone(), gens: all_gens, number_field: self.field(), gaussian };
         let (_, factors) = flat.factor_list()?;
         let mut out: Vec<(P, u32)> = Vec::new();
         for (f, i) in factors {
@@ -634,7 +917,7 @@ impl GaussianGround {
             let e = self.element_expr(&lc_num, &den.mul(&lead));
             self.reduce(&e)?
         };
-        sort_nested(&mut out, k);
+        sort_nested(&mut out, k, self.algebraic.is_some());
         let factors = out
             .into_iter()
             .map(|(f, i)| Ok((self.eject(&f, &one, &p.gens)?, i as usize)))
@@ -643,6 +926,7 @@ impl GaussianGround {
     }
     /// `dup_sqf_list` over the composite ground.
     pub fn sqf_list(&self, p: &ExpressionPoly, all: bool) -> PResult<(Expr, Vec<(ExpressionPoly, usize)>)> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::sqf_list(&self.marked(p), all);
         }
@@ -720,8 +1004,12 @@ impl GaussianGround {
     }
     /// `dmp_cancel(include=False)`: `(cp, cq, p, q)` with `f/g = cp/cq * p/q`.
     pub fn cancel(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(Expr, Expr, ExpressionPoly, ExpressionPoly)> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::cancel(&self.marked(f), &self.marked(g));
+        }
+        if self.algebraic.is_some() {
+            return self.algebraic_cancel(f, g);
         }
         if self.ring {
             let (_, p, q) = self.cofactors(f, g)?;
@@ -731,7 +1019,7 @@ impl GaussianGround {
         let (cq, f1) = self.clear_denoms(f)?;
         let (cp, g1) = self.clear_denoms(g)?;
         let (_, p, q) = ring.cofactors(&ring.convert_poly(&f1)?, &ring.convert_poly(&g1)?)?;
-        let _s = scope();
+        let _s = self.scope();
         let (a, _) = ring.element(&cp)?;
         let (b, _) = ring.element(&cq)?;
         let h = ring.egcd(&a, &b)?;
@@ -743,8 +1031,54 @@ impl GaussianGround {
         };
         Ok((self.element_expr(&cp, &one), self.element_expr(&cq, &one), self.convert_poly(&p)?, self.convert_poly(&q)?))
     }
+    /// `dmp_cancel(include=False)` over `QQ<a>[y...]` or `QQ<a>(y...)`,
+    /// with the reference sign normalization of both sides.
+    fn algebraic_cancel(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(Expr, Expr, ExpressionPoly, ExpressionPoly)> {
+        let m = self.m();
+        let _scope = self.scope();
+        let one = MPoly::one(m);
+        let (cq, f1, cp, g1) = if self.ring {
+            (one.clone(), f.clone(), one.clone(), g.clone())
+        } else {
+            let ring = self.to_ring();
+            let (cq, f1) = self.clear_denoms(f)?;
+            let (cp, g1) = self.clear_denoms(g)?;
+            let _s = self.scope();
+            (ring.element(&cq)?.0, ring.convert_poly(&f1)?, ring.element(&cp)?.0, ring.convert_poly(&g1)?)
+        };
+        let ring = self.to_ring();
+        let k = f.gens.len();
+        let (nf, _) = ring.flatten(&f1)?;
+        let (ng, _) = ring.flatten(&g1)?;
+        let _s = self.scope();
+        let (_, mut p, mut q) = super::rr_prs_gcd::ground_inner_gcd(&nf, &ng, k)?;
+        let (mut cp, cq) = if self.ring {
+            (cp, cq)
+        } else {
+            let (_, a, b) = algebraic_cofactors(&cp, &cq)?;
+            (a, b)
+        };
+        // K.is_negative(dmp_ground_LC(.)): for a fraction field the sign of
+        // the numerator's leading coefficient.
+        let negative = |h: &P| !h.is_zero() && h.lc().is_negative();
+        let (p_neg, q_neg) = (negative(&p), negative(&q));
+        if p_neg && q_neg {
+            p = p.neg();
+            q = q.neg();
+        } else if p_neg {
+            cp = cp.neg();
+            p = p.neg();
+        } else if q_neg {
+            cp = cp.neg();
+            q = q.neg();
+        }
+        let p = self.eject(&p, &one, &f.gens)?;
+        let q = self.eject(&q, &one, &f.gens)?;
+        Ok((self.element_expr(&cp, &one), self.element_expr(&cq, &one), p, q))
+    }
     /// `dup_sqf_part`/`dmp_sqf_part`.
     pub fn sqf_part(&self, p: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        let _algebraic_scope = self.scope();
         if self.inexact.is_some() {
             return super::inexact_ground::sqf_part(&self.marked(p));
         }
@@ -788,8 +1122,10 @@ fn dense_monomials(p: &ExpressionPoly) -> Vec<Vec<u32>> {
 
 /// `PolyElement.sort_key` of a ground element: the number of terms, then
 /// the terms in decreasing monomial order with the Gaussian order `[y, x]`.
-fn element_sort_key(p: &P) -> (usize, Vec<(Vec<u32>, Vec<Rat>)>) {
-    (p.len(), p.iter().map(|(e, c)| (e.to_vec(), gi::element_key(c))).collect())
+fn element_sort_key(p: &P, algebraic: bool) -> (usize, Vec<(Vec<u32>, Vec<Rat>)>) {
+    // an `ANP` compares by its coordinate list, leading first
+    let key = |c: &AN| if algebraic { c.coefficients.iter().rev().cloned().collect() } else { gi::element_key(c) };
+    (p.len(), p.iter().map(|(e, c)| (e.to_vec(), key(c))).collect())
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -798,16 +1134,16 @@ enum NestedKey {
     Node(Vec<NestedKey>),
 }
 
-fn nested_key(p: &P, k: usize) -> NestedKey {
+fn nested_key(p: &P, k: usize, algebraic: bool) -> NestedKey {
     if k == 0 {
-        return NestedKey::Leaf(element_sort_key(p));
+        return NestedKey::Leaf(element_sort_key(p, algebraic));
     }
-    NestedKey::Node(dense(p).iter().map(|c| nested_key(&drop_vars(c, 1), k - 1)).collect())
+    NestedKey::Node(dense(p).iter().map(|c| nested_key(&drop_vars(c, 1), k - 1, algebraic)).collect())
 }
 
 /// The reference `_sort_factors(multiple=True)` over a composite ground.
-fn sort_nested(factors: &mut [(P, u32)], k: usize) {
-    factors.sort_by_cached_key(|(p, i)| (dense(p).len(), *i, nested_key(p, k)));
+fn sort_nested(factors: &mut [(P, u32)], k: usize, algebraic: bool) {
+    factors.sort_by_cached_key(|(p, i)| (dense(p).len(), *i, nested_key(p, k, algebraic)));
 }
 
 /// Normalize a marked `EX` polynomial in its ground, falling back to the
@@ -836,20 +1172,26 @@ pub struct Descriptor {
     pub symbols: Vec<Expr>,
     /// An inexact ground (`RR`/`CC` at some precision).
     pub inexact: Option<super::inexact_ground::Inexact>,
+    /// An algebraic field ground `QQ<a>` (`gaussian` is then false).
+    pub algebraic: Option<Arc<NumberField>>,
 }
 
 pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
     if let Some(e) = &p.expression {
         return e.ground.as_ref().map(|g| Descriptor {
-            gaussian: g.inexact.is_none(),
+            gaussian: g.inexact.is_none() && g.algebraic.is_none(),
             integral: g.integral,
             ring: g.ring,
             symbols: g.symbols.clone(),
             inexact: g.inexact,
+            algebraic: g.algebraic.clone(),
         });
     }
     if let Some(a) = &p.algebraic {
-        return a.gaussian.map(|integral| Descriptor { gaussian: true, integral, ring: true, symbols: Vec::new(), inexact: None });
+        return Some(match a.gaussian {
+            Some(integral) => Descriptor { gaussian: true, integral, ring: true, symbols: Vec::new(), inexact: None, algebraic: None },
+            None => Descriptor { gaussian: false, integral: false, ring: true, symbols: Vec::new(), inexact: None, algebraic: Some(a.number_field.clone()) },
+        });
     }
     if p.modulus.is_some() {
         return None;
@@ -857,16 +1199,17 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
     if let Some(f) = &p.field {
         return match &f.coefficient_domain {
             ExactDomain::Functions { integral, ring, parameters, .. } => {
-                Some(Descriptor { gaussian: false, integral: *integral, ring: *ring, symbols: parameters.clone(), inexact: None })
+                Some(Descriptor { gaussian: false, integral: *integral, ring: *ring, symbols: parameters.clone(), inexact: None, algebraic: None })
             }
-            ExactDomain::ZZ => Some(Descriptor { gaussian: false, integral: true, ring: true, symbols: Vec::new(), inexact: None }),
-            ExactDomain::QQ => Some(Descriptor { gaussian: false, integral: false, ring: true, symbols: Vec::new(), inexact: None }),
+            ExactDomain::ZZ => Some(Descriptor { gaussian: false, integral: true, ring: true, symbols: Vec::new(), inexact: None, algebraic: None }),
+            ExactDomain::QQ => Some(Descriptor { gaussian: false, integral: false, ring: true, symbols: Vec::new(), inexact: None, algebraic: None }),
             ExactDomain::RR => Some(Descriptor {
                 gaussian: false,
                 integral: false,
                 ring: true,
                 symbols: Vec::new(),
                 inexact: Some(super::inexact_ground::Inexact { precision: 53, complex: false }),
+                algebraic: None,
             }),
             ExactDomain::Inexact { precision, complex } => Some(Descriptor {
                 gaussian: false,
@@ -874,6 +1217,7 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
                 ring: true,
                 symbols: Vec::new(),
                 inexact: Some(super::inexact_ground::Inexact { precision: *precision, complex: *complex }),
+                algebraic: None,
             }),
             _ => None,
         };
@@ -891,6 +1235,7 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
                     ring: true,
                     symbols: Vec::new(),
                     inexact: Some(super::inexact_ground::Inexact { precision, complex: true }),
+                    algebraic: None,
                 });
             }
             if symbols.iter().any(|s| *s == Expr::i() || (s.is_number() && s.is_pow())) {
@@ -902,6 +1247,7 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
                 ring: true,
                 symbols,
                 inexact: Some(super::inexact_ground::Inexact { precision, complex: false }),
+                algebraic: None,
             });
         }
     };
@@ -910,11 +1256,13 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
     if symbols.iter().any(|s| *s == Expr::i() || (s.is_number() && s.is_pow())) {
         return None;
     }
-    Some(Descriptor { gaussian: false, integral, ring: true, symbols, inexact: None })
+    Some(Descriptor { gaussian: false, integral, ring: true, symbols, inexact: None, algebraic: None })
 }
 
 fn descriptor_display(d: &Descriptor) -> String {
+    let name = d.algebraic.as_ref().map(|k| k.display());
     let ground = match (d.gaussian, d.integral) {
+        _ if name.is_some() => name.as_deref().unwrap_or_default(),
         _ if d.inexact.is_some_and(|k| k.complex) => "CC",
         _ if d.inexact.is_some() => "RR",
         (true, true) => "ZZ_I",
@@ -936,6 +1284,14 @@ fn descriptor_display(d: &Descriptor) -> String {
 /// The reference `Domain.unify_with_symbols` when one side has a Gaussian
 /// ground: `None` when neither does.
 pub fn unify(a: &Descriptor, b: &Descriptor, gens: &[Expr]) -> PResult<Option<GaussianGround>> {
+    let composite_algebraic = |d: &Descriptor| d.algebraic.is_some() && !d.symbols.is_empty();
+    if composite_algebraic(a) || composite_algebraic(b) {
+        return unify_algebraic(a, b, gens);
+    }
+    if a.algebraic.is_some() || b.algebraic.is_some() {
+        // a bare `QQ<a>` keeps its own unification paths
+        return Ok(None);
+    }
     if !a.gaussian && !b.gaussian && a.inexact.is_none() && b.inexact.is_none() {
         return Ok(None);
     }
@@ -972,9 +1328,55 @@ pub fn unify(a: &Descriptor, b: &Descriptor, gens: &[Expr]) -> PResult<Option<Ga
         let precision = [a, b].iter().filter_map(|d| d.inexact.map(|k| k.precision)).max().unwrap_or(53);
         let complex = [a, b].iter().any(|d| d.gaussian || d.inexact.is_some_and(|k| k.complex));
         let inexact = Some(super::inexact_ground::Inexact { precision, complex });
-        return Ok(Some(GaussianGround { integral: false, ring: !frac, symbols, inexact }));
+        return Ok(Some(GaussianGround { integral: false, ring: !frac, symbols, inexact, algebraic: None }));
     }
-    Ok(Some(GaussianGround { integral, ring: !frac, symbols, inexact: None }))
+    Ok(Some(GaussianGround { integral, ring: !frac, symbols, inexact: None, algebraic: None }))
+}
+
+fn generator_clash(a: &Descriptor, b: &Descriptor, gens: &[Expr]) -> PResult<()> {
+    for d in [a, b] {
+        if d.symbols.iter().any(|s| gens.contains(s)) {
+            let gs: Vec<String> = gens.iter().map(|g| g.to_string()).collect();
+            let tuple = if gs.len() == 1 { format!("({},)", gs[0]) } else { format!("({})", gs.join(", ")) };
+            return Err(PolyError::Reference {
+                kind: "UnificationFailed",
+                message: format!("Cannot unify {} with {}, given {tuple} generators", descriptor_display(a), descriptor_display(b)),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// `unify_with_symbols` when one side is `QQ<a>[y...]` or `QQ<a>(y...)`
+/// and the other any exact or inexact ground or a composite over one: the
+/// symbols are merged, a fraction field on either side gives a fraction
+/// field, and the ground is the reference unification of both grounds.
+fn unify_algebraic(a: &Descriptor, b: &Descriptor, gens: &[Expr]) -> PResult<Option<GaussianGround>> {
+    generator_clash(a, b, gens)?;
+    let symbols = super::polyobj::unify_gens(&a.symbols, &b.symbols);
+    let composite = |d: &Descriptor| !d.symbols.is_empty();
+    let frac = (composite(a) && !a.ring) || (composite(b) && !b.ring);
+    if a.inexact.is_some() || b.inexact.is_some() {
+        // `RealField.unify`/`ComplexField.unify` keep the inexact field: an
+        // algebraic ground contributes nothing, `ZZ_I`/`QQ_I` a complex one.
+        let precision = [a, b].iter().filter_map(|d| d.inexact.map(|k| k.precision)).max().unwrap_or(53);
+        let complex = [a, b].iter().any(|d| d.gaussian || d.inexact.is_some_and(|k| k.complex));
+        let inexact = Some(super::inexact_ground::Inexact { precision, complex });
+        return Ok(Some(GaussianGround { integral: false, ring: !frac, symbols, inexact, algebraic: None }));
+    }
+    // `AlgebraicField.unify` after the reference swap that puts an
+    // algebraic second operand first: the field generated by both original
+    // extensions (`QQ_I` counts as `QQ<I>`), through its primitive element.
+    let i = Expr::i();
+    let field = match (&a.algebraic, &b.algebraic) {
+        (Some(x), Some(y)) if x.same_embedding(y) => x.clone(),
+        (Some(x), Some(y)) => NumberField::from_generators(&[y.generator.clone(), x.generator.clone()])?,
+        (Some(x), None) if b.gaussian => NumberField::from_generators(&[x.generator.clone(), i])?,
+        (None, Some(y)) if a.gaussian => NumberField::from_generators(&[y.generator.clone(), i])?,
+        (Some(x), None) | (None, Some(x)) => x.clone(),
+        (None, None) => return Ok(None),
+    };
+    Ok(Some(GaussianGround { integral: false, ring: !frac, symbols, inexact: None, algebraic: Some(field) }))
 }
 
 /// Whether `e` is an algebraic number in the reference sense of
@@ -1043,5 +1445,5 @@ pub fn infer_coefficients(coefficients: &[Expr], field: bool) -> Option<Gaussian
     } else {
         polys[..k].iter().zip(&polys[k..]).all(|(n, d)| gi::poly_is_integral(&n.scale(&d.lc().inv())))
     };
-    Some(GaussianGround { integral, ring: !fractions, symbols, inexact: None })
+    Some(GaussianGround { integral, ring: !fractions, symbols, inexact: None, algebraic: None })
 }

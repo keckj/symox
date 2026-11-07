@@ -1,0 +1,139 @@
+R str | QQ<sqrt(2)>[t]
+F str | QQ<sqrt(2)>(t)
+R element | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R element repr | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 + ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R element sqrt2/2 | ANP([MPQ(1,2), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t
+R mul | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 - t - ANP([MPQ(-1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R add | ANP([MPQ(1,1), MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R pow | ANP([MPQ(2,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**3 + ANP([MPQ(6,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 + ANP([MPQ(3,1), MPQ(0
+R exquo | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t - ANP([MPQ(-2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R exquo fails | ExactQuotientFailed: t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ) does not divide t in QQ<sqrt(2)>[t]
+R gcd | t + ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R gcd monomial | t
+R lcm | t**2 - ANP([MPQ(-2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R from 1/t fails | ValueError: expected an expression convertible to a polynomial in Polynomial ring in t over QQ<sqrt(2)> with lex order, got 1/t
+R is_negative | True
+F element | t/(ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))
+F element inverse | ANP([MPQ(1,2), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)/t
+F element sqrt2/t | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)/t
+F element scaled | t/(ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))
+F element sum | (ANP([MPQ(1,1), MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))/(t**2 + t)
+F element power | (ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 + ANP([MPQ(2,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1
+F add | (ANP([MPQ(1,1), MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))/(t**2 + t)
+F sub | (t**2 - ANP([MPQ(-1,2), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))/t
+F mul | ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)/ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+F div | t/(ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))
+F div 2 | (ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))/(ANP([MPQ(2,1)], [MPQ(1,1), 
+F div by zero | ZeroDivisionError: 
+F pow | (ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 + ANP([MPQ(2,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1
+F gcd | ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)/t
+F lcm | (t + ANP([MPQ(1,2), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))/t
+F numer denom | (t, ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ))
+F from x fails | ValueError: expected an expression convertible to a rational function in Rational function field in t over QQ<sqrt(2)> with lex order, got x
+F of R element | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t/ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+PR str | Poly(sqrt(2)*t*x**2 + (t + sqrt(2))*x + 2, x, domain='QQ<sqrt(2)>[t]')
+PR domain | QQ<sqrt(2)>[t]
+PR as_expr | sqrt(2)*t*x**2 + x*(t + sqrt(2)) + 2
+PR add | Poly((sqrt(2)*t + 1)*x**2 + (t*(1 + sqrt(2)) - 1 + sqrt(2))*x - sqrt(2)*t + 2, x, domain='QQ<sqrt(2)>[t]')
+PR mul | Poly(sqrt(2)*t*x**4 + (2*t**2 + t*(1 - sqrt(2)) + sqrt(2))*x**3 + (t**2*(-2 + sqrt(2)) + t - sqrt(2) + 2)*x**2 + (-sqrt(2)*t**2 + t*(-2 + 2*sqrt(2)) -
+PR pow | Poly(x**4 + (2*sqrt(2)*t - 2)*x**3 + (2*t**2 - 4*sqrt(2)*t + 1)*x**2 + (-4*t**2 + 2*sqrt(2)*t)*x + 2*t**2, x, domain='QQ<sqrt(2)>[t]')
+PR LC | sqrt(2)*t
+PR diff | Poly(2*sqrt(2)*t*x + t + sqrt(2), x, domain='QQ<sqrt(2)>[t]')
+PR eval | 3*sqrt(2)*t + 4
+PR exquo | Poly(sqrt(2)*t*x**2 + (t + sqrt(2))*x + 2, x, domain='QQ<sqrt(2)>[t]')
+PR div | (Poly(sqrt(2)*t, x, domain='QQ<sqrt(2)>[t]'), Poly((-2*t**2 + t*(1 + sqrt(2)) + sqrt(2))*x + 2*t**2 + 2, x, domain='QQ<sqrt(2)>[t]'))
+PR rem | Poly((sqrt(2)*t**2 + t*(1 + sqrt(2)) + 1)*x + 2*t**3 + t**2*(sqrt(2) + 2) + sqrt(2)*t, x, domain='QQ<sqrt(2)>[t]')
+PR pdiv | (Poly(sqrt(2)*t, x, domain='QQ<sqrt(2)>[t]'), Poly((-2*t**2 + t*(1 + sqrt(2)) + sqrt(2))*x + 2*t**2 + 2, x, domain='QQ<sqrt(2)>[t]'))
+PR prem | Poly((sqrt(2)*t**2 + t*(1 + sqrt(2)) + 1)*x + 2*t**3 + t**2*(sqrt(2) + 2) + sqrt(2)*t, x, domain='QQ<sqrt(2)>[t]')
+PR gcd | Poly(sqrt(2)*x + 2*t, x, domain='QQ<sqrt(2)>[t]')
+PR gcd 2 | Poly(sqrt(2)*x + 2*t, x, domain='QQ<sqrt(2)>[t]')
+PR lcm | Poly(sqrt(2)/2*x**4 + (t*(sqrt(2)/2 + 2) - sqrt(2)/2)*x**3 + (t**2*(sqrt(2) + 2) + t*(-2 - sqrt(2)/2))*x**2 + (sqrt(2)*t**3 + t**2*(-2 - sqrt(2)))*x -
+PR cofactors | (Poly(sqrt(2)*x + 2*t, x, domain='QQ<sqrt(2)>[t]'), Poly(sqrt(2)/2*x**2 + t*(sqrt(2)/2 + 1)*x + t**2, x, domain='QQ<sqrt(2)>[t]'), Poly(sqrt(2)/2*x - 
+PR cancel | (1, Poly(sqrt(2)/2*x**2 + t*(sqrt(2)/2 + 1)*x + t**2, x, domain='QQ<sqrt(2)>[t]'), Poly(sqrt(2)/2*x - sqrt(2)/2, x, domain='QQ<sqrt(2)>[t]'))
+PR cancel signs | (1, Poly(1, x, domain='QQ<sqrt(2)>[t]'), Poly(sqrt(2)/2*x - t, x, domain='QQ<sqrt(2)>[t]'))
+PR content | t
+PR primitive | (t, Poly(2*sqrt(2)*x + 4*t, x, domain='QQ<sqrt(2)>[t]'))
+PR resultant | t**4*(2*sqrt(2) + 4) + t**3*(2 + 3*sqrt(2)) + t**2*(-4*sqrt(2) - 4) - 2*t + 2*sqrt(2) + 4
+PR resultant includePRS | (8*sqrt(2)*t**9 + t**8*(-8*sqrt(2) - 8) + t**7*(-6*sqrt(2) - 8) + t**6*(16*sqrt(2) + 38) + t**5*(-10*sqrt(2) - 8) + t**4*(-20*sqrt(2) - 24) + t**3*(16
+PR discriminant | t**2 - 6*sqrt(2)*t + 2
+PR sqf_list | (1, [(Poly((sqrt(2) + 3/2)*x + t*(sqrt(2) + 3/2), x, domain='QQ<sqrt(2)>[t]'), 1), (Poly(-x - sqrt(2)*t, x, domain='QQ<sqrt(2)>[t]'), 2)])
+PR sqf_part | Poly((-3/2 - sqrt(2))*x**2 + t*(-5*sqrt(2)/2 - 7/2)*x + t**2*(-3*sqrt(2)/2 - 2), x, domain='QQ<sqrt(2)>[t]')
+PR factor_list | (1, [(Poly(x + t, x, domain='QQ<sqrt(2)>[t]'), 1), (Poly(x + sqrt(2)*t, x, domain='QQ<sqrt(2)>[t]'), 2)])
+PR factor_list 2 | (1, [(Poly(x - sqrt(2)*t, x, domain='QQ<sqrt(2)>[t]'), 1), (Poly(x + sqrt(2)*t, x, domain='QQ<sqrt(2)>[t]'), 1)])
+PR to_field | Poly(sqrt(2)*t*x**2 + (t + sqrt(2))*x + 2, x, domain='QQ<sqrt(2)>(t)')
+PR monic fails | Poly(x**2 + (sqrt(2)*t/2 + 1)/t*x + sqrt(2)/t, x, domain='QQ<sqrt(2)>(t)')
+PR clear_denoms | (1, Poly(sqrt(2)*t*x**2 + (t + sqrt(2))*x + 2, x, domain='QQ<sqrt(2)>[t]'))
+PR multivariate gcd | Poly(x + sqrt(2)*t*y, x, y, domain='QQ<sqrt(2)>[t]')
+PR set_domain EX | Poly(sqrt(2)*t*x**2 + (t + sqrt(2))*x + 2, x, domain='EX')
+PF str | Poly(sqrt(2)/(2*t)*x**2 + 1/t*x + 1, x, domain='QQ<sqrt(2)>(t)')
+PF domain | QQ<sqrt(2)>(t)
+PF as_expr | 1 + sqrt(2)*x**2/(2*t) + x/t
+PF add | Poly((t**2 + sqrt(2)/2)/t*x**2 + (t*(-1 + sqrt(2)) + 1)/t*x + (t - sqrt(2))/t, x, domain='QQ<sqrt(2)>(t)')
+PF mul | Poly(sqrt(2)/2*x**4 + (t - sqrt(2)/2 + 1)/t*x**3 + (t**3 + t*(-1 + sqrt(2)) - 1)/t**2*x**2 + (t**2*(-1 + sqrt(2)) - sqrt(2))/t**2*x - sqrt(2)/t, x, do
+PF LC | t
+PF monic | Poly(x**2 + (-1 + sqrt(2))/t*x - sqrt(2)/t**2, x, domain='QQ<sqrt(2)>(t)')
+PF div | (Poly(sqrt(2)/(2*t**2), x, domain='QQ<sqrt(2)>(t)'), Poly((t - 1 + sqrt(2)/2)/t**2*x + (t**3 + 1)/t**3, x, domain='QQ<sqrt(2)>(t)'))
+PF rem | Poly(1/t*x, x, domain='QQ<sqrt(2)>(t)')
+PF exquo | Poly(sqrt(2)/(2*t)*x**2 + 1/t*x + 1, x, domain='QQ<sqrt(2)>(t)')
+PF gcd | Poly(x**2 + (-1 + sqrt(2))/t*x - sqrt(2)/t**2, x, domain='QQ<sqrt(2)>(t)')
+PF lcm | Poly(x**4 + (sqrt(2)*t - 1 + sqrt(2))/t*x**3 + (sqrt(2)*t**3 + t*(2 - sqrt(2)) - sqrt(2))/t**2*x**2 + (t**2*(2 - sqrt(2)) - 2)/t**2*x - 2/t, x, domain
+PF cofactors | (Poly(x**2 + (-1 + sqrt(2))/t*x - sqrt(2)/t**2, x, domain='QQ<sqrt(2)>(t)'), Poly(sqrt(2)/2*x**2 + x + t, x, domain='QQ<sqrt(2)>(t)'), Poly(t, x, doma
+PF cancel | (1/t, Poly(x**2 + sqrt(2)*x + sqrt(2)*t, x, domain='QQ<sqrt(2)>(t)'), Poly(sqrt(2)*x + sqrt(2)*t, x, domain='QQ<sqrt(2)>(t)'))
+PF content | 1/(t**2 + t)
+PF primitive | (1/(t**2 + t), Poly((2*sqrt(2)*t + 2*sqrt(2))*x + 4*t, x, domain='QQ<sqrt(2)>(t)'))
+PF clear_denoms | (t, Poly(sqrt(2)/2*x**2 + x + t, x, domain='QQ<sqrt(2)>(t)'))
+PF resultant | (t**6 + t**4*(1 - sqrt(2)) + 3*sqrt(2)*t**3/2 - sqrt(2)*t**2 + t*(-1 + sqrt(2)) + 1)/t**4
+PF discriminant | 2*sqrt(2) + 3
+PF sqf_list | (t**2, [(Poly(x + t, x, domain='QQ<sqrt(2)>(t)'), 1), (Poly(x**2 + (-1 + sqrt(2))/t*x - sqrt(2)/t**2, x, domain='QQ<sqrt(2)>(t)'), 2)])
+PF factor_list | (1/t, [(Poly(x - sqrt(2)*t, x, domain='QQ<sqrt(2)>(t)'), 1), (Poly(x + sqrt(2)*t, x, domain='QQ<sqrt(2)>(t)'), 1), (Poly(t*x - 1, x, domain='QQ<sqrt(2
+PF to_ring fails | CoercionFailed: Cannot convert sqrt(2)/(2*t) of type <class 'sympy.core.mul.Mul'> to QQ<sqrt(2)>[t]
+PF invert | Poly(-1/(t + 2)*x + sqrt(2)/(t + 2), x, domain='QQ<sqrt(2)>(t)')
+PF gcdex | (Poly(-1/(t + 2)*x + sqrt(2)/(t + 2), x, domain='QQ<sqrt(2)>(t)'), Poly(1/(t + 2), x, domain='QQ<sqrt(2)>(t)'), Poly(1, x, domain='QQ<sqrt(2)>(t)'))
+PF set_domain EX | Poly(sqrt(2)/(2*t)*x**2 + 1/t*x + 1, x, domain='EX')
+construct_domain ext poly | (EX, [EX(sqrt(2)*t), EX(1)])
+construct_domain ext frac | (EX, [EX(sqrt(2)/t), EX(1)])
+construct_domain ext field | (EX, [EX(sqrt(2)*t), EX(1)])
+Poly extension ring | Poly(sqrt(2)*t*x + 1, x, domain='EX')
+Poly extension frac | Poly(sqrt(2)/(2*t)*x + 1, x, domain='EX')
+Poly extension domain | EX
+unify R with ZZ[y] | Poly((t + y)*x, x, domain='QQ<sqrt(2)>[t,y]')
+unify R with QQ | Poly((t + 1/2)*x, x, domain='QQ<sqrt(2)>[t]')
+unify R with A | Poly(sqrt(2)*t*x**2, x, domain='QQ<sqrt(2)>[t]')
+unify R with F | Poly((t**2 + 1)/t*x, x, domain='QQ<sqrt(2)>(t)')
+unify R with ZZ(y) | Poly(t/y*x**2, x, domain='QQ<sqrt(2)>(t,y)')
+unify R generator clash | UnificationFailed: Cannot unify QQ<sqrt(2)>[t] with ZZ, given (x, t) generators
+unify R with QQ<sqrt3> | Poly((t + sqrt(3))*x, x, domain='QQ<sqrt(2) + sqrt(3)>[t]')
+unify R with QQ_I | Poly((t + I/2)*x, x, domain='QQ<sqrt(2) + I>[t]')
+unify F with ZZ_I[y] | Poly(I*y/t*x**2, x, domain='QQ<sqrt(2) + I>(t,y)')
+unify R with RR | Poly((1.0*t + 0.5)*x, x, domain='RR[t]')
+unify F with EX | Poly((sqrt(y) + 1/t)*x, x, domain='EX')
+unify R with QQ<sqrt3>(y) | Poly((t*y + sqrt(3))/y*x, x, domain='QQ<sqrt(2) + sqrt(3)>(t,y)')
+domain unify R F | QQ<sqrt(2)>(t)
+domain unify R ZZ[y] | QQ<sqrt(2)>[t,y]
+cancel extension | sqrt(2)*t + x
+factor extension param | ValueError: coefficient is not in the selected algebraic number field
+gcd extension param | sqrt(2)*t + x
+resultant extension param | t**2 + sqrt(2)*t
+sqf_list extension param | (1, [(x + 1, 1), (sqrt(2)*t + x, 2)])
+factor_list extension param | (1, [(-2*t**2 + x**2, 1)])
+discriminant extension param | 2*t**2 - 4
+EX sqrt2*(1+sqrt2) | EX(sqrt(2)*(1 + sqrt(2)))
+EX (x+1)**2 | EX((x + 1)**2)
+EX add | EX(x + 1/x)
+EX mul numbers | EX(2/3)
+EX mul | EX(x**2 - 1)
+EX div | EX(x - 1)
+EX pow | EX(2*sqrt(2) + 3)
+EX sub zero | EX(-x - 1)
+EX add zero | EX(sqrt(2)*(1 + sqrt(2)))
+EX convert | EX(sqrt(2)*(1 + sqrt(2)))
+logpart QQ<s2>[p] 1/(x**2+s2*p) | [(Poly(x + 2*sqrt(2)*_t*p, x, domain='EX'), Poly(_t**2 + sqrt(2)/(8*p), _t, domain='EX'))]
+logpart QQ<s2>[p] x/(x**2+s2*x+p) | [(Poly(x + _t*(-2*sqrt(2)*p + sqrt(2)) + sqrt(2)*p, x, domain='EX'), Poly(_t**2 - _t + p/(4*p - 2), _t, domain='EX'))]
+logpart QQ<s2>[p] 1/(x**2+p) | [(Poly(x + 2*_t*p, x, domain='ZZ[p,_t]'), Poly(_t**2 + 1/(4*p), _t, domain='EX'))]
+logpart QQ<s2>[p] 1/(x**3+s2*p) | [(Poly(x + 3*sqrt(2)*_t*p, x, domain='EX'), Poly(-54*p**2*_t**3 + 1, _t, domain='EX'))]
+logpart QQ<s2>[p] 1/((x-p)(x+s2)) | [(Poly(x + _t*(-p**2/2 - sqrt(2)*p - 1) - p**3/(2*p**2 + 4*sqrt(2)*p + 4) - sqrt(2)*p**2/(2*p**2 + 4*sqrt(2)*p + 4) + 2*p/(2*p**2 + 4*sqrt(2)*p + 4) +
+logpart QQ<s2>(t) 1/(x**2+s2*t) | [(Poly(x + 2*sqrt(2)*_t*t, x, domain='EX'), Poly(_t**2 + sqrt(2)/(8*t), _t, domain='EX'))]
+logpart QQ<s2>(t) x/(x**2+s2*x+t) | [(Poly(x + _t*(-2*sqrt(2)*t + sqrt(2)) + sqrt(2)*t, x, domain='EX'), Poly(_t**2 - _t + t/(4*t - 2), _t, domain='EX'))]
+logpart QQ<s2>(t) 1/(x**3+t*x+s2) | [(Poly(x + _t**2*(-4*sqrt(2)*t**4/9 - 6*sqrt(2)*t) + _t*(2*sqrt(2)*t**3/9 + 3*sqrt(2)) + 2*sqrt(2)*t**2/9, x, domain='EX'), Poly(_t**3 - 3*t/(4*t**3 +
+logpart QQ<s2>(t) 1/((x-t)(x+s2)) | [(Poly(x + _t*(-t**2/2 - sqrt(2)*t - 1) - t**3/(2*t**2 + 4*sqrt(2)*t + 4) - sqrt(2)*t**2/(2*t**2 + 4*sqrt(2)*t + 4) + 2*t/(2*t**2 + 4*sqrt(2)*t + 4) +
+logpart QQ<s2>(t) (x+1)/(x**2+t*x+s2) | [(Poly(x + _t*(t**2/(t - 2) - 4*sqrt(2)/(t - 2)) - t/(t - 2) + 2*sqrt(2)/(t - 2), x, domain='EX'), Poly(_t**2 - _t + t/(t**2 - 4*sqrt(2)) - sqrt(2)/(t

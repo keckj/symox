@@ -82,13 +82,16 @@ def test_composite_domain_backend_limits_are_explicit():
         ring("x",domain)
     with pytest.raises(NotImplementedError,match="not implemented"):
         field("x",domain)
-    # The reference QQ<sqrt(2)>[x] is a supported nested ring; its fraction
-    # field has no element backend yet and says so.
-    R,x=ring("x",s.QQ.algebraic_field(s.sqrt(2)))
+    # The reference QQ<sqrt(2)>[x] is a supported nested ring, and its
+    # fraction field has a native element backend since wave 44 (algpoly).
+    A=s.QQ.algebraic_field(s.sqrt(2))
+    R,x=ring("x",A)
     assert str(R)=="Polynomial ring in x over QQ<sqrt(2)> with lex order"
     assert str(x**2+x)=="x**2 + x"
-    with pytest.raises(NotImplementedError,match="not implemented"):
-        field("x",s.QQ.algebraic_field(s.sqrt(2)))
+    F,X=field("x",A)
+    assert str(F)=="Rational function field in x over QQ<sqrt(2)> with lex order"
+    a=A.convert(s.sqrt(2))
+    assert (X**2-2)/(X-a)==X+a
 
 
 def test_constant_rings_and_empty_construction():

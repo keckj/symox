@@ -2458,6 +2458,7 @@ fn exact_complex_pair(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<Option<
         ring: ground.ring && !ground.symbols.is_empty(),
         symbols: ground.symbols.clone(),
         inexact: None,
+        algebraic: None,
     };
     let ring_expr = |p: &R| -> Expr {
         crate::ops::add(&p.iter().map(|(m, c)| {
@@ -3305,7 +3306,7 @@ pub fn infer_coefficients(coefficients: &[Expr], field: bool) -> Option<Gaussian
     let k = coefficients.len();
     let symbol_index: Vec<usize> = converted.gens.iter().enumerate().filter(|(_, g)| **g != i).map(|(j, _)| j).collect();
     let fractions = field || converted.polys[k..].iter().any(|d| d.iter().any(|(e, _)| symbol_index.iter().any(|&j| e[j] > 0)));
-    Some(GaussianGround { integral: false, ring: !fractions, symbols, inexact: Some(Inexact { precision, complex }) })
+    Some(GaussianGround { integral: false, ring: !fractions, symbols, inexact: Some(Inexact { precision, complex }), algebraic: None })
 }
 
 /// `infer_coefficients` for the coefficients of `e` in `gens`.
@@ -3496,7 +3497,7 @@ mod complex_multi_tests {
             (vec![Expr::symbol("y")], true, "1.5*(x+y)*(x+z)", "3*(x+y)*(z+1)"),
             (vec![Expr::symbol("y")], false, "(x+z)*(x+1)/(y+1)", "(x+z)*(z+1)/(y+2)"),
         ] {
-            let ground = GaussianGround { integral: false, ring, symbols, inexact: Some(Inexact { precision: 140, complex: true }) };
+            let ground = GaussianGround { integral: false, ring, symbols, inexact: Some(Inexact { precision: 140, complex: true }), algebraic: None };
             let f = ground.convert_expr(&parse(fa), &gens).unwrap();
             let g = ground.convert_expr(&parse(fb), &gens).unwrap();
             let (h, a, b) = cofactors(&f, &g).unwrap();
@@ -3512,7 +3513,7 @@ mod complex_multi_tests {
     #[test]
     fn complex_parameter_ring_retains_rational_common_content() {
         let gens = vec![Expr::symbol("x"), Expr::symbol("z")];
-        let ground = GaussianGround { integral: false, ring: true, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: true }) };
+        let ground = GaussianGround { integral: false, ring: true, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: true }), algebraic: None };
         let f = ground.convert_expr(&parse("1.5*(x+z)"), &gens).unwrap();
         let g = ground.convert_expr(&parse("3*(x+z)"), &gens).unwrap();
         assert_eq!(gcd(&f, &g).unwrap().terms(), f.terms());
@@ -3534,7 +3535,7 @@ mod complex_multi_tests {
     #[test]
     fn sparse_complex_ring_monomials_use_coefficient_domain_gcd() {
         let gens = vec![Expr::symbol("x"), Expr::symbol("z")];
-        let ground = GaussianGround { integral: false, ring: true, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: true }) };
+        let ground = GaussianGround { integral: false, ring: true, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: true }), algebraic: None };
         for (fa, fb, ha, pa, qa) in [
             ("1.5*x", "3*x", "x", "1.5", "3"),
             ("1.5*y*x", "3*y^2*x*z", "y*x", "1.5", "3*y*z"),
@@ -3558,7 +3559,7 @@ mod real_multi_tests {
     use super::*;
 
     fn ground(ring: bool) -> GaussianGround {
-        GaussianGround { integral: false, ring, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: false }) }
+        GaussianGround { integral: false, ring, symbols: vec![Expr::symbol("y")], inexact: Some(Inexact { precision: 140, complex: false }), algebraic: None }
     }
     fn poly(ground: &GaussianGround, source: &str) -> ExpressionPoly {
         let expression = crate::parser::parse_str_with_precision(source, 140).unwrap();
@@ -3638,7 +3639,7 @@ mod sparse_storage_tests {
     fn sparse_storage_inexact_additive_operations_match_dense_rounding() {
         for precision in [53,140] {for complex in [false,true] {for ring in [false,true] {
             for parameters in [false,true] {
-                let ground=GaussianGround{integral:false,ring,symbols:if parameters{vec![Expr::symbol("a")]}else{Vec::new()},inexact:Some(Inexact{precision,complex})};
+                let ground=GaussianGround{integral:false,ring,symbols:if parameters{vec![Expr::symbol("a")]}else{Vec::new()},inexact:Some(Inexact{precision,complex}),algebraic:None};
                 let gens=vec![Expr::symbol("x"),Expr::symbol("z")];
                 let part=if complex{"I"}else{"1"};let param=if parameters{"a/(a+1)"}else{"1"};
                 if ring && parameters {continue;}
@@ -3670,7 +3671,7 @@ mod sparse_recursive_product_tests {
     #[test]
     fn sparse_recursive_product_dom_matches_dense_binary_coefficients() {
         for precision in [1,53,139,140,211]{for complex in [false,true]{for parameters in [false,true]{for ring in [false,true]{for width in [1,2,3]{
-            let ground=GaussianGround{integral:false,ring,symbols:if parameters{vec![Expr::symbol("a")]}else{Vec::new()},inexact:Some(Inexact{precision,complex})};
+            let ground=GaussianGround{integral:false,ring,symbols:if parameters{vec![Expr::symbol("a")]}else{Vec::new()},inexact:Some(Inexact{precision,complex}),algebraic:None};
             let gens=(0..width).map(|i|Expr::symbol(&format!("x{i}"))).collect::<Vec<_>>();
             let coefficient=if complex{"(1.2345678901234567890123456789+0.765432109876543210987654321*I)"}else{"1.2345678901234567890123456789"};
             let parameter=if !parameters{"1"}else if ring{"a+1"}else{"a/(a+1)"};
@@ -3703,7 +3704,7 @@ mod sparse_calculus_tests {
     #[test]
     fn sparse_calculus_dom_matches_dense_on_all_axes_and_precisions() {
         for precision in [1,53,139,140,211]{for complex in [false,true]{for kind in [0,1,2]{for width in [1,2,3]{
-            let ground=GaussianGround{integral:false,ring:kind==1,symbols:if kind==0{Vec::new()}else{vec![Expr::symbol("a")]},inexact:Some(Inexact{precision,complex})};
+            let ground=GaussianGround{integral:false,ring:kind==1,symbols:if kind==0{Vec::new()}else{vec![Expr::symbol("a")]},inexact:Some(Inexact{precision,complex}),algebraic:None};
             let gens=(0..width).map(|i|Expr::symbol(&format!("x{i}"))).collect::<Vec<_>>();
             let part=if complex{"(1.2345678901234567890123456789+0.765432109876543210987654321*I)"}else{"1.2345678901234567890123456789"};
             let parameter=if kind==0{"1"}else if kind==1{"a+1"}else{"a/(a+1)"};

@@ -1,0 +1,46 @@
+{"case": "test_Poly_rootof_extension#6", "ok": true, "error": null, "src": "assert Poly(r1, y, extension=True) == Poly(r1, y, domain=K1)"}
+{"case": "test_Poly_rootof_extension#7", "ok": true, "error": null, "src": "assert Poly(r2, y, extension=True) == Poly(r2, y, domain=K2)"}
+{"case": "test_Poly_rootof_extension_primitive_element#3", "ok": false, "error": "TimeoutError: ", "src": "assert Poly(r1*y + r2, y, extension=True) == Poly(r1*y + r2, y, domain=K12)"}
+{"case": "test_Poly_rootof_same_symbol_issue_26808#3", "ok": false, "error": "PolynomialError: CRootOf(x**3 + x + 3, 0) contains an element of the set of generators.", "src": "assert Poly(r1, x, extension=True) == Poly(r1, x, domain=K1)"}
+{"case": "test_Poly_rootof_extension_to_sympy#3", "ok": true, "error": null, "src": "assert p.as_poly(x, extension=True).as_expr() == p"}
+{"case": "test_Poly__new__#7", "ok": true, "error": null, "src": "raises(OptionError, lambda: Poly(x + 2, x, domain=ZZ, extension=[sqrt(3)]))"}
+{"case": "test_Poly__new__#8", "ok": true, "error": null, "src": "raises(OptionError, lambda: Poly(x + 2, x, modulus=3, extension=[sqrt(3)]))"}
+{"case": "test_Poly__new__#9", "ok": true, "error": null, "src": "raises(OptionError, lambda: Poly(x + 2, x, domain=ZZ, extension=True))"}
+{"case": "test_Poly__new__#10", "ok": true, "error": null, "src": "raises(OptionError, lambda: Poly(x + 2, x, modulus=3, extension=True))"}
+{"case": "test_Poly__new__#43", "ok": true, "error": null, "src": "assert Poly(x**2 + 1, extension=I).get_domain() == QQ.algebraic_field(I)"}
+{"case": "test_Poly__unify#30", "ok": true, "error": null, "src": "assert Poly(x**2 + I, x, domain=ZZ_I).unify(Poly(x**2 + sqrt(2), x, extension=True)) == \\\n            (Poly(x**2 + I, x, domain='QQ<sqrt(2) + I>'), Poly(x**2 + sqrt(2), x, domain='QQ<sqrt(2) + I>'))"}
+{"case": "test_sqf_norm#0", "ok": true, "error": null, "src": "assert sqf_norm(x**2 - 2, extension=sqrt(3)) == \\\n        ([1], x**2 - 2*sqrt(3)*x + 1, x**4 - 10*x**2 + 1)"}
+{"case": "test_sqf_norm#1", "ok": true, "error": null, "src": "assert sqf_norm(x**2 - 3, extension=sqrt(2)) == \\\n        ([1], x**2 - 2*sqrt(2)*x - 1, x**4 - 10*x**2 + 1)"}
+{"case": "test_sqf_norm#2", "ok": true, "error": null, "src": "assert Poly(x**2 - 2, extension=sqrt(3)).sqf_norm() == \\\n        ([1], Poly(x**2 - 2*sqrt(3)*x + 1, x, extension=sqrt(3)),\n              Poly(x**4 - 10*x**2 + 1, x, domain='QQ'))"}
+{"case": "test_sqf_norm#3", "ok": true, "error": null, "src": "assert Poly(x**2 - 3, extension=sqrt(2)).sqf_norm() == \\\n        ([1], Poly(x**2 - 2*sqrt(2)*x - 1, x, extension=sqrt(2)),\n              Poly(x**4 - 10*x**2 + 1, x, domain='QQ'))"}
+{"case": "test_factor#15", "ok": true, "error": null, "src": "assert factor_list(sqrt(3), x) == (sqrt(3), [])"}
+{"case": "test_factor#18", "ok": true, "error": null, "src": "assert factor_list(sqrt(x*y), x) == (1, [(x*y, S.Half)])"}
+{"case": "test_factor#35", "ok": true, "error": null, "src": "assert factor(sqrt(x*y)).is_Pow is True"}
+{"case": "test_factor#36", "ok": true, "error": null, "src": "assert factor(sqrt(3*x**2 - 3)) == sqrt(3)*sqrt((x - 1)*(x + 1))"}
+{"case": "test_factor#37", "ok": true, "error": null, "src": "assert factor(sqrt(3*x**2 + 3)) == sqrt(3)*sqrt(x**2 + 1)"}
+{"case": "test_factor#48", "ok": true, "error": null, "src": "assert factor(f) == sqrt(g)"}
+{"case": "test_factor#53", "ok": true, "error": null, "src": "assert factor(f, extension=I) == (x**2 - I)*(x**2 + I)"}
+{"case": "test_factor#55", "ok": true, "error": null, "src": "assert factor(\n        f, extension=sqrt(2)) == (x**2 + sqrt(2)*x + 1)*(x**2 - sqrt(2)*x + 1)"}
+{"case": "test_factor#66", "ok": true, "error": null, "src": "assert factor(f, extension=sqrt(2)) == (x + sqrt(2))**2"}
+{"case": "test_factor#67", "ok": true, "error": null, "src": "assert factor(f**3, extension=sqrt(2)) == (x + sqrt(2))**6"}
+{"case": "test_factor#68", "ok": true, "error": null, "src": "assert factor(x**2 - 2*y**2, extension=sqrt(2)) == \\\n        (x + sqrt(2)*y)*(x - sqrt(2)*y)"}
+{"case": "test_factor#69", "ok": true, "error": null, "src": "assert factor(2*x**2 - 4*y**2, extension=sqrt(2)) == \\\n        2*((x + sqrt(2)*y)*(x - sqrt(2)*y))"}
+{"case": "test_factor#94", "ok": true, "error": null, "src": "assert factor(sqrt(-x)) == sqrt(-x)"}
+{"case": "test_factor#99", "ok": true, "error": null, "src": "assert factor(sqrt(x**2)) == sqrt(x**2)"}
+{"case": "test_factor#121", "ok": true, "error": null, "src": "assert factor_list((x - sqrt(2)*pi)*(x + sqrt(2)*pi), x) == (\n        1, [(x - sqrt(2)*pi, 1), (x + sqrt(2)*pi, 1)])"}
+{"case": "test_factor#127", "ok": true, "error": null, "src": "assert factor(expand(p), extension=True) == p"}
+{"case": "test_real_roots#17", "ok": true, "error": null, "src": "assert real_roots(f, extension=True) == roots"}
+{"case": "test_real_roots#18", "ok": true, "error": null, "src": "assert real_roots(Poly(f, extension=True)) == roots"}
+{"case": "test_real_roots#19", "ok": true, "error": null, "src": "assert real_roots(Poly(f), extension=True) == roots"}
+{"case": "test_all_roots#6", "ok": true, "error": null, "src": "assert all_roots(x**2 - 2) == [-sqrt(2), sqrt(2)]"}
+{"case": "test_all_roots#7", "ok": true, "error": null, "src": "assert all_roots(x**2 - 2, multiple=False) == [(-sqrt(2), 1), (sqrt(2), 1)]"}
+{"case": "test_all_roots#15", "ok": true, "error": null, "src": "assert all_roots(f, extension=True) == roots"}
+{"case": "test_all_roots#16", "ok": true, "error": null, "src": "assert all_roots(Poly(f, extension=True)) == roots"}
+{"case": "test_all_roots#17", "ok": true, "error": null, "src": "assert all_roots(Poly(f), extension=True) == roots"}
+{"case": "test_nroots#13", "ok": true, "error": null, "src": "assert Poly(\n        x**2 + 2*I, x, extension=I).nroots() == [-1.0 + 1.0*I, 1.0 - 1.0*I]"}
+{"case": "test_cancel#22", "ok": true, "error": null, "src": "assert cancel(f, greedy=False) == x - sqrt(2)"}
+{"case": "test_cancel#25", "ok": true, "error": null, "src": "assert cancel(f, greedy=False) == x + sqrt(2)"}
+{"case": "test_cancel#41", "ok": true, "error": null, "src": "assert cancel((f, g), extension=True) == (1, x**2 - 2*x - 3, x - sqrt(2))"}
+{"case": "test_issue_5786#0", "ok": true, "error": null, "src": "assert expand(factor(expand(\n        (x - I*y)*(z - I*t)), extension=[I])) == -I*t*x - t*y + x*z - I*y*z"}
+{"case": "test_issue_19360#1", "ok": true, "error": null, "src": "assert factor(f, extension=sqrt(2)) == 2*(x - (sqrt(2)*y/2))**2"}
+{"case": "test_issue_19360#3", "ok": true, "error": null, "src": "assert factor(f, extension=I) == (x - I*y)*(-I*t + z)"}

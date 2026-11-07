@@ -1,0 +1,139 @@
+R str | QQ<sqrt(2)>[t]
+F str | QQ<sqrt(2)>(t)
+R element | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R element repr | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 + ANP([MPQ(2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R element sqrt2/2 | ANP([MPQ(1,2), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t
+R mul | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 - t - ANP([MPQ(-1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R add | ANP([MPQ(1,1), MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t + ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R pow | ANP([MPQ(2,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**3 + ANP([MPQ(6,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t**2 + ANP([MPQ(3,1), MPQ(0
+R exquo | ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)*t - ANP([MPQ(-2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R exquo fails | ExactQuotientFailed: t + ANP([MPQ(1,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ) does not divide t in QQ<sqrt(2)>[t]
+R gcd | t + ANP([MPQ(1,1), MPQ(0,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R gcd monomial | t
+R lcm | t**2 - ANP([MPQ(-2,1)], [MPQ(1,1), MPQ(0,1), MPQ(-2,1)], QQ)
+R from 1/t fails | CoercionFailed: 1/t contains an element of the set of generators.
+R is_negative | True
+F element | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F element inverse | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F element sqrt2/t | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F element scaled | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F element sum | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F element power | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F add | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F sub | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F mul | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F div | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F div 2 | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F div by zero | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F pow | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F gcd | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F lcm | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F numer denom | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F from x fails | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+F of R element | NotImplementedError: fraction fields over algebraic ground domains are not implemented
+PR str | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR domain | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR as_expr | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR add | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR mul | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR pow | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR LC | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR diff | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR eval | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR exquo | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR div | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR rem | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR pdiv | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR prem | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR gcd | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR gcd 2 | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR lcm | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR cofactors | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR cancel | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR cancel signs | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR content | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR primitive | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR resultant | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR resultant includePRS | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR discriminant | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR sqf_list | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR sqf_part | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR factor_list | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR factor_list 2 | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR to_field | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR monic fails | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR clear_denoms | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR multivariate gcd | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PR set_domain EX | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+PF str | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF domain | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF as_expr | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF add | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF mul | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF LC | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF monic | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF div | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF rem | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF exquo | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF gcd | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF lcm | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF cofactors | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF cancel | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF content | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF primitive | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF clear_denoms | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF resultant | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF discriminant | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF sqf_list | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF factor_list | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF to_ring fails | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF invert | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF gcdex | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+PF set_domain EX | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+construct_domain ext poly | (EX, [EX(sqrt(2)*t), EX(1)])
+construct_domain ext frac | (EX, [EX(sqrt(2)/t), EX(1)])
+construct_domain ext field | (EX, [EX(sqrt(2)*t), EX(1)])
+Poly extension ring | Poly(sqrt(2)*t*x + 1, x, domain='EX')
+Poly extension frac | Poly(sqrt(2)/(2*t)*x + 1, x, domain='EX')
+Poly extension domain | EX
+unify R with ZZ[y] | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify R with QQ | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify R with A | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify R with F | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify R with ZZ(y) | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify R generator clash | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify R with QQ<sqrt3> | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify R with QQ_I | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify F with ZZ_I[y] | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+unify R with RR | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+unify F with EX | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+unify R with QQ<sqrt3>(y) | NotImplementedError: polynomials over QQ<sqrt(2)>[t] are not implemented
+domain unify R F | QQ<sqrt(2)>(t)
+domain unify R ZZ[y] | QQ<sqrt(2)>[t,y]
+cancel extension | sqrt(2)*t + x
+factor extension param | ValueError: coefficient is not in the selected algebraic number field
+gcd extension param | sqrt(2)*t + x
+resultant extension param | t**2 + sqrt(2)*t
+sqf_list extension param | (1, [(x + 1, 1), (sqrt(2)*t + x, 2)])
+factor_list extension param | (1, [(-2*t**2 + x**2, 1)])
+discriminant extension param | 2*t**2 - 4
+EX sqrt2*(1+sqrt2) | EX(sqrt(2) + 2)
+EX (x+1)**2 | EX((x + 1)**2)
+EX add | EX(x + 1/x)
+EX mul numbers | EX(2/3)
+EX mul | EX(x**2 - 1)
+EX div | EX(x - 1)
+EX pow | EX((1 + sqrt(2))**2)
+EX sub zero | EX(-x - 1)
+EX add zero | EX(sqrt(2) + 2)
+EX convert | EX(sqrt(2) + 2)
+logpart QQ<s2>[p] 1/(x**2+s2*p) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented
+logpart QQ<s2>[p] x/(x**2+s2*x+p) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented
+logpart QQ<s2>[p] 1/(x**2+p) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented
+logpart QQ<s2>[p] 1/(x**3+s2*p) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented
+logpart QQ<s2>[p] 1/((x-p)(x+s2)) | NotImplementedError: polynomials over QQ<sqrt(2)>[p] are not implemented
+logpart QQ<s2>(t) 1/(x**2+s2*t) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+logpart QQ<s2>(t) x/(x**2+s2*x+t) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+logpart QQ<s2>(t) 1/(x**3+t*x+s2) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+logpart QQ<s2>(t) 1/((x-t)(x+s2)) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented
+logpart QQ<s2>(t) (x+1)/(x**2+t*x+s2) | NotImplementedError: polynomials over QQ<sqrt(2)>(t) are not implemented

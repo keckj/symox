@@ -17663,3 +17663,151 @@ Corpus of 1255 cases:
   WildFunction flag.
 - The cost of ODE matching, and the native matcher's declines (Float,
   `zoo`/`oo`, `Sum`), are not addressed in this lot.
+
+## algpoly (wave 44): composite domains over QQ<a> in Rust, 2026-11-07
+
+Wave 44, lot algpoly (`feat-algpoly-20261106`, based on main 583315a8).
+Scope:
+
+- `QQ<a>[t]` and `QQ<a>(t)`: elements, arithmetic, gcd, division, resultant, sqf/factor,
+  and `Poly` over them;
+- `construct_domain(extension=True)` and unification;
+- the 10 `ratint_logpart` cases left by ratint2;
+- the `EX` element normalization.
+
+Every fix computes in Rust. No Python source was changed.
+
+Native (Rust):
+
+- `crates/symox-core/src/poly/gaussian_ground.rs`. `GaussianGround` (the
+  `QQ<I>[t]`/`QQ<I>(t)` backend) gains an `algebraic: Option<Arc<NumberField>>`
+  ground, so the same backend now serves any `QQ<a>`. Every public method
+  opens the number-field scope. Ported from the reference:
+  - `cancel_pair` (`FracElement` cancel), through cofactors: the
+    `_gcd_monom` monomial case, then the field gcd over `QQ<a>`, then the
+    sign taken from the leading coefficient of the denominator;
+  - `rebuild` (`_rebuild_expr`, with cancellation at each step);
+  - `element`, `element_expr` and `reduce`;
+  - `algebraic_monic` (`dup_monic` as `K.quo(c, lc)`) and `algebraic_cancel`;
+  - `unify_algebraic`:
+    - an inexact ground wins;
+    - two algebraic grounds give the primitive element through
+      `NumberField::from_generators`;
+    - an algebraic ground with `QQ_I` gives `[gen, I]`;
+    - generator clashes raise `UnificationFailed`;
+  - the factor sort keys over an algebraic ground.
+- `crates/symox-core/src/poly/rr_prs_gcd.rs`. `field_gcd`, `multi_gcd` and
+  `ground_inner_gcd` are generic over an `RrGround`, `QQ` or `QQ<a>`. The
+  integer and rational paths are unchanged.
+- `crates/symox-core/src/poly/expression_domain.rs`:
+  - `simplify_element`, which normalizes EX arithmetic;
+  - `drop_main` reduces resultants and discriminants over an algebraic
+    ground (`reduce` / `convert_poly`).
+- `crates/symox-core/src/poly/domains.rs`:
+  - `polynomial_ring_name`;
+  - `R(1/t)` raises `ValueError: expected an expression convertible to a
+    polynomial in QQ<sqrt(2)>[t], got 1/t`, as in the reference;
+  - EX conversion keeps the converted expression, as `EX(a)`,
+    `EX.convert` and `EX.from_sympy` do in SymPy 1.14;
+  - EX `+ - * /` go through `simplify_element`, and EX pow is
+    `simplify(f.ex**n)`.
+- `crates/symox-core/src/poly/inexact_ground.rs` and
+  `crates/symox-py/src/{domains,poly,ratint_logpart}.rs`:
+  - the new field is set at the existing construction sites;
+  - the native Poly admission now accepts a composite ground when it is
+    algebraic (`ground.is_none_or(|g| g.algebraic.is_some())`).
+  Before, it raised NotImplementedError from Poly construction.
+
+Python: nothing added or extended. Four existing test assertions encoded
+the old behavior and now follow SymPy 1.14, each checked live:
+
+- two in `tests/test_numeric_expression_domains.py`, which expected EX
+  elements to be simplified on conversion (`EX(sin(x)**2 + cos(x)**2) !=
+  EX.one` in SymPy);
+- one in `tests/test_domainmatrix_algorithms.py`, where the EX determinant
+  equals `EX(v)*EX(v + 1)` but not `EX(v*(v + 1))`, in SymPy as in symox;
+- one in `tests/test_sparse_ring_constructors.py`, which expected
+  `field("x", QQ<sqrt(2)>)` to raise NotImplementedError. The sparse
+  `FracField` sits on the native `QQ<a>.frac_field`, so this field now
+  exists, as it does in SymPy.
+
+Results (SymPy 1.14 live; `audits/performance/2026-11-06-algpoly`):
+
+| corpus | before (wave 43) | after |
+|---|---|---|
+| algpoly corpus (139 cases) | SAME 34, DIFF 10, DECLINED 95, WRONG 0 | SAME 134, DIFF 5, DECLINED 0, WRONG 0 |
+| `test_domains.py` algebraic transcription (728) | 281 identical | 728 identical |
+| `test_polytools.py` extension statements (46; SymPy passes 44) | 39 | 39 |
+| ratint2 corpus (75) | 62 identical | 73 identical |
+
+All 10 `ratint_logpart` cases now print the same RootSum/log pairs as SymPy:
+5 over `QQ<sqrt(2)>[p]` and 5 over `QQ<sqrt(2)>(t)`. They take
+111 ms in total, against 1447 ms in SymPy. `tests/test_algpoly_parity.py`
+holds 39 live SymPy comparisons. One of them,
+`test_integer_cases_unchanged`, checks that a ZZ[t] case is unchanged.
+
+Deliberate deviations (for user arbitration):
+
+- `PR monic`, `PF gcd`, `PF lcm` and `PF sqf_list` have equal values but a
+  different numerator/denominator representative. Example: SymPy gives
+  `sqrt(2)*x*(t + sqrt(2))/(2*t)` and symox gives `x*(sqrt(2)*t/2 + 1)/t`.
+  - Cause: symox stores Poly coefficients as expressions.
+    `From<ExpressionPoly> for Polynomial` (`fraction.rs`, through
+    `gaussian_ground::normalize_poly`) converts every coefficient back
+    into the canonical pair. SymPy keeps the pair its history produced:
+    `dup_monic`, the unnormalized subresultants of `dmp_ff_prs_gcd` and
+    `dup_lcm`, and `sqf_list` coefficients with hundreds of digits.
+  - Why not fixed: `normalize_poly` is shared with Poly construction
+    (`poly.rs`, `poly_checked_factors.rs`). A faithful fix needs Poly
+    coefficients that keep their pair, plus ports of
+    `dup_inner_subresultants`, `dup_prem` and `ff_prs` over that pair type.
+- `factor(x**2 - 2*t**2, x, extension=sqrt(2))`:
+  - SymPy raises `CoercionFailed`, because its `QQ<sqrt(2)>` ground cannot
+    hold `t`;
+  - symox raises `ValueError` from the `AlgebraicPoly` path;
+  - this predates the lot.
+- `ZZ[t](1/t)` and `QQ_I[t](1/t)` raise `CoercionFailed` where SymPy raises
+  `ValueError`. This predates the lot and is outside the algebraic ground.
+- Sparse `field("x", QQ<sqrt(2)>)` element printing. After a cancel,
+  SymPy prints `(x + ANP(...))/ANP([MPQ(1,1)], ...)`, because its
+  `ANP(1) == 1` test fails there. symox prints `x + ANP(...)`. The
+  values are equal.
+
+Remaining gaps. These predate the lot: the wave-43 `.so` gives the same
+results.
+
+- Native `factor_list` of products with `sqrt(2)` fails with
+  `factorization failed its exact reconstruction certificate`
+  (`crates/symox-core/src/poly/checked_factors.rs`, `verify`). Examples:
+  `factor_list((x - sqrt(2))*(x + sqrt(2)))`,
+  `factor_list((x - sqrt(2)*t)**2)` and
+  `factor_list((x - sqrt(2)*pi)*(x + sqrt(2)*pi), x)`.
+  `factor_list((x - sqrt(2)*t)*(x + sqrt(2)*t), x)` raises "coefficients
+  must be exact rational functions of the declared parameters"
+  (`fraction.rs`). SymPy factors each `Mul` factor separately over EX.
+- `cancel((x**2 - 2)/(x + sqrt(2)), greedy=False)` returns its argument
+  unchanged; SymPy gives `x - sqrt(2)`.
+- `real_roots` and `all_roots` with `extension=True` on a multivariate
+  `Poly`, and `CRootOf` extensions (issue 26808), as listed in the audit
+  README.
+
+Validation (`XLA_PYTHON_CLIENT_PREALLOCATE=false`, sequential under the
+heavy lock):
+
+- Suite run 1 had 2 failures, both caused by this lot's intended changes:
+  - `test_sparse_ring_constructors::test_composite_domain_backend_limits_are_explicit`
+    expected NotImplementedError from the `QQ<sqrt(2)>` fraction field;
+  - `test_domainmatrix_algorithms::test_nonrational_coefficients[EX]`
+    expected EX conversion to simplify.
+
+  Both assertions now follow SymPy (see Python above).
+- Suite run 2 is SUITE CLEAN: 60 589 passed, 6 xfail and 45 skipped, out of
+  60 640 collected in 697 files. That is the main baseline of 60 601 / 696,
+  plus the 39 tests of `tests/test_algpoly_parity.py`.
+- `cargo test --release` gives 872 + 1 + 0 + 5. The first run did not
+  compile because three test-only `GaussianGround` initializers in
+  `inexact_ground.rs` lacked `algebraic: None`.
+- Clippy correctness is clean.
+- ODE corpus: 315/289/270.
+
+Measured: [audit](../audits/performance/2026-11-06-algpoly/README.md).

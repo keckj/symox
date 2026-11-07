@@ -1,0 +1,140 @@
+SAME     | R str
+SAME     | F str
+SAME     | R element
+SAME     | R element repr
+SAME     | R element sqrt2/2
+SAME     | R mul
+SAME     | R add
+SAME     | R pow
+SAME     | R exquo
+SAME     | R exquo fails
+SAME     | R gcd
+SAME     | R gcd monomial
+SAME     | R lcm
+SAME     | R from 1/t fails
+SAME     | R is_negative
+SAME     | F element
+SAME     | F element inverse
+SAME     | F element sqrt2/t
+SAME     | F element scaled
+SAME     | F element sum
+SAME     | F element power
+SAME     | F add
+SAME     | F sub
+SAME     | F mul
+SAME     | F div
+SAME     | F div 2
+SAME     | F div by zero
+SAME     | F pow
+SAME     | F gcd
+SAME     | F lcm
+SAME     | F numer denom
+SAME     | F from x fails
+SAME     | F of R element
+SAME     | PR str
+SAME     | PR domain
+SAME     | PR as_expr
+SAME     | PR add
+SAME     | PR mul
+SAME     | PR pow
+SAME     | PR LC
+SAME     | PR diff
+SAME     | PR eval
+SAME     | PR exquo
+SAME     | PR div
+SAME     | PR rem
+SAME     | PR pdiv
+SAME     | PR prem
+SAME     | PR gcd
+SAME     | PR gcd 2
+SAME     | PR lcm
+SAME     | PR cofactors
+SAME     | PR cancel
+SAME     | PR cancel signs
+SAME     | PR content
+SAME     | PR primitive
+SAME     | PR resultant
+SAME     | PR resultant includePRS
+SAME     | PR discriminant
+SAME     | PR sqf_list
+SAME     | PR sqf_part
+SAME     | PR factor_list
+SAME     | PR factor_list 2
+SAME     | PR to_field
+DIFF     | PR monic fails
+SAME     | PR clear_denoms
+SAME     | PR multivariate gcd
+SAME     | PR set_domain EX
+SAME     | PF str
+SAME     | PF domain
+SAME     | PF as_expr
+SAME     | PF add
+SAME     | PF mul
+SAME     | PF LC
+SAME     | PF monic
+SAME     | PF div
+SAME     | PF rem
+SAME     | PF exquo
+DIFF     | PF gcd
+DIFF     | PF lcm
+SAME     | PF cofactors
+SAME     | PF cancel
+SAME     | PF content
+SAME     | PF primitive
+SAME     | PF clear_denoms
+SAME     | PF resultant
+SAME     | PF discriminant
+DIFF     | PF sqf_list
+SAME     | PF factor_list
+SAME     | PF to_ring fails
+SAME     | PF invert
+SAME     | PF gcdex
+SAME     | PF set_domain EX
+SAME     | construct_domain ext poly
+SAME     | construct_domain ext frac
+SAME     | construct_domain ext field
+SAME     | Poly extension ring
+SAME     | Poly extension frac
+SAME     | Poly extension domain
+SAME     | unify R with ZZ[y]
+SAME     | unify R with QQ
+SAME     | unify R with A
+SAME     | unify R with F
+SAME     | unify R with ZZ(y)
+SAME     | unify R generator clash
+SAME     | unify R with QQ<sqrt3>
+SAME     | unify R with QQ_I
+SAME     | unify F with ZZ_I[y]
+SAME     | unify R with RR
+SAME     | unify F with EX
+SAME     | unify R with QQ<sqrt3>(y)
+SAME     | domain unify R F
+SAME     | domain unify R ZZ[y]
+SAME     | cancel extension
+DIFF     | factor extension param
+SAME     | gcd extension param
+SAME     | resultant extension param
+SAME     | sqf_list extension param
+SAME     | factor_list extension param
+SAME     | discriminant extension param
+SAME     | EX sqrt2*(1+sqrt2)
+SAME     | EX (x+1)**2
+SAME     | EX add
+SAME     | EX mul numbers
+SAME     | EX mul
+SAME     | EX div
+SAME     | EX pow
+SAME     | EX sub zero
+SAME     | EX add zero
+SAME     | EX convert
+SAME     | logpart QQ<s2>[p] 1/(x**2+s2*p)
+SAME     | logpart QQ<s2>[p] x/(x**2+s2*x+p)
+SAME     | logpart QQ<s2>[p] 1/(x**2+p)
+SAME     | logpart QQ<s2>[p] 1/(x**3+s2*p)
+SAME     | logpart QQ<s2>[p] 1/((x-p)(x+s2))
+SAME     | logpart QQ<s2>(t) 1/(x**2+s2*t)
+SAME     | logpart QQ<s2>(t) x/(x**2+s2*x+t)
+SAME     | logpart QQ<s2>(t) 1/(x**3+t*x+s2)
+SAME     | logpart QQ<s2>(t) 1/((x-t)(x+s2))
+SAME     | logpart QQ<s2>(t) (x+1)/(x**2+t*x+s2)
+SAME=134 DIFF=5 DECLINED=0 WRONG=0 total=139
