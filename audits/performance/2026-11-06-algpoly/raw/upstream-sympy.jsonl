@@ -1,0 +1,728 @@
+{"case": "unify(ZZ[x], ALG)", "result": "QQ<sqrt(2) + sqrt(3)>[x]"}
+{"case": "unify(ZZ.frac_field(x), ALG)", "result": "QQ<sqrt(2) + sqrt(3)>(x)"}
+{"case": "unify(ALG, ZZ[x])", "result": "QQ<sqrt(2) + sqrt(3)>[x]"}
+{"case": "unify(ALG[x], ZZ_I)", "result": "QQ<sqrt(2) + sqrt(3) + I>[x]"}
+{"case": "unify(EX, ALG[x])", "result": "EX"}
+{"case": "unify(ALG[x], RR)", "result": "RR[x]"}
+{"case": "ALG[x] == unify", "result": "True"}
+{"case": "ALG.frac_field(x) == unify", "result": "True"}
+{"case": "convert ZZ/0 QQ2/1", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert ZZ/0 QQ2/2", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert ZZ/0 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert ZZ/0 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert ZZ/0 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert ZZ/0 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/1 QQ2/0", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert ZZ/1 QQ2/1", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert ZZ/1 QQ2/2", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert ZZ/1 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert ZZ/1 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert ZZ/1 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/1 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/2 QQ2/0", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert ZZ/2 QQ2/1", "result": "QQ<sqrt(2)>[z,y] True"}
+{"case": "convert ZZ/2 QQ2/2", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert ZZ/2 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert ZZ/2 QQ2/4", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert ZZ/2 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert ZZ/2 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/3 QQ2/0", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert ZZ/3 QQ2/1", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert ZZ/3 QQ2/2", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert ZZ/3 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert ZZ/3 QQ2/4", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/3 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/3 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/4 QQ2/0", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert ZZ/4 QQ2/1", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert ZZ/4 QQ2/2", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/4 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/4 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert ZZ/4 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/4 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/5 QQ2/0", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert ZZ/5 QQ2/1", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert ZZ/5 QQ2/2", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert ZZ/5 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/5 QQ2/4", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert ZZ/5 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert ZZ/5 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/6 QQ2/0", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/6 QQ2/1", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/6 QQ2/2", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/6 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/6 QQ2/4", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/6 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/6 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert ZZ/0 QQ3/1", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert ZZ/0 QQ3/2", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert ZZ/0 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert ZZ/0 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert ZZ/0 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert ZZ/0 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/1 QQ3/0", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert ZZ/1 QQ3/1", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert ZZ/1 QQ3/2", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert ZZ/1 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert ZZ/1 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert ZZ/1 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/1 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/2 QQ3/0", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert ZZ/2 QQ3/1", "result": "QQ<sqrt(3)>[z,y] True"}
+{"case": "convert ZZ/2 QQ3/2", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert ZZ/2 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert ZZ/2 QQ3/4", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert ZZ/2 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert ZZ/2 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/3 QQ3/0", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert ZZ/3 QQ3/1", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert ZZ/3 QQ3/2", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert ZZ/3 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert ZZ/3 QQ3/4", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/3 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/3 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/4 QQ3/0", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert ZZ/4 QQ3/1", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert ZZ/4 QQ3/2", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/4 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/4 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert ZZ/4 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/4 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/5 QQ3/0", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert ZZ/5 QQ3/1", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert ZZ/5 QQ3/2", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert ZZ/5 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/5 QQ3/4", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert ZZ/5 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert ZZ/5 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/6 QQ3/0", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/6 QQ3/1", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/6 QQ3/2", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/6 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/6 QQ3/4", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/6 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert ZZ/6 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/0 QQ2/1", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert QQ/0 QQ2/2", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert QQ/0 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ/0 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ/0 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ/0 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/1 QQ2/0", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert QQ/1 QQ2/1", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert QQ/1 QQ2/2", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ/1 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ/1 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ/1 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/1 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/2 QQ2/0", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert QQ/2 QQ2/1", "result": "QQ<sqrt(2)>[z,y] True"}
+{"case": "convert QQ/2 QQ2/2", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert QQ/2 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ/2 QQ2/4", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert QQ/2 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ/2 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/3 QQ2/0", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ/3 QQ2/1", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ/3 QQ2/2", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ/3 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ/3 QQ2/4", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/3 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/3 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/4 QQ2/0", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ/4 QQ2/1", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ/4 QQ2/2", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/4 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/4 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ/4 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/4 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/5 QQ2/0", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ/5 QQ2/1", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert QQ/5 QQ2/2", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ/5 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/5 QQ2/4", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert QQ/5 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ/5 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/6 QQ2/0", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/6 QQ2/1", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/6 QQ2/2", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/6 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/6 QQ2/4", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/6 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/6 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ/0 QQ3/1", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert QQ/0 QQ3/2", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert QQ/0 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ/0 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ/0 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ/0 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/1 QQ3/0", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert QQ/1 QQ3/1", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert QQ/1 QQ3/2", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ/1 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ/1 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ/1 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/1 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/2 QQ3/0", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert QQ/2 QQ3/1", "result": "QQ<sqrt(3)>[z,y] True"}
+{"case": "convert QQ/2 QQ3/2", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert QQ/2 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ/2 QQ3/4", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert QQ/2 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ/2 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/3 QQ3/0", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ/3 QQ3/1", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ/3 QQ3/2", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ/3 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ/3 QQ3/4", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/3 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/3 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/4 QQ3/0", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ/4 QQ3/1", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ/4 QQ3/2", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/4 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/4 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ/4 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/4 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/5 QQ3/0", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ/5 QQ3/1", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert QQ/5 QQ3/2", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ/5 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/5 QQ3/4", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert QQ/5 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ/5 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/6 QQ3/0", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/6 QQ3/1", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/6 QQ3/2", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/6 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/6 QQ3/4", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/6 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ/6 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/0 QQ2/1", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert QQ2/0 QQ2/2", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert QQ2/0 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ2/0 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ2/0 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ2/0 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/1 QQ2/0", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert QQ2/1 QQ2/1", "result": "QQ<sqrt(2)>[y] True"}
+{"case": "convert QQ2/1 QQ2/2", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ2/1 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ2/1 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ2/1 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/1 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/2 QQ2/0", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert QQ2/2 QQ2/1", "result": "QQ<sqrt(2)>[z,y] True"}
+{"case": "convert QQ2/2 QQ2/2", "result": "QQ<sqrt(2)>[z] True"}
+{"case": "convert QQ2/2 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ2/2 QQ2/4", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert QQ2/2 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ2/2 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/3 QQ2/0", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ2/3 QQ2/1", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ2/3 QQ2/2", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ2/3 QQ2/3", "result": "QQ<sqrt(2)>[y,z] True"}
+{"case": "convert QQ2/3 QQ2/4", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/3 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/3 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/4 QQ2/0", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ2/4 QQ2/1", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ2/4 QQ2/2", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/4 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/4 QQ2/4", "result": "QQ<sqrt(2)>(y) True"}
+{"case": "convert QQ2/4 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/4 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/5 QQ2/0", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ2/5 QQ2/1", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert QQ2/5 QQ2/2", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ2/5 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/5 QQ2/4", "result": "QQ<sqrt(2)>(z,y) True"}
+{"case": "convert QQ2/5 QQ2/5", "result": "QQ<sqrt(2)>(z) True"}
+{"case": "convert QQ2/5 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/6 QQ2/0", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/6 QQ2/1", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/6 QQ2/2", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/6 QQ2/3", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/6 QQ2/4", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/6 QQ2/5", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/6 QQ2/6", "result": "QQ<sqrt(2)>(y,z) True"}
+{"case": "convert QQ2/0 QQ3/1", "result": "QQ<sqrt(2) + sqrt(3)>[y] True"}
+{"case": "convert QQ2/0 QQ3/2", "result": "QQ<sqrt(2) + sqrt(3)>[z] True"}
+{"case": "convert QQ2/0 QQ3/3", "result": "QQ<sqrt(2) + sqrt(3)>[y,z] True"}
+{"case": "convert QQ2/0 QQ3/4", "result": "QQ<sqrt(2) + sqrt(3)>(y) True"}
+{"case": "convert QQ2/0 QQ3/5", "result": "QQ<sqrt(2) + sqrt(3)>(z) True"}
+{"case": "convert QQ2/0 QQ3/6", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/1 QQ3/0", "result": "QQ<sqrt(2) + sqrt(3)>[y] True"}
+{"case": "convert QQ2/1 QQ3/1", "result": "QQ<sqrt(2) + sqrt(3)>[y] True"}
+{"case": "convert QQ2/1 QQ3/2", "result": "QQ<sqrt(2) + sqrt(3)>[y,z] True"}
+{"case": "convert QQ2/1 QQ3/3", "result": "QQ<sqrt(2) + sqrt(3)>[y,z] True"}
+{"case": "convert QQ2/1 QQ3/4", "result": "QQ<sqrt(2) + sqrt(3)>(y) True"}
+{"case": "convert QQ2/1 QQ3/5", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/1 QQ3/6", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/2 QQ3/0", "result": "QQ<sqrt(2) + sqrt(3)>[z] True"}
+{"case": "convert QQ2/2 QQ3/1", "result": "QQ<sqrt(2) + sqrt(3)>[z,y] True"}
+{"case": "convert QQ2/2 QQ3/2", "result": "QQ<sqrt(2) + sqrt(3)>[z] True"}
+{"case": "convert QQ2/2 QQ3/3", "result": "QQ<sqrt(2) + sqrt(3)>[y,z] True"}
+{"case": "convert QQ2/2 QQ3/4", "result": "QQ<sqrt(2) + sqrt(3)>(z,y) True"}
+{"case": "convert QQ2/2 QQ3/5", "result": "QQ<sqrt(2) + sqrt(3)>(z) True"}
+{"case": "convert QQ2/2 QQ3/6", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/3 QQ3/0", "result": "QQ<sqrt(2) + sqrt(3)>[y,z] True"}
+{"case": "convert QQ2/3 QQ3/1", "result": "QQ<sqrt(2) + sqrt(3)>[y,z] True"}
+{"case": "convert QQ2/3 QQ3/2", "result": "QQ<sqrt(2) + sqrt(3)>[y,z] True"}
+{"case": "convert QQ2/3 QQ3/3", "result": "QQ<sqrt(2) + sqrt(3)>[y,z] True"}
+{"case": "convert QQ2/3 QQ3/4", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/3 QQ3/5", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/3 QQ3/6", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/4 QQ3/0", "result": "QQ<sqrt(2) + sqrt(3)>(y) True"}
+{"case": "convert QQ2/4 QQ3/1", "result": "QQ<sqrt(2) + sqrt(3)>(y) True"}
+{"case": "convert QQ2/4 QQ3/2", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/4 QQ3/3", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/4 QQ3/4", "result": "QQ<sqrt(2) + sqrt(3)>(y) True"}
+{"case": "convert QQ2/4 QQ3/5", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/4 QQ3/6", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/5 QQ3/0", "result": "QQ<sqrt(2) + sqrt(3)>(z) True"}
+{"case": "convert QQ2/5 QQ3/1", "result": "QQ<sqrt(2) + sqrt(3)>(z,y) True"}
+{"case": "convert QQ2/5 QQ3/2", "result": "QQ<sqrt(2) + sqrt(3)>(z) True"}
+{"case": "convert QQ2/5 QQ3/3", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/5 QQ3/4", "result": "QQ<sqrt(2) + sqrt(3)>(z,y) True"}
+{"case": "convert QQ2/5 QQ3/5", "result": "QQ<sqrt(2) + sqrt(3)>(z) True"}
+{"case": "convert QQ2/5 QQ3/6", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/6 QQ3/0", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/6 QQ3/1", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/6 QQ3/2", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/6 QQ3/3", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/6 QQ3/4", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/6 QQ3/5", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/6 QQ3/6", "result": "QQ<sqrt(2) + sqrt(3)>(y,z) True"}
+{"case": "convert QQ2/0 QQ_I/1", "result": "QQ<sqrt(2) + I>[y] True"}
+{"case": "convert QQ2/0 QQ_I/2", "result": "QQ<sqrt(2) + I>[z] True"}
+{"case": "convert QQ2/0 QQ_I/3", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/0 QQ_I/4", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/0 QQ_I/5", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/0 QQ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/1 QQ_I/0", "result": "QQ<sqrt(2) + I>[y] True"}
+{"case": "convert QQ2/1 QQ_I/1", "result": "QQ<sqrt(2) + I>[y] True"}
+{"case": "convert QQ2/1 QQ_I/2", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/1 QQ_I/3", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/1 QQ_I/4", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/1 QQ_I/5", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/1 QQ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/2 QQ_I/0", "result": "QQ<sqrt(2) + I>[z] True"}
+{"case": "convert QQ2/2 QQ_I/1", "result": "QQ<sqrt(2) + I>[z,y] True"}
+{"case": "convert QQ2/2 QQ_I/2", "result": "QQ<sqrt(2) + I>[z] True"}
+{"case": "convert QQ2/2 QQ_I/3", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/2 QQ_I/4", "result": "QQ<sqrt(2) + I>(z,y) True"}
+{"case": "convert QQ2/2 QQ_I/5", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/2 QQ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/3 QQ_I/0", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/3 QQ_I/1", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/3 QQ_I/2", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/3 QQ_I/3", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/3 QQ_I/4", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/3 QQ_I/5", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/3 QQ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/4 QQ_I/0", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/4 QQ_I/1", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/4 QQ_I/2", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/4 QQ_I/3", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/4 QQ_I/4", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/4 QQ_I/5", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/4 QQ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/5 QQ_I/0", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/5 QQ_I/1", "result": "QQ<sqrt(2) + I>(z,y) True"}
+{"case": "convert QQ2/5 QQ_I/2", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/5 QQ_I/3", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/5 QQ_I/4", "result": "QQ<sqrt(2) + I>(z,y) True"}
+{"case": "convert QQ2/5 QQ_I/5", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/5 QQ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 QQ_I/0", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 QQ_I/1", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 QQ_I/2", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 QQ_I/3", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 QQ_I/4", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 QQ_I/5", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 QQ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/0 ZZ_I/1", "result": "QQ<sqrt(2) + I>[y] True"}
+{"case": "convert QQ2/0 ZZ_I/2", "result": "QQ<sqrt(2) + I>[z] True"}
+{"case": "convert QQ2/0 ZZ_I/3", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/0 ZZ_I/4", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/0 ZZ_I/5", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/0 ZZ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/1 ZZ_I/0", "result": "QQ<sqrt(2) + I>[y] True"}
+{"case": "convert QQ2/1 ZZ_I/1", "result": "QQ<sqrt(2) + I>[y] True"}
+{"case": "convert QQ2/1 ZZ_I/2", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/1 ZZ_I/3", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/1 ZZ_I/4", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/1 ZZ_I/5", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/1 ZZ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/2 ZZ_I/0", "result": "QQ<sqrt(2) + I>[z] True"}
+{"case": "convert QQ2/2 ZZ_I/1", "result": "QQ<sqrt(2) + I>[z,y] True"}
+{"case": "convert QQ2/2 ZZ_I/2", "result": "QQ<sqrt(2) + I>[z] True"}
+{"case": "convert QQ2/2 ZZ_I/3", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/2 ZZ_I/4", "result": "QQ<sqrt(2) + I>(z,y) True"}
+{"case": "convert QQ2/2 ZZ_I/5", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/2 ZZ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/3 ZZ_I/0", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/3 ZZ_I/1", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/3 ZZ_I/2", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/3 ZZ_I/3", "result": "QQ<sqrt(2) + I>[y,z] True"}
+{"case": "convert QQ2/3 ZZ_I/4", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/3 ZZ_I/5", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/3 ZZ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/4 ZZ_I/0", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/4 ZZ_I/1", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/4 ZZ_I/2", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/4 ZZ_I/3", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/4 ZZ_I/4", "result": "QQ<sqrt(2) + I>(y) True"}
+{"case": "convert QQ2/4 ZZ_I/5", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/4 ZZ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/5 ZZ_I/0", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/5 ZZ_I/1", "result": "QQ<sqrt(2) + I>(z,y) True"}
+{"case": "convert QQ2/5 ZZ_I/2", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/5 ZZ_I/3", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/5 ZZ_I/4", "result": "QQ<sqrt(2) + I>(z,y) True"}
+{"case": "convert QQ2/5 ZZ_I/5", "result": "QQ<sqrt(2) + I>(z) True"}
+{"case": "convert QQ2/5 ZZ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 ZZ_I/0", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 ZZ_I/1", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 ZZ_I/2", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 ZZ_I/3", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 ZZ_I/4", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 ZZ_I/5", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/6 ZZ_I/6", "result": "QQ<sqrt(2) + I>(y,z) True"}
+{"case": "convert QQ2/0 RR/1", "result": "RR[y] True"}
+{"case": "convert QQ2/0 RR/2", "result": "RR[z] True"}
+{"case": "convert QQ2/0 RR/3", "result": "RR[y,z] True"}
+{"case": "convert QQ2/0 RR/4", "result": "RR(y) True"}
+{"case": "convert QQ2/0 RR/5", "result": "RR(z) True"}
+{"case": "convert QQ2/0 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ2/1 RR/0", "result": "RR[y] True"}
+{"case": "convert QQ2/1 RR/1", "result": "RR[y] True"}
+{"case": "convert QQ2/1 RR/2", "result": "RR[y,z] True"}
+{"case": "convert QQ2/1 RR/3", "result": "RR[y,z] True"}
+{"case": "convert QQ2/1 RR/4", "result": "RR(y) True"}
+{"case": "convert QQ2/1 RR/5", "result": "RR(y,z) True"}
+{"case": "convert QQ2/1 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ2/2 RR/0", "result": "RR[z] True"}
+{"case": "convert QQ2/2 RR/1", "result": "RR[z,y] True"}
+{"case": "convert QQ2/2 RR/2", "result": "RR[z] True"}
+{"case": "convert QQ2/2 RR/3", "result": "RR[y,z] True"}
+{"case": "convert QQ2/2 RR/4", "result": "RR(z,y) True"}
+{"case": "convert QQ2/2 RR/5", "result": "RR(z) True"}
+{"case": "convert QQ2/2 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ2/3 RR/0", "result": "RR[y,z] True"}
+{"case": "convert QQ2/3 RR/1", "result": "RR[y,z] True"}
+{"case": "convert QQ2/3 RR/2", "result": "RR[y,z] True"}
+{"case": "convert QQ2/3 RR/3", "result": "RR[y,z] True"}
+{"case": "convert QQ2/3 RR/4", "result": "RR(y,z) True"}
+{"case": "convert QQ2/3 RR/5", "result": "RR(y,z) True"}
+{"case": "convert QQ2/3 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ2/4 RR/0", "result": "RR(y) True"}
+{"case": "convert QQ2/4 RR/1", "result": "RR(y) True"}
+{"case": "convert QQ2/4 RR/2", "result": "RR(y,z) True"}
+{"case": "convert QQ2/4 RR/3", "result": "RR(y,z) True"}
+{"case": "convert QQ2/4 RR/4", "result": "RR(y) True"}
+{"case": "convert QQ2/4 RR/5", "result": "RR(y,z) True"}
+{"case": "convert QQ2/4 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ2/5 RR/0", "result": "RR(z) True"}
+{"case": "convert QQ2/5 RR/1", "result": "RR(z,y) True"}
+{"case": "convert QQ2/5 RR/2", "result": "RR(z) True"}
+{"case": "convert QQ2/5 RR/3", "result": "RR(y,z) True"}
+{"case": "convert QQ2/5 RR/4", "result": "RR(z,y) True"}
+{"case": "convert QQ2/5 RR/5", "result": "RR(z) True"}
+{"case": "convert QQ2/5 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ2/6 RR/0", "result": "RR(y,z) True"}
+{"case": "convert QQ2/6 RR/1", "result": "RR(y,z) True"}
+{"case": "convert QQ2/6 RR/2", "result": "RR(y,z) True"}
+{"case": "convert QQ2/6 RR/3", "result": "RR(y,z) True"}
+{"case": "convert QQ2/6 RR/4", "result": "RR(y,z) True"}
+{"case": "convert QQ2/6 RR/5", "result": "RR(y,z) True"}
+{"case": "convert QQ2/6 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ2/0 CC/1", "result": "CC[y] True"}
+{"case": "convert QQ2/0 CC/2", "result": "CC[z] True"}
+{"case": "convert QQ2/0 CC/3", "result": "CC[y,z] True"}
+{"case": "convert QQ2/0 CC/4", "result": "CC(y) True"}
+{"case": "convert QQ2/0 CC/5", "result": "CC(z) True"}
+{"case": "convert QQ2/0 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ2/1 CC/0", "result": "CC[y] True"}
+{"case": "convert QQ2/1 CC/1", "result": "CC[y] True"}
+{"case": "convert QQ2/1 CC/2", "result": "CC[y,z] True"}
+{"case": "convert QQ2/1 CC/3", "result": "CC[y,z] True"}
+{"case": "convert QQ2/1 CC/4", "result": "CC(y) True"}
+{"case": "convert QQ2/1 CC/5", "result": "CC(y,z) True"}
+{"case": "convert QQ2/1 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ2/2 CC/0", "result": "CC[z] True"}
+{"case": "convert QQ2/2 CC/1", "result": "CC[z,y] True"}
+{"case": "convert QQ2/2 CC/2", "result": "CC[z] True"}
+{"case": "convert QQ2/2 CC/3", "result": "CC[y,z] True"}
+{"case": "convert QQ2/2 CC/4", "result": "CC(z,y) True"}
+{"case": "convert QQ2/2 CC/5", "result": "CC(z) True"}
+{"case": "convert QQ2/2 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ2/3 CC/0", "result": "CC[y,z] True"}
+{"case": "convert QQ2/3 CC/1", "result": "CC[y,z] True"}
+{"case": "convert QQ2/3 CC/2", "result": "CC[y,z] True"}
+{"case": "convert QQ2/3 CC/3", "result": "CC[y,z] True"}
+{"case": "convert QQ2/3 CC/4", "result": "CC(y,z) True"}
+{"case": "convert QQ2/3 CC/5", "result": "CC(y,z) True"}
+{"case": "convert QQ2/3 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ2/4 CC/0", "result": "CC(y) True"}
+{"case": "convert QQ2/4 CC/1", "result": "CC(y) True"}
+{"case": "convert QQ2/4 CC/2", "result": "CC(y,z) True"}
+{"case": "convert QQ2/4 CC/3", "result": "CC(y,z) True"}
+{"case": "convert QQ2/4 CC/4", "result": "CC(y) True"}
+{"case": "convert QQ2/4 CC/5", "result": "CC(y,z) True"}
+{"case": "convert QQ2/4 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ2/5 CC/0", "result": "CC(z) True"}
+{"case": "convert QQ2/5 CC/1", "result": "CC(z,y) True"}
+{"case": "convert QQ2/5 CC/2", "result": "CC(z) True"}
+{"case": "convert QQ2/5 CC/3", "result": "CC(y,z) True"}
+{"case": "convert QQ2/5 CC/4", "result": "CC(z,y) True"}
+{"case": "convert QQ2/5 CC/5", "result": "CC(z) True"}
+{"case": "convert QQ2/5 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ2/6 CC/0", "result": "CC(y,z) True"}
+{"case": "convert QQ2/6 CC/1", "result": "CC(y,z) True"}
+{"case": "convert QQ2/6 CC/2", "result": "CC(y,z) True"}
+{"case": "convert QQ2/6 CC/3", "result": "CC(y,z) True"}
+{"case": "convert QQ2/6 CC/4", "result": "CC(y,z) True"}
+{"case": "convert QQ2/6 CC/5", "result": "CC(y,z) True"}
+{"case": "convert QQ2/6 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ3/0 QQ3/1", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert QQ3/0 QQ3/2", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert QQ3/0 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ3/0 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ3/0 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ3/0 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/1 QQ3/0", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert QQ3/1 QQ3/1", "result": "QQ<sqrt(3)>[y] True"}
+{"case": "convert QQ3/1 QQ3/2", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ3/1 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ3/1 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ3/1 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/1 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/2 QQ3/0", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert QQ3/2 QQ3/1", "result": "QQ<sqrt(3)>[z,y] True"}
+{"case": "convert QQ3/2 QQ3/2", "result": "QQ<sqrt(3)>[z] True"}
+{"case": "convert QQ3/2 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ3/2 QQ3/4", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert QQ3/2 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ3/2 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/3 QQ3/0", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ3/3 QQ3/1", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ3/3 QQ3/2", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ3/3 QQ3/3", "result": "QQ<sqrt(3)>[y,z] True"}
+{"case": "convert QQ3/3 QQ3/4", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/3 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/3 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/4 QQ3/0", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ3/4 QQ3/1", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ3/4 QQ3/2", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/4 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/4 QQ3/4", "result": "QQ<sqrt(3)>(y) True"}
+{"case": "convert QQ3/4 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/4 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/5 QQ3/0", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ3/5 QQ3/1", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert QQ3/5 QQ3/2", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ3/5 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/5 QQ3/4", "result": "QQ<sqrt(3)>(z,y) True"}
+{"case": "convert QQ3/5 QQ3/5", "result": "QQ<sqrt(3)>(z) True"}
+{"case": "convert QQ3/5 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/6 QQ3/0", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/6 QQ3/1", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/6 QQ3/2", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/6 QQ3/3", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/6 QQ3/4", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/6 QQ3/5", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/6 QQ3/6", "result": "QQ<sqrt(3)>(y,z) True"}
+{"case": "convert QQ3/0 QQ_I/1", "result": "QQ<sqrt(3) + I>[y] True"}
+{"case": "convert QQ3/0 QQ_I/2", "result": "QQ<sqrt(3) + I>[z] True"}
+{"case": "convert QQ3/0 QQ_I/3", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/0 QQ_I/4", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/0 QQ_I/5", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/0 QQ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/1 QQ_I/0", "result": "QQ<sqrt(3) + I>[y] True"}
+{"case": "convert QQ3/1 QQ_I/1", "result": "QQ<sqrt(3) + I>[y] True"}
+{"case": "convert QQ3/1 QQ_I/2", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/1 QQ_I/3", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/1 QQ_I/4", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/1 QQ_I/5", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/1 QQ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/2 QQ_I/0", "result": "QQ<sqrt(3) + I>[z] True"}
+{"case": "convert QQ3/2 QQ_I/1", "result": "QQ<sqrt(3) + I>[z,y] True"}
+{"case": "convert QQ3/2 QQ_I/2", "result": "QQ<sqrt(3) + I>[z] True"}
+{"case": "convert QQ3/2 QQ_I/3", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/2 QQ_I/4", "result": "QQ<sqrt(3) + I>(z,y) True"}
+{"case": "convert QQ3/2 QQ_I/5", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/2 QQ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/3 QQ_I/0", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/3 QQ_I/1", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/3 QQ_I/2", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/3 QQ_I/3", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/3 QQ_I/4", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/3 QQ_I/5", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/3 QQ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/4 QQ_I/0", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/4 QQ_I/1", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/4 QQ_I/2", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/4 QQ_I/3", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/4 QQ_I/4", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/4 QQ_I/5", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/4 QQ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/5 QQ_I/0", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/5 QQ_I/1", "result": "QQ<sqrt(3) + I>(z,y) True"}
+{"case": "convert QQ3/5 QQ_I/2", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/5 QQ_I/3", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/5 QQ_I/4", "result": "QQ<sqrt(3) + I>(z,y) True"}
+{"case": "convert QQ3/5 QQ_I/5", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/5 QQ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 QQ_I/0", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 QQ_I/1", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 QQ_I/2", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 QQ_I/3", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 QQ_I/4", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 QQ_I/5", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 QQ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/0 ZZ_I/1", "result": "QQ<sqrt(3) + I>[y] True"}
+{"case": "convert QQ3/0 ZZ_I/2", "result": "QQ<sqrt(3) + I>[z] True"}
+{"case": "convert QQ3/0 ZZ_I/3", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/0 ZZ_I/4", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/0 ZZ_I/5", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/0 ZZ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/1 ZZ_I/0", "result": "QQ<sqrt(3) + I>[y] True"}
+{"case": "convert QQ3/1 ZZ_I/1", "result": "QQ<sqrt(3) + I>[y] True"}
+{"case": "convert QQ3/1 ZZ_I/2", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/1 ZZ_I/3", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/1 ZZ_I/4", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/1 ZZ_I/5", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/1 ZZ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/2 ZZ_I/0", "result": "QQ<sqrt(3) + I>[z] True"}
+{"case": "convert QQ3/2 ZZ_I/1", "result": "QQ<sqrt(3) + I>[z,y] True"}
+{"case": "convert QQ3/2 ZZ_I/2", "result": "QQ<sqrt(3) + I>[z] True"}
+{"case": "convert QQ3/2 ZZ_I/3", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/2 ZZ_I/4", "result": "QQ<sqrt(3) + I>(z,y) True"}
+{"case": "convert QQ3/2 ZZ_I/5", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/2 ZZ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/3 ZZ_I/0", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/3 ZZ_I/1", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/3 ZZ_I/2", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/3 ZZ_I/3", "result": "QQ<sqrt(3) + I>[y,z] True"}
+{"case": "convert QQ3/3 ZZ_I/4", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/3 ZZ_I/5", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/3 ZZ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/4 ZZ_I/0", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/4 ZZ_I/1", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/4 ZZ_I/2", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/4 ZZ_I/3", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/4 ZZ_I/4", "result": "QQ<sqrt(3) + I>(y) True"}
+{"case": "convert QQ3/4 ZZ_I/5", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/4 ZZ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/5 ZZ_I/0", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/5 ZZ_I/1", "result": "QQ<sqrt(3) + I>(z,y) True"}
+{"case": "convert QQ3/5 ZZ_I/2", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/5 ZZ_I/3", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/5 ZZ_I/4", "result": "QQ<sqrt(3) + I>(z,y) True"}
+{"case": "convert QQ3/5 ZZ_I/5", "result": "QQ<sqrt(3) + I>(z) True"}
+{"case": "convert QQ3/5 ZZ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 ZZ_I/0", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 ZZ_I/1", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 ZZ_I/2", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 ZZ_I/3", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 ZZ_I/4", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 ZZ_I/5", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/6 ZZ_I/6", "result": "QQ<sqrt(3) + I>(y,z) True"}
+{"case": "convert QQ3/0 RR/1", "result": "RR[y] True"}
+{"case": "convert QQ3/0 RR/2", "result": "RR[z] True"}
+{"case": "convert QQ3/0 RR/3", "result": "RR[y,z] True"}
+{"case": "convert QQ3/0 RR/4", "result": "RR(y) True"}
+{"case": "convert QQ3/0 RR/5", "result": "RR(z) True"}
+{"case": "convert QQ3/0 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ3/1 RR/0", "result": "RR[y] True"}
+{"case": "convert QQ3/1 RR/1", "result": "RR[y] True"}
+{"case": "convert QQ3/1 RR/2", "result": "RR[y,z] True"}
+{"case": "convert QQ3/1 RR/3", "result": "RR[y,z] True"}
+{"case": "convert QQ3/1 RR/4", "result": "RR(y) True"}
+{"case": "convert QQ3/1 RR/5", "result": "RR(y,z) True"}
+{"case": "convert QQ3/1 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ3/2 RR/0", "result": "RR[z] True"}
+{"case": "convert QQ3/2 RR/1", "result": "RR[z,y] True"}
+{"case": "convert QQ3/2 RR/2", "result": "RR[z] True"}
+{"case": "convert QQ3/2 RR/3", "result": "RR[y,z] True"}
+{"case": "convert QQ3/2 RR/4", "result": "RR(z,y) True"}
+{"case": "convert QQ3/2 RR/5", "result": "RR(z) True"}
+{"case": "convert QQ3/2 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ3/3 RR/0", "result": "RR[y,z] True"}
+{"case": "convert QQ3/3 RR/1", "result": "RR[y,z] True"}
+{"case": "convert QQ3/3 RR/2", "result": "RR[y,z] True"}
+{"case": "convert QQ3/3 RR/3", "result": "RR[y,z] True"}
+{"case": "convert QQ3/3 RR/4", "result": "RR(y,z) True"}
+{"case": "convert QQ3/3 RR/5", "result": "RR(y,z) True"}
+{"case": "convert QQ3/3 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ3/4 RR/0", "result": "RR(y) True"}
+{"case": "convert QQ3/4 RR/1", "result": "RR(y) True"}
+{"case": "convert QQ3/4 RR/2", "result": "RR(y,z) True"}
+{"case": "convert QQ3/4 RR/3", "result": "RR(y,z) True"}
+{"case": "convert QQ3/4 RR/4", "result": "RR(y) True"}
+{"case": "convert QQ3/4 RR/5", "result": "RR(y,z) True"}
+{"case": "convert QQ3/4 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ3/5 RR/0", "result": "RR(z) True"}
+{"case": "convert QQ3/5 RR/1", "result": "RR(z,y) True"}
+{"case": "convert QQ3/5 RR/2", "result": "RR(z) True"}
+{"case": "convert QQ3/5 RR/3", "result": "RR(y,z) True"}
+{"case": "convert QQ3/5 RR/4", "result": "RR(z,y) True"}
+{"case": "convert QQ3/5 RR/5", "result": "RR(z) True"}
+{"case": "convert QQ3/5 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ3/6 RR/0", "result": "RR(y,z) True"}
+{"case": "convert QQ3/6 RR/1", "result": "RR(y,z) True"}
+{"case": "convert QQ3/6 RR/2", "result": "RR(y,z) True"}
+{"case": "convert QQ3/6 RR/3", "result": "RR(y,z) True"}
+{"case": "convert QQ3/6 RR/4", "result": "RR(y,z) True"}
+{"case": "convert QQ3/6 RR/5", "result": "RR(y,z) True"}
+{"case": "convert QQ3/6 RR/6", "result": "RR(y,z) True"}
+{"case": "convert QQ3/0 CC/1", "result": "CC[y] True"}
+{"case": "convert QQ3/0 CC/2", "result": "CC[z] True"}
+{"case": "convert QQ3/0 CC/3", "result": "CC[y,z] True"}
+{"case": "convert QQ3/0 CC/4", "result": "CC(y) True"}
+{"case": "convert QQ3/0 CC/5", "result": "CC(z) True"}
+{"case": "convert QQ3/0 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ3/1 CC/0", "result": "CC[y] True"}
+{"case": "convert QQ3/1 CC/1", "result": "CC[y] True"}
+{"case": "convert QQ3/1 CC/2", "result": "CC[y,z] True"}
+{"case": "convert QQ3/1 CC/3", "result": "CC[y,z] True"}
+{"case": "convert QQ3/1 CC/4", "result": "CC(y) True"}
+{"case": "convert QQ3/1 CC/5", "result": "CC(y,z) True"}
+{"case": "convert QQ3/1 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ3/2 CC/0", "result": "CC[z] True"}
+{"case": "convert QQ3/2 CC/1", "result": "CC[z,y] True"}
+{"case": "convert QQ3/2 CC/2", "result": "CC[z] True"}
+{"case": "convert QQ3/2 CC/3", "result": "CC[y,z] True"}
+{"case": "convert QQ3/2 CC/4", "result": "CC(z,y) True"}
+{"case": "convert QQ3/2 CC/5", "result": "CC(z) True"}
+{"case": "convert QQ3/2 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ3/3 CC/0", "result": "CC[y,z] True"}
+{"case": "convert QQ3/3 CC/1", "result": "CC[y,z] True"}
+{"case": "convert QQ3/3 CC/2", "result": "CC[y,z] True"}
+{"case": "convert QQ3/3 CC/3", "result": "CC[y,z] True"}
+{"case": "convert QQ3/3 CC/4", "result": "CC(y,z) True"}
+{"case": "convert QQ3/3 CC/5", "result": "CC(y,z) True"}
+{"case": "convert QQ3/3 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ3/4 CC/0", "result": "CC(y) True"}
+{"case": "convert QQ3/4 CC/1", "result": "CC(y) True"}
+{"case": "convert QQ3/4 CC/2", "result": "CC(y,z) True"}
+{"case": "convert QQ3/4 CC/3", "result": "CC(y,z) True"}
+{"case": "convert QQ3/4 CC/4", "result": "CC(y) True"}
+{"case": "convert QQ3/4 CC/5", "result": "CC(y,z) True"}
+{"case": "convert QQ3/4 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ3/5 CC/0", "result": "CC(z) True"}
+{"case": "convert QQ3/5 CC/1", "result": "CC(z,y) True"}
+{"case": "convert QQ3/5 CC/2", "result": "CC(z) True"}
+{"case": "convert QQ3/5 CC/3", "result": "CC(y,z) True"}
+{"case": "convert QQ3/5 CC/4", "result": "CC(z,y) True"}
+{"case": "convert QQ3/5 CC/5", "result": "CC(z) True"}
+{"case": "convert QQ3/5 CC/6", "result": "CC(y,z) True"}
+{"case": "convert QQ3/6 CC/0", "result": "CC(y,z) True"}
+{"case": "convert QQ3/6 CC/1", "result": "CC(y,z) True"}
+{"case": "convert QQ3/6 CC/2", "result": "CC(y,z) True"}
+{"case": "convert QQ3/6 CC/3", "result": "CC(y,z) True"}
+{"case": "convert QQ3/6 CC/4", "result": "CC(y,z) True"}
+{"case": "convert QQ3/6 CC/5", "result": "CC(y,z) True"}
+{"case": "convert QQ3/6 CC/6", "result": "CC(y,z) True"}

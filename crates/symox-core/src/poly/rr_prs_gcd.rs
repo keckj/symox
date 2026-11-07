@@ -18,16 +18,43 @@
 //! the lex leading coefficient of a ground element is `PolyElement.LC`).
 //! Every division is exact; a failed one is reported, never rounded.
 use super::convert::{PResult, PolyError};
-use super::int::Rat;
+use super::algebraic::AN;
+use super::int::{Field, Rat};
 use super::mpoly::MPoly;
 
 type P = MPoly<Rat>;
+
+/// The ground field of the parameter ring: `QQ` or an algebraic field
+/// `QQ<a>` (which has no associated ring, so `QQ<a>.gcd` is one).
+pub trait RrGround: Field {
+    /// `K.gcd` of two ground elements.
+    fn field_gcd(a: &Self, b: &Self) -> Self;
+    /// `PolyElement.cofactors(...)[0]` of two multi-term ground ring
+    /// elements: their monic gcd.
+    fn multi_gcd(a: &MPoly<Self>, b: &MPoly<Self>) -> PResult<MPoly<Self>>;
+}
+impl RrGround for Rat {
+    fn field_gcd(a: &Self, b: &Self) -> Self {
+        qq_gcd(a, b)
+    }
+    fn multi_gcd(a: &MPoly<Self>, b: &MPoly<Self>) -> PResult<MPoly<Self>> {
+        Ok(super::gcd::gcd_mq(a, b).0)
+    }
+}
+impl RrGround for AN {
+    fn field_gcd(_: &Self, _: &Self) -> Self {
+        <AN as super::int::Coeff>::one()
+    }
+    fn multi_gcd(a: &MPoly<Self>, b: &MPoly<Self>) -> PResult<MPoly<Self>> {
+        super::algebraic_multi::gcd(a, b)
+    }
+}
 
 fn inexact_division() -> PolyError {
     PolyError::ExactQuotientFailed("reference QQ[y] gcd: inexact division".into())
 }
 
-fn quo(f: &P, g: &P) -> PResult<P> {
+fn quo<C: RrGround>(f: &MPoly<C>, g: &MPoly<C>) -> PResult<MPoly<C>> {
     if g.is_one() {
         return Ok(f.clone());
     }
@@ -39,7 +66,7 @@ fn qq_gcd(a: &Rat, b: &Rat) -> Rat {
     Rat::new(a.n.gcd(&b.n), a.d.lcm(&b.d))
 }
 
-fn nonnegative(a: &P) -> P {
+fn nonnegative<C: RrGround>(a: &MPoly<C>) -> MPoly<C> {
     if a.lc().is_negative() { a.neg() } else { a.clone() }
 }
 
@@ -50,63 +77,67 @@ fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
     a
 }
 
-struct Gcd {
+struct Gcd<C> {
     /// Number of polynomial generators.
     n: usize,
     /// The ground is `RR[y...]` itself rather than its exact `QQ[y...]`
     /// (`dup_inner_gcd` does not convert a polynomial ring over `RR`):
     /// `RR.gcd` is one, so a monomial gcd has the coefficient one.
     rr: bool,
+    ground: std::marker::PhantomData<C>,
 }
 
-impl Gcd {
+impl<C: RrGround> Gcd<C> {
+    fn new(n: usize, rr: bool) -> Self {
+        Self { n, rr, ground: std::marker::PhantomData }
+    }
     fn last(&self, v: usize) -> bool {
         v + 1 == self.n
     }
 
     /// `PolyElement.gcd` over `QQ` (`cofactors(...)[0]`).
-    fn ground_gcd(&self, a: &P, b: &P) -> P {
+    fn ground_gcd(&self, a: &MPoly<C>, b: &MPoly<C>) -> PResult<MPoly<C>> {
         if a.is_zero() && b.is_zero() {
-            return a.clone();
+            return Ok(a.clone());
         }
         if a.is_zero() {
-            return nonnegative(b);
+            return Ok(nonnegative(b));
         }
         if b.is_zero() {
-            return nonnegative(a);
+            return Ok(nonnegative(a));
         }
-        let monomial = |m: &P, o: &P| -> P {
+        let monomial = |m: &MPoly<C>, o: &MPoly<C>| -> MPoly<C> {
             let mut exps = m.exp(0).to_vec();
             let mut c = m.coeff(0).clone();
             if self.rr {
-                c = Rat::one();
+                c = C::one();
             }
             for (e, d) in o.iter() {
                 for (x, y) in exps.iter_mut().zip(e) {
                     *x = (*x).min(*y);
                 }
                 if !self.rr {
-                    c = qq_gcd(&c, d);
+                    c = C::field_gcd(&c, d);
                 }
             }
-            P::monomial(&exps, c)
+            MPoly::<C>::monomial(&exps, c)
         };
         if a.len() == 1 {
-            return monomial(a, b);
+            return Ok(monomial(a, b));
         }
         if b.len() == 1 {
-            return monomial(b, a);
+            return Ok(monomial(b, a));
         }
-        super::gcd::gcd_mq(a, b).0
+        C::multi_gcd(a, b)
     }
 
     /// Dense coefficients in `x_v`, leading first, zeros included.
-    fn dense(&self, f: &P, v: usize) -> Vec<P> {
+    fn dense(&self, f: &MPoly<C>, v: usize) -> Vec<MPoly<C>> {
         let d = f.degree(v);
         if d < 0 {
             return Vec::new();
         }
-        let mut out = vec![P::zero(f.nvars); d as usize + 1];
+        let mut out = vec![MPoly::<C>::zero(f.nvars); d as usize + 1];
         for (k, c) in f.coeffs_in(v) {
             out[d as usize - k as usize] = c;
         }
@@ -114,19 +145,19 @@ impl Gcd {
     }
 
     /// `dmp_content` (or `dup_content` in the last generator).
-    fn content(&self, f: &P, v: usize) -> PResult<P> {
+    fn content(&self, f: &MPoly<C>, v: usize) -> PResult<MPoly<C>> {
         let cs = self.dense(f, v);
         if self.last(v) {
-            let mut cont = P::zero(f.nvars);
+            let mut cont = MPoly::<C>::zero(f.nvars);
             for c in &cs {
-                cont = self.ground_gcd(&cont, c);
+                cont = self.ground_gcd(&cont, c)?;
                 if cont.is_one() {
                     break;
                 }
             }
             return Ok(cont);
         }
-        let Some(first) = cs.first() else { return Ok(P::zero(f.nvars)) };
+        let Some(first) = cs.first() else { return Ok(MPoly::<C>::zero(f.nvars)) };
         let mut cont = first.clone();
         for c in &cs[1..] {
             cont = self.inner_gcd(&cont, c, v + 1)?.0;
@@ -138,7 +169,7 @@ impl Gcd {
     }
 
     /// `dmp_primitive` (or `dup_primitive`).
-    fn primitive(&self, f: &P, v: usize) -> PResult<(P, P)> {
+    fn primitive(&self, f: &MPoly<C>, v: usize) -> PResult<(MPoly<C>, MPoly<C>)> {
         if f.is_zero() {
             return Ok((self.content(f, v)?, f.clone()));
         }
@@ -150,7 +181,7 @@ impl Gcd {
     }
 
     /// `dmp_prem` in `x_v`: `lc(g)**(df - dg + 1) * f` reduced modulo `g`.
-    fn prem(&self, f: &P, g: &P, v: usize) -> PResult<P> {
+    fn prem(&self, f: &MPoly<C>, g: &MPoly<C>, v: usize) -> PResult<MPoly<C>> {
         let (df, dg) = (f.degree(v), g.degree(v));
         if dg < 0 {
             return Err(PolyError::ExactQuotientFailed("polynomial division by zero".into()));
@@ -167,7 +198,7 @@ impl Gcd {
             let mut e = vec![0u32; f.nvars];
             e[v] = (dr - dg) as u32;
             steps -= 1;
-            r = r.mul(&lc_g).sub(&g.mul(&lc_r).mul_term(&e, &Rat::one()));
+            r = r.mul(&lc_g).sub(&g.mul(&lc_r).mul_term(&e, &C::one()));
             let previous = dr;
             dr = r.degree(v);
             if dr < dg {
@@ -181,7 +212,7 @@ impl Gcd {
     }
 
     /// The last polynomial of `dmp_subresultants(f, g)`.
-    fn last_subresultant(&self, f: &P, g: &P, v: usize) -> PResult<P> {
+    fn last_subresultant(&self, f: &MPoly<C>, g: &MPoly<C>, v: usize) -> PResult<MPoly<C>> {
         let (mut f, mut g) = (f.clone(), g.clone());
         let (mut n, mut m) = (f.degree(v), g.degree(v));
         if n < m {
@@ -192,7 +223,7 @@ impl Gcd {
             return Ok(f);
         }
         let nv = f.nvars;
-        let minus_one = P::constant(Rat::one().neg(), nv);
+        let minus_one = MPoly::<C>::constant(C::one().neg(), nv);
         let mut d = n - m;
         let mut h = self.prem(&f, &g, v)?.mul(&minus_one.pow((d + 1) as u32));
         let mut lc = g.lc_in(v);
@@ -214,7 +245,7 @@ impl Gcd {
 
     /// `dmp_inner_gcd` in the generators `x_v...` (`dup_inner_gcd`, which
     /// does not deflate, in the last one).
-    fn inner_gcd(&self, f: &P, g: &P, v: usize) -> PResult<(P, P, P)> {
+    fn inner_gcd(&self, f: &MPoly<C>, g: &MPoly<C>, v: usize) -> PResult<(MPoly<C>, MPoly<C>, MPoly<C>)> {
         if self.last(v) {
             return self.rr_prs_gcd(f, g, v);
         }
@@ -235,8 +266,8 @@ impl Gcd {
         if b.iter().all(|&x| x == 1) {
             return self.rr_prs_gcd(f, g, v);
         }
-        let map = |p: &P, deflate: bool| -> P {
-            P::from_terms(nv, p.iter().map(|(e, c)| {
+        let map = |p: &MPoly<C>, deflate: bool| -> MPoly<C> {
+            MPoly::<C>::from_terms(nv, p.iter().map(|(e, c)| {
                 let mut e = e.to_vec();
                 for i in v..self.n {
                     e[i] = if deflate { e[i] / b[i] } else { e[i] * b[i] };
@@ -248,9 +279,9 @@ impl Gcd {
         Ok((map(&h, false), map(&p, false), map(&q, false)))
     }
 
-    fn rr_prs_gcd(&self, f: &P, g: &P, v: usize) -> PResult<(P, P, P)> {
+    fn rr_prs_gcd(&self, f: &MPoly<C>, g: &MPoly<C>, v: usize) -> PResult<(MPoly<C>, MPoly<C>, MPoly<C>)> {
         let nv = f.nvars;
-        let (zero, one) = (P::zero(nv), P::one(nv));
+        let (zero, one) = (MPoly::<C>::zero(nv), MPoly::<C>::one(nv));
         let minus_one = one.neg();
         // `_dup_rr_trivial_gcd` / `_dmp_rr_trivial_gcd`
         if f.is_zero() && g.is_zero() {
@@ -265,7 +296,7 @@ impl Gcd {
         if self.last(v) {
             let (fc, ff) = self.primitive(f, v)?;
             let (gc, gg) = self.primitive(g, v)?;
-            let mut c = self.ground_gcd(&fc, &gc);
+            let mut c = self.ground_gcd(&fc, &gc)?;
             let (_, h) = self.primitive(&self.last_subresultant(&ff, &gg, v)?, v)?;
             if h.lc().is_negative() {
                 c = c.neg();
@@ -306,7 +337,15 @@ impl Gcd {
 /// generators (the first `n` variables) over the parameters that follow.
 pub fn inner_gcd(f: &P, g: &P, n: usize) -> PResult<(P, P, P)> {
     debug_assert!(n >= 2 && f.nvars == g.nvars && n <= f.nvars);
-    super::mpoly::checked_operation(|| Gcd { n, rr: false }.inner_gcd(f, g, 0))
+    super::mpoly::checked_operation(|| Gcd::new(n, false).inner_gcd(f, g, 0))
+}
+
+/// `dmp_inner_gcd(f, g, n - 1, K[y...])` over any parameter ring with
+/// ground `QQ` or `QQ<a>`, for `n >= 1` generators (`dup_inner_gcd`, which
+/// is `dup_rr_prs_gcd`, for one). Algebraic coefficients need their scope.
+pub fn ground_inner_gcd<C: RrGround>(f: &MPoly<C>, g: &MPoly<C>, n: usize) -> PResult<(MPoly<C>, MPoly<C>, MPoly<C>)> {
+    debug_assert!(n >= 1 && f.nvars == g.nvars && n <= f.nvars);
+    super::mpoly::checked_operation(|| Gcd::new(n, false).inner_gcd(f, g, 0))
 }
 
 /// `dmp_primitive(f, n - 1, QQ[y...])` in the first generator: the content
@@ -317,13 +356,13 @@ pub fn inner_gcd(f: &P, g: &P, n: usize) -> PResult<(P, P, P)> {
 /// `RR[y...]` itself, and with more it is the converted `QQ[y...]` gcd.
 pub fn primitive_main(f: &P, n: usize) -> PResult<(P, P)> {
     debug_assert!(n >= 2 && n <= f.nvars);
-    super::mpoly::checked_operation(|| Gcd { n, rr: n == 2 }.primitive(f, 0))
+    super::mpoly::checked_operation(|| Gcd::new(n, n == 2).primitive(f, 0))
 }
 
 /// `RR[y...].gcd` of two polynomials free of the generators (the first
 /// `n` variables): `PolyElement.cofactors(...)[0]` over `RR`.
 pub fn rr_ground_gcd(a: &P, b: &P) -> P {
-    Gcd { n: 1, rr: true }.ground_gcd(a, b)
+    Gcd::new(1, true).ground_gcd(a, b).expect("RR[y] monomial or monic gcd")
 }
 
 #[cfg(test)]

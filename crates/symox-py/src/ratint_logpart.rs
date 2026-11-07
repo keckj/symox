@@ -29,7 +29,7 @@ fn exact(p: &PyPoly) -> bool {
     if p.p.base.modulus.is_some() || p.p.base.domain.is_rr() { return false; }
     if p.p.algebraic.is_some() || p.p.field.is_some() { return true; }
     match &p.p.expression {
-        Some(e) => e.ground.is_none() && e.as_expr().float_info().max_precision.is_none(),
+        Some(e) => e.ground.as_ref().is_none_or(|g| g.algebraic.is_some()) && e.as_expr().float_info().max_precision.is_none(),
         None => matches!(p.p.base.domain, symox::poly::polyobj::Domain::ZZ | symox::poly::polyobj::Domain::QQ),
     }
 }

@@ -123,7 +123,9 @@ def test_nonrational_coefficients(domain):
     value = x if domain.is_Composite else sx.I if domain == sx.QQ_I else (
         sx.sqrt(2) if domain.is_AlgebraicField else sx.sin(x))
     matrix = DM([[value, 1], [0, value+1]], domain)
-    assert matrix.det() == domain(value*(value+1))
+    # SymPy 1.14 keeps a converted EX element as given and normalizes the
+    # arithmetic, so the determinant equals the product of the elements.
+    assert matrix.det() == domain(value)*domain(value+1)
     adjugate, determinant = matrix.adj_det()
     assert same(matrix*adjugate, DomainMatrix.eye(2, domain)*determinant)
     inverse, denominator = matrix.inv_den()

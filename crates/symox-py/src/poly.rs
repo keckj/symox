@@ -938,7 +938,7 @@ impl PyPoly {
             // `_re_polynomial` over RR or CC: `RR[y]`, `CC[y,z]`.
             if let Some((head,inner))=d.strip_suffix(']').and_then(|s|s.split_once('[')).filter(|(h,_)|matches!(*h,"R"|"RR"|"C"|"CC")) {
                 let symbols:Vec<Expr>=inner.split(',').map(str::trim).map(|n|available.iter().find(|s|symox::printer::to_str(s)==n).cloned().unwrap_or_else(||Expr::symbol(n))).collect();
-                let ground=symox::poly::gaussian_ground::GaussianGround{integral:false,ring:true,symbols,inexact:Some(symox::poly::inexact_ground::Inexact{precision:53,complex:head.starts_with('C')})};
+                let ground=symox::poly::gaussian_ground::GaussianGround{integral:false,ring:true,symbols,inexact:Some(symox::poly::inexact_ground::Inexact{precision:53,complex:head.starts_with('C')}),algebraic:None};
                 if !generators.is_empty(){return Ok(Self{p:ground.convert_expr(&e,&generators).map_err(err)?.into()});}
             }
             // `_re_complexfield`: `CC`, `C`, `CC_100`.

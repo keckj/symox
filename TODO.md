@@ -752,6 +752,84 @@ compile") ; tests Python en worktree avec `PYTHONPATH=python` ; jamais de
 (main 60 085 collectés ; vague 39 : 51 non réussis, 6 xfail dont le xfail
 strict prde).
 
+### Vague 44, lot algpoly (`feat-algpoly-20261106`, 7 novembre)
+
+Domaines composites sur sol algébrique `QQ<a>[t]` et `QQ<a>(t)`. Tout le
+calcul est en Rust ; aucun source Python n'a été ajouté ni étendu.
+
+- **Sol `GaussianGround`** (`crates/symox-core/src/poly/gaussian_ground.rs`).
+  - Le sol est généralisé de `QQ<I>` à tout `QQ<a>`, par le champ
+    `algebraic: Option<Arc<NumberField>>`.
+  - Portages de la référence :
+    - `FracElement.cancel` par cofacteurs (`_gcd_monom`, gcd de corps,
+      signe donné par le coefficient dominant du dénominateur) ;
+    - `_rebuild_expr` ;
+    - `dup_monic` (`K.quo`) ;
+    - unification (`AlgebraicField.unify` par élément primitif,
+      `QQ<a>` avec `QQ_I`, sol inexact, `UnificationFailed`).
+  - Le gcd de `rr_prs_gcd.rs` est rendu générique sur `QQ`/`QQ<a>`.
+  - Résultant et discriminant sont réduits sur le sol algébrique
+    (`expression_domain.rs`).
+  - L'admission native du Poly accepte le sol composite algébrique
+    (`crates/symox-py/src/poly.rs`) ; elle levait NotImplementedError à la
+    construction.
+- **Éléments EX** (`crates/symox-core/src/poly/domains.rs`).
+  - La conversion garde l'expression convertie, comme SymPy 1.14.
+  - L'arithmétique est normalisée par `simplify_element`, et la puissance
+    par `simplify(f.ex**n)`.
+  - `R(1/t)` lève ValueError, comme la référence.
+  - Quatre assertions de tests existants sont alignées sur SymPy,
+    vérifié en direct :
+    - deux de `test_numeric_expression_domains.py` (simplification
+      attendue à la conversion EX) ;
+    - une de `test_domainmatrix_algorithms.py` (déterminant EX) ;
+    - une de `test_sparse_ring_constructors.py` : `field("x", QQ<sqrt(2)>)`
+      existe désormais, comme dans SymPy.
+- **Mesures** (`audits/performance/2026-11-06-algpoly`) :
+  - corpus algpoly (139 cas) : SAME/DIFF/DECLINED/WRONG passe de
+    34/10/95/0 à 134/5/0/0 ;
+  - transcription `test_domains.py` : 281 → 728/728 ;
+  - instructions extension de `test_polytools.py` : 39 → 39 sur 46
+    (SymPy en passe 44) ;
+  - corpus ratint2 : 62 → 73/75 ;
+  - les 10 `ratint_logpart` sont identiques à SymPy, en 111 ms contre
+    1447 ms ;
+  - `tests/test_algpoly_parity.py` : 39 comparaisons en direct.
+- **Écarts délibérés** (à arbitrer) :
+  - `monic` sur `QQ<a>[t]`, et `gcd`, `lcm`, `sqf_list` sur `QQ<a>(t)` :
+    même valeur, autre représentant de la paire numérateur/dénominateur.
+    Toute sortie Poly repasse par `gaussian_ground::normalize_poly`.
+    Corriger demande des coefficients Poly qui gardent leur paire, et le
+    portage de `dup_inner_subresultants`/`dup_prem`/`ff_prs` sur ce type.
+  - Exceptions qui diffèrent de SymPy, toutes antérieures au lot :
+    - `factor(x**2-2*t**2, x, extension=sqrt(2))` lève ValueError, SymPy
+      CoercionFailed ;
+    - `ZZ[t](1/t)` et `QQ_I[t](1/t)` lèvent CoercionFailed, SymPy
+      ValueError.
+  - Impression du corps creux `field("x", QQ<sqrt(2)>)` après un
+    cancel : SymPy affiche un dénominateur `ANP(1)`, symox l'omet. Les
+    valeurs sont égales.
+- **Lacunes restantes** (antérieures au lot, identiques avec le `.so` de
+  la vague 43) :
+  - `factor_list` natif de produits contenant `sqrt(2)` échoue sur le
+    certificat de reconstruction (`poly/checked_factors.rs`, `verify`) :
+    `(x-sqrt(2))*(x+sqrt(2))`, `(x-sqrt(2)*t)**2`,
+    `(x-sqrt(2)*pi)*(x+sqrt(2)*pi)` ;
+  - `cancel(..., greedy=False)` avec `sqrt(2)` rend son argument tel quel ;
+  - `real_roots`/`all_roots` avec `extension=True` sur un Poly
+    multivarié ;
+  - extensions `CRootOf`.
+- **Pour l'intégrateur** : la lacune de la vague 43 citée plus haut
+  (`ratint_logpart` sur `QQ<a>[p]`/`QQ<a>(t)`, divisions de `QQ<a>(t)`,
+  normalisation `simplify` des éléments EX) est fermée par ce lot.
+- **Validation** :
+  - suite SUITE CLEAN à la 2e passe : 60 589 réussis, 6 xfail, 45 sautés,
+    sur 60 640 collectés et 697 fichiers. La 1re passe avait 2 échecs,
+    dus aux assertions alignées ci-dessus ;
+  - `cargo test --release` : 872 + 1 + 0 + 5 ;
+  - clippy correctness propre ;
+  - corpus EDO : 315/289/270.
+
 ## État des preuves et prochaine étape
 
 Le critère de clôture du tri de l'audit, décidé le 22 octobre, reste : ne

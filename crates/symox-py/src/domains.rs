@@ -178,7 +178,7 @@ impl PyDomain {
             if symbols.is_empty() {
                 return Ok(Self { inner: ExactDomain::Inexact { precision, complex: true } });
             }
-            let ground = symox::poly::gaussian_ground::GaussianGround { integral: false, ring: true, symbols, inexact: Some(symox::poly::inexact_ground::Inexact { precision, complex }) };
+            let ground = symox::poly::gaussian_ground::GaussianGround { integral: false, ring: true, symbols, inexact: Some(symox::poly::inexact_ground::Inexact { precision, complex }), algebraic: None };
             return Ok(Self { inner: ground.domain() });
         }
         if p.field.is_none() && p.algebraic.is_none() && !p.base.domain_gens().is_empty() {

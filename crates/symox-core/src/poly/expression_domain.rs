@@ -31,6 +31,11 @@ fn reference(kind: &'static str, message: impl Into<String>) -> PolyError {
     PolyError::Reference { kind, message: message.into() }
 }
 
+/// `Expression.simplify` of an `EX` domain element.
+pub(crate) fn simplify_element(e: &Expr) -> PResult<Expr> {
+    simplify(e.clone()).map(|x| x.0)
+}
+
 /// `Expression.simplify`: `ex.cancel().expand(**eflags)`.
 fn simplify(e: Expr) -> PResult<EX> {
     // The reference public `cancel` first applies `signsimp` and
@@ -2841,10 +2846,22 @@ impl ExpressionPoly {
         Self::from_terms(self.terms().into_iter().map(|(m, c)| (m[1..].to_vec(), c)).collect(), &self.gens[1..])
     }
     fn drop_main(&self, r: Dmp) -> PResult<Result<Expr, Self>> {
+        // Over an algebraic composite ground the result is an element of
+        // `QQ<a>[y]` or `QQ<a>(y)`: its normal form, as the reference
+        // `to_sympy` of that element.
+        let algebraic = self.ground.as_ref().filter(|g| g.algebraic.is_some());
         if self.u() == 0 {
-            return Ok(Ok(r.l().first().cloned().unwrap_or_else(EX::zero).0));
+            let e = r.l().first().cloned().unwrap_or_else(EX::zero).0;
+            return Ok(Ok(match algebraic {
+                Some(g) => g.reduce(&e)?,
+                None => e,
+            }));
         }
-        Ok(Err(Self { rep: r.into(), gens: self.gens[1..].to_vec(), ground: self.ground.clone() }))
+        let p = Self { rep: r.into(), gens: self.gens[1..].to_vec(), ground: self.ground.clone() };
+        Ok(Err(match algebraic {
+            Some(g) => g.convert_poly(&p)?,
+            None => p,
+        }))
     }
     /// `Poly.eval(gens[j], a)`: a ground expression or a polynomial in the
     /// remaining generators.
