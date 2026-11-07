@@ -18370,3 +18370,95 @@ Remaining gaps:
   their own implementations still have.
 - `MatrixFormalPowerSeries` (symox-only, `series/matrix.py` and
   `_lazy_formal.py`) is still Python.
+
+## Wave 45 integration (algfactor, pde, fps), 2026-11-07
+
+Branch `integrate-wave45-20261107`: main `f7888825` (wave 44) with
+`feat-algfactor-20261107`, `feat-pde-20261107` and `feat-fps-20261107`,
+merged in that order with `git merge --no-ff` (`379031d6`, `0b6ee8f8`,
+`d3e8c96f`). Only `TODO.md` and this file had textual conflicts (on the
+pde and fps merges); both keep the sections of all three lots.
+`crates/symox-py/src/lib.rs` merged cleanly with the registrations of all
+three lots (`mod pde`/`pde::register`, `mod formal`/`formal::register`;
+algfactor only extends existing modules). The merged tree compiled at the
+first attempt; no integration fix was needed, in Rust or in Python.
+
+Validation of the merged code (`XLA_PYTHON_CLIENT_PREALLOCATE=false`, each
+heavy step run one after the other under `flock ~/symox-ci/heavy.lock`,
+evidence in `~/symox-ci/evidence/integ45-20261107/`):
+
+- Full suite: SUITE CLEAN on the first run (`suite-run1`). 61 144 passed,
+  13 xfail and 45 skipped, out of 61 202 tests collected and run in 703
+  files. That is main's 60 879 / 700 plus the 73, 138 and 112 tests of the
+  three lots (`tests/test_algfactor_parity.py`, `tests/test_native_pde.py`,
+  `tests/test_native_fps.py`). The non-strict, hash-seed-dependent
+  lie_group xfail XPASSed under this run's seed, as in the wave 44
+  integration. No known load failure occurred (the machine was idle).
+- `cargo test --release`: 878 + 1 + 0 + 5 (the two new pde unit tests).
+  Clippy correctness is clean (rustc unused-item warnings only).
+- ODE corpus: 315/289/270, with verdicts identical row by row to wave 44
+  (`score.py` against `integ44-20261107/ode` lists no changed row).
+- Solve corpora, compare files byte-identical to wave 44:
+  - tsolve: 106 SAME, 6 EQUIV, 2 SUPERSET, 1 DECLINED and 0 WRONG_EMPTY;
+  - unrad: 87 SAME, 2 EQUIV and 1 EXTRA.
+- Lot corpora replayed on the merged build (`lots/`):
+  - algfactor: 248 SAME, 1 DIFF (`minimal_polynomial(r*rc)`, SymPy runs
+    past 60 s), 0 DECLINED, 0 WRONG; per-case verdicts identical to the lot;
+  - pde: 716 SAME, 75 DIFF, 0 DECLINED, 0 WRONG; every case record
+    identical to the lot's `report-after.json`, timings aside, with the same
+    native call counts (144/372/77/12/18) and no decline;
+  - fps: `test_formal.py` 220/220 SAME and the 127 extra cases 121 SAME / 6 DIFF, with the same per-key categories as the lot;
+  - liegroup: 414 SAME, 12 DIFF, 2 DECLINED and 0 WRONG, against 412/14/2/0 in wave 44 and 413/13/2/0 in the pde lot. Only `dsolve:lg01` and `dsolve:fsum` change. Both became SAME because symox now reaches the 120 s deadline like SymPy (120.1 s and 130.3 s, while other agents loaded the machine to 17-23). Run alone, `lg01` still raises RecursionError, as SymPy does after 6 min 22 s. Run at the same time on both builds, it ends in 68.7 s with the merged build against 88.3 s with the pde lot's build (`lots/lg01/`). This is a load and deadline-boundary effect, not an interaction; `fsum` is the wave-44 deadline-boundary case;
+  - algpoly: 135 SAME, 4 DIFF, 0 DECLINED, 0 WRONG, against 134/5/0/0 in
+    wave 44. The one change is `factor extension param`, now SAME: it is
+    the `factor(x**2 - 2*t**2, x, extension=sqrt(2))` exception class that
+    algfactor aligned on SymPy (CoercionFailed);
+  - hasmatch: `has` 1255/1255 SAME, raw answers identical to wave 44;
+  - ratint2: 73/75 equal to SymPy;
+  - matcher: public `Expr.match` 2311/2311; native 2226 equal and 85
+    declined; report identical to wave 44, timings aside;
+  - limits2: 1237/1293 (1211 in wave 44); the 26 newly equal asserts are
+    all in `test_formal` (fps, formal 59 -> 85/85), none broken; 84 Gruntz
+    declines unchanged.
+
+Interactions checked:
+
+- algfactor changes `factor_list`/`sqf_list` (multiplicities merged like
+  `_symbolic_factor_list`) and `cancel`/`gcd` with `greedy=False`. pde,
+  fps, the ODE solvers, `integrate` and `solve` call them. The pde, fps,
+  ODE, solve, ratint2 and algpoly corpora show no regression, and the only
+  algpoly change is an improvement from algfactor itself.
+- fps changes `expand(b**(-p/q))` in `expand.rs`. The ODE, solve, limits2
+  and integration-heavy lot corpora are unchanged, and the full suite is
+  clean.
+- pde changes `lie_group`, which now calls the native `pdsolve`. The
+  liegroup corpus is unchanged apart from these two deadline cases, the native call counts show no decline, and `lg01` is not slower on the merged build.
+
+Open after this wave (see the lot sections above and the TODO):
+
+- algfactor: `QQ<a>` numerator/denominator representatives; `EX[t](1/t)`
+  and `GF(p)[t](1/t)` raise NotImplementedError; three native computations
+  are not interruptible (`test_factor_large#9`, `test_cancel#80`,
+  `test_minimal_polynomial_sq#9`); polytools edges (`gcd_list`/`lcm_list`,
+  `cofactors(8, 6)`, `gcd(3.0, 9.0)`, `gcdex(auto=False)`, `deep=True`,
+  `Piecewise` in `cancel`, `same_root`); `which_real_roots` still Python.
+- pde: the symox-only `_native_fallback`/`_isotropic_fallback`
+  characteristic solvers stay in Python (SymPy fails on those inputs).
+- fps: the symox-only `MatrixFormalPowerSeries` stays in Python;
+  `integrate(log(1 + x))` has a different constant (`-1`), which shows in
+  `fps(log(1 + x)).integrate(x)`.
+- Deliberate deviations awaiting the user's decision:
+  - algfactor: `sqf_list` merges multiplicities like SymPy, so a product's
+    result is not globally square-free when SymPy's is not (one test
+    realigned); `minimal_polynomial(r*rc)` answers `y**3 - y**2 - 9` where
+    SymPy does not finish in 60 s;
+  - pde: `F_`, `Dummy` characteristic coordinates, renamed integration
+    variables, `_combine_integrals`, `all`/`best` key order, and an
+    unclassified `pdsolve` in lie_group declines to the reference Python;
+  - fps: exact `product` against SymPy's symbolic FFT, `zoo` against
+    `nan`; unexpanded polynomials, where SymPy returns a WRONG series and
+    symox the correct one; `truncate` at a symbolic order;
+    `rsolve_hypergeometric` with a Python int;
+  - still pending from waves 43-44: `Order.as_expr_variables`, the algpoly
+    representatives, the liegroup prefix atom order (`abaco2`) and single
+    try of user `xi`/`eta`, `simp.rs` keeping `pattern_match`.

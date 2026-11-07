@@ -1,17 +1,17 @@
 # TODO — Capacités mathématiques et parité SymPy
 
-Mis à jour le **7 novembre 2026**, après la vague 44, sur la branche
-`integrate-wave44-20261107` (`main` à **`583315a8`**, vague 43, plus les
-trois lots de la vague 44 : hasmatch, algpoly, liegroup). Référence :
+Mis à jour le **7 novembre 2026**, après la vague 45, sur la branche
+`integrate-wave45-20261107` (`main` à **`f7888825`**, vague 44, plus les
+trois lots de la vague 45 : algfactor, pde, fps). Référence :
 **SymPy 1.14.0**. État validé sur Demeter le 7 novembre : suite complète
-**60 821 réussis, 0 échec** ("SUITE CLEAN", 60 879 collectés, 700
-fichiers, 13 xfail, 45 sautés), cargo test 876 + 1 + 0 + 5, clippy
+**61 144 réussis, 0 échec** ("SUITE CLEAN", 61 202 collectés, 703
+fichiers, 13 xfail, 45 sautés), cargo test 878 + 1 + 0 + 5, clippy
 correctness propre, corpus EDO **315/289/270**, corpus solve tsolve 106
-SAME / 0 WRONG_EMPTY et unrad 87 SAME, corpus des lots : has 1255/1255,
-algpoly 134/5/0/0, liegroup 412/14/2/0 (seul `dsolve:fsum` bascule, à la
-frontière des 120 s), ratint2 73/75, `Expr.match` public 2311/2311,
-limits2 1211/1293 (voir « Reprise sur Demeter » ; le paragraphe ci-dessous
-décrit la suite du 28 octobre).
+SAME / 0 WRONG_EMPTY et unrad 87 SAME, corpus des lots : algfactor
+248/1/0/0, pde 716/75/0/0, fps `test_formal` 220/220 SAME et extras 121/6, liegroup 414/12/2/0, algpoly
+135/4/0/0, has 1255/1255, ratint2 73/75, `Expr.match` public 2311/2311,
+limits2 1237/1293 (voir « Reprise sur Demeter » ; le paragraphe
+ci-dessous décrit la suite du 28 octobre).
 
 Dernière suite complète : binaire `e2b10b0c`, sources `cc617a4a`
 (**56 311 tests**, Demeter) ; 762 tests Rust, 1 test d’intégration
@@ -57,7 +57,7 @@ Les preuves, sondes et corrections intentionnelles sont dans le
 [contrat de parité](docs/algorithmic-parity.md). Les extensions et sous-classes
 Python restent un chantier distinct, hors de ce TODO mathématique.
 
-## Reprise sur Demeter (état au 7 novembre, après la vague 44)
+## Reprise sur Demeter (état au 7 novembre, après la vague 45)
 
 **Règle de travail (à respecter et rappeler à chaque lot)** : le calcul va
 en Rust (`crates/symox-core`, liaison PyO3 dans `crates/symox-py`). Le
@@ -88,52 +88,59 @@ corrigé. Restent en Python la chaîne établie après un NotImplementedError
 natif et deux crochets (`nsimplify`, fin d'`equals`) ; voir « Lacunes
 ouvertes principales ».
 
-**Intégration de la vague 44** (branche `integrate-wave44-20261107`, 7
-novembre) : `main` `583315a8` plus `feat-hasmatch-20261106`,
-`feat-algpoly-20261106` et `feat-liegroup-20261106`, fusionnés dans cet
-ordre (`git merge --no-ff`, `03e62be6`, `b5711f13`, `f192f8e3`). Seuls
-`TODO.md` et `docs/algorithmic-parity.md` étaient en conflit textuel ; les
-sections des trois lots sont gardées. `crates/symox-py/src/lib.rs` a
-fusionné sans conflit avec les trois enregistrements (`_has_matcher`,
-`mod ode_lie`, `ode_lie::register`). Un correctif d'intégration, en Rust
-(`1666ce3f`) : hasmatch a rendu `matches::reference_has` privé (simple
-enveloppe de `traverse::has_structural`) alors que liegroup l'importait ;
-la branche fusionnée ne compilait pas (E0603). `ode/lie_group.rs` appelle
-maintenant `traverse::has_structural`, le `Basic.has` de référence (sous-sommes
-et sous-produits de `AssocOp._has_matcher`). Validation, étapes
-lourdes en séquence sous `flock ~/symox-ci/heavy.lock`, preuves dans
-`~/symox-ci/evidence/integ44-20261107/` :
-- suite complète : SUITE CLEAN au second passage (`suite-run2`), 60 821
-  réussis, 13 xfail, 45 sautés sur 60 879 collectés (700 fichiers), soit
-  l'union des trois lots (+27, +39, +212 tests, +4 fichiers sur les
-  60 601/696 de main). Les lots comptaient 14 xfail ensemble : le xfail
-  non strict de liegroup qui dépend de la graine de hachage
-  (`test_checkinfsol_matches_sympy[x*(f(x).diff(x)) + 1 - f(x)**2]`) est
-  passé en XPASS. Le premier passage (`suite-run1`) a perdu le shard 23
-  (`tests/extra`) par le tueur OOM du cgroup (plafond 6 Go) ; seul, le
-  shard est aussi tué avec ce build (`shard23-isolated`) et avec le `.so`
-  de main vague 43 (`shard23-main-so`) : échec d'environnement (pic vers
-  5,3 Go avant le redémarrage de la machine du 7 novembre, au plafond
-  depuis) ;
-- cargo test 876 + 1 + 0 + 5 ; clippy correctness propre (9 avertissements
-  rustc d'éléments inutilisés, aucun lint de correction) ;
-- corpus EDO 315/289/270, verdicts identiques ligne à ligne à la vague 43 ;
-- corpus solve identiques ligne à ligne à la vague 43 : tsolve 106 SAME,
-  6 EQUIV, 2 SUPERSET, 1 DECLINED, 0 WRONG_EMPTY ; unrad 87 SAME, 2 EQUIV,
-  1 EXTRA ;
-- corpus des lots rejoués sur le build fusionné (`lots/`) : has 1255/1255 ;
-  algpoly 134/5/0/0, verdicts par cas identiques au lot ; ratint2 73/75 ;
-  `Expr.match` public 2311/2311 (rapport identique à la vague 43, temps
-  mis à part) ; limits2 1211/1293, comparaison par fichier et catégories
-  identiques au lot, 84 déclins Gruntz identiques ; liegroup 412/14/2/0
-  contre 413/13/2/0 pour le lot. Le seul cas qui change est
-  `dsolve:fsum` (`hint='lie_group'`) : dans le lot, les deux côtés
-  dépassaient le délai de 120 s (symox 125,6 s, égalité sans parité
-  montrée) ; ici symox finit à 107,8 s par NotImplementedError (« cannot
-  be solved by the lie group method »). Seul, le build fusionné et le
-  build du lot donnent tous deux ce NotImplementedError en 116 s
-  (`lots/fsum/`) : effet de frontière du délai, pas une interaction.
-  SymPy 1.14, lancé sans délai, lève le même NotImplementedError, avec le même message, après 371 s (`lots/fsum/sympy-longrun.txt`) : le cas est en parité, hors du délai du corpus.
+**Intégration de la vague 45** (branche `integrate-wave45-20261107`, 7
+novembre) : `main` `f7888825` plus `feat-algfactor-20261107`,
+`feat-pde-20261107` et `feat-fps-20261107`, fusionnés dans cet ordre
+(`git merge --no-ff`, `379031d6`, `0b6ee8f8`, `d3e8c96f`). Seuls `TODO.md`
+et `docs/algorithmic-parity.md` étaient en conflit textuel (fusions pde et
+fps) ; les sections des trois lots sont gardées.
+`crates/symox-py/src/lib.rs` a fusionné sans conflit avec les
+enregistrements des trois lots (`mod pde`/`pde::register`,
+`mod formal`/`formal::register` ; algfactor étend des modules existants).
+La branche fusionnée compile du premier coup ; aucun correctif
+d'intégration, ni en Rust ni en Python. Validation, étapes lourdes en
+séquence sous `flock ~/symox-ci/heavy.lock`, preuves dans
+`~/symox-ci/evidence/integ45-20261107/` :
+- suite complète : SUITE CLEAN au premier passage (`suite-run1`),
+  61 144 réussis, 13 xfail, 45 sautés sur 61 202 collectés et exécutés
+  (703 fichiers), soit la base de main (60 879 / 700) plus les 73, 138 et
+  112 tests des lots ; le xfail non strict de liegroup qui dépend de la
+  graine de hachage est passé en XPASS, comme à la vague 44 ; aucun faux
+  échec de charge (machine au repos) ;
+- cargo test 878 + 1 + 0 + 5 ; clippy correctness propre (avertissements
+  rustc d'éléments inutilisés seulement) ;
+- corpus EDO 315/289/270, verdicts identiques ligne à ligne à la vague 44
+  (`score.py` contre `integ44-20261107/ode` : aucune ligne changée) ;
+- corpus solve, fichiers de comparaison identiques octet par octet à la
+  vague 44 : tsolve 106 SAME, 6 EQUIV, 2 SUPERSET, 1 DECLINED,
+  0 WRONG_EMPTY ; unrad 87 SAME, 2 EQUIV, 1 EXTRA ;
+- corpus des lots rejoués sur le build fusionné (`lots/`) : algfactor
+  248/1/0/0, verdicts par cas identiques au lot ; pde 716/75/0/0, chaque
+  cas identique au `report-after.json` du lot (temps mis à part), appels
+  natifs 144/372/77/12/18 sans déclin ; fps `test_formal.py` 220/220 SAME et extras 121/6/0, catégories identiques au lot cas par cas ; liegroup
+  414/12/2/0 (412/14/2/0 à la vague 44, 413/13/2/0 pour le lot pde) : seuls `dsolve:lg01` et `dsolve:fsum` changent, passés SAME parce que symox y atteint maintenant le délai de 120 s comme SymPy (120,1 s et 130,3 s, machine chargée par d'autres agents, charge 17 à 23) ; seul, `lg01` lève toujours RecursionError, comme SymPy après 6 min 22 s, et lancé en même temps sur les deux builds il finit en 68,7 s avec le build fusionné contre 88,3 s avec celui du lot pde (`lots/lg01/`) : effet de charge et de frontière du délai, pas une interaction ; `fsum` reste le cas de frontière de la vague 44 ; algpoly 135/4/0/0 (134/5/0/0 à la vague 44 : `factor
+  extension param` passe SAME, classe d'exception alignée par algfactor) ;
+  has 1255/1255, réponses brutes identiques à la vague 44 ; ratint2
+  73/75 ; `Expr.match` public 2311/2311 (rapport identique à la vague 44,
+  temps mis à part) ; limits2 1237/1293
+  (1211 en vague 44 : 26 asserts `test_formal` corrigés par fps, formal
+  59 → 85/85, aucun recul ; 84 déclins Gruntz inchangés).
+Interactions vérifiées : algfactor change `factor_list`/`sqf_list` (fusion
+des multiplicités comme `_symbolic_factor_list`) et `cancel`/`gcd` en
+`greedy=False`, appelés par pde, fps, EDO, `integrate` et `solve` ; fps
+change `expand(b**(-p/q))` ; pde change `lie_group` (rappel du `pdsolve`
+natif). Corpus EDO, solve, pde, fps, liegroup et algpoly sans régression.
+
+La branche `integrate-wave44-20261107` (vague 44 : hasmatch, algpoly,
+liegroup) est dans main (`f7888825`) : suite 60 821 réussis (60 879
+collectés, 700 fichiers, 13 xfail), cargo test 876 + 1 + 0 + 5, corpus EDO
+315/289/270, tsolve 106 SAME / 0 WRONG_EMPTY, unrad 87 SAME, has
+1255/1255, algpoly 134/5/0/0, liegroup 412/14/2/0 (seul `dsolve:fsum`
+bascule à la frontière des 120 s ; SymPy sans délai lève le même
+NotImplementedError après 371 s), ratint2 73/75, `Expr.match` public
+2311/2311, limits2 1211/1293. Correctif d'intégration Rust `1666ce3f`
+(`ode/lie_group.rs` appelle `traverse::has_structural`, `matches::reference_has`
+devenu privé).
 
 La branche `integrate-wave43-20261106` (vague 43 : matcher, limits2,
 ratint2) est dans main (`583315a8`) : suite 60 550 réussis (60 601
@@ -141,9 +148,41 @@ collectés, 696 fichiers, 6 xfail), cargo test 872 + 1 + 0 + 5, corpus EDO
 315/289/270, corpus tsolve 106 SAME / 0 WRONG_EMPTY, unrad 87 SAME,
 `Expr.match` public 2311/2311, limits2 1211/1293, ratint2 62/75.
 
-Vague 44 (intégrée sur `integrate-wave44-20261107` ; calcul en Rust,
+Vague 45 (intégrée sur `integrate-wave45-20261107` ; calcul en Rust,
 Python limité à l'admission, l'aiguillage et les enveloppes ; détail dans
 les sections des lots plus bas) :
+- algfactor (`feat-algfactor-20261107`) : factorisation et `cancel` avec
+  nombres algébriques en Rust. Certificat de reconstruction replié sur un
+  certificat par expansion (`poly/checked_factors.rs`) ; `factor_list` et
+  `sqf_list` composante par composante dans l'ordre de `Mul.args`, avec
+  fusion des multiplicités de sqf comme `_symbolic_factor_list`
+  (`checked_natural_factor_list`, `poly/api.rs`) ; produits constants
+  (`checked_constant_factor_list`) ; `greedy=False` pour `gcd`, `lcm`,
+  `cofactors`, `cancel` (sol `EX`, `poly/convert.rs::nongreedy_generators`) ;
+  exceptions de référence (`factor(..., extension=sqrt(2))` CoercionFailed,
+  `ZZ[t](1/t)`/`QQ_I[t](1/t)` ValueError). Python : aiguillage de
+  `real_roots`/`all_roots` avec `extension=True` seulement. Corpus
+  algfactor 179/64/3/3 → 248/1/0/0 ; instructions amont 948 → 955/1362 ;
+  +73 tests (`tests/test_algfactor_parity.py`).
+- pde (`feat-pde-20261107`) : `sympy/solvers/pde.py` en Rust
+  (`ode/pde.rs`, liaison `crates/symox-py/src/pde.rs`) : `classify_pde`,
+  `pdsolve` (logique de `_desolve`, `all`, `all_Integral`, `best`), les
+  quatre solveurs du premier ordre, `checkpdesol`, `pde_separate*` ; le
+  `lie_group` natif appelle le `pdsolve` natif (`native_pdsolve_rhs`), sans
+  rappel Python. Corpus pde 714/77/0/0 → 716/75/0/0 (68,2 s contre
+  573,7 s pour SymPy) ; +138 tests (`tests/test_native_pde.py`).
+- fps (`feat-fps-20261107`) : `sympy/series/formal.py` en Rust
+  (`series/formal.rs`, liaison `crates/symox-py/src/formal.rs`) :
+  algorithmes rationnel et hypergéométrique, `simpleDE`, `rsolve_hypergeometric`,
+  `compute_fps`, `fps`, et les méthodes de `FormalPowerSeries` (`truncate`,
+  arithmétique, `product`, `compose`, `inverse`, `integrate`, `diff`) ;
+  `expand(b**(-p/q))` touché dans `expand.rs`. Python : enveloppes de
+  classe, passage d'arguments et pickling. `test_formal.py` 101 → 220/220
+  SAME ; extras 87/30/10 → 121/6/0 ; +112 tests.
+
+Vague 44 (dans main ; calcul en Rust, Python limité à l'admission,
+l'aiguillage et les enveloppes ; détail dans les sections des lots plus
+bas) :
 - hasmatch (`feat-hasmatch-20261106`) : `has`, `has_free` et `has_xfree`
   de référence en Rust (`traverse.rs`, `_core._has_matcher`) ; doublon
   `matches::reference_has` remplacé par `traverse::has_structural` ;
@@ -490,6 +529,49 @@ Vague 38 (dans main) :
 - prdelog : cas de base de `is_log_deriv_k_t_radical_in_field` en Rust
   (`integrate/prde_log.rs`, 938 appels, 0 écart).
 
+Écarts volontaires de la vague 45 en attente de validation utilisateur :
+- algfactor :
+  - `sqf_list` d'un produit fusionne les multiplicités composante par
+    composante comme `_symbolic_factor_list` de SymPy : le résultat n'est
+    plus globalement sans carré quand celui de SymPy ne l'est pas ; une
+    assertion de `tests/test_fraction_factor_lists.py` est réalignée
+    (comparaison en direct à SymPy) ;
+  - `minimal_polynomial(r*rc)` : SymPy ne termine pas en 60 s, symox
+    répond `y**3 - y**2 - 9` (vérifié à la main ; seul DIFF du corpus
+    algfactor).
+- pde (repris de `pde.py` de symox) :
+  - fonction arbitraire `F_` quand `F` figure dans l'équation (SymPy
+    confond les deux et perd la solution générale) ;
+  - coordonnées caractéristiques `Dummy` quand `xi`/`eta` figurent dans
+    l'équation (SymPy capture la variable et son `checkpdesol` rejette sa
+    propre réponse) ;
+  - variables d'intégration capturées renommées
+    (`_rename_captured_integration_variables`) ;
+  - `_combine_integrals` dans `checkpdesol` avant la conclusion ;
+  - ordre des clés de `all`/`best` : celui de `classify_pde` (SymPy
+    parcourt un ensemble, dans l'ordre du hachage) ;
+  - dans lie_group, un `pdsolve` non classé décline vers le corps Python
+    de référence conservé (dans SymPy, le NotImplementedError se propage).
+- fps :
+  - `product` : convolution exacte, là où SymPy passe par une FFT
+    symbolique et laisse des radicaux non simplifiés (valeurs égales) ;
+    pour `log(1 + x)*exp(-x)`, le coefficient de `k = 0` vaut `zoo` dans
+    symox et `nan` dans SymPy ;
+  - polynômes non développés : SymPy lit `Coeff` et le terme constant sur
+    le polynôme non développé et rend une série FAUSSE
+    (`fps((1 + x)**2) = O(x**4)`, `fps(x**2 + 1, x, 1) = 1`) ; symox
+    développe et rend les coefficients de Taylor exacts ;
+  - `truncate` à ordre symbolique en un point fini : `x**(n + 3)/2` est
+    gardé (`fps(x**(n + 1)*exp(x)).truncate(3)`), SymPy l'abandonne mais
+    annonce `O(x**(n + 4))` ;
+  - `rsolve_hypergeometric` avec un `P` entier Python : SymPy lève
+    AttributeError, symox sympifie.
+- Restent en attente d'arbitrage les écarts des vagues 43 et 44 ci-dessous,
+  notamment `Order.as_expr_variables` (enveloppe Python de limits2), les
+  représentants numérateur/dénominateur d'algpoly, l'ordre préfixe des
+  atomes d'`abaco2_unique_unknown` et l'essai unique des `xi`/`eta`
+  utilisateur de liegroup, `simp.rs` qui garde `pattern_match`.
+
 Écarts volontaires de la vague 44 en attente de validation utilisateur :
 - hasmatch : `simp.rs` garde `pattern::pattern_match` : ses règles
   trigonométriques heuristiques sont propres à symox (sans homologue
@@ -502,10 +584,9 @@ Vague 38 (dans main) :
 - algpoly : `monic` sur `QQ<a>[t]`, et `gcd`, `lcm`, `sqf_list` sur
   `QQ<a>(t)` rendent la même valeur avec un autre représentant de la
   paire numérateur/dénominateur (toute sortie Poly repasse par
-  `gaussian_ground::normalize_poly`) ; classes d'exception antérieures au
-  lot : `factor(x**2 - 2*t**2, x, extension=sqrt(2))` lève ValueError
-  (SymPy CoercionFailed), `ZZ[t](1/t)` et `QQ_I[t](1/t)` lèvent
-  CoercionFailed (SymPy ValueError) ; impression du corps creux
+  `gaussian_ground::normalize_poly`) ; les classes d'exception antérieures
+  au lot (`factor(x**2 - 2*t**2, x, extension=sqrt(2))`, `ZZ[t](1/t)`,
+  `QQ_I[t](1/t)`) suivent SymPy depuis la vague 45 (algfactor) ; impression du corps creux
   `field("x", QQ<sqrt(2)>)` après un cancel sans le dénominateur `ANP(1)`
   de SymPy (valeurs égales) ; quatre assertions de tests existants
   alignées sur SymPy, vérifiées en direct (deux de
@@ -654,16 +735,41 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `pattern_match`) ; le filtreur natif décline encore (repli Python) sur
   les Float face à un côté sans symbole libre, `zoo`/`oo`, `Sum` et autres
   nœuds liés.
-- Polynômes sur extension algébrique (relevés par algpoly, antérieurs au
-  lot) : `factor_list` natif de produits contenant `sqrt(2)` échoue sur le
-  certificat de reconstruction (`poly/checked_factors.rs`, `verify`) pour
-  `(x - sqrt(2))*(x + sqrt(2))`, `(x - sqrt(2)*t)**2`,
-  `(x - sqrt(2)*pi)*(x + sqrt(2)*pi)` ; `cancel(..., greedy=False)` avec
-  `sqrt(2)` rend son argument tel quel ; `real_roots`/`all_roots` avec
-  `extension=True` sur un Poly multivarié ; extensions `CRootOf`.
-- lie_group (vague 44, relevés par liegroup) : `pdsolve` (coordonnées
-  canoniques) et `pde_1st_linear_variable_coeff` restent en Python,
-  appelés en rappel de l'hôte par le `lie_group` natif ;
+- Polynômes sur extension algébrique (relevés par algpoly et algfactor ;
+  `factor_list`/`sqf_list` avec `sqrt(2)`, `cancel`/`gcd` en
+  `greedy=False`, `real_roots` multivarié avec extension et les classes
+  d'exception de `factor`/`ZZ[t](1/t)` sont fermés par la vague 45) :
+  - représentants `QQ<a>` : `monic` sur `QQ<a>[t]`, `gcd`/`lcm`/`sqf_list`
+    sur `QQ<a>(t)` rendent un autre représentant de la paire
+    numérateur/dénominateur (item 5 d'algpoly, écart de la vague 44) ;
+  - `EX[t](1/t)` et `GF(p)[t](1/t)` lèvent NotImplementedError (SymPy
+    ValueError) ; message de CoercionFailed sur sol gaussien différent ;
+  - trois calculs natifs non interruptibles (SIGALRM sans effet pendant le
+    calcul Rust) : `test_factor_large#9`, `test_cancel#80`,
+    `test_minimal_polynomial_sq#9` des instructions amont ;
+  - polytools : `gcd_list`/`lcm_list` aux bords, `cofactors(8, 6)`,
+    `gcd(3.0, 9.0)`, `gcdex(auto=False)`, `deep=True`, `Piecewise` dans
+    `cancel`, `same_root`, API privées des anneaux ;
+  - `real_roots` sur sol gaussien trie par `which_real_roots`, encore en
+    Python.
+- pde (vague 45) : les replis `_native_fallback` et `_isotropic_fallback`
+  (solveur des caractéristiques `_native_pde.py`, propre à symox, absent de
+  SymPy qui échoue sur ces cas : `u_x + I*u_y`, EDP non classées) restent en
+  Python ; le corps Python de `checkpdesol` (repli seulement) garde le
+  `raise` mort de la référence ; formes de `simplify`/`Mul` dans les
+  solutions (`exp(x/2 - y)`) ; `Integral.doit` de SymPy lève TypeError sur
+  la borne `(xi, x + y)` (`all` de `u + u_x + u_y + log(x)`), symox garde
+  l'intégrale.
+- fps (vague 45) : `MatrixFormalPowerSeries` (`series/matrix.py`,
+  `_lazy_formal.py`), extension propre à symox absente de SymPy, reste en
+  Python ; les opérations publiques appelées par les algorithmes
+  (`simplify`, `limit`, `integrate`, `apart`, `factor`, `cancel`, `doit`,
+  `leadterm`, `roots`, `linsolve`) gardent leur part Python.
+- `integrate(log(1 + x), x)` rend une primitive de constante différente
+  (`-1` de plus que SymPy), d'où `fps(log(1 + x)).integrate(x)` qui
+  commence par `-1` (relevé par fps, lacune d'`integrate`).
+- lie_group (vague 44, relevés par liegroup) : depuis la vague 45 (pde),
+  le `lie_group` natif appelle le `pdsolve` natif, sans rappel Python ;
   `_symmetry_infinitesimals`/`_symmetry_checkinfsol` (ancien code Python)
   gardés pour le seul `_native_fallback` de `ode.py`. Hors lot, rencontrés
   par lie_group :
@@ -759,11 +865,10 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `QQ<a>(t)` et la normalisation des éléments `EX` sont fermés par la
   vague 44 (algpoly : sol composite algébrique natif, éléments `EX`
   normalisés comme SymPy).
-- Limites : 82/1293 asserts encore différents (vague 43, lot limits2 ;
-  154 avant) ; 84 déclins Gruntz (87 avant), dont 67 oscillants, tous
+- Limites : 56/1293 asserts encore différents (82 en vague 43-44, 154
+  avant ; les 26 asserts `test_formal` sont corrigés par fps en vague 45) ; 84 déclins Gruntz (87 avant), dont 67 oscillants, tous
   repris en Rust (décomposition bornée ou marcheur `AccumBounds` natif,
   vague 41) ou gardés. Restent :
-  - formal/`fps` encore en Python (26 asserts, domaine non porté) ;
   - 16 déclins de symox (NotImplementedError ou limite gardée là où SymPy
     répond) et 17 déclins Gruntz non oscillants (84 − 67) ;
   - séries à exposants symboliques ou logarithmiques
@@ -814,7 +919,7 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   l'ordre des arguments d'`ArrayDiagonal` (arrindex u_int_mul) et le coût
   de `matrix_derivative` par le chemin tableau.
 
-Procédure de validation (leçons du 30 octobre, des 5, 6 et 7 novembre) :
+Procédure de validation (leçons du 30 octobre, des 5, 6 et 7 novembre ; mise à jour après la vague 45) :
 validations lourdes (suite, `cargo test`, corpus) **séquentielles**, jamais
 deux à la fois ; quand plusieurs lots ou agents travaillent en parallèle,
 chaque étape lourde (build, suite, `cargo test`, corpus) se prend sous le
@@ -834,9 +939,21 @@ clippy::correctness` ; corpus EDO (`audits/performance/2026-11-05-ode`,
 `run_corpus.sh` puis `score.py`, seuil 315/289/270) ; corpus solve
 (`2026-11-06-tsolve` : 106 SAME / 0 WRONG_EMPTY ; `2026-11-06-unrad` :
 87 SAME) ; corpus des lots des vagues récentes, sans régression (après la
-vague 44 : has 1255/1255, algpoly 134/5/0/0, liegroup 413/13/2/0 (412/14/2/0
-admis quand seul `dsolve:fsum` bascule à la frontière des 120 s), ratint2
-73/75, matcher 2311/2311 en `Expr.match` public, limits2 1211/1293). Un
+vague 45 : algfactor 248/1/0/0 (`2026-11-07-algfactor`, `diffcorpus.py`
+puis `compare.py`), pde 716/75/0/0 (`2026-11-07-pde`, `corpus.py symox`
+puis `report` contre `sympy.json.gz` décompressé), fps 220/220 SAME et extras 121/6
+(`2026-11-07-fps`, `tl.py` et `extra.py`, `compare.py` lit `raw/` du
+worktree : y écrire sous un nom de tag temporaire puis le retirer), has
+1255/1255, algpoly 135/4/0/0, liegroup 412 à 414 SAME / 14 à 12 DIFF /
+2 / 0 (`dsolve:fsum` et `dsolve:lg01` basculent selon la charge à la
+frontière des 120 s ; vérifier un tel cas seul et sur les deux builds en
+même temps), ratint2 73/75,
+matcher 2311/2311 en `Expr.match` public (le rapport demande la sortie
+de `compare.py sympy` rejouée en direct, pas `sympy-results.json.gz`),
+limits2 ≥ 1237/1293 (`run_tl.sh` écrit dans `raw/tl` du worktree, à
+déplacer vers les preuves)). Comparer chaque corpus cas par cas à la
+course de la vague précédente (`score.py <run> <run précédent>` pour les
+EDO, fichiers `compare` des corpus solve), pas seulement les totaux. Un
 changement de visibilité ou de signature d'une fonction Rust partagée
 entre lots se voit au build de la branche intégrée (vague 44 :
 `matches::reference_has`). Lancer la
