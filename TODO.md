@@ -752,6 +752,55 @@ compile") ; tests Python en worktree avec `PYTHONPATH=python` ; jamais de
 (main 60 085 collectés ; vague 39 : 51 non réussis, 6 xfail dont le xfail
 strict prde).
 
+## Lot hasmatch (vague 44) : `has` de référence et appelants de `pattern_match`
+
+**RÉSULTAT FAUX résolu** (Rust, `traverse.rs`) : le `has` natif suit
+`Basic._has` et `AssocOp._has_matcher` de SymPy 1.14 :
+`(2*x*y*z).has(x*y)`, `(-x*y).has(x*y)`, `exp(x*y*z).has(x*z)`,
+`Integral(x*y*z, (x, 0, 1)).has(x*z)` et `Max(x, y, z).has(Max(x, z))`
+valent True ; `(A + B + C).has(A + C)` vaut False pour `A, B, C` non
+commutatifs. Les arguments commutatifs du motif forment un sous-ensemble,
+les autres (commutativité non établie : ensembles, relationnels,
+`Tuple`...) une suite consécutive dans l'ordre de référence ; même règle
+pour `Max`, `Min`, `Union`, `Intersection`, `And`, `Or`. `has_free` passe
+par `_core._has_matcher` (même code Rust) et retrouve l'admission de
+référence (TypeError pour un itérable unique non Basic, motifs non
+hachables) ; `has('x')` et `has([x])` rendent False comme SymPy. Le
+doublon `matches::reference_has` est remplacé par `has_structural`.
+Corpus de 1255 cas (`audits/performance/2026-11-06-hasmatch`) : avant
+1117 identiques, 6 différents, 132 faux ; après 1255 identiques.
+Appelants Rust internes : audit dynamique (journal des réponses changées
+sur les copies des tests SymPy simplify/meijerint/collect/has, le corpus
+EDO et la suite complète) : aucune réponse changée venant d'un appelant
+Rust interne ; dans la suite, les 129 réponses changées viennent toutes
+des liaisons publiques `has` (expressions et matrices). Deux tests de la
+suite qui figeaient les anciens écarts (`has((Derivative, Symbol))` levait
+TypeError, `has('x')` valait True) suivent maintenant SymPy (False).
+
+**Appelants de `pattern::pattern_match`** :
+- `poly/collect.rs` (Rust) : `match_factors` passe par
+  `matches::reference_match` (repli `pattern_match` seulement sur déclin) ;
+  `collect((x - 2)*y + z, -x + a, evaluate=False)` rendait
+  `{y: x - 2, z: 1}` (faux), maintenant `{1: y*(x - 2) + z}` comme SymPy.
+- meijerint `_condsimp` (Rust, `conds.rs`) : appariement des relationnels
+  argument par argument comme `Basic.matches`, chaque argument par
+  `reference_match` ; `And(Ne(X, 1), X > 1)` se réduit à `X > 1` pour
+  `X = re(a) + re(s)` (règle `p**2 > 1`, 3 appels ratés par l'ancien
+  filtreur sur 1057).
+- `simp.rs` (règles trigonométriques heuristiques propres à symox, sans
+  homologue SymPy) : `pattern_match` conservé ; les liaisons qui diffèrent
+  du protocole de référence sont toutes des identités vérifiées par SymPy
+  (choix délibéré, détail dans le README).
+
+Lacunes restantes du lot :
+- `FockState((x, y)).has(x)` vaut False (classe physique Python, `has`
+  non natif) : seul échec restant de `test_has*` dans `test_expr.py`.
+- `WildFunction` s'affiche encore `Wild('F')` en `srepr` : la marque
+  WildFunction est un prédicat Python ; l'afficher demande un drapeau
+  natif sur `Wild`.
+- Coût du filtrage EDO et déclins du filtreur natif (Float, `zoo`/`oo`,
+  `Sum`) : non traités dans ce lot.
+
 ## État des preuves et prochaine étape
 
 Le critère de clôture du tri de l'audit, décidé le 22 octobre, reste : ne

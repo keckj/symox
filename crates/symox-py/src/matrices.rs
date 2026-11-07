@@ -705,6 +705,12 @@ impl PyMatrix {
     #[pyo3(signature = (*patterns))]
     fn has(&self, patterns: &Bound<'_, PyTuple>) -> PyResult<bool> {
         for p in patterns.iter() {
+            // Strict `_sympify`, as the reference: strings and plain Python
+            // containers are skipped.
+            if p.is_instance_of::<pyo3::types::PyString>() || p.is_instance_of::<pyo3::types::PyList>() || p.is_instance_of::<PyTuple>()
+                || p.is_instance_of::<pyo3::types::PySet>() || p.is_instance_of::<pyo3::types::PyDict>() || p.is_instance_of::<pyo3::types::PyFrozenSet>() {
+                continue;
+            }
             let p = to_expr(&p)?;
             if self.m.data().iter().any(|e| symox::traverse::has(e, &p)) {
                 return Ok(true);

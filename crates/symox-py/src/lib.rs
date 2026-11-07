@@ -2875,6 +2875,13 @@ impl PyExprNode {
     #[pyo3(signature = (*patterns))]
     fn has(&self, patterns: &Bound<'_, PyTuple>) -> PyResult<bool> {
         for p in patterns.iter() {
+            // The reference converts each pattern with the strict `_sympify`
+            // and skips those it rejects: a string or a plain Python
+            // container is never contained in an expression.
+            if p.is_instance_of::<PyString>() || p.is_instance_of::<PyList>() || p.is_instance_of::<PyTuple>()
+                || p.is_instance_of::<PySet>() || p.is_instance_of::<PyDict>() || p.is_instance_of::<pyo3::types::PyFrozenSet>() {
+                continue;
+            }
             // An applied function such as g(x) also exposes its head's name
             // and nargs; only a head is a function-class query.
             let head=if p.downcast::<PyExprNode>().is_ok() {None} else {function_head(&p)?};
@@ -4697,6 +4704,14 @@ fn _reference_match<'py>(py: Python<'py>, expr: &Bound<'py, PyAny>, pattern: &Bo
     }
 }
 
+/// `pattern._has_matcher()(expr)` of SymPy 1.14 (`AssocOp._has_matcher`
+/// for sums, products, `Max`, `Min`, `Union`, `Intersection`, `And` and
+/// `Or`; equality otherwise), for `has_free`.
+#[pyfunction]
+fn _has_matcher(pattern: &Bound<'_, PyAny>, expr: &Bound<'_, PyAny>) -> PyResult<bool> {
+    Ok(symox::traverse::has_matcher(&to_expr(pattern)?, &to_expr(expr)?))
+}
+
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyExprNode>()?;
@@ -4721,6 +4736,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_indexed_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(expression_inspection::_native_count_ops, m)?)?;
     m.add_function(wrap_pyfunction!(_reference_match, m)?)?;
+    m.add_function(wrap_pyfunction!(_has_matcher, m)?)?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(py_dummy, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;

@@ -133,35 +133,10 @@ fn args(e: &Expr) -> Vec<Expr> {
     traverse::ordered_args(e)
 }
 
-/// `Basic.has` of the reference: a sum or product query is also found as
-/// a subset of the arguments of a sum or product (`AssocOp._has_matcher`).
-pub fn reference_has(e: &Expr, q: &Expr) -> bool {
-    if traverse::has_structural(e, q) {
-        return true;
-    }
-    if !q.is_mul() || q.has_noncommutative_host() {
-        return false;
-    }
-    let wanted = args(q);
-    let mut found = false;
-    let mut seen = rustc_hash::FxHashSet::default();
-    fn visit(e: &Expr, wanted: &[Expr], found: &mut bool, seen: &mut rustc_hash::FxHashSet<usize>) {
-        if *found || !seen.insert(e.dag_id()) {
-            return;
-        }
-        if e.is_mul() {
-            let have = args(e);
-            if wanted.iter().all(|w| have.contains(w)) {
-                *found = true;
-                return;
-            }
-        }
-        for a in args(e) {
-            visit(&a, wanted, found, seen);
-        }
-    }
-    visit(e, &wanted, &mut found, &mut seen);
-    found
+/// `Basic.has` of the reference: [`traverse::has_structural`] follows
+/// `AssocOp._has_matcher` (sub-sums and sub-products).
+fn reference_has(e: &Expr, q: &Expr) -> bool {
+    traverse::has_structural(e, q)
 }
 
 fn is_number(e: &Expr) -> bool {
@@ -609,7 +584,7 @@ mod tests {
         let z = sym("z");
         let e = ops::mul(&[Expr::int(2), x.clone(), y.clone(), z]);
         assert!(reference_has(&e, &ops::mul2(&x, &y)));
-        assert!(!traverse::has_structural(&e, &ops::mul2(&x, &y)) || reference_has(&e, &ops::mul2(&x, &y)));
+        assert!(traverse::has(&e, &ops::mul2(&x, &y)));
         // y does not match a*x (a excludes x but 0 is not y)
         check(&y, &ops::mul2(&a, &x), None);
     }

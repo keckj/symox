@@ -1,0 +1,157 @@
+{"counts": {"DIFF": 6, "SAME": 1117, "WRONG": 132}, "total": 1255}
+  sub-products         {"SAME": 26, "WRONG": 26}
+  sub-sums             {"SAME": 24}
+  non commutative      {"SAME": 22, "WRONG": 2}
+  powers               {"SAME": 13, "WRONG": 1}
+  functions and classes {"SAME": 38}
+  Wild                 {"SAME": 8, "WRONG": 1}
+  multiple arguments   {"DIFF": 2, "SAME": 15, "WRONG": 2}
+  derivatives          {"SAME": 9, "WRONG": 2}
+  integrals            {"SAME": 9, "WRONG": 9}
+  relationals, piecewise, logic {"SAME": 16, "WRONG": 10}
+  matrices             {"SAME": 18, "WRONG": 3}
+  mixed                {"SAME": 16, "WRONG": 19}
+  has_free             {"SAME": 25, "WRONG": 1}
+  has_xfree            {"SAME": 8}
+  lattice and boolean operators {"DIFF": 4, "SAME": 5, "WRONG": 16}
+  random               {"SAME": 594, "WRONG": 36}
+  random-free          {"SAME": 105}
+  random-nc            {"SAME": 166, "WRONG": 4}
+WRONG    (2*x*y*z).has(x*y)  sympy=True symox=False
+WRONG    (2*x*y*z).has(2*x)  sympy=True symox=False
+WRONG    (2*x*y*z).has(2*y*z)  sympy=True symox=False
+WRONG    (-x*y).has(x*y)  sympy=True symox=False
+WRONG    (-x*y*z).has(-x*y)  sympy=True symox=False
+WRONG    (-2*x*y).has(-2*x)  sympy=True symox=False
+WRONG    (x*y*z).has(x*y)  sympy=True symox=False
+WRONG    (x**2*y*z).has(x**2*z)  sympy=True symox=False
+WRONG    (x*y*sin(x*y*z)).has(x*z)  sympy=True symox=False
+WRONG    exp(x*y*z).has(x*z)  sympy=True symox=False
+WRONG    (x**2+x*y*z).has(x*z)  sympy=True symox=False
+WRONG    (sqrt(2)*x*y).has(sqrt(2)*x)  sympy=True symox=False
+WRONG    (I*x*y).has(I*x)  sympy=True symox=False
+WRONG    (pi*x*y).has(pi*y)  sympy=True symox=False
+WRONG    (E*x*y).has(E*x)  sympy=True symox=False
+WRONG    (Rational(1,2)*x*y).has(x/2)  sympy=True symox=False
+WRONG    (x*y/z).has(x/z)  sympy=True symox=False
+WRONG    (x*y/z).has(y/z)  sympy=True symox=False
+WRONG    (x*y/z).has(x*y)  sympy=True symox=False
+WRONG    (x/(y*z)).has(1/(y*z))  sympy=True symox=False
+WRONG    (x*y*exp(z)).has(x*exp(z))  sympy=True symox=False
+WRONG    (x*y*f(z)).has(y*f(z))  sympy=True symox=False
+WRONG    (x*sin(y)*cos(z)).has(sin(y)*cos(z))  sympy=True symox=False
+WRONG    (2.0*x*y).has(2.0*x)  sympy=True symox=False
+WRONG    (oo*x*y).has(oo*x)  sympy=True symox=False
+WRONG    (x*y*z*w).has(x*w)  sympy=True symox=False
+WRONG    (A+B+C).has(A+C)  sympy=False symox=True
+WRONG    (x*A + B + y*C).has(B + y*C)  sympy=False symox=True
+WRONG    (x**(2*y*z)).has(2*y)  sympy=True symox=False
+WRONG    (x*y*a).has(x*a)  sympy=True symox=False
+WRONG    (x*y*z).has(w, x*z)  sympy=True symox=False
+WRONG    x.has('x')  sympy=False symox=True
+DIFF     x.has([x])  sympy=False symox=EXC TypeError
+DIFF     x.has((x,))  sympy=False symox=EXC TypeError
+WRONG    Derivative(x*y*f(x),x).has(x*f(x))  sympy=True symox=False
+WRONG    (2*Derivative(f(x),x)*x).has(2*Derivative(f(x),x))  sympy=True symox=False
+WRONG    Integral(x*y*z,(x,0,1)).has(x*z)  sympy=True symox=False
+WRONG    Sum(x*y*n,(n,0,10)).has(x*n)  sympy=True symox=False
+WRONG    Product(n*x*y,(n,1,y)).has(n*y)  sympy=True symox=False
+WRONG    Limit(x*y*z,x,0).has(y*z)  sympy=True symox=False
+WRONG    Limit(x*y*z,x,0).has(x*z)  sympy=True symox=False
+WRONG    Subs(f(x)*y*z, x, 0).has(y*z)  sympy=True symox=False
+WRONG    Subs(f(x)*y*z, x, 0).has(f(x)*z)  sympy=True symox=False
+WRONG    Lambda(x, x*y*z).has(y*z)  sympy=True symox=False
+WRONG    Lambda(x, x*y*z).has(x*z)  sympy=True symox=False
+WRONG    Eq(x*y*z,1).has(x*z)  sympy=True symox=False
+WRONG    (x*y*z > 1).has(x*z)  sympy=True symox=False
+WRONG    Piecewise((x*y*z,x>0),(1,True)).has(x*z)  sympy=True symox=False
+WRONG    Max(x,y,z).has(Max(x,z))  sympy=True symox=False
+WRONG    Min(x,y,z).has(Min(x,z))  sympy=True symox=False
+WRONG    Max(x,y,z,1).has(Max(x,1))  sympy=True symox=False
+WRONG    Max(x*y*z,w).has(x*z)  sympy=True symox=False
+WRONG    Interval(x*y*z, 1).has(x*z)  sympy=True symox=False
+WRONG    FiniteSet(x*y*z, 1).has(x*z)  sympy=True symox=False
+WRONG    Tuple(x*y*z, 1).has(x*z)  sympy=True symox=False
+WRONG    Matrix([[x*y*z]]).has(x*z)  sympy=True symox=False
+WRONG    ImmutableMatrix([[x*y*z]]).has(x*z)  sympy=True symox=False
+WRONG    (x*M[0,1]*y).has(x*M[0,1])  sympy=True symox=False
+WRONG    (x*y*z + sin(x*y*z)).has(x*z)  sympy=True symox=False
+WRONG    log(x*y*z).has(x*z)  sympy=True symox=False
+WRONG    (x*y*z*w).has(x*z*w)  sympy=True symox=False
+WRONG    cos(2*x*y).has(2*x)  sympy=True symox=False
+WRONG    cos(2*x*y).has(x*y)  sympy=True symox=False
+WRONG    ((x+y)*(x+z)*w).has((x+y)*w)  sympy=True symox=False
+WRONG    Abs(x*y*z).has(x*z)  sympy=True symox=False
+WRONG    re(x*y*z).has(x*z)  sympy=True symox=False
+WRONG    (x*y*z + O(x**4)).has(x*z)  sympy=True symox=False
+WRONG    binomial(x*y*z, 2).has(x*z)  sympy=True symox=False
+WRONG    factorial(x*y*z).has(x*z)  sympy=True symox=False
+WRONG    gamma(2*x*y).has(2*x)  sympy=True symox=False
+WRONG    hyper([x*y*z],[1],x).has(x*z)  sympy=True symox=False
+WRONG    meijerg([[x*y*z],[]],[[],[]],x).has(x*z)  sympy=True symox=False
+WRONG    KroneckerDelta(x*y*z, 0).has(x*z)  sympy=True symox=False
+WRONG    Heaviside(x*y*z).has(x*z)  sympy=True symox=False
+WRONG    DiracDelta(x*y*z).has(x*z)  sympy=True symox=False
+WRONG    UnevaluatedExpr(x*y*z).has(x*z)  sympy=True symox=False
+WRONG    (UnevaluatedExpr(x)*y*z).has(y*z)  sympy=True symox=False
+WRONG    (A*B*C).has_free(A*C)  sympy=False symox=True
+WRONG    (x & y & z).has(x & z)  sympy=True symox=False
+WRONG    (x | y | z).has(x | z)  sympy=True symox=False
+WRONG    (x & y & (x > 1)).has(x & (x > 1))  sympy=True symox=False
+WRONG    (x & y & (x > 1)).has(y & (x > 1))  sympy=True symox=False
+WRONG    (x & (x > 1) & (y > 1)).has((x > 1) & (y > 1))  sympy=True symox=False
+WRONG    Or(x, y, Eq(x, 1)).has(Or(x, Eq(x, 1)))  sympy=True symox=False
+WRONG    And(x, y, Not(z)).has(And(x, Not(z)))  sympy=True symox=False
+WRONG    And(x, y, Not(z)).has(And(y, Not(z)))  sympy=True symox=False
+WRONG    Union(Interval(0,1),Interval(2,3),Interval(4,5)).has(Union(Interval(0,1),Interval(2,3)))  sympy=True symox=False
+WRONG    Union(Interval(0,1),Interval(2,3),Interval(4,5)).has(Union(Interval(2,3),Interval(4,5)))  sympy=True symox=False
+WRONG    Union(Interval(0,1),FiniteSet(7),Interval(4,5)).has(Union(Interval(0,1),Interval(4,5)))  sympy=True symox=False
+WRONG    Max(x, y, sin(z)).has(Max(x, sin(z)))  sympy=True symox=False
+WRONG    Min(x, y, sin(z), 2).has(Min(2, sin(z)))  sympy=True symox=False
+WRONG    Max(x, Min(y, z, w)).has(Min(y, w))  sympy=True symox=False
+WRONG    (x & y & z).has_free(x & z)  sympy=True symox=False
+WRONG    Max(x, y, z).has_free(Max(x, z))  sympy=True symox=False
+DIFF     x.has_free(y, [])  sympy=EXC TypeError symox=False
+DIFF     Piecewise((FiniteSet(1, 2), x > 3), (4, True)).has_free(FiniteSet(1, 2))  sympy=True symox=EXC TypeError
+DIFF     Piecewise((1, x > 3), (4, True)).has_free(FiniteSet(1, 2))  sympy=False symox=EXC TypeError
+DIFF     x.has_free(ImmutableMatrix([[x]]))  sympy=False symox=EXC TypeError
+WRONG    (z**3*(x**3 - x**2*y)*(w + x + z + 2*f(x) + exp(y) + 3)/2).has(-x**2)  sympy=True symox=False
+WRONG    (x + y + pi*(sin(x) + pi)*(y + z + sqrt(2) + I)*f(x) + sqrt(2) + 9).has(pi*(sin(x) + pi)*f(x))  sympy=True symox=False
+WRONG    (I*sqrt(pi)*w*sqrt(x)*sin(x)*sin(y**2)).has(w*sqrt(x)*sin(x))  sympy=True symox=False
+WRONG    (-2*x*z*g(3*w*y*f(x))*exp(2)*exp(y)*sin(x)**2*cos(w)).has(x*z*exp(2)*exp(y))  sympy=True symox=False
+WRONG    (-2*x*z*g(3*w*y*f(x))*exp(2)*exp(y)*sin(x)**2*cos(w)).has(y*f(x))  sympy=True symox=False
+WRONG    (w + x/2 + y*f(x)*exp(y) + f(1/2) + I*f(x) + log(sqrt(2)) + sqrt(log(pi)) + sqrt(2) + 5/2).has(y*exp(y))  sympy=True symox=False
+WRONG    (-12*sqrt(2)*I*z*(f(x) + log(y) - 1)*f(1/2)*f(x)*exp(y)).has(-12*z*exp(y))  sympy=True symox=False
+WRONG    (3*sqrt(2)*I*f(w)*exp(y)*sin(x)/2).has(3*I*f(w)*exp(y)*sin(x)/2)  sympy=True symox=False
+WRONG    (w*exp(y)*sin(4)).has(w*sin(4))  sympy=True symox=False
+WRONG    (-27*I*(2*exp(y) + 6)**3/8).has(-27*I/8)  sympy=True symox=False
+WRONG    (pi*w**2*x*exp(y) + 2*y*f(x)*f(exp(y))*sin(3)).has(y*f(x)*f(exp(y))*sin(3))  sympy=True symox=False
+WRONG    (I*(exp(y) + sqrt(2))*f(x)*exp(y)*sin(x)/2 + log(exp(y) + sin(x))).has(exp(y)*sin(x))  sympy=True symox=False
+WRONG    ((-z - f(x))*(-3*x - 3*f(x) - 3*exp(y) - 3*sqrt(2))*sin(x)).has((-z - f(x))*sin(x))  sympy=True symox=False
+WRONG    (-w*f(1/2)*f(3)*f(x) + 2 + B + 1/(3*z + 3)).has(-w*f(1/2))  sympy=True symox=False
+WRONG    (I**(y/2)*z*exp(y)/(2*y*f(x))).has(1/(y*f(x)))  sympy=True symox=False
+WRONG    (3*sqrt(2)*sqrt(y)*f(x)**2*exp(f(x))/4).has(3*f(x)**2/4)  sympy=True symox=False
+WRONG    (log(pi*w*f(x)*exp(y) + 4*x - 1 + cos(3) + pi)).has(pi*w*f(x))  sympy=True symox=False
+WRONG    (sqrt(2)*I*x**y).has(sqrt(2)*x**y)  sympy=True symox=False
+WRONG    ((w**y - z/2)*(y + exp(x) + sin(2))*exp(y)).has((w**y - z/2)*exp(y))  sympy=True symox=False
+WRONG    (3*sqrt(2)*I*x*y*z*(x + z + 2*f(x) + sin(x) + 1)*f(x)*sin(f(x) + 2 + I)).has(sqrt(2)*I*x*y*z*f(x)*sin(f(x) + 2 + I))  sympy=True symox=False
+WRONG    (log(x - sqrt(2)*pi*z + z + f(x) + sin(x) + 1/2 + sqrt(2) - I)).has(sqrt(2)*z)  sympy=True symox=False
+WRONG    (-sqrt(2)*x*sin(x)/2 + exp(-1/2 + sqrt(2)) + 1/(x + f(x) + 3)).has(sqrt(2)*x*sin(x))  sympy=True symox=False
+WRONG    (-sqrt(2)*I*pi*z**2*(y + exp(y) + 3) + (2*x + 3 + pi)**y + pi + 5).has(-pi)  sympy=True symox=False
+WRONG    (2**y*w**3*sin(x)/f(x)).has(2**y*w**3/f(x))  sympy=True symox=False
+WRONG    (-2*I*x*y*z*sin(x) + pi).has(-2*I*x*sin(x))  sympy=True symox=False
+WRONG    (x*y + sqrt(2)*pi*y*exp(y) + z + g(f(x)) + sin(x) - 3.0*sqrt(2) + I).has(sqrt(2)*pi*exp(y))  sympy=True symox=False
+WRONG    (1/(sqrt(2)*w*y + pi)).has(w*y)  sympy=True symox=False
+WRONG    (8/(pi*y*sin(x))).has(8/pi)  sympy=True symox=False
+WRONG    (2*sqrt(2)*I*pi**3*x**6*(z + f(x) - 2)**3*sin(x)**3).has(2*I*(z + f(x) - 2)**3)  sympy=True symox=False
+WRONG    (sqrt(2)*w*exp(y) + w + sqrt(x) - 2*x*(f(x) + 1/2 + sqrt(2))*f(x)*exp(2*y) + f(x) + C + f(w*x*C) + 4*sqrt(2)*f(x)/w).has(4*sqrt(2))  sympy=True symox=False
+WRONG    (sqrt(2)*w*exp(y) + w + sqrt(x) - 2*x*(f(x) + 1/2 + sqrt(2))*f(x)*exp(2*y) + f(x) + C + f(w*x*C) + 4*sqrt(2)*f(x)/w).has(-2*x*(f(x) + 1/2 + sqrt(2)))  sympy=True symox=False
+WRONG    (9*(-1)**(2*y)*y**4).has(9*(-1)**(2*y))  sympy=True symox=False
+WRONG    (2*sqrt(2)*w*x*(z - 1)*f(x) + I*pi**2*x*z*f(x)).has(I*pi**2)  sympy=True symox=False
+WRONG    (2*sqrt(2)*w*x*(z - 1)*f(x) + I*pi**2*x*z*f(x)).has(I*pi**2*z)  sympy=True symox=False
+WRONG    (g(sqrt(2)*pi**2*f(x)**3/2)).has(sqrt(2)*pi**2*f(x)**3)  sympy=True symox=False
+WRONG    (-x*y*(3*z*exp(y)*sin(x) + f(x) + sqrt(2) + 3 + exp(2))*g(1/2)).has(z*exp(y))  sympy=True symox=False
+WRONG    (3*sqrt(2)*w*y*z**2*(y + exp(y) + sin(x))*(f(x) + 2 + I)*(3*f(x) + 3*pi + 12)*(sin(x) + sqrt(2) + pi)*f(sin(x))*sin(x)).has(sqrt(2)*(y + exp(y) + sin(x))*(sin(x) + sqrt(2) + pi)*f(sin(x)))  sympy=True symox=False
+WRONG    (3*sqrt(2)*w*y*z**2*(y + exp(y) + sin(x))*(f(x) + 2 + I)*(3*f(x) + 3*pi + 12)*(sin(x) + sqrt(2) + pi)*f(sin(x))*sin(x)).has(3*sin(x))  sympy=True symox=False
+WRONG    (3*I*pi*x*y*z*f(x)*exp(y)*sqrt(sin(x)) - pi*y*(x + z + 2*pi)*(w + x + y + sin(x))*sin(x) + I).has(pi*sin(x))  sympy=True symox=False
+WRONG    (-4*(9*sin(x) + sqrt(2))*sin(x)*sqrt(cos(y))).has(-4*(9*sin(x) + sqrt(2))*sin(x))  sympy=True symox=False

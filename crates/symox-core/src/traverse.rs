@@ -303,10 +303,14 @@ fn has_in(e: &Expr, s: &Expr, structural: bool) -> bool {
         }
         Kind::Add(c, terms) => {
             if let Kind::Add(sc, subterms) = s.kind() {
-                // `x + y` is contained in `x + y + z`
-                // Structural containment does not allow the sign changes or
-                // constant offsets supported by algebraic substitution.
-                if (sc.is_zero() || c == sc)
+                // `x + y` is contained in `x + y + z` (SymPy's
+                // `AssocOp._has_matcher`). Structural containment does not
+                // allow the sign changes or constant offsets supported by
+                // algebraic substitution. Commutative terms compare as a set;
+                // noncommutative ones need the general rule.
+                if e.has_noncommutative_host() || s.has_noncommutative_host() {
+                    if assoc_contains(e, s) { return true; }
+                } else if (sc.is_zero() || c == sc)
                     && subterms.iter().all(|term| terms.contains(term))
                 {
                     return true;
@@ -319,20 +323,64 @@ fn has_in(e: &Expr, s: &Expr, structural: bool) -> bool {
         }
         // The public arguments include an explicit coefficient, but exclude
         // the implicit exponent one in the compact factor representation.
-        Kind::Mul(..) => (s.is_mul() && (e.has_noncommutative_host() || s.has_noncommutative_host()) && noncommutative_mul_contains(e, s))
+        Kind::Mul(..) => (s.is_mul() && assoc_contains(e, s))
             || e.args().iter().any(|a| has_in(a, s, structural)),
+        Kind::Func(head @ (Func::Max | Func::Min | Func::Set(crate::sets::SetOp::Union | crate::sets::SetOp::Intersection) | Func::Logic(crate::logic::LogicOp::And | crate::logic::LogicOp::Or)), _) => {
+            // `Max`, `Min`, `Union`, `Intersection`, `And` and `Or` are
+            // SymPy `LatticeOp`s, hence `AssocOp`s with the same matcher.
+            (matches!(s.kind(), Kind::Func(other, _) if other == head) && assoc_contains(e, s))
+                || e.args().iter().any(|a| has_in(a, s, structural))
+        }
         _ => e.args().iter().any(|a| has_in(a, s, structural)),
     }
 }
 
-/// SymPy's `AssocOp._has_matcher` for products: the commutative arguments
-/// of `s` form a subset of those of `e` and its noncommutative arguments a
-/// consecutive run of those of `e`.
-fn noncommutative_mul_contains(e: &Expr, s: &Expr) -> bool {
-    let split = |m: &Expr| -> (Vec<Expr>, Vec<Expr>) {
-        m.args().into_iter().partition(|a| crate::decompose::commutativity(a) == Some(true))
+/// `s._has_matcher()(e)` of SymPy 1.14: equality, or for an `AssocOp`
+/// pattern (`Add`, `Mul`, `Max`, `Min`, `Union`, `Intersection`, `And`,
+/// `Or`) a node of the same class containing its arguments (see
+/// [`assoc_contains`]).
+pub fn has_matcher(s: &Expr, e: &Expr) -> bool {
+    if e == s {
+        return true;
+    }
+    let same = match (e.kind(), s.kind()) {
+        (Kind::Add(..), Kind::Add(..)) | (Kind::Mul(..), Kind::Mul(..)) => true,
+        (Kind::Func(a @ (Func::Max | Func::Min | Func::Set(crate::sets::SetOp::Union | crate::sets::SetOp::Intersection) | Func::Logic(crate::logic::LogicOp::And | crate::logic::LogicOp::Or)), _), Kind::Func(b, _)) => a == b,
+        _ => false,
     };
-    let ((c, nc), (ec, enc)) = (split(s), split(e));
+    same && assoc_contains(e, s)
+}
+
+/// SymPy's `AssocOp._has_matcher` (`Add`, `Mul`, `Max`, `Min`, `Union`,
+/// `Intersection`, `And`, `Or`), for `e` and `s` of the same class: the commutative
+/// arguments of `s` form a subset of those of `e` and its other arguments
+/// (commutativity not known to be True) a consecutive run of those of `e`.
+/// `(2*x*y*z).has(x*y)` and `(x + y + 1).has(x + 1)` hold, while
+/// `(A + B + C).has(A + C)` does not for noncommutative `A, B, C`.
+fn assoc_contains(e: &Expr, s: &Expr) -> bool {
+    // `is_commutative` of an argument: sets and booleans other than the
+    // commutative `LatticeOp`s (`Union`, `Intersection`, `And`, `Or`) leave
+    // it unknown, as do relationals and `true`/`false`.
+    let commutative = |a: &Expr| match a.kind() {
+        Kind::Func(Func::Set(op), _) => matches!(op, crate::sets::SetOp::Union | crate::sets::SetOp::Intersection),
+        Kind::Func(Func::Logic(op), _) => matches!(op, crate::logic::LogicOp::And | crate::logic::LogicOp::Or),
+        Kind::Rel(..) | Kind::Bool(_) => false,
+        _ => crate::decompose::commutativity(a) == Some(true),
+    };
+    let pattern = s.args();
+    if pattern.len() > 1 && !e.has_noncommutative_host() && !s.has_noncommutative_host() {
+        // Quick commutative path: arguments whose commutativity is unknown
+        // (`Tuple`, `UnevaluatedExpr`, sets...) still take the ordered rule.
+        if pattern.iter().all(commutative) {
+            let args = e.args();
+            return pattern.len() <= args.len() && pattern.iter().all(|a| args.contains(a));
+        }
+    }
+    let split = |args: Vec<Expr>| -> (Vec<Expr>, Vec<Expr>) {
+        args.into_iter().partition(|a| commutative(a))
+    };
+    // The noncommutative run follows the reference argument order.
+    let ((c, nc), (ec, enc)) = (split(ordered_args(s)), split(ordered_args(e)));
     if !c.iter().all(|a| ec.contains(a)) { return false; }
     nc.is_empty() || (nc.len() <= enc.len() && enc.windows(nc.len()).any(|w| w == nc.as_slice()))
 }
