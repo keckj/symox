@@ -2993,6 +2993,23 @@ def ode_1st_power_series(eq, func, order, match):
     return Eq(f(x), series)
 
 
+def _native_checkinfsol(eq, func, x, infinitesimals):
+    """``checkinfsol`` computed by ``symox::ode::lie_group``: the list of
+    ``(bool, expr)``, or ``None`` when the reference body must run."""
+    from symox import _core
+    native = getattr(_core, 'ode_lie_checkinfsol', None)
+    if native is None or not all(isinstance(v, _core.Expr) for v in (eq, func, x)):
+        return None
+    dxi = Function('xi')(x, func)
+    deta = Function('eta')(x, func)
+    try:
+        pairs = [(S(sol[dxi]), S(sol[deta])) for sol in infinitesimals]
+    except Exception:
+        return None
+    hooks = {'simplify': simplify, 'expand': expand, 'solve': solve}
+    return native(eq, func, x, pairs, hooks)
+
+
 def checkinfsol(eq, infinitesimals, func=None, order=None):
     r"""
     This function is used to check if the given infinitesimals are the
@@ -3034,6 +3051,9 @@ def checkinfsol(eq, infinitesimals, func=None, order=None):
             raise NotImplementedError("Lie groups solver has been implemented "
             "only for first order differential equations")
         else:
+            native = _native_checkinfsol(eq, func, x, infinitesimals)
+            if native is not None:
+                return native
             df = func.diff(x)
             a = Wild('a', exclude = [df])
             b = Wild('b', exclude = [df])

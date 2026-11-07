@@ -71,13 +71,11 @@ def test_unlisted_parameters_and_repeated_constants_keep_their_correlations():
     ('diff(f,x)-f*f/(sin(f-x)-x*x+2*x*f)','abaco2_similar'),
     ('diff(f,x)-x**(a-1)*f**(1-b)*F(x**a/a+f**b/b)','abaco2_unique_unknown'),
     ('diff(f,x)+tan(F(x*x+f*f)+atan(x/f))','abaco2_unique_unknown'),
-    ('diff(f,x)-exp(x+f)','abaco2_unique_general'),
     ('x**(n*(m+1)-m)*diff(f,x)-a*f**n-b*x**(n*(m+1))','linear'),
     ('diff(f,x)-(3*(1+x*x/f**2)*atan(f/x)+(1-2*f)/x+(1-3*f)*x/f**2)','function_sum'),
     ('x*x*diff(f,x)+x*f+f*f+x*x','bivariate'),
     ('x*x*(-f*f+diff(f,x))-a*x*x*f+2-a*x','bivariate'),
     ('x*diff(f,x)+1-f*f','chi'),
-    ('diff(f,x)-f','all'),
 ])
 def test_every_named_symmetry_search_returns_proved_generators(source,hint):
     native = namespace(sx)
@@ -102,6 +100,23 @@ def test_every_named_symmetry_search_returns_proved_generators(source,hint):
     perturbed[eta] += x*function+x*x
     checked,residual = checkinfsol(equation,[perturbed],function)[0]
     assert not checked and residual!=0
+
+
+@pytest.mark.parametrize('source,hint',[
+    ('diff(f,x)-exp(x+f)','abaco2_unique_general'),
+    ('diff(f,x)-f','all'),
+])
+def test_symmetry_searches_raise_where_sympy_raises(source,hint):
+    # SymPy 1.14 fails in these heuristics (``'in'`` on a coefficient, a
+    # ``None`` match subscripted); the error is reproduced, not masked.
+    from sympy.solvers.ode import infinitesimals as reference_infinitesimals
+    outcomes = []
+    for module,search in ((sx,infinitesimals),(sp,reference_infinitesimals)):
+        ns = namespace(module)
+        with pytest.raises(TypeError) as raised:
+            search(eval(source,ns),ns['f'],hint=hint)
+        outcomes.append(str(raised.value))
+    assert outcomes[0]==outcomes[1]
 
 
 def test_simple_symmetry_values_match_the_reference_basis():

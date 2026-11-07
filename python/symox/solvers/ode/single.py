@@ -2931,6 +2931,45 @@ class SecondLinearAiry(SingleODESolver):
         return [Eq(f(x), C1*airyai(arg) + C2*airybi(arg))]
 
 
+def _lie_group_split(eq, fx, x, y):
+    """The ``(d, e)`` values of ``LieGroup._matches`` from
+    ``symox::ode::lie_group`` (``False`` without a match), or ``None`` when
+    the reference body must run."""
+    from symox import _core
+    native = getattr(_core, 'ode_lie_group_split', None)
+    if native is None or not all(isinstance(v, _core.Expr) for v in (eq, fx, x, y)):
+        return None
+    return native(eq, fx, x, y)
+
+
+def _lie_group_solve(eq, func, x, order, r3):
+    """``LieGroup._get_general_solution`` computed by
+    ``symox::ode::lie_group``, or ``None`` when the reference body must run.
+    ``r3`` is consumed as the reference consumes it (``'y'`` popped)."""
+    from symox import _core
+    from .lie_group import _hooks
+    native = getattr(_core, 'ode_lie_group_solve', None)
+    if native is None or order != 1 or not all(isinstance(v, _core.Expr) for v in (eq, func, x)):
+        return None
+    xis, etas = r3.get('xi'), r3.get('eta')
+    user = None
+    if xis is not None and etas is not None:
+        try:
+            user = (S(xis), S(etas))
+        except Exception:
+            return None
+    split = None
+    if r3.get('y') is not None:
+        d, e = r3.get('d'), r3.get('e')
+        if d is None or e is None or d not in r3 or e not in r3:
+            return None
+        split = (r3['y'], r3[d], r3[e])
+    value = native(eq, func, x, user, split, _hooks())
+    if value is not None:
+        r3.pop('y', None)
+    return value
+
+
 class LieGroup(SingleODESolver):
     r"""
     This hint implements the Lie group method of solving first order differential
@@ -3000,6 +3039,11 @@ class LieGroup(SingleODESolver):
             xi = self.ode_problem.params['xi']
             eta = self.ode_problem.params['eta']
             self.r3 = {'xi': xi, 'eta': eta}
+            native = _lie_group_split(eq, f(x), x, y)
+            if native is not None:
+                if native is not False:
+                    self.r3.update({d: native[0], e: native[1], 'd': d, 'e': e, 'y': y})
+                return True
             r = collect(eq, df, exact=True).match(d + e * df)
             if r:
                 r['d'] = d
@@ -3017,6 +3061,10 @@ class LieGroup(SingleODESolver):
         func = self.ode_problem.func
         order = self.ode_problem.order
         df = func.diff(x)
+
+        native = _lie_group_solve(eq, func, x, order, self.r3)
+        if native is not None:
+            return native
 
         try:
             eqsol = solve(eq, df)

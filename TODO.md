@@ -752,6 +752,86 @@ compile") ; tests Python en worktree avec `PYTHONPATH=python` ; jamais de
 (main 60 085 collectés ; vague 39 : 51 non réussis, 6 xfail dont le xfail
 strict prde).
 
+## Lot liegroup (vague 44, `feat-liegroup-20261106`)
+
+Solveur EDO `lie_group` de SymPy 1.14 porté en Rust
+(`crates/symox-core/src/ode/lie_group.rs`, liaison
+`crates/symox-py/src/ode_lie.rs`).
+
+Calcul en Rust :
+- `infinitesimals` et ses indices `default`, `all` et nommés ;
+- les neuf heuristiques, dans l'ordre de SymPy, avec les exceptions de
+  référence ;
+- les `lie_heuristic_*` publiques ;
+- `checkinfsol`, qui renvoie `(True, 0)` avec l'entier Python `0` ;
+- `_lie_group_remove` ;
+- la séparation `LieGroup._matches`, qu'utilise `classify_ode` ;
+- `_get_general_solution` : coordonnées canoniques, changement de
+  variables, intégration séparable, infinitésimaux de l'utilisateur ;
+- `diff2`, dérivée d'ordre 2 suivie de `factor_terms(signsimp(...))`
+  comme `Derivative.__new__` (correctif de `function_sum`).
+
+Python : admission, aiguillage et enveloppes seulement (`lie_group.py`,
+`single.py`, `ode.py`) ; corps de référence `_lie_heuristics.py` en
+repli sur déclin natif (aucun déclin sur le corpus). Rappels de l'hôte :
+`simplify`, `expand`, `cancel`, `integrate`, `solve`, `div`, `pdsolve`.
+
+Corpus `audits/performance/2026-11-06-liegroup` (428 cas contre SymPy
+1.14 en direct) :
+
+- avant (ancienne recherche symox en Python) : 319 SAME, 96 DIFF,
+  11 DECLINED, 2 WRONG ;
+- après : **413 SAME, 13 DIFF, 2 DECLINED, 0 WRONG** ;
+- les DIFF de `infinitesimals` sont tous validés par le `checkinfsol` de
+  SymPy (forme log d'`integrate`, générateur bivariate/chi selon le
+  hachage) ;
+- appels natifs : 108 `infinitesimals`, 15 `checkinfsol`, 176
+  séparations, 19 résolutions, aucun déclin ;
+- 13 SAME ne montrent qu'un dépassement des 120 s des deux côtés ;
+- sur les 400 autres SAME : 161,8 s contre 772,6 s pour SymPy et 790,9 s
+  avant ;
+- `tests/test_native_liegroup.py` : 212 tests contre SymPy en direct ;
+  avec `tests/test_ode_symmetry_and_constants.py`, 266 réussis pour les
+  graines 11, 12 et 13 (7 xfail stricts = lacunes ci-dessous) ;
+- corpus EDO 315/289/270, mêmes verdicts ligne à ligne que la vague 43 ;
+- cargo test 875 + 1 + 0 + 5 ; clippy correctness propre ;
+- suite complète : "SUITE CLEAN" au premier passage, 60 754 réussis,
+  14 xfail, 45 sautés, 60 813 collectés et exécutés, 697 fichiers (+212
+  tests et 1 fichier sur main ; preuves dans
+  `~/symox-ci/evidence/liegroup-20261106`).
+
+Écarts volontaires (à valider) :
+- les atomes de `abaco2_unique_unknown` sont pris dans l'ordre préfixe ;
+  SymPy parcourt un ensemble, dans l'ordre du hachage ;
+- les `xi`/`eta` fournis par l'utilisateur sont essayés une fois ; SymPy
+  refait le même essai pour chaque nom d'heuristique, avec le même
+  résultat.
+
+Lacunes restantes :
+- `pdsolve` (coordonnées canoniques) et `pde_1st_linear_variable_coeff`
+  restent en Python, appelés comme rappels de l'hôte ;
+- hors lot :
+  - `integrate` scinde le logarithme d'un produit
+    (`log(y - 1) + log(y + 1)` pour `log(y**2 - 1)`) : abaco1_simple de
+    h1_eq4 et h1_eq7 donne des générateurs valides mais écrits
+    autrement ;
+  - `Mul` simplifie `exp(x + y)*exp(-x - y)` en 1 : abaco1_simple de
+    `f' = exp(x + f)` trouve `eta = exp(f)`, SymPy rien ;
+  - `cancel` en présence de `zoo` garde `y`, SymPy donne `nan`
+    (`lie_heuristic_abaco2_similar` publique) ;
+  - `solve` donne des racines sous une autre forme :
+    - dsolve h1_eq3 ;
+    - uu3, où `solve(eq, df)` donne `sqrt(x**2*(a + x**2 + x*f))/x**2`
+      et SymPy `sqrt(a + x**2 + x*f)/x` : `abaco2_unique_unknown` lève
+      ValueError, et `default` passe à `abaco2_unique_general` et dépasse
+      120 s, quand SymPy répond en 4,7 s ;
+- `_symmetry_infinitesimals`/`_symmetry_checkinfsol` (ancien code Python)
+  sont gardés pour `_native_fallback` de `ode.py` seulement ;
+- comportement de référence reproduit :
+  - chi et bivariate de SymPy dépendent de la graine de hachage ;
+  - dsolve lie_group_01/03 lève RecursionError dans SymPy après
+    6 min 22 s et 8 min 10 s, et dans symox après 67 s et 50 s.
+
 ## État des preuves et prochaine étape
 
 Le critère de clôture du tri de l'audit, décidé le 22 octobre, reste : ne
