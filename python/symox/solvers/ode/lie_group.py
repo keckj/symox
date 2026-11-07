@@ -564,9 +564,14 @@ def _expr_args(*values):
 
 def _hooks():
     from . import _lie_heuristics as ref
+    from .ode import dsolve
     return {'simplify': ref.simplify, 'expand': ref.expand, 'cancel': ref.cancel,
             'integrate': ref.integrate, 'solve': ref.solve, 'div': ref.div,
-            'pdsolve': ref.pdsolve}
+            'doit': _doit, 'dsolve': dsolve}
+
+
+def _doit(e):
+    return e.doit()
 
 
 def infinitesimals(eq, func=None, order=None, hint='default', match=None):

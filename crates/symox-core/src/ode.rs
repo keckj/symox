@@ -18,6 +18,7 @@ pub mod variation;
 pub mod algebraic;
 pub mod bessel;
 pub mod lie_group;
+pub mod pde;
 
 use rustc_hash::{FxHashMap,FxHashSet};
 

@@ -1062,6 +1062,98 @@ Lacunes restantes :
   - dsolve lie_group_01/03 lève RecursionError dans SymPy après
     6 min 22 s et 8 min 10 s, et dans symox après 67 s et 50 s.
 
+## Lot pde (vague 45, `feat-pde-20261107`)
+
+`sympy/solvers/pde.py` de SymPy 1.14 porté en Rust
+(`crates/symox-core/src/ode/pde.rs`, liaison `crates/symox-py/src/pde.rs`).
+
+Calcul en Rust :
+- `classify_pde` (tuple et `dict=True`, réduction de puissance, `Eq` avec
+  second membre, exceptions de référence) ;
+- `pdsolve` avec la logique de `_desolve` : `default`, indices nommés,
+  `all`, `all_Integral`, `best`, et les `KeyError`/`ValueError`/
+  `NotImplementedError` de référence ;
+- les quatre solveurs `1st_linear_constant_coeff_homogeneous`,
+  `1st_linear_constant_coeff`, `1st_linear_constant_coeff_Integral`
+  (`_handle_Integral`) et `1st_linear_variable_coeff` ;
+- `checkpdesol` (séquences, `solve_for_func`, `NotImplementedError` final) ;
+- `pde_separate`, `pde_separate_add`, `pde_separate_mul`, `_separate`.
+
+`lie_group` (vague 44) appelle désormais le `pdsolve` natif directement
+(`ode/lie_group.rs`, `native_pdsolve_rhs`) : les rappels Python `pdsolve`
+et `pde_1st_linear_variable_coeff` disparaissent. Rappels de l'hôte :
+`simplify`, `expand`, `cancel`, `integrate`, `solve`, `div`, `doit`,
+`dsolve`.
+
+Python : admission, aiguillage et enveloppes seulement (`pde.py`,
+`lie_group.py`) ; les corps de référence restent en repli sur déclin natif
+(aucun déclin sur le corpus).
+
+Corpus `audits/performance/2026-11-07-pde` (791 cas contre SymPy 1.14 en
+direct : `test_pde.py` et 30 équations maison) :
+- avant : 714 SAME, 77 DIFF, 0 DECLINED, 0 WRONG ;
+- après : **716 SAME, 75 DIFF, 0 DECLINED, 0 WRONG** ;
+- corrigés : `checkpdesol` sans solution et `checkpdesol` non concluant
+  lèvent maintenant `NotImplementedError` comme SymPy (le `raise` du corps
+  Python était mort après le `return` de `_combine_integrals`) ;
+- les 75 DIFF restants donnent les mêmes valeurs qu'avant (formes de
+  `simplify`, `doit`, écarts volontaires ci-dessous) ;
+- appels natifs : 144 `classify_pde`, 372 `pdsolve`, 77 `checkpdesol`,
+  12 `pde_<indice>`, 18 `pde_separate`, aucun déclin ;
+- temps cumulé : 68,2 s contre 208,5 s avant et 573,7 s pour SymPy ;
+- `tests/test_native_pde.py` : 138 tests (`test_pde.py` transcrit,
+  parité en direct de `classify_pde`, `pdsolve`, `checkpdesol`, des
+  exceptions, et absence d'appel aux corps de référence) ;
+- corpus liegroup relancé : **413 SAME, 13 DIFF, 2 DECLINED, 0 WRONG**,
+  verdicts identiques cas par cas à la vague 44 (valeurs identiques sauf un
+  indice de `Dummy`) ; appels natifs 108/15/204/19, aucun déclin ;
+  lie_group_01/03 : RecursionError après 72,9 s et 56,2 s dans le corpus
+  (90,7 s et 61,4 s seuls) ;
+- corpus EDO 315/289/270, mêmes verdicts ligne à ligne que la vague 44 ;
+- cargo test 878 + 1 + 0 + 5 (+2 tests unitaires pde) ; clippy
+  correctness propre ;
+- suite complète : "SUITE CLEAN" au troisième passage, 60 958 réussis,
+  14 xfail, 45 sautés, 61 017 collectés et exécutés, 701 fichiers (+138
+  tests et 1 fichier sur main ; le xfail non strict qui dépend de la graine
+  revient). Échecs écartés comme faux positifs connus puis réussis seuls :
+  passage 1, trois délais sous charge (moyenne 30) :
+  `test_real_keyword_calls_use_reference_contracts_and_preserve_callable_identity`
+  (worker de `test_sympy_parity_audit`), `test_native_and_sympy_fresh_generators_have_independent_namespaces`
+  et `test_quartic_numerator_systems_finish_with_valid_roots` ; passage 2,
+  délai du fuzz (`test_finite_run_and_deduplication`). Preuves hors dépôt
+  dans `symox-ci/evidence/pde-20261107`.
+
+Écarts volontaires (à valider ; repris de `pde.py` de symox) :
+- fonction arbitraire `F_` quand `F` figure dans l'équation (SymPy
+  confond les deux et perd la solution générale) ;
+- coordonnées caractéristiques `Dummy` quand `xi`/`eta` figurent dans
+  l'équation (SymPy capture la variable : son `checkpdesol` rejette sa
+  propre réponse) ;
+- variables d'intégration capturées renommées
+  (`_rename_captured_integration_variables`) ;
+- `_combine_integrals` dans `checkpdesol` avant la conclusion ;
+- l'ordre des clés de `all`/`best` est celui de `classify_pde` ; SymPy
+  parcourt un ensemble, dans l'ordre du hachage ;
+- un `pdsolve` non classé dans `lie_group` décline (corps Python de
+  référence conservé) ; dans SymPy, le `NotImplementedError` se propage.
+
+Lacunes restantes :
+- les replis `_native_fallback` et `_isotropic_fallback` (solveur des
+  caractéristiques `_native_pde.py`) restent en Python : `u_x + I*u_y`
+  (dénominateur `b**2 + c**2` nul) et les EDP non classées ; ce ne sont pas
+  des chemins de référence (SymPy échoue sur ces cas) ;
+- le corps Python de `checkpdesol` (repli seulement) garde le `raise` mort ;
+- hors lot :
+  - formes de `simplify`/`Mul` (`exp(x/2 - y)` pour `exp(x/2)*exp(-y)`,
+    exponentielles fusionnées dans l'intégrande `_Integral`) ;
+  - `Integral.doit` de SymPy lève TypeError sur la borne
+    `(xi, x + y)` de `u + u_x + u_y + log(x)` (`all`) ; symox garde
+    l'intégrale ;
+  - dsolve lie_group_01/03 lève toujours RecursionError (SymPy aussi, après
+    6 min 22 s et 8 min 10 s) : 90,7 s et 61,4 s dans symox, contre 79 s
+    et 50 s à la vague 44, car moins de cadres Python par niveau laissent
+    plus de niveaux avant la limite.
+
 ## État des preuves et prochaine étape
 
 Le critère de clôture du tri de l'audit, décidé le 22 octobre, reste : ne

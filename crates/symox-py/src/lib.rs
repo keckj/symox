@@ -65,6 +65,7 @@ mod markov;
 mod ode;
 mod ode_classify;
 mod ode_lie;
+mod pde;
 mod ode_solve;
 mod solve;
 mod tsolve;
@@ -4807,6 +4808,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ode::register(m)?;
     ode_classify::register(m)?;
     ode_lie::register(m)?;
+    pde::register(m)?;
     ode_solve::register(m)?;
     logic::register(m)?;
     special::register(m)?;

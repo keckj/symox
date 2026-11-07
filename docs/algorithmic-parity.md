@@ -18044,3 +18044,132 @@ Open after this wave (see the lot sections above and the TODO):
     classes and the `ANP(1)` print;
   - liegroup: the prefix atom order, and user `xi`/`eta` are tried once;
   - wave 43: `Order.as_expr_variables` is still a Python API envelope.
+
+## pde (wave 45): `sympy/solvers/pde.py` in Rust, 2026-11-07
+
+Wave 45, lot pde (`feat-pde-20261107`). Scope: SymPy 1.14's
+`sympy/solvers/pde.py`, and the `pdsolve` that the lie_group ODE solver of
+wave 44 still called through Python.
+
+Native (Rust):
+
+- `crates/symox-core/src/ode/pde.rs`, bound in `crates/symox-py/src/pde.rs`:
+  - `classify_pde`: the tuple and the `dict=True` form, the power
+    reduction under `prep`, `Eq` with a right-hand side, the order-0 dict,
+    and the reference exceptions (`ValueError` for an undetectable
+    function, `IndexError`, `NotImplementedError` beyond two variables);
+  - `pdsolve` with the `_desolve` logic: `default`, a named hint, `all`,
+    `all_Integral` and `best` (failing hints kept as their exception, as
+    the reference does), and the reference errors: `KeyError
+    'ordered_hints'` at order 0, `ValueError` for an unknown or
+    non-matching hint, `NotImplementedError("psolve: Cannot solve ...")`;
+  - the four solvers `1st_linear_constant_coeff_homogeneous`,
+    `1st_linear_constant_coeff`, `1st_linear_constant_coeff_Integral`
+    (with `_handle_Integral`) and `1st_linear_variable_coeff` (whose
+    characteristic `dsolve` and `solve` are host calls);
+  - `checkpdesol`: one solution or a sequence, `solve_for_func`, and the
+    final `NotImplementedError('Unable to test if ...')`;
+  - `pde_separate`, `pde_separate_add`, `pde_separate_mul` and `_separate`.
+- `ode/lie_group.rs` (`native_pdsolve_rhs`): the canonical coordinates call
+  the native `pdsolve` directly. The host callbacks `pdsolve` and
+  `pde_1st_linear_variable_coeff` are gone; `doit` and `dsolve` are new
+  host callbacks. The public calls of the reference (`simplify`, `expand`,
+  `cancel`, `integrate`, `solve`, `div`, `doit`, `dsolve`) stay host
+  calls, so their errors propagate unchanged.
+
+Still Python:
+
+- Admission and dispatch in `python/symox/solvers/pde.py`: `pdsolve`,
+  `classify_pde`, `checkpdesol`, the three `pde_*` solvers and
+  `pde_separate` check the arguments, build the hook table, call the
+  native function, and keep the reference body as the fallback on a
+  native decline. The corpus had no declines.
+- The symox extensions `_native_fallback` and `_isotropic_fallback`
+  (the characteristic solver of `_native_pde.py`), tried after the
+  reference methods fail: unclassified first-order equations, and
+  `u_x + I*u_y`, where the constant-coefficient formulas divide by
+  `b**2 + c**2 = 0`. They are not on the reference path; SymPy fails on
+  those equations.
+
+Results:
+
+- Lot corpus (`audits/performance/2026-11-07-pde`, 791 cases against live
+  SymPy 1.14: SymPy's `test_pde.py` and 30 in-house equations):
+  - before (the Python `pde.py`): 714 SAME, 77 DIFF, 0 DECLINED and
+    0 WRONG;
+  - after: **716 SAME, 75 DIFF, 0 DECLINED and 0 WRONG**.
+  - The two fixed cases are `checkpdesol` of a non-solution and of an
+    inconclusive candidate. The Python body returned `None` because its
+    final `raise` came after the `return` of `_combine_integrals`; the
+    native port raises `NotImplementedError` as SymPy does.
+  - The 75 DIFFs give the same symox values as before. Their causes are
+    the `simplify`/`Mul` exponential forms, the SymPy `doit` TypeError
+    below, and the intentional divergences below. SymPy's `checkpdesol`
+    validates 33 of them; the others are dicts, or SymPy's check of them
+    does not conclude.
+  - Native calls: 144 `classify_pde`, 372 `pdsolve`, 77 `checkpdesol`,
+    12 `pde_<hint>` and 18 `pde_separate`, with no decline.
+  - Time over the 791 cases: 68.2 s, against 208.5 s before and 573.7 s
+    in SymPy.
+- `tests/test_native_pde.py` runs 138 tests: SymPy's `test_pde.py`
+  transcribed, and live parity of `classify_pde` (hints and their order,
+  and the dict), `pdsolve` (solutions, `all` key sets, exceptions) and
+  `checkpdesol`. It also checks that no public call reaches the reference
+  bodies.
+- The wave 44 lie_group corpus, rerun: **413 SAME, 13 DIFF, 2 DECLINED
+  and 0 WRONG**, the same verdicts case by case (the values are identical
+  except for one `Dummy` index). Native calls: 108 `infinitesimals`,
+  15 `checkinfsol`, 204 splits and 19 solves, with no decline. The
+  `dsolve` cases, the only ones through `pdsolve`, take 25.3 s (25.5 s in
+  wave 44).
+- ODE corpus 315/289/270, with verdicts identical row by row to wave 44.
+- `cargo test --release`: 878 + 1 + 0 + 5, including two pde unit tests.
+  Clippy correctness is clean.
+- Full suite: SUITE CLEAN on the third run. 60 958 passed, 14 xfail and
+  45 skipped, out of 61 017 tests collected and run in 701 files: +138
+  tests and 1 file on main, and the non-strict hash-seed xfail is back.
+  The earlier runs failed only on timeouts, and each of those tests then
+  passed on its own: in run 1, under a load average of 30, the
+  `test_sympy_parity_audit` worker
+  (`test_real_keyword_calls_use_reference_contracts_and_preserve_callable_identity`),
+  `test_native_and_sympy_fresh_generators_have_independent_namespaces` and
+  `test_quartic_numerator_systems_finish_with_valid_roots`; in run 2, the
+  fuzz timeout of `test_finite_run_and_deduplication`.
+
+Intentional divergences (kept from symox's `pde.py`):
+
+- When `F` appears in the equation, the arbitrary function is named `F_`.
+  SymPy reuses `F` and loses the general solution of
+  `u_x + u_y = F(x - y)`.
+- When `xi` or `eta` appears in the equation, the characteristic
+  coordinates are `Dummy` symbols. SymPy's coordinates capture the
+  equation's symbol, and its `checkpdesol` rejects its own answer.
+- Integration variables captured by the solution are renamed
+  (`_rename_captured_integration_variables`).
+- `checkpdesol` runs `_combine_integrals` before it concludes.
+- The keys of the `all`/`best` dicts follow the `classify_pde` order.
+  SymPy iterates a set of hint names, so its order follows the hash seed.
+- Inside `lie_group`, an unclassified `pdsolve` declines, and the
+  reference body takes over. In SymPy the `NotImplementedError`
+  propagates out of `_ode_lie_group_try_heuristic`.
+
+Remaining gaps:
+
+- `_native_fallback` and `_isotropic_fallback` remain Python (above).
+- The Python `checkpdesol` body, now only a fallback, keeps its dead
+  `raise`.
+- Outside the lot:
+  - `simplify`/`Mul` write exponentials differently: `exp(x/2 - y)` for
+    `exp(x/2)*exp(-y)`, and merged exponentials in the
+    `1st_linear_constant_coeff_Integral` integrand.
+  - For `pdsolve(u + u_x + u_y + log(x), hint='all')`, SymPy's
+    `Integral.doit` raises TypeError on the one-sided limit `(xi, x + y)`;
+    symox keeps the integral held.
+  - `dsolve(hint='lie_group')` of lie_group_01 and lie_group_03 still
+    raises RecursionError, as in SymPy (6 min 22 s and 8 min 10 s). symox
+    takes 90.7 s and 61.4 s, against 79 s and 50 s in the wave 44 corpus.
+    The recursion goes through `pdsolve` → `1st_linear_variable_coeff` →
+    `dsolve` → `lie_group`; the `pde.py` frames are now native, so each
+    level uses fewer Python frames and more levels run before the limit.
+
+Measured: [audit](../audits/performance/2026-11-07-pde/README.md).
