@@ -15836,3 +15836,69 @@ Remaining gaps (still Python, recorded as gaps):
   it still runs in full (see prdeconst item 3).
 
 Measured: [audit](../audits/performance/2026-10-30-prdelog/README.md).
+
+## lambdify without SciPy: object evaluation, NameError forms, sinc, 2026-11-11
+
+SymPy 1.14's default modules are `['numpy', 'scipy']` when SciPy imports
+and `['numpy']` otherwise; the NumPy printer then binds `gamma`, `erf`, ...
+to `math` and prints the functions it does not support (`besselj`, `zeta`,
+`Si`, `airyai`, `polygamma`, ...) under their own names, so its generated
+function raises NameError. Changes:
+
+- The NumPy object evaluation (complex scalars and arrays, object
+  arguments, NumPy subclasses) names functions NumPy lacks (`numpy.gamma`).
+  Its AttributeError now hands the call to SymPy's generated function and
+  returns that function's result or its own error. Before, the error of the
+  generated function was replaced by the AttributeError (complex arrays), or
+  the generated function was not tried (complex scalars). Now
+  `lambdify(x, gamma(x))(2.5+1j)` returns SciPy's value with SciPy, and
+  raises `math.gamma`'s TypeError ("must be real number, not complex") with
+  'numpy' or without SciPy, as SymPy does; complex arrays raise TypeError
+  "only 0-dimensional arrays can be converted to Python scalars".
+- A function printed without a definition no longer drops the generated
+  function: it is attached for introspection only (`inspect.getsource`,
+  `inspect.signature`, `__doc__`, `__globals__` are SymPy's, for example
+  `return besselj(1, x)`) and for the object evaluation (complex arguments
+  raise SymPy's NameError instead of NumPy's AttributeError). Float
+  arguments and float64 arrays keep the native values (the documented
+  extension above). Only the functions that SymPy prints under their own
+  name (`_UNDEFINED_PRINTED`: Bessel and Airy functions, `zeta`,
+  `polygamma`, `Si`/`Ci`/`Shi`/`Chi`/`Ei`/`li`/`Li`, `expint`, `LambertW`,
+  ..., checked against SymPy with and without SciPy) qualify. Functions that
+  SymPy rewrites (`beta`, `binomial`, `catalan`, `erf2`, `RisingFactorial`,
+  `factorial2`, ...) or refuses (`fresnels`, `lowergamma`, `subfactorial`,
+  ...) keep the previous path: no generated source.
+- Wrong values: the Python `NumPyPrinter` printed `numpy.sinc(x)`;
+  `numpy.sinc` is the normalized sinc, so the object evaluation of
+  `sinc(x)` on complex arguments returned `sin(pi*x)/(pi*x)`. It now prints
+  SymPy's `numpy.sinc(x/numpy.pi)`.
+
+Remaining gaps (recorded in `GAPS` of tests/test_lambdify_scipy_parity.py,
+which fails once one closes):
+- Functions SymPy's printers rewrite when the module lacks them (`beta` to
+  `gamma(x)*gamma(y)/gamma(x + y)` with 'numpy', 'math' and without SciPy;
+  likewise `binomial`, `catalan`, `erf2`, `RisingFactorial`,
+  `FallingFactorial`, `factorial2`): no generated source, complex
+  arguments raise NumPy's AttributeError (SymPy: `math.gamma`'s TypeError),
+  float values may differ in the last digit.
+- With SciPy, `Si`, `Ci`, `airyai`, ... print as `sici(x)[0]`, `airy(x)[0]`
+  in SymPy; not reproduced: no generated source, `builtins.float` results
+  (SymPy: `numpy.float64`), complex arguments raise AttributeError (SymPy
+  computes them).
+- With SciPy, the docstring of `sinc` lists `from numpy import pi` where
+  SymPy lists `from scipy.constants import pi`.
+- `frac(x)` prints `x - floor(x)` with 'numpy' and the default modules
+  (SymPy: `mod(x, 1)`); found by the survey, not part of this change.
+- Float64 arrays of special functions other than gamma (`besselj`, `erfc`,
+  `loggamma`, `zeta`, `Si`, `sinc`) differ from SciPy's or NumPy's in the
+  last digits (relative 1e-13 in the test).
+
+Tests: tests/test_lambdify_scipy_parity.py compares symox with SymPy in
+fresh interpreters, with SciPy made unimportable and (when installed) with
+SciPy: lambdify-time errors, sources, signatures, docstrings, and the result
+type, value or exception of float, complex, float64-array and complex-array
+calls for 16 expressions and the modules None, 'numpy' and 'scipy'. SciPy
+assertions in tests/test_native_lambdaprint.py and
+tests/test_native_lambdarr.py are skipped without SciPy, and the expected
+Python error messages are taken from the running Python (3.14 changed
+"0.0 cannot be raised to a negative power" to "zero to a negative power").

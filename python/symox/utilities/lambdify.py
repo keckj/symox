@@ -654,8 +654,8 @@ def _select_reference_flavor(modules):
 _REFERENCE_NODE_LIMIT = 20000
 
 
-def _reference_plan(args, expr, modules, options, shown=None):
-    """``(build, kind, flavor[, body, names, resolve])``: a builder of
+def _reference_plan(args, expr, modules, options, shown=None, introspection=False):
+    """``(build, kind, flavor[, body, names, resolve[, evaluate]])``: a builder of
     SymPy's generated ``_lambdifygenerated`` function from the natively
     printed source, its result type code for float arguments, the printer
     flavor ('math', 'numpy' or 'scipy') and, without user functions, the
@@ -699,10 +699,19 @@ def _reference_plan(args, expr, modules, options, shown=None):
         from ..core.function import AppliedUndef
         if any(str(f.func) not in (user_functions or {}) for f in expr.atoms(AppliedUndef)):
             return None
-    if unknown and not _names_resolved(unknown, namespaces):
+    undefined = bool(unknown) and not _names_resolved(unknown, namespaces)
+    if undefined and not (introspection and _undefined_functions(unknown, expr)):
         return None
     limit = options.get('docstring_limit', 1000)
     shown = expr if shown is None else shown
+    if undefined:
+        # SymPy prints a function it does not support under its own name
+        # and its generated function raises NameError; the native function
+        # computes the values and keeps the generated one for introspection
+        # and for the arguments it does not evaluate (complex, objects).
+        def build_undefined():
+            return _generated_function(names, body, imports, namespaces, expr, shown, limit)
+        return build_undefined, kind, flavor, None, None, None, False
 
     def build():
         return _generated_function(names, body, imports, namespaces, expr, shown, limit)
@@ -712,6 +721,28 @@ def _reference_plan(args, expr, modules, options, shown=None):
     def resolve(used):
         return _resolve_globals(used, imports, namespaces)
     return build, kind, flavor, body, names, resolve
+
+
+# Functions that SymPy 1.14's NumPy and math lambdify printers print under
+# their own name without a definition (their generated function raises
+# NameError), checked against SymPy with and without SciPy. Other functions
+# are rewritten (beta, binomial, catalan, erf2, RisingFactorial, ...) or
+# refused (fresnels, lowergamma, ...) by SymPy and keep the previous path.
+_UNDEFINED_PRINTED = frozenset((
+    'Chi', 'Ci', 'Ei', 'LambertW', 'Li', 'Shi', 'Si', 'airyai', 'airyaiprime', 'airybi',
+    'arg', 'besseli', 'besselj', 'besselk', 'bessely', 'chebyshevt', 'conjugate',
+    'dirichlet_eta', 'elliptic_e', 'elliptic_k', 'erfcinv', 'erfi', 'erfinv', 'expint',
+    'factorial', 'fibonacci', 'hermite', 'im', 'legendre', 'li', 'lucas', 'polygamma',
+    're', 'zeta'))
+
+
+def _undefined_functions(unknown, expr):
+    """Whether every unresolved name of the printed source is a function
+    applied in ``expr`` that SymPy prints under its own name without a
+    definition (``_UNDEFINED_PRINTED``)."""
+    from symox import Function
+    applied = {type(f).__name__ for f in expr.atoms(Function)}
+    return all(name in applied and name in _UNDEFINED_PRINTED for name in unknown)
 
 
 def _resolve_globals(used, imports, namespaces):
@@ -772,7 +803,7 @@ def _attach_reference(native, args, expr, modules, options, shown=None):
     (built on first need), or leave it unchanged."""
     if not hasattr(native, '_attach_reference'):
         return native
-    plan = _reference_plan(args, expr, modules, options, shown)
+    plan = _reference_plan(args, expr, modules, options, shown, introspection=True)
     if plan is not None:
         native._attach_reference(*plan)
     return native

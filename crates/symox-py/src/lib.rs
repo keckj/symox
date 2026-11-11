@@ -4161,6 +4161,11 @@ pub struct PyCompiled {
     // their bound are derived on first need.
     reference: pyo3::sync::GILOnceCell<(Py<PyAny>, u8, u8)>,
     reference_function: pyo3::sync::GILOnceCell<Option<Py<PyAny>>>,
+    // Set when the generated function gives the source, docstring, signature
+    // and namespace only: its source names a function without a definition
+    // (SymPy's NameError), the native evaluation computes the values, and
+    // only the object evaluation that lacks the function calls it.
+    introspection_only: pyo3::sync::GILOnceCell<()>,
     int_kind: pyo3::sync::GILOnceCell<(u8, u64)>,
     // The printed return expression, its argument names and the resolver of
     // its global names, and its bit-exact native evaluation built from them.
@@ -4415,7 +4420,7 @@ impl PyCompiled {
                 args.len()
             )));
         }
-        if let Some(reference) = self.reference.get(py) {
+        if let (Some(reference), None) = (self.reference.get(py), self.introspection_only.get(py)) {
             if let Some(result) = self.call_reference(py, reference, args)? {
                 return Ok(result);
             }
@@ -4437,7 +4442,7 @@ impl PyCompiled {
         // NumPy subclasses, complex/object arrays and external scalars own
         // arithmetic protocols that a float64 buffer would erase.
         if args.iter().map(|value| needs_object_evaluation(&value)).collect::<PyResult<Vec<_>>>()?.into_iter().any(|value| value) {
-            return Ok(self.object_evaluator(py)?.bind(py).call(args, None)?.unbind());
+            return self.object_call(py, args);
         }
         if self.numpy_vectors {
             let evaluator=self.numpy_evaluator.get_or_try_init(py,||
@@ -4542,10 +4547,19 @@ impl PyCompiled {
     /// Attach SymPy's generated function: `builder()` returns it (or None),
     /// `kind` is its result type code for Python float arguments and
     /// `flavor` the printer ('math', 'numpy' or 'scipy').
-    #[pyo3(signature = (builder, kind, flavor, body=None, names=None, resolve=None))]
+    /// With `evaluate=False` it gives the introspection only (see
+    /// `introspection_only`).
+    #[pyo3(signature = (builder, kind, flavor, body=None, names=None, resolve=None, evaluate=true))]
     fn _attach_reference(&self, py: Python<'_>, builder: Py<PyAny>, kind: u8, flavor: &str,
-                         body: Option<String>, names: Option<Vec<String>>, resolve: Option<Py<PyAny>>) -> bool {
+                         body: Option<String>, names: Option<Vec<String>>, resolve: Option<Py<PyAny>>,
+                         evaluate: bool) -> bool {
         let flavor = match flavor { "math" => 0, "numpy" => 1, "scipy" => 2, _ => return false };
+        if self.reference.get(py).is_some() {
+            return false;
+        }
+        if !evaluate {
+            let _ = self.introspection_only.set(py, ());
+        }
         if let (Some(body), Some(names), Some(resolve)) = (body, names, resolve) {
             let _ = self.printed.set(py, (body, names, resolve));
         }
@@ -4633,6 +4647,7 @@ fn py_lambdify(
         globals: pyo3::sync::GILOnceCell::new(),
         reference: pyo3::sync::GILOnceCell::new(),
         reference_function: pyo3::sync::GILOnceCell::new(),
+        introspection_only: pyo3::sync::GILOnceCell::new(),
         int_kind: pyo3::sync::GILOnceCell::new(),
         printed: pyo3::sync::GILOnceCell::new(),
         program: pyo3::sync::GILOnceCell::new(),
