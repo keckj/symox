@@ -146,6 +146,10 @@ class ArrayPrinter(PythonCodePrinter):
     def _print_And(self,expr):return self._boolean(expr,'logical_and')
     def _print_Or(self,expr):return self._boolean(expr,'logical_or')
     def _print_Not(self,expr):return 'numpy.logical_not('+self._print(expr.args[0])+')'
+    def _print_sinc(self,expr):
+        # NumPyPrinter._print_sinc: numpy.sinc is the normalized sinc.
+        import symox as _S
+        return self._module+'.sinc('+self._print(expr.args[0]/_S.pi)+')'
     def _print_MatrixSolve(self,expr):return '%s(%s, %s)'%(self._module+'.linalg.solve',self._print(expr.matrix),self._print(expr.vector))
     def _boolean(self,expr,op):
         value=self._print(expr.args[0])
