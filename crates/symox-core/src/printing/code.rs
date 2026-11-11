@@ -770,14 +770,22 @@ impl<'a> CodePrinter<'a> {
                 })
                 .collect::<Result<_, _>>()?
         };
+        // A denominator is the right operand of `/`: anything printed at
+        // multiplication precedence or below needs parentheses, whatever the
+        // sign of the product (`prec` is PREC_ADD for a negative coefficient,
+        // which printed `-x/s**2` as `-x/s*s`).
+        let den_level = PREC_MUL;
         let mut b_str = Vec::with_capacity(b.len());
         for d in &b {
             b_str.push(match d {
-                Den::Base(base) => self.parenthesize(base, prec, false)?,
+                Den::Base(base) => self.parenthesize(base, den_level, false)?,
                 Den::Pow(base, x) => {
                     let s = self.print_pow(base, x)?;
-                    let p = if self.inline_pow_n(base, x).is_some() { PREC_MUL } else { PREC_POW };
-                    if p <= prec {
+                    let inline = self.inline_pow_n(base, x).is_some();
+                    let p = if inline { PREC_MUL } else { PREC_POW };
+                    // several denominators are joined with `*` inside one
+                    // pair of parentheses: inline products need none there
+                    if p <= den_level && !(inline && b.len() > 1) {
                         format!("({s})")
                     } else {
                         s
@@ -2009,6 +2017,21 @@ mod tests {
         let s2 = CudaSettings { dtype: FloatType::F32, ..Default::default() };
         assert_eq!(cudacode_with(&e, &s2).unwrap(), "0.1F + y/(x*x)");
         assert_eq!(cudacode_with(&parse_str("1/(x + y)").unwrap(), &s).unwrap(), "__fdividef(1.0F, x + y)");
+    }
+
+    #[test]
+    fn cuda_negative_quotients_keep_denominators_grouped() {
+        let c = |src: &str| cudacode(&parse_str(src).unwrap()).unwrap();
+        // regression: a negative coefficient lowered the product precedence
+        // and printed -x/s**2 as -x/s*s
+        assert_eq!(c("-x/s**2"), "-x/(s*s)");
+        assert_eq!(c("x/s**2"), "x/(s*s)");
+        assert_eq!(c("-1/s**3"), "-1/(s*s*s)");
+        assert_eq!(c("-x/y**3"), "-x/(y*y*y)");
+        assert_eq!(c("-a*b/(c*d**2)"), "-a*b/(c*d*d)");
+        assert_eq!(c("a*b/(c*d**2)"), "a*b/(c*d*d)");
+        let f = CudaSettings { dtype: FloatType::F32, fast_math: true, ..Default::default() };
+        assert_eq!(cudacode_with(&parse_str("-x/s**2").unwrap(), &f).unwrap(), "-__fdividef(x, s*s)");
     }
 
     #[test]
