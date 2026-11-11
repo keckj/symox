@@ -2054,6 +2054,9 @@ mod tests {
         assert_eq!(c("(x - y)**5"), "pow(x - y, 5)");
         assert_eq!(c("1/(x + y)**2"), "1.0/((x + y)*(x + y))");
         assert_eq!(c("exp(-(x - y)**2)"), "exp(-((x - y)*(x - y)))");
+        assert_eq!(c("-x/(x - y)**2"), "-x/((x - y)*(x - y))");
+        assert_eq!(c("-(x - y)**2/(2*s**2)"), "-1.0/2.0*(x - y)*(x - y)/(s*s)");
+        assert_eq!(c("-x/(s**2*sqrt(c))"), "-x/(sqrt(c)*s*s)");
         // function bases are never repeated
         assert_eq!(c("sin(x)**2"), "pow(sin(x), 2)");
         // inline_pow = 0 disables every inline power
