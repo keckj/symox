@@ -1,8 +1,13 @@
 """Nested numerical signatures and matrix results preserve their structures."""
+import importlib.util
+
 import numpy as np
 import pytest
 import sympy as sp
 import symox as sx
+
+# modules naming SciPy need it (SymPy raises ImportError at lambdify time)
+_SCIPY = pytest.mark.skipif(importlib.util.find_spec('scipy') is None, reason='SciPy is not installed')
 
 
 def test_nested_signature_with_dynamic_and_derivative_parameters():
@@ -39,7 +44,7 @@ def test_empty_matrix_output_matches_reference(shape):
     np.testing.assert_equal(actual,expected)
 
 
-@pytest.mark.parametrize('modules', [['scipy', 'numpy'], ['numpy'], ['numpy', 'mpmath'], ['math'], ['sympy']])
+@pytest.mark.parametrize('modules', [pytest.param(['scipy', 'numpy'], marks=_SCIPY), ['numpy'], ['numpy', 'mpmath'], ['math'], ['sympy']])
 def test_namespace_sinc_receives_the_printed_argument(modules):
     # SymPy's NumPy-family printers call a normalized sinc on x/pi, so a
     # user ``sinc`` entry (Lcapy maps it to numpy.sinc) sees that argument.
@@ -54,7 +59,7 @@ def test_namespace_sinc_receives_the_printed_argument(modules):
 
 
 @pytest.mark.parametrize('source', ['sqrt(t)', '1/sqrt(t)', '2*sqrt(t + 1)', 'sqrt(t) + 1/sqrt(t + 1)', 'sqrt(2)*t', 't**(3/2)'])
-@pytest.mark.parametrize('modules', [['numpy'], ['math'], ['mpmath'], ['scipy', 'numpy']])
+@pytest.mark.parametrize('modules', [['numpy'], ['math'], ['mpmath'], pytest.param(['scipy', 'numpy'], marks=_SCIPY)])
 def test_namespace_sqrt_receives_square_roots(source, modules):
     # SymPy prints b**(1/2) as sqrt(b) and b**(-1/2) as 1/sqrt(b); Lcapy
     # maps ``sqrt`` to a complex-aware square root.

@@ -49,6 +49,8 @@ def test_logic_pycode():
 
 
 def test_default_modules_scipy_names():
+    # the default modules are ['numpy', 'scipy'] when SciPy is installed
+    pytest.importorskip('scipy')
     f = lambdify(x, besselj(1, x))
     src = 'def _lambdifygenerated(x):\n    return jv(1, x)\n'
     assert inspect.getsource(f) == src
@@ -125,10 +127,21 @@ def test_gamma_digits():
     pytest.importorskip('numpy')
     f = lambdify(x, gamma(x), 'numpy')
     assert _t(f(0.5)) == 'builtins.float' and f(0.5) == 1.7724538509055159
-    f = lambdify(x, gamma(x))
-    assert _t(f(0.5)) == 'numpy.float64' and f(0.5) == 1.7724538509055159
     f = lambdify(x, gamma(x), 'math')
     assert f(0.5) == 1.7724538509055159
+
+
+def test_gamma_digits_default_modules():
+    pytest.importorskip('numpy')
+    f = lambdify(x, gamma(x))
+    try:
+        import scipy  # noqa: F401
+    except ImportError:
+        # SymPy's default modules are ['numpy'] alone: math.gamma
+        assert _t(f(0.5)) == 'builtins.float' and f(0.5) == 1.7724538509055159
+    else:
+        # ['numpy', 'scipy']: scipy.special.gamma
+        assert _t(f(0.5)) == 'numpy.float64' and f(0.5) == 1.7724538509055159
 
 
 def test_math_result_types():
@@ -144,14 +157,32 @@ def test_math_result_types():
     assert _t(f(2)) == 'builtins.int'
 
 
+def _python_error(operation):
+    # the exception the running Python raises (its messages change between
+    # versions: '0.0 cannot be raised to a negative power' up to 3.13, 'zero
+    # to a negative power' from 3.14)
+    try:
+        operation()
+    except Exception as error:
+        return type(error), str(error)
+    raise AssertionError('no exception')
+
+
+def _raises_as(call, operation):
+    kind, message = _python_error(operation)
+    with pytest.raises(kind) as raised:
+        call()
+    assert type(raised.value) is kind and str(raised.value) == message
+
+
 def test_errors_and_warnings():
+    import math
     numpy = pytest.importorskip('numpy')
-    with pytest.raises(ZeroDivisionError, match='0.0 cannot be raised to a negative power'):
-        lambdify(x, 1/x, 'numpy')(0.0)
-    with pytest.raises(ZeroDivisionError, match='float division by zero'):
-        lambdify(x, 1/x, 'math')(0.0)
-    with pytest.raises(ValueError, match='math domain error'):
-        lambdify(x, sqrt(x), 'math')(-1.0)
+    zero = 0.0
+    # SymPy prints x**(-1.0) with 'numpy' and 1/x with 'math'
+    _raises_as(lambda: lambdify(x, 1/x, 'numpy')(0.0), lambda: zero**-1.0)
+    _raises_as(lambda: lambdify(x, 1/x, 'math')(0.0), lambda: 1/zero)
+    _raises_as(lambda: lambdify(x, sqrt(x), 'math')(-1.0), lambda: math.sqrt(-1.0))
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter('always')
         r = lambdify(x, log(x), 'numpy')(-1.0)

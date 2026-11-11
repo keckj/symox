@@ -68,11 +68,17 @@ def test_float32_and_integer_inputs_keep_vm_float64_precision():
     np.testing.assert_array_equal(actual([0.25,0.5]),original([0.25,0.5]))
 
 
-def test_equal_flat_size_vm_extension_and_scalar_domain_behavior_are_retained():
+def test_equal_flat_size_shapes_raise_and_scalar_domain_behavior_is_retained():
     x,y=sx.symbols("x y");expression=x+y
     function=sx.lambdify((x,y),expression,"numpy")
     a=np.arange(6,dtype=float).reshape(2,3);b=np.arange(6,dtype=float)
-    np.testing.assert_array_equal(function(a,b),a+b.reshape(2,3))
+    # SymPy's generated x + y: NumPy broadcasting, no pairing of the flat
+    # buffers (shapes (2, 3) and (6,) do not broadcast)
+    with pytest.raises(ValueError):
+        a+b
+    with pytest.raises(ValueError):
+        function(a,b)
+    np.testing.assert_array_equal(function(a,b.reshape(2,3)),a+b.reshape(2,3))
     singular=sx.lambdify((x,y),1/x,"numpy")
     with np.errstate(all="raise"):
         assert np.isinf(singular(0.0,a)).all()

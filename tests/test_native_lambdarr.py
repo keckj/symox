@@ -154,9 +154,36 @@ def test_complex_arrays_keep_numpy_values():
 
 def test_complex_gamma_uses_the_generated_function():
     # SymPy 1.14 (SciPy's gamma); NumPy has no gamma for the object text
+    pytest.importorskip('scipy')
     f = lambdify(x, gamma(x))
     for _ in range(2):
         assert f(np.array([0.5 + 0.25j])).tolist() == [(1.3851135919886668-0.6731815357596996j)]
+        assert f(0.5 + 0.25j) == (1.3851135919886668-0.6731815357596996j)
+
+
+@pytest.mark.parametrize('modules', [None, 'numpy'])
+def test_complex_gamma_raises_math_gamma_errors(modules):
+    # SymPy 1.14 binds gamma to math.gamma with 'numpy', and with the
+    # default modules when SciPy is absent: complex arguments raise its
+    # TypeError (not NumPy's missing numpy.gamma)
+    if modules is None:
+        try:
+            import scipy  # noqa: F401
+        except ImportError:
+            pass
+        else:
+            pytest.skip('SciPy installed: the default modules bind scipy.special.gamma')
+    import math
+    f = lambdify(x, gamma(x), modules)
+    for arg in (np.array([2.5 + 1j]), 2.5 + 1j):
+        try:
+            math.gamma(arg)
+        except TypeError as error:
+            expected = str(error)
+        for _ in range(2):
+            with pytest.raises(TypeError) as raised:
+                f(arg)
+            assert str(raised.value) == expected
 
 
 def gamma_samples():
