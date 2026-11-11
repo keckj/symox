@@ -26,6 +26,7 @@ _EXPORTS = {
     'cuda_kernel': '.._core',
     'cuda_lambdify': '.codegen.cuda',
     'cudacode': '.._core',
+    'cudacode_function': '.codegen.cuda',
     'jax_lambdify': '.codegen.jax',
     'jaxcode': '.printing.jax',
     'jaxcode_function': '.codegen.jax',

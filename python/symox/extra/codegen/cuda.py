@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import threading
@@ -406,4 +407,153 @@ def cuda_lambdify(args, exprs, *, dtype="float64", device=0, cse=True, fast_math
     return call
 
 
-__all__ = ["CudaError", "CudaKernel", "compile_cuda", "cuda_lambdify"]
+_DEVICE_DTYPES = {"float32": "float", "float": "float", "float64": "double", "double": "double"}
+_DEVICE_PREAMBLE = """#ifndef INFINITY
+#define INFINITY (__int_as_float(0x7f800000))
+#endif
+#ifndef NAN
+#define NAN (__int_as_float(0x7fffffff))
+#endif"""
+_C_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z", re.ASCII)
+_C_RESERVED = frozenset("""auto bool break case char class const constexpr continue default delete do
+double else enum extern false float for goto if inline int long namespace new nullptr operator
+private protected public register restrict return short signed sizeof static struct switch
+template this true typedef typename union unsigned using virtual void volatile while
+__global__ __device__ __host__ __shared__ __constant__ __forceinline__ __restrict__
+threadIdx blockIdx blockDim gridDim warpSize""".split())
+
+
+def _device_identifier(value, what):
+    if not isinstance(value, str) or not _C_IDENTIFIER.match(value) or value in _C_RESERVED or value.startswith("_sx_"):
+        raise ValueError(f"{what} must be a C++ identifier outside the reserved '_sx_' namespace: {value!r}")
+    return value
+
+
+def cudacode_function(name, args, exprs, *, dtype="float64", dialect="cuda", cse=True,
+                      arg_names=None, result_type=None, result_fields=None,
+                      use_rsqrt=False, reciprocal_sqrt=False, inline_pow=4,
+                      user_functions=None):
+    """Standalone ``__device__ __forceinline__`` function for CUDA or HIP.
+
+    Each top-level argument is either a ``Symbol``, passed by value as
+    ``const T name``, or a flat list/tuple of Symbols, passed as
+    ``const T* __restrict__ name`` whose components ``name[0]``, ... are read
+    only when used. ``arg_names`` names the parameters (default ``_sx_a0``...).
+
+    A single scalar expression is returned directly (``T`` or ``bool``).
+    Containers, matrices and arrays return ``struct result_type`` (default
+    ``_sx_result_<name>``) whose fields ``result_fields`` (default ``_sx_o_0``...)
+    follow depth-first row-major order; boolean expressions get ``bool`` fields.
+
+    The source needs no header and no math macro, so it compiles with NVRTC,
+    nvcc, hipcc and hiprtc (``dialect`` is ``"cuda"`` or ``"hip"``; the code is
+    the same CUDA-compatible C++). ``INFINITY``/``NAN`` are defined only when
+    absent. Fast math is never enabled; ``use_rsqrt`` (approximate ``rsqrt``)
+    and ``reciprocal_sqrt`` (``1/sqrt(x)``, differs from ``pow`` at ``-0.0``)
+    are opt-in. CSE is skipped when a ``Piecewise`` is present, so inactive
+    branches are not evaluated. ``float64`` code needs double precision support.
+    """
+    from symox import Symbol, I, zoo, _core
+    from symox.extra import cudacode
+
+    if dialect not in ("cuda", "hip"):
+        raise ValueError("dialect must be 'cuda' or 'hip'")
+    _device_identifier(name, "Function name")
+    try:
+        scalar = _DEVICE_DTYPES[dtype]
+    except (KeyError, TypeError):
+        raise ValueError("dtype must be 'float32' or 'float64'") from None
+    for flag, value in (("cse", cse), ("use_rsqrt", use_rsqrt), ("reciprocal_sqrt", reciprocal_sqrt)):
+        if not isinstance(value, bool):
+            raise TypeError(f"{flag} must be a bool")
+    if isinstance(inline_pow, bool) or not isinstance(inline_pow, int) or inline_pow < 0:
+        raise ValueError("inline_pow must be a nonnegative int")
+    if user_functions is not None and not isinstance(user_functions, dict):
+        raise TypeError("user_functions must be a dict mapping symbolic names to C++ function names")
+    top = list(args) if isinstance(args, (list, tuple)) else [args]
+    if arg_names is None:
+        arg_names = [f"_sx_a{index}" for index in range(len(top))]
+    else:
+        arg_names = [_device_identifier(value, "Argument name") for value in arg_names]
+        if len(arg_names) != len(top):
+            raise ValueError("arg_names must name every top-level argument")
+    if len(set(arg_names)) != len(arg_names) or name in arg_names:
+        raise ValueError("Argument and function names must be distinct")
+    symbols, loads, parameters = [], [], []
+    for parameter, value in zip(arg_names, top):
+        if isinstance(value, Symbol):
+            parameters.append(f"const {scalar} {parameter}")
+            symbols.append(value)
+            loads.append(parameter)
+        elif isinstance(value, (list, tuple)) and value and all(isinstance(item, Symbol) for item in value):
+            parameters.append(f"const {scalar}* __restrict__ {parameter}")
+            for component, item in enumerate(value):
+                symbols.append(item)
+                loads.append(f"{parameter}[{component}]")
+        else:
+            raise TypeError("Device function arguments must be Symbols or flat nonempty lists/tuples of Symbols")
+    if len(set(symbols)) != len(symbols):
+        raise ValueError("Duplicate input symbol")
+    expressions, structure = _expressions(exprs)
+    if not expressions:
+        raise ValueError("At least one expression is required")
+    if any(expression.has(I) or expression.has(zoo) for expression in expressions):
+        raise NotImplementedError("CUDA device functions support real-valued expressions")
+    unknown = set().union(*(e.free_symbols for e in expressions)).difference(symbols)
+    if unknown:
+        raise ValueError("Expression contains unbound symbols: " + ", ".join(sorted(map(str, unknown))))
+    dummies = [Symbol(f"_sx_v_{index}", **symbol.assumptions0) for index, symbol in enumerate(symbols)]
+    expressions = [expression.xreplace(dict(zip(symbols, dummies))) for expression in expressions]
+    types = ["bool" if _core._sycl_type(expression) == "bool" else scalar for expression in expressions]
+    replacements = []
+    if cse and not _contains_conditionals(expressions):
+        replacements, expressions = _cse_preserving_assumptions(expressions, "_sx_t")
+    scalar_output = structure[0] == "leaf"
+    if scalar_output:
+        if result_type is not None or result_fields is not None:
+            raise ValueError("result_type/result_fields require several outputs")
+    else:
+        result_type = _device_identifier(result_type, "result_type") if result_type is not None else f"_sx_result_{name}"
+        if result_fields is None:
+            result_fields = [f"_sx_o_{index}" for index in range(len(expressions))]
+        else:
+            result_fields = [_device_identifier(field, "Result field") for field in result_fields]
+            if len(result_fields) != len(expressions) or len(set(result_fields)) != len(result_fields):
+                raise ValueError("result_fields must name every output once")
+
+    def emit(expression):
+        return cudacode(expression, dtype=scalar, fast_math=False, use_rsqrt=use_rsqrt,
+                        reciprocal_sqrt=reciprocal_sqrt, inline_pow=inline_pow,
+                        math_macros=False, user_functions=user_functions or {})
+
+    used = set().union(*(e.free_symbols for e in expressions),
+                       *(value.free_symbols for _, value in replacements))
+    lines = [_DEVICE_PREAMBLE]
+    if not scalar_output:
+        lines.append(f"struct {result_type} {{")
+        lines += [f"    {kind} {field};" for kind, field in zip(types, result_fields)]
+        lines.append("};")
+    returned = types[0] if scalar_output else result_type
+    lines.append(f"__device__ __forceinline__ {returned} {name}({', '.join(parameters)}) {{")
+    for dummy, load in zip(dummies, loads):
+        if dummy in used:
+            lines.append(f"    const {scalar} {dummy.name} = {load};")
+    for parameter, value in zip(arg_names, top):
+        if not any(dummy in used for dummy, load in zip(dummies, loads)
+                   if load == parameter or load.startswith(parameter + "[")):
+            lines.append(f"    (void){parameter};")
+    for symbol, value in replacements:
+        kind = "bool" if _core._sycl_type(value) == "bool" else scalar
+        lines.append(f"    const {kind} {symbol.name} = {emit(value)};")
+    if scalar_output:
+        lines.append(f"    return ({types[0]})({emit(expressions[0])});")
+    else:
+        lines.append(f"    {result_type} _sx_r;")
+        for kind, field, expression in zip(types, result_fields, expressions):
+            lines.append(f"    _sx_r.{field} = ({kind})({emit(expression)});")
+        lines.append("    return _sx_r;")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+__all__ = ["CudaError", "CudaKernel", "compile_cuda", "cuda_lambdify", "cudacode_function"]
