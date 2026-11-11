@@ -11,7 +11,8 @@
 //! - the other kernels run the compiled program (`Compiled::call_many`) as
 //!   before, without the copies of the arguments and of the result.
 //!
-//! Any other call (other dtypes, layouts, subclasses, broadcasting, 0-d
+//! Any other call (other dtypes, layouts, subclasses, broadcasting or
+//! different shapes of equal size, 0-d
 //! arrays, a text the native evaluation declines) returns `None` and keeps
 //! the established path, with its errors.
 use std::sync::Mutex;
@@ -226,10 +227,10 @@ pub(crate) fn call(py: Python<'_>, f: &PyCompiled, args: &Bound<'_, PyTuple>) ->
     let n = lead.len();
     for v in &values {
         if let Arg::Array(a) = v {
-            // the NumPy kernels broadcast shapes; the compiled program
-            // requires equal sizes (its error stays on the established path)
-            let same = if f.numpy_vectors { a.shape() == shape.as_slice() } else { a.len() == n };
-            if !same {
+            // in-place evaluation needs one common shape; other shapes take
+            // the established path, which broadcasts them like NumPy (or
+            // raises NumPy's error)
+            if a.shape() != shape.as_slice() {
                 return Ok(None);
             }
         }

@@ -4445,14 +4445,31 @@ impl PyCompiled {
             let result=evaluator.bind(py).call(args,None)?;
             if !result.is(py.NotImplemented().bind(py)){return Ok(result.unbind());}
         }
-        // vectorised path: broadcast scalars against 1-d arrays
+        // vectorised path: NumPy broadcasting of all array arguments, as the
+        // NumPy code printed by SymPy's lambdify evaluates them. Incompatible
+        // shapes raise NumPy's ValueError; equal sizes with different shapes
+        // are no longer paired element by element after flattening.
         let np = py.import("numpy")?;
+        let converted: Vec<Bound<'_, PyAny>> = args
+            .iter()
+            .map(|a| np.call_method1("asarray", (a, "float64")))
+            .collect::<PyResult<_>>()?;
+        let mut array_shapes = Vec::new();
+        for arr in &converted {
+            if arr.getattr("ndim")?.extract::<usize>()? > 0 {
+                array_shapes.push(arr.getattr("shape")?);
+            }
+        }
+        let target = if array_shapes.is_empty() {
+            None
+        } else {
+            Some(np.call_method1("broadcast_shapes", PyTuple::new(py, &array_shapes)?)?)
+        };
         let mut arrays: Vec<Vec<f64>> = Vec::with_capacity(args.len());
         let mut n: Option<usize> = None;
         let mut shape: Option<PyObject> = None;
         let mut scalar_flags = Vec::new();
-        for a in args.iter() {
-            let arr = np.call_method1("asarray", (a, "float64"))?;
+        for arr in converted {
             let ndim: usize = arr.getattr("ndim")?.extract()?;
             if ndim == 0 {
                 scalar_flags.push(true);
@@ -4460,15 +4477,16 @@ impl PyCompiled {
                 continue;
             }
             scalar_flags.push(false);
+            let target = target.as_ref().expect("an array argument has a broadcast shape");
+            let arr = if arr.getattr("shape")?.eq(target)? {
+                arr
+            } else {
+                np.call_method1("broadcast_to", (arr, target))?
+            };
             let size: usize = arr.getattr("size")?.extract()?;
-            if let Some(m) = n {
-                if m != size {
-                    return Err(PyValueError::new_err("array arguments must have the same size"));
-                }
-            }
             n = Some(size);
             if shape.is_none() {
-                shape = Some(arr.getattr("shape")?.unbind());
+                shape = Some(target.clone().unbind());
             }
             let flat = arr.call_method1("reshape", (-1,))?;
             let flat = np.call_method1("ascontiguousarray", (flat,))?;

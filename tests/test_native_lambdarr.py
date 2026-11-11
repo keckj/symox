@@ -132,9 +132,9 @@ def test_fallbacks_and_errors_are_unchanged():
     # float32 keeps the float64 VM precision
     r = f(np.ones(3, dtype=np.float32), np.ones(3, dtype=np.float32))
     assert r.dtype == np.float64
-    # the compiled program keeps its equal-size requirement
+    # the compiled program broadcasts like NumPy and rejects incompatible shapes
     g = lambdify((x, y), Piecewise((x, x < y), (y, True)), 'numpy')
-    with pytest.raises(ValueError, match='same size'):
+    with pytest.raises(ValueError):
         g(np.ones(3), np.ones(4))
     # an int beyond the float range keeps its error
     with pytest.raises(OverflowError):
@@ -213,3 +213,22 @@ def test_gamma_without_scipy_printer_keeps_the_float_gamma():
     a = np.array([0.5, 4.5, -2.5])
     assert bits(g(a)) == bits(g(strided(a)))
     assert np.allclose(g(a), [float(gamma(v).evalf()) for v in (S.Half, Rational(9, 2), Rational(-5, 2))], rtol=1e-15)
+
+
+def test_compiled_program_broadcasts_like_numpy():
+    g = lambdify((x, y), Piecewise((x, x < y), (y, True)), 'numpy')
+    a = np.linspace(-1, 1, 3).reshape(3, 1)
+    b = np.linspace(-2, 2, 4).reshape(1, 4)
+    expected = np.where(a < b, a, b)
+    for left, right in ((a, b), (b, a)):
+        result = g(left, right)
+        assert result.shape == (3, 4)
+    np.testing.assert_array_equal(g(a, b), expected)
+    np.testing.assert_array_equal(g(a, 0.5), np.where(a < 0.5, a, 0.5))
+    np.testing.assert_array_equal(g(np.ones((2, 1, 3)), np.zeros((4, 1))), np.zeros((2, 4, 3)))
+    # equal sizes with different shapes are not paired after flattening
+    with pytest.raises(ValueError):
+        g(np.ones((2, 3)), np.ones((3, 2)))
+    with pytest.raises(ValueError):
+        g(np.ones(6), np.ones((2, 3)))
+    assert g(np.ones((0, 3)), np.ones(3)).shape == (0, 3)
