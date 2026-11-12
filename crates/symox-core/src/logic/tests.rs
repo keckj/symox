@@ -189,3 +189,20 @@ fn complete_boolean_piecewise_conditions_are_logical_nodes() {
     let incomplete = crate::relational::piecewise(vec![(yes, condition)]);
     assert_eq!(super::boolean_piecewise_to_ite(&incomplete), None);
 }
+
+#[test]
+fn nodes2_counts_the_expanded_tree_without_walking_it() {
+    // SymPy's `_nodes` counts tree occurrences; the count of a shared node is
+    // reused instead of recomputed.
+    let x = Expr::symbol("x");
+    let pair = |a: &Expr| crate::functions::undefined("pair", vec![a.clone(), a.clone()]);
+    assert_eq!(nodes2(&pair(&x)), 2 + 2 * 2);
+    assert_eq!(nodes2(&pair(&pair(&x))), 2 + 2 * (2 + 2 * 2));
+    let mut value = x;
+    for depth in 1..=100u32 {
+        value = pair(&value);
+        // tree size 2^(depth+1) - 1 nodes, each counted twice
+        let expected = ((1u128 << (depth + 2)) - 2).min(u64::MAX as u128) as u64;
+        assert_eq!(nodes2(&value), expected, "depth {depth}");
+    }
+}

@@ -1,6 +1,6 @@
 //! Generic tree traversal helpers.
 
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::expr::{Expr, Func, Kind};
 use crate::functions::func;
@@ -140,6 +140,27 @@ pub fn preorder(e: &Expr, f: &mut dyn FnMut(&Expr)) {
     }
 }
 
+/// Does any sub-expression (``e`` included) satisfy ``predicate``?
+///
+/// Each shared node is visited once (keyed by ``dag_id``, the visited nodes
+/// are kept alive meanwhile) and the walk stops at the first match: linear in
+/// the number of distinct nodes, unlike a tree walk with ``preorder`` whose
+/// cost is the expanded tree size.
+pub fn any_node(e: &Expr, predicate: &mut dyn FnMut(&Expr) -> bool) -> bool {
+    let mut seen: rustc_hash::FxHashMap<usize, Expr> = rustc_hash::FxHashMap::default();
+    let mut stack = vec![e.clone()];
+    while let Some(node) = stack.pop() {
+        if seen.insert(node.dag_id(), node.clone()).is_some() {
+            continue;
+        }
+        if predicate(&node) {
+            return true;
+        }
+        stack.extend(node.args());
+    }
+    false
+}
+
 /// Set of free symbols.
 pub fn free_symbols(e: &Expr) -> Vec<Expr> {
     e.cached_free_symbols(|| collect_free_symbols(e))
@@ -269,6 +290,13 @@ pub fn has_structural(e: &Expr, s: &Expr) -> bool {
 }
 
 fn has_in(e: &Expr, s: &Expr, structural: bool) -> bool {
+    has_in_seen(e, s, structural, &mut FxHashMap::default())
+}
+
+/// `has_in` over the shared graph: a node already explored without a match
+/// is not explored again (the search stops at the first match), so the cost
+/// is linear in the distinct nodes. The explored nodes are kept alive.
+fn has_in_seen(e: &Expr, s: &Expr, structural: bool, seen: &mut FxHashMap<usize, Expr>) -> bool {
     if !s.has_binding_identity() && !(structural && e.has_bound_generator()) && s.mask() & !e.mask() != 0 {
         return false;
     }
@@ -278,10 +306,13 @@ fn has_in(e: &Expr, s: &Expr, structural: bool) -> bool {
     if !structural && crate::poly::rootof::is_rootof(e) {
         return false;
     }
+    if seen.insert(e.dag_id(), e.clone()).is_some() {
+        return false;
+    }
     match e.kind() {
-        Kind::Derivative(body,variables)=>has_in(body,s,structural) || variables.iter().any(|(variable,count)|
-            has_in(&crate::special::tuple(vec![variable.clone(),Expr::int(*count as i64)]),s,structural)),
-        Kind::Func(Func::MatrixDotProduct(a,b),_)=>[a,b].iter().any(|parent|has_in(&Expr::from_kind(Kind::Func(Func::MatrixProxy((*parent).clone()),vec![])),s,structural)),
+        Kind::Derivative(body,variables)=>has_in_seen(body,s,structural,seen) || variables.iter().any(|(variable,count)|
+            has_in_seen(&crate::special::tuple(vec![variable.clone(),Expr::int(*count as i64)]),s,structural,seen)),
+        Kind::Func(Func::MatrixDotProduct(a,b),_)=>[a,b].iter().any(|parent|has_in_seen(&Expr::from_kind(Kind::Func(Func::MatrixProxy((*parent).clone()),vec![])),s,structural,seen)),
         Kind::Func(Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), args) => {
             let matrix_match = if let Kind::Func(Func::MatrixProxy(target), _) = s.kind() {
                 let mut pending = vec![parent.as_ref().clone()];
@@ -297,7 +328,7 @@ fn has_in(e: &Expr, s: &Expr, structural: bool) -> bool {
             if matrix_match { return true; }
             let mut fields = Vec::new();
             parent.scalar_fields(&mut fields);
-            fields.iter().any(|scalar| has_in(scalar, s, structural)) || args.iter().any(|a| has_in(a, s, structural))
+            fields.iter().any(|scalar| has_in_seen(scalar, s, structural, seen)) || args.iter().any(|a| has_in_seen(a, s, structural, seen))
         }
         Kind::Add(c, terms) => {
             if let Kind::Add(sc, subterms) = s.kind() {
@@ -313,13 +344,13 @@ fn has_in(e: &Expr, s: &Expr, structural: bool) -> bool {
             // Visit the public structural arguments, including the additive
             // constant and each term's explicit coefficient. Internal storage
             // keeps these numbers apart from the term bases.
-            e.args().iter().any(|a| has_in(a, s, structural))
+            e.args().iter().any(|a| has_in_seen(a, s, structural, seen))
         }
         // The public arguments include an explicit coefficient, but exclude
         // the implicit exponent one in the compact factor representation.
         Kind::Mul(..) => (s.is_mul() && (e.has_noncommutative_host() || s.has_noncommutative_host()) && noncommutative_mul_contains(e, s))
-            || e.args().iter().any(|a| has_in(a, s, structural)),
-        _ => e.args().iter().any(|a| has_in(a, s, structural)),
+            || e.args().iter().any(|a| has_in_seen(a, s, structural, seen)),
+        _ => e.args().iter().any(|a| has_in_seen(a, s, structural, seen)),
     }
 }
 
@@ -426,6 +457,34 @@ mod tests {
         let wide=Expr::num(crate::number::Number::from_bigint(num_bigint::BigInt::from(1)<<1_000_000usize));
         assert!(retention_weight(&[&wide],128).is_none());
         assert!(retention_weight(&[&Expr::one()],128).is_some());
+    }
+
+    #[test]
+    fn any_node_visits_each_shared_node_once() {
+        // 2^80 tree occurrences, 81 distinct nodes: a tree walk never ends.
+        let x = Expr::symbol("x");
+        let mut value = x.clone();
+        for _ in 0..80 { value = crate::functions::undefined("pair", vec![value.clone(), value]); }
+        let mut visits = 0usize;
+        assert!(!any_node(&value, &mut |node| { visits += 1; matches!(node.kind(), Kind::Func(Func::Sin, _)) }));
+        assert_eq!(visits, 81);
+        let deep = crate::functions::undefined("pair", vec![value.clone(), func(Func::Sin, vec![x])]);
+        let mut visits = 0usize;
+        assert!(any_node(&deep, &mut |node| { visits += 1; matches!(node.kind(), Kind::Func(Func::Sin, _)) }));
+        assert!(visits <= 3, "{visits}");
+    }
+
+    #[test]
+    fn has_explores_each_shared_node_once() {
+        let (x, y) = (Expr::symbol("x"), Expr::symbol("y"));
+        let mut value = x.clone();
+        for _ in 0..80 { value = crate::functions::undefined("pair", vec![value.clone(), value]); }
+        // `y` passes the mask filter of `pair(.., y)` but occurs only at the end
+        let probe = crate::functions::undefined("pair", vec![value.clone(), func(Func::Sin, vec![y.clone()])]);
+        assert!(has(&probe, &func(Func::Sin, vec![y.clone()])));
+        assert!(!has(&probe, &func(Func::Cos, vec![y])));
+        // a constant has an empty mask: no filtering, the graph is explored
+        assert!(!has(&value, &Expr::oo()));
     }
 
     #[test]

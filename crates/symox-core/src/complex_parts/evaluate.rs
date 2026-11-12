@@ -557,8 +557,49 @@ pub(crate) fn abs(a: &Expr) -> Option<Expr> {
     super::abs_conjugate_rule(a)
 }
 
+thread_local! {
+    /// Results of `conjugate` during the outermost evaluation, keyed by
+    /// `dag_id` (the keys are kept alive) and by the `as_real_imag` nesting
+    /// level, which bounds what an evaluation may decide: a shared
+    /// sub-expression is conjugated once instead of once per occurrence in
+    /// the expanded tree.
+    static CONJUGATES: std::cell::RefCell<Option<rustc_hash::FxHashMap<(usize, u32), (Expr, Option<Expr>)>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 /// `conjugate.eval`, i.e. the `_eval_conjugate` dispatch.
 pub(crate) fn conjugate(a: &Expr) -> Option<Expr> {
+    struct Scope(bool);
+    impl Drop for Scope {
+        fn drop(&mut self) {
+            if self.0 {
+                CONJUGATES.with(|memo| *memo.borrow_mut() = None);
+            }
+        }
+    }
+    let outermost = CONJUGATES.with(|memo| {
+        let mut memo = memo.borrow_mut();
+        let outermost = memo.is_none();
+        if outermost {
+            *memo = Some(rustc_hash::FxHashMap::default());
+        }
+        outermost
+    });
+    let _scope = Scope(outermost);
+    let key = (a.dag_id(), DEPTH.with(Cell::get));
+    if let Some(hit) = CONJUGATES.with(|memo| memo.borrow().as_ref().and_then(|m| m.get(&key).map(|(_, r)| r.clone()))) {
+        return hit;
+    }
+    let result = conjugate_uncached(a);
+    CONJUGATES.with(|memo| {
+        if let Some(m) = memo.borrow_mut().as_mut() {
+            m.insert(key, (a.clone(), result.clone()));
+        }
+    });
+    result
+}
+
+fn conjugate_uncached(a: &Expr) -> Option<Expr> {
     let c = f::conjugate;
     let default = |a: &Expr| {
         if holds(a, "extended_real") {

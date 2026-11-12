@@ -101,15 +101,30 @@ pub fn is_boolean(e: &Expr) -> bool {
 }
 
 /// Twice SymPy's `_nodes` (floats count 1/2).
+///
+/// The count is the size of the expanded tree, as in SymPy, but each shared
+/// node is counted once and reused (memoized by `dag_id`, the visited nodes
+/// kept alive meanwhile): the cost is linear in the graph, not in the tree.
+/// Counts beyond `u64::MAX` saturate.
 pub fn nodes2(e: &Expr) -> u64 {
+    fn count(e: &Expr, memo: &mut rustc_hash::FxHashMap<usize, (Expr, u64)>) -> u64 {
+        if let Some((_, n)) = memo.get(&e.dag_id()) { return *n; }
+        let n = match e.kind() {
+            Kind::Num(crate::number::Number::Float(_)) => 1,
+            Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => 2,
+            // `Lambda` stores its signature as a `Tuple`
+            Kind::Func(Func::Set(crate::sets::SetOp::Lambda), a) => {
+                a.iter().fold(2u64, |acc, x| acc.saturating_add(count(x, memo)))
+            }
+            _ => e.args().iter().fold(2u64, |acc, x| acc.saturating_add(count(x, memo))),
+        };
+        memo.insert(e.dag_id(), (e.clone(), n));
+        n
+    }
     match e.kind() {
         Kind::Num(crate::number::Number::Float(_)) => 1,
         Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => 2,
-        // `Lambda` stores its signature as a `Tuple`
-        Kind::Func(Func::Set(crate::sets::SetOp::Lambda), a) => {
-            2 + a.iter().map(nodes2).sum::<u64>()
-        }
-        _ => 2 + e.args().iter().map(nodes2).sum::<u64>(),
+        _ => count(e, &mut rustc_hash::FxHashMap::default()),
     }
 }
 

@@ -856,11 +856,10 @@ fn reference_numeric_sign(e:&Expr)->Option<NumericSign>{
         // A sum of radicals keeps the exact sign machinery (its evaluation
         // can be costly on solver roots); a sum with function values takes
         // the numerical sign.
-        Kind::Add(..)=>{
-            let mut found=false;
-            crate::traverse::preorder(e,&mut |s| found|=matches!(s.kind(),Kind::Func(..)));
-            found
-        },
+        // Cheap cached test first; the function search visits each shared
+        // node once (a tree walk is exponential on a deep shared graph).
+        Kind::Add(..)=>crate::symbolic_number::is_symbolic_number(e)
+            &&crate::traverse::any_node(e,&mut |s| matches!(s.kind(),Kind::Func(..))),
         _=>false,
     };
     if !inherits||!numeric_refinement_enabled()||!crate::symbolic_number::is_symbolic_number(e)||!crate::functions::is_numeric_value(e)||crate::poly::rootof::is_rootof(e){return None;}
@@ -1699,6 +1698,47 @@ mod numeric_literal_tests {
         assert_eq!(is_finite(&nan),None);
         assert_eq!(is_even(&nan),None);
         assert_eq!(is_odd(&nan),None);
+    }
+}
+
+#[cfg(test)]
+mod shared_graph_tests {
+    use super::*;
+    use crate::functions::func;
+    use crate::ops::{add2, sub};
+
+    /// ``e_{k+1} = exp(e_k − y) + sin(e_k) + x`` : each level reuses ``e_k``
+    /// twice, so the expanded tree doubles at each level.
+    fn shared_chain(depth: usize) -> (Expr, Expr) {
+        let (x, y) = (Expr::symbol("x"), Expr::symbol("y"));
+        let mut e = x.clone();
+        for _ in 0..depth {
+            let a = func(Func::Exp, vec![sub(&e, &y)]);
+            e = add2(&add2(&a, &func(Func::Sin, vec![e.clone()])), &x);
+        }
+        (e, y)
+    }
+
+    #[test]
+    fn sign_queries_on_deep_shared_sums_are_not_tree_walks() {
+        // Before: reference_numeric_sign walked the expanded tree of every
+        // sum (2^60 nodes here) before its cached symbolic-number test.
+        let (e, y) = shared_chain(60);
+        let d = sub(&e, &y);
+        assert_eq!(is_positive(&d), None);
+        assert_eq!(is_zero(&d), None);
+        let _ = func(Func::Abs, vec![d.clone()]);
+        let _ = crate::functions::min(vec![e.clone(), y.clone()]);
+        let _ = crate::relational::lt(&e, &y);
+    }
+
+    #[test]
+    fn numeric_sign_of_sums_with_functions_is_unchanged() {
+        // a closed sum with a function value still takes the numerical sign
+        let e = crate::parser::parse_str("sin(1) - 1/2").unwrap();
+        assert_eq!(is_positive(&e), Some(true));
+        let e = crate::parser::parse_str("exp(-3) - 1/20").unwrap();
+        assert_eq!(is_negative(&e), Some(true));
     }
 }
 
