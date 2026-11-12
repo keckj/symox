@@ -15,14 +15,17 @@ import pytest
 SCRIPT = textwrap.dedent('''
     import sys, time
     import symox as sx
-    x, y = sx.symbols("x y")
     kind, depth = sys.argv[1], int(sys.argv[2])
+    x, y = sx.symbols("x y", real=kind.startswith("Real"))
     make = {
         "Min": lambda e: sx.Min(e, y),
         "Max": lambda e: sx.Max(e, y),
         "Abs": lambda e: (e + y - sx.Abs(e - y)) / 2,
         "Lt": lambda e: (sx.StrictLessThan(e, y), e)[1],
         "MinMin": lambda e: sx.Min(sx.Min(e, y), x + y),
+        # real symbols: `Min` asks `is_extended_real` of its arguments
+        "RealMin": lambda e: sx.Min(e, y),
+        "RealMax": lambda e: sx.Max(e, y),
     }[kind]
     e = x
     start = time.perf_counter()
@@ -33,7 +36,7 @@ SCRIPT = textwrap.dedent('''
 ''')
 
 
-@pytest.mark.parametrize('kind', ['Min', 'Max', 'Abs', 'Lt', 'MinMin'])
+@pytest.mark.parametrize('kind', ['Min', 'Max', 'Abs', 'Lt', 'MinMin', 'RealMin', 'RealMax'])
 def test_constructors_on_deep_shared_graphs_are_not_exponential(kind):
     # Before the fix, depth 14 already took minutes (x5 to x25 per level);
     # depth 40 would never finish. The subprocess bounds a regression.
