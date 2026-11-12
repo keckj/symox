@@ -135,6 +135,7 @@ fn composite_key(class: (u8, u32, &str), args: Vec<Key>) -> Key {
 }
 
 pub fn matrix_sort_key(matrix: &MatrixExpr) -> Key {
+    let _session = crate::printing::order::session();
     SortKeyCache::default().matrix_key(matrix)
 }
 
@@ -345,7 +346,21 @@ fn number_key(n: Number) -> Key {
 
 /// SymPy's `default_sort_key`.
 pub fn sort_key(e: &Expr) -> Key {
+    // The printing order of every sum below `e` is computed through one
+    // shared printing key cache: without the session each sum started a
+    // fresh cache and re-keyed its whole subgraph (quadratic in the size of
+    // a deep shared graph, per key).
+    let _session = crate::printing::order::session();
     SortKeyCache::default().key(e)
+}
+
+/// `default_sort_key` of several expressions through one cache: a
+/// subexpression they share gets one key, so comparing their keys stops at
+/// shared subkeys (pointer equality) instead of walking equal subtrees.
+pub fn sort_keys(es: &[&Expr]) -> Vec<Key> {
+    let _session = crate::printing::order::session();
+    let mut cache = SortKeyCache::default();
+    es.iter().map(|e| cache.key(e)).collect()
 }
 
 /// Each scalar and matrix node is keyed once; tuple children retain sharing.
@@ -495,6 +510,7 @@ impl SortKeyCache {
 
 /// SymPy's `as_ordered_factors` for a product (numbers first).
 pub fn ordered_factors(e: &Expr) -> Vec<Expr> {
+    let _session = crate::printing::order::session();
     SortKeyCache::default().ordered_factors(e)
 }
 
@@ -611,6 +627,7 @@ fn is_number_symbol(e: &Expr) -> bool {
 
 /// `as_ordered_terms` of a held sum (see `SortKeyCache::held_ordered_terms`).
 pub(crate) fn held_ordered_terms(e: &Expr) -> Vec<Expr> {
+    let _session = crate::printing::order::session();
     SortKeyCache::default().held_ordered_terms(e)
 }
 
@@ -634,6 +651,7 @@ pub(crate) fn numeric_coefficient(e:&Expr)->Option<Complex64>{
 
 /// Compare expressions using SymPy default ordering.
 pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
+    let _session = crate::printing::order::session();
     let mut cache = SortKeyCache::default();
     cache.key(a).cmp(&cache.key(b))
 }

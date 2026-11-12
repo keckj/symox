@@ -2,18 +2,37 @@
 from collections import defaultdict
 
 
-def _node_count(e):
+def _node_count(e, memo=None):
     # this not only counts nodes, it affirms that the
     # args are Basic (i.e. have an args property).
+    # The count is that of the expanded tree (SymPy), but a shared subgraph
+    # is counted once and reused: ``memo`` maps each node (by equality, or
+    # by identity if unhashable) to its count for the duration of the
+    # outermost call. Native wrappers are fresh objects at each ``args``.
     if getattr(e, 'is_Float', False):
         return 0.5
     if isinstance(e, str):
         # The reference stores a MatrixSymbol name as a ``Str`` atom.
         return 1
+    if memo is None:
+        memo = {}
+    try:
+        key = (e, type(e))
+        hit = memo.get(key)
+    except TypeError:
+        key = (id(e), e)  # the node is held so that its id is not reused
+        hit = memo.get(key[0])
+        key = key[0]
+        if hit is None:
+            memo.setdefault('_held', []).append(e)
+    if hit is not None:
+        return hit
     args = getattr(e, 'args', None)
     if args is None:
         args = _immutable_matrix_args(e)
-    return 1 + sum(map(_node_count, args))
+    count = 1 + sum(_node_count(a, memo) for a in args)
+    memo[key] = count
+    return count
 
 
 def _immutable_matrix_args(e):

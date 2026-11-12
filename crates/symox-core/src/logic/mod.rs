@@ -220,7 +220,10 @@ pub fn ordered(v: &mut [Expr]) {
         }
         return;
     }
-    let mut keyed: Vec<((u64, Key), Expr)> = v.iter().map(|e| (ordered_key(e), e.clone())).collect();
+    // one sort-key cache for all the elements (see `sort_keys`)
+    let keys = crate::sortkey::sort_keys(&v.iter().collect::<Vec<_>>());
+    let mut keyed: Vec<((u64, Key), Expr)> =
+        v.iter().zip(keys).map(|(e, k)| ((nodes2(e), k), e.clone())).collect();
     keyed.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp_struct(&b.1)));
     for (slot, (_, e)) in v.iter_mut().zip(keyed) {
         *slot = e;
@@ -229,7 +232,8 @@ pub fn ordered(v: &mut [Expr]) {
 
 /// Compare two expressions like SymPy's `ordered()`.
 pub fn ordered_cmp(a: &Expr, b: &Expr) -> Ordering {
-    ordered_key(a).cmp(&ordered_key(b)).then_with(|| a.cmp_struct(b))
+    let keys = crate::sortkey::sort_keys(&[a, b]);
+    nodes2(a).cmp(&nodes2(b)).then_with(|| keys[0].cmp(&keys[1])).then_with(|| a.cmp_struct(b))
 }
 
 // ----------------------------------------------------------------------

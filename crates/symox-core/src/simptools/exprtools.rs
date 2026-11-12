@@ -561,11 +561,25 @@ fn is_negative_coeff(a: &Expr) -> bool {
 
 /// `factor_terms(expr, radical, clear, fraction, sign)`.
 pub fn factor_terms(e: &Expr, radical: bool, clear: bool, fraction: bool, sign: bool) -> Expr {
-    fn go(e: &Expr, radical: bool, clear: bool, fraction: bool, sign: bool) -> Expr {
+    // `go` is a pure function of the node (the flags are fixed for the call):
+    // its result is memoized by `dag_id`, so a shared subexpression is
+    // factored once and the result stays shared. SymPy recurses over the
+    // expanded tree; the answer is the same, the cost becomes linear in the
+    // graph. The memo keeps the key node alive so its id cannot be reused.
+    type Memo = rustc_hash::FxHashMap<usize, (Expr, Expr)>;
+    fn go(e: &Expr, radical: bool, clear: bool, fraction: bool, sign: bool, memo: &mut Memo) -> Expr {
         if e.is_atom() {
             return e.clone();
         }
-        let rec = |a: &Expr| go(a, radical, clear, fraction, sign);
+        if let Some((_, r)) = memo.get(&e.dag_id()) {
+            return r.clone();
+        }
+        let r = go_uncached(e, radical, clear, fraction, sign, memo);
+        memo.insert(e.dag_id(), (e.clone(), r.clone()));
+        r
+    }
+    fn go_uncached(e: &Expr, radical: bool, clear: bool, fraction: bool, sign: bool, memo: &mut Memo) -> Expr {
+        let mut rec = |a: &Expr| go(a, radical, clear, fraction, sign, memo);
         match e.kind() {
             Kind::Add(..) | Kind::Mul(..) => {}
             Kind::Func(Func::Integral | Func::Sum, a) if !a.is_empty() => {
@@ -578,7 +592,7 @@ pub fn factor_terms(e: &Expr, radical: bool, clear: bool, fraction: bool, sign: 
         };
         let mut cont = Expr::num(cont);
         let p = if p.is_add() {
-            let mut list: Vec<Expr> = args(&p).iter().map(rec).collect();
+            let mut list: Vec<Expr> = args(&p).iter().map(&mut rec).collect();
             if list.iter().all(is_negative_coeff) {
                 cont = ops::neg(&cont);
                 list = list.iter().map(ops::neg).collect();
@@ -586,7 +600,7 @@ pub fn factor_terms(e: &Expr, radical: bool, clear: bool, fraction: bool, sign: 
             let p = add_from_args(&list);
             gcd_terms(&p, true, clear, fraction)
         } else if p.is_mul() {
-            ops::mul(&args(&p).iter().map(rec).collect::<Vec<_>>())
+            ops::mul(&args(&p).iter().map(&mut rec).collect::<Vec<_>>())
         } else if p.is_atom() {
             p
         } else {
@@ -594,7 +608,7 @@ pub fn factor_terms(e: &Expr, radical: bool, clear: bool, fraction: bool, sign: 
         };
         keep_coeff(&cont, &p, clear, sign)
     }
-    go(e, radical, clear, fraction, sign)
+    go(e, radical, clear, fraction, sign, &mut Memo::default())
 }
 
 fn factor_sum_int(e: &Expr, a: &[Expr], radical: bool, clear: bool, fraction: bool, sign: bool) -> Expr {
@@ -672,4 +686,54 @@ pub fn factor_nc(e: &Expr) -> Expr {
         }
     }
     keep_coeff(&cn, &ops::mul(&[g, mid]), true, false)
+}
+
+#[cfg(test)]
+mod shared_graph_tests {
+    use super::*;
+    use crate::functions::func;
+    use crate::ops::{add2, mul, sub};
+
+    fn distinct_nodes(e: &Expr) -> usize {
+        let mut n = 0;
+        traverse::any_node(e, &mut |_| {
+            n += 1;
+            false
+        });
+        n
+    }
+
+    /// ``e_{k+1} = exp(2 e_k − 2 y) + sin(e_k) + x`` : each level reuses
+    /// ``e_k`` twice and holds a factorable sum.
+    fn shared_chain(depth: usize) -> Expr {
+        let (x, y, two) = (Expr::symbol("x"), Expr::symbol("y"), Expr::int(2));
+        let mut e = x.clone();
+        for _ in 0..depth {
+            let a = func(Func::Exp, vec![sub(&mul(&[two.clone(), e.clone()]), &mul(&[two.clone(), y.clone()]))]);
+            e = add2(&add2(&a, &func(Func::Sin, vec![e.clone()])), &x);
+        }
+        e
+    }
+
+    #[test]
+    fn factor_terms_visits_each_shared_node_once() {
+        // Before: `go` rebuilt the expanded tree (2^60 nodes here).
+        let e = shared_chain(60);
+        let f = factor_terms(&e, false, false, false, true);
+        assert!(distinct_nodes(&f) <= 2 * distinct_nodes(&e), "{} {}", distinct_nodes(&f), distinct_nodes(&e));
+    }
+
+    #[test]
+    fn factor_terms_of_shared_subterms_is_unchanged() {
+        // results of b02db0ca (before the memo); the first one is also SymPy
+        // 1.14's. For the second, SymPy keeps exp(4*x - 6*y) unfactored: a
+        // pre-existing difference, outside the scope of this change.
+        for (src, want) in [
+            ("exp(2*x + 2*y) + sin(2*x + 2*y)", "exp(2*(x + y)) + sin(2*(x + y))"),
+            ("-3*exp(4*x - 6*y) - 3*cos(4*x - 6*y)", "-3*(exp(2*(2*x - 3*y)) + cos(2*(2*x - 3*y)))"),
+        ] {
+            let e = crate::parser::parse_str(src).unwrap();
+            assert_eq!(factor_terms(&e, false, false, false, true).to_string(), want, "{src}");
+        }
+    }
 }
