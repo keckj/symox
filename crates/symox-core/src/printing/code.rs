@@ -1280,9 +1280,16 @@ impl<'a> CodePrinter<'a> {
             }
             LogicOp::Not => Ok(format!("(!{})", wrap(&args[0])?)),
             LogicOp::Xor => {
-                let mut acc = truth(&sorted[0])?;
-                for a in &sorted[1..] {
-                    acc = format!("({acc} != {})", truth(a)?);
+                // `(!a) != (!b)` is `a xor b` as a plain (non-negated) truth value,
+                // so each further operand is compared through `!(!c)`; comparing
+                // with `(!c)` again would negate the result for an odd count of
+                // operands >= 3 (Xor(a, b, c) printed as a ^ b ^ !c).
+                if sorted.len() == 1 {
+                    return Ok(format!("(!{})", truth(&sorted[0])?));
+                }
+                let mut acc = format!("({} != {})", truth(&sorted[0])?, truth(&sorted[1])?);
+                for a in &sorted[2..] {
+                    acc = format!("({acc} != (!{}))", truth(a)?);
                 }
                 Ok(acc)
             }
@@ -2041,6 +2048,10 @@ mod tests {
         assert_eq!(c("Or(x < 1, y > 2)"), "((y > 2) || (x < 1))");
         assert_eq!(c("Not(x)"), "(!(x))");
         assert_eq!(c("Xor(x < 1, y > 2)"), "((!(y > 2)) != (!(x < 1)))");
+        assert_eq!(
+            c("Xor(x < 1, y > 2, z > 3)"),
+            "(((!(y > 2)) != (!(z > 3))) != (!(!(x < 1))))"
+        );
         assert_eq!(c("Implies(x < 1, y > 2)"), "((!(x < 1)) || (y > 2))");
         let pw = c("Piecewise((x, And(x < 1, y > 2)), (y, True))");
         assert!(pw.contains("((y > 2) && (x < 1))"), "{pw}");
