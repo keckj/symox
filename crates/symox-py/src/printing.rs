@@ -493,7 +493,8 @@ fn py_syclcode(
     let dtype = match dtype {
         "float32" | "float" => pr::SyclDtype::Float32,
         "float64" | "double" => pr::SyclDtype::Float64,
-        _ => return Err(PyValueError::new_err("SYCL dtype must be float32 or float64")),
+        "float16" | "half" => pr::SyclDtype::Float16,
+        _ => return Err(PyValueError::new_err("SYCL dtype must be float16, float32 or float64")),
     };
     let mut settings = pr::SyclSettings { dtype, ..Default::default() };
     if let Some(names) = symbol_names {

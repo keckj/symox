@@ -35,9 +35,11 @@ class SlangCodePrinter(PyTorchPrinter):
     _native_method = "_slangcode"
     _default_settings = {"order": None, "dtype": "float32", "symbol_names": {}, "user_functions": {}}
 
+    _normalize_dtype = staticmethod(_normalize_slang_dtype)
+
     def __init__(self, settings=None, **kwargs):
         super().__init__(settings, **kwargs)
-        self._settings["dtype"] = _normalize_slang_dtype(self._settings["dtype"])
+        self._settings["dtype"] = type(self)._normalize_dtype(self._settings["dtype"])
         self._custom_methods = {
             name: getattr(type(self), name)
             for name in dir(type(self))

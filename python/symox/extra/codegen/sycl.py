@@ -18,7 +18,8 @@ _HEADER = """#include <sycl/sycl.hpp>
 #include <stdexcept>
 #include <vector>
 """
-_DTYPES = {"float32": "float", "float": "float", "float64": "double", "double": "double"}
+_DTYPES = {"float16": "sycl::half", "half": "sycl::half", "float32": "float", "float": "float",
+           "float64": "double", "double": "double"}
 
 
 def _generate(name, args, exprs, dtype, cse, user_functions):
@@ -30,7 +31,7 @@ def _generate(name, args, exprs, dtype, cse, user_functions):
     try:
         scalar_type = _DTYPES[dtype]
     except (KeyError, TypeError):
-        raise ValueError("SYCL dtype must be 'float32' or 'float64'") from None
+        raise ValueError("SYCL dtype must be 'float16', 'float32' or 'float64'") from None
     if not isinstance(cse, bool):
         raise TypeError("cse must be a bool")
     _, symbols, _, _ = _arguments(args, backend="SYCL")
@@ -129,6 +130,8 @@ def sycl_kernel(name, args, exprs, *, dtype="float64", cse=True, user_functions=
     lines = [source.rstrip(), "", f"inline sycl::event {name}(", ",\n".join(parameters), ")", "{"]
     if scalar_type == "double":
         lines.extend(["    if (!_sx_queue.get_device().has(sycl::aspect::fp64))", '        throw std::runtime_error("Generated SYCL float64 kernel requires aspect::fp64");'])
+    if scalar_type == "sycl::half":
+        lines.extend(["    if (!_sx_queue.get_device().has(sycl::aspect::fp16))", '        throw std::runtime_error("Generated SYCL float16 kernel requires aspect::fp16");'])
     lines.extend([
         "    return _sx_queue.submit([&](sycl::handler& _sx_handler)",
         "    {",

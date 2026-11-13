@@ -211,6 +211,14 @@ mod tests {
         };
         let code = syclcode_with(&expr, &settings).unwrap();
         assert!(code.contains("1.0F/3.0F"));
+        let half = SyclSettings {
+            dtype: SyclDtype::Float16,
+            ..Default::default()
+        };
+        let code = syclcode_with(&expr, &half).unwrap();
+        assert!(code.contains("sycl::half(1.0F)/sycl::half(3.0F)"), "{code}");
+        let code = syclcode_with(&parse_str("Piecewise((log(x), x > 0))").unwrap(), &half).unwrap();
+        assert!(code.contains("std::numeric_limits<sycl::half>::quiet_NaN()"), "{code}");
         let generic = syclcode(&parse_str("x**y").unwrap()).unwrap();
         assert!(generic.contains("sycl::floor(y)"));
         assert!(generic.contains("sycl::fmod(sycl::fabs(y), 2.0)"));
