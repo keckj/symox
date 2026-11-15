@@ -327,6 +327,11 @@ pinned AdaptiveCpp compiler and separate core/extension suites.
 | [Testing and coverage](docs/testing.md) | Differential tests, API measurement and fuzzing |
 | [Architecture](docs/architecture.md) | Rust modules and expression invariants |
 
+## Projects using symox
+
+- [kernox](https://github.com/keckj/kernox): fused symbolic GPU reductions
+  (CUDA, HIP, SYCL) built on symox, a successor to PyKeOps.
+
 ## License
 
 Dual licensed under MIT or Apache-2.0, at your option. Code ported or vendored
