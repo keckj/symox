@@ -13,11 +13,11 @@ of magnitude faster on the included benchmarks.
 
 The project has two goals:
 
-1. **A fast, SymPy compatible symbolic engine.** Existing SymPy code should
-   run unchanged, with the same results, and much faster.
-2. **A modern code generator for modern accelerators.** Symbolic expressions
-   compile to CUDA, SYCL, Slang, PyTorch and JAX kernels. This part currently
-   lives in the optional `symox.extra` package
+1. **A fast symbolic engine with SymPy's API.** Existing SymPy code should
+   run unchanged and return the same results, only much faster.
+2. **Code generation for GPUs and array frameworks.** Symbolic expressions
+   compile to optimized kernels for CUDA, SYCL, Slang, PyTorch and JAX. This
+   part currently lives in the optional `symox.extra` package
    (see [code generation](docs/codegen/overview.md)).
 
 **Status: usable today, and an ongoing effort.** Reaching every capability of
