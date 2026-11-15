@@ -6,10 +6,31 @@
 
 **Fast symbolic mathematics in Rust, with a SymPy compatible Python API.**
 
-symox is a computer algebra system written from scratch in Rust, designed as
+symox is a computer algebra system written in Rust, designed as
 a **drop-in replacement for SymPy**. It follows SymPy's semantics (canonical
 forms, automatic simplifications, printing), while being one to three orders
 of magnitude faster on the included benchmarks.
+
+The project has two goals:
+
+1. **A fast, SymPy compatible symbolic engine.** Existing SymPy code should
+   run unchanged, with the same results, and much faster.
+2. **A modern code generator for modern accelerators.** Symbolic expressions
+   compile to CUDA, SYCL, Slang, PyTorch and JAX kernels. This part currently
+   lives in the optional `symox.extra` package
+   (see [code generation](docs/codegen/overview.md)).
+
+**Status: usable today, and an ongoing effort.** Reaching every capability of
+SymPy is a big task and it is not finished: the remaining behavioral gaps are
+tracked in [the parity contract](docs/algorithmic-parity.md). symox is
+nevertheless usable right now. Every name of the documented SymPy 1.14
+modules is exported (see [API coverage](#sympy-api-coverage); a name being
+present does not by itself mean identical behavior), and it already works as a drop-in
+replacement in many Python packages built on SymPy: in the
+[downstream audit](docs/downstream-integration.md), the selected test suites
+of ChemPy, Haarpy, PyDy, SfePy, OctSymPy, pyodesys, pyneqsys and NRPyLaTeX
+pass unchanged, while others (SageMath, Lcapy, Optlang, Devito) still expose
+incompatibilities.
 
 ```python
 from symox import symbols, sin, cos, exp, expand, diff, lambdify
@@ -59,8 +80,8 @@ The grouped tables summarize the measured import surfaces.
 The [full module inventory](docs/sympy-api.md) also lists every documented module
 and its parent packages, with missing paths and import failures shown explicitly.
 The top-level export percentage covers only the package root.
-The current inventory has no missing names across its 301 measurable module paths;
-9 paths have no countable exports and 1 reference import remains unmeasurable.
+The current inventory (2026-10-19) lists 310 module paths with no missing names;
+9 of them have no countable exports and every reference import is measured.
 See [implementation limits](docs/api-implementation.md) for the supported behavior.
 
 <!-- sympy-api-surfaces:start -->
@@ -216,7 +237,7 @@ Geometry and differential-equation support is scoped in the
 [geometry](docs/geometry.md) and [ODE/PDE](docs/differential-equations.md) guides.
 The [holonomic](docs/holonomic.md) and [coordinate vector](docs/coordinate-vector.md)
 guides describe the new differential operators, series and geometric integrals.
-In particular, `galois_group` currently supports degrees up to four;
+In particular, `galois_group` currently supports degrees up to six;
 `DomainMatrix` covers implemented exact and numerical domains. See the
 [polynomial](docs/polynomials.md) and [matrix](docs/matrices.md) guides for details.
 
@@ -246,6 +267,7 @@ pinned AdaptiveCpp compiler and separate core/extension suites.
 |---|---|
 | [SymPy compatibility](docs/compatibility.md) | Expressions, precision, assumptions, calculus, logic and sets |
 | [Algorithmic parity](docs/algorithmic-parity.md) | Mathematical acceptance criteria, solver audit and remaining capability gaps |
+| [Algorithm performance](docs/algorithm-performance.md) | 137 public workloads measured against SymPy 1.14.0 and the resulting fixes |
 | [Downstream integrations](docs/downstream-integration.md) | Real featured-project tests with a SymPy 1.14.0 reference gate |
 | [Public core and utilities](docs/public-interfaces.md) | Evaluation contexts, import interfaces, dispatch, assumptions and sessions |
 | [Algebraic roots and quaternions](docs/algebraic-roots-quaternions.md) | Exact root objects, symmetric sums, Hamilton algebra and rotations |
@@ -300,4 +322,6 @@ pinned AdaptiveCpp compiler and separate core/extension suites.
 
 ## License
 
-Dual licensed under MIT or Apache-2.0, at your option.
+Dual licensed under MIT or Apache-2.0, at your option. Code ported or vendored
+from SymPy 1.14 remains under SymPy's BSD-3-Clause license; see
+[LICENSE-SYMPY](LICENSE-SYMPY).
