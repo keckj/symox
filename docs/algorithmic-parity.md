@@ -15990,5 +15990,6 @@ Remaining differences (symox result, then SymPy's):
 Open at the 0.1.1 pre-release: tests/test_shared_dag_construction.py
 `test_soft_dtw_grid_is_not_exponential[nested]` exceeds its 120 s limit
 (nested `Min` over an 8 x 8 soft-DTW grid; the time is spent ordering two
-sums of equal node count by `default_sort_key`). The cause is not yet
+sums of equal node count by `default_sort_key`). The same timing is
+measured on commit 53d9576e, before the fixes above; the cause is not yet
 determined.
