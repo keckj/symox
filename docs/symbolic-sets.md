@@ -8,9 +8,12 @@ below evaluate membership using native scalar predicates.
 ## Images, power sets and disjoint unions
 
 `imageset` accepts a native `Lambda`, a callable, or variables followed by an
-expression and its base sets. Finite images are evaluated exactly, including
-multiple base sets, with an explicit limit of 100,000 input points. Other
-images are represented by native `ImageSet` nodes.
+expression and its base sets. It follows SymPy's `imageset` and
+`_set_function` handlers: images of `FiniteSet`, `Interval` and `Reals`
+(from singularities, limits and critical points), `Range`, `Integers`,
+`Naturals`, `Union` and invertible `Intersection` bases are evaluated, and
+nested image sets are composed. Several base sets give an unevaluated
+`ImageSet`, and other images are represented by native `ImageSet` nodes.
 
 `PowerSet(A)` preserves a symbolic power-set object. Membership tests whether
 the proposed element is a subset of `A`. Finite bases support iteration,
@@ -31,18 +34,23 @@ and the wider SymPy Set method surface require further implementation.
 
 ## Complex regions
 
-`ComplexRegion(ProductSet(A, B), polar=False)` interprets pairs as `a + I*b`.
-Unions of two-factor products are also accepted. `a_interval`, `b_interval`,
-`psets`, membership, finite enumeration and rectangular area are available.
-Area uses inclusion–exclusion, so overlapping rectangles are counted once,
-with at most 12 component rectangles.
+`ComplexRegion(ProductSet(A, B), polar=False)` interprets pairs as `a + I*b`;
+as in SymPy, the constructor returns a `CartesianComplexRegion` or a
+`PolarComplexRegion` (`Reals*Reals` gives `Complexes`, a product of two
+finite sets gives a `FiniteSet`). Unions of two-factor products are also
+accepted. `a_interval`, `b_interval`, `psets`, `from_real`, membership,
+finite enumeration and rectangular area are available. `union` and
+`intersect` follow SymPy's rules for two regions of the same kind and for
+real sets. Area uses inclusion-exclusion, so overlapping rectangles are
+counted once, with at most 12 component rectangles.
 
-With `polar=True`, pairs represent `r*exp(I*theta)`. This implementation accepts
-nonnegative radii and angles in `[0, 2*pi]`; it handles equivalent endpoint
-angles and the special case `r=0`. General angular normalization and symbolic
-angles whose sign cannot be certified are unsupported. Polar interval regions
-also support area using the radial Jacobian. General region topology and
-implicit complex regions are not implemented.
+With `polar=True`, pairs represent `r*exp(I*theta)`. Angles given as
+intervals or finite sets are normalized into `[0, 2*pi)` by SymPy's
+`normalize_theta_set` (`symox.sets.fancysets`); radii must be nonnegative.
+Other angle sets and symbolic angles whose sign cannot be certified raise
+`NotImplementedError`. Polar interval regions also support area using the
+radial Jacobian. General region topology and implicit complex regions are
+not implemented.
 
 ## Ordinals
 

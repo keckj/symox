@@ -68,26 +68,27 @@ irrational scale, so `[2*pi, 3*pi, pi/2]` gives `6*pi`, while
 denominators use integer GCD. Incommensurable or unproved numeric ratios return
 `None`; empty input returns one.
 
-`periodicity(f, x, check=False)` searches structurally for a real period.
-It handles affine trigonometric and purely imaginary exponential/hyperbolic
-frequencies, sums and products with commensurate periods, integer powers,
-absolute values, modulo expressions and compositions of periodic arguments.
-Constants return zero. `None` means this search found no period; it is not a
-general proof of aperiodicity.
+`periodicity(f, x, check=False)` is a Python port of SymPy 1.14's algorithm
+over a real dummy variable. After `simplify` (with SymPy's deep `trigsimp`
+step), it handles trigonometric functions of affine arguments, `Abs` (half the
+period of `Abs(sin(...))`), exponentials through the periods of their real and
+imaginary parts, powers, products and sums combined with the internal `lcim`,
+`Mod` and compositions found by `decompogen`. Relationals use `lhs - rhs`;
+`Piecewise` returns `None`. Constants return zero. `None` means this search
+found no period; it is not a general proof of aperiodicity.
 
 ```python
 from symox import periodicity, cos
 
 assert periodicity(sin(2*x), x) == pi
-assert periodicity(sin(x)**2, x) == pi
+assert periodicity(sin(x)**2, x) == 2*pi
 assert periodicity(sin(x)+cos(2*x), x, check=True) == 2*pi
 ```
 
-Returned periods need not be the smallest possible period for arbitrary
-compositions. `check=True` additionally requests a symbolic proof that shifting
-by the candidate preserves the expression, and raises `NotImplementedError` if
-the available simplifier cannot prove the identity. The analysis traversal is
-limited to 10,000 distinct scalar nodes.
+As in SymPy, returned periods need not be the smallest period: the power rule
+takes the base's period, so `sin(x)**2` gives `2*pi`. `check=True` verifies
+the candidate with `equals` after shifting, and raises `NotImplementedError`
+with SymPy's message when that identity is not recognized.
 
 ## Monotonicity
 
@@ -95,20 +96,34 @@ limited to 10,000 distinct scalar nodes.
 interval=S.Reals, symbol=None)` checks a custom predicate on the native first
 derivative over the requested interval. For example, `lambda d: d > 0` tests
 strict positivity of every derivative value, including finite endpoints; it
-does not infer strict monotonicity from isolated zeros. The function uses the
-same real continuity and connected-domain checks as the monotonicity adapters.
-Empty intervals are vacuous, singleton intervals evaluate the predicate at
-that point, and unresolved parameter signs return `None`.
+does not infer strict monotonicity from isolated zeros. The native proof uses
+the same real continuity and connected-domain checks as the monotonicity
+adapters. Empty intervals are vacuous and singleton intervals evaluate the
+predicate at that point. When the native proof declines (disconnected or
+non-interval domains, parameters not known to be real, bounds depending on
+the variable, functions without a native continuity rule such as `Abs`) or is
+undecided, the result is SymPy's: the interval is compared with the
+`solveset` solution of the derivative predicate over the reals. A
+multivariate expression without `symbol` raises SymPy's
+`NotImplementedError`, and an undefined function keeps an explicit
+`NotImplementedError` where SymPy overflows the recursion limit. The native
+proof can be more decisive than that comparison: with `lambda d: d > 0`,
+`x**3` over `S.Reals` gives `False` (the derivative vanishes at zero) and,
+with `lambda d: d < 0`, `1/x` over `S.Reals` gives `False`, where SymPy
+returns `None`. For a parameter `a`, real or not, `a*x` gives `None`, while SymPy
+returns `False` because its `solveset` of the parameter-only condition is
+empty.
 Conjunctions, disjunctions and negations of derivative relations use native
 set intersection, union and complement.
 
 `is_increasing`, `is_decreasing`, their `is_strictly_...` variants and
 `is_monotonic` accept `(expression, interval=S.Reals, symbol=None)`. A single
-free variable can be inferred. Explicitly selected multivariate problems require
-the remaining parameters to be known real. Results are `True`, `False`, or `None`
-when the available symbolic set/sign proofs are undecided.
-Independent coefficient expressions must also have a known real value: a
-coefficient such as `log(a)` needs assumptions that establish its real branch.
+free variable can be inferred. The native proof below runs first. When it
+declines or is undecided (parameters not known real, bounds depending on the
+variable, disconnected or non-interval domains), the result is SymPy's
+derivative-only answer: the interval is compared with the `solveset` solution
+of the derivative predicate over the reals, or, for `is_monotonic`, with the
+turning points. Results are `True`, `False`, or `None` when neither decides.
 Boolean conditions, sets and tuples are rejected as scalar calculus inputs.
 
 ```python
@@ -132,12 +147,13 @@ These mathematical cases can differ from derivative-only helper results in
 SymPy 1.14: `x**3` is strictly increasing despite its stationary point, a constant
 is monotonic, and `1/x` is not a function defined throughout `S.Reals`.
 
-The supported proof domain is a connected real interval, all reals, or a
-singleton/empty set. Disconnected domains and larger finite/discrete sets need
-additional comparisons and remain unsupported. Unknown functions and inequality
-families beyond the native solver raise `NotImplementedError`; unresolved
-derivative domains or zero-set classifications can return `None`. This is a
-proof procedure for supported expressions, not a complete decision algorithm.
+The native proof domain is a connected real interval, all reals, or a
+singleton/empty set, with parameters known to be real. Other domains get the
+SymPy fallback above, which inherits SymPy's derivative-only semantics and
+does not check continuity. Unknown functions and inequality families beyond
+the native solver raise `NotImplementedError`; unresolved derivative domains
+or zero-set classifications can return `None`. This is a proof procedure for
+supported expressions, not a complete decision algorithm.
 
 `is_convex(f, x, domain=S.Reals)` uses the same interval machinery to prove that
 the first derivative is nondecreasing in the interior. The original function
@@ -183,7 +199,8 @@ components, candidate points and distinct candidate values are limited to 2,048.
 from continuous real components. It combines their exact bounds with an
 attainment check and joins overlapping image intervals. Finite input components
 produce finite sets. Empty input or an empty real continuous domain returns the
-empty set.
+empty set. As in SymPy, a whole-line image is `Interval(-oo, oo)` rather than
+`S.Reals`.
 
 ```python
 from symox.calculus.util import function_range

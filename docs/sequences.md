@@ -82,16 +82,19 @@ evaluation requires a concrete expression or operation class.
 
 ## Fitted linear recurrences
 
-`seq.find_linear_recurrence(n, d=None, gfvar=None)` searches for the shortest
-constant-coefficient relation on the first `n` terms, with order at most
-`min(d, n//2)` when `d` is supplied. A result `[c1, c2, ...]` means
-`a[k] = c1*a[k-1] + c2*a[k-2] + ...` on the fitted sample. The native exact
-linear solver proposes coefficients, which are checked against every sample.
-Symbolic coefficients are treated generically over the supported scalar field.
+`seq.find_linear_recurrence(n, d=None, gfvar=None)` is a port of SymPy 1.14's
+algorithm. It searches for the shortest constant-coefficient relation on the
+first `n` terms, with order at most `min(d, n//2)` when `d` is supplied. A
+result `[c1, c2, ...]` means `a[k] = c1*a[k-1] + c2*a[k-2] + ...` on the
+fitted sample. For each order `l`, the `l`-by-`l` Hankel matrix of the first
+terms must be nonsingular; its exact solution is then checked against every
+remaining sample. As in SymPy, an order whose leading matrix is singular is
+skipped, so a relation of that order is not reported.
 
 With `gfvar=t`, the result is `(coefficients, rational_generating_function)`
-using those coefficients and the initial terms. No fitted relation returns
-`[]`, or `([], None)` when a generating variable is requested.
+using those coefficients and the initial terms, for example
+`([3, -3, 1], -t*(t + 1)/(t - 1)**3)` for the squares. No fitted relation
+returns `[]`, or `([], None)` when a generating variable is requested.
 
 A relation fitted to a finite prefix is not a proof for the infinite sequence.
 In particular, sufficiently high orders can interpolate arbitrary finite data.
@@ -103,7 +106,8 @@ it with the original infinite formula.
 
 Slices materialize at most 100,000 terms. Periods have at most 4,096 entries;
 larger combined periods retain a termwise operation without expanding them.
-Recurrence searches use at most 256 terms and order 64. Periodic coefficients
+Recurrence searches have no separate bound beyond the slice limit; their cost
+grows with the requested order. Periodic coefficients
 need a concrete integer offset from their origin. Undecidable symbolic bounds
 raise `NotImplementedError` when evaluating a coefficient.
 

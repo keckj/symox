@@ -11,11 +11,16 @@ behavioral gaps are tracked in the [versioned audit](sympy-parity-audit.md).
 ## Core interfaces
 
 `Dict` is an immutable Python mapping of native symbolic keys and values, with
-symbolic substitution, replacement and free-symbol queries. `RealNumber` is the
-native-backed `Float` constructor. `FunctionClass` supports checks of public
-function-head factories. `WildFunction` filters native wildcard matching to
-applied functions with optional allowed argument counts; these constructors do
-not recreate SymPy's Python inheritance hierarchy.
+symbolic substitution, replacement and free-symbol queries. Native nodes are
+exposed under SymPy's class names and method resolution order: `RealNumber` is
+`Float` (`Float -> Number -> AtomicExpr -> Atom -> Expr -> Basic`), function
+heads such as `sin` are `FunctionClass` instances, and an undefined application
+`f(x)` is an `AppliedUndef`, `Function`, `Application`, `Expr` and `Basic`.
+`WildFunction` filters native wildcard matching to applied functions with
+optional allowed argument counts. User subclasses of `Symbol`, `Function`,
+`Expr`, `Atom` or `Basic` pass through native algorithms as opaque host
+handles and are returned as instances of the user class; see
+[subclassing](subclassing.md).
 
 `evaluate(False)` changes Python scalar arithmetic, `Add`, `Mul`, `Pow`, ordinary
 function wrappers, relations and `Piecewise` construction to retain held nodes.
@@ -83,7 +88,9 @@ the entire corresponding SymPy helper-module trees.
 
 `init_printing` configures Python's display hook and optionally IPython's plain
 and LaTeX formatters. `init_session` explicitly launches a console with common
-symbols and functions; automatic source transformations remain unsupported.
+symbols and functions, a plain Python console by default or IPython with
+`ipython=True`; `auto_symbols` and `auto_int_to_Integer` apply the
+corresponding source transformations in both.
 Importing symox never launches a console. `plot_backends` exposes the existing
 plot backend registry.
 

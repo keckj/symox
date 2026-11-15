@@ -269,16 +269,21 @@ pinned AdaptiveCpp compiler and separate core/extension suites.
 | [Algorithmic parity](docs/algorithmic-parity.md) | Mathematical acceptance criteria, solver audit and remaining capability gaps |
 | [Algorithm performance](docs/algorithm-performance.md) | 137 public workloads measured against SymPy 1.14.0 and the resulting fixes |
 | [Downstream integrations](docs/downstream-integration.md) | Real featured-project tests with a SymPy 1.14.0 reference gate |
+| [Audit index](docs/audits.md) | Correctness replays, performance measurements and source inventories under audits/, by topic and date |
 | [Public core and utilities](docs/public-interfaces.md) | Evaluation contexts, import interfaces, dispatch, assumptions and sessions |
+| [Subclassing](docs/subclassing.md) | SymPy-named node classes, user Symbol/Function/Expr subclasses and the hooks they can override |
 | [Algebraic roots and quaternions](docs/algebraic-roots-quaternions.md) | Exact root objects, symmetric sums, Hamilton algebra and rotations |
 | [Splines and integer equations](docs/splines-variations-integer-equations.md) | Piecewise folding, B-splines, Euler equations, singularity integrals and integer parametrizations |
 | [Expression method options](docs/expression-methods.md) | Coefficients, replacement rules, structural queries and leading terms |
 | [Series and expression analysis](docs/series.md) | Formal/Fourier/asymptotic series, meromorphic tests and branch factors |
+| [Limits and asymptotic orders](docs/limits.md) | limit/Limit with Gruntz and heuristics, directions and branch cuts, AccumBounds, Order arithmetic and containment |
+| [Integration](docs/integration.md) | integrate/Integral pipeline, rational/Risch/heurisch/Meijer G stages, definite integrals and conditions, NonElementaryIntegral |
 | [Sequences](docs/sequences.md) | Formula and periodic sequences, fitted recurrences and generating functions |
 | [Finite differences](docs/finite-differences.md) | Exact arbitrary-grid weights and derivative stencils |
 | [Real and complex analysis](docs/real-analysis.md) | Singularities, continuity, periods, monotonicity, convexity and extrema |
 | [Polynomials and linear systems](docs/polynomials.md) | Domains, factorization, Gröbner bases, roots and Galois groups |
 | [Solution checks and linear isolation](docs/solver-checks.md) | Equation validation, pole exclusions and square LU systems |
+| [Equation solvers](docs/solvers.md) | solve flags and result shapes, solveset result sets, linear/nonlinear systems and nsolve |
 | [Differential equations](docs/differential-equations.md) | ODE classification, exact equations, linear systems, PDE characteristics and separation |
 | [Holonomic functions](docs/holonomic.md) | Ore operators, D-finite closure, Taylor recurrences and numeric continuation |
 | [Coordinate vector calculus](docs/coordinate-vector.md) | Cartesian/curvilinear frames, dyadics, field operators, potentials and geometric integrals |
@@ -314,6 +319,8 @@ pinned AdaptiveCpp compiler and separate core/extension suites.
 | [Slang](docs/codegen/slang.md) | Shader source and optional SlangPy execution |
 | [SYCL / AdaptiveCpp](docs/codegen/sycl.md) | C++ kernels and asynchronous execution |
 | [Code generation compatibility](docs/codegen/compatibility.md) | SymPy-style constructors and printer extensions |
+| [Code generation AST](docs/codegen/ast.md) | Statement nodes, C/Fortran nodes, C99 functions, rewriting and printer coverage |
+| [Routines and autowrap](docs/codegen/autowrap.md) | Multi-language routine files, f2py and NumPy ufunc compilation, toolchain requirements |
 | [New API implementations](docs/api-implementation.md) | Exact algorithms, compiled routines, structural arrays and remaining behavioral limits |
 | [API connection audit](docs/api-connections.md) | Section-by-section implementations and behavioral limits |
 | [Full SymPy module inventory](docs/sympy-api.md) | Documented modules, missing import paths and unmeasurable references |

@@ -4,8 +4,9 @@
 
 `symox.vector` provides all 43 exports from the corresponding SymPy 1.14
 package. This measures importable names; the supported operations and limits
-are documented here. It is separate from the still-unimplemented
-`symox.physics.vector` package and mechanics reference frames.
+are documented here. It is separate from the `symox.physics.vector` package
+and its mechanics reference frames, described in
+[Units and mechanics](physics-mechanics.md).
 The conventions follow the [SymPy vector documentation](https://docs.sympy.org/latest/modules/vector/fields.html).
 Python objects store geometric structure; scalar arithmetic, matrices,
 differentiation, solving and integration use the native engine without
@@ -30,7 +31,12 @@ coefficient differentiation/integration, simplification, magnitude,
 normalization, projection and `to_matrix(system)` are available. Use `.dot`
 (`&`), `.cross` (`^`) and `.outer` (`|`) for vector products. Multiplication
 of two vectors with `*` is rejected. `VectorAdd`, `VectorMul`, `VectorZero`,
-`BaseVector` and `VectorKind` expose the corresponding constructors/metadata.
+`BaseVector` and `VectorKind` expose the corresponding constructors/metadata;
+`Add` of two vectors builds a `VectorAdd`. `integrate` and `Integral` act
+componentwise. As in SymPy, `equals` compares `(a - b).dot(a - b)` with zero,
+so equal vectors written in rotated frames compare equal, and
+`projection(other, scalar=True)` is the coefficient `dot(other)/dot(self)`.
+Vectors and dyadics print in the reference form.
 
 Dyadics use the same finite-component representation. `BaseDyadic`,
 `DyadicAdd`, `DyadicMul` and `DyadicZero` support construction; dot/cross
@@ -44,7 +50,7 @@ atoms; a later colliding name can display a native dummy-symbol prefix.
 These atoms are not Python subclasses with all SymPy BaseScalar attributes.
 
 `CoordSys3D` supplies base scalars/vectors, an origin, a connected parent,
-translation and proper orthogonal rotations. `locate_new`, `orient_new`,
+translation and rotations. `locate_new`, `orient_new`,
 `orient_new_axis/body/space/quaternion`, `rotation_matrix`, `scalar_map`,
 `position_wrt` and transformations to/from a parent implement these relations.
 `express(..., variables=True)` changes both bases and coordinate scalars;
@@ -52,10 +58,12 @@ without that flag it changes bases only. Dyadics can use a second target frame.
 Disconnected frames raise an error.
 
 `AxisOrienter`, `BodyOrienter`, `SpaceOrienter` and `QuaternionOrienter` produce
-direction-cosine matrices. The twelve Euler/Tait–Bryan axis sequences and their
+direction-cosine matrices. The twelve Euler/Tait-Bryan axis sequences and their
 body/space multiplication conventions are checked against SymPy. Axis vectors
-must be nonzero; quaternions must have unit norm. Symbolic rotation matrices
-must simplify to a proper orthogonal matrix. `Point` connects displacement
+must be nonzero. As in the reference, quaternions (including symbolic ones)
+are used as given, without a unit-norm check, and a supplied 3 by 3 rotation
+matrix is stored without an orthogonality check; non-unit or non-orthogonal
+input gives a non-rigid frame. `Point` connects displacement
 vectors, supports `locate_new`, `position_wrt` and `express_coordinates`.
 
 ## Orthogonal coordinates and field operators
@@ -125,12 +133,16 @@ assert vector_integrate(C.x*C.i, ParametricRegion((t, t**2), (t, 0, 1))) == Rati
 
 `parametric_region_list` adapts geometry points, segments, curves, ellipses
 and polygon boundaries. `ImplicitRegion(variables, equation)` accepts an
-expression or equality, exposes polynomial degree, searches for a regular
-point, solves finite singular loci and rationally parametrizes lines/planes
-and nondegenerate quadrics by intersecting lines with a known point. The
-regular-point search is finite; failure raises `NotImplementedError` rather
-than asserting the locus is empty. Positive-dimensional singular loci are
-not represented. Automatic bounded integration of implicit regions supports
+expression or equality and exposes its polynomial degree. `regular_point`,
+`singular_points`, `multiplicity` and `rational_parametrization` are ports of
+the reference algorithms; conic regular points use the reference parametric
+solution of a ternary quadratic form. For a plane in three variables,
+`rational_parametrization` solves the linear equation, where the reference
+raises `NotImplementedError`. In three variables `regular_point` skips grid
+points where the gradient vanishes and raises `NotImplementedError` when every
+candidate is singular (the reference can return a singular point there),
+rather than asserting the locus is empty. Positive-dimensional singular loci
+are not represented. Automatic bounded integration of implicit regions supports
 axis-aligned ellipses/ellipsoids; other cases require an explicit parametric
 region with chosen bounds. Arbitrary algebraic-region integration is not
 implemented.

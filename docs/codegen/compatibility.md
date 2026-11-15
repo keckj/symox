@@ -29,8 +29,12 @@ coefficient fields support `lex`, `grlex` and `grevlex`.
 `domain="ZZ"` / `"QQ"`, prime `modulus`, `polys=True` and `auto` select
 the coefficient domain, return representation and ring/field division.
 
-The extensible Python `CXX17CodePrinter` supports `_print_<Class>` overrides,
-`doprint`, and `parenthesize`. The existing top-level `cxxcode` uses the native
-Rust printer. `StrPrinter` and `PrettyPrinter` are available for debug output.
-This compatibility surface targets scalar polynomial workflows; it is not a
-replacement for every SymPy module.
+`printing.printer`, `str`, `precedence`, `codeprinter`, `c` and `cxx` are
+ports of the SymPy 1.14 modules, so subclasses of `C99CodePrinter`,
+`CXX11CodePrinter` or `CXX17CodePrinter` override `_print_<Class>`,
+`type_mappings` and precedence as in SymPy, and use `doprint` and
+`parenthesize`. The top-level `ccode` and `cxxcode` use these ported printers;
+`ccode_function` and the [CUDA printers](cuda.md) remain native Rust
+printers. `StrPrinter` is also a port; `PrettyPrinter` drives the native
+layout engine. This compatibility surface targets scalar polynomial
+workflows; it is not a replacement for every SymPy module.

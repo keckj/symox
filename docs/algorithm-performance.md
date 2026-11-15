@@ -18,7 +18,7 @@ square-free decomposition, restores multiplicities and zero roots, and honors
 iterations raise `mpmath.libmp.libhyper.NoConvergence`. Newton-polygon seeds cover
 root scales outside binary64; machine arithmetic may supply initial guesses,
 but never substitutes for the requested-precision iteration. Regression tests
-cover 15–100 digits, clustered roots and scales as extreme as `10**1000`.
+cover 15-100 digits, clustered roots and scales as extreme as `10**1000`.
 General coefficient domains and certified complex enclosures remain open in
 the [parity contract](algorithmic-parity.md).
 
@@ -216,7 +216,9 @@ The investigation also exposed a pre-existing mathematical gap:
 `Symbol(..., commutative=False)` raises `ValueError`. The predecessor reproduces
 it, and the [parity contract](algorithmic-parity.md) now explicitly tracks it as
 a blocking gap. These performance results do not certify general
-noncommutative scalar algebra.
+noncommutative scalar algebra. Noncommutative symbols have since been
+implemented; their supported operations and remaining gaps are listed under
+"Noncommutative symbols" in the parity contract.
 
 ## Evidence and remaining work
 
@@ -246,3 +248,14 @@ assumption check, large derivative validation and reference integration/series
 timeouts excluded from ranking require separate investigation. The independent
 API audit and downstream prerelease qualification have their own snapshots;
 these patches do not renew those certificates.
+
+## Later native-port measurements
+
+From 2026-10-26 to 2026-10-30, targeted measurements of Rust ports (domain
+matrix kernels, LLL, HNF, Smith form, Risch and rational integration, solvers,
+array expressions, `lambdify`, `hyperexpand`, ODE classification and others)
+are stored in dated directories under
+[`audits/performance`](../audits/performance/). Each directory's README states
+its harness, packages, scope and caveats; most do not use `bench_algorithms.py`.
+Their numbers are not summarized here and are not comparable with the
+2026-10-20 screening above.

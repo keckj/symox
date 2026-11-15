@@ -2,6 +2,8 @@
 
 [README](../README.md) · [Compatibility](compatibility.md)
 
+See also [Limits and asymptotic orders](limits.md) and [Integration](integration.md).
+
 The public `Expr` method surface measured against SymPy 1.14 is present in
 full. The methods below execute native symbolic operations; the bounds and
 unsupported cases describe their current behavioral scope.
@@ -10,8 +12,9 @@ unsupported cases describe their current behavioral scope.
 
 `fps(f, x=None, x0=0, dir=1, hyper=True, order=4, rational=True, full=False)`
 and `expr.fps(...)` return a lazy `FormalPowerSeries` for supported ordinary
-integer-power expansions. The native recurrence engine computes exact finite
-coefficients without importing SymPy.
+integer-power expansions. Exact finite coefficients come from the native
+series engine without importing SymPy; `FormalPowerSeries` itself is a lazy
+Python wrapper around those expansions.
 
 ```python
 from symox import symbols, sin, exp, fps
@@ -37,7 +40,13 @@ complete formal-series expression hierarchy are not implemented. The
 algorithm-selection flags are accepted as hints to the native recurrence
 engine; disabling both `hyper` and `rational` retains the input. Nonordinary
 expansions such as `sqrt(x)`, `log(x)`, `1/x` and `exp(1/x)` at zero retain the
-original expression. Unsupported native series operations raise explicitly.
+original expression. As in SymPy's `_compute_fps`, a factor `x**n` with a
+symbolic exponent free of `x` is separated at zero from the right: the rest is
+expanded and each term multiplied by `x**n`, so
+`fps(x**n*sin(x**2), x).truncate(8)` is
+`-x**(n + 6)/6 + x**(n + 2) + O(x**(n + 8))`. Symbolic coefficients such as
+`fps(exp(a*x), x)` are expanded (SymPy 1.14 returns the input there).
+Unsupported native series operations raise explicitly.
 At nonzero centers, coefficients are checked against Taylor expansion;
 this avoids known SymPy 1.14 `fps` coefficient errors, for example with
 `x**2 + 1` expanded about one.
@@ -131,21 +140,26 @@ assert limit_seq((-1)**n/n, n) == 0
 assert limit_seq(2**n/factorial(n), n) == 0
 ```
 
-`limit_seq(expr, n=None, trials=5)` combines exact native limits, hypergeometric
-ratio tests and Stolz–Cesaro differences with certified divergence and eventual
-monotonicity of the denominator. Supported sums can be differentiated
-discretely without first finding a closed form. Positive hypergeometric
-summands can certify divergence by their growth ratio. Fibonacci and Lucas
-terms use their exact Binet formulas. Even/odd subsequences handle alternating
-limits; different real limits return an `AccumBounds` interval. Unknown
-functions and unresolved asymptotic comparisons return `None`. `trials` must
-lie between one and 64; this is not the complete general sequence-limit
-algorithm.
+`limit_seq(expr, n=None, trials=5)` is a Python port of SymPy's
+`sympy.series.limitseq` (Kauers' algorithm): up to `trials` rounds of a
+Stolz-Cesaro difference step on numerator and denominator, followed by their
+`dominant` terms, which `symox.series.limitseq` also exports. Each round asks
+the native limit engine at `oo`; an unevaluated native `Limit` counts as
+undecided. Gamma-type terms bypass that engine and use `simplify(combsimp(...))`
+and an exact ratio test, which also decides powers of nonreal numbers.
+`fibonacci` and `lucas` are rewritten in Binet form; `factorial` and
+`subfactorial` in `gamma`. Even/odd subsequences handle alternating signs and
+trigonometric terms; different comparable limits return an `AccumBounds`
+interval. Nested `dominant` calls are limited to depth 4. Undecided cases
+return `None`, which is not a proof that the limit does not exist; some
+sequences that SymPy decides still return `None` here.
 
-`AccumBounds(min, max)` represents a real accumulation interval with endpoint
-metadata and basic interval arithmetic, including integer powers. It is the
-same class as `AccumulationBounds` and collapses equal endpoints to a scalar.
-It does not provide SymPy's complete expression method hierarchy.
+`AccumBounds(min, max)` is an expression node ported from SymPy's
+`AccumulationBounds`: it appears inside sums, products and powers, and its
+arithmetic, powers, comparisons, intersection and union follow the reference
+methods. It is the same class as `AccumulationBounds` and collapses equal
+endpoints to a scalar. Elementary functions map bounds to bounds, and
+`sin(oo)`, `cos(oo)` and `frac(oo)` evaluate to bounds as in SymPy.
 
 The compatible `symox.series` module also exports the existing native
 `Limit`, `limit`, `Order`, `O`, `residue` and `difference_delta` implementations.
@@ -153,8 +167,13 @@ Their `limits`, `order`, `residues` and `limitseq` module paths are available.
 `gruntz(expr, variable, point, dir='+')` uses the Rust exact limit engine,
 including its most-rapidly-varying comparison algorithm, and raises `PoleError`
 when that engine cannot determine a result. Ordinary `limit` retains a held
-`Limit` for unresolved cases. Series expansion and limit solving have distinct
-algorithmic scopes; the restrictions on `aseries` above still apply.
+`Limit` for unresolved cases. When the native engine leaves an oscillating
+limit unevaluated, a Python term-by-term evaluation can return accumulation
+bounds, for example `limit(sin(x), x, oo) == AccumBounds(-1, 1)`; one-sided
+limits onto a branch cut, such as `limit(log(I*x - 1), x, 0, '-') == -I*pi`,
+are rewritten to the non-principal side first. Series expansion and limit
+solving have distinct algorithmic scopes; the restrictions on `aseries` above
+still apply.
 
 ## Local regularity, branches and constructors
 

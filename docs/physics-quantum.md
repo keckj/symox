@@ -10,9 +10,18 @@ matrices; NumPy output is available, and SciPy sparse output needs SciPy.
 Hilbert-space objects describe finite complex, function, Fock, direct-sum and
 tensor-product spaces.
 
+`represent` follows SymPy's dispatch (`_represent_<Basis>`, the default
+basis, then `rep_innerproduct`/`rep_expectation`). `UnitaryOperator`,
+`Operator.inverse`, `Commutator`/`AntiCommutator` `doit` and
+`expand(commutator=True)` are available, and `hbar` is a `NumberSymbol`.
+`quantum.pauli` provides `SigmaX/Y/Z`, `SigmaMinus/Plus`, `SigmaZKet`/`SigmaZBra`
+and `qsimplify_pauli`.
+
 These objects are Python wrappers, not native scalar `Expr` subclasses.
 Coefficients are native expressions. General symbolic noncommutative calculus,
 assumptions and serialization protocols do not reproduce all SymPy behavior.
+For example, `TensorProduct` distributes over sums when it is built, and
+operator sums can print their terms in another order.
 
 ## Qubits, gates and algorithms
 
@@ -53,14 +62,17 @@ Hamiltonian energies. Oscillator ladder operators and number states are in
 `quantum.sho1d`.
 
 `quantum.spin` provides spin eigenstates, raising/lowering actions, Cartesian
-angular-momentum operators, rotations and Wigner D elements. Two-spin coupling
-and uncoupling use exact Clebsch–Gordan coefficients. Coupling more than two
-momenta, general recoupling trees and symbolic unbounded multiplets are not
-implemented. Finite representations require explicit integer/half-integer spin.
-`operatorset` maps supported observables and eigenstate families.
+angular-momentum operators, rotations and Wigner D elements. `couple` and
+`uncouple` use exact Clebsch-Gordan coefficients for any number of spins, with
+an explicit `jcoupling` order; with symbolic spins they return the reference
+held `Sum`. Rewriting a spin state of symbolic `j` to another axis raises
+`NotImplementedError`. Finite representations require explicit
+integer/half-integer spin, and spin operators are represented in the `Jz`
+basis only. `operatorset` maps supported observables and eigenstate families.
 
 `physics.wigner` implements finite factorial sums for 3j, 6j and 9j symbols,
-Clebsch–Gordan and Racah coefficients, Gaunt/real Gaunt coefficients, rotation
+Clebsch-Gordan and Racah coefficients, Gaunt/real Gaunt coefficients (real
+Gaunt with SymPy's U-matrix convention), rotation
 matrices and spherical-harmonic gradient couplings. Held coefficient wrappers
 can be substituted and explicitly evaluated with `doit`; arbitrary expressions
 containing them do not implement every reference simplification identity.
@@ -81,31 +93,34 @@ Clifford relations, including labels for independent Pauli families.
 
 ## Second quantization
 
-`physics.secondquant` implements empty-vacuum bosonic/fermionic creation and
-annihilation, Fock kets/bras, operator application, finite bosonic bases and
-matrix representations. Fermion states list occupied integer orbitals in
-ascending order; creation and annihilation include occupation-parity signs.
-Boson states list occupation numbers for each mode.
+`physics.secondquant` follows the reference Fermi-vacuum conventions:
+bosonic/fermionic creation and annihilation, Fock kets/bras with Fermi-sea
+`fermi_level` and holes, operator application, `VarBosonicBasis` and
+`FixedBosonicBasis`. Symbols take the `above_fermi`/`below_fermi` assumptions,
+and contractions, `NO`, `wicks` and `evaluate_deltas` respect the Fermi level.
 
 ```python
-from symox.physics.secondquant import F, Fd, wicks
+from symox import symbols, KroneckerDelta
+from symox.physics.secondquant import F, Fd, NO, wicks
 
-assert wicks(F(0)*Fd(0) + Fd(0)*F(0)) == 1
-assert wicks(F(0)*F(1)*Fd(0)*Fd(1),
-             keep_only_fully_contracted=True) == -1
+a, b = symbols('a b', above_fermi=True)
+i, j = symbols('i j', below_fermi=True)
+assert wicks(F(a)*Fd(b)) == KroneckerDelta(a, b) + NO(F(a)*Fd(b))
+assert wicks(Fd(i)*F(j), keep_only_fully_contracted=True) == KroneckerDelta(i, j)
 ```
 
-Normal ordering and Wick expansion evaluate finite ladder polynomials and
-fully contracted vacuum expectations. `NO(...).doit()` discards contractions;
-`wicks` includes them. Antisymmetric tensors canonicalize upper/lower index
-permutations, delta simplification substitutes repeated indices, and explicit
-permutation operators antisymmetrize expressions.
+`NO` sorts its operators with the sign and is zero on a Pauli violation;
+`NO(...).doit()` splits general dummy indices above and below the Fermi level.
+Antisymmetric tensors canonicalize their index order, and `substitute_dummies`,
+`simplify_index_permutations` and `PermutationOperator` are the reference
+algorithms. Integer orbital labels have no known Fermi level, so
+`wicks(F(0)*Fd(0))` keeps a `KroneckerDelta` with a generated dummy, as in
+SymPy.
 
-Filled Fermi-sea assumptions, symbolic occupied-orbital ordering, mixed
-boson/fermion normal ordering, general diagram expansions and complete dummy
-index equivalence classes are not implemented. Dummy substitution renames
-native dummy symbols deterministically; it is not a complete canonicalizer for
-all abstract many-body expressions.
+Bosonic `NO(...).doit()`, `wicks` and contractions return the bosonic results
+where SymPy raises. A `KroneckerDelta` built by the user does not vanish across
+the Fermi level, `Sum` over operator expressions is not supported, and
+`NO.subs` with operator keys works only at the top level.
 
 ## High-energy gamma tensors
 
@@ -114,7 +129,7 @@ all abstract many-body expressions.
 four-dimensional Clifford relations, including contraction with the Minkowski
 metric. Contracted gamma pairs and an adjacent identical slashed-vector pair
 can be reduced. Fully scalar contracted gamma products return a scalar
-multiple of the explicit 4×4 identity.
+multiple of the explicit 4x4 identity.
 
 The dimension is fixed at four. Gamma-five traces, dimensional regularization,
 general slashed-vector factorization and full spinor index protocols are not

@@ -62,7 +62,10 @@ limited by the absence of opaque algebraic-number nodes in the scalar DAG.
 
 ## Field models
 
-The underlying algebraic backend remains limited to its supported radical
-models: composita of at most three quadratic fields, or one positive rational
-cube root with at most one quadratic field. General isolated algebraic roots
-and arbitrary number fields are not implemented by these expression adapters.
+The root may be any generator accepted by the general algebraic field
+constructors (radicals of any index, nested radicals, `CRootOf`); see
+[algebraic field constructors](domains.md#algebraic-field-constructors).
+Minimal polynomials, primitive elements and embeddings are exact.
+`to_root`, `is_aliased` and `to_primitive_element` follow SymPy, without
+rewriting the root into radicals. A purely symbolic generator such as
+`AlgebraicNumber((T, theta))` with a `Symbol` `theta` raises `ValueError`.

@@ -27,7 +27,9 @@ order, with later values taking precedence.
 
 `ordered(seq, keys=None, default=True, warn=False)` applies successive sort keys
 only to groups still tied by earlier keys. Its default keys compare node counts
-and then `default_sort_key`. `warn=True` rejects unresolved ties between distinct
+and then `default_sort_key`. Node counts follow SymPy's expanded-tree count
+(a `Float` counts one half); a shared subexpression is counted once per call
+and its count reused. `warn=True` rejects unresolved ties between distinct
 values when no more keys are available. Generic sort keys support strings and
 nested lists, tuples, dictionaries and sets as well as native scalar expressions.
 Explicit monomial orders propagate to native expression children, including
@@ -110,3 +112,19 @@ explicit stacks rather than recursive graph traversal.
 symbols; `filter_symbols` removes excluded or already seen values. `capture`
 collects standard output and restores it if the callable raises.
 `interactive_traversal` lets a terminal user select expression subtrees.
+
+## Compatibility submodules
+
+`symox.utilities` also exports `filldedent`, `lambdify`, `public`, `threaded`,
+`xthreaded` and `timed`. The SymPy import paths `symox.utilities.misc`,
+`decorator`, `exceptions`, `timeutils`, `source`, `magic` and `enumerative`
+provide the corresponding helpers, such as `ordinal`, `deprecated`,
+`SymPyDeprecationWarning`, `timethis` and `multiset_partitions_taocp`.
+`symox.utilities.memoization` provides `recurrence_memo` and
+`assoc_recurrence_memo`. As in SymPy, an index below the cache length,
+including a negative one, reads the cache directly, so negative indices count
+from the end of the computed cache, and an index outside it raises
+`IndexError`.
+`symox.utilities.lambdify`, `codegen` and `autowrap` are described with
+[code generation](codegen/overview.md) and the
+[API implementation notes](api-implementation.md).

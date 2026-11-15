@@ -2,8 +2,11 @@
 
 The video is `symox_showcase_v4.mp4`. Scene code, benchmark inputs and frozen
 measurements live here; rendering never runs a benchmark. Captions remain in
-English. The October 18 video and measurements are preserved under
-`archive/2026-10-18/` when the first complete refresh succeeds.
+English. The current measurements date from October 22 (see
+`data/metadata.json`). The October 18 video and measurements are preserved
+under `archive/2026-10-18/`, the video and data before the solver fix under
+`archive/2026-10-22-before-solver-fix/`, and a refresh that stopped when the
+Lcapy tests did not reproduce the reference, with its log and patch, under `archive/2026-10-22-before-integral-simplify-fix/`.
 
 The refreshed video keeps integration, throughput, determinants, Taylor series,
 the polynomial system, pendulum, probability, physics and cryptography. An
@@ -167,6 +170,8 @@ to direct Symox examples; Lcapy backend routing is labeled separately.
 - `data/evidence/`: historical solver-failure evidence, current upstream test
   logs and provenance, and `working-code.patch` for the measured native changes.
 - `data/scene4.json`, `data/series_tex.json`: typeset answers and plot inputs.
+- `data/render.json`: rendered video format, duration, SHA-256 and the
+  decode and layout checks.
 - `data/manifest.json`: SHA-256 of frozen inputs and source snapshots.
 
 `bench_current.py`, `bench_modules.py`, `verify_exactness.py` and

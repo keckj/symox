@@ -31,7 +31,9 @@ ciphers provide encryption and inverse operations. With the default Latin
 alphabet, shift/affine/Vigenere/Hill inputs are uppercased and filtered to A-Z.
 An explicit alphabet preserves case and accepts its own characters, including
 spaces or non-Latin symbols. Alphabets must contain distinct characters.
-`AZ`, `check_and_join`, `cycle_list` and `padded_key` are also public.
+`AZ`, `check_and_join`, `cycle_list` and `padded_key` are also public;
+`padded_key` raises the reference `ValueError` messages for duplicate alphabet
+characters and for key characters outside the alphabet.
 
 `encipher_substitution` accepts character tables or substring dictionaries.
 Dictionary keys are copied; longer replacements are applied before the
@@ -112,13 +114,15 @@ and trailing whitespace. Unsupported characters are filtered; text is not
 automatically uppercased. Decoding an unknown code raises `KeyError`. Custom
 mappings are not mutated, and decoding an empty string returns an empty string.
 
-`lfsr_sequence` operates on native prime-field elements and leaves the key and
-fill lists unchanged. Lists must have the same positive length and consistent
-prime characteristic. Extension fields and composite-modulus rings are not
-accepted. Returned elements retain the native field parent.
+`lfsr_sequence` operates on native `GF(n)` elements and leaves the key and
+fill lists unchanged. Lists must have the same positive length and a common
+modulus. As in the reference, a composite `GF(n)` is the ring `Z/nZ`, not an
+extension field, and the recurrence runs over that ring. Returned elements
+retain the native field parent.
 
 `lfsr_connection_polynomial` uses Berlekamp-Massey to recover a connection
-polynomial with native symbolic coefficients, reduced to `0,...,p-1`.
+polynomial with native symbolic coefficients, reduced to `0,...,p-1`. Over a
+composite modulus, a discrepancy that is not invertible raises `ValueError`.
 The empty and all-zero sequences return one. `lfsr_autocorrelation` returns a
 native exact rational for the supplied period, normalizing arbitrary positive
 or negative lags modulo that period.

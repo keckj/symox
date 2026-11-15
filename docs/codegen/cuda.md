@@ -22,6 +22,9 @@ NumPy arrays, with synchronous transfers to and from the GPU. Boolean outputs,
 float32/float64, safely renamed arguments, CSE and lazy Piecewise branches are
 supported. Complex-valued expressions are not supported by this interface.
 `lambdify(..., "cuda")` and `lambdify(..., "nvrtc")` use the same path.
+`cuda_lambdify` also accepts `device`, `cse`, extra NVRTC `options` and
+`fast_math=True` (adds `--use_fast_math`, off by default); the callable exposes
+`kernel`, `__source__` and `close`.
 
 `compile_cuda(source, name)` loads an `extern "C"` kernel for direct use with
 device pointers and streams. Its `CudaKernel.launch` method accepts explicitly
@@ -65,11 +68,15 @@ as parenthesized C++ boolean expressions. Integer powers up to `inline_pow`
 most 16 symbols, numbers and inline powers) are written as products, for
 example `(x - y)*(x - y)`; function calls are never repeated (`pow(sin(x), 2)`
 is kept), and `inline_pow=0` restores `pow` everywhere. These products are
-correctly rounded IEEE operations.
+correctly rounded IEEE operations. `tests/extra/test_cuda_precedence.py`
+compares printed products, quotients, negative powers and Piecewise conditions
+with NumPy under several option sets, on a GPU through NVRTC and on the host
+through a C++ shim.
 
 `reciprocal_sqrt=True` (default `False`, effective with `use_rsqrt=False`)
 prints `x**(-1/2)` as `1.0/sqrt(x)`: two correctly rounded operations instead of
 `pow(x, -1.0/2.0)`, but the result at `x = -0.0` is `-inf` instead of `+inf`.
 The approximate `rsqrt` intrinsic keeps its historical default in `cudacode`
-and `cuda_kernel` (`use_rsqrt=True`). `cuda_kernel` and `cuda_device_function`
+and `cuda_kernel` (`use_rsqrt=True`); `cudacode_function` never enables fast
+math and leaves `use_rsqrt` and `reciprocal_sqrt` off by default. `cuda_kernel` and `cuda_device_function`
 also accept `math_macros=False` for NVRTC, which does not define `M_PI`.

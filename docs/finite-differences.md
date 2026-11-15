@@ -4,7 +4,9 @@
 
 `finite_diff_weights`, `apply_finite_diff`, `differentiate_finite` and
 `Derivative.as_finite_difference` compute finite stencils with native scalar
-arithmetic. They require no SymPy installation.
+arithmetic. The stencil logic is the Python module
+`symox.calculus.finite_diff` over native expressions; it requires no SymPy
+installation.
 
 ```python
 from symox import symbols, Function, finite_diff_weights, apply_finite_diff
@@ -45,6 +47,8 @@ these two conventions are intentional and can affect discretized product rules.
 
 Derivatives and grids are limited to order/size 256, and the full weight table
 to 100,000 coefficients. Explicit grids need at least `order+1` points when
-converting a derivative. Substitutions in nested derivative stencils currently
+converting a derivative. As in SymPy, a derivative with a symbolic order
+(`Derivative(f(x), (x, n))`) raises `TypeError` instead of producing a stencil.
+Substitutions in nested derivative stencils currently
 support one substitution variable per `Subs` node; multivariate substitutions
 must be expressed with explicit nesting.

@@ -2,7 +2,7 @@
 
 [README](../README.md)
 
-Measured on 2026-10-19 against SymPy 1.14.0.
+Measured on 2026-11-15 against SymPy 1.14.0.
 
 Source: [official Sphinx module inventory](https://docs.sympy.org/latest/objects.inv) (282 documented modules), extended with parent packages and the README import surfaces.
 

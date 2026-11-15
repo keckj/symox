@@ -8,20 +8,21 @@ Native expressions do not imply native algorithms: the current Python package
 also contains mathematical algorithms, including solving, integration,
 domain-matrix operations and statistics. Porting these computations into Rust
 while preserving their capabilities is outstanding architectural work, tracked
-in the [active TODO](../TODO.md). API coverage and Python test counts do not
+in the [active TODO](../TODO.md) and inventoried in the
+[Python runtime audit](../audits/architecture/python-runtime-2026-10-28-r9/README.md). API coverage and Python test counts do not
 establish compliance with the Rust-engine architecture stated in the README.
 
 ## Linear programming and logic
 
-`solvers.simplex` implements an exact two-phase simplex method with Bland pivoting. `linprog` accepts inequalities, equalities and bounds; `lpmin` and `lpmax` convert symbolic relations and handle free variables. Infeasible and unbounded problems raise the corresponding exceptions. Coefficients must support the exact comparisons required for pivoting; this is not a constraint solver for undecidable symbolic parameters.
+`solvers.simplex` implements an exact two-phase simplex method with Bland pivoting. `linprog` accepts inequalities, equalities and bounds; `lpmin` and `lpmax` convert symbolic relations and handle free variables. Infeasible and unbounded problems raise the corresponding exceptions. Rational pivoting runs in the native `simplex` module; other coefficient domains keep the Python path. Coefficients must support the exact comparisons required for pivoting; this is not a constraint solver for undecidable symbolic parameters.
 
 `PropKB` stores CNF clauses and queries the local SAT solver. `pl_true` also handles partial assignments. These operations concern propositional logic.
 
 ## Polynomials and domain matrices
 
-All five Appell polynomial families are constructed exactly, with an optional `Poly` result. DDM, SDM and the `ddm_*`/`sdm_*` functions operate on actual dense or sparse representations and reuse `DomainMatrix` for exact algorithms.
+All five Appell polynomial families are constructed exactly, with an optional `Poly` result. `DomainMatrix`, DDM, SDM and the `ddm_*`/`sdm_*` functions follow the SymPy 1.14 implementation on native domain elements. Selected kernels run in Rust behind admission modules (`polys/matrices/_*_native.py`): fraction-free LU over ZZ/QQ, LU and LU solve over QQ, RREF over ZZ/QQ, sparse QQ Gauss-Jordan, Hermite normal form (including modulo D), Smith normal form and LLL. Inputs these modules decline run the retained Python algorithm.
 
-**DFM uses the Symox engine without FLINT.** This container does not provide all optimizations or protocols of SymPy's FLINT backend. Field and ring algorithms remain distinct; not every storage method outside the inventory has been adapted.
+**DFM requires FLINT, as in SymPy without it.** Symox reports `GROUND_TYPES='python'`, so `DFM` is the reference placeholder and `to_dfm()` raises `NotImplementedError("DFM requires GROUND_TYPES=flint.")`.
 
 `polyconfig` provides context-local configuration, defaults and temporary overrides. Algorithm selectors do not control every computation path in the Rust engine.
 
@@ -51,7 +52,7 @@ Symox-specific PyTorch, JAX, Slang, SYCL/AdaptiveCpp and CUDA extensions live in
 
 `ArraySymbol`, tensor products, contractions, diagonals, permutations, sums and reshapes retain dimensions without materializing entries. Explicit operations reuse native arrays and their 100,000-entry limit. Contractions of symbolic size remain exact sums.
 
-Abstract entries use symbolic `ArrayElement` applications to retain index dependencies in native calculations. Their internal representation differs from SymPy's `Indexed` objects. Conversions cover recognized matrix sums and products, transposes, Kronecker products and direct indexed accesses; they do not recognize every arbitrary Einstein expression.
+Abstract entries use symbolic `ArrayElement` applications to retain index dependencies in native calculations. Their internal representation differs from SymPy's `Indexed` objects. Canonicalization, `convert_array_to_matrix`, `convert_indexed_to_array`, `convert_array_to_indexed` and `array_derive` are Rust ports of the SymPy 1.14 algorithms. Inputs the native code declines run the vendored, unmodified SymPy 1.14 implementation (`symox._arrayexpr`) on a structural translation.
 
 `PartialDerivative` computes free and contracted indices and evaluates derivatives from supplied components. Differentiation components must be differentiable coordinates; symbolic product algebra involving these new objects is not fully adapted.
 
@@ -73,29 +74,27 @@ Real and imaginary projections retain unknown finiteness for unconstrained argum
 
 Standard transitive groups of degrees 5 and 6, Rubik's Cube generators, Gray codes and RGS ranks have concrete representations. Permutation and glyph tables are static data; using them does not load SymPy. `find_transitive_subgroups_of_S6` checks catalog groups without reproducing an exhaustive randomized search.
 
-`tensor_can` explores signed orbits of slot symmetries and dummy indices. It detects cancellation from opposite signs and selects a canonical representative. Exploration is limited to 100,000 states; this is not the optimized Butler–Portugal algorithm. `canonicalize_naive` uses the same orbit engine. The graph certificate uses bounded exhaustive search and differs in format from SymPy's tensor certificate.
+`combinatorics.tensor_can` is a port of SymPy's Butler-Portugal implementation; `canonicalize_naive` enumerates groups as in the reference. `graph_certificate` uses `canonicalize` and additionally renumbers vertex labels that are not `0..n-1`. The tensor-level canonicalization in `symox.tensor` still explores signed orbits of slot symmetries and dummy indices, limited to 100,000 states.
 
 Arithmetic criteria for counting cyclic, abelian or nilpotent groups are exact. General group counts remain limited to orders covered by available formulas and tables; other cases are rejected.
 
 ## ODE series and simplification
 
-`dsolve` accepts first-order Taylor series, ordinary second-order linear series and homogeneous Frobenius series whose two branches can be computed by recurrence. Calculations are limited to 64 coefficients. Repeated indicial roots and resonances requiring logarithms raise `NotImplementedError`. Supported initial conditions are substituted into solutions and solved for constants. `classify_ode(..., n=...)` explicitly requests series classification; default classification retains exact solution families.
+`dsolve` and `classify_ode` are adapted from SymPy 1.14's `ode.py`: hint machinery, hint order and solution forms follow the reference, and `classify_ode` matching runs in Rust. The earlier native solvers remain a fallback. Power-series hints (`2nd_power_series_ordinary`, `2nd_power_series_regular`) return the reference output; for a regular singular point with a double or resonant pair of indicial roots, Symox additionally appends the logarithmic second solution, which is an extension beyond SymPy.
 
-Triangular nonlinear systems of two or three functions reduce to scalar ODEs, with solution substitution and distinct constants. General coupled nonlinear systems remain outside this solver. Internal second-order inspectors recognize no nonlinear families, like their reference counterparts.
+Nonlinear systems use the reference `sysode_nonlinear_2eq_order1` (types 1 to 5) and `3eq_order1` solvers. The second-order nonlinear inspectors return `None`, like their reference counterparts. See the [differential equations guide](differential-equations.md) for current gaps.
 
 CSE helpers order dependencies, track common arguments and release temporaries after their last use. Sum and product combination handles identical or adjacent limits. `nthroot` accepts a candidate algebraic simplification after exactly verifying its power. `inversecombine` is a formal transformation that deliberately ignores branch restrictions.
 
-The Gröbner trigonometric reduction uses polynomial relations for sin/cos or sinh/cosh and compares two generator orders, with at most eight distinct arguments. Commensurable angles reduce to a common variable when their integer multipliers do not exceed 16. Advanced `hints` and `polynomial` options do not yet select a strategy equivalent to SymPy's.
+`trigsimp_groebner` is a port of SymPy's algorithm: an ideal of trigonometric relations, a Groebner basis over ZZ and `ratsimpmodprime`, with the `hints` and `polynomial` options. When the reference raises `ValueError` for rational multiples of an angle, Symox falls back to its earlier common-angle reduction (at most eight distinct arguments, integer multipliers up to 16); `trigsimp(..., method='matching')` also uses that reduction.
 
-Hypergeometric and Meijer contiguous operators are actual polynomials in the Euler operator. Inverse shifts come from division by the affine operator in the differential equation; singular cancellations are rejected. Hypergeometric plans search for a monotone path avoiding these singularities, bounded by 256 steps and 10,000 states. Each parameter group has at most eight parameters for matching.
-
-`Formula` constructs a differential basis and its companion matrix. Formula classes are Python adapters without SymPy's full `Expr` hierarchy. The elementary catalog and Lerch recognition are limited; search also uses expansions already known to the native engine. Terminating series and some sum shifts are computed exactly. These classes do not imply that SymPy's full hypergeometric catalog has been ported.
+`hyperexpand` is a Rust port (`special/hyperexpand`) of the SymPy 1.14 formula tables, contiguous shift operators and `devise_plan` bucket-by-bucket planning; `devise_plan_meijer` follows the same reference. Remaining bounds of the Python layer: order reduction up to 256 factors, terminating series up to 10,000 terms, shifted sums up to 256 terms, `Formula` bases of order 1 to 32, and at most eight parameters per group for matching. Inputs outside the ported catalog stay unevaluated.
 
 ## Polynomial integration and program parsing
 
 `polytope_integrate` computes moments through boundary integrals and facet triangulation, using exact arithmetic in two and three dimensions. It accepts oriented polygons, faceted polyhedra and bounded planar half-space intersections. Maximum degree is 64. Orientation determines the sign; inputs must describe a consistent domain and facets.
 
-The `meijerint` adapters call native integration. An unresolved result returns `None`; known conditions remain explicit. They are not a second general Meijer G integration engine.
+`meijerint_indefinite`, `meijerint_definite` and `meijerint_inversion` are Rust ports of SymPy's Meijer G integration (`integrate/meijerint`: table, conditions, recursive and inversion steps). They return `None` when the method does not apply, keep convergence conditions explicit and raise the reference errors.
 
 `SymPyExpression` parses a numerical subset of C and Fortran: recognized declarations, assignments, expressions, functions and loops. The AST can emit C, Fortran or Python. This parser does not implement the full grammars, preprocessor, linker, or all typing and scoping rules. Programs outside the subset must be adapted or processed by a dedicated compiler.
 

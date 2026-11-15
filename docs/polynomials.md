@@ -2,7 +2,7 @@
 
 [README](../README.md)
 
-`ZZ`, `QQ` and `GF(prime)` are native domain objects, also available from
+`ZZ`, `QQ` and `GF(n)` are native domain objects, also available from
 `symox.polys.domains`. `QQ.algebraic_field(...)`, `QQ.frac_field(...)` and
 `QQ.poly_ring(...)` construct supported exact extensions. Domain elements retain
 their domain under arithmetic; conversions check membership instead of merely
@@ -56,14 +56,16 @@ parameters are not keys of this mapping.
 is not exact, including multivariate cases where SymPy 1.14 silently truncates
 integer coefficients. Finite-field integration uses modular inverses and raises
 `NotInvertible` when the required denominator vanishes in the field.
-Finite fields currently require a prime characteristic below `2**32`. Domain
+`GF(p)` accepts arbitrarily large primes; as in SymPy, a composite modulus
+builds the ring `Z/nZ`, whose noninvertible elements raise `DomainError` on
+inversion, and `set_modulus` accepts the same moduli. Domain
 elements share a native `DomainElement` representation; `K.dtype` constructs and
 recognizes elements of `K`. Converting real-field elements into `QQ` uses
 bounded-denominator rational reconstruction; requesting the exact stored binary
 ratio is available through the field's `to_rational(..., limit=False)`.
-Rational-function and
-polynomial coefficient domains use `ZZ` or `QQ` ground coefficients; additional
-towers require separate support. Finite-field elements compare within their
+Rational-function and polynomial coefficient domains can be built over the
+integer, rational, Gaussian, real/complex and nested polynomial grounds listed
+in [coefficient domains](domains.md). Finite-field elements compare within their
 own domain, avoiding SymPy's inconsistent equality/hash behavior with integers.
 Polynomial coefficient rings support division with remainder and exact division, with
 coefficient content preserved in GCDs, LCMs and cofactors. `Poly.div` and
@@ -77,10 +79,11 @@ satisfy `LC(g)**(degree(f)-degree(g)+1)*f == q*g+r` when `degree(f) >= degree(g)
 The implementation checks exponent, coefficient, term and work bounds before
 allocating large intermediates. The global pseudo-division functions reject the
 `auto` option with `FlagError`, following SymPy's option contract.
-Fraction fields over finite or algebraic ground domains require further support.
-Existing polynomial calculations with general expression coefficients remain
-available; requesting a typed domain for unsupported expression or inexact
-coefficient rings raises `NotImplementedError`.
+Fraction fields over finite or algebraic ground domains (for example
+`GF(5).frac_field(a)` or a `Poly` over `QQ<sqrt(2)>[a]`) are not implemented
+and raise `NotImplementedError`. Requesting any other typed domain outside the
+supported list raises an explicit error rather than silently changing the
+coefficient domain.
 
 `groebner` computes reduced Gröbner bases with native Buchberger and F5B
 algorithms over `QQ`, `ZZ`, prime finite fields and rational-function coefficient fields
@@ -119,9 +122,10 @@ p.diff()                         # native exact coefficient arithmetic
 ```
 
 `Poly.subresultants`, `resultant(..., includePRS=True)` and `discriminant`
-use a checked native Brown–Traub PRS over rational, finite-field, supported
+use a checked native Brown-Traub PRS over rational, finite-field, supported
 algebraic and rational-function coefficients, including polynomial coefficient
-rings. Multivariate elimination removes only the first main generator and
+rings. Univariate resultants over `ZZ` and `QQ` use a native modular (Collins,
+CRT) kernel and a dense integer subresultant PRS before the sparse checked PRS. Multivariate elimination removes only the first main generator and
 preserves the remaining generators and coefficient-domain metadata. PRS terms
 retain their exact normalization, including abnormal degree drops; the last
 constant PRS term need not equal the resultant. Resultants preserve the
@@ -151,22 +155,24 @@ assert outer.compose(inner) == polynomial
 
 The global `decompose` follows the same domain, extension and modulus options,
 and accepts `polys=True`. Prime fields use modular arithmetic; a required
-division by zero in the field raises `NotInvertible`. Multivariate functional
-decomposition remains unsupported. Degree above 4096 is rejected before dense
-coefficient allocation.
+division by zero in the field raises `NotInvertible`. Multivariate input raises
+`ValueError` ("univariate polynomial expected"), as in SymPy. Dense coefficient
+vectors are bounded by degree `2**20`.
 
-The supported constructions also include positive rational cube roots,
-rational transformations of generators, composita of up to three independent
-quadratic fields, and a positive rational cube root combined with a quadratic
-field. Examples include `sqrt(2) + sqrt(3) + sqrt(5)` (degree 8) and
-`2**Rational(1, 3) + sqrt(3)` (degree 6). Minimal polynomials and constituent
+Algebraic fields are not limited to quadratic composita: radicals of any index,
+nested radicals and `CRootOf` generators are accepted (see
+[algebraic field constructors](domains.md#algebraic-field-constructors)).
+Examples include `sqrt(2) + sqrt(3) + sqrt(5)` (degree 8) and
+`2**Rational(1, 5) + sqrt(3)` (degree 10). Minimal polynomials and constituent
 embeddings are certified with exact rational arithmetic. `minimal_polynomial`
 (`minpoly`) and `primitive_element` expose these constructions; `Poly.norm()`
 uses a resultant over the field's minimal polynomial. `AlgebraicNumber` retains
 the chosen root, exact rational power-basis coefficients and optional alias;
 `to_number_field` constructs primitive generators or tests exact membership in
-a specified supported field. Arbitrary algebraic
-towers and mixtures with transcendental parameters remain unsupported.
+a specified supported field. `minimal_polynomial` also accepts symbolic
+parameters (`sqrt(a) + 1`), but coefficient domains mixing an algebraic
+extension with transcendental parameters are not implemented: `apart` with
+both raises, as SymPy 1.14 does.
 `ground_roots` extracts ground-field roots with exact multiplicities, including
 roots in the associated field of a coefficient ring. `Poly.factor_list_include()`
 and `sqf_list_include()` preserve typed domains and certify reconstruction.
@@ -215,8 +221,9 @@ multiplication over `QQ`. SymPy's `Poly.norm()` can differ by a rational factor
 when its integral defining polynomial is not monic.
 Univariate `cancel`, `apart`, `invert`, `gcdex` and `half_gcdex` also operate over
 these fields. Partial fractions handle repeated and irreducible factors using
-exact CRT arithmetic; `full=True` and symbolic parameters in algebraic
-coefficients remain unsupported. `Poly` exposes the corresponding Bézout,
+exact CRT arithmetic; `full=True` returns SymPy's `RootSum` form (for example
+`apart(1/(x**3 - 2), x, full=True)`). Symbolic parameters in algebraic
+coefficients remain unsupported, as in SymPy. `Poly` exposes the corresponding Bézout,
 inverse and cancellation methods over `QQ` and supported algebraic fields,
 plus `coeff_monomial` for the existing coefficient domains. A noninvertible
 residue class raises the native `NotInvertible` exception.
@@ -254,20 +261,20 @@ normalization run natively. Poly also carries `which_real_roots`,
 `count`, `has_free`, `is_same`, `matches` and the rest of the Basic protocol.
 `all_roots` lists real roots first.
 `galois_group(f, *gens)` and `Poly.galois_group()` classify irreducible
-univariate polynomials over `ZZ` and `QQ` through degree four using exact
-discriminants, cubic resolvents and native quadratic-field factorization.
-They return `(PermutationGroup, alternating)` or a transitive-subgroup enum
+univariate polynomials over `ZZ` and `QQ` through degree six. Degrees up to
+four use exact discriminants, cubic resolvents and native quadratic-field
+factorization; degrees five and six use the port of SymPy's resolvent method
+and lookup tables (`symox.polys.numberfields.galoisgroups`). They return `(PermutationGroup, alternating)` or a transitive-subgroup enum
 with `by_name=True`. The group results expose generators, exact order,
 membership, transitivity, commutativity and solvability. Permutations support
 array construction, composition, inversion and integer powers. This is a
 bounded group API; the broader export surface and its limits are described
-in [combinatorics](combinatorics.md). Degrees five
-and six raise `NotImplementedError`; they are supported by
-[SymPy's Galois algorithms](https://docs.sympy.org/latest/modules/polys/numberfields.html).
+in [combinatorics](combinatorics.md). Degree seven and above raises
+`ValueError`, as in SymPy.
+`apart_list` accepts parametric (`ZZ[a]`) and floating coefficient domains, and
+`assemble_partfrac_list` returns `RootSum` terms for nonlinear root factors.
 Other limitations:
-`set_modulus` accepts primes only; `apart_list` rejects parametric
-(`ZZ[a]`) and floating coefficient domains; `assemble_partfrac_list` expands
-only linear root factors (no `RootSum`); `jacobi_poly` with algebraic
+`jacobi_poly` with algebraic
 parameters returns an equal but differently arranged `EX` expression;
 `which_real_roots` keeps exact non-real candidates where SymPy 1.14
 overflows; `gff` raises `NotImplementedError` like SymPy; `homogenize` with a
@@ -282,18 +289,21 @@ a.as_expr()                     # represents sqrt(2) exactly through powers of t
 a.minpoly_of_element()          # Poly(_x**2 - 2, _x, domain='QQ')
 ```
 
-`sturm`, `count_roots`, `intervals` and `refine_root` provide certified real-root
-analysis for univariate polynomials over `QQ` and `ZZ`, including their `Poly`
-methods. Counts use distinct roots and closed rational bounds; isolating
-intervals retain multiplicities and exact rational roots. Refinement preserves
-the isolated root and applies `eps`, `steps`, `fast` and `check_sqf`.
-The arithmetic stays exact and sparse, with a degree bound of 4096 and shared
-work, storage and rational-size limits. Sturm sequences promote `ZZ` to `QQ`
-unless `auto=False`. Isolating fractions can differ from SymPy's continued
-fraction algorithm. Complex rectangles, other coefficient domains,
-`intervals(all=True)`, `strict=True` and simultaneous polynomial lists are
-explicitly unsupported. Reversed bounds and singleton intervals that are not
-roots raise errors.
+`sturm`, `count_roots`, `intervals` and `refine_root`, including their `Poly`
+methods, run SymPy's root isolation algorithms in native Rust (continued
+fractions over Mobius transforms for real roots, certified quadrant counting
+for complex rectangles), so isolating intervals, `eps` refinement and
+`refine_root` results match SymPy's. `intervals(all=True)` returns complex
+rectangles, `strict=True` and simultaneous polynomial lists are supported, and
+`count_roots` accepts complex bounds. `sturm` also works over finite fields and
+algebraic fields, and `count_roots` over algebraic fields. As in SymPy, real
+isolation over `RR` or algebraic fields raises `DomainError`. The arithmetic is
+exact; dense coefficient vectors are bounded by degree `2**20`. Sturm sequences
+promote `ZZ` to `QQ` unless `auto=False`. Reversed bounds and singleton
+intervals that are not roots raise errors.
+`nroots` uses native arbitrary-precision Aberth iteration after an exact
+square-free decomposition, honors `maxsteps` and `cleanup`, and raises
+`NoConvergence` on failure.
 
 `linear_eq_to_matrix` extracts exact linear coefficients; `linsolve` accepts
 equations with explicit unknowns, an augmented matrix, or an `(A, b)` matrix
@@ -324,7 +334,9 @@ supports real and complex Newton iteration, arbitrary precision through `prec`,
 real bracketed bisection, `tol`, `maxsteps`, `verify` and dictionary output.
 Overdetermined systems use complex QR least squares in the arbitrary-precision
 solver. It verifies the final residual by default and rejects failed convergence.
-These solvers execute natively without SymPy or mpmath. Unsupported numerical
+The secant and bisection solvers follow mpmath's `findroot` (starting step,
+stopping rule, step limits and error messages). These solvers execute natively
+without SymPy or mpmath. Unsupported numerical
 solver selections are explicit errors.
 Unsupported `solve` flags, ODE hints and integration options are rejected
 instead of being silently ignored.

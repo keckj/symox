@@ -37,7 +37,11 @@ Implemented:
 * optional PyTorch and JAX code generation in `symox.extra`, standalone source export, automatic
   differentiation and opt-in compilation with `torch.compile` / `jax.jit`
 * portable Slang source and optional SlangPy execution in `symox.extra`; standard SYCL C++ source
-  and asynchronous kernels for AdaptiveCpp
+  and asynchronous kernels for AdaptiveCpp; CUDA/HIP source (`cudacode`,
+  `cudacode_function`) and NVRTC kernels through the CUDA driver
+* noncommutative symbols and undefined functions (`commutative=False`), with
+  the supported operations and remaining gaps listed in the
+  [parity notes](algorithmic-parity.md#noncommutative-symbols)
 * isolated differential fuzzing, seeded replay, shrinking and triage
 
 The sections below describe the supported subsets and remaining limitations.
@@ -59,10 +63,10 @@ Decimal strings are parsed directly; Python floats retain their original
 binary value. The native multiprecision evaluator supports elementary
 real/complex functions and a subset of special functions. Unsupported functions
 remain symbolic; they do not receive invented digits from a double fallback.
-The current resource limits are 10,000 decimal digits or 40,000 precision bits.
-Exponential and hyperbolic evaluation is limited to a real argument magnitude
-of 2,000,000; power results are limited to a decimal exponent magnitude around
-1,000,000. Outside supported ranges expressions remain symbolic.
+There is no decimal-digit policy cap: requested precisions are bounded only by
+the native 32-bit working-precision range (larger requests raise `ValueError`).
+Float exponents are big integers; materialized values keep binary exponents of
+at most 65,536 bits, which covers magnitudes up to `2**(2**65536)`.
 Compiled numerical backends still use their declared machine dtypes.
 
 `evalf(chop=True)` and `N(..., chop=True)` remove absolutely small real or
@@ -71,8 +75,11 @@ numeric `chop` value selects a tolerance; `False` or zero disables chopping.
 The same option works entrywise for dense and sparse matrices. Partial
 symbolic coefficients retain ordinary `evalf` behavior. Threshold decisions use
 native arbitrary-precision magnitudes, including tolerances beyond the range
-of a machine float. Adaptive error estimates and the `maxn`, `strict=True`,
-`verbose=True` and quadrature options remain unsupported.
+of a machine float. `maxn` bounds the working precision of cancelling sums as
+in SymPy (an explicit `maxn` returns the accuracy reached); `strict=True`
+applies the same bound and raises instead of returning a lower precision
+result. `verbose=True` is accepted but prints no tracing. The `quad` option is
+refused for integrals with `NotImplementedError`.
 
 `special_nstr(expr, dps)` returns an arbitrary precision decimal string for
 numeric expressions supported by the multiprecision evaluator, including
@@ -90,8 +97,10 @@ without floating-point tolerances. Unquoted Unicode symbol names are accepted.
 `assumptions0` exposes their exact implication closure; contradictions are
 rejected, and explicit false facts survive reconstruction, hashing, pickling
 and SymPy interchange. Public argument ordering compares the complete inferred
-symbol content. Noncommutative symbols and custom facts are explicitly
-unsupported. Undefined-function heads also retain all 31 standard facts.
+symbol content. `commutative=False` symbols are accepted (see the
+noncommutative item above); other nonstandard keywords are kept in
+`assumptions0` like SymPy but take no part in inference. Undefined-function
+heads also retain all 31 standard facts.
 `AlgebraicNumber.is_nonzero` follows the same real-nonzero meaning as its
 scalar expression view.
 `Q` predicates and `ask(proposition, assumptions=True, context=...)` query
@@ -146,13 +155,13 @@ collection phases, preserving held argument trees and coefficient roles.
 `.is_number` classifies the held expression independently of finite evaluation:
 infinities and NaN are numbers, while undefined functions and held matrix
 contractions are not. Integral and Sum use their scoped free variables.
-`collect` supports exact or power-based matching, coefficient dictionaries with
-`evaluate=False`, recursive coefficient callbacks and order-term distribution.
-`exact=None`, Wild patterns and multivariate derivative patterns are explicitly
-unsupported.
+`collect` supports exact or power-based matching, `exact=None` discovery,
+Wild patterns, coefficient dictionaries with `evaluate=False`, recursive
+coefficient callbacks and order-term distribution. Multivariate derivative
+patterns raise `NotImplementedError`.
 Scalar equality, ordering, operation counts and pickles also preserve DAG sharing.
-`matches(expr, repl_dict=None)` exposes native wildcard matching in the pattern
-direction; legacy `old=True` algebraic matching remains unsupported.
+`matches(expr, repl_dict=None, old=False)` follows SymPy's structural
+`matches` in the pattern direction, including the `old` flag.
 `is_hypergeometric(k)` uses the native consecutive-term ratio simplifier and
 returns `None` for expressions containing `Piecewise`. Boolean expressions
 expose `to_nnf(simplify=True)`. `dir(x, cdir)` computes the first nonzero
@@ -167,7 +176,7 @@ are described in [series and expression analysis](series.md).
 `is_polynomial`, `is_rational_function` and `is_algebraic_expr` inspect held
 expressions without expanding powers, including arbitrary scalar generators
 and calculus binding scopes. Unknown cases retain SymPy's three-valued result.
-These inspection methods currently reject typed matrix parents explicitly.
+Matrix expressions expose the same three inspection methods.
 `count_ops()` counts all occurrences in the mathematical expression using exact
 integers, without expanding a shared tree. Assumption queries cache independent
 structural and numerical results per node; closed double-precision evaluations
@@ -175,11 +184,12 @@ share a temporary cache across the query. Numerical solvers keep their changing
 variable environments separate. Default sort keys retain shared tuple children.
 Scalar pickles use flat native node records; existing recursive scalar pickles
 remain readable.
-Python `expand` supports independent `mul`, `multinomial`, `power_exp`,
-`power_base`, `log` and `trig` hints, including `deep=False` and `force`.
-Scalar and matrix expansion share a work budget and check conservative bounds
-before allocating products or expanding powers. The default term bound is
-100,000; `max_terms=` changes it. Exceeding a term or work bound raises
+Python `expand` supports independent `basic`, `mul`, `multinomial`,
+`power_exp`, `power_base`, `log`, `trig`, `func` and `complex` hints,
+including `deep=False` and `force`; other hints raise `NotImplementedError`.
+Like SymPy, expansion has no default size limit. The opt-in `max_terms=`
+guard bounds the terms per sum together with a shared work budget, checked
+before allocating products or expanding powers; exceeding it raises
 `ValueError`. Matrix expansion preserves held transposes, adjoints, inverses
 and matrix powers while expanding their descendants when `deep=True`.
 `Integral` and `Sum` are native held binding operators with ordered limits,
@@ -201,8 +211,8 @@ factors times an absolutely convergent series, ratio, Raabe and root tests;
 products go through `Sum(log(f))` and `Sum(f - 1)`. Undecided cases (such as
 symbolic exponents) raise `NotImplementedError`. Deviations: SymPy's wrong
 `False` for `Sum(sin(k)/k)` and `Sum(cos(k)/k)` raises here, and
-`Sum(1 - cos(1/k))` is `True` (SymPy says `False`); `Sum.euler_maclaurin`
-and `Sum.eval_zeta_function` are not implemented. `index`, `reverse_order`,
+`Sum(1 - cos(1/k))` is `True` (SymPy says `False`). `Sum.euler_maclaurin`
+is available; `Sum.eval_zeta_function` is not implemented. `index`, `reverse_order`,
 `change_index`, `reorder`, `reorder_limit` (raising `ReorderError`),
 `has_finite_limits`, `has_reversed_limits`, `has_empty_sequence` and
 `Product.term` follow SymPy's `ExprWithIntLimits`; `hypersimp` and
@@ -215,8 +225,7 @@ initial conditions as a dict or list, return `None` where SymPy does and
 raise SymPy's `ValueError`/`TypeError` on malformed input. Differences: an
 inconsistent `rsolve_poly` system returns `None` (SymPy returns the bare
 ansatz), nonlinear terms such as `y(n)*y(n - 1)` raise `ValueError`, some
-results differ in `simplify` shape (`2**n*n/2` for SymPy's `2**(n - 1)*n`),
-and with fewer initial conditions than constants the eliminated constant
+results may differ in `simplify` shape, and with fewer initial conditions than constants the eliminated constant
 may differ (SymPy's choice depends on set ordering).
 `Lambda` accepts multiple variables, nested tuple signatures and empty signatures.
 Its arguments retain the signature tuple; application uses exact simultaneous
@@ -227,7 +236,7 @@ Undefined functions preserve all 31 standard true or false assumption facts,
 canonical head identity and declared arity, including names shared with builtins.
 An explicit `commutative=True` distinguishes a head from an implicit declaration;
 applied facts retain unknown values and do not imply continuity. Custom facts
-and noncommutative heads are rejected explicitly. Arities are normalized to
+are rejected with `ValueError`; `commutative=False` heads are accepted. Arities are normalized to
 sorted, unique tuples. Existing function pickles remain readable.
 Held `Derivative`, `Subs` and `Limit` expressions support evaluation and round trips; simultaneous symbol substitutions preserve
 the original right-hand sides. Limits of unknown functions remain held when
@@ -290,8 +299,8 @@ linear in the index collapse to a `Piecewise`. `real_root`, `Id`, `Atom`,
 `AtomicExpr` and the relational classes (`Relational`/`Rel`, `Equality`,
 `Unequality`, `GreaterThan`, `LessThan`, `StrictGreaterThan`,
 `StrictLessThan`) are available for `isinstance` checks and construction;
-the function heads themselves are callables, not classes. `frac(oo)` currently
-stays unevaluated. `AccumBounds`, `Dict`,
+the function heads themselves are callables, not classes. `frac(oo)` gives
+`AccumBounds(0, 1)` as in SymPy. `AccumBounds`, `Dict`,
 `FunctionClass` and `WildFunction` are available; their protocols and limits
 are described in the [public interface guide](public-interfaces.md) and
 [real analysis guide](real-analysis.md).
@@ -328,8 +337,8 @@ conjugates scalars and conjugate-transposes matrices. `expand_log` rewrites
 `log(b**e)` for real `e` with `-1 < e <= 1`, as SymPy does.
 Expansion has conservative resource limits, including 20,000 distinct nodes,
 4,096 terms, literal exponent numerators through 128 and a million-bit numeric
-budget. Oscillatory
-values at infinity that require `AccumBounds` are explicitly unsupported.
+budget. Oscillatory values at infinity evaluate to `AccumBounds`
+(`sin(x).subs(x, oo)` gives `AccumBounds(-1, 1)`).
 `expand_complex` raises `NotImplementedError` for `Derivative`, `Piecewise`,
 relational, `Integral`/`Sum`/`Limit` and matrix-expression nodes.
 Polar branch constructors and conversions are available separately;
@@ -368,7 +377,9 @@ forms over GF(2). Sparse ANF conversion has no variable-count cap; dense
 truth-table conversion has the same 20-variable limit. ANF constants survive
 pickling and SymPy conversion. Deep conversion also expands `ITE` into ANF,
 where SymPy 1.14 may leave it unchanged. Inequality solving
-supports one variable. Other unresolved membership queries remain symbolic.
+accepts several symbols when each inequality involves only one of them; an
+inequality in more than one symbol of interest raises `NotImplementedError`,
+as in SymPy. Other unresolved membership queries remain symbolic.
 
 ## Additional structural interfaces
 

@@ -74,4 +74,11 @@ Preserve domains, exact arithmetic, requested precision, options and explicit
 failures. See the [parity contract](../docs/algorithmic-parity.md).
 
 The [performance fix report](../docs/algorithm-performance.md) describes the
-2026-10-20 patches, retained evidence and remaining weak paths.
+2026-10-20 patches, retained evidence and remaining weak paths. Later targeted
+measurements of native ports are kept under `audits/performance/`; most use
+their own harness, documented in each directory's README, rather than this one.
+
+`bench_vs_sympy.py` (with SymEngine when installed) and the per-area
+`bench_*.py` scripts are quick timing comparisons; they do not perform the
+validation described above. `audit_solver_parity.py` is a behavioral audit,
+not a benchmark (see [testing](../docs/testing.md)).

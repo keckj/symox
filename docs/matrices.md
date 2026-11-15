@@ -40,7 +40,13 @@ An explicit zero eigenvalue or nonfinite input raises `ValueError`. Generic
 parameter formulas apply at finite values with defined denominators; recompute after
 specializing to singular or coincident-eigenvalue cases. `exp(log(A)) = A` is
 the reconstruction identity; `log(exp(A)) = A` and logarithms of products are
-not unconditional identities. No numerical eigensolver is used.
+not unconditional identities. Exact matrices use no numerical eigensolver;
+as in SymPy, matrices with `Float` entries compute eigenvalues and
+eigenvectors with mpmath. Irreducible characteristic factors of degree five or
+more give `CRootOf` eigenvalues. Noninteger and symbolic powers use the Jordan
+form (`Matrix([[1, 1], [0, 2]])**n` gives `[[1, 2**n - 1], [0, 2**n]]`).
+`is_positive_definite`, `is_positive_semidefinite`, `is_negative_definite`,
+`is_negative_semidefinite` and `is_indefinite` are available.
 `log(simplify=False)` and `log(simplify=None)` disable optional final
 cancellation; necessary internal simplifications and exact certificates remain.
 The default final simplifier is native `cancel`. A supplied callable instead
@@ -210,8 +216,13 @@ An explicit native domain also supports finite fields. Conversion back with
 coefficient arithmetic and determinants are supported. See
 [domain matrix algorithms](domain-matrices.md) for elimination, solving,
 nullspaces and characteristic polynomials.
-Not supported: `DeferredVector`, `MatrixKind`, and the `Basic`/`Expr` methods of immutable
-matrices.
+`symox.matrices.normalforms` provides `smith_normal_form`,
+`smith_normal_decomp`, `invariant_factors` and `hermite_normal_form` on
+`Matrix` inputs, through the same kernels. `Matrix` is a real
+`MutableDenseMatrix` class; `ImmutableDenseMatrix`, `DeferredVector` and
+`Matrix.kind` (`MatrixKind(NumberKind)`) are available.
+Not supported: the full `Basic`/`Expr` protocol of immutable matrices (for
+example `args`, `func`, `rewrite` and `count_ops`).
 
 `lll(delta=Rational(3, 4))` reduces an integer row-lattice basis;
 `lll_transform()` returns `(B, T)` with `T*A=B` and unimodular integer `T`.
