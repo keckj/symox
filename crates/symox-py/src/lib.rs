@@ -4678,6 +4678,7 @@ fn py_lambdify(
 
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    host::init_gil_check(m.py())?;
     m.add_class::<PyExprNode>()?;
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;

@@ -8,6 +8,7 @@ on:
 jobs:
   wheels:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - { os: ubuntu-latest, target: x86_64 }
