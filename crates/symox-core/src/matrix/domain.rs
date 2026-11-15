@@ -33,10 +33,6 @@ impl Domain {
         matches!(self, Domain::ZZ | Domain::QQ)
     }
 
-    pub fn is_ex(&self) -> bool {
-        matches!(self, Domain::EX)
-    }
-
     /// SymPy's printed name of the domain.
     pub fn name(&self) -> String {
         fn gens(ctx: &PolyCtx) -> String {

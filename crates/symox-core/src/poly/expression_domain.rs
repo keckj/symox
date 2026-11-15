@@ -122,9 +122,6 @@ impl EX {
     pub fn pow(&self, n: i64) -> PResult<Self> {
         simplify(crate::ops::pow(&self.0, &Expr::int(n)))
     }
-    pub fn pow_expr(&self, n: &Expr) -> PResult<Self> {
-        simplify(crate::ops::pow(&self.0, n))
-    }
     /// `K.quo`, `K.exquo` and `/` of the field `EX`.
     pub fn div(&self, g: &Self) -> PResult<Self> {
         simplify(crate::ops::div(&self.0, &g.0))

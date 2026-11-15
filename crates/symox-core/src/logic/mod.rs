@@ -579,11 +579,6 @@ pub fn or(args: Vec<Expr>) -> Expr {
     lattice(false, args)
 }
 
-/// `a & b`.
-pub fn and2(a: &Expr, b: &Expr) -> Expr {
-    lattice(true, vec![a.clone(), b.clone()])
-}
-
 /// `a | b`.
 pub fn or2(a: &Expr, b: &Expr) -> Expr {
     lattice(false, vec![a.clone(), b.clone()])

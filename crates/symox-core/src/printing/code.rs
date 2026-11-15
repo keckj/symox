@@ -1176,6 +1176,13 @@ impl<'a> CodePrinter<'a> {
         if let Func::MatrixProxy(_) = f {
             return Err(CodeError::Unsupported("a matrix expression used as a scalar".into()));
         }
+        if let Func::Undefined(head) = f {
+            if head.host().is_some() && matches!(self.lang(), Lang::Python | Lang::NumPy) {
+                if let Some(code) = self.py_codegen_node(&head.name, args) {
+                    return code;
+                }
+            }
+        }
         if let Some(n) = self.s.user_functions.get(f.name()) {
             return Ok(format!("{n}({})", self.join_args(args)?));
         }
@@ -1377,6 +1384,36 @@ impl<'a> CodePrinter<'a> {
             "LambertW" => "lambertw",
             _ => return None,
         })
+    }
+
+    /// SymPy's Python printers on the `sympy.codegen` function classes
+    /// (`numpy_nodes`, `cfunctions`), which they dispatch on the class name:
+    /// `NumPyPrinter._print_minimum/_print_maximum` fold the binary ufunc
+    /// with `functools.reduce` (a third positional operand of
+    /// `numpy.minimum` would be its `out` array) and the known functions
+    /// print as module calls. `None` keeps the generic printing (user
+    /// functions, `scipy.special` names, or the class name itself, which
+    /// SymPy prints for the functions its printer does not know).
+    fn py_codegen_node(&self, name: &str, args: &[Expr]) -> Option<CodeResult> {
+        let np = self.lang() == Lang::NumPy;
+        if np && matches!(name, "minimum" | "maximum") {
+            return Some(match args {
+                [] => Err(CodeError::Unsupported(format!("Need at least one argument for numpy.{name}"))),
+                [only] => self.print(only),
+                _ => self.join_args(args).map(|joined| format!("functools.reduce(numpy.{name}, [{joined}])")),
+            });
+        }
+        if self.s.user_functions.contains_key(name) {
+            return None;
+        }
+        let target = match name {
+            "Sqrt" => "sqrt",
+            "expm1" | "log1p" | "log2" | "log10" | "hypot" | "isnan" | "isinf" => name,
+            "logaddexp" | "logaddexp2" | "exp2" if np => name,
+            _ => return None,
+        };
+        let module = if np { "numpy" } else { "math" };
+        Some(self.join_args(args).map(|joined| format!("{module}.{target}({joined})")))
     }
 
     fn py_function(&self, f: &Func, args: &[Expr]) -> CodeResult {

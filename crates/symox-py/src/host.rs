@@ -693,7 +693,28 @@ fn _host_contains(expr: &Bound<'_, PyAny>) -> PyResult<(bool, bool)> {
     Ok((e.has_host(), e.is_host()))
 }
 
+/// SymPy's `Function._eval_evalf` fallback to `_imp_` for the application
+/// `e` of an undefined function: `symox.utilities.lambdify._imp_evalf`.
+fn implemented_evalf(e: &Expr, precision: u32) -> Option<Expr> {
+    Python::with_gil(|py| {
+        let result = crate::scalar_object(py, e.clone())
+            .and_then(|value| py.import("symox.utilities.lambdify")?.getattr("_imp_evalf")?.call1((value, precision)))
+            .and_then(optional_expr);
+        match result {
+            Ok(value) => value,
+            Err(error) => { report(py, error, None); None }
+        }
+    })
+}
+
+/// Install [`implemented_evalf`] (called by `implemented_function`).
+#[pyfunction]
+fn _register_implemented_evalf() {
+    symox::evalf_mp::register_undefined_host(implemented_evalf);
+}
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(_register_implemented_evalf, module)?)?;
     module.add_class::<PyHostClass>()?;
     module.add_class::<PyHostHead>()?;
     module.add_function(wrap_pyfunction!(_host_register, module)?)?;

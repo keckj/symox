@@ -44,7 +44,8 @@ def test_limit_is_native_arithmetic_with_exact_public_args_and_scope():
     assert held.is_commutative is None
     assert sm.Function('Limit')(x).is_Limit is False
     assert not isinstance(sm.Function('Limit')(x),sm.Limit)
-    with pytest.raises(NotImplementedError):held.subs(x,2)
+    # Limit.__new__ accepts a non-symbol variable, as the reference does
+    assert held.subs(x,2).args==(f(2)+y,2,0,sm.Symbol('+'))
     with pytest.raises(NotImplementedError):sm.Limit(f(x),x,x)
     with pytest.raises(ValueError):sm.Limit(f(x),x,0,dir='invalid')
 

@@ -51,11 +51,78 @@ def test_nsolve_convergence_controls_and_real_bracketing():
     assert isinstance(vector, s.Matrix) and vector.shape == (2, 1)
 
 
-@pytest.mark.parametrize("flags", [dict(verbose=True), dict(solver="muller"), dict(unknown=True)])
+@pytest.mark.parametrize("flags", [dict(verbose=True), dict(solver="muller"), dict(solver="halley")])
 def test_nsolve_unsupported_flags_are_explicit(flags):
     x = s.Symbol("x")
     with pytest.raises(NotImplementedError):
         s.nsolve(x*x-2, x, 1, **flags)
+
+
+@pytest.mark.parametrize("flags,error,message", [
+    (dict(solver="foo"), ValueError, "could not recognize solver"),
+    (dict(solver="anderson"), ValueError, "expected interval of 2 points, got 1"),
+    (dict(solver="mdnewton"), KeyError, "norm"),
+    (dict(method="secant"), ValueError, 'keyword to use is "solver"'),
+])
+def test_nsolve_solver_errors_like_reference(flags, error, message):
+    # mpmath's findroot registry: SymPy 1.14 raises these exact errors
+    for module in (s, sp):
+        x = module.Symbol("x")
+        with pytest.raises(error, match=message):
+            module.nsolve(x*x-2, x, 1, **flags)
+
+
+def test_nsolve_ignores_unknown_keywords_like_reference():
+    x, y = s.symbols("x y")
+    assert str(s.nsolve(x*x-2, x, 1, unknown=True)) == "1.41421356237310"
+    assert str(s.nsolve(x*x-2, x, 1, modules=["mpmath"])) == "1.41421356237310"
+    # a system always uses MDNewton, whatever valid solver name is given
+    root = s.nsolve([x+y-3, x-y-1], [x, y], [0, 0], solver="anderson")
+    assert [float(v) for v in root] == [2.0, 1.0]
+
+
+@pytest.mark.parametrize("flags", [
+    dict(force=False), dict(force=True), dict(warn=True), dict(bivariate=False),
+    dict(minimal=True), dict(numerical=False), dict(simplify=False),
+    dict(force=False, bivariate=False),
+])
+def test_solve_flags_like_reference_quadratic(flags):
+    x = s.Symbol("x")
+    assert s.solve(x**2-1, x, **flags) == [-1, 1]
+
+
+@pytest.mark.parametrize("text,flags", [
+    ("x*exp(x) - 1", dict(bivariate=False)),
+    ("x*exp(x) - 1", dict(force=False)),
+    ("x**x - 2", dict(force=False)),
+    ("exp(2*x) - 3*exp(x) + 2", dict(force=False)),
+    ("3**x - 9", dict(force=False)),
+    ("log(x**2) - 2", dict(bivariate=False, force=False)),
+    ("sqrt(x) + y", dict(minimal=True)),
+    ("sqrt(x + 1) - sqrt(x) - 1", dict(force=False)),
+    ("sqrt(x)*sqrt(x + 1) - 2", dict(check=False)),
+    ("x**y - 2", dict(dict=True)),
+    ("x**y - 2", dict(set=True)),
+])
+def test_solve_flags_like_reference(text, flags):
+    expected = sp.solve(sp.sympify(text), sp.Symbol("x"), **flags)
+    result = s.solve(s.sympify(text), s.Symbol("x"), **flags)
+    assert sp.sympify(str(result)) == sp.sympify(str(expected))
+
+
+def test_solve_without_lambert_or_posify_is_not_proven_empty():
+    # SymPy returns [] after its integer guesses fail, although x**x = 2
+    # has the real root exp(LambertW(log(2))): symox reports unsupported
+    x = s.Symbol("x")
+    with pytest.raises(NotImplementedError):
+        s.solve(x**x-2, x, bivariate=False, force=False)
+    assert s.solve(x**x-4, x, bivariate=False, force=False) == [2]
+    assert s.solve(x**x-2, x, force=False) == [s.exp(s.LambertW(s.log(2)))]
+    # without both Lambert and posify, neither solves x*exp(x) = 1
+    for module in (s, sp):
+        y = module.Symbol("x")
+        with pytest.raises(NotImplementedError):
+            module.solve(y*module.exp(y)-1, y, bivariate=False, force=False)
 
 
 @pytest.mark.parametrize("flags", [dict(tol=0), dict(tol=float("nan")), dict(maxsteps=0)])

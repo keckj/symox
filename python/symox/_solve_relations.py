@@ -352,6 +352,17 @@ def _simplified_solutions(solutions,equation,symbol,flags):
 
     The unrad fallback, which SymPy reaches for several radicals in the
     unknown, leaves its solutions unsimplified unless asked."""
+    if (flags.get('set') and not flags.get('dict') and isinstance(solutions,tuple)
+            and len(solutions)==2 and list(solutions[0])==[symbol]
+            and isinstance(solutions[1],(set,frozenset))
+            and all(isinstance(t,tuple) and len(t)==1 for t in solutions[1])):
+        # SymPy builds the set output from the same simplified list;
+        # rational values are already simplified
+        if all(getattr(t[0],'is_Rational',False) for t in solutions[1]):
+            return solutions
+        inner={k:v for k,v in flags.items() if k!='set'}
+        values=_simplified_solutions([t[0] for t in solutions[1]],equation,symbol,inner)
+        return (solutions[0],{(v,) for v in values})
     if not flags.get('simplify',True) or flags.get('set') or not isinstance(solutions,list):
         return solutions
     if 'simplify' not in flags and _radical_generators(equation,symbol)>1:
@@ -641,10 +652,17 @@ def _native_check(numerator,symbol,value,flags):
     simplify=False) is not False, computed by the native checksol port."""
     try:
         from . import _core
-        return _core._checksol_native(numerator,symbol,value,True,
-                                      bool(flags.get('force',True)),False,False)
+        return _core._checksol_native(numerator,symbol,value,
+                                      bool(flags.get('numerical',True)),
+                                      bool(flags.get('force',True)),False,
+                                      bool(flags.get('minimal',False)))
     except Exception:
         return None
+
+
+_UNRAD_FLAGS=frozenset(('dict','set','check','simplify','force','rational','warn',
+    'minimal','numerical','bivariate','cubics','quartics','quintics',
+    'incomplete','manual','particular','quick','exclude','tsolve'))
 
 
 def _unrad_solution(solve,equation,symbol,flags):
@@ -657,7 +675,10 @@ def _unrad_solution(solve,equation,symbol,flags):
     Returns None when this does not apply."""
     from . import Expr, Symbol, checksol, default_sort_key, simplify, sympify, together
     from .solvers._algebraic import _unrad_resultant, denoms, unrad
-    if set(flags)-{'dict','check','simplify','force','rational','warn'}:
+    # The reference _solve reaches unrad under any of its flags except
+    # tsolve=True; the root flags reach the inner solves and the checksol
+    # flags the candidate checks. Other output shapes are not handled here.
+    if set(flags)-_UNRAD_FLAGS or flags.get('tsolve'):
         return None
     try:
         equation=sympify(equation)
@@ -680,7 +701,7 @@ def _unrad_solution(solve,equation,symbol,flags):
         return None
     if not reduced:
         return None
-    inner={k:v for k,v in flags.items() if k!='dict'}
+    inner={k:v for k,v in flags.items() if k not in ('dict','set')}
     polynomial,cov=reduced
     # The resultant elimination can return a power of SymPy's radical-free
     # equation; its square-free part has the same roots.
@@ -712,7 +733,7 @@ def _unrad_solution(solve,equation,symbol,flags):
                 simplified.append(value)
         found=simplified
     if flags.get('check',True):
-        options={k:v for k,v in flags.items() if k in ('force','rational')}
+        options={k:v for k,v in flags.items() if k in ('force','rational','minimal','numerical')}
         try:
             dens=denoms(equation,symbol)
             found=[v for v in found
@@ -722,7 +743,11 @@ def _unrad_solution(solve,equation,symbol,flags):
         except NotImplementedError:
             pass
     found=sorted(found,key=default_sort_key)
-    return [{symbol:v} for v in found] if flags.get('dict') else found
+    if flags.get('dict'):
+        return [{symbol:v} for v in found]
+    if flags.get('set'):
+        return ([symbol],{(v,) for v in found})
+    return found
 
 
 def _masked_solution(solve,equation,symbol,flags):

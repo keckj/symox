@@ -47,6 +47,38 @@ def test_derivative_predicates_match_reference_on_supported_domains(source,domai
     else:assert actual is expected
 
 
+@pytest.mark.parametrize('source,domain',[
+    ('x*x','Union(Interval(-2,-1),Interval(1,2))'),
+    ('x','Union(Interval(-2,-1),Interval(1,2))'),
+    ('1/x','Union(Interval(-2,-1),Interval(1,2))'),
+    ('exp(x)','Union(Interval(-2,-1),Interval(1,2))'),
+    ('x**3-3*x','Union(Interval(-2,-1),Interval(1,2))'),
+    ('x','FiniteSet(1,2)'),('x*x','Complement(Reals,FiniteSet(0))'),
+    ('x','Complexes'),('x','Naturals'),('x','Interval(0,x)'),
+    ('x+y','Reals'),('Abs(x)','Interval(0,1)'),
+])
+@pytest.mark.parametrize('predicate',['lambda d:d>=0','lambda d:d>0','lambda d:d<0'])
+def test_derivative_predicates_fall_back_to_reference_off_native_domains(source,domain,predicate):
+    # Disconnected or non-interval domains, bounds depending on the variable,
+    # parameters not known real and unsupported functions give SymPy's answer
+    # instead of an internal exception.
+    x=sx.Symbol('x');X=sp.Symbol('x')
+    actual=monotonicity_helper(sx.sympify(source),eval(predicate),eval(domain,{**vars(sx),'x':x}),x)
+    expected=reference_helper(sp.sympify(source),eval(predicate),eval(domain,{**vars(sp),'x':X}),X)
+    assert actual is expected
+
+
+def test_multivariate_without_symbol_raises_reference_error():
+    x,y=sx.symbols('x y')
+    with pytest.raises(NotImplementedError,match='multivariate'):
+        monotonicity_helper(x+y,lambda d:d>=0)
+    assert monotonicity_helper(sx.Integer(3),lambda d:d>0) is False
+    # SymPy overflows the recursion limit on undefined functions; the native
+    # NotImplementedError is kept rather than deferring to it.
+    with pytest.raises(NotImplementedError):
+        monotonicity_helper(sx.Function('f')(x),lambda d:d>=0,symbol=x)
+
+
 def test_singletons_empty_domains_uncertainty_and_validation():
     x,a=sx.symbols('x a',real=True)
     assert monotonicity_helper(x*x,lambda d:d>0,sx.FiniteSet(0),x) is False

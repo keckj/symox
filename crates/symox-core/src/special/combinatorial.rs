@@ -364,6 +364,10 @@ fn eval_harmonic(a: &[Expr]) -> Option<Expr> {
 
 fn eval_bernoulli(a: &[Expr]) -> Option<Expr> {
     let n = &a[0];
+    // SymPy: bernoulli(n, 1) is bernoulli(n)
+    if a.len() == 2 && a[1].is_one() {
+        return Some(sf(SpecialFn::Bernoulli, vec![n.clone()]));
+    }
     // SymPy: bernoulli(n) = 0 for odd n > 1
     if a.len() == 1
         && is_nonnegative(n) == Some(true)

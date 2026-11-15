@@ -119,7 +119,7 @@ class NodePrinter:
     def _print_PostDecrement(self,node):return self._print(node.arg)+'--'
     def _print_CommaOperator(self,node):return '('+', '.join(self._print(a) for a in node.args)+')'
     def _print_Label(self,node):return str(node.name)+':'+('' if _none(node.body) else '\n'+self._print(node.body))
-    def _print_goto(self,node):return 'goto '+str(node.label)+';'
+    def _print_goto(self,node):return 'goto '+str(getattr(node.label,'name',node.label))+';'
     def _print_sizeof(self,node):return 'sizeof('+self._print(node.arg)+')'
     def _print_alignof(self,node):return '_Alignof('+self._print(node.arg)+')'
     def _print_struct(self,node):return 'struct '+('' if _none(node.name) else str(node.name))+' {\n'+indent('\n'.join(self._declaration(getattr(v,'variable',v)) for v in node.declarations))+'};'

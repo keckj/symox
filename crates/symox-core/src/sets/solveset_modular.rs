@@ -16,7 +16,7 @@
 
 use num_bigint::BigInt;
 use num_integer::Integer;
-use num_traits::{One, Signed, Zero};
+use num_traits::{One, Signed};
 
 use super::*;
 use crate::expr::RelOp;

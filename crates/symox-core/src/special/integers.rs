@@ -5,7 +5,7 @@ use std::sync::{Mutex, OnceLock};
 use num_bigint::BigInt;
 use num_integer::Integer;
 use num_rational::BigRational;
-use num_traits::{One, Signed, ToPrimitive, Zero};
+use num_traits::{One, Zero};
 
 /// Largest exact integer, in bits (32 MiB), that the automatic evaluation
 /// of the combinatorial sequences materialises. Above it a call stays
@@ -507,11 +507,6 @@ pub fn bell_poly_coeffs(n: u64) -> Vec<BigInt> {
     (0..=n).map(|k| stirling2(n, k)).collect()
 }
 
-/// `p! / q!`-free helper: exact rational `n` as `(numer, denom)` i64 pair.
-pub fn ratio_i64(r: &BigRational) -> Option<(i64, i64)> {
-    Some((r.numer().to_i64()?, r.denom().to_i64()?))
-}
-
 /// `gcd`-reduced rational from integers.
 pub fn q(n: i64, d: i64) -> BigRational {
     BigRational::new(BigInt::from(n), BigInt::from(d))
@@ -520,11 +515,6 @@ pub fn q(n: i64, d: i64) -> BigRational {
 /// `true` if `n` is even.
 pub fn is_even(n: &BigInt) -> bool {
     n.is_even()
-}
-
-/// absolute value
-pub fn babs(n: &BigInt) -> BigInt {
-    n.abs()
 }
 
 #[cfg(test)]

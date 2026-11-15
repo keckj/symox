@@ -262,6 +262,7 @@ class JuliaCodePrinter(CodePrinter):
     def _print_Assignment(self, expr):
         from symox.codegen.ast import Assignment
         from symox.functions.elementary.piecewise import Piecewise
+        from symox.printing.codeprinter import _AssignmentPiecewise
         from symox.tensor.indexed import IndexedBase
         # Copied from codeprinter, but remove special MatrixSymbol treatment
         lhs = expr.lhs
@@ -275,8 +276,10 @@ class JuliaCodePrinter(CodePrinter):
             for (e, c) in rhs.args:
                 expressions.append(Assignment(lhs, e))
                 conditions.append(c)
-            temp = Piecewise(*zip(expressions, conditions))
-            return self._print(temp)
+            # A native Piecewise holds expressions only: the assignments
+            # are printed by the Piecewise printer from a stand-in.
+            temp = _AssignmentPiecewise(expressions, conditions)
+            return self._print_Piecewise(temp)
         if self._settings["contract"] and _needs_loops(lhs, rhs):
             # Here we check if there is looping to be done, and if so
             # print the required loops.

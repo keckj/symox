@@ -22,8 +22,15 @@ from .pretty.pretty import pprint_use_unicode,pprint_try_use_unicode
 from .codeprinter import cxxcode
 from .c import ccode
 from .fortran import fcode
-from .pycode import pycode
+from .pycode import pycode as _printer_pycode
 from .rust import rust_code
+
+
+def pycode(expr,*args,**settings):
+    # SymPy's printing.pycode is the root pycode: use the root (native)
+    # printer rather than the PythonCodePrinter port.
+    import symox
+    return symox.pycode(expr,*args,**settings)
 
 
 def sstrrepr(expr,**settings):

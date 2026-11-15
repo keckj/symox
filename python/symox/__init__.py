@@ -73,6 +73,15 @@ def _user_hook(value, name):
     return getattr(value, name)
 
 
+_INTEGRATE_OPTIONS = frozenset(('meijerg', 'conds', 'risch', 'heurisch', 'manual'))
+
+
+def _reject_basic_kwargs(kwargs):
+    """SymPy's ``Basic.__new__`` error for a keyword argument."""
+    for key in kwargs:
+        raise TypeError("Basic.__new__() got an unexpected keyword argument '%s'" % key)
+
+
 def integrate(*args, **kwargs):
     """Indefinite or definite integral (native engine). A definite integral
     over an infinite interval of an oscillating integrand whose
@@ -91,6 +100,10 @@ def integrate(*args, **kwargs):
         free = getattr(f, 'free_symbols', None)
         if free is not None and len(free) != 1:
             raise ValueError("specify dummy variables for %s" % f)
+    # SymPy's integrate passes any other option to Integral(), whose
+    # Basic.__new__ rejects it (`final` is an Integral.doit hint only).
+    _reject_basic_kwargs({key: value for key, value in kwargs.items()
+                          if key not in _INTEGRATE_OPTIONS})
     special = _reference_integrate_cases(args, kwargs)
     if special is not None:
         return special[0]
@@ -669,15 +682,14 @@ class _CalculusMeta(type):
 class Integral(metaclass=_CalculusMeta):
     """Held integral with ordered symbolic integration limits."""
     def __new__(cls, function, *limits, **kwargs):
-        if kwargs:
-            raise NotImplementedError("Integral constructor options are not implemented")
         # a sequence limit is flattened, as the reference `_process_limits`
         # does: `Integral(f, ((x,),))` is `Integral(f, (x,))`
         if _basis_dependent(function):
-            return function._eval_Integral(*limits)
+            return function._eval_Integral(*limits, **kwargs)
         hook = _user_hook(function, '_eval_Integral')
         if hook is not None:
-            return hook(*limits)
+            return hook(*limits, **kwargs)
+        _reject_basic_kwargs(kwargs)
         from .integrals._shaped import is_shaped_integrand, ShapedIntegral
         if is_shaped_integrand(function):
             return ShapedIntegral(function, tuple(_flatten_limit(limit) for limit in limits))
@@ -3393,10 +3405,21 @@ class _LimitMeta(type):
         return isinstance(value, _core.Expr) and value.is_Limit
 
 
+def _limit_direction(dir):
+    """``Limit.__new__``'s check of the direction."""
+    if not isinstance(dir, (str, Symbol)):
+        raise TypeError("direction must be of type basestring or "
+                "Symbol, not %s" % type(dir))
+    if str(dir) not in ('+', '-', '+-'):
+        raise ValueError("direction must be one of '+', '-' "
+                "or '+-', not %s" % dir)
+    return str(dir)
+
+
 class Limit(metaclass=_LimitMeta):
     """Held native limit; ``doit()`` invokes the exact limit engine."""
     def __new__(cls, e, z, z0, dir="+"):
-        return _core._held_limit(e, z, z0, str(dir))
+        return _core._held_limit(e, z, z0, _limit_direction(dir))
 
 
 def _limit_through_positive_dummy(e, z, z0, dir, r):
@@ -3418,8 +3441,24 @@ def limit(e, z, z0, dir="+"):
 
     Returns an unevaluated :class:`Limit` when the limit cannot be computed.
     """
+    dir = _limit_direction(dir)
     ee = sympify(e)
     zz0 = sympify(z0)
+    zz = sympify(z)
+    if not zz.is_symbol:
+        # Limit.doit for a variable that is not a symbol: `e == z` gives the
+        # point, an expression free of `z` is returned, anything else is
+        # refused by `is_meromorphic`.
+        held = Limit(ee, zz, zz0, dir)
+        if ee == zz:
+            return zz0
+        if not ee.has(zz):
+            return ee
+        if zz0 is S.NaN:
+            return S.NaN
+        if ee.has(S.Infinity, S.NegativeInfinity, S.ComplexInfinity, S.NaN):
+            return held
+        raise TypeError("{} should be of symbol type".format(zz))
     if (isinstance(ee, Expr) and ee.has(z) and zz0.is_infinite and zz0 not in (S.Infinity, S.NegativeInfinity)
             and zz0 is not S.ComplexInfinity and not zz0.free_symbols):
         # Limit.doit at a directed infinity (I*oo): z -> cdir*z, z -> oo.
@@ -3776,6 +3815,10 @@ def lambdify(args, expr, modules=None, **kwargs):
             _module_namespace(module)
     shown = expr
     expr = _singularity_as_piecewise(expr)
+    from .utilities.lambdify import _compile_codegen
+    codegen = _compile_codegen(args, expr, modules, kwargs, shown)
+    if codegen is not None:
+        return codegen
     structured = _compile_structured(args,expr,modules,kwargs)
     if structured is not None:
         return _lambdify_globals(structured, args, expr, modules)
@@ -4036,11 +4079,11 @@ def _solve_reference_flags(_native, f, symbols, flags):
     """
     for key in [k for k in flags if k not in _SOLVE_FLAGS]:
         del flags[key]
-    # checksol-only refinements (numerical fallback, minimal check) and the
-    # one-at-a-time system strategy give the same solution set; the native
-    # solver checks exactly and solves systems with its own strategy.
-    for key in ('numerical', 'minimal'):
-        flags.pop(key, None)
+    # The numerical fallback of checksol and the one-at-a-time system
+    # strategy give the same solution set; the native solver checks exactly
+    # and solves systems with its own strategy. ``minimal`` reaches the
+    # native checksol.
+    flags.pop('numerical', None)
     manual = flags.pop('manual', False)
     bare_f = not isinstance(f, (list, tuple, set, frozenset, Tuple)) and not (
         hasattr(f, 'is_Matrix') and getattr(f, 'is_Matrix', False))
@@ -4068,6 +4111,13 @@ def _solve_reference_flags(_native, f, symbols, flags):
             eqs = f if not bare_f else [f]
             free = set().union(*[sympify(e).free_symbols for e in eqs])
             symbols = (set(free - exclude),)
+    rational = flags.get('rational', None)
+    if rational is not None and rational is not False:
+        # The reference rationalizes Floats unless rational is False, and
+        # restores them with nfloat only when rational is None: any other
+        # value keeps the exact solutions of the rationalized equations.
+        del flags['rational']
+        f = _solve_rationalize(f)
     particular = flags.pop('particular', False)
     quick = flags.pop('quick', False)
     if particular:
@@ -4086,6 +4136,21 @@ def _solve_reference_flags(_native, f, symbols, flags):
         return [tuple(d.get(s, s) for s in syms) for d in res]
     flags['_args'] = (f, symbols)
     return _NO_RESULT
+
+
+def _solve_rationalize(f):
+    """``nsimplify(fi, rational=True)`` for each equation containing a Float,
+    keeping the container of ``f``."""
+    def rationalize(e):
+        e = sympify(e)
+        return nsimplify(e, rational=True) if isinstance(e, Basic) and e.has(Float) else e
+    if hasattr(f, 'is_Matrix') and getattr(f, 'is_Matrix', False):
+        return f.applyfunc(rationalize)
+    if isinstance(f, (list, tuple, set, frozenset)):
+        return type(f)(rationalize(e) for e in f)
+    if isinstance(f, Tuple):
+        return Tuple(*[rationalize(e) for e in f])
+    return rationalize(f)
 
 
 def _solve_rewrite_abs(f, symbols):

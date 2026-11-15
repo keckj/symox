@@ -72,12 +72,48 @@ def test_maxn_without_options_keeps_the_native_budget():
         cancelling(sm, 300).evalf(15, strict=True)
 
 
-def test_quad_is_ignored_without_an_integral_and_refused_for_one():
+def test_quad_is_ignored_without_an_integral_and_used_for_one():
     assert sm.pi.evalf(15, quad=None, verbose=False) == sm.pi.evalf(15)
     assert sm.pi.evalf(15, quad="osc") == sp.pi.evalf(15, quad="osc")
     x = sm.Symbol("x")
-    with pytest.raises(NotImplementedError):
-        sm.Integral(sm.sin(x) / x, (x, 1, sm.oo)).evalf(15, quad="osc")
+    X = sp.Symbol("x")
+    for n in (15, 30, 50):
+        assert str(sm.Integral(sm.sin(x) / x**2, (x, 1, sm.oo)).evalf(n, quad="osc")) == \
+            str(sp.Integral(sp.sin(X) / X**2, (X, 1, sp.oo)).evalf(n, quad="osc"))
+    with pytest.raises(ValueError, match="^quadosc requires an infinite integration interval$"):
+        sm.Integral(sm.sin(x) / x, (x, 1, 2)).evalf(quad="osc")
+    with pytest.raises(ValueError, match="is required for oscillatory quadrature$"):
+        sm.Integral(sm.exp(-x), (x, 1, sm.oo)).evalf(quad="osc")
+
+
+@pytest.mark.parametrize("build", [
+    lambda m, x: m.Integral(m.sin(x) / m.log(x), (x, 2, 3)),
+    lambda m, x: m.Integral(m.cos(x**3) * m.sqrt(x), (x, 0, m.pi)),
+    lambda m, x: m.Integral(1 / (1 + x**4 + m.exp(x)), (x, 0, m.oo)),
+    lambda m, x: m.Integral(m.exp(m.I * x) / (1 + x + m.sin(x)**2), (x, 0, 1)),
+])
+def test_integral_without_closed_form_uses_quadrature(build):
+    x, X = sm.Symbol("x"), sp.Symbol("x")
+    for n in (15, 30, 50):
+        assert str(build(sm, x).evalf(n)) == str(build(sp, X).evalf(n))
+    assert str(sm.N(build(sm, x), 20)) == str(sp.N(build(sp, X), 20))
+
+
+def test_integral_quadrature_keeps_symbolic_and_multiple_integrals_held():
+    x, y = sm.symbols("x y")
+    held = sm.Integral(sm.sin(x) / sm.log(x + y), (x, 2, 3))
+    assert held.evalf() == held
+    nested = sm.Integral(sm.sin(x * y) / sm.log(x + y), (x, 2, 3), (y, 2, 3))
+    assert nested.evalf() == nested
+
+
+def test_integral_quadrature_where_the_reference_loses_accuracy():
+    # SymPy's quadrature returns 0.50 (sin(1) - Ci(1) through doit here)
+    # and 20 correct digits (a Bessel closed form through doit here).
+    x = sm.Symbol("x")
+    assert str(sm.Integral(sm.sin(1 / x), (x, 0, 1)).evalf(30)) == "0.504067061906928371989856117741"
+    assert str(sm.Integral(sm.exp(-x**2) * sm.cos(x**3), (x, 0, sm.oo)).evalf(50)) == \
+        "0.69405413348439055027960469448964639985266233467441"
 
 
 def test_strict_succeeds_when_the_target_is_reached():

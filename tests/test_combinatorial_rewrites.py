@@ -96,3 +96,42 @@ def test_rewrite_hints_patterns_and_depth():
         '((-1)**RisingFactorial(x, y)*gamma(1 - x)/gamma(-x - RisingFactorial(x, y) + 1), True))')
     assert str(sx.rf(x, k).rewrite('tractable', limitvar=k)) == 'exp(loggamma(k + x))/gamma(x)'
     assert str(sx.ff(x, -k).rewrite('tractable', limitvar=k)) == 'exp(-loggamma(k + x + 1))*gamma(x + 1)'
+
+
+@pytest.mark.parametrize('call,expected', [
+    (lambda: sx.fibonacci(x).rewrite(sx.sqrt), 'sqrt(5)*(-(1 - sqrt(5))**x + (1 + sqrt(5))**x)/(5*2**x)'),
+    (lambda: sx.fibonacci(x).rewrite('sqrt'), 'sqrt(5)*(-(1 - sqrt(5))**x + (1 + sqrt(5))**x)/(5*2**x)'),
+    (lambda: sx.fibonacci(x).rewrite(sx.GoldenRatio), '(GoldenRatio**x - 1/(-GoldenRatio)**x)/(-1 + 2*GoldenRatio)'),
+    (lambda: sx.fibonacci(x).rewrite('tractable'), 'sqrt(5)*(GoldenRatio**x - cos(pi*x)/GoldenRatio**x)/5'),
+    (lambda: sx.lucas(x).rewrite(sx.sqrt), '((1 - sqrt(5))**x + (1 + sqrt(5))**x)/2**x'),
+    (lambda: sx.tribonacci(x).rewrite(sx.TribonacciConstant),
+     'floor(3*TribonacciConstant**x*(102*sqrt(33) + 586)**(1/3)/(-2*(102*sqrt(33) + 586)**(1/3) + 4 + (102*sqrt(33) + 586)**(2/3)) + 1/2)'),
+    (lambda: (sx.fibonacci(x) + sx.lucas(x)).rewrite(sx.sqrt),
+     'sqrt(5)*(-(1 - sqrt(5))**x + (1 + sqrt(5))**x)/(5*2**x) + ((1 - sqrt(5))**x + (1 + sqrt(5))**x)/2**x'),
+    (lambda: sx.bernoulli(x).rewrite(sx.zeta), 'Piecewise((1, Eq(x, 0)), (-x*zeta(1 - x), True))'),
+    (lambda: sx.bernoulli(x, y).rewrite(sx.zeta), 'Piecewise((1, Eq(x, 0)), (-x*zeta(1 - x, y), True))'),
+    (lambda: sx.euler(x, y).rewrite(sx.genocchi),
+     'Piecewise((-polygamma(0, y/2) + polygamma(0, y/2 + 1/2), Eq(x, -1)), (-genocchi(x + 1, y)/(x + 1), True))'),
+    (lambda: sx.andre(x).rewrite(sx.zeta),
+     '2*(2*pi)**(-x - 1)*(-cos(pi*x)*zeta(x + 1, 3/4) + zeta(x + 1, 1/4))*gamma(x + 1)'),
+    (lambda: sx.andre(x).rewrite(sx.polylog), 'I**(x + 1)*polylog(-x, -I) + (-I)**(x + 1)*polylog(-x, I)'),
+    (lambda: sx.bernoulli(x, 1), 'bernoulli(x)'),
+    (lambda: sx.mathematica_code(sx.fibonacci(x)), '(1/5)*2^(-x)*5^(1/2)*(-(1 - 5^(1/2))^x + (1 + 5^(1/2))^x)'),
+])
+def test_fibonacci_family_and_number_rewrites(call, expected):
+    assert str(call()) == expected
+
+
+def test_tribonacci_sqrt_rewrite_is_the_closed_form():
+    form = sx.tribonacci(x).rewrite(sx.sqrt)
+    assert form.has(sx.I) and not form.has(sx.tribonacci)
+    for value in (1, 2, 7, 10):
+        assert abs(form.subs(x, value).evalf(30) - sx.tribonacci(value)) < sx.Float('1e-25')
+
+
+def test_genocchi_rewrites():
+    assert str(sx.genocchi(x).rewrite(sx.dirichlet_eta)) == '-2*x*dirichlet_eta(1 - x)'
+    # SymPy 1.14: -2*2**x*bernoulli(x, 1.0) + 2*bernoulli(x); the default
+    # x = 1 is kept exact here
+    assert str(sx.genocchi(x).rewrite(sx.bernoulli)) == '-2*2**x*bernoulli(x) + 2*bernoulli(x)'
+    assert str(sx.genocchi(n).rewrite(sx.bernoulli)) == '(2 - 2*2**n)*bernoulli(n)'

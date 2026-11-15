@@ -493,11 +493,17 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if let Some(r) = invert(&num, x, depth) {
         return Some(r);
     }
-    if let Some(r) = lambert::solve(&num, x) {
-        return Some(r.iter().map(lambert::simpler_rational).collect());
+    let flags = checksol::solve_flags();
+    // The reference `_tsolve` skips its Lambert step for `bivariate=False`;
+    // its closing posify retry (only with `force`) restores it.
+    if flags.bivariate || flags.force {
+        if let Some(r) = lambert::solve(&num, x) {
+            return Some(r.iter().map(lambert::simpler_rational).collect());
+        }
     }
-    // several logarithms: combine them (log(a) - log(b) = log(a/b))
-    let lc = crate::simp::logcombine(&num, true);
+    // several logarithms: combine them (log(a) - log(b) = log(a/b)), with
+    // the reference `logcombine(lhs, force=flags.get('force', True))`
+    let lc = crate::simp::logcombine(&num, flags.force);
     if lc != num {
         if let Some(r) = solve_rec(&lc, x, depth + 1) {
             return Some(r);
@@ -1767,6 +1773,7 @@ fn self_power(f: &Expr, b: &Expr, e: &Expr, rhs: &Expr, x: &Expr, depth: u32) ->
         // The reference `_tsolve` ends with a posify/force retry, under
         // which log((7**x)**x) = x**2*log(7): its candidates are kept only
         // when they satisfy the original equation.
+        if !checksol::solve_flags().force { return None; }
         let forced = crate::simp::expand_log(&logarithmic, true);
         if forced == logarithmic { return None; }
         Some(solve_rec(&forced, x, depth + 1)?.into_iter()

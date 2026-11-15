@@ -1155,27 +1155,9 @@ pub fn factor_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {super::mpoly
     generic_factor_list(e, false, None)
 })}
 
-/// `factor_list(expr, modulus=p)`.
-pub fn factor_list_mod(e: &Expr, p: u64) -> PResult<(Expr, Vec<(Expr, Expr)>)> {super::mpoly::checked_operation(||{
-    generic_factor_list(e, false, Some(p))
-})}
-
-/// `sqf_list(expr, modulus=p)`.
-pub fn sqf_list_mod(e: &Expr, p: u64) -> PResult<(Expr, Vec<(Expr, Expr)>)> {super::mpoly::checked_operation(||{
-    generic_factor_list(e, true, Some(p))
-})}
-
 /// `sqf_list(expr)`.
 pub fn sqf_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {super::mpoly::checked_operation(||{
     generic_factor_list(e, true, None)
-})}
-
-/// `factor_list(expr, *gens)` / `Poly.factor_list()` with explicit
-/// generators: `(coeff, [(poly, multiplicity)])`.
-pub fn poly_factor_list(e: &Expr, gens: &[Expr]) -> PResult<(Expr, Vec<(Expr, u32)>)> {super::mpoly::checked_operation(||{
-    let p = Poly::from_expr(e, gens)?;
-    let (c, fs) = p.factor_list();
-    Ok((rat_expr(&c, p.domain.prec()), fs.into_iter().map(|(f, k)| (f.as_expr(), k)).collect()))
 })}
 
 // ----------------------------------------------------------------------
@@ -1233,13 +1215,6 @@ pub fn gcd_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {supe
 pub fn lcm_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {super::mpoly::checked_operation(||{
     let (x, y) = mod_polys(a, b, gens, p)?;
     Ok(x.lcm(&y).as_expr())
-})}
-
-/// `div(f, g, modulus=p)`.
-pub fn div_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<(Expr, Expr)> {super::mpoly::checked_operation(||{
-    let (x, y) = mod_polys(a, b, gens, p)?;
-    let (q, r) = x.div(&y)?;
-    Ok((q.as_expr(), r.as_expr()))
 })}
 
 /// `cofactors(f, g)`: `(h, f/h, g/h)`.
@@ -1479,7 +1454,7 @@ pub fn div_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {sup
 /// remainder in lexicographic monomial order. Automatic generator detection
 /// uses the existing deterministic SymPy-compatible generator ordering.
 pub fn reduced(a: &Expr, divisors: &[Expr], gens: &[Expr]) -> PResult<(Vec<Expr>, Expr)> {super::mpoly::checked_operation(||{
-    use super::convert::{from_exprs, from_exprs_gens, to_expr_f};
+    use super::convert::{from_exprs, from_exprs_gens};
     use super::ratfunc::{set_nvars, RF};
     use std::collections::BTreeMap;
 
@@ -1531,45 +1506,9 @@ pub fn reduced(a: &Expr, divisors: &[Expr], gens: &[Expr]) -> PResult<(Vec<Expr>
     Ok(result)
 })}
 
-/// `rem(f, g, *gens)`.
-pub fn rem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
-    Ok(div_expr(a, b, gens)?.1)
-})}
-
 /// `quo(f, g, *gens)`.
 pub fn quo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
     Ok(div_expr(a, b, gens)?.0)
-})}
-
-/// `pdiv(f, g, *gens)`: pseudo-division `(q, r)` with
-/// `lc(g)**(deg f - deg g + 1) * f = q*g + r`.
-pub fn pdiv_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {super::mpoly::checked_operation(||{
-    let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
-    let (q, r) = ps[0].pdiv(&ps[1])?;
-    Ok((q.as_expr(), r.as_expr()))
-})}
-
-/// `prem(f, g, *gens)`: pseudo-remainder.
-pub fn prem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
-    Ok(pdiv_expr(a, b, gens)?.1)
-})}
-
-/// `pquo(f, g, *gens)`: pseudo-quotient.
-pub fn pquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
-    Ok(pdiv_expr(a, b, gens)?.0)
-})}
-
-/// `pexquo(f, g, *gens)`: exact pseudo-quotient.
-pub fn pexquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
-    let (q, r) = pdiv_expr(a, b, gens)?;
-    if !r.is_zero() {
-        return Err(PolyError::Unsupported(format!(
-            "{} does not divide {}",
-            crate::printer::to_str(b),
-            crate::printer::to_str(a)
-        )));
-    }
-    Ok(q)
 })}
 
 /// `exquo(f, g)`.

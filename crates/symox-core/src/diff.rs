@@ -690,9 +690,23 @@ fn d_func(
             return mul(&[numerator, pow(&add(&[real.powi(2), imaginary.powi(2)]), &Expr::minus_one())]);
         }
     }
+    if matches!(f, Func::ExpPolar) && args.len() == 1 {
+        // exp_polar has no fdiff in SymPy: Function.fdiff holds
+        // Derivative(exp_polar(u), u) when u can be differentiated by
+        // (a symbol or an applied undefined function), and otherwise
+        // Subs(Derivative(exp_polar(xi_1), xi_1), xi_1, u).
+        let partial = if is_valid_variable(u) {
+            derivative_unevaluated(e, vec![(u.clone(), 1)])
+        } else {
+            let dummy = Expr::dummy("xi_1", crate::Assumptions::NONE);
+            let applied = crate::functions::func(Func::ExpPolar, vec![dummy.clone()]);
+            crate::subs::held_subs(&derivative_unevaluated(&applied, vec![(dummy.clone(), 1)]), vec![dummy], vec![u.clone()])
+        };
+        return mul(&[partial, du]);
+    }
     let one = Expr::one();
     let outer = match f {
-        Func::Exp | Func::ExpPolar => e.clone(),
+        Func::Exp => e.clone(),
         Func::Log => pow(u, &Expr::minus_one()),
         Func::Sin => cos(u),
         Func::Cos => neg(&sin(u)),

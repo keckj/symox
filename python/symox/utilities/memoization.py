@@ -9,8 +9,11 @@ def recurrence_memo(initial):
         @wraps(function)
         def sequence(n):
             n=operator.index(n)
-            if n<0:raise IndexError('sequence index must be nonnegative')
             with lock:
+                # As in the reference, an index below the cache length,
+                # including a negative one, reads the cache directly
+                # (negative indices count from its end).
+                if n<len(cache):return cache[n]
                 for i in range(len(cache),n+1):cache.append(function(i,cache))
                 return cache[n]
         sequence.cache_length=lambda:len(cache)
@@ -24,8 +27,10 @@ def assoc_recurrence_memo(base_seq):
         @wraps(function)
         def sequence(n,m):
             n,m=operator.index(n),operator.index(m)
-            if not 0<=m<=n:raise IndexError('associated index must satisfy 0 <= m <= n')
             with lock:
+                # The reference indexes the cache rows directly: negative
+                # n and m count from the end, m > n raises IndexError.
+                if n<len(cache):return cache[n][m]
                 for i in range(len(cache),n+1):
                     cache.append([base_seq(i)])
                     for j in range(1,i+1):cache[i].append(function(i,j,cache))

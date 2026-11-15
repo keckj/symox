@@ -610,11 +610,6 @@ ctor! {
     kronecker_delta(i, j) => KroneckerDelta;
 }
 
-/// `bell(n, k, (x_1, ..., x_m))`: incomplete Bell polynomial.
-pub fn bell_incomplete(n: &Expr, k: &Expr, xs: &[Expr]) -> Expr {
-    func(Func::Special(SpecialFn::Bell), vec![n.clone(), k.clone(), tuple(xs.to_vec())])
-}
-
 /// `hyper(ap, bq, z)`: generalised hypergeometric function.
 pub fn hyper(ap: &[Expr], bq: &[Expr], z: &Expr) -> Expr {
     func(Func::Special(SpecialFn::Hyper), vec![tuple(ap.to_vec()), tuple(bq.to_vec()), z.clone()])

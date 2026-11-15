@@ -1,4 +1,5 @@
 """Isolated singularity candidates, using the native equation solver."""
+from .. import S
 from ._analysis import scalar, variable, walk, name, zeros, inequality
 
 
@@ -46,11 +47,9 @@ from ._monotonicity import (is_increasing, is_strictly_increasing,
     is_decreasing, is_strictly_decreasing, is_monotonic)
 
 
-def monotonicity_helper(expression,predicate,interval=None,symbol=None):
-    """Prove that a derivative satisfies a predicate throughout an interval."""
+def _native_monotonicity_helper(expression,predicate,interval,symbol):
     from .. import S,Dummy,sympify
     from ._monotonicity import _context,_subset
-    interval=S.Reals if interval is None else interval
     result,derivative,real,interior=_context(expression,interval,symbol)
     if derivative is None:
         if result is not True or interval==S.EmptySet:return result
@@ -78,6 +77,28 @@ def monotonicity_helper(expression,predicate,interval=None,symbol=None):
         return inequality(value,real,interval)
     allowed=satisfying(condition)
     return _subset(interval,allowed)
+
+
+def monotonicity_helper(expression,predicate,interval=S.Reals,symbol=None):
+    """Prove that a derivative satisfies a predicate throughout an interval.
+
+    The native proof runs first. When it declines (disconnected or
+    non-interval domains, parameters not known to be real, bounds depending
+    on the variable, unsupported functions) or is undecided, SymPy's
+    reference answer is returned: the interval is compared with the
+    ``solveset`` solution of the derivative predicate over the reals.
+    """
+    from ._monotonicity import _Reference,_declines,_reference_helper
+    try:
+        result=_native_monotonicity_helper(expression,predicate,interval,symbol)
+    except _Reference:
+        result=None
+    except NotImplementedError:
+        if not _declines(expression):raise
+        result=None
+    if result is None:
+        result=_reference_helper(expression,predicate,interval,symbol)
+    return result
 
 __all__=['singularities','is_increasing','is_strictly_increasing',
     'is_decreasing','is_strictly_decreasing','is_monotonic','monotonicity_helper']

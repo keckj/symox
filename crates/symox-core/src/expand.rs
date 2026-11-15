@@ -45,6 +45,11 @@ fn arithmetic_expand_with(
         }
         value = next;
     }
+    // The products of an expansion are built without the order hooks; the
+    // order terms then absorb what they contain, as in SymPy's flatten.
+    if value.may_have_order() {
+        value = crate::series::order::reabsorb(&value);
+    }
     value
 }
 

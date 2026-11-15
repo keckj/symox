@@ -505,10 +505,12 @@ class FCodePrinter(CodePrinter):
             if val != None: # Must be "!= None", cannot be "is not None"
                 result += ' = %s' % self._print(val)
         else:
-            # SymPy raises this for every F77 declaration (its NoneToken is
-            # truthy); symox prints the scalar ones but never drops a
-            # dimension silently.
-            if value_const in var.attrs or val or dim:
+            # SymPy raises this for every F77 declaration without a value
+            # (its NoneToken is truthy) and for truthy values. symox prints
+            # the scalar declarations without a value, and raises for every
+            # initializer (a zero one included, which SymPy drops silently)
+            # and for a dimension, so no part of a declaration is lost.
+            if value_const in var.attrs or val != None or dim:
                 raise NotImplementedError("F77 init./parameter statem. req. multiple lines.")
             result = ' '.join((self._print(arg) for arg in [var.type, var.symbol]))
 

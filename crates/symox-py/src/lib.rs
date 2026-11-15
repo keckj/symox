@@ -973,10 +973,10 @@ pub(crate) fn decimal_precision(n: impl Into<i64>) -> PyResult<u32> {
 
 /// Parsed `evalf` keywords: native options plus SymPy's strict flag.
 #[derive(Clone,Copy,Default)]
-pub(crate) struct EvalfSettings { options:symox::evalf_mp::EvalfOptions, strict:bool, quad:bool }
+pub(crate) struct EvalfSettings { options:symox::evalf_mp::EvalfOptions, strict:bool, quadrature:symox::evalf_mp::QuadratureOptions }
 
 pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) -> PyResult<EvalfSettings> {
-    let mut chop=None;let mut strict=false;let mut maxn:Option<f64>=None;let mut quad=false;
+    let mut chop=None;let mut strict=false;let mut maxn:Option<f64>=None;let mut osc=false;
     if let Some(kwargs) = kwargs {
         for (key, value) in kwargs {
             let key: String = key.extract()?;
@@ -1005,9 +1005,9 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
                 "verbose" => {},
                 // SymPy: maxprec = max(prec, int(maxn*LG10)).
                 "maxn" => maxn=Some(value.extract::<f64>()?*std::f64::consts::LOG2_10),
-                // A quadrature choice only matters for an Integral; it is
-                // refused there (see evalf_prepared) and ignored elsewhere.
-                "quad" => quad=!value.is_none(),
+                // SymPy's evalf_integral: `quad='osc'` selects mpmath's
+                // quadosc, any other value its default tanh-sinh quadrature.
+                "quad" => osc=value.extract::<String>().is_ok_and(|mode|mode=="osc"),
                 _ => return Err(PyTypeError::new_err(format!("unexpected evalf option {key}"))),
             }
         }
@@ -1025,7 +1025,12 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
     // Without strict, an exhausted sum is returned as SymPy's evalf_add
     // returns it: precision 1 Floats bounding the residue.
     let residue=!strict;
-    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial,residue,cancellation:None},strict,quad})
+    // SymPy's evalf_integral raises its working precision up to
+    // `maxprec = max(prec, int(maxn*LG10))`; without maxn the host applies
+    // the default maxn = 100.
+    let maxprec=maxn.map(|bits|if bits.is_nan(){0}else{bits.trunc().clamp(0.0,f64::from(MAX_REQUESTED_PRECISION)) as u32});
+    let quadrature=symox::evalf_mp::QuadratureOptions{osc,maxprec};
+    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial,residue,cancellation:None},strict,quadrature})
 }
 
 pub(crate) fn evalf_expr(e: &Expr, n: i64, replacements: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
@@ -1060,9 +1065,7 @@ fn evalf_checked(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,se
         }
         None => e.clone(),
     };
-    if settings.quad&&e.has_calculus_binding() {
-        return Err(PyNotImplementedError::new_err("evalf option quad is not implemented for integrals"));
-    }
+    let _quadrature=symox::evalf_mp::QuadratureScope::enter(settings.quadrature);
     if settings.options==symox::evalf_mp::EvalfOptions::default() {return Ok(symox::evalf_mp::evalf(&e, precision));}
     if settings.options==(symox::evalf_mp::EvalfOptions{residue:true,..Default::default()}) {return Ok(symox::evalf_mp::evalf_reporting_residue(&e, precision));}
     let (value,exhausted)=symox::evalf_mp::evalf_with_options(&e,precision,settings.options);
@@ -2702,17 +2705,29 @@ impl PyExprNode {
             // integral transforms: SymPy's hints and (result, plane, cond) tuples
             return Ok(py.import("symox._transforms")?.getattr("_doit")?.call((wrap(self.e.clone()), deep), hints)?.unbind());
         }
-        if let (Some(hints),Kind::Func(Func::Integral,args))=(hints,self.e.kind()){
-            let integration_hint=|name:&Bound<'_,PyAny>|name.extract::<String>().is_ok_and(|n|matches!(n.as_str(),"meijerg"|"risch"|"heurisch"|"manual"|"conds"|"final"));
-            if !hints.is_empty()&&hints.keys().iter().all(|name|integration_hint(&name)){
+        let mut hints=hints;
+        if let (Some(given),Kind::Func(Func::Integral,args))=(hints,self.e.kind()){
+            // SymPy's `Integral.doit` reads its own hints and ignores the
+            // others; `integrals=False` returns the integral unchanged.
+            if let Some(integrals)=given.get_item("integrals")?{
+                if !integrals.is_truthy()?{return Ok(wrap(self.e.clone()).into_pyobject(py)?.into_any().unbind());}
+            }
+            let selected=PyDict::new(py);
+            for (name,value) in given.iter(){
+                if name.extract::<String>().is_ok_and(|n|matches!(n.as_str(),"meijerg"|"risch"|"heurisch"|"manual"|"conds"|"final")){
+                    selected.set_item(name,value)?;
+                }
+            }
+            if !selected.is_empty(){
                 // `Integral.doit(meijerg=..., conds=...)`: the hints of
                 // `integrate`, the integrand evaluated first when deep
                 let body=if deep{fx::doit(&args[0],true)}else{args[0].clone()};
                 let limits=symox::binders::limits(args).into_iter()
                     .map(|l|PyTuple::new(py,l.into_iter().map(wrap)))
                     .collect::<PyResult<Vec<_>>>()?;
-                return integrate_result(py,&body,&PyTuple::new(py,limits)?,Some(hints));
+                return integrate_result(py,&body,&PyTuple::new(py,limits)?,Some(&selected));
             }
+            hints=None;
         }
         if let Some(hints)=hints {for (name,value) in hints.iter(){
             if matches!(self.e.kind(),Kind::Func(Func::MatrixDotProduct(_,_),_))&&name.extract::<String>()?=="expand" {
@@ -2721,6 +2736,13 @@ impl PyExprNode {
                 let _:bool=value.extract()?;
             }else{return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));}
         }}
+        if let Kind::Func(Func::Limit,args)=self.e.kind(){
+            // SymPy's Limit.doit: a variable that is not a symbol is only
+            // accepted when it is the expression or absent from it
+            if args.len()==4&&!matches!(args[1].kind(),Kind::Sym(_))&&args[0]!=args[1]&&symox::traverse::has(&args[0],&args[1]){
+                return Err(PyTypeError::new_err(format!("{} should be of symbol type",args[1])));
+            }
+        }
         symox::limits::check_doit(&self.e,deep).map_err(|error|PyValueError::new_err(error.to_string()))?;
         let value=if self.e.has_symbolic_derivative(){with_derivative_errors(||Ok(fx::doit(&self.e,deep)))?}else{fx::doit(&self.e, deep)};
         host::raise_pending()?;

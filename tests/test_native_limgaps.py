@@ -211,3 +211,58 @@ def test_floor_series_laurent_argument():
 def test_bounded_limit_absorbs_symbolic_constant():
     assert limit(atan(x) + sin(x), x, oo) == AccumBounds(-1 + pi/2, 1 + pi/2)
     assert limit(sin(x) + cos(x) + E, x, oo) == AccumBounds(-2 + E, 2 + E)
+
+
+_e3 = lambda: exp(x).series(x, 0, 3)  # noqa: E731
+
+
+@pytest.mark.parametrize('call,expected', [
+    (lambda: _e3()*O(x), 'O(x)'),
+    (lambda: _e3()*O(x**2), 'O(x**2)'),
+    (lambda: (_e3()*_e3()).expand(), '1 + 2*x + 2*x**2 + O(x**3)'),
+    (lambda: sin(x).series(x, 0, 4)*O(x**2), 'O(x**3)'),
+    (lambda: (1/x + _e3())*O(x), 'O(1)'),
+    (lambda: O(x)*(x + O(x**2)), 'O(x**2)'),
+    (lambda: O(x*(1 + x + O(x**2))), 'O(x)'),
+    (lambda: O(x, (x, oo))*exp(1/x).series(x, oo, 3), 'O(x, (x, oo))'),
+    (lambda: O(1/x, (x, oo))*(x + O(1, (x, oo))), 'O(1, (x, oo))'),
+    (lambda: O(x*y)*(1 + x + O(x**2)), 'O(x**3 + x*y, x, y)'),
+    (lambda: O(x*y)*(1 + x + O(x**2, x, y)), 'O(x*y, x, y)'),
+    (lambda: O(x**2, x, y)*(1 + x + y + O(x**2, x, y)), 'O(x**2, x, y)'),
+    (lambda: cos(x).series(x, 0, 4)*O(x**3) + x, 'x + O(x**3)'),
+    (lambda: O(x)*(x + 1/x + O(x**2)), 'O(1)'),
+    (lambda: O(x)*log(x)*(1 + x + O(x**2)), 'O(x*log(x))'),
+    (lambda: O(x)*(2 + O(x)), 'O(x)'),
+])
+def test_order_absorbs_the_terms_of_products(call, expected):
+    assert str(call()) == expected
+
+
+def test_limit_in_a_non_symbol_variable_follows_limit_doit():
+    assert limit(x, x**2, 0) == x
+    assert limit(x**2, x**2, 3) == 3
+    assert limit(y, x**2, 0) == y
+    with pytest.raises(TypeError, match=r'^x\*\*2 should be of symbol type$'):
+        limit(x**2 + 1, x**2, 0)
+
+
+@pytest.mark.parametrize('direction,error,message', [
+    ('-+', ValueError, "^direction must be one of '\\+', '-' or '\\+-', not -\\+$"),
+    ('foo', ValueError, "^direction must be one of '\\+', '-' or '\\+-', not foo$"),
+    (1, TypeError, "^direction must be of type basestring or Symbol, not <class 'int'>$"),
+])
+def test_limit_direction_errors_match_the_reference(direction, error, message):
+    with pytest.raises(error, match=message):
+        limit(1/x, x, 0, direction)
+    with pytest.raises(error, match=message):
+        Limit(1/x, x, 0, direction)
+
+
+def test_public_gruntz_returns_accumulation_bounds_of_oscillation():
+    from symox.series.gruntz import gruntz
+    assert gruntz(sin(x), x, oo) == AccumBounds(-1, 1)
+    assert gruntz(cos(x) + 1, x, oo) == AccumBounds(0, 2)
+    assert gruntz(sin(1/x), x, 0) == AccumBounds(-1, 1)
+    assert gruntz(exp(-x)*x**5, x, oo) == 0
+    with pytest.raises(NotImplementedError, match='^Second argument must be a Symbol$'):
+        gruntz(x, x**2, 0)

@@ -187,9 +187,6 @@ impl Iv {
         };
         Iv { lo, hi, e: 2 * self.e }.round(prec)
     }
-    pub fn mul_rat(&self, r: &Rat, prec: u32) -> Iv {
-        self.mul(&Iv::from_rat(r, prec), prec)
-    }
     pub fn inv(&self, prec: u32) -> Option<Iv> {
         if self.contains_zero() {
             return None;
@@ -226,15 +223,6 @@ impl Iv {
     pub fn width_below(&self, k: i64) -> bool {
         let w = &self.hi - &self.lo;
         w.is_zero() || (w.bits() as i64 + self.e) <= k
-    }
-    /// The binary exponent of the magnitude, `None` for an interval that
-    /// contains zero.
-    pub fn magnitude_exponent(&self) -> Option<i64> {
-        if self.contains_zero() {
-            None
-        } else {
-            Some(self.lo.magnitude().min(self.hi.magnitude()).bits() as i64 + self.e)
-        }
     }
     pub fn within(&self, lo: &Rat, hi: &Rat) -> bool {
         &self.lo_rat() >= lo && &self.hi_rat() <= hi
@@ -945,23 +933,6 @@ fn enclose_pow(b: &Expr, x: &Expr, whole: &Expr, prec: u32) -> Result<CBox, EncE
     let p = r.n.as_i64().ok_or(EncError::Precision)?;
     let root = principal_root(&base, q, prec)?;
     root.powi(p, prec).ok_or(EncError::Precision)
-}
-
-/// Enclosure of `e` whose rectangle is at most `2^-bits` wide relative to
-/// a unit scale, trying increasing working precisions.
-pub fn enclose_to(e: &Expr, bits: u32, max_prec: u32) -> Result<CBox, EncError> {
-    let mut prec = bits + 16;
-    loop {
-        match enclose(e, prec) {
-            Ok(b) if b.width_below(-(bits as i64)) => return Ok(b),
-            Ok(_) | Err(EncError::Precision) => {}
-            Err(other) => return Err(other),
-        }
-        if prec >= max_prec {
-            return Err(EncError::Precision);
-        }
-        prec = (prec * 2).min(max_prec);
-    }
 }
 
 #[cfg(test)]

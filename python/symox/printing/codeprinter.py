@@ -483,13 +483,17 @@ class CodePrinter(StrPrinter):
         # print it as the Indexed node it stands for (``y(i + 1)`` in
         # Fortran and Octave, flattened offsets in C).
         from symox.codegen.ast import _indexed_reference
-        if hasattr(self, '_print_Indexed'):
-            try:
-                indexed = _indexed_reference(expr)
-            except TypeError:
-                indexed = None
-            if indexed is not None:
+        try:
+            indexed = _indexed_reference(expr)
+        except TypeError:
+            indexed = None
+        if indexed is not None:
+            if hasattr(self, '_print_Indexed'):
                 return self._print_Indexed(indexed)
+            # The reference printers without ``_print_Indexed`` (Maple,
+            # Mathematica) reach Indexed through ``_print_Expr``, which
+            # reports it as not supported.
+            return self._print_not_supported(indexed)
         name = super()._print_Symbol(expr)
 
         if name in self.reserved_words:
@@ -705,6 +709,10 @@ class CodePrinter(StrPrinter):
         except TypeError:
             # not hashable
             pass
+        from symox.codegen.ast import CodegenAST
+        if isinstance(expr, CodegenAST):
+            # StrPrinter.emptyPrinter prints a Basic node by its repr.
+            return repr(expr)
         return self.emptyPrinter(expr)
 
     # The following can not be simply translated into C or Fortran

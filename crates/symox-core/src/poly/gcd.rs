@@ -347,11 +347,6 @@ fn use_modular(f: &MPoly<Int>, g: &MPoly<Int>, vars: &[usize]) -> bool {
     bits > 6000.0
 }
 
-/// Gcd only.
-pub fn gcd_mz_only(f: &MPoly<Int>, g: &MPoly<Int>) -> MPoly<Int> {
-    gcd_mz(f, g).0
-}
-
 /// ξ-adic reconstruction in variable `v` of a polynomial image.
 fn interpolate_mpoly(h: &MPoly<Int>, x: &Int, v: usize) -> MPoly<Int> {
     let n = h.nvars;

@@ -4,7 +4,8 @@ The formulas and their applicability conditions follow the
 ``_eval_rewrite_as_<rule>`` methods of SymPy 1.14 (BSD-3-Clause; see
 LICENSE-SYMPY) in ``functions/special/gamma_functions.py`` and
 ``beta_functions.py`` and ``functions/combinatorial/factorials.py`` and
-``numbers.py`` (harmonic). No SymPy code is imported.
+``numbers.py`` (harmonic, Fibonacci, Lucas, tribonacci, Bernoulli,
+Euler, Genocchi and Andre numbers). No SymPy code is imported.
 
 The traversal is SymPy's ``Basic._rewrite``: children are rewritten first,
 then a node selected by the pattern classes is rewritten from its new
@@ -295,6 +296,102 @@ def _harmonic_tractable(e, n, m=None, limitvar=None, **hints):
     return None
 
 
+
+# numbers.py: Fibonacci, Lucas and tribonacci numbers. The two-argument
+# polynomial forms have no rewrite (SymPy's methods take one argument).
+def _fibonacci_tractable(e, n, *sym, **hints):
+    s = _s()
+    if sym:
+        return None
+    return (s.GoldenRatio**n - s.cos(s.pi*n)/s.GoldenRatio**n)/s.sqrt(5)
+
+
+def _fibonacci_sqrt(e, n, *sym, **hints):
+    s = _s()
+    if sym:
+        return None
+    return 2**(-n)*s.sqrt(5)*((1 + s.sqrt(5))**n - (-s.sqrt(5) + 1)**n)/5
+
+
+def _fibonacci_GoldenRatio(e, n, *sym, **hints):
+    s = _s()
+    if sym:
+        return None
+    return (s.GoldenRatio**n - 1/(-s.GoldenRatio)**n)/(2*s.GoldenRatio - 1)
+
+
+def _lucas_sqrt(e, n, **hints):
+    s = _s()
+    return 2**(-n)*((1 + s.sqrt(5))**n + (-s.sqrt(5) + 1)**n)
+
+
+def _tribonacci_sqrt(e, n, *sym, **hints):
+    s = _s()
+    if sym:
+        return None
+    w = (-1 + s.I*s.sqrt(3))/2
+    a = (1 + s.cbrt(19 + 3*s.sqrt(33)) + s.cbrt(19 - 3*s.sqrt(33)))/3
+    b = (1 + w*s.cbrt(19 + 3*s.sqrt(33)) + w**2*s.cbrt(19 - 3*s.sqrt(33)))/3
+    c = (1 + w**2*s.cbrt(19 + 3*s.sqrt(33)) + w*s.cbrt(19 - 3*s.sqrt(33)))/3
+    return (a**(n + 1)/((a - b)*(a - c))
+            + b**(n + 1)/((b - a)*(b - c))
+            + c**(n + 1)/((c - a)*(c - b)))
+
+
+def _tribonacci_TribonacciConstant(e, n, *sym, **hints):
+    s = _s()
+    if sym:
+        return None
+    b = s.cbrt(586 + 102*s.sqrt(33))
+    return s.floor(3*b*s.TribonacciConstant**n/(b**2 - 2*b + 4) + s.S.Half)
+
+
+def _bernoulli_zeta(e, n, x=None, **hints):
+    s = _s()
+    x = s.Integer(1) if x is None else x
+    return s.Piecewise((1, s.Eq(n, 0)), (-n*s.zeta(1 - n, x), True))
+
+
+def _euler_genocchi(e, n, x=None, **hints):
+    s = _s()
+    if x is None:
+        return s.Piecewise((s.pi/2, s.Eq(n, -1)),
+                           (-2**n*s.genocchi(n + 1, s.S.Half)/(n + 1), True))
+    return s.Piecewise((s.digamma((x + 1)/2) - s.digamma(x/2), s.Eq(n, -1)),
+                       (-s.genocchi(n + 1, x)/(n + 1), True))
+
+
+def _genocchi_bernoulli(e, n, x=None, **hints):
+    s = _s()
+    if x is None or x == 1:
+        if n.is_integer and n.is_nonnegative:
+            return 2*(1 - s.Integer(2)**n)*s.bernoulli(n)
+    x = s.Integer(1) if x is None else x
+    # SymPy's default x = 1 gives the Float (x + 1)/2 = 1.0 here; the exact
+    # value 1 is kept.
+    return 2*(s.bernoulli(n, x) - 2**n*s.bernoulli(n, (x + 1)/2))
+
+
+def _genocchi_dirichlet_eta(e, n, x=None, **hints):
+    s = _s()
+    if x is None or x == 1:
+        # dirichlet_eta(s, 1) is dirichlet_eta(s)
+        return -2*n*s.dirichlet_eta(1 - n)
+    # the two-argument dirichlet_eta is not available: left unchanged
+    return None
+
+
+def _andre_zeta(e, z, **hints):
+    s = _s()
+    return (2*s.gamma(z + 1)/(2*s.pi)**(z + 1)
+            * (s.zeta(z + 1, s.Rational(1, 4)) - s.cos(s.pi*z)*s.zeta(z + 1, s.Rational(3, 4))))
+
+
+def _andre_polylog(e, z, **hints):
+    s = _s()
+    return (-s.I)**(z + 1)*s.polylog(-z, s.I) + s.I**(z + 1)*s.polylog(-z, -s.I)
+
+
 RULES = {
     ('gamma', 'tractable'): _gamma_tractable,
     ('gamma', 'factorial'): _gamma_factorial,
@@ -339,6 +436,18 @@ RULES = {
     ('harmonic', 'Sum'): _harmonic_Sum,
     ('harmonic', 'zeta'): _harmonic_zeta,
     ('harmonic', 'tractable'): _harmonic_tractable,
+    ('fibonacci', 'tractable'): _fibonacci_tractable,
+    ('fibonacci', 'sqrt'): _fibonacci_sqrt,
+    ('fibonacci', 'GoldenRatio'): _fibonacci_GoldenRatio,
+    ('lucas', 'sqrt'): _lucas_sqrt,
+    ('tribonacci', 'sqrt'): _tribonacci_sqrt,
+    ('tribonacci', 'TribonacciConstant'): _tribonacci_TribonacciConstant,
+    ('bernoulli', 'zeta'): _bernoulli_zeta,
+    ('euler', 'genocchi'): _euler_genocchi,
+    ('genocchi', 'bernoulli'): _genocchi_bernoulli,
+    ('genocchi', 'dirichlet_eta'): _genocchi_dirichlet_eta,
+    ('andre', 'zeta'): _andre_zeta,
+    ('andre', 'polylog'): _andre_polylog,
 }
 
 from ._special_rewrites import RULES as _SPECIAL_RULES  # noqa: E402

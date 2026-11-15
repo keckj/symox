@@ -13,6 +13,20 @@ class _Reference(Exception):
     """The native proof declines this input; use the reference algorithm."""
 
 
+def _declines(expression):
+    """Whether a native NotImplementedError may defer to the reference.
+
+    Undefined functions keep the explicit NotImplementedError: SymPy either
+    overflows the recursion limit or reports an unproven ``False`` there.
+    """
+    from ._analysis import walk
+    try:
+        expression=scalar(expression)
+    except TypeError:
+        return True
+    return not any(getattr(node,'is_UndefinedFunction',False) for node in walk(expression))
+
+
 def _reference_variable(expression, symbol):
     from .. import Symbol, sympify
     expression=sympify(expression)

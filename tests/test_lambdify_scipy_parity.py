@@ -70,7 +70,11 @@ def run(S):
                 record['source'] = inspect.getsource(f)
             except Exception as error:
                 record['source'] = 'raise ' + type(error).__name__
-            record['signature'] = str(inspect.signature(f))
+            try:
+                record['signature'] = str(inspect.signature(f))
+            except Exception as error:
+                # a native function without generated source (recorded gaps)
+                record['signature'] = 'raise ' + type(error).__name__
             head, _, imports = (f.__doc__ or '').partition('Imported modules:\n\n')
             # SymPy lists the imports of one module in set order
             record['doc'] = [head, sorted(imports.split('\n'))]

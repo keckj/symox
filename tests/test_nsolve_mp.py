@@ -105,6 +105,21 @@ def test_requested_low_precision_and_starting_point_precision():
     assert_digits(result, sp.Float("1e400", 15), 15)
 
 
+@pytest.mark.parametrize("text,start,expected", [
+    ("x**2 + 1", "1 + I", "1.0*I"),
+    ("x**2 + 4", "1 + I", "2.0*I"),
+    ("x**2 + x + 1", "I", "-0.5 + 0.866025403784439*I"),
+])
+def test_complex_secant_root_like_reference(text, start, expected):
+    # mpmath's findroot works at prec + 20 bits: the residual imaginary or
+    # real part of the iterate is below what a 53-bit result prints
+    x = sm.Symbol("x")
+    result = sm.nsolve(sm.sympify(text), x, sm.sympify(start))
+    assert str(result) == expected
+    sx = sp.Symbol("x")
+    assert str(sp.nsolve(sp.sympify(text), sx, sp.sympify(start))) == expected
+
+
 def test_mp_solver_has_no_sympy_or_mpmath_runtime_dependency():
     source = r"""
 import builtins

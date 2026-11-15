@@ -7,7 +7,12 @@ fn polar_exponential_preserves_winding_and_native_identity(){
     let x=Expr::symbol("x");
     let polar=func(Func::ExpPolar,vec![x.clone()]);
     assert_ne!(polar,undefined("exp_polar",vec![x.clone()]));
-    assert_eq!(crate::diff::diff(&polar,&x),polar);
+    // SymPy's exp_polar has no fdiff: the derivative is held.
+    assert_eq!(crate::diff::diff(&polar,&x),crate::diff::derivative_unevaluated(&polar,vec![(x.clone(),1)]));
+    // Evaluating exp(w) exactly first leaves no rounded real part.
+    let quarter_turn=parse("exp_polar(-I*pi/2)");
+    let value=crate::evalf_mp::eval_mp_unbounded(&quarter_turn,53).unwrap();
+    assert!(value.re.is_zero());
     assert_eq!(crate::assumptions::fact(&polar,"polar"),Some(true));
     let winding=parse("exp_polar(2*I*pi)");
     assert_ne!(winding,Expr::one());

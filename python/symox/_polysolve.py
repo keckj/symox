@@ -150,8 +150,24 @@ def _zero_dimensional_numerators(equations, variables, parametric=False):
             return None if parametric else EmptySet
         if not basis.is_zero_dimensional:
             return None
-        roots = solve_poly_system(list(basis.fglm('lex')), *variables)
+        lex = list(basis.fglm('lex'))
     except (NotImplementedError, ValueError):
+        return None
+    try:
+        roots = solve_poly_system(lex, *variables)
+    except NotImplementedError as error:
+        if parametric or 'cannot be expressed by the implemented radical root' not in str(error):
+            return None
+        # The reference ``_handle_poly``: solve_poly_system(strict=True)
+        # raised UnsolvableFactorError, so the lex basis goes to
+        # ``substitution``, whose univariate solveset steps give the
+        # complete CRootOf roots; the denominators are excluded there.
+        from .solvers._substitution import _simple_dens, substitution
+        dens = set()
+        for eq in equations:
+            dens.update(_simple_dens(eq, variables))
+        return substitution(lex, list(variables), result=[{}], exclude=dens)
+    except ValueError:
         return None
     if roots is None:
         return None if parametric else EmptySet

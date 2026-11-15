@@ -112,6 +112,17 @@ def test_nonlinsolve_retains_parametric_linear_solutions():
     assert sm.nonlinsolve([x-y, x-y-1], x, y) == sm.EmptySet
 
 
+def test_nonlinsolve_irreducible_quintic_gives_crootof_tuples():
+    # SymPy 1.14 falls back from the radical solver to substitution over
+    # the lex basis, which keeps the CRootOf values
+    x, y = sm.symbols("x y")
+    result = sm.nonlinsolve([x**5-x+1, y-x], [x, y])
+    sx, sy = sp.symbols("x y")
+    expected = sp.nonlinsolve([sx**5-sx+1, sy-sx], [sx, sy])
+    assert oracle(result) == expected
+    assert len(result.args) == 5
+
+
 def test_invalid_polynomial_system_inputs_are_explicit():
     x, y, a = sm.symbols("x y a")
     with pytest.raises(ValueError, match="unique"):

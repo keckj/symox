@@ -306,6 +306,18 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
     if vars.iter().any(|(v, _)| !v.is_symbol()) {
         return raw(expr, &vars);
     }
+    if expr.may_have_order() {
+        // An order term inside a product or a power, as `O(x*(1 + x +
+        // O(x**3)))` from `exp(x).series(x, 0, 3)*O(x)`. The reference
+        // takes the leading term (`as_leading_term`, or for several
+        // variables `extract_leading_order` of the expansion, whose products
+        // with order terms are absorbed), where an inner `O(f)` counts as
+        // `f`: `O(x*(1 + x + O(x**3)))` is `O(x)`.
+        if vars.len() > 1 {
+            expr = reabsorb(&crate::expand::expand(&expr));
+        }
+        expr = order_free(&expr);
+    }
     if expr.is_constant(Constant::NaN) {
         // Order.__new__: `O(nan)` is `nan`
         return Expr::nan();
@@ -548,6 +560,34 @@ pub fn pow_hook(b: &Expr, k: &Expr) -> Option<Expr> {
     }
     let (oe, vars) = order_parts(b)?;
     Some(order(&pow(&oe, k), &vars))
+}
+
+/// `e` with every order term replaced by its expression.
+fn order_free(e: &Expr) -> Expr {
+    if !e.may_have_order() {
+        return e.clone();
+    }
+    if let Some((inner, _)) = order_parts(e) {
+        return order_free(&inner);
+    }
+    crate::simptools::map_args(e, &mut |a| order_free(a))
+}
+
+/// Rebuild the sums, products and powers holding order terms with the
+/// evaluating constructors, so that each order term absorbs the terms it
+/// contains, as SymPy's flatten does while it builds every product of an
+/// expansion: `x**2*O(x**3)` is `O(x**5)` and `1 + x + O(x**3)**2 + O(x)`
+/// is `1 + O(x)`.
+pub fn reabsorb(e: &Expr) -> Expr {
+    if !e.may_have_order() || is_order(e) {
+        return e.clone();
+    }
+    match e.kind() {
+        Kind::Add(..) => add(&e.args().iter().map(reabsorb).collect::<Vec<_>>()),
+        Kind::Mul(..) => mul(&e.args().iter().map(reabsorb).collect::<Vec<_>>()),
+        Kind::Pow(b, k) => pow(&reabsorb(b), k),
+        _ => e.clone(),
+    }
 }
 
 /// Drop the order terms of a sum (`removeO`).

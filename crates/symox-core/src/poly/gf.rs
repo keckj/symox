@@ -470,12 +470,6 @@ pub fn factor_sqf(f: &[u64], p: u64) -> Vec<GfPoly> {
     out
 }
 
-/// Number of irreducible factors of a monic square-free polynomial
-/// (cheaper than a full factorisation).
-pub fn count_factors(f: &[u64], p: u64) -> usize {
-    ddf(f, p).iter().map(|(g, d)| (g.len() - 1) / d).sum()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

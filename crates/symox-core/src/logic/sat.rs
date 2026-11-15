@@ -177,10 +177,6 @@ impl Solver {
         }
     }
 
-    pub fn num_vars(&self) -> usize {
-        self.assigns.len()
-    }
-
     /// Create a fresh variable.
     pub fn new_var(&mut self) -> u32 {
         let v = self.assigns.len();

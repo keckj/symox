@@ -6,6 +6,7 @@ is imported, and failed compiler commands report their captured diagnostics.
 import importlib.util
 import itertools
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -31,6 +32,15 @@ def _load(name,directory):
     return module
 
 
+def _remove_workdir(filepath,directory):
+    # SymPy's CodeWrapper.wrap_code removes the temporary build directory
+    # once the module is imported, unless ``tempdir`` was given; the loaded
+    # extension stays mapped.
+    if not filepath:
+        try:shutil.rmtree(directory)
+        except OSError:pass
+
+
 class CodeWrapper:
     def __init__(self,generator,filepath=None,flags=None,verbose=False,**kwargs):
         self.generator,self.filepath,self.flags,self.verbose=generator,filepath,list(flags or []),verbose
@@ -38,8 +48,11 @@ class CodeWrapper:
     def wrap_code(self,routine,helpers=None):
         directory=Path(self.filepath or tempfile.mkdtemp(prefix='symox-autowrap-')).resolve()
         directory.mkdir(parents=True,exist_ok=True)
-        self.generator.write([*(helpers or []),routine],str(directory/self.filename),to_files=True)
-        return self._compile(routine,directory)
+        try:
+            self.generator.write([*(helpers or []),routine],str(directory/self.filename),to_files=True)
+            return self._compile(routine,directory)
+        finally:
+            _remove_workdir(self.filepath,directory)
     def _compile(self,routine,directory):raise NotImplementedError('choose a compilation backend')
 
 
@@ -97,7 +110,10 @@ class UfuncifyCodeWrapper(CodeWrapper):
         self.helpers=list(helpers or ())
         directory=Path(self.filepath or tempfile.mkdtemp(prefix='symox-ufunc-')).resolve()
         directory.mkdir(parents=True,exist_ok=True)
-        return self._compile(routine,directory)
+        try:
+            return self._compile(routine,directory)
+        finally:
+            _remove_workdir(self.filepath,directory)
     def _compile(self,routine,directory):
         import numpy as np
         from ..printing.c import C99CodePrinter

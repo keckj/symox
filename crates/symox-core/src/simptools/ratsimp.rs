@@ -13,7 +13,7 @@ use super::as_numer_denom;
 use crate::expr::Expr;
 use crate::ops::{add, div, mul};
 use crate::poly::api::{cancel, reduced};
-use crate::poly::convert::{from_exprs, from_exprs_gens, to_expr_f, PResult, PolyError};
+use crate::poly::convert::{from_exprs, from_exprs_gens, PResult, PolyError};
 use crate::poly::groebner::{reduce, CoefficientField, MonomialOrder};
 use crate::poly::int::Rat;
 use crate::poly::mpoly::MPoly;

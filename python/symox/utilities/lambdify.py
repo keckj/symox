@@ -6,11 +6,29 @@ import symox as _S
 _implemented={}
 
 def implemented_function(symfunc,implementation):
-    if not callable(implementation):raise TypeError('implementation must be callable')
-    if isinstance(symfunc,str):symfunc=_S.Function(symfunc)
-    if not isinstance(symfunc,_S.Function):raise ValueError('implementation requires an undefined function')
+    # SymPy creates a new undefined function holding the implementation,
+    # with the assumptions of a given undefined function.
+    if isinstance(symfunc,_S.Function):
+        symfunc=_S.Function(symfunc.name,nargs=symfunc._nargs,**symfunc._assumptions)
+    elif isinstance(symfunc,str):symfunc=_S.Function(symfunc)
+    else:
+        raise ValueError('\nsymfunc should be either a string or an UndefinedFunction instance.')
     symfunc._imp_=implementation;_implemented[symfunc.name]=implementation
+    # evalf consults the implementation (SymPy's Function._eval_evalf).
+    register=getattr(_S._core,'_register_implemented_evalf',None)
+    if register is not None:register()
     return symfunc
+
+def _imp_evalf(expr,prec):
+    """SymPy's ``Function._eval_evalf`` fallback of an applied undefined
+    function: ``Float(imp(*[a.evalf(prec) for a in args]), prec)``, or None
+    when there is no implementation or its value is not a real number."""
+    imp=_implemented.get(getattr(expr.func,'name',None))
+    if imp is None:return None
+    try:
+        return _S.Float(imp(*[a.evalf(prec) for a in expr.args]),prec)
+    except (TypeError,ValueError):
+        return None
 
 def _recursive_to_string(doprint,arg):
     # SymPy's lambdify._recursive_to_string.
@@ -166,6 +184,8 @@ def _compile_implemented(args,expr,modules,options):
     def implementation(node):
         kind=square_root(node)
         if kind:return root if kind>0 else reciprocal_root
+        if _is_codegen_node(node):
+            return _codegen_implementation(node,modules)
         if is_host_function_class(type(node)):
             # A Function subclass: a namespace entry, else its _imp_.
             found=namespace.get(type(node).__name__)
@@ -221,7 +241,8 @@ def _compile_object(args, expr):
     import numpy
     from ..printing.numpy import NumPyPrinter
     source = lambdastr(args, expr, printer=NumPyPrinter, dummify=True)
-    return eval(source, {'numpy': numpy})
+    import functools
+    return eval(source, {'numpy': numpy, 'functools': functools})
 
 
 def _numpy_modules(modules):
@@ -354,6 +375,10 @@ def _mpmath_only(modules):
 class _MpmathSource:
     def __init__(self,symbol_names):
         self.names=symbol_names;self.functions=set()
+        # sympy.codegen nodes MpmathPrinter prints under their class name
+        # (minimum, fma, Cbrt, ...): without a namespace entry the generated
+        # function raises NameError when called, as SymPy's does.
+        self.codegen=set()
     def number(self,value):
         if value.is_Integer:return str(int(value)) if value>=0 else '(%d)'%int(value)
         if value.is_Rational:return '(mpf(%d)/mpf(%d))'%(int(value.p),int(value.q))
@@ -418,6 +443,10 @@ class _MpmathSource:
         if name=='log2':return '('+self.call('log',[self(args[0])])+'/log(2))'
         if name=='uppergamma':return self.call('gammainc',[self(args[0]),self(args[1]),'inf'])
         if name=='lowergamma':return self.call('gammainc',[self(args[0]),'0',self(args[1])])
+        if _is_codegen_node(e):
+            if name=='Sqrt':return self.call('sqrt',[self(args[0])])
+            self.codegen.add(name)
+            return self.call(name,[self(a) for a in args])
         if getattr(e,'is_Function',False) and name.isidentifier():
             return self.call(_MPMATH_PRINTED.get(name,name),[self(a) for a in args])
         raise _Unprintable(e)
@@ -441,7 +470,8 @@ def _compile_mpmath(args,expr,modules,options):
     """SymPy's mpmath lambdify, or None for forms the printer does not cover."""
     if not _mpmath_only(modules) or options.get('printer') is not None or options.get('cse'):return None
     from .._host import is_host_function_class
-    if is_host_function_class(type(expr)) or (isinstance(expr,(list,tuple)) and any(is_host_function_class(type(v)) for v in expr)):
+    def host(value):return is_host_function_class(type(value)) and not _is_codegen_node(value)
+    if host(expr) or (isinstance(expr,(list,tuple)) and any(host(v) for v in expr)):
         return None
     roots=[args] if isinstance(args,(_S.Expr,str)) else list(args)
     mapping={};parameters=[]
@@ -466,7 +496,7 @@ def _compile_mpmath(args,expr,modules,options):
     for name in printer.functions:
         if name not in namespace and not hasattr(builtins,name):
             if name in _implemented:namespace[name]=_implemented[name]
-            else:return None
+            elif name not in printer.codegen:return None
     source='def _lambdifygenerated('+', '.join(parameters)+'):\n    return '+body+'\n'
     import linecache,textwrap,weakref
     global _lambdify_generated_counter
@@ -506,7 +536,10 @@ _NAMESPACE_MODULES = {
         'betainc_regularized': 'betainc'}),
     'numpy': ({'I': 1j}, ('import numpy; from numpy import *; from numpy.linalg import *',),
               {'Heaviside': 'heaviside'}),
-    'scipy': ({'I': 1j}, ('import scipy; import numpy; from scipy.special import *',),
+    # SymPy's SciPyPrinter adds ``from numpy import logaddexp`` (and
+    # logaddexp2) through its module_imports.
+    'scipy': ({'I': 1j}, ('import scipy; import numpy; from scipy.special import *',
+                          'from numpy import logaddexp, logaddexp2'),
               {'jn': 'spherical_jn', 'yn': 'spherical_yn'}),
     'cupy': ({'I': 1j}, ('import cupy',), {}),
     'jax': ({'I': 1j}, ('import jax',), {}),
@@ -654,7 +687,7 @@ def _select_reference_flavor(modules):
 _REFERENCE_NODE_LIMIT = 20000
 
 
-def _reference_plan(args, expr, modules, options, shown=None, introspection=False):
+def _reference_plan(args, expr, modules, options, shown=None, introspection=False, codegen=False):
     """``(build, kind, flavor[, body, names, resolve[, evaluate]])``: a builder of
     SymPy's generated ``_lambdifygenerated`` function from the natively
     printed source, its result type code for float arguments, the printer
@@ -700,7 +733,7 @@ def _reference_plan(args, expr, modules, options, shown=None, introspection=Fals
         if any(str(f.func) not in (user_functions or {}) for f in expr.atoms(AppliedUndef)):
             return None
     undefined = bool(unknown) and not _names_resolved(unknown, namespaces)
-    if undefined and not (introspection and _undefined_functions(unknown, expr)):
+    if undefined and not ((introspection or codegen) and _undefined_functions(unknown, expr)):
         return None
     limit = options.get('docstring_limit', 1000)
     shown = expr if shown is None else shown
@@ -741,8 +774,243 @@ def _undefined_functions(unknown, expr):
     applied in ``expr`` that SymPy prints under its own name without a
     definition (``_UNDEFINED_PRINTED``)."""
     from symox import Function
-    applied = {type(f).__name__ for f in expr.atoms(Function)}
-    return all(name in applied and name in _UNDEFINED_PRINTED for name in unknown)
+    functions = expr.atoms(Function)
+    applied = {type(f).__name__ for f in functions}
+    # The ``sympy.codegen`` classes the native printer prints under their
+    # class name are the ones SymPy's printers do not know (fma, Cbrt,
+    # cosm1 without SciPy, minimum with the math printer, ...).
+    codegen = {type(f).__name__ for f in functions if _is_codegen_node(f)}
+    return all(name in codegen or (name in applied and name in _UNDEFINED_PRINTED) for name in unknown)
+
+
+# Modules of the ``sympy.codegen`` function classes whose lambdify printing
+# follows SymPy's printers (class-name dispatch).
+_CODEGEN_NODE_MODULES = ('symox.codegen.numpy_nodes', 'symox.codegen.scipy_nodes',
+                         'symox.codegen.cfunctions')
+
+
+def _is_codegen_node(node):
+    return type(node).__module__ in _CODEGEN_NODE_MODULES
+
+
+def _codegen_flavor(modules):
+    """The SymPy printer lambdify selects for ``modules`` ('mpmath', 'scipy',
+    'numpy' or 'math'), or None for the other printers."""
+    if modules is None:
+        try:
+            _module_namespace('scipy')
+            return 'scipy'
+        except ImportError:
+            try:
+                _module_namespace('numpy')
+                return 'numpy'
+            except ImportError:
+                return 'mpmath'
+    candidates = [modules] if isinstance(modules, (dict, str)) or not hasattr(modules, '__iter__') else list(modules)
+    for name in ('mpmath', 'scipy', 'numpy'):
+        if _module_named(name, candidates):
+            return name
+    for name in ('cupy', 'jax', 'numexpr', 'tensorflow', 'torch', 'sympy', 'symox', 'cmath'):
+        if _module_named(name, candidates):
+            return None
+    return 'math'
+
+
+# The ``sympy.codegen`` functions each SymPy printer prints as a module
+# function (``numpy.expm1``, ``math.hypot``, ``mpmath.log10``); the others it
+# prints under their class name (``fma(x, y, z)``).
+_CODEGEN_KNOWN = {
+    'math': frozenset(('expm1', 'log1p', 'log2', 'log10', 'hypot', 'isnan', 'isinf', 'Sqrt')),
+    'mpmath': frozenset(('expm1', 'log1p', 'log2', 'log10', 'hypot', 'isnan', 'isinf', 'Sqrt')),
+    'numpy': frozenset(('expm1', 'log1p', 'log2', 'log10', 'hypot', 'isnan', 'isinf', 'Sqrt',
+                        'exp2', 'logaddexp', 'logaddexp2', 'minimum', 'maximum')),
+}
+_CODEGEN_KNOWN['scipy'] = _CODEGEN_KNOWN['numpy'] | {'cosm1', 'powm1'}
+
+
+def _codegen_implementation(node, modules):
+    """The callable SymPy's generated function applies for a
+    ``sympy.codegen`` node: the printed name looked up in the lambdify
+    namespace (``reduce`` over the binary ufunc for numpy ``minimum`` and
+    ``maximum``); a name the namespace lacks raises NameError when called,
+    like SymPy's generated function. None for printers not reproduced."""
+    import functools, importlib
+    flavor = _codegen_flavor(modules)
+    if flavor is None:
+        return None
+    name = type(node).__name__
+    printed = 'sqrt' if name == 'Sqrt' else name
+    known = name in _CODEGEN_KNOWN[flavor]
+    namespace = _lambdify_namespace(modules, ())
+    module = {'math': 'math', 'mpmath': 'mpmath', 'numpy': 'numpy', 'scipy': 'numpy'}[flavor]
+    if flavor == 'scipy' and name in ('cosm1', 'powm1'):
+        module = 'scipy.special'
+
+    def resolve(short):
+        found = namespace.get(short)
+        if found is not None:
+            return found
+        if known:
+            # The printer's ``from module import name`` line.
+            try:
+                return getattr(importlib.import_module(module), short)
+            except (ImportError, AttributeError):
+                pass
+
+        def undefined(*values):
+            raise NameError("name '%s' is not defined" % short)
+        return undefined
+    if flavor in ('numpy', 'scipy') and name in ('minimum', 'maximum'):
+        if len(node.args) == 1:
+            return lambda value: value
+        ufunc = resolve(name)
+        return lambda *values: functools.reduce(ufunc, list(values))
+    if flavor == 'mpmath' and name == 'log2':
+        log = resolve('log')
+        return lambda value: log(value)/log(2)
+    return resolve(printed)
+
+
+def _codegen_nodes(expr):
+    """The ``sympy.codegen`` function applications of ``expr``."""
+    import sys
+    if not any(name in sys.modules for name in _CODEGEN_NODE_MODULES):
+        return []
+    from symox import Function
+    try:
+        return [f for f in expr.atoms(Function) if _is_codegen_node(f)]
+    except (AttributeError, TypeError):
+        return []
+
+
+def _compile_codegen(args, expr, modules, options, shown):
+    """SymPy's generated function for an expression with ``sympy.codegen``
+    nodes (numpy_nodes, scipy_nodes, cfunctions) or an ``amin``/``amax``
+    reduction, or None to keep the general path. SymPy prints these through
+    its printers' class-name dispatch: ``minimum(x, y, z)`` as
+    ``reduce(minimum, [x, y, z])``, ``expm1`` as ``numpy.expm1``, and the
+    nodes a printer does not know under their own name (the generated
+    function raises NameError when the namespace has no such name)."""
+    import sys
+    nodes = sys.modules.get('symox.codegen.numpy_nodes')
+    if nodes is not None and isinstance(expr, nodes._AxisReduction):
+        return _compile_axis_reduction(args, expr, modules, options, shown)
+    from .. import _core
+    if not (isinstance(expr, _core.Expr) or isinstance(expr, _S.Basic)) or _mpmath_only(modules):
+        return None
+    if not _codegen_nodes(expr):
+        return None
+    plan = _reference_plan(args, expr, modules, options, shown, codegen=True)
+    return plan[0]() if plan is not None else None
+
+
+def _argument_names(args):
+    """The parameter names of SymPy's generated function for plain symbol
+    arguments, or None."""
+    from .. import _core
+    iterable_args = (args,) if isinstance(args, _core.Expr) or isinstance(args, _S.Expr) else args
+    try:
+        iterable_args = list(iterable_args)
+    except TypeError:
+        return None
+    names = []
+    for arg in iterable_args:
+        if type(arg).__name__ != 'Symbol' or not isinstance(arg, _S.Symbol):
+            return None
+        name = arg.name
+        if not name or not name.isidentifier() or _iskeyword(name):
+            return None
+        names.append(name)
+    return names if len(set(names)) == len(names) else None
+
+
+def _axis_reduction_call(args, expr, modules, options):
+    """``amin``/``amax`` when the generated source is not reproduced (cse,
+    dummify, nested arguments, ...): the array lambdified on its own, then
+    the namespace's ``amin``/``amax`` (numpy's by default) along ``axis``."""
+    from ..codegen.ast import none
+    head = type(expr).__name__
+    reduction = _lambdify_namespace(modules, ()).get(head)
+    if reduction is None:
+        import numpy
+        reduction = getattr(numpy, head)
+    array = expr.array
+    if isinstance(array, tuple):
+        array = list(array)
+    inner = _S.lambdify(args, array, modules=modules, **options)
+    axis = expr.axis
+    if axis is None or axis is none:
+        axis = None
+    elif getattr(axis, 'is_Integer', False):
+        axis = int(axis)
+    elif getattr(axis, 'is_Tuple', False) and all(getattr(a, 'is_Integer', False) for a in axis):
+        axis = tuple(int(a) for a in axis)
+    else:
+        return None
+
+    def call(*values, **kwargs):
+        return reduction(inner(*values, **kwargs), axis=axis)
+    return call
+
+
+def _compile_axis_reduction(args, expr, modules, options, shown):
+    """``amin``/``amax``: NumPyPrinter's ``numpy.amin(array, axis=...)``;
+    the math and mpmath printers refuse the node."""
+    flavor = _codegen_flavor(modules)
+    if flavor == 'mpmath':
+        from ..printing.pycode import MpmathPrinter
+        MpmathPrinter({'allow_unknown_functions': True}).doprint(expr)
+        return None
+    if flavor == 'math':
+        from ..printing.pycode import PythonCodePrinter
+        PythonCodePrinter({'allow_unknown_functions': True}).doprint(expr)
+        return None
+    if flavor is None:
+        return None
+    plan = _reference_flavor(modules, options)
+    names = _argument_names(args)
+    if plan is None or names is None:
+        return _axis_reduction_call(args, expr, modules, options)
+    flavor, namespaces, user_functions = plan
+    if names is None:
+        return None
+    from .. import _core
+    from ..codegen.ast import none
+
+    def printed(value):
+        printed = _core.lambdify_reference(value, flavor, user_functions, names, _REFERENCE_NODE_LIMIT)
+        if printed is None:
+            raise _Unprintable(value)
+        body, imports, _, _, unknown = printed
+        if unknown and not _names_resolved(unknown, namespaces):
+            raise _Unprintable(value)
+        return body, imports
+    imports = []
+    try:
+        array = expr.array
+        if isinstance(array, (list, tuple)):
+            parts = []
+            for value in array:
+                body, more = printed(_S.sympify(value))
+                parts.append(body)
+                imports += more
+            body = '[%s]' % ', '.join(parts) if isinstance(array, list) else '(%s)' % (
+                parts[0] + ',' if len(parts) == 1 else ', '.join(parts))
+        else:
+            body, imports = printed(_S.sympify(array))
+        axis = expr.axis
+        if axis is None or axis is none:
+            axis_text = 'None'
+        else:
+            axis_text, more = printed(_S.sympify(axis))
+            imports += more
+    except (_Unprintable, TypeError, ValueError, AttributeError):
+        return _axis_reduction_call(args, expr, modules, options)
+    head = type(expr).__name__
+    imports = list(dict.fromkeys(imports + [('numpy', head)]))
+    source = '%s(%s, axis=%s)' % (head, body, axis_text)
+    atoms = _S.Tuple(*(array if isinstance(array, (list, tuple)) else [array]))
+    return _generated_function(names, source, imports, namespaces, atoms, expr, options.get('docstring_limit', 1000))
 
 
 def _resolve_globals(used, imports, namespaces):

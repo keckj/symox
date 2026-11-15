@@ -704,12 +704,6 @@ impl Ring {
         }
         Ok(poly)
     }
-    fn mul_ground(&self, a: &R, x: &C) -> R {
-        if self.k.is_zero(x) {
-            return self.zero();
-        }
-        self.strip(R::from_iter(a.iter().map(|(k, v)| (k.clone(), self.k.mul(v, x)))))
-    }
     fn quo_ground(&self, a: &R, x: &C) -> PResult<R> {
         if self.k.is_zero(x) {
             return Err(zero_division());
@@ -3440,19 +3434,11 @@ fn rr_half_gcdex_dense(k: Inexact, f: &RV, g: &RV) -> PResult<(RV, RV)> {
     let a = a.iter().map(|c| k.div(c, &lc)).collect::<PResult<RV>>()?;
     Ok((a, rr_monic(k, &f)?))
 }
-/// `dup_half_gcdex` over `RR`.
-pub fn rr_half_gcdex(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<(MPoly<Rat>, MPoly<Rat>)> {
-    rr_half_gcdex_prec(f, g, 53)
-}
 /// `dup_half_gcdex` over `RealField(precision)`.
 pub fn rr_half_gcdex_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> PResult<(MPoly<Rat>, MPoly<Rat>)> {
     let k = Inexact { precision, complex: false };
     let (s, h) = rr_half_gcdex_dense(k, &rr_dense(k, f), &rr_dense(k, g))?;
     Ok((rr_sparse(k, &s), rr_sparse(k, &h)))
-}
-/// `dup_gcdex` over `RR`.
-pub fn rr_gcdex(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<(MPoly<Rat>, MPoly<Rat>, MPoly<Rat>)> {
-    rr_gcdex_prec(f, g, 53)
 }
 /// `dup_gcdex` over `RealField(precision)`.
 pub fn rr_gcdex_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> PResult<(MPoly<Rat>, MPoly<Rat>, MPoly<Rat>)> {
@@ -3463,10 +3449,6 @@ pub fn rr_gcdex_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> PResult<
     // The reference takes `dup_quo` here: the rounding remainder is dropped.
     let (t, _) = rr_div(k, &big_f, &b)?;
     Ok((rr_sparse(k, &s), rr_sparse(k, &t), rr_sparse(k, &h)))
-}
-/// `dup_invert` over `RR`.
-pub fn rr_invert(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<MPoly<Rat>> {
-    rr_invert_prec(f, g, 53)
 }
 /// `dup_invert` over `RealField(precision)`.
 pub fn rr_invert_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> PResult<MPoly<Rat>> {

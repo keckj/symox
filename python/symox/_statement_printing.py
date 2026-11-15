@@ -53,8 +53,45 @@ class _StatementPrinter:
                 method = getattr(self, '_print_' + cls.__name__, None)
                 if method is not None:
                     return method(expr)
-            raise NotImplementedError('Unsupported by %s: %s' % (type(self).__name__, type(expr).__name__))
+            return self._print_not_supported(expr)
         return self._expr(expr)
+
+    # The reference printer class named by unsupported-node errors.
+    _reference_printer = None
+
+    def _print_not_supported(self, expr):
+        # SymPy's CodePrinter._print_not_supported: strict (the default when
+        # ``human`` is true) raises, otherwise the node is printed by the
+        # empty printer and listed in front of the code.
+        strict = self._settings.get('strict', None)
+        if strict is None:
+            strict = self._settings.get('human', True) == True
+        if strict:
+            from .printing.codeprinter import PrintMethodNotImplementedError
+            reference = self._reference_printer() if self._reference_printer else type(self)
+            raise PrintMethodNotImplementedError(
+                f"Unsupported by {reference}: {type(expr)}"
+                "\nSet the printer option 'strict' to False in order to generate partially printed code.")
+        not_supported = self.__dict__.setdefault('_not_supported', set())
+        try:
+            not_supported.add(expr)
+        except TypeError:
+            pass
+        return repr(expr)
+
+    def doprint(self, expr):
+        """SymPy's ``CodePrinter.doprint`` front lines for unsupported nodes."""
+        self._not_supported = set()
+        lines = self._print(expr).splitlines()
+        if self._not_supported and self._settings.get('human', True):
+            front = [self._get_comment('Not supported in Python:')]
+            front += [self._get_comment(type(e).__name__) for e in sorted(self._not_supported, key=str)]
+            lines = front + lines
+        return '\n'.join(lines)
+
+    @staticmethod
+    def _get_comment(text):
+        return '  # {}'.format(text)
 
     def _print_String(self, expr):
         return str(expr.text)
@@ -72,8 +109,14 @@ class _StatementPrinter:
         return '%s(%s)' % (expr.name, ', '.join(self._print(arg) for arg in expr.function_args))
 
 
+def _python_code_printer():
+    from .printing.pycode import PythonCodePrinter
+    return PythonCodePrinter
+
+
 class _PythonStatements(_StatementPrinter):
     """Port of the statement methods of SymPy's ``PythonCodePrinter``."""
+    _reference_printer = staticmethod(_python_code_printer)
 
     def _expr(self, expr):
         return self._native(expr, **_with_functions(self._settings, {k: 'math.' + v for k, v in _PYTHON_CFUNCTIONS.items()}))
@@ -138,14 +181,79 @@ class _PythonStatements(_StatementPrinter):
         return self._print(strm.name)
 
 
+_UNSUPPORTED_PREFIX = 'Unsupported by the code printer: '
+
+
+def _unsupported_names(native, expr, assign_to, settings):
+    """The function names the native printer refuses in strict mode."""
+    names = []
+    probe = dict(settings)
+    probe['strict'] = True
+    for _ in range(64):
+        try:
+            native(expr, assign_to, **probe)
+            break
+        except NotImplementedError as exc:
+            message = str(exc)
+            if type(exc) is not NotImplementedError or not message.startswith(_UNSUPPORTED_PREFIX):
+                break
+            name = message[len(_UNSUPPORTED_PREFIX):]
+            if name in names:
+                break
+            names.append(name)
+            probe['user_functions'] = dict(probe.get('user_functions') or {}, **{name: name})
+        except Exception:
+            break
+    return names
+
+
+def _function_name(node):
+    func = getattr(node, 'func', None)
+    return getattr(func, '__name__', None) or getattr(node, 'class_name', None)
+
+
+def _not_supported_front(expr, names):
+    """SymPy's ``CodePrinter.doprint`` front lines: one per distinct
+    unsupported node (the printer does not descend into it), sorted by str."""
+    found = {}
+    stack = [expr]
+    while stack:
+        node = stack.pop()
+        if not hasattr(node, 'args') or isinstance(node, type):
+            continue
+        name = _function_name(node)
+        if name in names:
+            found.setdefault(node, name)
+            continue
+        stack.extend(node.args)
+    return ['  # Not supported in Python:'] + ['  # ' + found[node] for node in sorted(found, key=str)]
+
+
 def _python_wrapper(native):
     def pycode(expr, assign_to=None, **settings):
+        # SymPy's AbstractPythonCodePrinter.__init__ check.
+        if settings.get('standard') not in (None, 'python3'):
+            raise ValueError('Only Python 3 is supported.')
         if assign_to is None and _is_node(expr):
             from .codegen.ast import CodeBlock
             if isinstance(expr, (list, tuple)):
                 expr = CodeBlock(*expr)
-            return _PythonStatements(native, settings)._print(expr)
+            return _PythonStatements(native, settings).doprint(expr)
+        from .codegen.abstract_nodes import List
+        if assign_to is None and isinstance(expr, List):
+            # SymPy's AbstractPythonCodePrinter._print_List.
+            return '[%s]' % ', '.join(pycode(arg, **settings) for arg in expr.args)
         settings = _with_functions(settings, {k: 'math.' + v for k, v in _PYTHON_CFUNCTIONS.items()})
+        strict = settings.get('strict', True)
+        if strict is None:
+            strict = settings.get('human', True) == True
+        if not strict and settings.get('human', True):
+            # Non-strict output lists the unsupported functions in front.
+            code = native(expr, assign_to, **settings)
+            names = _unsupported_names(native, expr, assign_to, settings)
+            if names and isinstance(code, str):
+                code = '\n'.join(_not_supported_front(expr, names) + code.splitlines())
+            return code
         try:
             return native(expr, assign_to, **settings)
         except NotImplementedError as exc:
