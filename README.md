@@ -1,7 +1,7 @@
 # symox
 
 <p align="center">
-  <img src="img/logo.png" alt="symox logo" width="720">
+  <img src="https://raw.githubusercontent.com/keckj/symox/main/img/logo.png" alt="symox logo" width="720">
 </p>
 
 **Fast symbolic mathematics in Rust, with a SymPy compatible Python API.**
@@ -18,16 +18,16 @@ The project has two goals:
 2. **Code generation for GPUs and array frameworks.** Symbolic expressions
    compile to optimized kernels for CUDA, SYCL, Slang, PyTorch and JAX. This
    part currently lives in the optional `symox.extra` package
-   (see [code generation](docs/codegen/overview.md)).
+   (see [code generation](https://github.com/keckj/symox/blob/main/docs/codegen/overview.md)).
 
 **Status: usable today, and an ongoing effort.** Reaching every capability of
 SymPy is a big task and it is not finished: the remaining behavioral gaps are
-tracked in [the parity contract](docs/algorithmic-parity.md). symox is
+tracked in [the parity contract](https://github.com/keckj/symox/blob/main/docs/algorithmic-parity.md). symox is
 nevertheless usable right now. Every name of the documented SymPy 1.14
 modules is exported (see [API coverage](#sympy-api-coverage); a name being
 present does not by itself mean identical behavior), and it already works as a drop-in
 replacement in many Python packages built on SymPy: in the
-[downstream audit](docs/downstream-integration.md), the selected test suites
+[downstream audit](https://github.com/keckj/symox/blob/main/docs/downstream-integration.md), the selected test suites
 of ChemPy, Haarpy, PyDy, SfePy, OctSymPy, pyodesys, pyneqsys and NRPyLaTeX
 pass unchanged, while others (SageMath, Lcapy, Optlang, Devito) still expose
 incompatibilities.
@@ -77,12 +77,12 @@ Supported cases and remaining limitations are detailed in the guides below.
 Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
 The grouped tables summarize the measured import surfaces.
-The [full module inventory](docs/sympy-api.md) also lists every documented module
+The [full module inventory](https://github.com/keckj/symox/blob/main/docs/sympy-api.md) also lists every documented module
 and its parent packages, with missing paths and import failures shown explicitly.
 The top-level export percentage covers only the package root.
 The current inventory (2026-10-19) lists 310 module paths with no missing names;
 9 of them have no countable exports and every reference import is measured.
-See [implementation limits](docs/api-implementation.md) for the supported behavior.
+See [implementation limits](https://github.com/keckj/symox/blob/main/docs/api-implementation.md) for the supported behavior.
 
 <!-- sympy-api-surfaces:start -->
 
@@ -234,12 +234,12 @@ in `tools/sympy_coverage.py`), including absent modules at 0%. A name available
 at the package root can still be missing from its compatible module path.
 Rows overlap and must not be added together.
 Geometry and differential-equation support is scoped in the
-[geometry](docs/geometry.md) and [ODE/PDE](docs/differential-equations.md) guides.
-The [holonomic](docs/holonomic.md) and [coordinate vector](docs/coordinate-vector.md)
+[geometry](https://github.com/keckj/symox/blob/main/docs/geometry.md) and [ODE/PDE](https://github.com/keckj/symox/blob/main/docs/differential-equations.md) guides.
+The [holonomic](https://github.com/keckj/symox/blob/main/docs/holonomic.md) and [coordinate vector](https://github.com/keckj/symox/blob/main/docs/coordinate-vector.md)
 guides describe the new differential operators, series and geometric integrals.
 In particular, `galois_group` currently supports degrees up to six;
 `DomainMatrix` covers implemented exact and numerical domains. See the
-[polynomial](docs/polynomials.md) and [matrix](docs/matrices.md) guides for details.
+[polynomial](https://github.com/keckj/symox/blob/main/docs/polynomials.md) and [matrix](https://github.com/keckj/symox/blob/main/docs/matrices.md) guides for details.
 
 Reproduce the measurement, including missing names and an optional differential corpus:
 
@@ -256,7 +256,7 @@ python -m pip install maturin numpy
 maturin develop --release
 ```
 
-See [testing and benchmarks](docs/testing.md) for the Rust and Python test commands.
+See [testing and benchmarks](https://github.com/keckj/symox/blob/main/docs/testing.md) for the Rust and Python test commands.
 Optional tensor and GPU APIs live in `symox.extra`; install their Python execution
 libraries with `pip install 'symox[extra]'`. The test guide also covers the
 pinned AdaptiveCpp compiler and separate core/extension suites.
@@ -265,67 +265,67 @@ pinned AdaptiveCpp compiler and separate core/extension suites.
 
 | Guide | Contents |
 |---|---|
-| [SymPy compatibility](docs/compatibility.md) | Expressions, precision, assumptions, calculus, logic and sets |
-| [Algorithmic parity](docs/algorithmic-parity.md) | Mathematical acceptance criteria, solver audit and remaining capability gaps |
-| [Algorithm performance](docs/algorithm-performance.md) | 137 public workloads measured against SymPy 1.14.0 and the resulting fixes |
-| [Downstream integrations](docs/downstream-integration.md) | Real featured-project tests with a SymPy 1.14.0 reference gate |
-| [Audit index](docs/audits.md) | Correctness replays, performance measurements and source inventories under audits/, by topic and date |
-| [Public core and utilities](docs/public-interfaces.md) | Evaluation contexts, import interfaces, dispatch, assumptions and sessions |
-| [Subclassing](docs/subclassing.md) | SymPy-named node classes, user Symbol/Function/Expr subclasses and the hooks they can override |
-| [Algebraic roots and quaternions](docs/algebraic-roots-quaternions.md) | Exact root objects, symmetric sums, Hamilton algebra and rotations |
-| [Splines and integer equations](docs/splines-variations-integer-equations.md) | Piecewise folding, B-splines, Euler equations, singularity integrals and integer parametrizations |
-| [Expression method options](docs/expression-methods.md) | Coefficients, replacement rules, structural queries and leading terms |
-| [Series and expression analysis](docs/series.md) | Formal/Fourier/asymptotic series, meromorphic tests and branch factors |
-| [Limits and asymptotic orders](docs/limits.md) | limit/Limit with Gruntz and heuristics, directions and branch cuts, AccumBounds, Order arithmetic and containment |
-| [Integration](docs/integration.md) | integrate/Integral pipeline, rational/Risch/heurisch/Meijer G stages, definite integrals and conditions, NonElementaryIntegral |
-| [Sequences](docs/sequences.md) | Formula and periodic sequences, fitted recurrences and generating functions |
-| [Finite differences](docs/finite-differences.md) | Exact arbitrary-grid weights and derivative stencils |
-| [Real and complex analysis](docs/real-analysis.md) | Singularities, continuity, periods, monotonicity, convexity and extrema |
-| [Polynomials and linear systems](docs/polynomials.md) | Domains, factorization, Gröbner bases, roots and Galois groups |
-| [Solution checks and linear isolation](docs/solver-checks.md) | Equation validation, pole exclusions and square LU systems |
-| [Equation solvers](docs/solvers.md) | solve flags and result shapes, solveset result sets, linear/nonlinear systems and nsolve |
-| [Differential equations](docs/differential-equations.md) | ODE classification, exact equations, linear systems, PDE characteristics and separation |
-| [Holonomic functions](docs/holonomic.md) | Ore operators, D-finite closure, Taylor recurrences and numeric continuation |
-| [Coordinate vector calculus](docs/coordinate-vector.md) | Cartesian/curvilinear frames, dyadics, field operators, potentials and geometric integrals |
-| [Differential geometry](docs/differential-geometry.md) | Charts, fields, exterior calculus, connections, curvature and integral curves |
-| [Lie algebras](docs/lie-algebras.md) | Finite Cartan types, exact roots, reflections and Dynkin diagrams |
-| [Categories](docs/categories.md) | Objects, morphisms, finite diagram properties, layouts and Xy-pic previews |
-| [Geometry](docs/geometry.md) | Exact points, linear entities, conics, polygons, planes and intersections |
-| [Real inequalities](docs/inequalities.md) | Polynomial sign charts, rational systems and nested absolute values |
-| [Coefficient domains](docs/domains.md) | Exact arithmetic, free modules, ideals and quotient rings |
-| [Sparse constructors and number fields](docs/polynomial-constructors.md) | Ring/field parents, embeddings, maximal orders and prime ideals |
-| [Combinatorics](docs/combinatorics.md) | Finite groups, rankings, free words, polycyclic collection and polyhedra |
-| [Polar branches](docs/polar-branches.md) | Polar lifts, argument reduction and conservative projection |
-| [Cryptography](docs/cryptography.md) | Classical ciphers, RSA, ElGamal, key exchange, bit ciphers, Morse and feedback sequences |
-| [Physics](docs/physics.md) | Units, mechanics, quantum and atomic physics, optics, control, structures and biomechanics |
-| [Statistics](docs/statistics.md) | Probability, conditioning, distributions, joint moments, processes, random matrices and sampling limits |
-| [Plotting](docs/plotting.md) | Native samples, Matplotlib figures, contours, grids and ASCII plots |
-| [Special functions](docs/special-functions.md) | Gamma products, hypergeometric functions, Bessel families and Mathieu identities |
-| [Structural sets](docs/symbolic-sets.md) | Power sets, disjoint unions, complex regions and ordinals |
-| [Algebraic numbers](docs/algebraic-numbers.md) | Exact field coordinates, structural methods and scalar calculations |
-| [Symbolic matrices](docs/matrices.md) | Dense/sparse matrices, matrix expressions and decompositions |
-| [Domain matrices](docs/domain-matrices.md) | Typed coefficient arithmetic, elimination, kernels and solving |
-| [Matrix expression protocols](docs/matrix-expressions.md) | Structural queries, scalar calculus and matrix coefficient series |
-| [Permutation matrices](docs/matrix-permutations.md) | Native permutation nodes, composition and row/column operations |
-| [Arrays and tensors](docs/arrays.md) | Multidimensional storage, tensor operations and finite matrix derivatives |
-| [Indexed tensor algebra](docs/indexed-tensors.md) | Typed indices, slot symmetries, metric contractions, components and matching |
-| [Utilities](docs/utilities.md) | Sorting, traversal, containers, graph ordering and memoization |
-| [Expression parsing](docs/expression-parsing.md) | Token transformations, implicit notation, namespaces and held expressions |
-| [Printing](docs/printing.md) | Code targets, MathML, Graphviz, tables, TeX previews and SMT-LIB |
-| [Code generation](docs/codegen/overview.md) | Target overview and execution routes |
-| [CUDA](docs/codegen/cuda.md) | NVRTC compilation and native execution |
-| [PyTorch](docs/codegen/pytorch.md) | Source export, autograd and optional compilation |
-| [JAX](docs/codegen/jax.md) | Source export, autodiff and JIT |
-| [Slang](docs/codegen/slang.md) | Shader source and optional SlangPy execution |
-| [SYCL / AdaptiveCpp](docs/codegen/sycl.md) | C++ kernels and asynchronous execution |
-| [Code generation compatibility](docs/codegen/compatibility.md) | SymPy-style constructors and printer extensions |
-| [Code generation AST](docs/codegen/ast.md) | Statement nodes, C/Fortran nodes, C99 functions, rewriting and printer coverage |
-| [Routines and autowrap](docs/codegen/autowrap.md) | Multi-language routine files, f2py and NumPy ufunc compilation, toolchain requirements |
-| [New API implementations](docs/api-implementation.md) | Exact algorithms, compiled routines, structural arrays and remaining behavioral limits |
-| [API connection audit](docs/api-connections.md) | Section-by-section implementations and behavioral limits |
-| [Full SymPy module inventory](docs/sympy-api.md) | Documented modules, missing import paths and unmeasurable references |
-| [Testing and coverage](docs/testing.md) | Differential tests, API measurement and fuzzing |
-| [Architecture](docs/architecture.md) | Rust modules and expression invariants |
+| [SymPy compatibility](https://github.com/keckj/symox/blob/main/docs/compatibility.md) | Expressions, precision, assumptions, calculus, logic and sets |
+| [Algorithmic parity](https://github.com/keckj/symox/blob/main/docs/algorithmic-parity.md) | Mathematical acceptance criteria, solver audit and remaining capability gaps |
+| [Algorithm performance](https://github.com/keckj/symox/blob/main/docs/algorithm-performance.md) | 137 public workloads measured against SymPy 1.14.0 and the resulting fixes |
+| [Downstream integrations](https://github.com/keckj/symox/blob/main/docs/downstream-integration.md) | Real featured-project tests with a SymPy 1.14.0 reference gate |
+| [Audit index](https://github.com/keckj/symox/blob/main/docs/audits.md) | Correctness replays, performance measurements and source inventories under audits/, by topic and date |
+| [Public core and utilities](https://github.com/keckj/symox/blob/main/docs/public-interfaces.md) | Evaluation contexts, import interfaces, dispatch, assumptions and sessions |
+| [Subclassing](https://github.com/keckj/symox/blob/main/docs/subclassing.md) | SymPy-named node classes, user Symbol/Function/Expr subclasses and the hooks they can override |
+| [Algebraic roots and quaternions](https://github.com/keckj/symox/blob/main/docs/algebraic-roots-quaternions.md) | Exact root objects, symmetric sums, Hamilton algebra and rotations |
+| [Splines and integer equations](https://github.com/keckj/symox/blob/main/docs/splines-variations-integer-equations.md) | Piecewise folding, B-splines, Euler equations, singularity integrals and integer parametrizations |
+| [Expression method options](https://github.com/keckj/symox/blob/main/docs/expression-methods.md) | Coefficients, replacement rules, structural queries and leading terms |
+| [Series and expression analysis](https://github.com/keckj/symox/blob/main/docs/series.md) | Formal/Fourier/asymptotic series, meromorphic tests and branch factors |
+| [Limits and asymptotic orders](https://github.com/keckj/symox/blob/main/docs/limits.md) | limit/Limit with Gruntz and heuristics, directions and branch cuts, AccumBounds, Order arithmetic and containment |
+| [Integration](https://github.com/keckj/symox/blob/main/docs/integration.md) | integrate/Integral pipeline, rational/Risch/heurisch/Meijer G stages, definite integrals and conditions, NonElementaryIntegral |
+| [Sequences](https://github.com/keckj/symox/blob/main/docs/sequences.md) | Formula and periodic sequences, fitted recurrences and generating functions |
+| [Finite differences](https://github.com/keckj/symox/blob/main/docs/finite-differences.md) | Exact arbitrary-grid weights and derivative stencils |
+| [Real and complex analysis](https://github.com/keckj/symox/blob/main/docs/real-analysis.md) | Singularities, continuity, periods, monotonicity, convexity and extrema |
+| [Polynomials and linear systems](https://github.com/keckj/symox/blob/main/docs/polynomials.md) | Domains, factorization, Gröbner bases, roots and Galois groups |
+| [Solution checks and linear isolation](https://github.com/keckj/symox/blob/main/docs/solver-checks.md) | Equation validation, pole exclusions and square LU systems |
+| [Equation solvers](https://github.com/keckj/symox/blob/main/docs/solvers.md) | solve flags and result shapes, solveset result sets, linear/nonlinear systems and nsolve |
+| [Differential equations](https://github.com/keckj/symox/blob/main/docs/differential-equations.md) | ODE classification, exact equations, linear systems, PDE characteristics and separation |
+| [Holonomic functions](https://github.com/keckj/symox/blob/main/docs/holonomic.md) | Ore operators, D-finite closure, Taylor recurrences and numeric continuation |
+| [Coordinate vector calculus](https://github.com/keckj/symox/blob/main/docs/coordinate-vector.md) | Cartesian/curvilinear frames, dyadics, field operators, potentials and geometric integrals |
+| [Differential geometry](https://github.com/keckj/symox/blob/main/docs/differential-geometry.md) | Charts, fields, exterior calculus, connections, curvature and integral curves |
+| [Lie algebras](https://github.com/keckj/symox/blob/main/docs/lie-algebras.md) | Finite Cartan types, exact roots, reflections and Dynkin diagrams |
+| [Categories](https://github.com/keckj/symox/blob/main/docs/categories.md) | Objects, morphisms, finite diagram properties, layouts and Xy-pic previews |
+| [Geometry](https://github.com/keckj/symox/blob/main/docs/geometry.md) | Exact points, linear entities, conics, polygons, planes and intersections |
+| [Real inequalities](https://github.com/keckj/symox/blob/main/docs/inequalities.md) | Polynomial sign charts, rational systems and nested absolute values |
+| [Coefficient domains](https://github.com/keckj/symox/blob/main/docs/domains.md) | Exact arithmetic, free modules, ideals and quotient rings |
+| [Sparse constructors and number fields](https://github.com/keckj/symox/blob/main/docs/polynomial-constructors.md) | Ring/field parents, embeddings, maximal orders and prime ideals |
+| [Combinatorics](https://github.com/keckj/symox/blob/main/docs/combinatorics.md) | Finite groups, rankings, free words, polycyclic collection and polyhedra |
+| [Polar branches](https://github.com/keckj/symox/blob/main/docs/polar-branches.md) | Polar lifts, argument reduction and conservative projection |
+| [Cryptography](https://github.com/keckj/symox/blob/main/docs/cryptography.md) | Classical ciphers, RSA, ElGamal, key exchange, bit ciphers, Morse and feedback sequences |
+| [Physics](https://github.com/keckj/symox/blob/main/docs/physics.md) | Units, mechanics, quantum and atomic physics, optics, control, structures and biomechanics |
+| [Statistics](https://github.com/keckj/symox/blob/main/docs/statistics.md) | Probability, conditioning, distributions, joint moments, processes, random matrices and sampling limits |
+| [Plotting](https://github.com/keckj/symox/blob/main/docs/plotting.md) | Native samples, Matplotlib figures, contours, grids and ASCII plots |
+| [Special functions](https://github.com/keckj/symox/blob/main/docs/special-functions.md) | Gamma products, hypergeometric functions, Bessel families and Mathieu identities |
+| [Structural sets](https://github.com/keckj/symox/blob/main/docs/symbolic-sets.md) | Power sets, disjoint unions, complex regions and ordinals |
+| [Algebraic numbers](https://github.com/keckj/symox/blob/main/docs/algebraic-numbers.md) | Exact field coordinates, structural methods and scalar calculations |
+| [Symbolic matrices](https://github.com/keckj/symox/blob/main/docs/matrices.md) | Dense/sparse matrices, matrix expressions and decompositions |
+| [Domain matrices](https://github.com/keckj/symox/blob/main/docs/domain-matrices.md) | Typed coefficient arithmetic, elimination, kernels and solving |
+| [Matrix expression protocols](https://github.com/keckj/symox/blob/main/docs/matrix-expressions.md) | Structural queries, scalar calculus and matrix coefficient series |
+| [Permutation matrices](https://github.com/keckj/symox/blob/main/docs/matrix-permutations.md) | Native permutation nodes, composition and row/column operations |
+| [Arrays and tensors](https://github.com/keckj/symox/blob/main/docs/arrays.md) | Multidimensional storage, tensor operations and finite matrix derivatives |
+| [Indexed tensor algebra](https://github.com/keckj/symox/blob/main/docs/indexed-tensors.md) | Typed indices, slot symmetries, metric contractions, components and matching |
+| [Utilities](https://github.com/keckj/symox/blob/main/docs/utilities.md) | Sorting, traversal, containers, graph ordering and memoization |
+| [Expression parsing](https://github.com/keckj/symox/blob/main/docs/expression-parsing.md) | Token transformations, implicit notation, namespaces and held expressions |
+| [Printing](https://github.com/keckj/symox/blob/main/docs/printing.md) | Code targets, MathML, Graphviz, tables, TeX previews and SMT-LIB |
+| [Code generation](https://github.com/keckj/symox/blob/main/docs/codegen/overview.md) | Target overview and execution routes |
+| [CUDA](https://github.com/keckj/symox/blob/main/docs/codegen/cuda.md) | NVRTC compilation and native execution |
+| [PyTorch](https://github.com/keckj/symox/blob/main/docs/codegen/pytorch.md) | Source export, autograd and optional compilation |
+| [JAX](https://github.com/keckj/symox/blob/main/docs/codegen/jax.md) | Source export, autodiff and JIT |
+| [Slang](https://github.com/keckj/symox/blob/main/docs/codegen/slang.md) | Shader source and optional SlangPy execution |
+| [SYCL / AdaptiveCpp](https://github.com/keckj/symox/blob/main/docs/codegen/sycl.md) | C++ kernels and asynchronous execution |
+| [Code generation compatibility](https://github.com/keckj/symox/blob/main/docs/codegen/compatibility.md) | SymPy-style constructors and printer extensions |
+| [Code generation AST](https://github.com/keckj/symox/blob/main/docs/codegen/ast.md) | Statement nodes, C/Fortran nodes, C99 functions, rewriting and printer coverage |
+| [Routines and autowrap](https://github.com/keckj/symox/blob/main/docs/codegen/autowrap.md) | Multi-language routine files, f2py and NumPy ufunc compilation, toolchain requirements |
+| [New API implementations](https://github.com/keckj/symox/blob/main/docs/api-implementation.md) | Exact algorithms, compiled routines, structural arrays and remaining behavioral limits |
+| [API connection audit](https://github.com/keckj/symox/blob/main/docs/api-connections.md) | Section-by-section implementations and behavioral limits |
+| [Full SymPy module inventory](https://github.com/keckj/symox/blob/main/docs/sympy-api.md) | Documented modules, missing import paths and unmeasurable references |
+| [Testing and coverage](https://github.com/keckj/symox/blob/main/docs/testing.md) | Differential tests, API measurement and fuzzing |
+| [Architecture](https://github.com/keckj/symox/blob/main/docs/architecture.md) | Rust modules and expression invariants |
 
 ## Projects using symox
 
@@ -336,4 +336,4 @@ pinned AdaptiveCpp compiler and separate core/extension suites.
 
 Dual licensed under MIT or Apache-2.0, at your option. Code ported or vendored
 from SymPy 1.14 remains under SymPy's BSD-3-Clause license; see
-[LICENSE-SYMPY](LICENSE-SYMPY).
+[LICENSE-SYMPY](https://github.com/keckj/symox/blob/main/LICENSE-SYMPY).
