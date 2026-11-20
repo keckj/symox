@@ -2802,7 +2802,114 @@ fn algebraic_option_fold(py:Python<'_>,f:&Bound<'_,PyAny>,g:Option<&Bound<'_,PyA
     if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
     let mut acc=p.clone();
     for x in rest{acc=op(&acc,&p.convert(x).map_err(err)?);}
+    if kwargs.map(|k|k.get_item("polys")).transpose()?.flatten().map(|v|v.is_truthy()).transpose()?.unwrap_or(false) {
+        return Ok(Some(poly_obj(py,acc)?));
+    }
     Ok(Some(w(acc.as_expr()).into_pyobject(py)?.into_any().unbind()))
+}
+
+/// Fold in the jointly inferred coefficient domain, retaining the Poly
+/// result requested by the reference list API. Numerical lists without
+/// options use ground-domain gcd/lcm instead of polynomial normalization.
+fn polynomial_list_fold(py:Python<'_>,source:&Bound<'_,PyAny>,items:&[Expr],gens:&[Expr],kwargs:Option<&Bound<'_,PyDict>>,modulus:Option<u64>,lcm:bool)->PyResult<PyObject>{
+    let method=if lcm{"lcm_list"}else{"gcd_list"};
+    let identity=if lcm{Expr::one()}else{Expr::zero()};
+    let option=|name:&str|->PyResult<Option<Bound<'_,PyAny>>>{kwargs.map(|k|k.get_item(name)).transpose().map(Option::flatten)};
+    let originals=source.try_iter()?.map(|x|Ok(x?.downcast::<PyPoly>().ok().map(|p|p.get().p.clone()))).collect::<PyResult<Vec<_>>>()?;
+    let had_polys=originals.iter().any(Option::is_some);
+    let as_poly=option("polys")?.map(|p|p.is_truthy()).transpose()?.unwrap_or(had_polys);
+    let explicit_generators=!gens.is_empty();
+    let mut effective_gens=gens.to_vec();
+    if effective_gens.is_empty(){for p in originals.iter().flatten(){effective_gens=symox::poly::polyobj::unify_gens(&effective_gens,p.true_gens());}}
+    let gens=effective_gens.as_slice();
+    if !had_polys&&gens.is_empty()&&modulus.is_none()&&kwargs.is_none_or(|k|k.is_empty())&&items.iter().all(|x|x.as_number().is_some()) {
+        let prec=items.iter().filter_map(|x|x.as_number().and_then(|n|n.float_precision())).max();
+        let mut values=items.iter().map(|x|match prec {
+            Some(k)=>Expr::num(symox::number::Number::mp_float(x.as_number().unwrap().to_bigfloat(k),k)),
+            None=>x.clone(),
+        });
+        let mut result=values.next().unwrap_or(identity);
+        for x in values {result=if lcm{api::lcm(&result,&x,gens)}else{api::gcd(&result,&x,gens)}.map_err(err)?;}
+        return Ok(w(ground_float_output(result)).into_pyobject(py)?.into_any().unbind());
+    }
+    let input=if items.is_empty(){vec![identity]}else{items.to_vec()};
+    let converted=if gens.is_empty(){symox::poly::convert::from_exprs(&input)}else{symox::poly::convert::from_exprs_gens(&input,gens)}.map_err(err)?;
+    if converted.ngens==0 {
+        let errors=py.import("symox.polys.polyerrors")?;
+        let values=PyList::new(py,items.iter().cloned().map(w))?;
+        let failure=errors.getattr("PolificationFailed")?.call1((PyDict::new(py),&values,&values,true))?;
+        return Err(PyErr::from_value(errors.getattr("ComputationFailed")?.call1((method,items.len(),failure))?));
+    }
+    let generators=&converted.gens[..converted.ngens];
+    let domain=option("domain")?;
+    let selection=domains::Selection::new(domain.as_ref(),modulus,None)?;
+    let mut polys:Vec<PolyValue>=if let Some(d)=selection.native {
+        input.iter().map(|x|d.poly(x,generators)).collect::<PyResult<Vec<_>>>()?
+    }else if let Some(domain)=selection.legacy.as_deref(){
+        let gv=PyTuple::new(py,generators.iter().cloned().map(w))?;
+        input.iter().map(|x|{
+            let value=w(x.clone()).into_pyobject(py)?.into_any();
+            Ok(PyPoly::build(&value,&gv,Some(domain))?.p)
+        }).collect::<PyResult<Vec<_>>>()?
+    }else if modulus.is_none()&&originals.len()==2&&originals.iter().all(Option::is_some)
+        &&(!explicit_generators||originals.iter().flatten().all(|p|
+            p.true_gens().len()==generators.len()&&generators.iter().all(|g|p.true_gens().contains(g)))){
+        // The reference special-cases exactly two Poly inputs. An explicit
+        // permutation preserves their domains; changed generators require
+        // reconstruction of their expressions in the requested generators.
+        let all:Vec<_>=if explicit_generators {
+            let requested=PyTuple::new(py,generators.iter().cloned().map(w))?;
+            originals.iter().flatten().map(|p|structural::reordered(p,&requested,None)).collect::<PyResult<Vec<_>>>()?
+        }else{originals.iter().flatten().cloned().collect()};
+        let first_modulus=all[0].base.modulus;
+        for p in &all[1..] {
+            if first_modulus.is_some()&&p.base.modulus.is_some()&&first_modulus!=p.base.modulus {
+                return Err(reference_error(py,"UnificationFailed",&format!("Cannot unify {} with {}",all[0].domain_str(),p.domain_str())));
+            }
+        }
+        all
+    }else{
+        Poly::from_exprs(&input,generators).map_err(err)?.into_iter().map(|p|match modulus {Some(m)=>p.set_modulus(m).into(),None=>p.into()}).collect()
+    };
+    if option("field")?.map(|v|v.is_truthy()).transpose()?.unwrap_or(false) {
+        polys=polys.into_iter().enumerate().map(|(i,p)|{
+            let wrapper=PyPoly{p};
+            Ok(if originals.get(i).is_some_and(Option::is_some){wrapper.to_field()?.p}else{wrapper._construct_field()?.p})
+        }).collect::<PyResult<Vec<_>>>()?;
+    }
+    let mut result=polys.remove(0);
+    for p in polys {result=if lcm{result.checked_lcm(&p)}else{result.checked_gcd(&p)}.map_err(err)?;}
+    if as_poly {poly_obj(py,result)}else{Ok(w(result.as_expr()).into_pyobject(py)?.into_any().unbind())}
+}
+
+#[pyfunction]
+#[pyo3(signature = (seq, *gens, **kwargs))]
+fn gcd_list(py:Python<'_>,seq:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
+    checked_list_function(py,seq,gens,kwargs,false)
+}
+
+#[pyfunction]
+#[pyo3(signature = (seq, *gens, **kwargs))]
+fn lcm_list(py:Python<'_>,seq:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
+    checked_list_function(py,seq,gens,kwargs,true)
+}
+
+fn checked_list_function(py:Python<'_>,seq:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>,lcm_op:bool)->PyResult<PyObject>{
+    if let Some(k)=kwargs {for name in ["auto","frac","formal","include","all","gen","series","symbols","method"] {
+        if k.contains(name)? {return Err(reference_error(py,"FlagError",&format!("'{name}' flag is not allowed in this context")));}
+    }}
+    // Reuse Poly's existing input-option validation, without invoking its
+    // construction or arithmetic. Polynomial work below stays native.
+    let options=py.import("symox._poly_constructor")?.getattr("_options")?.call1((gens,None::<u8>,None::<u8>,None::<u8>,kwargs))?;
+    let normalized_gens=options.get_item(0)?;
+    let gens=normalized_gens.downcast::<PyTuple>()?;
+    let normalized_kwargs=options.get_item(1)?;
+    let kwargs=Some(normalized_kwargs.downcast::<PyDict>()?);
+    let modulus=kwargs.map(|k|k.get_item("modulus")).transpose()?.flatten().filter(|x|!x.is_none()).map(|x|x.extract::<u64>().and_then(check_mod)).transpose()?;
+    let clean=PyDict::new(py);
+    if let Some(k)=kwargs {for (key,value)in k.iter(){if key.extract::<String>()?.as_str()!="modulus"{clean.set_item(key,value)?;}}}
+    let values=PyList::new(py,seq.try_iter()?.collect::<PyResult<Vec<_>>>()?)?;
+    if lcm_op {lcm(py,values.as_any(),None,gens,modulus,Some(&clean))}else{gcd(py,values.as_any(),None,gens,modulus,Some(&clean))}
 }
 
 /// The reference default domain of expressions whose only nonrational
@@ -2975,10 +3082,42 @@ fn nongreedy_pair(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,
     Ok(nongreedy_polys(&[to_expr(f)?,to_expr(g)?],gens).map(|mut v|{let b=v.pop().unwrap();(v.pop().unwrap(),b)}))
 }
 
+/// Numerical coefficients with explicit generators belong to the chosen
+/// polynomial domain; they must not take the generator-free ground path.
+fn numeric_option_pair(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Option<(PolyValue,PolyValue,bool)>>{
+    if gens.is_empty()||f.downcast::<PyPoly>().is_ok()||g.downcast::<PyPoly>().is_ok(){return Ok(None);}
+    let Some(k)=kwargs else{return Ok(None)};
+    let Some(domain)=k.get_item("domain")?.filter(|d|!d.is_none()) else{return Ok(None)};
+    let (a,b)=(to_expr(f)?,to_expr(g)?);
+    if a.as_number().is_none()||b.as_number().is_none(){return Ok(None);}
+    let selected=domains::Selection::new(Some(&domain),None,None)?;
+    let gv=gens_of(gens)?;
+    let polys=k.get_item("polys")?.map(|v|v.is_truthy()).transpose()?.unwrap_or(false);
+    if let Some(d)=selected.native{return Ok(Some((d.poly(&a,&gv)?,d.poly(&b,&gv)?,polys)));}
+    if let Some(domain)=selected.legacy.as_deref(){
+        return Ok(Some((PyPoly::build(f,gens,Some(domain))?.p,PyPoly::build(g,gens,Some(domain))?.p,polys)));
+    }
+    Ok(None)
+}
+
+fn polynomial_output(py:Python<'_>,value:PolyValue,polys:bool)->PyResult<PyObject>{
+    if polys{poly_obj(py,value)}else{Ok(w(value.as_expr()).into_pyobject(py)?.into_any().unbind())}
+}
+
+/// `RealField.to_sympy` declares decimal digits and the Float constructor
+/// converts them back to bits. Apply that convention only after arithmetic.
+fn ground_float_output(e:Expr)->Expr{
+    let Some(n)=e.as_number() else{return e};
+    let Some(prec)=n.float_precision() else{return e};
+    let output=symox::bigfloat::dps_to_prec(symox::bigfloat::prec_to_dps(prec));
+    Expr::num(symox::number::Number::mp_float(n.to_bigfloat(output),output))
+}
+
 /// Compute the greatest common divisor of expressions or polynomials.
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if modulus.is_none(){if let Some(g)=g{if let Some((a,b,polys))=numeric_option_pair(f,g,gens,_kwargs)?{return polynomial_output(py,a.checked_gcd(&b).map_err(err)?,polys);}}}
     // Two Polys in the same generators, no option: the reference
     // `_parallel_poly_from_expr` unifies them and returns `F.gcd(G)` as a Poly
     // (the unified domain is kept: QQ stays QQ).
@@ -3026,17 +3165,13 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
         if let Some(g) = g {
             gv.insert(0, to_expr(g)?);
         }
-        let mut items=items.into_iter();
-        let mut acc = items.next().unwrap_or_else(Expr::zero);
-        for x in items {
-            acc = api::gcd(&acc, &x, &gv).map_err(err)?;
-        }
-        return Ok(w(acc).into_pyobject(py)?.into_any().unbind());
+        return polynomial_list_fold(py,f,&items,&gv,_kwargs,modulus,false);
     }
     let g = g.ok_or_else(|| PyTypeError::new_err("gcd() takes 2 arguments or a sequence"))?;
     let a = to_expr(f)?;
     let b = to_expr(g)?;
     let r = api::gcd(&a, &b, &gv).map_err(err)?;
+    let r=if gv.is_empty(){ground_float_output(r)}else{r};
     let gens = if as_poly { f.downcast::<PyPoly>().unwrap().get().p.true_gens().to_vec() } else { gv };
     poly_result(py, r, as_poly, &gens)
 }
@@ -3044,6 +3179,7 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if modulus.is_none(){if let Some(g)=g{if let Some((a,b,polys))=numeric_option_pair(f,g,gens,_kwargs)?{return polynomial_output(py,a.checked_lcm(&b).map_err(err)?,polys);}}}
     // Two Polys in the same generators, no option: the reference
     // `_parallel_poly_from_expr` unifies them and returns `F.lcm(G)` as a Poly
     // (the unified domain is kept: QQ stays QQ).
@@ -3091,15 +3227,11 @@ fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
         if let Some(g) = g {
             gv.insert(0, to_expr(g)?);
         }
-        let mut items=items.into_iter();
-        let mut acc = items.next().unwrap_or_else(Expr::one);
-        for x in items {
-            acc = api::lcm(&acc, &x, &gv).map_err(err)?;
-        }
-        return Ok(w(acc).into_pyobject(py)?.into_any().unbind());
+        return polynomial_list_fold(py,f,&items,&gv,_kwargs,modulus,true);
     }
     let g = g.ok_or_else(|| PyTypeError::new_err("lcm() takes 2 arguments or a sequence"))?;
     let r = api::lcm(&to_expr(f)?, &to_expr(g)?, &gv).map_err(err)?;
+    let r=if gv.is_empty(){ground_float_output(r)}else{r};
     let gens = if as_poly { f.downcast::<PyPoly>().unwrap().get().p.true_gens().to_vec() } else { gv };
     poly_result(py, r, as_poly, &gens)
 }
@@ -3107,6 +3239,10 @@ fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
 fn cofactors<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    if let Some((a,b,polys))=numeric_option_pair(f,g,gens,_kwargs)?{
+        let(h,a,b)=a.checked_cofactors(&b).map_err(err)?;
+        return PyTuple::new(py,[h,a,b].into_iter().map(|p|polynomial_output(py,p,polys)).collect::<PyResult<Vec<_>>>()?);
+    }
     if let Some(p)=gaussian_poly_argument(f,gens,None,_kwargs){return p.cofactors(py,g);}
     if let Some((a,b))=nongreedy_pair(f,g,gens,_kwargs)? {
         let(h,a,b)=a.cofactors(&b).map_err(err)?;
@@ -3119,17 +3255,56 @@ fn cofactors<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, g
         return PyTuple::new(py,[w(h.as_expr()),w(a.as_expr()),w(b.as_expr())]);
     }}
     let (h, a, b) = api::cofactors(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?;
+    let(h,a,b)=if gens.is_empty(){(ground_float_output(h),ground_float_output(a),ground_float_output(b))}else{(h,a,b)};
     PyTuple::new(py, [w(h), w(a), w(b)])
 }
 
-#[pyfunction]
+/// Native callers retain the default-sign protocol without Python dispatch.
+pub(crate) fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    py_cancel(f,gens,kwargs)
+}
+
+#[pyfunction(name="cancel")]
 #[pyo3(signature = (f, *gens, **_kwargs))]
-pub(crate) fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+fn py_cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let py=f.py();
+    let sign_option=_kwargs.map(|k|k.get_item("_signsimp")).transpose()?.flatten();
+    let controls=if sign_option.is_some(){
+        let clean=PyDict::new(py);
+        if let Some(k)=_kwargs{for (key,value)in k.iter(){if key.extract::<String>()?.as_str()!="_signsimp"{clean.set_item(key,value)?;}}}
+        Some(clean)
+    }else{None};
+    let _kwargs=controls.as_ref().or(_kwargs);
+    // `allowed_flags` checks unknown option names before even the numeric
+    // or relational early return. `deep` is not a cancel option.
+    if let Some(kwargs)=_kwargs {for (key,_) in kwargs.iter(){
+        let key=key.extract::<String>()?;
+        match key.as_str(){
+            "auto"|"frac"|"formal"|"include"|"all"|"gen"|"series"|"symbols"|"method"=>return Err(reference_error(py,"FlagError",&format!("'{key}' flag is not allowed in this context"))),
+            "expand"|"gens"|"wrt"|"sort"|"order"|"field"|"greedy"|"composite"|"domain"|"split"|"gaussian"|"extension"|"modulus"|"symmetric"|"strict"|"polys"=>{},
+            _=>return Err(reference_error(py,"OptionError",&format!("'{key}' is not a valid option"))),
+        }
+    }}
+    let _signsimp=sign_option.as_ref().map(|v|v.is_truthy()).transpose()?.unwrap_or(true);
+    if f.downcast::<PyPoly>().is_err()&&f.downcast::<PyTuple>().is_err(){
+        let e=to_expr(f)?;
+        if matches!(e.kind(),symox::Kind::Num(_)|symox::Kind::Rel(..)|symox::Kind::Bool(_))
+            ||matches!(e.kind(),symox::Kind::Const(c) if c.is_infinite()||*c==symox::expr::Constant::NaN)
+            ||api::cancel_has_piecewise(&e){
+            return Ok(w(api::reference_cancel_with_sign(&e,_signsimp).map_err(err)?).into_pyobject(py)?.into_any().unbind());
+        }
+    }
+    if let Ok(pair)=f.downcast::<PyTuple>() {if pair.len()==2&&pair.iter().all(|p|p.downcast::<PyPoly>().is_err()){
+        let values=pair.iter().map(|p|to_expr(&p)).collect::<PyResult<Vec<_>>>()?;
+        if values.iter().any(api::cancel_has_piecewise){
+            let values=values.iter().map(|e|api::reference_cancel(e).map(w).map_err(err)).collect::<PyResult<Vec<_>>>()?;
+            return Ok(PyTuple::new(py,values)?.into_any().unbind());
+        }
+    }}
     let stripped=if f.downcast::<PyTuple>().is_err(){inapplicable_extension(py,f,None,gens,_kwargs)?}else{None};let _kwargs=stripped.as_ref().or(_kwargs);
     if f.downcast::<PyPoly>().is_err()&&f.downcast::<PyTuple>().is_err()&&domains::selects_expression(_kwargs.map(|k|k.get_item("domain")).transpose()?.flatten().as_ref())&&_kwargs.is_some_and(|k|k.len()==1){
         domains::require_expression_generators(Some(&_kwargs.unwrap().get_item("domain")?.unwrap()),!gens.is_empty())?;
-        let e=symox::simptools::misc::signsimp(&to_expr(f)?,true);
+        let source=to_expr(f)?;let e=if _signsimp{symox::simptools::misc::signsimp(&source,true)}else{source};
         if matches!(e.kind(),symox::expr::Kind::Num(_)){return Ok(w(e).into_pyobject(py)?.into_any().unbind());}
         let e=symox::simptools::exprtools::factor_terms(&e,true,false,false,true);
         let(n,d)=api::as_numer_denom(&e);
@@ -3141,7 +3316,7 @@ pub(crate) fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: O
     // `sring((p, q), greedy=False)`: number factors stay in the
     // coefficients; no generator at all expands the expression.
     if only_nongreedy(_kwargs)?&&gens.is_empty()&&f.downcast::<PyPoly>().is_err()&&f.downcast::<PyTuple>().is_err(){
-        let e=symox::simptools::misc::signsimp(&to_expr(f)?,true);
+        let source=to_expr(f)?;let e=if _signsimp{symox::simptools::misc::signsimp(&source,true)}else{source};
         if matches!(e.kind(),symox::expr::Kind::Num(_)){return Ok(w(e).into_pyobject(py)?.into_any().unbind());}
         if !rational_function_blocker(&e){
             let e=symox::simptools::exprtools::factor_terms(&e,true,false,false,true);
@@ -3176,7 +3351,7 @@ pub(crate) fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: O
         return Ok(PyTuple::new(py,[w(Expr::one()),w(n),w(d)])?.into_any().unbind());
     }
     if !gens.is_empty()&&_kwargs.is_none_or(|k|k.is_empty())&&f.downcast::<PyPoly>().is_err(){
-        let e=symox::simptools::misc::signsimp(&to_expr(f)?,true);
+        let source=to_expr(f)?;let e=if _signsimp{symox::simptools::misc::signsimp(&source,true)}else{source};
         if !matches!(e.kind(),symox::expr::Kind::Num(_))&&!rational_function_blocker(&e){
             let e=symox::simptools::exprtools::factor_terms(&e,true,false,false,true);
             let(n,d)=api::as_numer_denom(&e);
@@ -3187,10 +3362,10 @@ pub(crate) fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: O
             }
         }
     }
-    if f.downcast::<PyPoly>().is_err()&&_kwargs.is_none_or(|k|k.is_empty()){
+    if f.downcast::<PyPoly>().is_err()&&_kwargs.is_none_or(|k|k.iter().all(|(key,_)|key.extract::<String>().is_ok_and(|key|key=="polys"))){
         let e=to_expr(f)?;
         if !rational_function_blocker(&e){
-            return Ok(w(api::reference_cancel(&e).map_err(err)?).into_pyobject(py)?.into_any().unbind());
+            return Ok(w(api::reference_cancel_with_sign(&e,_signsimp).map_err(err)?).into_pyobject(py)?.into_any().unbind());
         }
     }
     Ok(w(api::cancel(&to_expr(f)?).map_err(err)?).into_pyobject(py)?.into_any().unbind())
@@ -3689,7 +3864,7 @@ fn functional_euclid<'py>(f: &Bound<'py, PyAny>, g: &Bound<'py, PyAny>, gens: &B
             let values=result.try_iter()?.map(|v|domain.call_method1("to_sympy",(v?,))).collect::<PyResult<Vec<_>>>()?;
             return Ok(Some(PyTuple::new(py,values)?.into_any().unbind()));
         }
-        if converted.gens.iter().all(|x|x.is_symbol()){return Ok(None);}
+        if converted.gens.iter().all(|x|x.is_symbol())&&domain.is_none()&&option("auto")?.is_none()&&option("polys")?.is_none(){return Ok(None);}
         inferred=converted.gens;
     }
     if given<2&&inferred.is_empty(){
@@ -3967,7 +4142,9 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(gcd, m)?)?;
     m.add_function(wrap_pyfunction!(lcm, m)?)?;
     m.add_function(wrap_pyfunction!(cofactors, m)?)?;
-    m.add_function(wrap_pyfunction!(cancel, m)?)?;
+    m.add_function(wrap_pyfunction!(gcd_list, m)?)?;
+    m.add_function(wrap_pyfunction!(lcm_list, m)?)?;
+    m.add_function(wrap_pyfunction!(py_cancel, m)?)?;
     m.add_function(wrap_pyfunction!(apart, m)?)?;
     m.add_function(wrap_pyfunction!(collect, m)?)?;
     m.add_function(wrap_pyfunction!(py_div, m)?)?;

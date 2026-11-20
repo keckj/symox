@@ -122,6 +122,9 @@ pub(crate) fn properties<'py>(
 }
 
 pub(crate) fn to_python_error(error: WildcardError) -> PyErr {
+    if error.is::<symox::matches::ProtocolTypeError>() {
+        return PyTypeError::new_err(error.to_string());
+    }
     match error.downcast::<PyErr>() {
         Ok(error) => *error,
         Err(error) => PyValueError::new_err(error.to_string()),

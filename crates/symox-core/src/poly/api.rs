@@ -1214,9 +1214,21 @@ fn rat_gcd(a: &Rat, b: &Rat) -> Rat {
     Rat::new(a.n.gcd(&b.n), a.d.lcm(&b.d))
 }
 
+/// Ground `RR` is a field. Its gcd is one (including two zero inputs),
+/// while its lcm is the product. Keep the largest declared precision.
+fn real_ground_pair(a: &Expr, b: &Expr) -> Option<(Number, Number, u32)> {
+    let (x, y) = (a.as_number()?, b.as_number()?);
+    let prec = x.float_precision().unwrap_or(0).max(y.float_precision().unwrap_or(0));
+    if prec == 0 || x.is_nan() || y.is_nan() { return None; }
+    Some((Number::mp_float(x.to_bigfloat(prec), prec), Number::mp_float(y.to_bigfloat(prec), prec), prec))
+}
+
 /// `gcd(f, g)`.
 pub fn gcd(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
-    if let Some((x, y)) = numbers_of(a, b) {
+    if let Some((_, _, prec)) = real_ground_pair(a, b).filter(|_| gens.is_empty()) {
+        return Ok(Expr::num(Number::mp_float(Number::ONE.to_bigfloat(prec), prec)));
+    }
+    if let Some((x, y)) = numbers_of(a, b).filter(|_| gens.is_empty()) {
         return Ok(Expr::num(rat_gcd(&x, &y).to_number()));
     }
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
@@ -1225,7 +1237,10 @@ pub fn gcd(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::ch
 
 /// `lcm(f, g)`.
 pub fn lcm(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {super::mpoly::checked_operation(||{
-    if let Some((x, y)) = numbers_of(a, b) {
+    if let Some((x, y, prec)) = real_ground_pair(a, b).filter(|_| gens.is_empty()) {
+        return Ok(Expr::num(Number::mp_float(x.mul(&y).to_bigfloat(prec), prec)));
+    }
+    if let Some((x, y)) = numbers_of(a, b).filter(|_| gens.is_empty()) {
         if x.is_zero() || y.is_zero() {
             return Ok(Expr::zero());
         }
@@ -1259,6 +1274,16 @@ pub fn lcm_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {supe
 
 /// `cofactors(f, g)`: `(h, f/h, g/h)`.
 pub fn cofactors(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr, Expr)> {super::mpoly::checked_operation(||{
+    if let Some((x, y, prec)) = real_ground_pair(a, b).filter(|_| gens.is_empty()) {
+        return Ok((Expr::num(Number::mp_float(Number::ONE.to_bigfloat(prec), prec)), Expr::num(x), Expr::num(y)));
+    }
+    if let Some((x, y)) = numbers_of(a, b).filter(|_| gens.is_empty()) {
+        let h = rat_gcd(&x, &y);
+        if h.is_zero() {
+            return Err(PolyError::Unsupported("integer division by zero".into()));
+        }
+        return Ok((Expr::num(h.to_number()), Expr::num(x.div(&h).to_number()), Expr::num(y.div(&h).to_number())));
+    }
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     let (h, x, y) = ps[0].cofactors(&ps[1]);
     Ok((h.as_expr(), x.as_expr(), y.as_expr()))
@@ -1369,11 +1394,6 @@ fn contains_bad(e: &Expr) -> bool {
         if matches!(s.kind(), Kind::Rel(..) | Kind::Piecewise(_) | Kind::Bool(_) | Kind::Derivative(..)) {
             bad = true;
         }
-        if let Kind::Const(c) = s.kind() {
-            if c.is_infinite() || *c == Constant::NaN {
-                bad = true;
-            }
-        }
     });
     bad
 }
@@ -1406,13 +1426,74 @@ pub fn cancel_polys(p: &MPoly<Rat>, q: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) 
 /// `sqrt(4*a*b + 4*a*c)` with positive symbols is read as
 /// `2*sqrt(a)*sqrt(b + c)`.
 pub fn reference_cancel(e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
-    let e = crate::simptools::misc::signsimp(e, true);
+    reference_cancel_with_sign(e, true)
+})}
+
+/// The `_signsimp` switch of the public reference `cancel`.
+pub fn reference_cancel_with_sign(e: &Expr, signsimp: bool) -> PResult<Expr> {super::mpoly::checked_operation(||{
+    let e = if signsimp { crate::simptools::misc::signsimp(e, true) } else { e.clone() };
     if matches!(e.kind(), Kind::Num(_) | Kind::Rel(..) | Kind::Bool(_)) {
         return Ok(e);
     }
     let e = crate::simptools::exprtools::factor_terms(&e, true, false, false, true);
+    if cancel_has_piecewise(&e) || !crate::decompose::commutes(&e) {
+        return cancel_structural(&e);
+    }
     cancel(&e)
 })}
+
+/// Piecewise is an obstruction even when it occurs inside a coefficient or
+/// a function argument, rather than among the inferred ring generators.
+pub fn cancel_has_piecewise(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |node| {
+        found |= matches!(node.kind(), Kind::Piecewise(_));
+    });
+    found
+}
+
+/// The reference's PolynomialError fallback partitions a sum or product into
+/// commutative Piecewise-free arguments and the remaining arguments. Keeping
+/// the first group together permits cancellation across several factors.
+fn cancel_structural(e: &Expr) -> PResult<Expr> {
+    if matches!(e.kind(), Kind::Add(..) | Kind::Mul(..)) {
+        let mut ordinary = Vec::new();
+        let mut other = Vec::new();
+        for argument in crate::traverse::ordered_args(e) {
+            if crate::decompose::commutativity(&argument) == Some(true) && !cancel_has_piecewise(&argument) {
+                ordinary.push(argument);
+            } else {
+                other.push(reference_cancel(&argument)?);
+            }
+        }
+        let combine = |args: &[Expr]| if e.is_add() { add(args) } else { mul(args) };
+        let first = reference_cancel(&combine(&ordinary))?;
+        other.insert(0, first);
+        return Ok(combine(&other));
+    }
+    cancel_structural_children(e)
+}
+
+fn cancel_structural_children(e: &Expr) -> PResult<Expr> {
+    let mut error = None;
+    let result = crate::simptools::map_args(e, &mut |child| {
+        // Relational/Boolean/container nodes are not Exprs in the reference
+        // preorder walk. Descend through them without cancelling the node.
+        let skipped = matches!(child.kind(), Kind::Rel(..) | Kind::Bool(_))
+            || matches!(child.kind(), Kind::Func(Func::Undefined(head), _) if head.is_internal("Tuple"));
+        let result = if skipped { cancel_structural_children(child) } else {
+            match reference_cancel(child) {
+                Err(PolyError::Reference { kind: "NotImplementedError", .. }) => cancel_structural_children(child),
+                result => result,
+            }
+        };
+        match result {
+            Ok(value) => value,
+            Err(failure) => { if error.is_none() { error = Some(failure); } child.clone() },
+        }
+    });
+    match error { Some(error) => Err(error), None => Ok(result) }
+}
 
 /// Whether every coefficient of `p` converts to a finite nonzero double.
 fn float_representable(p: &MPoly<Rat>) -> bool {
@@ -1450,7 +1531,7 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {super::mpoly::checked_operation(||{
             return Ok(div(&a.with_rep(pp).as_expr(), &b.with_rep(qq).as_expr()));
         }
     }
-    let c = match super::convert::from_exprs(&[p.clone(), q.clone()]) {
+    let c = match super::convert::from_exprs_with_nonfinite(&[p.clone(), q.clone()]) {
         Ok(c) => c,
         Err(_) => return Ok(e.clone()),
     };

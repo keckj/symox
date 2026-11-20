@@ -187,6 +187,9 @@ impl Iv {
         };
         Iv { lo, hi, e: 2 * self.e }.round(prec)
     }
+    pub fn mul_rat(&self, r: &Rat, prec: u32) -> Iv {
+        self.mul(&Iv::from_rat(r, prec), prec)
+    }
     pub fn inv(&self, prec: u32) -> Option<Iv> {
         if self.contains_zero() {
             return None;

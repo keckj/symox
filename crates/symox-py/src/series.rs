@@ -77,6 +77,13 @@ fn _series(
     sr::direction::series_front(&e, &x, &x0, n.unwrap_or(6), minus, logx.as_ref(), cdir.as_ref()).map(w).map_err(serr)
 }
 
+/// Private admission scope, including recursive calls made by Python's
+/// existing series orchestration. No calculation or conversion is replaced.
+#[pyfunction]
+fn _series_without_generalized(callback: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    sr::without_generalized(|| callback.call0().map(|result| result.unbind()))
+}
+
 /// The side chosen by a nonzero `cdir` in `Expr.series`: `None` for a zero
 /// `cdir`, `'+'` or `'-'` for a real one, and `'I'` for a nonreal one (the
 /// expansion then goes through `_series(..., cdir=cdir)`).
@@ -379,6 +386,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m.add_function(f)?;
     }
     m.add_function(wrap_pyfunction!(_series, m)?)?;
+    m.add_function(wrap_pyfunction!(_series_without_generalized, m)?)?;
     m.add_function(wrap_pyfunction!(_series_direction, m)?)?;
     m.add_function(wrap_pyfunction!(_series_accum_error, m)?)?;
     m.add_function(wrap_pyfunction!(_series_accum_value, m)?)?;

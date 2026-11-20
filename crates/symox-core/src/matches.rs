@@ -14,14 +14,19 @@
 //! falls back to the reference implementation; a decline never stands for
 //! "no match".
 //!
-//! Declined inputs: noncommutative products, matrix, host, binder, limit,
+//! Noncommutative products follow `Mul.matches` and its ordered, LIFO
+//! wildcard search; positive integer powers expand only within the budget.
+//!
+//! Declined inputs: nonpositive nonintegral or symbolic powers in a noncommutative
+//! factor sequence, unknown commutativity, matrix, host, binder, limit,
 //! Order, logic, set, relational, Piecewise, Max/Min nodes and infinities;
-//! a Float facing a side without free symbols in a multiplicative inverse
-//! (where the reference compares numerically); a collection whose
+//! a Float facing an unmodelled symbol-free expression in a multiplicative
+//! inverse (numeric atoms follow the reference's numerical comparison); a collection whose
 //! result depends on the (hash) order of more than one symbol; and a search
 //! that exceeds a step budget.
 
 use rustc_hash::FxHashMap;
+use num_traits::Signed;
 
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
@@ -29,12 +34,22 @@ use crate::{decompose, ops, sortkey, subs, traverse};
 
 pub type MatchError = crate::symbol::WildcardError;
 
+/// A TypeError required by the reference matching protocol, independent
+/// of the Python binding. Shared callers preserve its exception class.
+#[derive(Debug)]
+pub struct ProtocolTypeError(pub String);
+
+impl std::fmt::Display for ProtocolTypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(&self.0) }
+}
+impl std::error::Error for ProtocolTypeError {}
+
 /// Why a match was not decided.
 #[derive(Debug)]
 pub enum Stop {
     /// The port does not reproduce the reference on this input.
     Decline(&'static str),
-    /// A Wild property raised.
+    /// A Wild property or the reference protocol raised.
     Error(MatchError),
 }
 
@@ -79,7 +94,7 @@ pub fn reference_match_ordered(expr: &Expr, pattern: &Expr, old: bool) -> Outcom
 
 /// Inputs whose reference semantics the port does not cover.
 fn admit(e: &Expr) -> Result<(), Stop> {
-    if e.has_noncommutative_host() || e.has_host() || e.has_binding_identity() || e.has_bound_generator()
+    if e.has_host() || e.has_binding_identity() || e.has_bound_generator()
         || e.has_limit() || e.has_symbolic_derivative() || e.has_nonfinite()
     {
         return Err(Stop::Decline("unsupported node class"));
@@ -228,14 +243,63 @@ fn add_inverse(lhs: &Expr, rhs: &Expr) -> Expr {
     if is_number(&srv) { srv } else { rv }
 }
 
+/// `Float.__add__(0) == rhs.evalf().__add__(0)`. The precision is part of
+/// Float equality: neither a tolerance nor a conversion of both operands to
+/// machine floats reproduces this test. In particular, exact numbers are
+/// truncated toward zero at 53 + 4 bits before the final rounding, whereas a Float keeps
+/// its stored tuple until that final rounding. Both additions normalize a
+/// floating zero to the exact integer zero.
+fn float_inverse_check(lhs: &Expr, rhs: &Expr) -> Result<bool, Stop> {
+    let Some(left) = lhs.as_number().filter(|n| n.is_float()) else {
+        return Ok(false);
+    };
+    let Some(right) = rhs.as_number() else {
+        if !traverse::free_symbols(rhs).is_empty() {
+            return Ok(false);
+        }
+        return Err(Stop::Decline("Float against an unmodelled comparable expression"));
+    };
+    // A one-bit Float has no decided comparability in Expr.is_comparable.
+    if right.float_precision() == Some(1) {
+        return Ok(false);
+    }
+    let evaluated = if right.is_float() {
+        right.to_bigfloat(53)
+    } else {
+        // evalf_integer/evalf_rational use mpmath's default round_fast
+        // (toward zero), not nearest, for their 57-bit intermediate.
+        // Form enough quotient bits exactly, then truncate to that grid.
+        // Rounding an approximation first would misclassify rationals
+        // arbitrarily close to a grid boundary.
+        let ratio = right.to_ratio().expect("exact numeric atom");
+        let numerator = ratio.numer().abs();
+        let denominator = ratio.denom();
+        // Shifted integers have at most max(input bit lengths) + 57 bits;
+        // no allocation depends on the exponent of a Float operand.
+        let shift = 57_i128 + denominator.bits() as i128 - numerator.bits() as i128;
+        let mut mantissa = if shift >= 0 {
+            (numerator << shift as usize) / denominator
+        } else {
+            numerator / (denominator << (-shift) as usize)
+        };
+        let excess = mantissa.bits().saturating_sub(57);
+        mantissa >>= excess;
+        if right.is_negative() {
+            mantissa = -mantissa;
+        }
+        crate::bigfloat::BigFloat::from_parts(mantissa, -shift + excess as i128).round_to(53)
+    };
+    let evaluated = Number::mp_float(evaluated, 53).add(&Number::ZERO);
+    Ok(left.add(&Number::ZERO) == evaluated)
+}
+
 /// `Mul._combine_inverse`.
 fn mul_inverse(lhs: &Expr, rhs: &Expr) -> Result<Expr, Stop> {
     if lhs == rhs {
         return Ok(Expr::one());
     }
-    // `check`: a Float against a comparable number compares numerically.
-    if (is_float(lhs) && traverse::free_symbols(rhs).is_empty()) || (is_float(rhs) && traverse::free_symbols(lhs).is_empty()) {
-        return Err(Stop::Decline("Float in a multiplicative inverse"));
+    if float_inverse_check(lhs, rhs)? || float_inverse_check(rhs, lhs)? {
+        return Ok(Expr::one());
     }
     let (mut lhs, mut rhs) = (lhs.clone(), rhs.clone());
     if [&lhs, &rhs].iter().any(|i| i.is_pow() || i.is_mul()) {
@@ -310,19 +374,22 @@ struct Matcher {
 }
 
 /// `as_base_exp` with `Mul.as_base_exp`: a product whose factors share one
-/// integer exponent is the power of the product of their bases.
+/// integer exponent is the power of the product of their bases only when
+/// at most one base is noncommutative.
 fn base_exp(e: &Expr) -> (Expr, Expr) {
     if !e.is_mul() {
         return decompose::as_base_exp(e);
     }
     let mut first: Option<Expr> = None;
     let mut bases = Vec::new();
+    let mut noncommutative = 0;
     for factor in args(e) {
         let (b, x) = decompose::as_base_exp(&factor);
+        if !decompose::commutes(&b) { noncommutative += 1; }
         match &first {
             None => first = Some(x),
             Some(f) => {
-                if &x != f || !x.is_integer_number() {
+                if &x != f || noncommutative > 1 || !x.is_integer_number() {
                     return (e.clone(), Expr::one());
                 }
             }
@@ -330,6 +397,41 @@ fn base_exp(e: &Expr) -> (Expr, Expr) {
         bases.push(b);
     }
     (ops::mul(&bases), first.unwrap_or_else(Expr::one))
+}
+
+/// `Mul._matches_expand_pows`, restricted to exact integer exponents.
+/// Positive noninteger numeric powers reproduce the reference's list
+/// repetition TypeError. Other noninteger/symbolic exponents retain the
+/// fallback. Never materialize a huge power.
+fn expand_noncomm_powers(factors: &[Expr]) -> Result<Vec<Expr>, Stop> {
+    let mut result = Vec::new();
+    for factor in factors {
+        if let Kind::Pow(base, exponent) = factor.kind() {
+            let Some(n) = exponent.as_number() else {
+                return Err(Stop::Decline("noninteger exponent in noncommutative factor sequence"));
+            };
+            if !n.is_integer() {
+                if n.is_positive() {
+                    return Err(Stop::Error(Box::new(ProtocolTypeError(format!(
+                        "can't multiply sequence by non-int of type '{}'", exponent.class_name()
+                    )))));
+                }
+                return Err(Stop::Decline("noninteger exponent in noncommutative factor sequence"));
+            }
+            if n.is_positive() {
+                let Some(n) = n.to_i64().and_then(|n| usize::try_from(n).ok()).filter(|n| *n <= BUDGET - result.len()) else {
+                    return Err(Stop::Decline("noncommutative power expansion budget"));
+                };
+                result.extend(std::iter::repeat_n(base.clone(), n));
+                continue;
+            }
+        }
+        if result.len() >= BUDGET {
+            return Err(Stop::Decline("noncommutative factor budget"));
+        }
+        result.push(factor.clone());
+    }
+    Ok(result)
 }
 
 impl Matcher {
@@ -343,7 +445,7 @@ impl Matcher {
         }
         match pattern.kind() {
             Kind::Add(..) => self.commutative(pattern, expr, d, old),
-            Kind::Mul(..) => self.commutative(pattern, expr, d, old),
+            Kind::Mul(..) => self.mul(pattern, expr, d, old),
             Kind::Pow(..) => self.pow(pattern, expr, d, old),
             Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => {
                 Ok((pattern == expr).then(|| d.clone()))
@@ -366,6 +468,94 @@ impl Matcher {
             }
         }
         Ok(Some(d.with(pattern, expr)))
+    }
+
+    /// `Mul.matches`: match the commutative prefix before the ordered
+    /// noncommutative factor sequence. The reference returns None rather
+    /// than an empty binding dict for this branch, even for equal products.
+    fn mul(&mut self, pattern: &Expr, expr: &Expr, d: &Bindings, old: bool) -> Outcome {
+        let (Some(pc), Some(ec)) = (decompose::commutativity(pattern), decompose::commutativity(expr)) else {
+            return Err(Stop::Decline("unknown commutativity"));
+        };
+        if pc && ec {
+            return self.commutative(pattern, expr, d, old);
+        }
+        if pc != ec {
+            return Ok(None);
+        }
+        let (mut c1, nc1) = decompose::args_cnc(pattern, true);
+        let (mut c2, nc2) = decompose::args_cnc(expr, true);
+        if c1.is_empty() { c1.push(Expr::one()); }
+        if c2.is_empty() { c2.push(Expr::one()); }
+        let commutative = self.matches(&ops::mul(&c1), &ops::mul(&c2), d, old)?;
+        if commutative.as_ref().is_none_or(|found| found.0.is_empty()) && c1 != c2 {
+            return Ok(None);
+        }
+        let nodes = expand_noncomm_powers(&nc1)?;
+        let targets = expand_noncomm_powers(&nc2)?;
+        let found = self.noncommutative(&nodes, &targets, &commutative.unwrap_or_default())?;
+        Ok(found.filter(|found| !found.0.is_empty()))
+    }
+
+    /// `Mul._matches_noncomm` and its state helpers. SymPy's agenda, Wild
+    /// ranges and accumulated bindings are shared across backtracking;
+    /// they are deliberately not branch-local. Advancing the next node is
+    /// pushed last, hence tried first, preserving the reference's choice.
+    fn noncommutative(&mut self, nodes: &[Expr], targets: &[Expr], initial: &Bindings) -> Outcome {
+        let mut bindings = initial.clone();
+        let mut agenda = Vec::new();
+        let (mut ni, mut ti) = (0usize, 0usize);
+        let mut ranges: Vec<(usize, (usize, usize))> = Vec::new();
+        while ni < nodes.len() && ti < targets.len() {
+            self.steps += 1;
+            if self.steps > BUDGET { return Err(Stop::Decline("step budget")); }
+            let node = &nodes[ni];
+            if is_wild(node) {
+                if let Some((_, (_, end))) = ranges.iter_mut().find(|(index, _)| *index == ni) {
+                    *end = ti;
+                } else {
+                    ranges.push((ni, (ti, ti)));
+                }
+            }
+            // `_matches_new_states` rejects exhausting the targets while
+            // there are still nodes to match, before trying a Wild.
+            let mut transition = None;
+            if !(ti == targets.len() - 1 && ni < nodes.len() - 1) {
+                if is_wild(node) {
+                    let (_, (begin, end)) = ranges.iter().find(|(index, _)| *index == ni).unwrap();
+                    let terms = &targets[*begin..=*end];
+                    let value = if terms.len() == 1 { terms[0].clone() } else { ops::mul(terms) };
+                    if let Some(found) = self.matches(node, &value, &Bindings::default(), false)? {
+                        // The reference compares zipped slices, not their
+                        // lengths, when the same Wild occurs several times.
+                        let consistent = ranges.iter().filter(|(index, _)| nodes[*index] == *node).all(|(_, (other_begin, other_end))| {
+                            targets[*begin..=*end].iter().zip(&targets[*other_begin..=*other_end]).all(|(a, b)| a == b)
+                        });
+                        if consistent {
+                            let mut states = vec![(ni, ti + 1)];
+                            if ni < nodes.len() - 1 { states.push((ni + 1, ti + 1)); }
+                            transition = Some((states, Some(found)));
+                        }
+                    }
+                } else if !(ni == nodes.len() - 1 && ti < targets.len() - 1) {
+                    let found = self.matches(node, &targets[ti], &Bindings::default(), false)?;
+                    if found.as_ref().is_some_and(|found| !found.0.is_empty()) {
+                        transition = Some((vec![(ni + 1, ti + 1)], found));
+                    } else if *node == targets[ti] {
+                        transition = Some((vec![(ni + 1, ti + 1)], None));
+                    }
+                }
+            }
+            if let Some((states, found)) = transition {
+                agenda.extend(states);
+                if let Some(found) = found {
+                    for (key, value) in found.0 { bindings = bindings.with(&key, &value); }
+                }
+            }
+            let Some((next_node, next_target)) = agenda.pop() else { return Ok(None) };
+            (ni, ti) = (next_node, next_target);
+        }
+        Ok(Some(bindings))
     }
 
     /// `Basic.matches`.
@@ -565,6 +755,50 @@ mod tests {
         let got = reference_match(expr, pattern, false).unwrap_or_else(|_| panic!("declined"));
         let expected = expected.map(|v| v.into_iter().collect::<FxHashMap<_, _>>());
         assert_eq!(got, expected, "{expr} against {pattern}");
+    }
+
+    #[test]
+    fn float_inverse_reference_rounding_and_precision() {
+        let one = Expr::float(1.0);
+        // 1 + 2^-53 + 2^-57: direct rounding to 53 bits goes up, but
+        // SymPy's evalf rounds through 57 bits and then goes down to 1.
+        let denominator = 1_i64 << 57;
+        let near_half = Expr::rational(denominator + 17, denominator);
+        assert!(float_inverse_check(&one, &near_half).unwrap());
+        assert!(!float_inverse_check(&Expr::float(1.0 + f64::EPSILON), &near_half).unwrap());
+        let high = Expr::num(Number::mp_float(crate::bigfloat::BigFloat::one(), 103));
+        assert!(!float_inverse_check(&high, &Expr::one()).unwrap());
+        assert!(float_inverse_check(&one, &high).unwrap());
+        assert!(float_inverse_check(&Expr::float(0.0), &Expr::zero()).unwrap());
+        let tiny = Expr::num(Number::mp_float(crate::bigfloat::BigFloat::from_decimal("1e-1000", 53).unwrap(), 53));
+        let denominator = num_bigint::BigInt::from(10).pow(1000);
+        let tiny_exact = Expr::num(Number::rational(num_bigint::BigInt::from(1), denominator).unwrap());
+        assert!(!float_inverse_check(&tiny, &tiny_exact).unwrap());
+        assert!(matches!(float_inverse_check(&one, &Expr::pi()), Err(Stop::Decline(_))));
+    }
+
+    #[test]
+    fn noncommutative_reference_agenda_and_errors() {
+        let facts = crate::assumption_facts::FactSet::from_kwargs([("commutative", false)]).unwrap();
+        let atom = |name| Expr::from_kind(Kind::Sym(crate::symbol::Symbol::with_facts(name, facts).unwrap()));
+        let wild = |name| Expr::from_kind(Kind::Sym(crate::symbol::Symbol::wild_with_facts(name, vec![], facts).unwrap()));
+        let (a, b, c, w, z) = (atom("A"), atom("B"), atom("C"), wild("w"), wild("z"));
+        let e = ops::mul(&[a.clone(), b.clone(), c.clone()]);
+        check(&e, &ops::mul2(&w, &z), Some(vec![(w.clone(), a.clone()), (z, ops::mul2(&b, &c))]));
+        // The reference discards empty bindings on its NC Mul branch.
+        check(&ops::mul2(&a, &b), &ops::mul2(&a, &b), None);
+        let e = ops::mul(&[a.clone(), b.clone(), a.clone(), c.clone()]);
+        let pattern = ops::mul(&[w.clone(), b.clone(), w.clone()]);
+        check(&e, &pattern, Some(vec![(w.clone(), ops::mul2(&a, &c))]));
+        let e = ops::mul2(&ops::pow(&a, &Expr::rational(1, 2)), &b);
+        let pattern = ops::mul2(&w, &b);
+        match reference_match(&e, &pattern, false) {
+            Err(Stop::Error(error)) => assert!(error.is::<ProtocolTypeError>()),
+            other => panic!("expected reference TypeError, got {other:?}"),
+        }
+        // Guard order matters: a failed commutative coefficient match
+        // must return None before reaching the erroneous expansion.
+        check(&ops::mul2(&Expr::int(2), &e), &ops::mul2(&Expr::int(3), &pattern), None);
     }
 
     #[test]

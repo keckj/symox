@@ -1,0 +1,2431 @@
+[
+  {
+    "name": "cofactors both zero error",
+    "reference": [
+      "error",
+      "ZeroDivisionError"
+    ],
+    "actual": [
+      "error",
+      "ZeroDivisionError"
+    ]
+  },
+  {
+    "name": "cofactors explicit QQ",
+    "reference": [
+      "value",
+      [
+        [
+          "1",
+          null
+        ],
+        [
+          "8",
+          null
+        ],
+        [
+          "6",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1",
+          null
+        ],
+        [
+          "8",
+          null
+        ],
+        [
+          "6",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors explicit QQ polys",
+    "reference": [
+      "value",
+      [
+        [
+          "Poly",
+          "1",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "8",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "6",
+          [
+            "x"
+          ],
+          "QQ"
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "Poly",
+          "1",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "8",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "6",
+          [
+            "x"
+          ],
+          "QQ"
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors float zero",
+    "reference": [
+      "value",
+      [
+        [
+          "1.00000000000000",
+          53
+        ],
+        [
+          "0.0",
+          53
+        ],
+        [
+          "0.0",
+          53
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1.00000000000000",
+          53
+        ],
+        [
+          "0.0",
+          53
+        ],
+        [
+          "0.0",
+          53
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors floats",
+    "reference": [
+      "value",
+      [
+        [
+          "1.00000000000000",
+          53
+        ],
+        [
+          "3.00000000000000",
+          53
+        ],
+        [
+          "9.00000000000000",
+          53
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1.00000000000000",
+          53
+        ],
+        [
+          "3.00000000000000",
+          53
+        ],
+        [
+          "9.00000000000000",
+          53
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors integers",
+    "reference": [
+      "value",
+      [
+        [
+          "2",
+          null
+        ],
+        [
+          "4",
+          null
+        ],
+        [
+          "3",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "2",
+          null
+        ],
+        [
+          "4",
+          null
+        ],
+        [
+          "3",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors negative",
+    "reference": [
+      "value",
+      [
+        [
+          "2",
+          null
+        ],
+        [
+          "-4",
+          null
+        ],
+        [
+          "3",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "2",
+          null
+        ],
+        [
+          "-4",
+          null
+        ],
+        [
+          "3",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors polynomial float",
+    "reference": [
+      "value",
+      [
+        [
+          "1.00000000000000",
+          53
+        ],
+        [
+          "3.00000000000000",
+          53
+        ],
+        [
+          "9.00000000000000",
+          53
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1.00000000000000",
+          53
+        ],
+        [
+          "3.00000000000000",
+          53
+        ],
+        [
+          "9.00000000000000",
+          53
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors polynomial zero",
+    "reference": [
+      "value",
+      [
+        [
+          "0",
+          null
+        ],
+        [
+          "0",
+          null
+        ],
+        [
+          "0",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "0",
+          null
+        ],
+        [
+          "0",
+          null
+        ],
+        [
+          "0",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors rational",
+    "reference": [
+      "value",
+      [
+        [
+          "2/9",
+          null
+        ],
+        [
+          "3",
+          null
+        ],
+        [
+          "2",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "2/9",
+          null
+        ],
+        [
+          "3",
+          null
+        ],
+        [
+          "2",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "cofactors zero",
+    "reference": [
+      "value",
+      [
+        [
+          "6",
+          null
+        ],
+        [
+          "0",
+          null
+        ],
+        [
+          "-1",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "6",
+          null
+        ],
+        [
+          "0",
+          null
+        ],
+        [
+          "-1",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "gcd explicit QQ",
+    "reference": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd explicit QQ polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd float and integer",
+    "reference": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "gcd float zero",
+    "reference": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "gcd floats",
+    "reference": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "gcd polynomial float zero",
+    "reference": [
+      "value",
+      [
+        "0",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "0",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd rational polynomial",
+    "reference": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly GF",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly expressions",
+    "reference": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators GF addition",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators GF replacement",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators GF same",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators GF triple",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ addition",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ domain error",
+    "reference": [
+      "error",
+      "CoercionFailed"
+    ],
+    "actual": [
+      "error",
+      "CoercionFailed"
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ permutation",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x*y",
+        [
+          "y",
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x*y",
+        [
+          "y",
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ replacement",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ same",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ triple",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly mixed GF error",
+    "reference": [
+      "error",
+      "UnificationFailed"
+    ],
+    "actual": [
+      "error",
+      "UnificationFailed"
+    ]
+  },
+  {
+    "name": "gcd_list Poly retains QQ",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list bad flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "error",
+      "FlagError"
+    ]
+  },
+  {
+    "name": "gcd_list conflicting options",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "error",
+      "OptionError"
+    ]
+  },
+  {
+    "name": "gcd_list domain QQ",
+    "reference": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list domain QQ object",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list domain QQ polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list empty",
+    "reference": [
+      "value",
+      [
+        "0",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "0",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list empty explicit x",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "0",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "0",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list empty no gens error",
+    "reference": [
+      "error",
+      "ComputationFailed"
+    ],
+    "actual": [
+      "error",
+      "ComputationFailed"
+    ]
+  },
+  {
+    "name": "gcd_list extension polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x - sqrt(2)",
+        [
+          "x"
+        ],
+        "QQ<sqrt(2)>"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x - sqrt(2)",
+        [
+          "x"
+        ],
+        "QQ<sqrt(2)>"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list field",
+    "reference": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list field polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list float zeros",
+    "reference": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list floats",
+    "reference": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list integers",
+    "reference": [
+      "value",
+      [
+        "2",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list modulus",
+    "reference": [
+      "value",
+      [
+        "x - 1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x - 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list modulus polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x - 1",
+        [
+          "x"
+        ],
+        "GF(3)"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x - 1",
+        [
+          "x"
+        ],
+        "GF(3)"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list multivariate",
+    "reference": [
+      "value",
+      [
+        "x*y",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x*y",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list numbers explicit x",
+    "reference": [
+      "value",
+      [
+        "2",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list numbers explicit x QQ",
+    "reference": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list numbers no gens error",
+    "reference": [
+      "error",
+      "ComputationFailed"
+    ],
+    "actual": [
+      "error",
+      "ComputationFailed"
+    ]
+  },
+  {
+    "name": "gcd_list polynomial",
+    "reference": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list rational",
+    "reference": [
+      "value",
+      [
+        "2/9",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "2/9",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list singleton signed",
+    "reference": [
+      "value",
+      [
+        "-3",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "-3",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list unknown option",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "error",
+      "OptionError"
+    ]
+  },
+  {
+    "name": "gcdex auto false QQ inferred",
+    "reference": [
+      "value",
+      [
+        [
+          "2/3",
+          null
+        ],
+        [
+          "-1/3",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "2/3",
+          null
+        ],
+        [
+          "-1/3",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "gcdex auto false explicit",
+    "reference": [
+      "error",
+      "DomainError"
+    ],
+    "actual": [
+      "error",
+      "DomainError"
+    ]
+  },
+  {
+    "name": "gcdex auto false inferred",
+    "reference": [
+      "error",
+      "DomainError"
+    ],
+    "actual": [
+      "error",
+      "DomainError"
+    ]
+  },
+  {
+    "name": "gcdex domain QQ inferred",
+    "reference": [
+      "value",
+      [
+        [
+          "1/2",
+          null
+        ],
+        [
+          "-1/2",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1/2",
+          null
+        ],
+        [
+          "-1/2",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "gcdex domain ZZ inferred",
+    "reference": [
+      "error",
+      "DomainError"
+    ],
+    "actual": [
+      "error",
+      "DomainError"
+    ]
+  },
+  {
+    "name": "gcdex polys inferred",
+    "reference": [
+      "value",
+      [
+        [
+          "Poly",
+          "1/2",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "-1/2",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "1",
+          [
+            "x"
+          ],
+          "QQ"
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "Poly",
+          "1/2",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "-1/2",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "1",
+          [
+            "x"
+          ],
+          "QQ"
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "half_gcdex QQ inferred",
+    "reference": [
+      "value",
+      [
+        [
+          "2/3",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "2/3",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "half_gcdex auto false inferred",
+    "reference": [
+      "error",
+      "DomainError"
+    ],
+    "actual": [
+      "error",
+      "DomainError"
+    ]
+  },
+  {
+    "name": "half_gcdex polys inferred",
+    "reference": [
+      "value",
+      [
+        [
+          "Poly",
+          "1/2",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "1",
+          [
+            "x"
+          ],
+          "QQ"
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "Poly",
+          "1/2",
+          [
+            "x"
+          ],
+          "QQ"
+        ],
+        [
+          "Poly",
+          "1",
+          [
+            "x"
+          ],
+          "QQ"
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "lcm explicit QQ",
+    "reference": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm float zero",
+    "reference": [
+      "value",
+      [
+        "0.0",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "0.0",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "lcm floats",
+    "reference": [
+      "value",
+      [
+        "27.0000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "27.0000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "lcm polynomial floats",
+    "reference": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1.00000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "lcm rational polynomial",
+    "reference": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm signed floats",
+    "reference": [
+      "value",
+      [
+        "-27.0000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "-27.0000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly GF",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly expressions",
+    "reference": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators GF addition",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators GF replacement",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators GF same",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators GF triple",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ addition",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "4*x",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "4*x",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ domain error",
+    "reference": [
+      "error",
+      "CoercionFailed"
+    ],
+    "actual": [
+      "error",
+      "CoercionFailed"
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ permutation",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x*y**2",
+        [
+          "y",
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x*y**2",
+        [
+          "y",
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ replacement",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "4*x",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "4*x",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ same",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ triple",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "12*x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "12*x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly mixed GF error",
+    "reference": [
+      "error",
+      "UnificationFailed"
+    ],
+    "actual": [
+      "error",
+      "UnificationFailed"
+    ]
+  },
+  {
+    "name": "lcm_list Poly retains QQ",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list bad flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "error",
+      "FlagError"
+    ]
+  },
+  {
+    "name": "lcm_list conflicting options",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "error",
+      "OptionError"
+    ]
+  },
+  {
+    "name": "lcm_list domain QQ",
+    "reference": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list domain QQ object",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list domain QQ polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list empty",
+    "reference": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list empty explicit x",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list empty no gens error",
+    "reference": [
+      "error",
+      "ComputationFailed"
+    ],
+    "actual": [
+      "error",
+      "ComputationFailed"
+    ]
+  },
+  {
+    "name": "lcm_list extension polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**2 - 2",
+        [
+          "x"
+        ],
+        "QQ<sqrt(2)>"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**2 - 2",
+        [
+          "x"
+        ],
+        "QQ<sqrt(2)>"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list field",
+    "reference": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list field polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list float zeros",
+    "reference": [
+      "value",
+      [
+        "0.0",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "0.0",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list floats",
+    "reference": [
+      "value",
+      [
+        "27.0000000000000",
+        53
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "27.0000000000000",
+        53
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list integers",
+    "reference": [
+      "value",
+      [
+        "24",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "24",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list modulus",
+    "reference": [
+      "value",
+      [
+        "x**3 - x**2 - x + 1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x**3 - x**2 - x + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list modulus polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**3 - x**2 - x + 1",
+        [
+          "x"
+        ],
+        "GF(3)"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**3 - x**2 - x + 1",
+        [
+          "x"
+        ],
+        "GF(3)"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list multivariate",
+    "reference": [
+      "value",
+      [
+        "x**2*y**2",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x**2*y**2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list numbers explicit x",
+    "reference": [
+      "value",
+      [
+        "24",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "24",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list numbers explicit x QQ",
+    "reference": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list numbers no gens error",
+    "reference": [
+      "error",
+      "ComputationFailed"
+    ],
+    "actual": [
+      "error",
+      "ComputationFailed"
+    ]
+  },
+  {
+    "name": "lcm_list polynomial",
+    "reference": [
+      "value",
+      [
+        "6*x**2",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "6*x**2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list polys",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "6*x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "6*x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list rational",
+    "reference": [
+      "value",
+      [
+        "4/3",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "4/3",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list singleton signed",
+    "reference": [
+      "value",
+      [
+        "-3",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "-3",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list unknown option",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "error",
+      "OptionError"
+    ]
+  }
+]

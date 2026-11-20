@@ -1,0 +1,482 @@
+[
+  {
+    "name": "gcd_list Poly generators GF addition",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators GF replacement",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators GF same",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators GF triple",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "1",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ addition",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ domain error",
+    "reference": [
+      "error",
+      "CoercionFailed"
+    ],
+    "actual": [
+      "error",
+      "CoercionFailed"
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ permutation",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x*y",
+        [
+          "y",
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x*y",
+        [
+          "x",
+          "y"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ replacement",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ same",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "gcd_list Poly generators QQ triple",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "2*x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators GF addition",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators GF replacement",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators GF same",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators GF triple",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x**3 + x**2 + x + 1",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x**2 + 1",
+        [
+          "x"
+        ],
+        "GF(2)"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ addition",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "4*x",
+        [
+          "y",
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ domain error",
+    "reference": [
+      "error",
+      "CoercionFailed"
+    ],
+    "actual": [
+      "error",
+      "CoercionFailed"
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ permutation",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x*y**2",
+        [
+          "y",
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x*y**2",
+        [
+          "x",
+          "y"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ replacement",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "4*x",
+        [
+          "y"
+        ],
+        "ZZ[x]"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ same",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  },
+  {
+    "name": "lcm_list Poly generators QQ triple",
+    "reference": [
+      "value",
+      [
+        "Poly",
+        "12*x",
+        [
+          "x"
+        ],
+        "ZZ"
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Poly",
+        "x",
+        [
+          "x"
+        ],
+        "QQ"
+      ]
+    ]
+  }
+]

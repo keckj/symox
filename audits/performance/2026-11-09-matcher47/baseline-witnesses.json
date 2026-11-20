@@ -1,0 +1,1533 @@
+{
+  "sympy_version": "1.14.0",
+  "symox_module": "/tmp/symox-wave47-baseline/python/symox/__init__.py",
+  "old": false,
+  "counts": {
+    "ordered_matching": {
+      "cases": 52,
+      "public_agrees": 51,
+      "native_handled": 0
+    },
+    "numeric_expansion_error": {
+      "cases": 4,
+      "public_agrees": 0,
+      "native_handled": 0
+    }
+  },
+  "rows": [
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "B*A",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "A*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "C*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "u*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "u*v",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "w",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('A', commutative=False), Symbol('B', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('A', commutative=False), Symbol('B', commutative=False))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A",
+      "pattern": "A",
+      "sympy": {
+        "ok": true,
+        "value": []
+      },
+      "symox": {
+        "ok": true,
+        "value": []
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A",
+      "pattern": "u",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C",
+      "pattern": "w*C",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('A', commutative=False), Symbol('B', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('A', commutative=False), Symbol('B', commutative=False))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C",
+      "pattern": "A*w",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('B', commutative=False), Symbol('C', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('B', commutative=False), Symbol('C', commutative=False))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C*D",
+      "pattern": "w*z",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Mul(Symbol('B', commutative=False), Symbol('C', commutative=False), Symbol('D', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Mul(Symbol('B', commutative=False), Symbol('C', commutative=False), Symbol('D', commutative=False))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C*D",
+      "pattern": "w*B*z",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Mul(Symbol('C', commutative=False), Symbol('D', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Mul(Symbol('C', commutative=False), Symbol('D', commutative=False))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C*D",
+      "pattern": "A*w*D",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('B', commutative=False), Symbol('C', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('B', commutative=False), Symbol('C', commutative=False))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C",
+      "pattern": "w*z*r",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Symbol('B', commutative=False)"
+          ],
+          [
+            "r_",
+            "Symbol('C', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Symbol('B', commutative=False)"
+          ],
+          [
+            "r_",
+            "Symbol('C', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "w*z*r",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*A",
+      "pattern": "w*B*w",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C",
+      "pattern": "w*B*w",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*A*C",
+      "pattern": "w*B*w",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('A', commutative=False), Symbol('C', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('A', commutative=False), Symbol('C', commutative=False))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C*B*D",
+      "pattern": "w*B*z",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Mul(Symbol('C', commutative=False), Symbol('B', commutative=False), Symbol('D', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Mul(Symbol('C', commutative=False), Symbol('B', commutative=False), Symbol('D', commutative=False))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C*D",
+      "pattern": "w*C*z",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('A', commutative=False), Symbol('B', commutative=False))"
+          ],
+          [
+            "z_",
+            "Symbol('D', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('A', commutative=False), Symbol('B', commutative=False))"
+          ],
+          [
+            "z_",
+            "Symbol('D', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B*C*D",
+      "pattern": "w*B*C*z",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Symbol('D', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Symbol('D', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**2*B",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(2))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(2))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**3*B",
+      "pattern": "A*w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(2))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(2))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**3*B",
+      "pattern": "w**2*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(2))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(2))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**2*B**2",
+      "pattern": "w*z",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Mul(Symbol('A', commutative=False), Pow(Symbol('B', commutative=False), Integer(2)))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ],
+          [
+            "z_",
+            "Mul(Symbol('A', commutative=False), Pow(Symbol('B', commutative=False), Integer(2)))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**2*B**2",
+      "pattern": "w**2",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Mul(Pow(Symbol('A', commutative=False), Integer(2)), Pow(Symbol('B', commutative=False), Integer(2))), Rational(1, 2))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Mul(Pow(Symbol('A', commutative=False), Integer(2)), Pow(Symbol('B', commutative=False), Integer(2))), Rational(1, 2))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "x**2*A**2",
+      "pattern": "w**2",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Mul(Symbol('x'), Symbol('A', commutative=False))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Mul(Pow(Symbol('x'), Integer(2)), Pow(Symbol('A', commutative=False), Integer(2))), Rational(1, 2))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": false
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**-1*B",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(-1))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(-1))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**-3*B",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(-3))"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(-3))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**2*B",
+      "pattern": "A**2*w",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('B', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('B', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**2",
+      "pattern": "w**2",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A**-2",
+      "pattern": "w**-2",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "2*A*B",
+      "pattern": "u*w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Integer(2)"
+          ],
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Integer(2)"
+          ],
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "2*x*A*B",
+      "pattern": "u*w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Mul(Integer(2), Symbol('x'))"
+          ],
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Mul(Integer(2), Symbol('x'))"
+          ],
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "-2*x*A*B",
+      "pattern": "u*w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Mul(Integer(-1), Integer(2), Symbol('x'))"
+          ],
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Mul(Integer(-1), Integer(2), Symbol('x'))"
+          ],
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "2*x*A*B",
+      "pattern": "2*x*w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "2*x*A*B",
+      "pattern": "3*x*w*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "x*y*A*B",
+      "pattern": "u*v*w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "v_",
+            "Symbol('y')"
+          ],
+          [
+            "u_",
+            "Symbol('x')"
+          ],
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "v_",
+            "Symbol('y')"
+          ],
+          [
+            "u_",
+            "Symbol('x')"
+          ],
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "x*A*B",
+      "pattern": "x*w*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "x*A*B",
+      "pattern": "y*w*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "wa*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "C*B",
+      "pattern": "wa*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "wa_",
+            "Symbol('C', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "wa_",
+            "Symbol('C', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "C*A*B",
+      "pattern": "wa*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*B",
+      "pattern": "ws*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "ws_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "ws_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "A*C*B",
+      "pattern": "ws*B",
+      "sympy": {
+        "ok": true,
+        "value": null
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "f(A)*B",
+      "pattern": "f(w)*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "g(A)*B",
+      "pattern": "g(w)*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "(A+C)*B",
+      "pattern": "(A+w)*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('C', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('C', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "sin(A)*B",
+      "pattern": "sin(w)*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "ordered_matching",
+      "expr": "x*(A+C)*B",
+      "pattern": "u*(A+w)*B",
+      "sympy": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Symbol('x')"
+          ],
+          [
+            "w_",
+            "Symbol('C', commutative=False)"
+          ]
+        ]
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "u_",
+            "Symbol('x')"
+          ],
+          [
+            "w_",
+            "Symbol('C', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": true
+    },
+    {
+      "group": "numeric_expansion_error",
+      "expr": "A**(Rational(1, 2))*B",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": false,
+        "type": "TypeError",
+        "message": "can't multiply sequence by non-int of type 'Half'"
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": false
+    },
+    {
+      "group": "numeric_expansion_error",
+      "expr": "A**(Rational(3, 2))*B",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": false,
+        "type": "TypeError",
+        "message": "can't multiply sequence by non-int of type 'Rational'"
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Symbol('A', commutative=False)"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": false
+    },
+    {
+      "group": "numeric_expansion_error",
+      "expr": "A**(Float(2))*B",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": false,
+        "type": "TypeError",
+        "message": "can't multiply sequence by non-int of type 'Float'"
+      },
+      "symox": {
+        "ok": true,
+        "value": [
+          [
+            "w_",
+            "Pow(Symbol('A', commutative=False), Integer(2))"
+          ]
+        ]
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": false
+    },
+    {
+      "group": "numeric_expansion_error",
+      "expr": "A**(Float('1e-1000'))*B",
+      "pattern": "w*B",
+      "sympy": {
+        "ok": false,
+        "type": "TypeError",
+        "message": "can't multiply sequence by non-int of type 'Float'"
+      },
+      "symox": {
+        "ok": true,
+        "value": null
+      },
+      "native": {
+        "handled": false,
+        "value": "unsupported node class"
+      },
+      "public_agrees": false
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+--- a/python/symox/__init__.py
++++ b/python/symox/__init__.py
+@@ -3208,6 +3208,16 @@
+ 
+ 
+ def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
++    if cdir is not None and not (isinstance(cdir, int) and cdir >= 0):
++        # Keep the existing direction protocol, including inferred variables
++        # and lazy calls, without admitting a new positive-ray fallback.
++        result = _core._series_without_generalized(
++            lambda: _expr_series_impl(self, x, x0, n, dir, logx, cdir))
++        return _series_legacy_iterator(result) if n is None else result
++    return _expr_series_impl(self, x, x0, n, dir, logx, cdir)
++
++
++def _expr_series_impl(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+     if cdir is not None and not (isinstance(cdir, int) and cdir == 0):
+         # Expr.series(cdir=...): a nonzero direction decides the side; a
+         # nonreal one is expanded natively along x0 + cdir/|cdir|*x.
+--- a/tests/test_series_wave47.py
++++ b/tests/test_series_wave47.py
+@@ -152,3 +152,35 @@
+     assert expr.nseries(x, n=3, cdir=0) == expected
+     assert expr.nseries(x, n=3, cdir=1) == expected
+     assert next(expr.lseries(x)) is not None
++
++
++@pytest.mark.parametrize("direction", [symox.I, -symox.I])
++@pytest.mark.parametrize("route", ["inferred", "lazy_explicit", "lazy_inferred"])
++def test_complex_series_inference_and_lazy_calls_keep_legacy_admission(direction, route):
++    x, expr = expression(symox, "log(x**sqrt(13)*(1 + x**r))")
++    if route == "inferred":
++        with pytest.raises(NotImplementedError):
++            expr.series(n=3, cdir=direction)
++        return
++    args = (x,) if route == "lazy_explicit" else ()
++    iterator = expr.series(*args, n=None, cdir=direction)
++    positive = expr.series(x, n=3)
++    with pytest.raises(NotImplementedError):
++        next(iterator)
++    assert expr.series(x, n=3) == positive
++
++
++@pytest.mark.parametrize("source", ["Abs(x)", "Abs(x)*log(1 + x)", "log(x**4*(1 + x))"])
++def test_existing_complex_series_successes_keep_their_protocol(source):
++    x, expr = expression(symox, source)
++    ref_x, ref_expr = expression(sympy, source)
++    expected = symox.sympify(str(ref_expr.series(ref_x, 0, 3, cdir=sympy.I)))
++    assert expr.series(x, 0, 3, cdir=symox.I) == expected
++
++
++def test_series_default_and_positive_integer_admission_remain_enabled():
++    x, expr = expression(symox, "log(x**sqrt(13)*(1 + x**r))")
++    expected = expr.series(x, n=3)
++    assert expr.series(x, n=3, cdir=0) == expected
++    assert expr.series(x, n=3, cdir=1) == expected
++    assert next(expr.series(x, n=None)) is not None

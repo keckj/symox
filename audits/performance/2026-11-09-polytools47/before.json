@@ -1,0 +1,1545 @@
+[
+  {
+    "name": "algebraic extension control",
+    "reference": [
+      "value",
+      [
+        "x - sqrt(2)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x - sqrt(2)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "derivative default",
+    "reference": [
+      "value",
+      [
+        "Derivative(f(x**2/(x - 1) - 1/(x - 1)), x)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Derivative(f(x**2/(x - 1) - 1/(x - 1)), x)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "derivative without signsimp",
+    "reference": [
+      "value",
+      [
+        "Derivative(f(x**2/(x - 1) - 1/(x - 1)), x)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Derivative(f(x**2/(x - 1) - 1/(x - 1)), x)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "function ordinary default",
+    "reference": [
+      "value",
+      [
+        "sin(x**2/(x - 1) - 1/(x - 1))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "sin(x**2/(x - 1) - 1/(x - 1))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "function ordinary without signsimp",
+    "reference": [
+      "value",
+      [
+        "sin(x**2/(x - 1) - 1/(x - 1))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "sin(x**2/(x - 1) - 1/(x - 1))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "gaussian control",
+    "reference": [
+      "value",
+      [
+        "x + I",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + I",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "held zero zoo default",
+    "reference": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "held zero zoo without signsimp",
+    "reference": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "0*zoo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "held zoo cancellation default",
+    "reference": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "held zoo cancellation without signsimp",
+    "reference": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "zoo*y/zoo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "high precision control",
+    "reference": [
+      "value",
+      [
+        "0.125*x + 0.125",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "0.125*x + 0.125",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "infinity ratio default",
+    "reference": [
+      "value",
+      [
+        "(oo*x + 1)/(oo*x - 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(oo*x + 1)/(oo*x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "infinity ratio without signsimp",
+    "reference": [
+      "value",
+      [
+        "(oo*x + 1)/(oo*x - 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(oo*x + 1)/(oo*x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "infinity sum default",
+    "reference": [
+      "value",
+      [
+        "x + oo",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + oo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "infinity sum without signsimp",
+    "reference": [
+      "value",
+      [
+        "x + oo",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + oo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "negative infinity default",
+    "reference": [
+      "value",
+      [
+        "(oo*x - 1)/(oo*x + 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(oo*x - 1)/(oo*x + 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "negative infinity without signsimp",
+    "reference": [
+      "value",
+      [
+        "(oo*x - 1)/(oo*x + 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(-oo*x + 1)/(-oo*x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative default",
+    "reference": [
+      "value",
+      [
+        "(x**2*A - A)/(x - 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2*A - A)/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative function default",
+    "reference": [
+      "value",
+      [
+        "f((x + 1)*A)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "f((x + 1)*A)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative function without signsimp",
+    "reference": [
+      "value",
+      [
+        "f((x + 1)*A)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "f((x + 1)*A)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative product default",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*A",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x + 1)*A",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative product without signsimp",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*A",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x + 1)*A",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative radical default",
+    "reference": [
+      "value",
+      [
+        "sqrt(6)/2",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "sqrt(6)/2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative radical without signsimp",
+    "reference": [
+      "value",
+      [
+        "sqrt(6)/2",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "sqrt(6)/2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative sum default",
+    "reference": [
+      "value",
+      [
+        "x + 1 + A",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1 + A",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative sum without signsimp",
+    "reference": [
+      "value",
+      [
+        "x + 1 + A",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1 + A",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "noncommutative without signsimp",
+    "reference": [
+      "value",
+      [
+        "(x**2*A - A)/(x - 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2*A - A)/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option boolean deep",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "True",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option boolean flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "value",
+      [
+        "True",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option boolean unknown",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "True",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option expression deep",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option expression flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option expression unknown",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option infinity deep",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "oo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option infinity flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "value",
+      [
+        "oo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option infinity unknown",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "oo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option integer deep",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option integer flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "value",
+      [
+        "2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option integer unknown",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "2",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option piece deep",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option piece flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option piece unknown",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option relation deep",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "Eq(x, 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option relation flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "value",
+      [
+        "Eq(x, 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option relation unknown",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        "Eq(x, 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "option tuple deep",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1",
+          null
+        ],
+        [
+          "x + 1",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "option tuple flag",
+    "reference": [
+      "error",
+      "FlagError"
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1",
+          null
+        ],
+        [
+          "x + 1",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "option tuple unknown",
+    "reference": [
+      "error",
+      "OptionError"
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1",
+          null
+        ],
+        [
+          "x + 1",
+          null
+        ],
+        [
+          "1",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "piece algebraic",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*Piecewise(((x**2 - 2)/(x + sqrt(2)), x < 0), (x + 1, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2 - 1)*Piecewise(((x**2 - 2)/(x + sqrt(2)), x < 0), (x + 1, True))/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece condition default",
+    "reference": [
+      "value",
+      [
+        "Piecewise((x + 1, x < -1), (0, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x + 1, (x**2 - 1)/(x - 1) < 0), (0, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece condition without signsimp",
+    "reference": [
+      "value",
+      [
+        "Piecewise((x + 1, x < -1), (0, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x + 1, (x**2 - 1)/(x - 1) < 0), (0, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece default",
+    "reference": [
+      "value",
+      [
+        "Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece explicit QQ",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2 - 1)*Piecewise((x + 1, x < 0), (x + 2, True))/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece explicit generator",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2 - 1)*Piecewise((x + 1, x < 0), (x + 2, True))/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece expressions tuple",
+    "reference": [
+      "value",
+      [
+        [
+          "(x + 1)*Piecewise((x + 1, x < 0), (x + 2, True))",
+          null
+        ],
+        [
+          "x",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1",
+          null
+        ],
+        [
+          "(x**2 - 1)*Piecewise((x + 1, x < 0), (x + 2, True))",
+          null
+        ],
+        [
+          "x*(x - 1)",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "piece expressions tuple polys",
+    "reference": [
+      "value",
+      [
+        [
+          "(x + 1)*Piecewise((x + 1, x < 0), (x + 2, True))",
+          null
+        ],
+        [
+          "x",
+          null
+        ]
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        [
+          "1",
+          null
+        ],
+        [
+          "(x**2 - 1)*Piecewise((x + 1, x < 0), (x + 2, True))",
+          null
+        ],
+        [
+          "x*(x - 1)",
+          null
+        ]
+      ]
+    ]
+  },
+  {
+    "name": "piece function default",
+    "reference": [
+      "value",
+      [
+        "sin(Piecewise((x + 1, x < 0), (x + 2, True)))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "sin(Piecewise((x + 1, x < 0), (x + 2, True)))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece function without signsimp",
+    "reference": [
+      "value",
+      [
+        "sin(Piecewise((x + 1, x < 0), (x + 2, True)))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "sin(Piecewise((x + 1, x < 0), (x + 2, True)))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece nested default",
+    "reference": [
+      "value",
+      [
+        "Piecewise(((x + 1)*Piecewise((x + 1, x < 0), (x + 2, True)), y < 0), (x + 1, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise(((x**2 - 1)*Piecewise((x + 1, x < 0), (x + 2, True))/(x - 1), y < 0), (x + 1, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece nested without signsimp",
+    "reference": [
+      "value",
+      [
+        "Piecewise(((x + 1)*Piecewise((x + 1, x < 0), (x + 2, True)), y < 0), (x + 1, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise(((x**2 - 1)*Piecewise((x + 1, x < 0), (x + 2, True))/(x - 1), y < 0), (x + 1, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece power default",
+    "reference": [
+      "value",
+      [
+        "Piecewise((x**2 + 2*x + 1, x < 0), (x**2 + 4*x + 4, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x**2 + 2*x + 1, x < 0), (x**2 + 4*x + 4, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece power without signsimp",
+    "reference": [
+      "value",
+      [
+        "Piecewise((x**2 + 2*x + 1, x < 0), (x**2 + 4*x + 4, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x**2 + 2*x + 1, x < 0), (x**2 + 4*x + 4, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece product default",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2 - 1)*Piecewise((x + 1, x < 0), (x + 2, True))/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece product without signsimp",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2 - 1)*Piecewise((x + 1, x < 0), (x + 2, True))/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece reciprocal default",
+    "reference": [
+      "value",
+      [
+        "Piecewise((1/(x + 1), x < 0), (1/(x + 2), True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((1/(x + 1), x < 0), (1/(x + 2), True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece reciprocal without signsimp",
+    "reference": [
+      "value",
+      [
+        "Piecewise((1/(x + 1), x < 0), (1/(x + 2), True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((1/(x + 1), x < 0), (1/(x + 2), True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece sum default",
+    "reference": [
+      "value",
+      [
+        "x + Piecewise((x + 1, x < 0), (x + 2, True)) + 1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + Piecewise((x + 1, x < 0), (x + 2, True)) + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece sum without signsimp",
+    "reference": [
+      "value",
+      [
+        "x + Piecewise((x + 1, x < 0), (x + 2, True)) + 1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + Piecewise((x + 1, x < 0), (x + 2, True)) + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece two factors default",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*Piecewise((1, y < 0), (2, True))*Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2 - 1)*Piecewise((1, y < 0), (2, True))*Piecewise((x + 1, x < 0), (x + 2, True))/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece two factors without signsimp",
+    "reference": [
+      "value",
+      [
+        "(x + 1)*Piecewise((1, y < 0), (2, True))*Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x**2 - 1)*Piecewise((1, y < 0), (2, True))*Piecewise((x + 1, x < 0), (x + 2, True))/(x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "piece without signsimp",
+    "reference": [
+      "value",
+      [
+        "Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "Piecewise((x + 1, x < 0), (x + 2, True))",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "rational default",
+    "reference": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "rational modulus control",
+    "reference": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "rational without signsimp",
+    "reference": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "signsimp None",
+    "reference": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "0*zoo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "signsimp truth error",
+    "reference": [
+      "error",
+      "RuntimeError"
+    ],
+    "actual": [
+      "value",
+      [
+        "x + 1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "signsimp zero",
+    "reference": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "0*zoo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo expanded default",
+    "reference": [
+      "value",
+      [
+        "(zoo*x**2 + zoo)/x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "zoo*(x**2 + 1)/x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo expanded without signsimp",
+    "reference": [
+      "value",
+      [
+        "(zoo*x**2 + zoo)/x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "zoo*(x**2 + 1)/x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo liegroup tau default",
+    "reference": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(-2*x*y + zoo + y/x**2 + zoo*(x**3 + 1)**2/x**3 + zoo*(x**3 + 1)/x**3)/(x**2*y + y/x + zoo*(x**3 + 1)/x**2)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo liegroup tau without signsimp",
+    "reference": [
+      "value",
+      [
+        "nan",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(-2*x*y + zoo + y/x**2 + (x**3 + 1)*(zoo*x**3 + zoo)/x**3 + (zoo*x**3 + zoo)/x**3)/(x**2*y + y/x + (zoo*x**3 + zoo)/x**2)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo mixed ratio default",
+    "reference": [
+      "value",
+      [
+        "(x + zoo*y)/(zoo*x + y)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x + zoo*y)/(zoo*x + y)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo mixed ratio without signsimp",
+    "reference": [
+      "value",
+      [
+        "(x + zoo*y)/(zoo*x + y)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(x + zoo*y)/(zoo*x + y)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo product default",
+    "reference": [
+      "value",
+      [
+        "zoo*x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "zoo*x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo product without signsimp",
+    "reference": [
+      "value",
+      [
+        "zoo*x",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "zoo*x",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo ratio default",
+    "reference": [
+      "value",
+      [
+        "-1",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "-1",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo ratio without signsimp",
+    "reference": [
+      "value",
+      [
+        "(zoo*x + 1)/(zoo*x - 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(zoo*x + 1)/(zoo*x - 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo sum default",
+    "reference": [
+      "value",
+      [
+        "x + zoo",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + zoo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo sum without signsimp",
+    "reference": [
+      "value",
+      [
+        "x + zoo",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "x + zoo",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo unrelated ratio default",
+    "reference": [
+      "value",
+      [
+        "(zoo*x + y)/(zoo*x + 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(zoo*x + y)/(zoo*x + 1)",
+        null
+      ]
+    ]
+  },
+  {
+    "name": "zoo unrelated ratio without signsimp",
+    "reference": [
+      "value",
+      [
+        "(zoo*x + y)/(zoo*x + 1)",
+        null
+      ]
+    ],
+    "actual": [
+      "value",
+      [
+        "(zoo*x + y)/(zoo*x + 1)",
+        null
+      ]
+    ]
+  }
+]

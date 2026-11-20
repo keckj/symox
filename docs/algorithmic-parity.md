@@ -7,7 +7,7 @@ least equivalent to that reference is a project requirement. Import availability
 and benchmarks on selected examples do not establish this equivalence.
 
 The [active TODO](../TODO.md) consolidates the remaining work as of
-2026-10-28, including the working-tree follow-up to `5eb39d6`. The dated sections below
+2026-11-09, including the scoped wave-46 and wave-47 ports. The dated sections below
 retain historical evidence: a gap listed in an earlier section may have been
 resolved by a later wave. The [archived TODO](history/TODO-before-2026-10-26.md)
 preserves the wave-by-wave decisions and validation history.
@@ -18463,6 +18463,197 @@ Open after this wave (see the lot sections above and the TODO):
   - still pending from waves 43-44: `Order.as_expr_variables`, the algpoly
     representatives, the liegroup prefix atom order (`abaco2`) and single
     try of user `xi`/`eta`, `simp.rs` keeping `pattern_match`.
+
+## Wave 46: numeric matching, polynomial contracts and certified limits, 2026-11-09
+
+The [combined report](../audits/performance/2026-11-09-wave46/README.md)
+records this three-agent lot on base `5fbc6fcc`. Arithmetic stays in Rust;
+Python changes admit and route the two list polynomial operations. There
+are 237 new Python regressions and one new Rust unit test. Combined release
+validation is recorded in that report; selected examples do not certify
+global mathematical equivalence or a completed Rust migration.
+
+The native reference matcher now compares Integer/Rational/Float atoms using
+SymPy 1.14's exact normalization protocol: truncate exact atoms toward zero
+at 57 bits, then round to 53 bits, while retaining the left Float's declared
+precision. This is a binding-choice protocol, not tolerance-based equality.
+The numerical evaluator is unchanged. Nonatomic numerical expressions and
+unsupported node classes retain their established fallback. The binding also
+declines `evaluate(False)` so held arithmetic keeps its reference semantics.
+See the [matcher evidence](../audits/performance/2026-11-09-matcher/README.md),
+including the reproducible 2,003-atom rounding model and remaining domains.
+
+Scalar polynomial cofactors retain exact rational arithmetic; ground Float
+gcd/lcm preserve their calculation precision and the reference's output
+conversion. List operations jointly select the coefficient domain and retain
+Poly output, finite fields and the selected options. Inferred-generator
+gcdex/half_gcdex retain their auto/domain/polys controls. The 149 regressions
+compare values, generators, domains, precision and error classes, with exact
+reconstruction checks. The [polytools report](../audits/performance/2026-11-09-polytools/README.md)
+keeps untested option combinations and the intentional Poly-list/reference
+AttributeError difference separate from matches.
+
+For real `a > -1`, the principal continuation of subfactorial satisfies
+
+```
+subfactorial(a) - gamma(a + 1)/E
+  = exp(I*pi*a)/E * integral(u**a * exp(u), (u, 0, 1)),
+abs(remainder) <= 1/(a + 1).
+```
+
+The native fallback replaces only affine occurrences whose arguments are
+proved real on the positive limit path and tend to positive infinity, and
+whose coefficients divided by `a + 1` are proved to tend to zero. Complex,
+nonlinear and insufficiently bounded remainder paths stay undecided. Thus
+`subfactorial(x)/factorial(x)` tends to `exp(-1)`, independently confirmed by
+the exact alternating-series integer subsequence. SymPy's zero is false;
+this is an intentional mathematical correction, not a reference-output match.
+See the [certificate and 27 regressions](../audits/performance/2026-11-09-limits/README.md).
+
+The historical single external-framework test process exceeded its 6G scope
+limit on both this build and the wave-45 control. The wave-46 runner isolates
+external test files, retaining every test and the same limit, and checks
+collection/execution multiplicities. Initial interrupted runs remain in the
+combined evidence; they are not passing-suite evidence.
+
+The final release passes 318 focused tests and the complete suite:
+61,384 passes, 14 existing xfails, 41 skips and zero failures. All 61,439
+collected nodes in 706 files execute exactly once, including 237 additions
+and no removals. Rust validation passes 879 unit tests (one ignored), the
+integration test and five doctests; correctness clippy passes. The combined
+report records the exact frozen source and extension hashes, unchanged
+corpus verdicts and the remaining differences. These checks establish the
+reported scope rather than global equivalence.
+
+The final differential replay preserves the ODE scores 315/289/270, tsolve
+106 SAME, unrad 87 SAME, algfactor 248/1/0/0, algpoly 135/4/0/0,
+ratint2 73/75, PDE 716/75/0/0, has 1255/1255, formal-series 220/220
+and extras 121/6, and limits/series 1237/1293. Native matching now has
+2228 equal and 83 declines (two fewer declines); public matching remains
+2311/2311. The 111 polytools differential probes all match. The combined
+report preserves per-case comparisons as well as totals.
+
+Liegroup reports 412 SAME, 14 DIFF, 2 DECLINED and zero WRONG. Relative to
+wave 45, exactly two deadline observations become error observations:
+`dsolve:lg01` gives `RecursionError`, `dsolve:fsum` gives
+`NotImplementedError`. Isolated wave-45 and final-binary replays with the
+same `PYTHONHASHSEED=0`, inputs and deadline reproduce the same two error
+classes; all other 426 normalized results/error classes are unchanged.
+These remain explicit error/deadline gaps and are not mathematical solutions.
+
+## Wave 47: ordered matching, structural cancel and generalized series, 2026-11-09
+
+The [combined audit](../audits/performance/2026-11-09-wave47/README.md)
+freezes the completed wave-46 source and runtime before this three-agent
+lot. Production computation remains in Rust. Python binding changes only
+validate/admit options, route calls and convert the typed matcher error.
+Post-correction build, focused tests, the complete suite, Rust checks and
+broad corpus replay use the final frozen wave-47 source and extension.
+The wave-46 results above remain historical baseline evidence.
+
+The native matcher admits ordered noncommutative products, commutative
+prefixes, integer power expansion, wildcard slices and shared bindings.
+Unsupported classes and exhausted budgets decline to the established path.
+`Mul.as_base_exp` only regroups a common exponent when the base ordering
+permits it. Reference protocol coverage includes exact error classes and
+messages for positive nonintegral literal powers. Held expressions,
+pre-populated replacement dictionaries and unsupported nonliteral powers
+retain fallbacks. See [matcher47](../audits/performance/2026-11-09-matcher47/README.md).
+
+Structural cancellation follows the reference partition of commutative,
+Piecewise-free factors and terms, and the traversal through Piecewise and
+noncommutative expressions. Nonfinite atoms can be formal generators only
+inside this cancellation route and are evaluated on reconstruction; other
+polynomial admission is unchanged. Unknown option keys and flags are checked
+at the reference stage. `cancel` does not accept `deep`; `together(deep=True)`
+is a different operation. Domain-option value validation remains incomplete
+for `cancel(zoo, domain='invalid-domain')`. See
+[polytools47](../audits/performance/2026-11-09-polytools47/README.md).
+
+After the ordinary series engine declines, sparse generalized series around
+zero from the positive side admit selected exact real nonrational exponents.
+An absolute error valuation is propagated through arithmetic, analytic
+constant powers and positive-leading logarithms. Pole shifts must leave the
+requested absolute precision certified. Exponent ordering uses structural
+proofs, exact rational logarithm identities, and outward dyadic enclosures
+with a proved atanh-series tail bound. No binary64 ranking decides a sign.
+Floats, existing Order nodes, noncommutative/host inputs, unproved branches,
+unbounded logarithmic error multipliers and undecidable orders keep the
+established error or fallback. Multiscale asymptotics remain open. See
+[series47](../audits/performance/2026-11-09-series47/README.md).
+
+Mathematical success and reference agreement remain separate. For
+`alpha = log(2**53 + 1)/log(2) > 53`, the native `O(x**53)` is a valid
+requested-order remainder. Reference `series(x, 0, 53)` raises `TypeError`,
+while reference `nseries(x, n=53)` returns the stronger `O(x**alpha)`;
+this stronger remainder remains a protocol gap. The boundary audit records
+two certified mathematical answers and one literal `series` agreement.
+The pre-existing repeated-wildcard binding in
+`(A*B*A*C).match(w*B*w)` also remains an explicit mathematical gap: following
+the reference/fallback binding does not prove input reconstruction.
+
+Admission review found two additional hazards after an intermediate clean
+suite. Complex `cdir` calls could enter the positive-ray fallback through
+historical routes that ignore that argument, omitting a constant `2*pi*I`.
+The legacy lazy sorter also reversed two exponents that both round to 53
+in binary64, despite their exact logarithmic order. The final Rust RAII
+scope disables only the new fallback for uncertified direction routes and
+for every lazy iterator pull and cleanup. All previous algorithms and
+declines remain available; finite positive-ray series gain the new kernel.
+Python only wraps this admission and iteration, with no new mathematical
+algorithm. Exact generalized lazy ordering and broader direction admission
+remain open. The final 596 focused tests, including 66 series cases, pass.
+The full suite passes 61,665 cases with 11 xfails, 41 skips and zero failures;
+all 61,717 cases in 709 files execute exactly once. There are 278 additions
+and one renamed matcher test retaining its original input. The two obsolete
+strict `cancel with zoo` xfail marks are removed; the existing non-strict
+hash-seed-dependent Lie test also happens to pass in this run. Rust checks
+pass 880 unit tests (one ignored), the integration test and five doctests;
+correctness clippy passes.
+
+The broad native matcher corpus moves from 2,228 equal / 83 declined to
+2,289 equal / 22 declined, with zero differences; all 2,311 public results
+remain identical. The 56 additional witnesses cover 52 native values and
+four exact TypeError protocols. All 91 cancellation witnesses now agree,
+closing 44 baseline differences with no regression in that set.
+
+The limits/series corpus moves from 1,237/1,293 to 1,240/1,293 literal
+agreements. Exactly three original nseries cases change from unsupported
+to the reference result: bug2:1, issue3463:1 and log_power1:1. The other
+1,290 observations and every source line, statistic and trace are unchanged.
+The 25 finite-order baseline failures closed by the focused series tests
+are a separate selected set, not 25 historical corpus gains. The current
+TODO retains all 53 literal differences; the old class of 16 capability/order
+cases now contains seven explicit errors and six differences of output or
+order, rather than 13 unsupported computations. Lazy ordering, unproved
+branches and multiscale asymptotics remain open.
+
+The other unchanged corpus observations are tsolve 106 SAME / six EQUIV /
+two SUPERSET / one DECLINED, unrad 87 SAME / two EQUIV / one EXTRA,
+algfactor 248/1/0/0, algpoly 135/4/0/0, ratint2 73/75, PDE 716/75/0/0,
+has 1,255/1,255, formal FPS 220/220 and extras 121/6. Ten raw PDE outputs
+and one Lie output change only internal Dummy indices, with entry order
+and all other payload fields preserved. The combined audit retains their
+raw and normalized comparisons.
+
+ODE scores remain 315/289/270, but five of its 945 payloads have changed
+resource observations: allocation-aborted workers, deadlines and recursion
+errors. Liegroup reports 413 SAME, 13 DIFF, two DECLINED and zero WRONG;
+its sole normalized change is `dsolve:fsum`, from NotImplementedError to
+DEADLINE. The reference also times out, so the apparent SAME gain does not
+provide a mathematical solution. Its completed native trace is absent
+because the worker reaches its deadline. These are explicit open resource
+gaps. All five paired ODE controls at fixed seed complete under unchanged
+60-second/8 GiB bounds. Conserved_03 gives a baseline deadline and a final
+allocation-aborted worker; conserved_04 and lie_group_01 give deadlines on
+both. Lie_group_03 default gives baseline RecursionError in 58.28 s and a
+final deadline; its explicit hint gives the reverse, with final RecursionError
+in 57.84 s. These fresh-worker observations do not reproduce the original
+reused-worker history and leave the resource/error boundaries open.
+The paired Lie fsum control reaches DEADLINE on both binaries under the
+same 120-second plus 10-second grace protocol. All identities, logs and
+case selections are retained in the combined report. Completed checks
+must not be described as proof of global parity or absence of regressions.
 
 ## lambdify without SciPy: object evaluation, NameError forms, sinc, 2026-11-11
 

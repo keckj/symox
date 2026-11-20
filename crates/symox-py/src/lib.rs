@@ -4747,6 +4747,14 @@ fn py_lambdify(
 #[pyfunction]
 #[pyo3(signature = (expr, pattern, old=false))]
 fn _reference_match<'py>(py: Python<'py>, expr: &Bound<'py, PyAny>, pattern: &Bound<'py, PyAny>, old: bool) -> PyResult<(bool, PyObject)> {
+    // The kernel performs evaluated arithmetic. With evaluate(False), the
+    // reference retains operations such as Float(0).__add__(0), so even
+    // numerical inverse normalization can change the resulting binding.
+    // Read only the context flag here; held arithmetic stays in the complete
+    // reference fallback.
+    if !py.import("symox._public_core")?.getattr("_evaluation")?.call_method0("get")?.is_truthy()? {
+        return Ok((false, "unevaluated arithmetic context".into_pyobject(py)?.into_any().unbind()));
+    }
     let (e, p) = (to_expr(expr)?, to_expr(pattern)?);
     match symox::matches::reference_match_ordered(&e, &p, old) {
         Ok(None) => Ok((true, py.None())),

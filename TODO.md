@@ -1,6 +1,35 @@
 # TODO — Capacités mathématiques et parité SymPy
 
-Mis à jour le **7 novembre 2026**, après la vague 45, sur la branche
+**Vague 47 intégrée, contrôles terminés** : filtrage non commutatif, protocole structurel de
+`cancel`, séries généralisées finies à exposants réels non rationnels. Les
+trois lots sont compilés avec gardes d'admission ; **596 tests ciblés passent**.
+La suite complète est propre : **61 665 réussis, 0 échec**, 11 xfail et
+41 sautés ; **61 717 cas** exécutés exactement une fois. Le nouveau moteur ne
+s'applique pas aux itérateurs : leur tri exact reste à porter ; les anciennes
+routes sont conservées. Rust est validé : **880 tests unitaires, un test
+d'intégration et cinq doctests réussis**, un test ignoré ; clippy correctness
+propre. Corpus rejoués : 61 déclins natifs du filtreur en moins, 44 témoins
+`cancel` corrigés, trois corrections du corpus limites/séries (**1240/1293**).
+Les cinq contrôles EDO et le contrôle Lie à graine fixée sont terminés ;
+leurs erreurs/délais restent des lacunes explicites, sans résultat mathématique
+ni preuve d'absence de régression. Le
+[rapport de la vague 47](audits/performance/2026-11-09-wave47/README.md)
+conserve sources et binaires figés, comparaisons par cas et reçus complets.
+La parité globale et la migration Rust restent ouvertes.
+
+État antérieur validé du **9 novembre 2026**, avec les trois lots de la vague 46 sur
+la base `5fbc6fcc` : filtrage numérique, contrats polytools et limites de
+subfactorial. **318 tests ciblés réussis** ; suite complète propre :
+**61 384 réussis, 0 échec**, 14 xfail et 41 sautés. Les 61 439 cas collectés
+sont exécutés exactement une fois. Cargo : **879 tests unitaires, un test
+d'intégration et cinq doctests réussis**, un test ignoré ; clippy correctness
+propre. Corpus rejoués et contrôle croisé des deux variations Lie terminé :
+les mêmes erreurs sont reproduites sur les deux binaires à graine fixée.
+Les domaines restants et les preuves sont dans le
+[rapport de la vague 46](audits/performance/2026-11-09-wave46/README.md).
+La parité globale et la migration Rust restent ouvertes.
+
+État antérieur du **7 novembre 2026**, après la vague 45, sur la branche
 `integrate-wave45-20261107` (`main` à **`f7888825`**, vague 44, plus les
 trois lots de la vague 45 : algfactor, pde, fps). Référence :
 **SymPy 1.14.0**. État validé sur Demeter le 7 novembre : suite complète
@@ -13,7 +42,7 @@ SAME / 0 WRONG_EMPTY et unrad 87 SAME, corpus des lots : algfactor
 limits2 1237/1293 (voir « Reprise sur Demeter » ; le paragraphe
 ci-dessous décrit la suite du 28 octobre).
 
-Dernière suite complète : binaire `e2b10b0c`, sources `cc617a4a`
+État historique du 28 octobre : binaire `e2b10b0c`, sources `cc617a4a`
 (**56 311 tests**, Demeter) ; 762 tests Rust, 1 test d’intégration
 (651 cas LLL) et 5 doctests réussis, clippy 1.99 validé, bindings compris.
 Il reste quatre xfail connus. Les produits sparse et
@@ -56,6 +85,43 @@ anciennes listes sont conservés dans l'[archive du TODO](docs/history/TODO-befo
 Les preuves, sondes et corrections intentionnelles sont dans le
 [contrat de parité](docs/algorithmic-parity.md). Les extensions et sous-classes
 Python restent un chantier distinct, hors de ce TODO mathématique.
+
+## Vague 46 (9 novembre) : lots et limites de portée
+
+- Filtrage natif des atomes Integer/Rational/Float dans l'inverse
+  multiplicatif : troncature à 57 bits puis arrondi à 53 bits suivant le
+  protocole de la référence ; précision et type de la liaison préservés.
+  `evaluate(False)` garde le repli complet. Les autres classes non admises
+  et les expressions numériques non atomiques conservent leurs replis.
+  61 régressions Python et un test Rust ; modèle indépendant vérifié sur
+  2 003 atomes exacts. L'évaluation numérique générale est inchangée.
+  Corpus rejoué : natif 2 228 identiques, 83 déclins, zéro différence ;
+  public 2 311/2 311 identiques, résultats inchangés.
+- Polytools : cofacteurs scalaires exacts, PGCD/PPCM flottants, listes
+  dans le domaine commun, sortie Poly, `field`, domaines explicites et
+  corps finis, options inférées de `gcdex`/`half_gcdex`. 149 tests comparant
+  valeurs, domaines, précision, types et exceptions ; calcul en Rust,
+  enveloppes Python limitées à l'admission. Les autres combinaisons
+  d'options et les opérations hors lot restent des lacunes explicites.
+- Limites affines de subfactorial : pour un argument réel `a -> +oo`,
+  `|subfactorial(a) - gamma(a + 1)/E| <= 1/(a + 1)` ; chaque coefficient
+  doit rendre cette erreur négligeable avant substitution. 27 tests,
+  dont domaines complexes refusés et annulations amplifiées non certifiées.
+  Le quotient par la factorielle tend vers `1/E`, correction intentionnelle
+  du zéro faux de SymPy 1.14, prouvée indépendamment. Les formes non
+  affines et les autres chemins gardent leurs résultats indécidables.
+
+Suite finale, Rust, corpus et contrôle croisé Lie terminés dans le rapport lié
+ci-dessus. Les scores des corpus restent ceux de la vague 45, sauf le gain
+natif du filtrage décrit ci-dessus et deux observations Lie : 412 SAME,
+14 DIFF, 2 DECLINED, zéro WRONG. Les deux variations sont des délais devenus
+`RecursionError`/`NotImplementedError`, reproduits sur l'ancien et le nouveau
+binaire avec la même graine ; elles restent des écarts non résolus.
+Le groupe externe
+historique unique atteint sa limite de 6 Gio sur le binaire courant **et
+sur celui de la vague 45**. La nouvelle suite isole chaque fichier externe,
+sans changer les cas ni le plafond mémoire, et vérifie collection/exécution
+exactement une fois. Les exécutions interrompues sont conservées.
 
 ## Reprise sur Demeter (état au 7 novembre, après la vague 45)
 
@@ -717,8 +783,7 @@ recherche de période ; radicalrust réseaux/ConditionSet ; holonomic y0 ;
 derivsym ; seriesrest ; Derivative(Array) dans tracearr et arrayrust ;
 ratint 1/(x**8+16) ; limite unilatérale Piecewise ; limit(atan(a*x)/x, x, oo)
 = 0 ; x**(n*y+3) à n=0 ; Mod dans solveset ; décalage Laplace ;
-piecewise_fold w23rust ; limit(subfactorial(x)/factorial(x), x, oo) laissé
-non évalué (SymPy donne 0, valeur vraie 1/e) ; règle Abs/sign(c) de
+piecewise_fold w23rust ; règle Abs/sign(c) de
 limitsrest r2 identique à SymPy même pour y complexe ; trois asserts de
 `tests/test_solver_checks.py` alignés sur SymPy (liste vide True,
 UserWarning, flags inconnus ignorés).
@@ -733,7 +798,7 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `liouville.rs`, `reducible.rs`, `bessel.rs`) coûtent environ 1 ms par
   appel par le protocole de référence (0,06 ms avec l'ancien
   `pattern_match`) ; le filtreur natif décline encore (repli Python) sur
-  les Float face à un côté sans symbole libre, `zoo`/`oo`, `Sum` et autres
+  les Float face à une expression numérique non atomique, `zoo`/`oo`, `Sum` et autres
   nœuds liés.
 - Polynômes sur extension algébrique (relevés par algpoly et algfactor ;
   `factor_list`/`sqf_list` avec `sqrt(2)`, `cancel`/`gcd` en
@@ -747,9 +812,18 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   - trois calculs natifs non interruptibles (SIGALRM sans effet pendant le
     calcul Rust) : `test_factor_large#9`, `test_cancel#80`,
     `test_minimal_polynomial_sq#9` des instructions amont ;
-  - polytools : `gcd_list`/`lcm_list` aux bords, `cofactors(8, 6)`,
-    `gcd(3.0, 9.0)`, `gcdex(auto=False)`, `deep=True`, `Piecewise` dans
-    `cancel`, `same_root`, API privées des anneaux ;
+  - polytools : combinaisons d'options des listes non auditées
+    (`expand=False`, inférence non gourmande, ordre des générateurs,
+    domaines composites), `same_root`, API privées des anneaux ; les bords
+    scalaires et les options `gcdex` sélectionnés sont traités par la vague
+    46. Le protocole structurel de `cancel` avec `Piecewise`, les groupes
+    non commutatifs et les générateurs non finis sont traités par la vague
+    47 : 91/91 témoins identiques à SymPy. `deep=True` n'est pas une option
+    de `cancel` et lève désormais `OptionError`, comme la référence ;
+  - `cancel(zoo, domain='invalid-domain')` reste un écart préexistant :
+    symox renvoie `zoo`, SymPy lève `OptionError`. La validation des clés
+    d'option ne prouve pas celle de toutes leurs valeurs sur les non-finis
+    ([portée et preuves](audits/performance/2026-11-09-polytools47/README.md)) ;
   - `real_roots` sur sol gaussien trie par `which_real_roots`, encore en
     Python.
 - pde (vague 45) : les replis `_native_fallback` et `_isotropic_fallback`
@@ -778,8 +852,10 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
     autrement (abaco1_simple de h1_eq4 et h1_eq7) ;
   - `Mul` simplifie `exp(x + y)*exp(-x - y)` en 1 : abaco1_simple de
     `f' = exp(x + f)` trouve `eta = exp(f)`, SymPy rien ;
-  - `cancel` en présence de `zoo` garde `y`, SymPy donne `nan`
-    (`lie_heuristic_abaco2_similar` publique) ;
+  - corrigé par la vague 47 : `cancel` avec `zoo` suit la reconstruction
+    polynomiale de la référence ; les deux cas publics
+    `lie_heuristic_abaco2_similar` passent avec leurs entrées et assertions
+    inchangées, après retrait de leurs deux marques xfail obsolètes ;
   - forme des racines de `solve` : dsolve h1_eq3, et uu3, où
     `solve(eq, df)` rend `sqrt(x**2*(a + x**2 + x*f))/x**2` contre
     `sqrt(a + x**2 + x*f)/x` dans SymPy : `abaco2_unique_unknown` lève
@@ -788,8 +864,8 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
 - ODE : simplification et intégrales des solutions particulières en
   Python ; vop_013 au-delà de 6 Go ; collect à exposants partiels ; parité
   d'erreur du casus irreducibilis ; lie_group natif depuis la vague 44
-  (lacunes ci-dessus ; lie_group_01/03 lèvent RecursionError comme
-  SymPy) ; nth_algebraic, factorable et Bessel natifs depuis la
+  (lacunes ci-dessus ; lie_group_01/03 restent dans les erreurs ou délais
+  consignés ci-dessous) ; nth_algebraic, factorable et Bessel natifs depuis la
   vague 42, mais la classe `diffx` de nth_algebraic reste créée en Python
   (son inverse tourne dans le `solve` public, rappel de l'hôte) et le
   filtrage du Bessel est natif depuis la vague 43 (voir la lacune
@@ -803,26 +879,46 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `checksol` de `_is_special_case_of` (SymPy y dépasse aussi son délai) ;
   `integrate(x/(x**2 - 1))` garde deux
   logarithmes ([détail](docs/algorithmic-parity.md#ode-2026-11-05-native-2f1-step-upper-limit-integraldoit-fx-solve-recast)).
-- Filtrage (vague 43) : `Expr.match` public et filtreurs EDO natifs
+- Frontières de ressources (vague 47) : les scores EDO 315/289/270 restent
+  stables, mais cinq observations changent entre délai, erreur de récursion
+  et arrêt de worker par allocation. Le contrôle apparié des deux binaires
+  à graine 0 garde des résultats inconclusifs : `lie_group_03` par défaut
+  donne RecursionError en 58,28 s sur la base puis dépasse 60 s en final ;
+  l'appel avec hint donne l'inverse (délai sur la base, RecursionError en
+  57,84 s en final). Les deux appels `conserved` restent des échecs de
+  ressources. Aucun de ces résultats n'est une solution ni une preuve
+  d'équivalence ; les replis et frontières restent à résoudre
+  ([observations et contrôle](audits/performance/2026-11-09-wave47/README.md#final-differential-observations)).
+  `dsolve:fsum` dans le corpus Lie passe de NotImplementedError à DEADLINE,
+  d'où un SAME apparent supplémentaire (413/13/2/0). Le contrôle apparié
+  à graine 0 atteint le même délai de 120 s + 10 s sur les deux binaires :
+  cette frontière reste ouverte et ne constitue pas une solution.
+- Filtrage (vagues 43–47) : `Expr.match` public et les filtreurs EDO natifs
   (`second.rs`, `liouville.rs`, `reducible.rs`, `bessel.rs`) passent par
-  le filtreur de référence natif `matches::reference_match` (protocole
-  SymPy 1.14 porté en Rust), qui décline plutôt que de répondre
-  autrement ; corpus différentiel de 2311 appels (EDO, `test_match.py`,
-  aléatoires) : 2226 identiques à SymPy, 0 différent, 85 déclinés. Restent
-  en Python (repli du public sur `python/symox/_matching.py`) : produits
-  non commutatifs, `zoo`/`oo`/`nan`, `Sum`/`Integral` liés, relationnels et
-  logique, `Piecewise`, matrices, Float face à un côté sans symbole libre
-  dans l'inverse multiplicatif, `collect` à plus de 3 symboles libres de
-  coefficients, `WildFunction` (classe Python), sous-classes hôtes
-  définissant `matches`, appels avec `repl_dict`. Depuis la vague 44
-  (hasmatch), `collect` et meijerint `_condsimp` passent par le filtreur
-  de référence (repli `pattern_match` sur déclin) ; `simp.rs` garde
-  `pattern::pattern_match` (écart volontaire ci-dessus) ; le `has` public
-  suit la référence. Déclins du filtreur natif (repli Python, jamais « pas
-  de correspondance ») : non commutatif, `zoo`/`oo`/`-oo`/`nan`, `Sum` et
-  autres nœuds liés, Float face à un côté sans symbole libre (voir la
-  lacune « Filtrage, coût et déclins »)
-  ([détail](docs/algorithmic-parity.md#matcher-wave-43-native-reference-matcher-2026-11-06)).
+  `matches::reference_match`, protocole SymPy 1.14 porté en Rust. Le rejeu
+  vague 47 donne 2 289 résultats natifs identiques, zéro différence et
+  22 déclins sur 2 311 appels, contre 2 228/83 en vague 46. Les 61 changements
+  sont uniquement des décisions natives auparavant déclinées ; les
+  2 311 résultats publics restent identiques. La vague 47 porte les produits
+  scalaires non commutatifs : séparation commutative, ordre des facteurs,
+  puissances entières positives bornées, agenda des jokers et liaisons partagées.
+  120 régressions passent ; 52 témoins de résultat et quatre TypeError sont
+  identiques à SymPy, en natif et en public. La répétition d'un joker conserve
+  toutefois une lacune mathématique de la référence : `A*B*A*C` face à
+  `w*B*w` rend `{w: A*C}`, qui ne reconstruit pas l'expression.
+  Restent en repli : non-finis, nœuds liés, relationnels/logique, `Piecewise`,
+  matrices, Float face à une expression numérique non atomique dans l'inverse
+  multiplicatif, `collect` à plus de trois symboles libres de coefficients,
+  `WildFunction`, classes hôtes définissant `matches`, `repl_dict` non vide
+  et contexte `evaluate(False)`. Pour les facteurs non commutatifs,
+  commutativité inconnue, exposants non littéraux ou non positifs non entiers
+  et dépassement de budget déclinent. Certains exposants positifs non
+  littéraux (`pi`, `sqrt(2)`, symbole positif) gardent une lacune d'erreur du
+  repli Python (`int` au lieu du TypeError de SymPy). Un déclin n'est jamais
+  une absence de correspondance prouvée. Depuis la vague 44, `collect` et
+  meijerint `_condsimp` utilisent ce filtreur ; `simp.rs` garde son écart
+  volontaire et le `has` public suit la référence
+  ([preuves et portée](audits/performance/2026-11-09-matcher47/README.md)).
 - solve (radicaux, `_tsolve`) : repli `_tsolve` natif depuis la vague 42 ;
   restent en Python `nsimplify` d'un nombre (`mpmath.identify`, crochet)
   et la fin de `Expr.equals` indécise, `force=False` et `bivariate=False`
@@ -865,19 +961,37 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `QQ<a>(t)` et la normalisation des éléments `EX` sont fermés par la
   vague 44 (algpoly : sol composite algébrique natif, éléments `EX`
   normalisés comme SymPy).
-- Limites : 56/1293 asserts encore différents (82 en vague 43-44, 154
-  avant ; les 26 asserts `test_formal` sont corrigés par fps en vague 45) ; 84 déclins Gruntz (87 avant), dont 67 oscillants, tous
-  repris en Rust (décomposition bornée ou marcheur `AccumBounds` natif,
-  vague 41) ou gardés. Restent :
-  - 16 déclins de symox (NotImplementedError ou limite gardée là où SymPy
-    répond) et 17 déclins Gruntz non oscillants (84 − 67) ;
-  - séries à exposants symboliques ou logarithmiques
-    (NotImplementedError là où SymPy développe : aseries simple 2, 6, 7,
-    bug2, issue 3463, log_power1, 14384:3, 6350) ;
-  - puissances de log dans le terme O (3508, 5223:19), `exp(sqrt(x))`
-    (exp_sqrt_1), `sin(x)**y` avec `logx` (5223:12), Taylor générique
-    d'une sous-classe hôte de `Function` (3978:5), 21938 (ordre plus
-    faible mais vrai) ;
+- Limites/séries : 53/1293 asserts encore différents, soit **1240/1293**
+  identiques à SymPy (1237 avant la vague 47 ; 82 écarts en vague 43-44,
+  154 avant). Les trois corrections du corpus sont `nseries` bug2:1,
+  issue3463:1 et log_power1:1 : **175/186**, contre 172 auparavant.
+  Les huit autres groupes sont stables ; aucune ligne source, statistique
+  ni trace interne ne change. Les 26 asserts `test_formal` sont corrigés
+  par fps depuis la vague 45. Les 84 déclins Gruntz (87 avant), dont
+  67 oscillants repris en Rust (décomposition bornée ou marcheur
+  `AccumBounds` natif, vague 41) ou gardés, restent inchangés. Restent :
+  - 13 écarts de capacité ou d'ordre identifiés dans l'ancienne classe
+    de 16, dont sept erreurs explicites et six résultats de portée/ordre
+    différent ; ce ne sont pas 13 déclins. Les 17 déclins Gruntz non
+    oscillants (84 − 67) restent inchangés ;
+  - séries à exposants symboliques ou logarithmiques : un noyau Rust
+    supplémentaire traite des développements sélectionnés d'ordre fini
+    en 0+, dont bug2, issue3463 et log_power1 (25 gains vérifiés sur la
+    base figée). Restent les aseries multiscales simple 2, 6, 7 et les
+    cas series 14384:3/6350, les exposants non ordonnables, les branches
+    non certifiées et les erreurs multipliées par un logarithme non borné ;
+  - les itérateurs `series(n=None)`, `nseries(n=None)` et `lseries`
+    conservent le moteur baseline. Le tri natif certifié des exposants
+    généralisés reste ouvert : les exposants `log(2**53 - 1)/log(2)` et
+    `log(2**53 + 1)/log(2)` sont distincts mais valent tous deux 53 en
+    binary64. Les directions `cdir` non certifiées conservent également
+    les anciens algorithmes, sans nouveau calcul sur une branche supposée ;
+  - puissances de log dans le terme O (3508, 5223:19),
+    `exp(1 + sqrt(x))` (exp_sqrt_1 : développement plus long, reste
+    `O(x**3)` au lieu de `O(x**(3/2))`), `sin(x)**y` avec `logx`
+    (5223:12), Taylor générique d'une sous-classe hôte de `Function`
+    (3978:5), 21938 (ordre plus faible mais vrai), et series1_failing
+    (×2, XFAIL dans les tests SymPy) ;
   - 30 différences de forme seule (même valeur) ;
   - écarts à valider : 5172 (×2, SymPy rend 0, symox la valeur attendue
     par le test SymPy), 19770:2 (0 contre limite gardée), 7535 (×3,
@@ -889,6 +1003,9 @@ Lacunes ouvertes principales (détail dans `docs/algorithmic-parity.md`) :
   `test_series_AccumBounds` (×2) garde une autre forme du même intervalle
   (`simplify` rend une autre forme de la somme) ; `heuristics()` est
   exposé (natif, vague 43).
+  Preuves courantes : [trois corrections du corpus](audits/performance/2026-11-09-wave47/raw/limits2-compare.log),
+  [valeurs et 18 fichiers stats/traces](audits/performance/2026-11-09-wave47/raw/limits2-deltas.json),
+  [13 écarts restants vérifiés individuellement](audits/performance/2026-11-09-series47/remaining-selected-gaps.json).
   Restent en Python autour des bornes : `oscillating_integral` (aiguillage
   de `integrate` vers les limites de la primitive), la réévaluation des
   bornes par `subs`/`doit` (`_accum_eval._needs`, `reevaluate`), et les
@@ -1976,14 +2093,29 @@ leurs tests avant de les remettre dans cette liste.
   rapports de différences décalées et racines ; une réponse indécidée reste explicite.
 - [ ] Étendre les développements à l'infini de `floor`, `ceiling` et `Mod`
   avec coefficients `AccumBounds`, sans annulation abusive de `AB - AB`.
+- [x] Certifier les limites affines de subfactorial à argument réel tendant
+  vers `+oo`, avec erreur pondérée négligeable (vague 46, 27 tests).
+  `uppergamma(x, 1)/gamma(x)` et l'argument constant 2 valaient déjà 1
+  avant ce lot : ces deux exemples étaient des entrées périmées.
+- [x] Ajouter un noyau Rust de séries généralisées d'ordre fini en 0+
+  pour des exposants réels exacts non rationnels certifiables (vague 47).
+  Les 25 gains finis du fichier initial et les gardes d'admission font
+  partie des 66 tests séries, tous réussis dans les 596 tests ciblés.
+  Le corpus confirme trois corrections : bug2:1, issue3463:1 et log_power1:1.
+- [ ] Porter le tri natif certifié des nouvelles séries lazy et étendre
+  leurs branches/directions ; les itérateurs conservent le moteur baseline.
+  Compléter les aseries multiscales simple 2/6/7 et series 14384:3/6350.
+  Les exposants/branches indécidables gardent les anciens replis explicites.
 - [ ] Compléter les limites encore retenues : annulations dominantes de
-  `Ei`/`erf`, `uppergamma(x, 1)/gamma(x)`, `subfactorial`, reste de Stirling
+  `Ei`/`erf`, subfactorial hors du certificat affine réel, reste de Stirling
   de `log(factorial(x))`, `harmonic(n, m + 1)` et certaines limites bilatérales.
 - [ ] Compléter les séries d'une fonction appliquée à un `Piecewise` et les
   séries en l'infini avec conditions indécidables ; localiser correctement
   le nouveau point limite dans `O(x**2).subs(x, cos(x))`.
-- [ ] Limites (après le lot limits du 5 novembre) : porter en Rust le
-  marcheur oscillant `AccumBounds` (68 déclins « series in mrv variable ») ;
+- [x] Porter en Rust le marcheur oscillant `AccumBounds` (vague 41).
+  La demande de portage du bilan limits du 5 novembre est historique ;
+  les déclins oscillants conservés ne prouvent pas un calcul Python restant.
+- [ ] Réévaluer le catalogue historique limits du 5 novembre :
   formes de valeur du chemin méromorphe (`test_rational`, 5740, 6364,
   14393, 16708, 17751), `series_AccumBounds`, 21785 ; variable non symbole
   (9205) ; `re`/`im` (21756) ; lever `Not sure of sign of 1/a` pour
@@ -1991,8 +2123,9 @@ leurs tests avant de les remettre dans cette liste.
   `(-oo)**n`, `2*(-oo)**w`) ; `I**x` en `oo` (SymPy `nan`),
   `(3/x)**w` en `0+` (SymPy `oo**w`), `sin(x)**w` en `0+` et
   `x**a/(x**a + 1)` en `oo` (SymPy lève) ; `mrv_leadterm` rend le
-  coefficient développé (`b/x - 1/x` pour `(b - 1)/x`) ; `test_aseries_trig`. Ces cas restent non
-  évalués, jamais faux.
+  coefficient développé (`b/x - 1/x` pour `(b - 1)/x`) ; `test_aseries_trig`.
+  Ce catalogue historique mêle déclins et formes différentes ; comparer
+  chaque entrée aux reçus courants avant de la considérer encore ouverte.
 - [ ] Réconcilier les derniers indices et formes du corpus EDO avec les
   correctifs ultérieurs des solveurs et de `simplify`. Les solutions
   séparables/Riccati auparavant implicites sont maintenant résolues ;

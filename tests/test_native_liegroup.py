@@ -188,12 +188,10 @@ def test_checkinfsol_matches_sympy(source, declines):
     assert_same(source, call, declines)
 
 
-# abaco2_similar: SymPy's ``cancel`` of the ``zoo`` terms of ``hy/hyy`` gives
-# ``nan`` (and the generator ``nan``); symox's cancel keeps ``y`` and goes on
-# to the inverse ODE (gap of cancel with ``zoo``, outside this lot).
+# Structural cancellation of the ``zoo`` terms follows the reference in
+# abaco2_similar too; keep both comp settings as ordinary regressions.
 @pytest.mark.parametrize('name', ['abaco1_simple', 'abaco1_product', 'bivariate', 'chi', 'linear',
-                                  pytest.param('abaco2_similar', marks=pytest.mark.xfail(
-                                      strict=True, reason='cancel with zoo'))])
+                                  'abaco2_similar'])
 @pytest.mark.parametrize('comp', [False, True])
 def test_public_heuristics_match_sympy(name, comp, declines):
     def call(mod, ns, h):

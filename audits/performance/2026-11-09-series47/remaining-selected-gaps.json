@@ -1,0 +1,111 @@
+{
+  "scope": "Remaining entries of the historical 16-case capability/order category; not all are declines",
+  "remaining_cases": 13,
+  "explicit_errors": 7,
+  "returned_expression_or_order_differences": 6,
+  "all_unchanged_from_wave46": true,
+  "cases": [
+    {
+      "case": "test_aseries.py:test_simple:2",
+      "reference": "1/(6*x**3) + 1/(2*x**2) + 1/x + 1 + O(x**(-4), (x, oo))",
+      "before": "EXC PoleError",
+      "after": "EXC PoleError",
+      "explicit_error": true
+    },
+    {
+      "case": "test_aseries.py:test_simple:6",
+      "reference": "-1/(2*x**3) + 1/x + 1 + O(x**(-4), (x, oo))",
+      "before": "EXC PoleError",
+      "after": "EXC PoleError",
+      "explicit_error": true
+    },
+    {
+      "case": "test_aseries.py:test_simple:7",
+      "reference": "exp(exp(sqrt(log(log(n)))*log(log(log(n)))**3)*sqrt(log(n))*log(log(n))**2)*log(n)**2/sqrt(n)",
+      "before": "EXC NotImplementedError",
+      "after": "EXC NotImplementedError",
+      "explicit_error": true
+    },
+    {
+      "case": "test_nseries.py:test_issue_3508:1",
+      "reference": "log(x) - x**2/6 - x**4/180 + O(x**5)",
+      "before": "log(x) - x**2/6 - x**4/180 + O(x**5*log(x))",
+      "after": "log(x) - x**2/6 - x**4/180 + O(x**5*log(x))",
+      "explicit_error": false
+    },
+    {
+      "case": "test_nseries.py:test_exp_sqrt_1:1",
+      "reference": "E + E*x/2 + E*sqrt(x) + O(x**(3/2))",
+      "before": "E + E*x/2 + E*x**2/24 + E*sqrt(x) + E*x**(3/2)/6 + E*x**(5/2)/120 + O(x**3)",
+      "after": "E + E*x/2 + E*x**2/24 + E*sqrt(x) + E*x**(3/2)/6 + E*x**(5/2)/120 + O(x**3)",
+      "explicit_error": false
+    },
+    {
+      "case": "test_nseries.py:test_series1_failing:1",
+      "reference": "x",
+      "before": "O(1)",
+      "after": "O(1)",
+      "explicit_error": false
+    },
+    {
+      "case": "test_nseries.py:test_series1_failing:2",
+      "reference": "x",
+      "before": "O(x)",
+      "after": "O(x)",
+      "explicit_error": false
+    },
+    {
+      "case": "test_series.py:test_issue_14384:3",
+      "reference": "exp(a*log(x))",
+      "before": "EXC NotImplementedError",
+      "after": "EXC NotImplementedError",
+      "explicit_error": true
+    },
+    {
+      "case": "test_series.py:test_issue_6350:1",
+      "reference": "-(-1)**(2/3)*sqrt(3)*gamma(1/3)**2*gamma(2/3)/(6*pi*k**(1/3)) - sqrt(3)*k*gamma(-2/3)*gamma(-1/3)/(6*pi) - (-1)**(1/3)*sqrt(3)*k**(1/3)*gamma(-1/3)*gamma(1/3)*gamma(2/3)/(6*pi) - (-1)**(2/3)*sqrt(3)*k**(5/3)*gamma(1/3)**2*gamma(2/3)/(4*pi) - (-1)**(1/3)*sqrt(3)*k**(7/3)*gamma(-1/3)*gamma(1/3)*gamma(2/3)/(8*pi) + O(k**3)",
+      "before": "EXC NotImplementedError",
+      "after": "EXC NotImplementedError",
+      "explicit_error": true
+    },
+    {
+      "case": "test_series.py:test_issue_21938:1",
+      "reference": "(1/(24*x**4) - 1/(2*x**2) + 1 + O(x**(-6), (x, oo)))*exp(-x)",
+      "before": "O(x**(-6), (x, oo))",
+      "after": "O(x**(-6), (x, oo))",
+      "explicit_error": false
+    },
+    {
+      "case": "test_series.py:test_issue_3978:5",
+      "reference": "TestF(0) + x*Subs(Derivative(TestF(xi), xi), xi, 0) + x**2*Subs(Derivative(TestF(xi), (xi, 2)), xi, 0)/2 + O(x**3)",
+      "before": "EXC NotImplementedError",
+      "after": "EXC NotImplementedError",
+      "explicit_error": true
+    },
+    {
+      "case": "test_series.py:test_issue_5223:12",
+      "reference": "exp(logx*y) + O(x)",
+      "before": "EXC NotImplementedError",
+      "after": "EXC NotImplementedError",
+      "explicit_error": true
+    },
+    {
+      "case": "test_series.py:test_issue_5223:19",
+      "reference": "1 + p**(3/2)*log(p) + O(p**3*log(p)**3)",
+      "before": "1 + p**(3/2)*log(p) + O(p**3*log(p)**2)",
+      "after": "1 + p**(3/2)*log(p) + O(p**3*log(p)**2)",
+      "explicit_error": false
+    }
+  ],
+  "input_sha256": {
+    "audits/performance/2026-11-06-limits2/raw/tl/sympy_aseries.json": "0a800f934ffb43e3a0f763af808b2f0f33f73404e6a1b670ea083c973a30da6f",
+    "audits/performance/2026-11-09-wave46/raw/limits2/wave46_aseries.json": "2a12898d7c2ab478ed18691c098b7d74435a1ae88ccf3bd8484dc0a627e02bb5",
+    "audits/performance/2026-11-09-wave47/raw/limits2/wave47_aseries.json": "e9401782e01f002bb4577688e1f30bb27ef0a06052329a30fa3d411fc8fa88e7",
+    "audits/performance/2026-11-06-limits2/raw/tl/sympy_nseries.json": "6be72c192481c9f85a0bc8b0a50039551f6853dbb929d53d162fb83ca16796b8",
+    "audits/performance/2026-11-09-wave46/raw/limits2/wave46_nseries.json": "f54485d2dd6ae2768c63b5e33f69b74879f4b2ed28d9d0e122a8e55bc72ac749",
+    "audits/performance/2026-11-09-wave47/raw/limits2/wave47_nseries.json": "b9c16b34b700ff859f18d7f11291c00842580f50628bc4085d69fa02fa2f0192",
+    "audits/performance/2026-11-06-limits2/raw/tl/sympy_series.json": "81eb1cb61df116d9b96b98a99caa056573ae72955bf8bf6f88f7506c03b695fc",
+    "audits/performance/2026-11-09-wave46/raw/limits2/wave46_series.json": "dca16758d10f5aec2b30eecc2a3ffe30e7f0d5a14c2e9e5f8f192ca8b29f3066",
+    "audits/performance/2026-11-09-wave47/raw/limits2/wave47_series.json": "128350855e68cd4e57a5624060527935bd0fb549292ceed3882520fcbc2d085b"
+  }
+}

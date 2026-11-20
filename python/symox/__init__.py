@@ -2943,11 +2943,11 @@ from .polys.polyerrors import (  # noqa: E402
 
 
 def gcd_list(seq, *gens, **args):
-    return gcd(list(seq), *gens, **args)
+    return _core.gcd_list(seq, *gens, **args)
 
 
 def lcm_list(seq, *gens, **args):
-    return lcm(list(seq), *gens, **args)
+    return _core.lcm_list(seq, *gens, **args)
 
 
 def poly(expr, *gens, **args):
@@ -3220,6 +3220,16 @@ O = Order
 
 
 def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    if cdir is not None and not (isinstance(cdir, int) and cdir >= 0):
+        # Keep the existing direction protocol, including inferred variables
+        # and lazy calls, without admitting a new positive-ray fallback.
+        result = _core._series_without_generalized(
+            lambda: _expr_series_impl(self, x, x0, n, dir, logx, cdir))
+        return _series_legacy_iterator(result) if n is None else result
+    return _expr_series_impl(self, x, x0, n, dir, logx, cdir)
+
+
+def _expr_series_impl(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
     if cdir is not None and not (isinstance(cdir, int) and cdir == 0):
         # Expr.series(cdir=...): a nonzero direction decides the side; a
         # nonreal one is expanded natively along x0 + cdir/|cdir|*x.
@@ -3239,6 +3249,17 @@ def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
 
 
 def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    if cdir is not None and not (isinstance(cdir, int) and cdir >= 0):
+        # nseries has a different cdir protocol from series. If its existing
+        # direction-aware path declines, keep all earlier paths without
+        # admitting a new calculation that assumes the positive real ray.
+        result = _core._series_without_generalized(
+            lambda: _expr_nseries_impl(self, x, x0, n, dir, logx, cdir))
+        return _series_legacy_iterator(result) if n is None else result
+    return _expr_nseries_impl(self, x, x0, n, dir, logx, cdir)
+
+
+def _expr_nseries_impl(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
     if x is not None and not x0 and dir == "+" and n is not None and self.has(Piecewise):
         # Expr.nseries at 0 from the right is _eval_nseries, without the
         # positive dummy of Expr.series
@@ -3278,7 +3299,31 @@ def _expr_getn(self):
     return n
 
 
+def _series_legacy_iterator(iterator):
+    # An iterator runs after the initial admission scope returns. Scope each
+    # pull and cleanup separately, leaving no thread state between yields.
+    try:
+        while True:
+            try:
+                term = _core._series_without_generalized(lambda: next(iterator))
+            except StopIteration as stop:
+                return stop.value
+            yield term
+    finally:
+        close = getattr(iterator, "close", None)
+        if close is not None:
+            _core._series_without_generalized(close)
+
+
 def _expr_lseries(self, x=None, x0=0, dir="+", logx=None, cdir=0):
+    """Lazy iterator over the terms of the expansion (in increasing order)."""
+    iterator = _expr_lseries_impl(self, x, x0, dir, logx, cdir)
+    # The legacy iterator orders exponents with machine floats. Keep its
+    # existing domain until generalized exponents have a certified lazy sort.
+    return (yield from _series_legacy_iterator(iterator))
+
+
+def _expr_lseries_impl(self, x=None, x0=0, dir="+", logx=None, cdir=0):
     """Lazy iterator over the terms of the expansion (in increasing order)."""
     if x is not None and sympify(x) not in self.free_symbols:
         # Expr.series(n=None) of an expression free of x yields it once

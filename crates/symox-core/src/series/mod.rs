@@ -31,6 +31,7 @@ pub mod order_log;
 pub mod order_point;
 pub mod print;
 pub mod ser;
+mod generalized;
 
 use rustc_hash::FxHashMap;
 
@@ -45,6 +46,24 @@ pub use ser::{SErr, SRes, Ser};
 
 /// Maximal ramification index tried for Puiseux expansions.
 const MAX_D: i64 = 1 << 12;
+
+thread_local! {
+    static GENERALIZED_ALLOWED: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+}
+
+/// Retain the established series paths where the caller has not certified
+/// the positive real direction required by the generalized fallback.
+/// The previous admission state is restored on errors and unwinding, and
+/// a nested ordinary call cannot re-enable an outer restriction.
+pub fn without_generalized<T>(operation: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) { GENERALIZED_ALLOWED.with(|allowed| allowed.set(self.0)); }
+    }
+    let previous = GENERALIZED_ALLOWED.with(|allowed| allowed.replace(false));
+    let _restore = Restore(previous);
+    operation()
+}
 
 /// The symbol standing for `log(t^D)` inside the engine.
 pub fn logt_symbol() -> Expr {
@@ -259,7 +278,14 @@ pub fn series(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool) -> SRes<Expr> 
             return series_impl(&rest, x, x0, n, minus, Some((l, k)));
         }
     }
-    match series_impl(e, x, x0, n, minus, None) {
+    let result = series_impl(e, x, x0, n, minus, None);
+    if GENERALIZED_ALLOWED.with(|allowed| allowed.get())
+        && matches!(result, Err(SErr::Unsupported(_))) && x0.is_zero() && !minus {
+        if let Some(value) = generalized::series(e, x, n) {
+            return Ok(value);
+        }
+    }
+    match result {
         // exp(1/x) and friends are returned unevaluated, like SymPy
         Err(SErr::Pole(_)) if e.is_func(&Func::Exp) => Ok(e.clone()),
         r => r,

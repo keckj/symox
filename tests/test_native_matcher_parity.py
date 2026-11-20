@@ -104,11 +104,15 @@ def test_no_match_is_none():
     assert handled and value is None
 
 
-def test_noncommutative_declines():
+def test_commutative_wild_cannot_consume_noncommutative_prefix():
     A, B = symox.symbols("A B", commutative=False)
     w = symox.Wild("w")
-    handled, reason = _core._reference_match(A * B, w * B, False)
-    assert not handled and isinstance(reason, str)
+    handled, value = _core._reference_match(A * B, w * B, False)
+    assert handled and value is None
+    assert (A * B).match(w * B) is None
+    sympy = pytest.importorskip("sympy")
+    ref_A, ref_B = sympy.symbols("A B", commutative=False)
+    assert (ref_A * ref_B).match(sympy.Wild("w") * ref_B) is None
 
 
 def test_wild_property_error_propagates():

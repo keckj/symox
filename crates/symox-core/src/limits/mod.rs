@@ -22,6 +22,7 @@ pub mod floats;
 pub mod symbolic_power;
 pub mod gruntz;
 mod gamma_heuristic;
+mod subfactorial;
 pub mod heuristics;
 mod order_elsewhere;
 pub mod trace;
@@ -315,7 +316,7 @@ fn limit_one_sided_engine(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Ex
     let mut g = gruntz::Gruntz::new(&t);
     let r = match g.limitinf(&et) {
         Ok(r) => Ok(r),
-        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)).or_else(|| negative_base_squeeze(&et, &t)).or_else(|| gamma_heuristic::gamma_value(&et, &t)).or_else(|| gamma_heuristic::loggamma_value(&et, &t)) {
+        Err(err) => match bounded_heuristic(&et, &t).or_else(|| function_value(&et, &t)).or_else(|| subfactorial::value(&et, &t)).or_else(|| negative_base_squeeze(&et, &t)).or_else(|| gamma_heuristic::gamma_value(&et, &t)).or_else(|| gamma_heuristic::loggamma_value(&et, &t)) {
             Some(r) => Ok(r),
             None => Err(err),
         },

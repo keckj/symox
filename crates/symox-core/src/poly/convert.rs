@@ -461,6 +461,23 @@ pub(crate) fn generator_clash<'a>(factors: &'a [Expr], gens: &[Expr]) -> Option<
 
 /// Convert expressions with automatic generator detection.
 pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
+    from_exprs_impl(exprs, false)
+}
+
+/// `cancel`'s reference `sring` accepts nonfinite atoms as independent
+/// polynomial generators. Other conversion APIs retain their rejection.
+pub(crate) fn from_exprs_with_nonfinite(exprs: &[Expr]) -> PResult<Converted> {
+    from_exprs_impl(exprs, true)
+}
+
+fn from_exprs_impl(exprs: &[Expr], nonfinite_generators: bool) -> PResult<Converted> {
+    let check = |e: &Expr| {
+        if nonfinite_generators && matches!(e.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN) {
+            Ok(())
+        } else {
+            check_number(e)
+        }
+    };
     let mut float = false;
     let mut prec = 0u32;
     let mut index: FxHashMap<Expr, usize> = FxHashMap::default();
@@ -468,7 +485,7 @@ pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
     let mut all_terms: Vec<Vec<(Rat, Vec<(usize, i64)>)>> = Vec::new();
     for e in exprs {
         check_commutative(e)?;
-        check_number(e)?;
+        check(e)?;
         let ex = expand_if_needed(e);
         let mut terms = Vec::new();
         for t in raw_terms(&ex) {
@@ -478,7 +495,7 @@ pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
             }
             let mut mono = Vec::new();
             for f in &t.factors {
-                check_number(f)?;
+                check(f)?;
                 let (b, k) = decompose_factor(f);
                 let id = *index.entry(b.clone()).or_insert_with(|| {
                     gens.push(b.clone());
