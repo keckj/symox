@@ -1062,10 +1062,13 @@ fn pow_step<H: Host>(h: &mut H, f: &Expr, sym: &Expr, lhs: &Expr, rhs: &Expr, b:
     // f(x)**g(x) = c
     let mut sol = Vec::new();
     let logform = sub(&mul(&[e.clone(), log(b)]), &log(rhs));
+    // Whether the general (logarithmic) form went unsolved: the guesses
+    // below are then not a complete answer.
+    let mut logform_unsolved = false;
     if logform != sub(lhs, rhs) {
         match h.solve(&logform, sym, Flags::Same) {
             Ok(v) => sol.extend(v),
-            Err(err) if err.is_ni() => {}
+            Err(err) if err.is_ni() => logform_unsolved = true,
             Err(err) => return Err(err),
         }
     }
@@ -1115,6 +1118,13 @@ fn pow_step<H: Host>(h: &mut H, f: &Expr, sym: &Expr, lhs: &Expr, rhs: &Expr, b:
         if checked(h, f, sym, &s)? {
             sol.push(s);
         }
+    }
+    if logform_unsolved && sol.is_empty() {
+        // The reference returns `[]` once its integer guesses fail
+        // (`solve(x**x - 2, x, bivariate=False, force=False)`), although
+        // `exp(LambertW(log(2)))` is a root: an empty list here is not a
+        // proof that there is no solution.
+        return Err(Fail::ni("f(x)**g(x) = c: the logarithmic form is not solved"));
     }
     Ok(uniq(sol))
 }

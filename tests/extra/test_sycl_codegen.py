@@ -32,6 +32,18 @@ def test_native_printer_math_and_literals(dtype):
         sm.extra.syclcode(sm.Function("unknown")(x))
 
 
+def test_half_literals_limits_and_kernel_aspect():
+    x = sm.Symbol("x")
+    source = sm.extra.syclcode(2*x + sm.Rational(1, 3) + sm.Piecewise((x, x > 0), (sm.nan, True)), dtype="float16")
+    assert "sycl::half(1.0F)/sycl::half(3.0F)" in source and "sycl::half(2.0F)" in source
+    assert "std::numeric_limits<sycl::half>::quiet_NaN()" in source
+    assert sm.extra.syclcode(-sm.oo, dtype="half") == "-std::numeric_limits<sycl::half>::infinity()"
+    kernel = sm.extra.sycl_kernel("half_kernel", x, sm.exp(x)/3, dtype="float16")
+    assert "const sycl::half* _sx_in_0" in kernel and "aspect::fp16" in kernel and "aspect::fp64" not in kernel
+    with pytest.raises(ValueError):
+        sm.extra.syclcode(x, dtype="bfloat16")
+
+
 @pytest.mark.parametrize("name", ["class", "bad-name", "_sx_hidden", "__reserved", "_Upper", "a::b"])
 def test_invalid_export_identifiers(name):
     x = sm.Symbol("x")

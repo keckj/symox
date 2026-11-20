@@ -28,6 +28,10 @@ pub struct CodegenOptions {
     pub fast_math: bool,
     /// CUDA: `rsqrt` for inverse square roots.
     pub use_rsqrt: bool,
+    /// CUDA: `1.0/sqrt(x)` for `x**(-1/2)` when `use_rsqrt` is off (opt-in).
+    pub reciprocal_sqrt: bool,
+    /// CUDA: `M_PI`-style macros; `None` keeps the historical default.
+    pub math_macros: Option<bool>,
     /// CUDA: write `x**n` (`2 <= n <= inline_pow`) as products.
     pub inline_pow: u32,
     /// Emit `#include <math.h>` (C only).
@@ -42,6 +46,8 @@ impl Default for CodegenOptions {
             vectorized: true,
             fast_math: false,
             use_rsqrt: true,
+            reciprocal_sqrt: false,
+            math_macros: None,
             inline_pow: 4,
             include_header: true,
         }
@@ -168,7 +174,9 @@ fn cuda_printer_settings(opts: &CodegenOptions) -> CodeSettings {
         dtype: opts.dtype,
         fast_math: opts.fast_math,
         use_rsqrt: opts.use_rsqrt,
+        reciprocal_sqrt: opts.reciprocal_sqrt,
         inline_pow: opts.inline_pow,
+        math_macros: opts.math_macros,
     }
     .to_code_settings()
 }

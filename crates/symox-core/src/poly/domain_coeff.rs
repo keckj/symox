@@ -92,9 +92,6 @@ impl DomainScope {
     pub fn failed(&self) -> bool {
         CONTEXT.with(|c| c.borrow().get(self.depth - 1).is_some_and(|c| c.error.is_some()))
     }
-    pub fn take_error(&self) -> Option<PolyError> {
-        CONTEXT.with(|c| c.borrow_mut().get_mut(self.depth - 1).and_then(|c| c.error.take()))
-    }
 }
 
 impl Drop for DomainScope {

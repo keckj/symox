@@ -252,10 +252,6 @@ impl<C: Coeff> MPoly<C> {
         &self.coeffs
     }
 
-    pub fn coeffs_mut(&mut self) -> &mut [C] {
-        &mut self.coeffs
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (&[u32], &C)> + '_ {
         (0..self.len()).map(move |i| (self.exp(i), &self.coeffs[i]))
     }
@@ -849,21 +845,6 @@ impl<C: Coeff> MPoly<C> {
             i = j;
         }
         MPoly { nvars: n, exps, coeffs }
-    }
-
-    /// Evaluate all variables.
-    pub fn eval_all(&self, vals: &[C]) -> C {
-        let mut s = C::zero();
-        for (e, c) in self.iter() {
-            let mut t = c.clone();
-            for (v, &k) in e.iter().enumerate() {
-                for _ in 0..k {
-                    t = t.mul(&vals[v]);
-                }
-            }
-            s.add_assign(&t);
-        }
-        s
     }
 
     /// Split into coefficients with respect to `v`: `[(k, c_k)]` with

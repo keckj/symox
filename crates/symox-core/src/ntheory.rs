@@ -841,19 +841,6 @@ pub fn binomial(n: &BigInt, k: &BigInt) -> BigInt {
     r
 }
 
-/// Continued fraction expansion of a rational p/q.
-pub fn continued_fraction(p: &BigInt, q: &BigInt) -> Vec<BigInt> {
-    let (mut p, mut q) = (p.clone(), q.clone());
-    let mut out = Vec::new();
-    while !q.is_zero() {
-        let (a, r) = p.div_mod_floor(&q);
-        out.push(a);
-        p = q;
-        q = r;
-    }
-    out
-}
-
 /// Chinese remainder theorem: x ≡ r_i mod m_i (moduli need not be coprime).
 pub fn crt(rs: &[BigInt], ms: &[BigInt]) -> Option<(BigInt, BigInt)> {
     let mut x = BigInt::zero();

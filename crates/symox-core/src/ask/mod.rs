@@ -92,14 +92,6 @@ pub fn applied_from_args(args: Vec<Expr>) -> Result<Expr, AskError> {
     applied(p, args[1..].to_vec())
 }
 
-/// Is `e` a predicate atom or an applied predicate?
-pub fn is_predicate_node(e: &Expr) -> bool {
-    matches!(
-        e.kind(),
-        Kind::Func(Func::Predicate(_) | Func::AppliedPredicate, _)
-    )
-}
-
 /// `Q.<name>` printing: `Q.positive`, or the bare name for `Predicate(name)`
 /// (SymPy prints both as `Q.name`).
 pub fn predicate_str(p: Pred) -> String {

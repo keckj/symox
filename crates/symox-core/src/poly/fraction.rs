@@ -1106,9 +1106,6 @@ impl Polynomial {
         };
         Ok(Some((convert(self)?,convert(o)?)))
     })}
-    pub fn to_expression(&self)->PResult<ExpressionPoly>{super::mpoly::checked_operation(||{
-        match &self.expression {Some(e)=>Ok(e.clone()),None=>ExpressionPoly::from_terms(self.terms(),self.true_gens())}
-    })}
     fn expression_pair(&self,o:&Self)->Option<(ExpressionPoly,ExpressionPoly)>{self.checked_expression_pair(o).expect("EX unification")}
     pub fn add(&self, o: &Self) -> Self {
         if let Some((a,b))=self.expression_pair(o){return a.add(&b).expect("EX arithmetic").into();}

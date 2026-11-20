@@ -6,9 +6,11 @@
 package. The supported structural operations are described below; this is not
 a claim of full symbolic-object or layout compatibility. The public interfaces
 follow the [SymPy category documentation](https://docs.sympy.org/latest/modules/categories.html).
-Objects and morphisms are immutable, hashable Python values. They use Python
-immutable sets and read-only mappings rather than native scalar `FiniteSet`
-and `Dict` containers. No SymPy runtime dependency is required.
+Objects and morphisms are immutable, hashable Python values with the
+reference sort keys. Diagrams use Python frozensets and read-only mappings
+rather than native scalar `FiniteSet` and `Dict` containers; these sets print
+like SymPy's `FiniteSet`/`EmptySet` and are ordered like the reference `Dict`.
+No SymPy runtime dependency is required.
 
 ## Objects, morphisms and composition
 
@@ -25,9 +27,9 @@ assert CompositeMorphism(f, g) == g*f
 assert IdentityMorphism(B)*f == f
 ```
 
-`Morphism(domain, codomain)` can represent an unnamed arrow;
-`NamedMorphism(domain, codomain, name)` gives it a label. Endpoints must be
-category `Object` instances. `compose` and `*` compose in categorical order:
+`NamedMorphism(domain, codomain, name)` is a labelled arrow. As in the
+reference, the base class `Morphism(domain, codomain)` cannot be instantiated
+and raises `NotImplementedError`. Endpoints must be category `Object` instances. `compose` and `*` compose in categorical order:
 `g*f` applies `f` first. `CompositeMorphism` constructor arguments instead use
 path order `(f, g)`. Nested compositions flatten, compatible identity arrows
 cancel, and incompatible endpoints raise an error. `flatten(name)` replaces
@@ -76,20 +78,22 @@ composites whose internal factor objects need not belong to that subset.
 
 ## Layout and rendering
 
-`DiagramGrid(diagram, groups=None, layout='generic', transpose=False)` places
-objects on a deterministic grid. Acyclic arrows use topological depth; branches
-stack vertically, and cyclic components receive distinct cells. Groups provide
-ordering preferences. They do not create the reference's full hierarchy of
-grouped subdiagrams. The accepted `sequential` layout uses the same basic
-placement policy. Grid dimensions, indexed cells and the displayed morphism
-mapping are available. Unsupported layout hints raise an explicit error.
+`DiagramGrid`, `ArrowStringDescription`, `XypicDiagramDrawer` and
+`xypic_draw_diagram` are a port of SymPy 1.14's `categories/diagram_drawing.py`,
+and the 153 reference doctests of that module pass. `DiagramGrid(diagram,
+groups=None, **hints)` uses the reference generic layout (skeleton triangles
+welded onto a growing grid), lays out disconnected components side by side,
+and accepts the `layout='sequential'` and `transpose=True` hints. Groups lay
+out nested subdiagrams as in the reference. The reference errors are kept:
+`IndexError` for an empty diagram and `KeyError` for groups that miss an
+object. Grid dimensions, indexed cells, the displayed morphism mapping and
+pretty printing of the grid are available.
 
 `XypicDiagramDrawer.draw` and `xypic_draw_diagram` produce executable
 `\xymatrix` markup, with native LaTeX object/arrow labels, composite labels,
 loops, parallel-arrow curves, masks and a supplied matrix format string.
-Plain unlabelled morphisms draw as unlabelled arrows. Property callbacks in
-`drawer.arrow_formatters` and a `default_arrow_formatter` can change the arrow
-description's label, position, curve and style.
+Property callbacks in `drawer.arrow_formatters` and a `default_arrow_formatter`
+can change the arrow description's label, position, curve and style.
 
 ```python
 from symox.categories import xypic_draw_diagram
@@ -100,18 +104,18 @@ assert r'\circ' in source
 ```
 
 `preview_diagram` passes this markup to the native printing preview pipeline,
-loading the Xy-pic extensions needed for matrices, curves and loops. It accepts
-the output/viewer options and forwards `filename`, `outputbuffer` and
-`dvioptions`. For example, `viewer='file', filename='diagram.png'` writes a PNG
-when TeX, Xy-pic and the conversion executable are installed. Rendering tools
-are optional system dependencies; no GUI is required for file output.
-
-The placement algorithm does not reproduce SymPy's triangle-welding heuristics,
-label collision avoidance or optimal planar layouts. Complex diagrams may
-need grouping, transposition, masks or edited generated markup.
+loading the Xy-pic extensions needed for matrices, curves and loops
+(`\xyoption{all}`, which SymPy omits, so its LaTeX run fails on curved arrows
+and loops). It accepts the output/viewer options and forwards `filename`,
+`outputbuffer` and `dvioptions` to the preview, where SymPy hands them to
+`DiagramGrid` as ignored hints. For example, `viewer='file',
+filename='diagram.png'` writes a PNG when TeX, Xy-pic and the conversion
+executable are installed. Rendering tools are optional system dependencies;
+no GUI is required for file output.
 
 Tests cover associativity and identities, endpoint validation, diagram/path
 properties, selected-object subdiagrams, finite loops, masks and arrow
-formatters. When TeX is available, a diagram with parallel arrows and a loop
-is actually compiled to PNG. A separate subprocess renders diagram markup
-with all SymPy imports blocked.
+formatters, and compare grids and Xy-pic markup with SymPy 1.14 output. When
+TeX is available, a diagram with parallel arrows and a loop is actually
+compiled to PNG. A separate subprocess renders diagram markup with all SymPy
+imports blocked.

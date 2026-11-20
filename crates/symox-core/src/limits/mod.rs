@@ -68,8 +68,8 @@ pub fn validate_held(e:&Expr)->Result<(),String>{
         if let Kind::Func(Func::Limit,args)=e.kind(){
             // Limit.__new__ takes any expression as the variable
             // (`Limit(x + y, x + y, a)`); only its doit needs a symbol
-            if args.len()!=4 {return Err("held limits take four arguments".into());}
-            if crate::traverse::has(&args[2],&args[1]){return Err("limits approaching a variable point are not supported".into());}
+            if args.len()!=4 {return Err("held limits require a variable, a point and a direction".into());}
+            if crate::traverse::has(&args[2],&args[1]){return Err(format!("Limits approaching a variable point are not supported ({} -> {})",args[1],args[2]));}
         }
         for arg in crate::inspection::scalar_children(e){visit(&arg,seen)?;}
         Ok(())
@@ -134,10 +134,17 @@ fn is_infinite(e: &Expr) -> bool {
 
 /// `limit(e, x, x0, dir)`.
 pub fn limit(e: &Expr, x: &Expr, x0: &Expr, dir: Dir) -> LRes<Expr> {
-    if !x.is_symbol(){return unknown("limits with non-symbol variables are not implemented");}
     if x0.is_constant(Constant::ComplexInfinity) {
         // Limit.doit raises NotImplementedError before looking at `e`
         return unknown(COMPLEX_INFINITY_POINT);
+    }
+    if !x.is_symbol(){
+        // Limit.doit: `e == z` gives the point and an expression free of `z`
+        // is its own limit (`limit(x, x**2, 0)` is `x`); otherwise SymPy's
+        // algorithm requires a symbol (TypeError in `is_meromorphic`).
+        if e==x {return Ok(x0.clone());}
+        if !crate::traverse::has(e,x) {return Ok(e.clone());}
+        return unknown("limits with non-symbol variables are not implemented");
     }
     if !depends(e, x) {
         return Ok(e.clone());

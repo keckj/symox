@@ -396,7 +396,7 @@ fn eval_mp_bounded(e: &Expr, prec: u32, bounded: bool) -> Option<MpComplex> {
         return Some(MpComplex{re:component(&re)?,im:component(&im)?});
     }
     if let Kind::Func(Func::MatrixDotProduct(a,b),_)=e.kind(){return eval_mp_bounded(&crate::matrixcontraction::dot_product(a,b,true).ok()?,prec,bounded);}
-    if matches!(e.kind(),Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product,_)){
+    if matches!(e.kind(),Kind::Func(Func::Subs | Func::Limit | Func::Sum | Func::Product,_)){
         let evaluated=crate::functions::doit(e,true);
         if evaluated==*e{return None;}
         return eval_mp_bounded(&evaluated,prec,bounded);
@@ -548,7 +548,8 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
             return evalf(&proved, prec);
         }
     }
-    let memoized=EvalfOptions{residue:false,..options}==EvalfOptions::default();
+    let memoized=EvalfOptions{residue:false,..options}==EvalfOptions::default()
+        && QUADRATURE.with(|cell|cell.get())==QuadratureOptions::default();
     if memoized { if let Some(value) = memo::get(e,prec,options.residue) { return value; } }
     let outer_discarded = take_discarded_argument_error();
     let root = eval_mp_root(e, prec);
@@ -599,6 +600,13 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
             match head.host().and_then(|host| host.evalf(e, prec)) {
                 Some(value) if !crate::traverse::has(&value, e) => evalf(&value, prec),
                 Some(value) => value,
+                None => e.clone(),
+            },
+        // `Function._eval_evalf` of an `implemented_function` application
+        // whose value is not numerical.
+        Kind::Func(Func::Undefined(head),_) if head.host().is_none() && UNDEFINED_HOST.get().is_some() =>
+            match undefined_host_value(e, prec) {
+                Some(value) => evalf(&value, prec),
                 None => e.clone(),
             },
         _ => e.clone(),
@@ -698,7 +706,8 @@ fn ev_uncached(e: &Expr, p: u32) -> Option<MpComplex> {
         }
         Kind::Pow(b, x) => pow_of(b, x, p)?,
         Kind::Func(Func::MatrixDotProduct(a,b),_)=>ev(&crate::matrixcontraction::dot_product(a,b,true).ok()?,p)?,
-        Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}ev(&evaluated,p)?},
+        Kind::Func(Func::Integral,_)=>integral_value(e,p)?,
+        Kind::Func(Func::Subs | Func::Limit | Func::Sum | Func::Product,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}ev(&evaluated,p)?},
         Kind::Func(Func::Undefined(head),_) if head.host().is_some_and(|host| host.evaluates_numerically()) => {
             // SymPy evalf falls back to the class's _eval_evalf.
             let value=head.host()?.evalf(e,p)?;
@@ -714,6 +723,11 @@ fn ev_uncached(e: &Expr, p: u32) -> Option<MpComplex> {
             let (re,im)=enclosure.mid(p);
             MpComplex{re,im}
         },
+        Kind::Func(f @ Func::Undefined(head), args) if head.host().is_none() && UNDEFINED_HOST.get().is_some() =>
+            match undefined_host_value(e, p) {
+                Some(value) => ev(&value, p)?,
+                None => func(f, args, p)?,
+            },
         Kind::Func(f, args) => func(f, args, p)?,
         _ => return None,
     })
@@ -1019,6 +1033,26 @@ pub fn has_special_host() -> bool {
     SPECIAL_HOST.get().is_some()
 }
 
+/// Host evaluator of an applied undefined function without a host class:
+/// SymPy's `Function._eval_evalf` falls back to the `_imp_` implementation
+/// attached by `implemented_function`. `None` keeps the application.
+pub type UndefinedHost = fn(&Expr, u32) -> Option<Expr>;
+
+static UNDEFINED_HOST: std::sync::OnceLock<UndefinedHost> = std::sync::OnceLock::new();
+
+/// Install the evaluator of applied undefined functions (the Python bindings
+/// install it once an implementation is attached to a function).
+pub fn register_undefined_host(host: UndefinedHost) {
+    let _ = UNDEFINED_HOST.set(host);
+}
+
+/// The value of the implementation of the applied undefined function `e`,
+/// when it has one that does not return `e` itself.
+fn undefined_host_value(e: &Expr, prec: u32) -> Option<Expr> {
+    let host = *UNDEFINED_HOST.get()?;
+    host(e, prec).filter(|value| !crate::traverse::has(value, e))
+}
+
 /// While alive, the first host error is kept for [`take_host_error`];
 /// a nested disabled scope (sign and magnitude decisions) discards them,
 /// as SymPy's assumption queries catch evaluation errors.
@@ -1060,6 +1094,81 @@ pub fn host_interrupted() -> bool {
 }
 
 fn call_host(host: SpecialHost, name: &str, args: &[HostArg], p: u32, report: bool) -> Option<MpComplex> {
+    guarded_host_call(|| host(name, args, p), report)
+}
+
+/// Options of SymPy's `evalf` that only concern unevaluated integrals:
+/// `quad='osc'` (oscillatory quadrature, without trying `doit` first, as
+/// SymPy never calls it) and the precision cap derived from `maxn`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct QuadratureOptions {
+    pub osc: bool,
+    pub maxprec: Option<u32>,
+}
+
+/// Host numerical integration of `Integral(f, (x, a, b))` at a binary
+/// precision (the Python bindings run SymPy's `evalf_integral` with mpmath's
+/// `quadts`/`quadosc`, the integrand being evaluated by [`quadrature_point`]).
+/// It returns `Ok(None)` when the requested accuracy is not reached.
+pub type IntegralHost = fn(&Expr, u32, QuadratureOptions) -> Result<Option<MpComplex>, HostError>;
+
+static INTEGRAL_HOST: std::sync::OnceLock<IntegralHost> = std::sync::OnceLock::new();
+
+thread_local! {
+    static QUADRATURE: std::cell::Cell<QuadratureOptions> = const { std::cell::Cell::new(QuadratureOptions{osc:false,maxprec:None}) };
+}
+
+/// Install the numerical integration host.
+pub fn register_integral_host(host: IntegralHost) {
+    let _ = INTEGRAL_HOST.set(host);
+}
+
+/// While alive, unevaluated integrals are evaluated with these options.
+pub struct QuadratureScope(QuadratureOptions);
+impl QuadratureScope {
+    pub fn enter(options: QuadratureOptions) -> Self {
+        Self(QUADRATURE.with(|cell| cell.replace(options)))
+    }
+}
+impl Drop for QuadratureScope {
+    fn drop(&mut self) {
+        QUADRATURE.with(|cell| cell.set(self.0));
+    }
+}
+
+/// The integrand of a numerical integration at one node: `f` with `x`
+/// replaced by the Float `t`, evaluated to `prec` bits (SymPy's
+/// `evalf(func, prec, {'subs': {x: t}})`).
+pub fn quadrature_point(f: &Expr, x: &Expr, t: &MpComplex, prec: u32) -> Option<MpComplex> {
+    let bits = |value: &BigFloat| u32::try_from(value.man.bits()).unwrap_or(u32::MAX);
+    let precision = prec.max(bits(&t.re)).max(bits(&t.im)).max(2);
+    let float = |value: &BigFloat| Expr::num(Number::mp_float(value.clone(), precision));
+    let point = if t.im.is_zero() { float(&t.re) } else {
+        crate::ops::add(&[float(&t.re), crate::ops::mul(&[Expr::i(), float(&t.im)])])
+    };
+    eval_mp(&substitute_for_evalf(f, &[(x.clone(), point)]), prec)
+}
+
+/// The value of an unevaluated `Integral` (SymPy's `evalf_integral`). Unless
+/// oscillatory quadrature is requested, an integral `doit` computes is
+/// evaluated from its closed form; otherwise a single `(x, a, b)` limit of a
+/// numerical integral is integrated by the host. Several limits stay
+/// unevaluated, as SymPy's `evalf_integral` refuses them.
+fn integral_value(e: &Expr, p: u32) -> Option<MpComplex> {
+    let options = QUADRATURE.with(|cell| cell.get());
+    if !options.osc {
+        let evaluated = crate::functions::doit(e, true);
+        if evaluated != *e { return ev(&evaluated, p); }
+    }
+    let Kind::Func(Func::Integral, args) = e.kind() else { return None };
+    if args.len() != 2 || args[1].args().len() != 3 || !crate::traverse::free_symbols(e).is_empty() {
+        return None;
+    }
+    let host = *INTEGRAL_HOST.get()?;
+    guarded_host_call(|| host(e, p, options), true)
+}
+
+fn guarded_host_call(call: impl FnOnce() -> Result<Option<MpComplex>, HostError>, report: bool) -> Option<MpComplex> {
     if host_interrupted() {
         if HOST_ENABLED_DEPTH.with(|cell| cell.get()) > 0 {
             return None;
@@ -1067,7 +1176,7 @@ fn call_host(host: SpecialHost, name: &str, args: &[HostArg], p: u32, report: bo
         // Nobody will raise it: forget it once its evaluation has stopped.
         HOST_FATAL.with(|cell| cell.set(false));
     }
-    match host(name, args, p) {
+    match call() {
         Ok(value) => value,
         Err(error) => match error.0.downcast::<FatalHostError>() {
             Ok(fatal) => {
@@ -1443,7 +1552,14 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         if !exp_polar_principal(w, p)? {
             return None;
         }
-        let value = ev(w, wp)?.exp(p)?;
+        // SymPy's exp_polar._eval_evalf evaluates exp(w) first: its
+        // automatic simplification gives exact values such as
+        // exp(-I*pi/2) = -I, so no rounded cos(pi/2) part is introduced.
+        let exact = crate::functions::exp(w);
+        let value = match exact.kind() {
+            Kind::Func(Func::Exp, _) => ev(w, wp)?.exp(p)?,
+            _ => ev(&exact, p)?,
+        };
         // On the boundary im(w) = pi SymPy keeps the real part.
         let ratio = crate::ops::div(w, &crate::ops::mul2(&Expr::i(), &Expr::pi()));
         return Some(if ratio.as_number().is_some_and(|n| n.is_one()) { MpComplex::real(value.re) } else { value });

@@ -492,15 +492,6 @@ pub fn ordered_hints(registered: &[String]) -> Vec<String> {
     ALL_HINTS.iter().filter(|h| registered.iter().any(|r| r == *h)).map(|h| (*h).to_string()).collect()
 }
 
-/// Convenience for callers mapping an outcome to its parts.
-pub fn outcome_parts<T: Clone>(o: &Outcome<T>) -> Option<Option<T>> {
-    match o {
-        Outcome::Match(v) => Some(Some(v.clone())),
-        Outcome::NoMatch => Some(None),
-        Outcome::Decline => None,
-    }
-}
-
 /// The symbols of `e` as `e.atoms(Symbol)` sees them, or `None` when that
 /// set may differ from the free symbols (a bound variable).
 fn symbol_atoms(e: &Expr) -> Option<usize> {

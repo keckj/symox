@@ -5,6 +5,11 @@
 The native typed domains are `ZZ`, `QQ`, `GF(p)`, `ZZ_I`, `QQ_I`, real and complex
 numerical fields, `EX`, `EXRAW`, supported algebraic extensions of `QQ`,
 polynomial rings over `ZZ`/`QQ`, and their rational-function fields.
+`GF(n)` for a composite `n`, a modulus above `2**32` or `symmetric=False` is
+the reference `Z/nZ` ring (a Python port; `is_Field` is `isprime(n)`, and
+non-units raise `NotInvertible('zero divisor')`); symmetric prime moduli below
+`2**32` keep the native field. Polynomials over `Z/nZ` (`modulus=9`) run the
+ported reference dense algorithms.
 Elements retain their parent domain through arithmetic, conversion and pickling.
 All operations below run without importing SymPy.
 
@@ -44,17 +49,17 @@ one) raise the reference `TypeError`. With several generators, `RR(y)` and
 `CC(y)` grounds use the same native ring arithmetic, while `RR[y]` and
 `CC[y]` keep the legacy representation (Floats over coefficient
 generators, the imaginary unit being one of them) and report the reference
-`RR[y]`/`CC[y]` domain. Remaining: that legacy representation's
-`factor_list` returns factors where the reference raises, its `sqf_list`,
-`content` and `integrate` differ, and its products and `gcd` with exact
-`ZZ[y]` polynomials fail (`TypeError`, the reference unifies to `RR[y]`);
-explicit `domain=CC` has no backend (`NotImplementedError`) and inferred `CC`
-polynomials have no `invert`; `apart` over plain `RR` returns rationals
-instead of Floats; `factor(1.5*x**2*y - 1.5*y, x)` keeps `1.0*x`
-factors (the reference `together` result differs); the
-`to_ring` `CoercionFailed` message names the expression instead of the
-`FracElement`; the `div` remainder of near-cancelling Float inputs can differ
-in the last bits (`2.78e-17` against `8.67e-17`).
+`RR[y]`/`CC[y]` domain. Their `gcd`, `lcm` and `cofactors` follow the
+reference `dmp_inner_gcd` over `QQ[y]` (native, keeping the reference scale),
+`sqf_list` and `content` follow `dmp_sqf_list`, `integrate` moves to `RR(y)`,
+and products and `gcd` with exact `ZZ[y]` polynomials unify to `RR[y]`.
+Explicit `domain=CC`, `ComplexField(prec)` and `'CC_100'` select polynomials
+over the scalar complex field at that precision, with division, `gcd`
+(computed over `QQ_I`), `gcdex`, `invert`, `sqf_list` and `factor_list` as
+in the reference; the inferred `CC` (Floats with `I`) supports the same
+operations. Remaining: the legacy representation's `factor_list` returns
+factors where the reference raises `TypeError`; the `to_ring`
+`CoercionFailed` message names the expression instead of the `FracElement`.
 
 Constructor facades include `IntegerRing`, `RationalField`, `FiniteField`,
 `RealField`, `ComplexField`, Gaussian and expression domains, `PolynomialRing`,
@@ -71,8 +76,8 @@ corresponding native domains. `ZZ_python`, `ZZ_gmpy`, `QQ_python`, `QQ_gmpy`,
 `pythonintegerring`, `pythonrationalfield`, `pythonfinitefield` and corresponding
 `gmpy...` module paths are available. These spellings do not select Python or
 GMPY storage; coefficients use symox's exact native kernels, with no GMPY
-dependency. Prime-modulus and symmetric-display restrictions of native `GF`
-still apply; `symmetric=False` raises `NotImplementedError`.
+dependency. Composite moduli and `symmetric=False` select the `Z/nZ` ring
+described above.
 
 `PythonRational(numerator, denominator=None)` is an immutable exact rational
 adapter backed by Python integer fractions. It normalizes signs and common
@@ -168,6 +173,12 @@ element, minimal polynomials and generator embeddings are exact; when several
 candidate factors remain, the factor is chosen with a certified enclosure.
 Membership and conversion into a field factor the minimal polynomial over the
 field and identify the matching factor in the same certified way.
+
+Algebraic fields also expose the reference number-field methods
+`maximal_order`, `integral_basis`, `discriminant`, `primes_above`,
+`galois_group`, `orig_ext` and `to_alg_num`, built on the ported
+`numberfields` modules; see
+[constructors and number fields](polynomial-constructors.md).
 
 ## Numerical fields
 

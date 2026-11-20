@@ -29,6 +29,13 @@ and integer matrix exponents. `as_real_imag` uses matrix conjugation. Rational
 content extraction handles matrix sums directly, including cases where SymPy
 1.14 raises while rebuilding a scalar/matrix mixture.
 
+Entries of products and powers at symbolic indices or dimensions are
+dummy-index sums, as in SymPy: `(A*B)[i, j]` is
+`Sum(A[i, _i_1]*B[_i_1, j], (_i_1, 0, n - 1))`, and `Identity(n)[i, j]` is a
+ranged `KroneckerDelta`. `conjugate`, `re`, `im` and `Abs` of abstract matrix
+expressions follow SymPy (`conjugate(A)` is `Adjoint(A.T)`), and scalar
+function heads such as `sin(A)` build held applications.
+
 `equals` checks canonical differences, then at most 256 explicit entries. It
 returns `None` when it cannot prove a result. `as_poly` returns `None` because
 the scalar `Poly` backend cannot represent noncommutative matrix coefficients.
@@ -40,11 +47,22 @@ Scalar coefficients in matrix patterns accept `match(..., old=True)` and
 `matches(..., old=True)`. The legacy scalar fallback can isolate one linear
 wildcard while matrix factor order and structural shape matching are retained.
 
-For concrete dimensions, differentiation with respect to an entire matrix or
-array now returns a finite array Jacobian, with variable axes first. This
-includes matrix products, transposes, inverses, traces and determinants; see
-[arrays and tensors](arrays.md). Symbolic dimensions still require a future
-lazy array-expression representation. Scalar calculus retains the matrix DAG.
+Differentiation by a `MatrixSymbol` follows SymPy's matrix-line algorithm,
+for symbolic as well as concrete dimensions. Results of rank at most two are
+matrix expressions: `(x.T*A*x).diff(x)` is `A*x + A.T*x` and
+`Trace(A*X).diff(X)` is `A.T`. Matrix-by-matrix derivatives are rank-four
+array expressions: `X.diff(X)` is
+`PermuteDims(ArrayTensorProduct(I, I), (3)(1 2))`. A native kernel
+(`crates/symox-core/src/matrixexpr/lines.rs`) covers matrix symbols, sums,
+products, transposes, inverses, integer powers, traces and the plain
+rank-four forms. When it declines, the Python port of the same algorithm
+runs; Hadamard, HadamardPower and `applyfunc` terms use the vendored SymPy
+array-expression algorithm in Python. Cases outside the algorithm, such as
+determinants, fall back to the finite array Jacobian of explicit entries when
+dimensions are concrete, with variable axes first; see
+[arrays and tensors](arrays.md). A matrix expression that does not contain
+the variable keeps a held `Derivative`, and symbolic derivative orders stay
+held as in SymPy. Scalar calculus retains the matrix DAG.
 
 Series, limits, Taylor terms, leading terms and asymptotic series use native
 scalar coefficient kernels. Integration preserves constant ordered matrix
@@ -80,7 +98,9 @@ Inference recognizes rectangular matrix chains, transpositions, closed traces,
 linear combinations, disconnected scalar traces and parallel free edges as
 Hadamard products. Every bound contraction index must occur twice and range
 over its complete dimension. General higher-rank array contractions, partial
-contractions and index-dependent scalar multipliers remain unsupported.
+contractions and index-dependent scalar multipliers are not recognized as
+matrix expressions; `convert_indexed_to_array` converts such index sums into
+array expressions instead (see [arrays and tensors](arrays.md#array-expressions)).
 
 ## Matrix coefficient series
 

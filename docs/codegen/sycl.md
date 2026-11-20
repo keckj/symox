@@ -19,7 +19,11 @@ event dependencies. It returns a `sycl::event`, performs no allocation or wait,
 and preserves dependencies for zero-length batches. The caller supplies valid
 USM allocations with equal-length contiguous batches and owns their lifetime.
 Float64 is the default; launchers check `sycl::aspect::fp64` before execution.
-Boolean outputs use `bool*`. `adaptivecppcode`, `AdaptiveCppCodePrinter`,
+`dtype="float32"` and `dtype="float16"` (or `"half"`) are also accepted. Float16
+prints every literal as `sycl::half(...)` and infinities and NaN through
+`std::numeric_limits<sycl::half>`, so each operation rounds to binary16 without
+float promotion; its launchers check `sycl::aspect::fp16`. Boolean outputs use
+`bool*`. `adaptivecppcode`, `AdaptiveCppCodePrinter`,
 `adaptivecppcode_function` and `adaptivecpp_kernel` are aliases of the SYCL API.
 
 An application including the generated header can be compiled with a configured
@@ -32,7 +36,10 @@ acpp --acpp-targets=generic -std=c++17 -O3 application.cpp -o application
 No AdaptiveCpp SDK is needed for source generation. Numerical tests compile and
 execute the generated functions and USM kernels using AdaptiveCpp's OpenMP CPU
 backend. This validates generated code and asynchronous dependencies; it does not
-validate AdaptiveCpp GPU execution or its generic JIT configuration. A full SDK
+validate AdaptiveCpp GPU execution or its generic JIT configuration. Float16
+output is checked as source text only; numerical tests cover float32 and
+float64. `tests/extra/test_cuda_precedence.py` also compiles float32/float64
+printer output on the host through a C++ shim and compares it with NumPy. A full SDK
 and appropriate drivers are needed for those routes. To run SDK integration tests:
 
 ```bash

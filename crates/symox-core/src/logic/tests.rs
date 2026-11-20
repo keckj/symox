@@ -189,3 +189,60 @@ fn complete_boolean_piecewise_conditions_are_logical_nodes() {
     let incomplete = crate::relational::piecewise(vec![(yes, condition)]);
     assert_eq!(super::boolean_piecewise_to_ite(&incomplete), None);
 }
+
+#[test]
+fn nodes2_counts_the_expanded_tree_without_walking_it() {
+    // SymPy's `_nodes` counts tree occurrences; the count of a shared node is
+    // reused instead of recomputed.
+    let x = Expr::symbol("x");
+    let pair = |a: &Expr| crate::functions::undefined("pair", vec![a.clone(), a.clone()]);
+    assert_eq!(nodes2(&pair(&x)), 2 + 2 * 2);
+    assert_eq!(nodes2(&pair(&pair(&x))), 2 + 2 * (2 + 2 * 2));
+    let mut value = x;
+    for depth in 1..=100u32 {
+        value = pair(&value);
+        // tree size 2^(depth+1) - 1 nodes, each counted twice
+        let expected = ((1u128 << (depth + 2)) - 2).min(u64::MAX as u128) as u64;
+        assert_eq!(nodes2(&value), expected, "depth {depth}");
+    }
+}
+
+/// ``e_{k+1} = exp(e_k − y) + sin(e_k) + x`` : the expanded tree doubles at
+/// each level, the graph grows by a constant.
+fn shared_chain(depth: usize) -> Expr {
+    let (x, y) = (Expr::symbol("x"), Expr::symbol("y"));
+    let mut e = x.clone();
+    for _ in 0..depth {
+        let a = crate::functions::func(Func::Exp, vec![crate::ops::sub(&e, &y)]);
+        e = crate::ops::add2(&crate::ops::add2(&a, &crate::functions::func(Func::Sin, vec![e.clone()])), &x);
+    }
+    e
+}
+
+#[test]
+fn ordered_compares_shared_subkeys_by_pointer() {
+    // Keyed through separate caches, the equal deep terms of both sums were
+    // compared by walking their keys (2^60 nodes here); one cache shares
+    // them. Same order as before: the sums differ only by `a` < `b`.
+    let e = shared_chain(60);
+    let (a, b) = (crate::ops::add2(&e, &Expr::symbol("a")), crate::ops::add2(&e, &Expr::symbol("b")));
+    for start in [[b.clone(), a.clone()], [a.clone(), b.clone()]] {
+        let mut v = start.to_vec();
+        ordered(&mut v);
+        assert_eq!(v, vec![a.clone(), b.clone()]);
+    }
+    assert_eq!(ordered_cmp(&a, &b), Ordering::Less);
+    let _ = crate::functions::min(vec![a.clone(), b.clone(), e.clone()]);
+}
+
+#[test]
+fn ordered_keys_agree_with_separate_keys_on_small_inputs() {
+    let exprs: Vec<Expr> = ["x + y", "x*y", "sin(x) + 2", "exp(x - y) + sin(x)", "x**2 + y", "1/x", "x - y"]
+        .iter().map(|s| p(s)).collect();
+    for a in &exprs {
+        for b in &exprs {
+            let slow = ordered_key(a).cmp(&ordered_key(b)).then_with(|| a.cmp_struct(b));
+            assert_eq!(ordered_cmp(a, b), slow, "{a} vs {b}");
+        }
+    }
+}

@@ -3,7 +3,7 @@
 use num_complex::Complex64 as C64;
 
 use super::{tuple_items, SpecialFn};
-use crate::expr::{Expr, Func, Kind};
+use crate::expr::Expr;
 
 pub mod bessel;
 mod advanced_numeric;
@@ -409,10 +409,3 @@ fn ratio_f64(r: &num_rational::BigRational) -> f64 {
     }
 }
 
-/// Is `e` a `Func::Special` node? (helper for the evaluators)
-pub fn special_head(e: &Expr) -> Option<SpecialFn> {
-    match e.kind() {
-        Kind::Func(Func::Special(s), _) => Some(*s),
-        _ => None,
-    }
-}

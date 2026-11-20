@@ -2225,10 +2225,11 @@ classes have remaining gaps:
 - `printer`, `str`, `precedence`, `codeprinter`, `c` and `cxx` are ports of
   the reference modules, so downstream subclasses of `C99CodePrinter` and
   `CXX11CodePrinter` (Devito's) override `_print_<Class>`, `type_mappings` and
-  precedence as in the reference. The other code printers keep the earlier
-  implementation and are not subclasses of the ported `CodePrinter`; `fcode`
-  and `rust_code` print natively. Those printers reject the augmented
-  assignment statements (`x *= y`) that the reference prints. The C printers
+  precedence as in the reference. The other code printers (`fcode`,
+  `rust_code`, `jscode`, `julia_code`, `octave_code`, `rcode`, `glsl_code`,
+  `maple_code`, `mathematica_code`) are ports of the reference printers as
+  well and subclass the ported `CodePrinter` (see the Wave 4 section and
+  [printing](printing.md)); top-level `pycode` stays native. The C printers
   extend the reference in one case: a `DotProduct` of vectors with integer
   lengths prints as the sum of element products, where the reference raises.
   Float digits come from a port of mpmath's `to_str`, without importing
@@ -10256,7 +10257,7 @@ equivalent bound).
 | `poly/checked_factors.rs` MAX_VARIABLES (was 8, now 64) | polynomial/coefficient variables | ValueError | none |
 | `poly/factor_preflight.rs` atoms (was 8, now 64) | coefficient atoms | ValueError | none |
 | `poly/pseudo.rs` MAX_WORK (was 1e7, now 4e8), MAX_BITS 262144, MAX_TERMS 100000, MAX_STORAGE 6.4e7, inner pairs 20000 | pseudo-division, PRS, resultant, gcd | ValueError "pseudo-division resource limit" | none |
-| `poly/rootisolation.rs` 2^20 refinement steps, real_roots input degree 4096 | real root isolation, count_roots, intervals | ValueError | none |
+| `poly/rootisolation.rs` 2^20 refinement steps | real root isolation, count_roots, intervals | ValueError | none |
 | `poly/gff` degree 1024, `partfrac` multiplicity 4096 | gff_list, apart | ValueError | none |
 | `poly/structure.rs` MAX_SLOTS 1e6, `py/poly_structure.rs` cyclotomic n <= 20000, orthopolys index 2^20 | dense structure, special polynomials | ValueError | none |
 | minpoly / primitive element / embedding precision caps | algebraic field construction | raise | precision loops without cap |
@@ -18462,3 +18463,159 @@ Open after this wave (see the lot sections above and the TODO):
   - still pending from waves 43-44: `Order.as_expr_variables`, the algpoly
     representatives, the liegroup prefix atom order (`abaco2`) and single
     try of user `xi`/`eta`, `simp.rs` keeping `pattern_match`.
+
+## lambdify without SciPy: object evaluation, NameError forms, sinc, 2026-11-11
+
+SymPy 1.14's default modules are `['numpy', 'scipy']` when SciPy imports
+and `['numpy']` otherwise; the NumPy printer then binds `gamma`, `erf`, ...
+to `math` and prints the functions it does not support (`besselj`, `zeta`,
+`Si`, `airyai`, `polygamma`, ...) under their own names, so its generated
+function raises NameError. Changes:
+
+- The NumPy object evaluation (complex scalars and arrays, object
+  arguments, NumPy subclasses) names functions NumPy lacks (`numpy.gamma`).
+  Its AttributeError now hands the call to SymPy's generated function and
+  returns that function's result or its own error. Before, the error of the
+  generated function was replaced by the AttributeError (complex arrays), or
+  the generated function was not tried (complex scalars). Now
+  `lambdify(x, gamma(x))(2.5+1j)` returns SciPy's value with SciPy, and
+  raises `math.gamma`'s TypeError ("must be real number, not complex") with
+  'numpy' or without SciPy, as SymPy does; complex arrays raise TypeError
+  "only 0-dimensional arrays can be converted to Python scalars".
+- A function printed without a definition no longer drops the generated
+  function: it is attached for introspection only (`inspect.getsource`,
+  `inspect.signature`, `__doc__`, `__globals__` are SymPy's, for example
+  `return besselj(1, x)`) and for the object evaluation (complex arguments
+  raise SymPy's NameError instead of NumPy's AttributeError). Float
+  arguments and float64 arrays keep the native values (the documented
+  extension above). Only the functions that SymPy prints under their own
+  name (`_UNDEFINED_PRINTED`: Bessel and Airy functions, `zeta`,
+  `polygamma`, `Si`/`Ci`/`Shi`/`Chi`/`Ei`/`li`/`Li`, `expint`, `LambertW`,
+  ..., checked against SymPy with and without SciPy) qualify. Functions that
+  SymPy rewrites (`beta`, `binomial`, `catalan`, `erf2`, `RisingFactorial`,
+  `factorial2`, ...) or refuses (`fresnels`, `lowergamma`, `subfactorial`,
+  ...) keep the previous path: no generated source.
+- Wrong values: the Python `NumPyPrinter` printed `numpy.sinc(x)`;
+  `numpy.sinc` is the normalized sinc, so the object evaluation of
+  `sinc(x)` on complex arguments returned `sin(pi*x)/(pi*x)`. It now prints
+  SymPy's `numpy.sinc(x/numpy.pi)`.
+
+Remaining gaps (recorded in `GAPS` of tests/test_lambdify_scipy_parity.py,
+which fails once one closes):
+- Functions SymPy's printers rewrite when the module lacks them (`beta` to
+  `gamma(x)*gamma(y)/gamma(x + y)` with 'numpy', 'math' and without SciPy;
+  likewise `binomial`, `catalan`, `erf2`, `RisingFactorial`,
+  `FallingFactorial`, `factorial2`): no generated source,
+  `inspect.signature` raises ValueError (SymPy: `(x)`), complex
+  arguments raise NumPy's AttributeError (SymPy: `math.gamma`'s TypeError),
+  float values may differ in the last digit.
+- With SciPy, `Si`, `Ci`, `airyai`, ... print as `sici(x)[0]`, `airy(x)[0]`
+  in SymPy; not reproduced: no generated source, `builtins.float` results
+  (SymPy: `numpy.float64`), complex arguments raise AttributeError (SymPy
+  computes them).
+- With SciPy, the docstring of `sinc` lists `from numpy import pi` where
+  SymPy lists `from scipy.constants import pi`.
+- `frac(x)` prints `x - floor(x)` with 'numpy' and the default modules
+  (SymPy: `mod(x, 1)`); found by the survey, not part of this change.
+- Float64 arrays of special functions other than gamma (`besselj`, `erfc`,
+  `loggamma`, `zeta`, `Si`, `sinc`) differ from SciPy's or NumPy's in the
+  last digits (relative 1e-13 in the test).
+
+Tests: tests/test_lambdify_scipy_parity.py compares symox with SymPy in
+fresh interpreters, with SciPy made unimportable and (when installed) with
+SciPy: lambdify-time errors, sources, signatures, docstrings, and the result
+type, value or exception of float, complex, float64-array and complex-array
+calls for 16 expressions and the modules None, 'numpy' and 'scipy'. SciPy
+assertions in tests/test_native_lambdaprint.py and
+tests/test_native_lambdarr.py are skipped without SciPy, and the expected
+Python error messages are taken from the running Python (3.14 changed
+"0.0 cannot be raised to a negative power" to "zero to a negative power").
+
+## Documentation review follow-up: fixes and recorded gaps, 2026-11-15
+
+A review of the topic guides against the code compared the documented
+behavior with SymPy 1.14.0. The defects below were corrected; the differences
+that remain are listed so that no guide claims more than was verified.
+
+Corrected:
+- Printers: `mathematica_code` is a port of SymPy's `MCodePrinter`;
+  `julia_code` and `octave_code` print a Piecewise assignment as statements;
+  `CodePrinter` raises SymPy's error on an Indexed symbol clash;
+  `symox.printing.pycode` is the top-level `pycode`.
+- Calculus: `monotonicity_helper` fallback, `exp_polar` exact simplification
+  before evalf, `diff(exp_polar(x), x)` stays a `Derivative`,
+  `recurrence_memo` with negative indices.
+- Solvers: `checksol` options, `solve` flags and result shapes, `nsolve`
+  options (see [solvers](solvers.md)).
+- Code generation: `using`, `static`, `void`, `constexpr`, `float16`,
+  `float128`, `float256`, `intp`, the modules `numpy_nodes`, `scipy_nodes`,
+  `pynodes`, `rewriting`, `algorithms`, `pyutils`, and evalf of implemented
+  functions.
+- lambdify: the codegen nodes `minimum` and `maximum` with three or more
+  arguments printed `numpy.minimum(x, y, z)`, whose third operand is the
+  output array: the third input was overwritten. They now print SymPy's
+  `functools.reduce(numpy.minimum, [...])`. `cosm1`, `powm1`, `amin`, `amax`
+  and the other `numpy_nodes`, `scipy_nodes` and `cfunctions` nodes give
+  SymPy's value or SymPy's error type with the modules None, 'numpy',
+  'scipy', 'math' and 'mpmath'.
+- Integrals: `Integral.evalf` and `N` use numerical quadrature (`quadts`,
+  and `quadosc` for `quad='osc'`) when no closed form is found; unknown
+  keywords raise SymPy's TypeError.
+- Order: order terms inside products and powers are absorbed
+  (`exp(x).series(x, 0, 3)*O(x)`).
+- Limits: a non-symbol limit variable follows `Limit.doit`
+  (`limit(x, x**2, 0)` is `x`); public `gruntz` returns AccumBounds on
+  oscillating inputs; the direction error messages are SymPy's.
+- Combinatorial rewrites: `fibonacci`, `lucas` and `tribonacci` to `sqrt`,
+  `bernoulli` to `zeta`, `euler` to `genocchi`, `genocchi` to `bernoulli` and
+  `dirichlet_eta`, `andre` to `zeta` and `polylog`.
+- Removed: `poly/real_roots.rs`, unreferenced since the root isolation port,
+  and about fifty unreferenced Rust items.
+
+Remaining differences (symox result, then SymPy's):
+- Polar: `polarify` of a numeric `Integral` or `Sum` leaves the bound
+  variable unpolarified; `series(exp_polar(x))` raises NotImplementedError.
+- Real analysis: `is_increasing(Abs(x), Interval(0, 1), x)` raises
+  NotImplementedError (SymPy: None).
+- Printers: `Poly` and `Q.positive(x)` arguments in the code printers;
+  `pycode(..., assign_to=...)` is accepted (SymPy: TypeError);
+  `pycode` of a `Derivative` with `strict=False`.
+- Solvers: `solveset(y, x)` is a ConditionSet (SymPy: EmptySet);
+  `nonlinsolve([x**2 - y**2], [x, y])` lacks the `sqrt(y**2)` forms; the
+  `nsolve` solvers muller, halley, illinois, pegasus, anewton, mnewton, and
+  anderson or ridder with an interval, are not ported; `warn=True` emits no
+  warning; `tsolve=True` on polynomials; solvable quintics are returned as
+  `CRootOf`.
+- Subclassing: `f(x).func is f` is False for user Function subclasses; no
+  expression cache; `isinstance(IndexedBase(...), Basic)` is False; a `sin`
+  subclass evaluates floats; `__slots__` classes keep a `__dict__`;
+  `Add.__base__` is `object`.
+- Code generation: Fortran 77 declarations differ; `Type.name` is a `str`
+  (SymPy: `String`); `Function('h')` evaluates after
+  `implemented_function('h', ...)`; `simplify` and `.series()` of
+  `logaddexp2` and `cosm1`; `matinv_opt` inside sums; `srepr` of
+  `NumExprEvaluate`.
+- lambdify: a plain `Function('minimum')(x, y, z)` raises ValueError at
+  creation (SymPy prints `minimum(x, y, z)`, which with NumPy overwrites the
+  third input); nested argument tuples with `'math'` raise TypeError at
+  creation (SymPy: NameError at call when a name is undefined).
+- Integral evalf: symox evaluates `doit` first, then quadrature. Infinite
+  ranges are exact to the requested precision where SymPy keeps about 20
+  digits; a result below the requested accuracy (`sin(1/x)`) stays held
+  where SymPy returns a low-precision Float; `doit` first can be slow.
+- Limits: `limit(exp(x), x, I*oo)` and `limit(Abs(x + y)**2, x, 0)`;
+  `gruntz(x*sin(x), x, oo)` is `AccumBounds(-oo, oo)` (SymPy:
+  `oo*sign(AccumBounds(-1, 1))`), the same recorded deviation as
+  `limit(x*sin(x), x, oo)`; the non-symbol TypeError is only raised for the
+  top-level `Limit`.
+- Combinatorics: `genocchi(x).rewrite(bernoulli)` keeps `bernoulli(x)`
+  (SymPy: `bernoulli(x, 1.0)`); no two-argument `dirichlet_eta`;
+  `prime_valuation` differs intentionally; `recurrence_memo` copies the
+  initial list.
+
+Open at the 0.1.1 pre-release: tests/test_shared_dag_construction.py
+`test_soft_dtw_grid_is_not_exponential[nested]` exceeds its 120 s limit
+(nested `Min` over an 8 x 8 soft-DTW grid; the time is spent ordering two
+sums of equal node count by `default_sort_key`). The same timing is
+measured on commit 53d9576e, before the fixes above; the cause is not yet
+determined.

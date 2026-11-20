@@ -45,27 +45,12 @@ fn arithmetic_expand_with(
         }
         value = next;
     }
+    // The products of an expansion are built without the order hooks; the
+    // order terms then absorb what they contain, as in SymPy's flatten.
     if value.may_have_order() {
-        value = renormalize_orders(&value);
+        value = crate::series::order::reabsorb(&value);
     }
     value
-}
-
-/// The expanded products and powers holding an order term built again
-/// through the evaluating constructors, bottom up, as the reference
-/// `expand` builds them (`x*O(x**2)` is `O(x**3)`, `O(x**8)**2` is
-/// `O(x**16)`, and the sum then absorbs the terms an order contains).
-pub fn renormalize_orders(e: &Expr) -> Expr {
-    if !e.may_have_order() || crate::series::order::is_order(e) {
-        return e.clone();
-    }
-    match e.kind() {
-        Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => {
-            let args: Vec<Expr> = e.args().iter().map(renormalize_orders).collect();
-            crate::simptools::rebuild(e, &args)
-        }
-        _ => e.clone(),
-    }
 }
 
 /// `ex` for a subexpression that is not flattened into its parent (a power

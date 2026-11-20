@@ -222,8 +222,10 @@ class ComplexType(_FloatLimits,ComplexBaseType):
     cast_nocheck=ComplexBaseType.cast_nocheck
     _check=ComplexBaseType._check
 
-untyped=Type('untyped');integer=IntBaseType('integer');intc=IntBaseType('intc')
+untyped=Type('untyped');integer=IntBaseType('integer');intc=IntBaseType('intc');intp=IntBaseType('intp')
 real=FloatBaseType('real');float32=FloatType('float32',32,23,8);float64=FloatType('float64',64,52,11);float80=FloatType('float80',80,63,15)
+# IEEE 754 binary16, binary128 and binary256.
+float16=FloatType('float16',16,10,5);float128=FloatType('float128',128,112,15);float256=FloatType('float256',256,236,19)
 complex_=ComplexBaseType('complex');complex64=ComplexType('complex64',64,23,8);complex128=ComplexType('complex128',128,52,11)
 bool_=Type('bool');void=Type('void');int8=SignedIntType('int8',8);int16=SignedIntType('int16',16);int32=SignedIntType('int32',32);int64=SignedIntType('int64',64)
 uint8=UnsignedIntType('uint8',8);uint16=UnsignedIntType('uint16',16);uint32=UnsignedIntType('uint32',32);uint64=UnsignedIntType('uint64',64)
@@ -340,7 +342,12 @@ class Scope(CodegenAST):_fields=('body',)
 class Return(CodegenAST):
     _fields=('return',)
     return_=property(lambda self:getattr(self,'return'))
-class RuntimeError_(CodegenAST):_fields=('message',)
+class RuntimeError_(CodegenAST):
+    _fields=('message',)
+    # SymPy's ``_construct_message = String``: a QuotedString stays quoted.
+    def _coerce(self,field,value):
+        if field=='message':return value if isinstance(value,String) else String(value)
+        return super()._coerce(field,value)
 class Raise(CodegenAST):_fields=('exception',)
 class Stream(CodegenAST):_fields=('name',)
 stdout=Stream('stdout');stderr=Stream('stderr')
@@ -851,4 +858,4 @@ del _cls
 
 
 __all__ = [name for name,value in globals().items() if not name.startswith("_") and (isinstance(value,type) and issubclass(value,CodegenAST) or name in ("aug_assign",))]
-__all__ += 'untyped integer intc real float32 float64 float80 complex_ complex64 complex128 bool_ void int8 int16 int32 int64 uint8 uint16 uint32 uint64 value_const pointer_const restrict volatile none break_ continue_ stdout stderr Indexed IndexedBase'.split()
+__all__ += 'untyped integer intc intp real float16 float32 float64 float80 float128 float256 complex_ complex64 complex128 bool_ void int8 int16 int32 int64 uint8 uint16 uint32 uint64 value_const pointer_const restrict volatile none break_ continue_ stdout stderr Indexed IndexedBase'.split()

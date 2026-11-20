@@ -4,7 +4,10 @@ Physics is implemented locally in `symox.physics`. Commuting scalar expressions,
 matrices, derivatives and equations use the native engine. Ordered quantum
 products use a Python operator polynomial with native scalar coefficients;
 they preserve operator order without treating operators as commuting symbols.
-None of these calculations delegates to SymPy at runtime.
+`physics.vector`, `physics.mechanics`, `physics.control.lti` and the `Beam`,
+`Truss` and `Arch` structural modules are the reference SymPy 1.14 sources
+rewritten to import symox. None of these calculations delegates to SymPy at
+runtime.
 
 The README measures **public name presence** against SymPy 1.14.0. A row at 100%
 does not establish complete signature, object protocol or behavioral parity.
@@ -17,12 +20,14 @@ The [module inventory](sympy-api.md) includes the deeper import paths as well.
 | [Optics and control](physics-optics-control.md) | Ray and Gaussian beam propagation, polarization, refraction, transfer functions, state space and response plots |
 
 The implementation targets explicit finite calculations and common symbolic
-models. General constrained Kane systems, multispin recoupling, filled Fermi
-seas, large circuit simulation and complete structural-mechanics interfaces
-remain beyond this implementation. The linked guides describe these limits
-next to the supported behavior.
+models. Large circuit simulation, `Sum` over quantum operator expressions and
+the remaining printing and ordering differences recorded in the
+[parity notes](algorithmic-parity.md) remain beyond this implementation. The
+linked guides describe these limits next to the supported behavior.
 
-Validation for this implementation: 338 Physics tests pass, including
-differential comparisons with SymPy, physical identities, finite quantum
-algorithms and checks that block runtime SymPy imports. The complete Python
-suite passes 26,566 tests. All eight Python examples in these guides execute.
+Validation: the `tests/test_physics_*.py` files check physical identities,
+finite quantum algorithms and runtime runs with SymPy imports blocked. The
+wave-4 parity files (`tests/test_wrong_*_wave4_parity.py`,
+`tests/test_missing_*_wave4_parity.py`) hard-code SymPy 1.14 outputs for
+mechanics, control, quantum and second quantization. The Python examples in
+these guides execute.

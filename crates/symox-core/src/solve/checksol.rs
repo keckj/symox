@@ -40,6 +40,51 @@ impl Default for CheckFlags {
     }
 }
 
+/// The flags of the enclosing public `solve` call that change its
+/// transcendental steps and its candidate checks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SolveFlags {
+    /// `force`: the reference `_tsolve` combines logarithms with
+    /// `logcombine(force=True)` and ends with a posify retry; `checksol`
+    /// posifies a parametric residual.
+    pub force: bool,
+    /// `bivariate`: the Lambert step of `_tsolve`. The posify retry of
+    /// `force` restores it, so it is only disabled when `force` is false.
+    pub bivariate: bool,
+    /// `minimal`: `checksol` stops before simplifying the residual.
+    pub minimal: bool,
+}
+
+impl Default for SolveFlags {
+    fn default() -> Self {
+        SolveFlags { force: true, bivariate: true, minimal: false }
+    }
+}
+
+thread_local! {
+    static SOLVE_FLAGS: std::cell::Cell<SolveFlags> = std::cell::Cell::new(SolveFlags::default());
+}
+
+/// Runs `compute` with the flags of the reference `solve`, which its
+/// `_solve` passes on to `_tsolve` and `checksol`: with `force=False` a
+/// parametric residual is not posified, so a candidate such as `y**2` for
+/// `sqrt(x) + y` stays undecided (kept) instead of being rejected.
+pub fn with_solve_flags<T>(flags: SolveFlags, compute: impl FnOnce() -> T) -> T {
+    struct Restore(SolveFlags);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            SOLVE_FLAGS.with(|slot| slot.set(self.0));
+        }
+    }
+    let _restore = Restore(SOLVE_FLAGS.with(|slot| slot.replace(flags)));
+    compute()
+}
+
+/// The flags of the enclosing public `solve` call.
+pub fn solve_flags() -> SolveFlags {
+    SOLVE_FLAGS.with(|slot| slot.get())
+}
+
 fn has_illegal(e: &Expr) -> bool {
     has(e, &Expr::nan()) || has(e, &Expr::zoo()) || has(e, &Expr::oo()) || has(e, &Expr::neg_oo())
 }
@@ -489,7 +534,8 @@ pub fn rejects_parametric(f_num: &Expr, x: &Expr, s: &Expr) -> bool {
     if free_symbols(&subs1(f_num, x, s)).is_empty() {
         return false;
     }
-    checksol(f_num, x, s, CheckFlags { simplify: false, ..Default::default() }) == Some(false)
+    let flags = solve_flags();
+    checksol(f_num, x, s, CheckFlags { simplify: false, force: flags.force, minimal: flags.minimal, ..Default::default() }) == Some(false)
 }
 
 #[cfg(test)]

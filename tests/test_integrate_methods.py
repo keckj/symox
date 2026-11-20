@@ -145,3 +145,27 @@ def test_only_a_risch_proof_gives_a_nonelementary_integral():
 def test_nonelementary_integral_doit_without_risch_stays_marked():
     i = NonElementaryIntegral(exp(-x**2)/(x + 1), x)
     assert isinstance(i.doit(risch=False), NonElementaryIntegral)
+
+
+@pytest.mark.parametrize('call', [
+    lambda x: Integral(x, (x, 0, 1), risch=True),
+    lambda x: Integral(x, (x, 0, 1), evaluate=False),
+    lambda x: Integral(x, (x, 0, 1), foo=1),
+    lambda x: integrate(x, (x, 0, 1), foo=1),
+    lambda x: integrate(x, (x, 0, 1), final=False),
+    lambda x: integrate(x, (x, 0, 1), generate_conds=True),
+])
+def test_unknown_keywords_raise_the_reference_type_error(call):
+    # SymPy's Integral passes them to Basic.__new__
+    x = Symbol('x')
+    with pytest.raises(TypeError, match=r"^Basic\.__new__\(\) got an unexpected keyword argument '\w+'$"):
+        call(x)
+
+
+def test_integral_doit_ignores_hints_it_does_not_use():
+    x = Symbol('x')
+    held = Integral(x, (x, 0, 1))
+    for hints in ({'final': False}, {'foo': 1}, {'simplify': False}, {'risch': None, 'foo': 1}):
+        assert held.doit(**hints) == Rational(1, 2)
+    assert held.doit(integrals=False) == held
+    assert integrate(x, (x, 0, 1), conds='none', manual=None) == Rational(1, 2)

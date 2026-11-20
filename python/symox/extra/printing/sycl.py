@@ -1,8 +1,10 @@
 """SYCL 2020 expression printing for AdaptiveCpp and other SYCL compilers.
 
 Generated snippets require ``<sycl/sycl.hpp>`` and ``<limits>``. Their inputs
-are real scalars; ``float64`` is the default, with ``float32`` available.
-Device execution of doubles requires the SYCL ``fp64`` aspect.
+are real scalars; ``float64`` is the default, with ``float32`` and ``float16``
+(``sycl::half``: every literal is half, so each operation rounds to binary16)
+available. Device execution of doubles requires the SYCL ``fp64`` aspect, of
+halves the ``fp16`` aspect.
 """
 
 from .slang import SlangCodePrinter, _normalize_slang_dtype
@@ -14,10 +16,12 @@ def _is_sycl_identifier(name):
 
 
 def _normalize_sycl_dtype(dtype):
+    if dtype in ("float16", "half"):
+        return "float16"
     try:
         return _normalize_slang_dtype(dtype)
     except ValueError:
-        raise ValueError("SYCL dtype must be float32 or float64") from None
+        raise ValueError("SYCL dtype must be float16, float32 or float64") from None
 
 
 class SYCLCodePrinter(SlangCodePrinter):
@@ -33,6 +37,7 @@ class SYCLCodePrinter(SlangCodePrinter):
     printmethod = "_syclcode"
     _native_method = "_syclcode"
     _default_settings = {"order": None, "dtype": "float64", "symbol_names": {}, "user_functions": {}}
+    _normalize_dtype = staticmethod(_normalize_sycl_dtype)
 
     def __init__(self, settings=None, **kwargs):
         super().__init__(settings, **kwargs)

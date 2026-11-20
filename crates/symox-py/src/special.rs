@@ -209,8 +209,74 @@ fn _special_partial(e: &Bound<'_, PyAny>, index: usize) -> PyResult<Option<PyExp
     }else{Ok(None)}
 }
 
+type MpTuple = (num_bigint::BigInt, num_bigint::BigInt, num_bigint::BigInt, num_bigint::BigInt);
+
+fn mp_tuple(value: &symox::evalf_mp::MpComplex) -> MpTuple {
+    (value.re.man.clone(), value.re.exp.to_bigint(), value.im.man.clone(), value.im.exp.to_bigint())
+}
+
+fn mp_value(value: MpTuple) -> Option<symox::evalf_mp::MpComplex> {
+    let (re_man, re_exp, im_man, im_exp) = value;
+    // mpmath exponents are unbounded, as `Exponent`; only exponents past
+    // MAX_EXPONENT_BITS bits are unavailable, as for native kernels.
+    let limit = u64::from(symox::bigfloat::MAX_EXPONENT_BITS);
+    if re_exp.bits() >= limit || im_exp.bits() >= limit {
+        return None;
+    }
+    let part = |man: num_bigint::BigInt, exp: num_bigint::BigInt| symox::bigfloat::BigFloat { man, exp: exp.into() };
+    Some(symox::evalf_mp::MpComplex { re: part(re_man, re_exp), im: part(im_man, im_exp) })
+}
+
+/// The integrand of a numerical integration at one quadrature node,
+/// `_quadrature_point(f, x, (re_man, re_exp, im_man, im_exp), prec)`, or the
+/// value of `f` when `x` is None: the native value as mantissa/exponent
+/// pairs, or None when `f` is not numerical there.
+#[pyfunction]
+#[pyo3(name = "_quadrature_point")]
+fn quadrature_point(f: &Bound<'_, PyAny>, x: Option<&Bound<'_, PyAny>>, t: Option<MpTuple>, prec: u32) -> PyResult<Option<MpTuple>> {
+    let f = to_expr(f)?;
+    let prec = prec.max(2);
+    let value = match (x, t) {
+        (Some(x), Some(t)) => {
+            let Some(t) = mp_value(t) else { return Ok(None) };
+            symox::evalf_mp::quadrature_point(&f, &to_expr(x)?, &t, prec)
+        }
+        _ => symox::evalf_mp::eval_mp(&f, prec),
+    };
+    Ok(value.as_ref().map(mp_tuple))
+}
+
+static MPMATH_INTEGRAL: pyo3::sync::GILOnceCell<PyObject> = pyo3::sync::GILOnceCell::new();
+
+/// SymPy's `evalf_integral` through mpmath's quadrature
+/// (`symox._quadrature`), the integrand being evaluated natively.
+fn mpmath_integral(e: &Expr, prec: u32, options: symox::evalf_mp::QuadratureOptions)
+    -> Result<Option<symox::evalf_mp::MpComplex>, symox::evalf_mp::HostError> {
+    let fatal = |error: PyErr| {
+        symox::evalf_mp::HostError(Box::new(symox::evalf_mp::FatalHostError(symox::evalf_mp::HostError(Box::new(error)))))
+    };
+    Python::with_gil(|py| {
+        py.check_signals().map_err(fatal)?;
+        let call = || -> PyResult<Option<symox::evalf_mp::MpComplex>> {
+            let evaluate = MPMATH_INTEGRAL.get_or_try_init(py, || -> PyResult<PyObject> {
+                Ok(py.import("symox._quadrature")?.getattr("evalf_integral")?.unbind())
+            })?;
+            let result = evaluate.call1(py, (wrap(e.clone()), prec, options.osc, options.maxprec))?;
+            if result.is_none(py) {
+                return Ok(None);
+            }
+            Ok(mp_value(result.extract(py)?))
+        };
+        call().map_err(|error| {
+            if is_fatal_error(py, &error) { fatal(error) } else { symox::evalf_mp::HostError(Box::new(error)) }
+        })
+    })
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     symox::evalf_mp::register_special_host(mpmath_special);
+    symox::evalf_mp::register_integral_host(mpmath_integral);
+    m.add_function(wrap_pyfunction!(quadrature_point, m)?)?;
     m.add_function(wrap_pyfunction!(_special_partial, m)?)?;
     m.add_function(wrap_pyfunction!(stirling, m)?)?;
     m.add_function(wrap_pyfunction!(multinomial_coefficients, m)?)?;

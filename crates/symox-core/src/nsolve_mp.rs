@@ -45,8 +45,15 @@ fn evaluate(expressions: &[Expr], variables: &[Expr], values: &[MpComplex], prec
         .zip(values.iter().cloned().map(|value| evalf_mp::to_expr(value, precision))).collect();
     expressions.iter().map(|expression| {
         let numerical = crate::subs::xreplace(expression, &replacements);
-        evalf_mp::eval_mp(&numerical, precision)
-            .ok_or_else(|| "Could not numerically evaluate the equation or Jacobian at this point".into())
+        // mpmath evaluates at a fixed working precision, so a sum that
+        // cancels (exactly) at a point near a root has a value of the size
+        // of its rounding error; the adaptive evaluation reports that
+        // residue instead of chasing the zero.
+        evalf_mp::eval_mp(&numerical, precision).or_else(|| {
+            let options = evalf_mp::EvalfOptions { residue: true, cancellation: Some(64), ..Default::default() };
+            let (value, _) = evalf_mp::evalf_with_options(&numerical, precision, options);
+            evalf_mp::eval_mp(&value, precision)
+        }).ok_or_else(|| "Could not numerically evaluate the equation or Jacobian at this point".into())
     }).collect()
 }
 
@@ -185,7 +192,11 @@ pub fn newton(equations: &[Expr], variables: &[Expr], starts: &[MpComplex], opti
 /// bits, the step size is the error estimate and the residual check of
 /// `verify` decides. No coefficient or iterate is converted through f64.
 pub fn secant(equation_expr: &Expr, variable: &Expr, starts: &[MpComplex], options: &Options) -> Result<MpComplex, String> {
-    let precision = check(options)?.max(options.precision + 20);
+    // findroot's working precision is exactly `prec + 20`: with more guard
+    // bits the iterates carry rounding residues (a real part of 3e-72 for
+    // the root I of x**2 + 1) that mpmath's iteration does not produce.
+    check(options)?;
+    let precision = options.precision + 20;
     if starts.is_empty() || starts.len() > 2 {
         return Err("secant requires one or two initial points".into());
     }

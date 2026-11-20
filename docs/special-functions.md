@@ -44,12 +44,23 @@ Meijer G properties include `an`, `aother`, `ap`, `bm`, `bother`, `bq`, `argumen
 pole-family criterion applies; unresolved or integer-separated families return
 infinity. General parameter differentiation is held.
 
-`hyperexpand` and `expand_func` use a bounded Slater expansion into native
-hypergeometric functions. The expansion supports simple pole families with at
-most 16 denominator parameters. Integer-separated or repeated pole families,
-which require logarithmic residues, remain held. The `p > q` case uses inversion;
-the `p == q` case retains a `Piecewise` distinction between `abs(z) < 1` and
-`abs(z) > 1`, leaving the unit-circle boundary held. Numerical Meijer G
+`hyperexpand(f, allow_hyper=False, rewrite='default', place=None)` and
+`expand_func` are a Rust port of SymPy's `sympy.simplify.hyperexpand`
+(`crates/symox-core/src/special/hyperexpand/`): order reduction, the table of
+known origins, Lerch phi and polylog bases, terminating and shifted sums, and
+plans of differential shift operators from an origin to the target. Meijer G
+functions use a table formula when one matches and Slater's theorem otherwise,
+in `z` and in `1/z`, with SymPy's convergence conditions, `Piecewise`
+combination and `place` keyword. For example
+`hyperexpand(meijerg([1, 1], [], [1], [0], z))` is `log(z + 1)` and
+`hyperexpand(hyper([1, 1, 1], [2, 2], z))` is `polylog(2, z)/z`. As in SymPy,
+Slater's theorem is skipped when a pole family has more repeated or
+integer-separated lower parameters than matching upper ones; without a table
+formula the function stays held (`meijerg([], [], [0, 0], [], z)`). The
+compatible `symox.simplify.hyperexpand` module exposes the operator classes,
+`devise_plan` and the formula collections over the native code. Remaining
+form differences and timeouts are tracked in
+[the parity document](algorithmic-parity.md). Numerical Meijer G
 evaluation at any precision follows SymPy's `meijerg._eval_evalf`; see
 [Multiprecision evaluation](#multiprecision-evaluation).
 
@@ -111,7 +122,14 @@ with at most `2*prec + 512` bits. Arguments are rounded at the working
 precision plus 12 bits, so ill-conditioned arguments such as
 `elliptic_k(1 - 10**-30)` or `zeta(1 + 10**-20)` keep every requested digit
 where SymPy's single evaluation loses some. If the values never agree the
-expression stays unevaluated; nothing is completed in double precision.
+expression stays unevaluated; nothing is completed in double precision. When
+an inexact argument next to a pole, branch point or domain end (such as
+`gamma(-3 + 10**-20)`) was rounded onto it, the evaluation is retried with
+more bits before the error is reported.
+
+`elliptic_pi` uses `symox._ellippi`, which follows mpmath's `ellippi` step by
+step but moves the initial Carlson `R_J` integral away from the integrand's
+singular points, where mpmath's quadrature was slow or inaccurate.
 
 Errors raised by mpmath propagate as in SymPy: `erfinv(2.7)`, `zeta(1.0)`,
 `loggamma(-2.0)` and `lerchphi(2, 1, 0).evalf()` raise `ValueError`.
@@ -162,18 +180,22 @@ are not implemented by these exports.
 reductions, endpoint identities, endpoint/parameter partial derivatives, symbolic
 substitution and arbitrary-precision real/complex mpmath evaluation. Composed
 expressions use the same differentiation and evaluation adapters. `riemann_xi`
-retains an exact symbolic head, has its removable values at zero and one,
-rewrites to gamma/zeta and evaluates with mpmath. `stieltjes` validates its index,
-reduces index zero to `-digamma(a)` and evaluates numerically with mpmath.
-These additional numerical paths are Python adapters over native scalar nodes;
-they are not compiled native kernels and never delegate calculations to SymPy.
+and `stieltjes` follow SymPy's `eval`: `riemann_xi` is `1/2` at zero and one
+and evaluates whenever `zeta(s)` does (`riemann_xi(2)` is `pi/6`), and
+`stieltjes(0)` is `EulerGamma` while negative or non-integer numeric indices
+give `zoo`. Both evaluate numerically with mpmath.
+These constructors are Python adapters over native scalar nodes
+(`python/symox/_public_special.py`); they never delegate calculations to SymPy.
 The general adaptive error estimates of SymPy's evalf machinery are not provided.
 
-`erf2inv(x,y)` uses `erfinv(y+erf(x))`. `Ynm_c` conjugates spherical harmonics;
-`Znm` forms real spherical harmonics for orders of known sign.
-`chebyshevt_root` and `chebyshevu_root` implement the exact trigonometric root
-formulas with validated integral degree/index. `hermite_prob` computes
-nonnegative integral degrees and supplies the symbolic argument recurrence.
+`erf2inv(x,y)` applies SymPy's special values and otherwise returns
+`erfinv(y+erf(x))`, where SymPy keeps `erf2inv` held. `Ynm_c` conjugates
+spherical harmonics; `Znm` forms real spherical harmonics for orders of known
+sign. `chebyshevt_root` and `chebyshevu_root` implement the exact
+trigonometric root formulas with validated integral degree/index.
+`hermite_prob` follows SymPy's `eval`: explicit polynomials for nonnegative
+integral degrees, parity in the argument and the values at zero and infinity
+for symbolic degrees; negative numeric degrees stay held.
 `jacobi_normalized` divides the native Jacobi polynomial by its gamma-function
 normalization. Singular parameter cases inherit the underlying gamma/Jacobi
 limits; the adapter does not resolve every removable parameter singularity.

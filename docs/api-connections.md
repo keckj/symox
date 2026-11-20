@@ -110,7 +110,7 @@ No missing names in the measured paths.
 <details>
 <summary>codegen</summary>
 
-Program ASTs, types, declarations, loops, functions and C/Fortran nodes are available. Numerical rewrites, Newton methods and C, Fortran, Python, Rust, Julia and Octave generators are connected. See the behavior and limitations guide. Custom tensor/GPU extensions live in `symox.extra`.
+Program ASTs, types, declarations, loops, functions and C/Fortran nodes are available. Numerical rewrites, Newton methods and C, Fortran, Python, Rust, Julia and Octave generators are connected. See the behavior and limitations guide. Custom PyTorch, JAX, Slang, SYCL/AdaptiveCpp and CUDA generators live in `symox.extra.codegen`; `symox.extra` exports their entry points.
 
 No missing names in the measured paths.
 
@@ -130,7 +130,7 @@ No missing names in the measured paths.
 <details>
 <summary>core</summary>
 
-Types and metadata, assumptions, singletons, factors, traversal and numerical helpers are connected. The evalf precision tuples adapt the native engine; they are not interval certificates.
+Types and metadata, assumptions, singletons, factors, traversal and numerical helpers are connected. Noncommutative symbols and undefined functions (`commutative=False`) are supported. `match`, `matches` and `replace` use a port of SymPy's `matches` protocol, including Wild `properties`. The evalf precision tuples adapt the native engine; they are not interval certificates.
 
 No missing names in the measured paths.
 
@@ -300,7 +300,7 @@ No missing names in the measured paths.
 <details>
 <summary>printing</summary>
 
-Python/NumPy/mpmath, C89/C99/C11, Fortran and Rust printers include program-node rendering. Pretty protocols, conventions, precedence and other language mappings connect to the printers. Aesara requires its optional package. Custom backend printers live in `symox.extra.printing`; compatible SymPy printing paths remain available.
+Python/NumPy/mpmath, C89/C99/C11, Fortran and Rust printers include program-node rendering. Pretty protocols, conventions, precedence and other language mappings connect to the printers. Aesara requires its optional package. Custom PyTorch, JAX, Slang and SYCL/AdaptiveCpp printers live in `symox.extra.printing`, and the native `cudacode` printer is exported from `symox.extra`; compatible SymPy printing paths remain available.
 
 No missing names in the measured paths.
 

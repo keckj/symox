@@ -47,7 +47,8 @@ def test_polar_exp_log_power_and_conjugate():
     assert s.log(ep)==x
     assert ep**s.Rational(1,2)==s.exp_polar(x/2)
     assert ep**0==1
-    assert s.diff(ep,x)==ep
+    # exp_polar has no fdiff in SymPy: the derivative stays held.
+    assert s.diff(ep,x)==s.Derivative(ep,x)
     assert s.conjugate(ep)==s.exp_polar(s.conjugate(x))
     assert s.Abs(ep)==s.exp(s.re(x))
     assert s.unpolarify(s.exp_polar(3*s.I*s.pi))==-1
@@ -114,3 +115,40 @@ def test_floating_exponent_stays_polar():
     assert value.class_name=='exp_polar'
     assert value.is_polar is True
     assert not value.is_UndefinedFunction
+
+
+def test_exp_polar_derivative_is_held_like_reference():
+    X=sp.Symbol('x');t=s.Symbol('t');T=sp.Symbol('t')
+    f=s.Function('f');F=sp.Function('f')
+    M=s.MatrixSymbol('M',2,2);MS=sp.MatrixSymbol('M',2,2)
+    cases=[
+        (s.diff(s.exp_polar(x),x),sp.diff(sp.exp_polar(X),X)),
+        (s.diff(s.exp_polar(x),x,2),sp.diff(sp.exp_polar(X),X,2)),
+        (s.diff(s.exp_polar(2*x),x),sp.diff(sp.exp_polar(2*X),X)),
+        (s.diff(s.exp_polar(2*x),x,2),sp.diff(sp.exp_polar(2*X),X,2)),
+        (s.diff(s.exp_polar(f(t)),t),sp.diff(sp.exp_polar(F(T)),T)),
+        (s.diff(s.exp_polar(M[0,0]),M[0,0]),sp.diff(sp.exp_polar(MS[0,0]),MS[0,0])),
+        (s.diff(x*s.exp_polar(x),x),sp.diff(X*sp.exp_polar(X),X)),
+    ]
+    for actual,expected in cases:
+        # Subs binders are fresh dummies: compare printed structure.
+        assert str(actual)==str(expected)
+        assert actual.has(s.Derivative)
+    assert s.diff(s.exp_polar(x),s.Symbol('y'))==0
+    assert s.diff(s.exp_polar(s.I*s.pi)*x,x)==s.exp_polar(s.I*s.pi)
+    assert s.Derivative(s.exp_polar(x),x).doit()==s.Derivative(s.exp_polar(x),x)
+
+
+@pytest.mark.parametrize('source',[
+    'principal_branch(2*exp_polar(-I*pi/2),2*pi)','exp_polar(-I*pi/2)',
+    '2*exp_polar(-I*pi/2)','exp_polar(I*pi/2)','exp_polar(1+I*pi/2)',
+    'exp_polar(I*pi)','exp_polar(I*pi/3)','exp_polar(-I*pi/4)',
+    'exp_polar(Rational(1,3)+I)','exp_polar(9*I*pi/10)','exp_polar(3*I*pi/2)',
+])
+@pytest.mark.parametrize('digits',[15,30])
+def test_exp_polar_evalf_has_no_spurious_real_part(source,digits):
+    # SymPy's exp_polar._eval_evalf evaluates the automatically simplified
+    # exp(w), so exp_polar(-I*pi/2) is exactly -1.0*I.
+    actual=s.N(eval(source,vars(s)),digits)
+    expected=sp.N(eval(source,vars(sp)),digits)
+    assert s.srepr(actual)==sp.srepr(expected)

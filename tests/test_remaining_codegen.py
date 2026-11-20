@@ -118,6 +118,21 @@ def test_recurrence_decorators_and_warning_metadata():
     @assoc_recurrence_memo(lambda n:1)
     def triangle(n,m,prev):return prev[n][m-1]+1
     assert triangle(4,3)==4
+    # Negative indices read the cache from its end, as in SymPy; an index
+    # beyond the cache raises the list IndexError.
+    @recurrence_memo([1,1])
+    def fib(n,prev):return prev[-1]+prev[-2]
+    with pytest.raises(IndexError):fib(-3)
+    assert fib(-1)==1
+    assert fib(5)==8 and fib(-1)==8 and fib(-3)==3 and fib(-6)==1
+    with pytest.raises(IndexError):fib(-7)
+    @assoc_recurrence_memo(lambda n:1)
+    def pascal(n,m,prev):return (prev[n-1][m] if m<n else 0)+prev[n-1][m-1]
+    with pytest.raises(IndexError):pascal(-1,0)
+    with pytest.raises(IndexError):pascal(3,4)
+    assert pascal(2,1)==2
+    assert pascal(-1,0)==1 and pascal(0,-1)==1 and pascal(-1,1)==3 and pascal(-2,-1)==1
+    with pytest.raises(IndexError):pascal(-5,0)
     @deprecated('old',deprecated_since_version='0.1',active_deprecations_target='test')
     def old():return 3
     with pytest.warns(SymPyDeprecationWarning):assert old()==3

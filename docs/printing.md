@@ -9,16 +9,16 @@ SymPy object type.
 
 ## Code targets
 
-The existing native printers are exposed as `ccode`, `cxxcode`, `fcode`,
-`pycode` and `rust_code`. Compatible modules include `printing.c`, `cxx`,
-`fortran`, `pycode` and `rust`. Their scalar capabilities and optional array
-backends are described in the code generation guides.
-
-Additional scalar printers support JavaScript (`jscode`), Julia (`julia_code`),
-Octave (`octave_code`), R (`rcode`), Maple (`maple_code`), Mathematica
-(`mathematica_code`) and GLSL (`glsl_code`). They support scalar arithmetic,
-real constants, elementary mathematical functions, relations, Boolean
-connectives and Piecewise expressions with a final True branch.
+The code printers for C (`ccode`), C++ (`cxxcode`), Fortran (`fcode`), Rust
+(`rust_code`), JavaScript (`jscode`), Julia (`julia_code`), Octave
+(`octave_code`), R (`rcode`), GLSL (`glsl_code`), Maple (`maple_code`) and
+Mathematica (`mathematica_code`) are Python ports of the SymPy 1.14 printers
+in `printing.c`, `cxx`, `fortran`, `rust`, `jscode`, `julia`, `octave`,
+`rcode`, `glsl`, `maple` and `mathematica`, built on the ported
+`printing.codeprinter`. Their classes, such as `C99CodePrinter`,
+`CXX17CodePrinter` or `MCodePrinter`, accept `_print_<Class>` overrides as
+in SymPy. `pycode` (also `symox.printing.pycode`) keeps the native printer.
+Optional array and GPU backends are described in the code generation guides.
 
 ```python
 from symox import symbols, sin, jscode
@@ -27,20 +27,30 @@ x = symbols('x')
 assert jscode(x**2 + sin(x)) == 'Math.pow(x, 2) + Math.sin(x)'
 ```
 
-`assign_to` emits an assignment. `user_functions` supplies target names for
+`assign_to` emits an assignment (as in SymPy, `mathematica_code` has no
+`assign_to`). `user_functions` supplies target names for
 functions beyond each target's builtins; it can select names with predicates.
-Unknown functions raise an error unless explicitly permitted. The target
-runtime must provide any user-mapped functions and optional special-function
-libraries. Reserved identifiers can be suffixed or rejected. Ambiguous symbol
-names are rejected. `human=False` returns the constants, unsupported set and
-code tuple for these additional scalar printers.
+Unknown functions raise `PrintMethodNotImplementedError` unless
+`allow_unknown_functions=True`; Maple and Mathematica print them by name
+(`f[x]` in Mathematica). `strict=False` emits partial code with a
+comment listing the unsupported functions. The target runtime must provide
+any user-mapped functions and optional special-function libraries. The C, C++,
+Rust and R printers suffix reserved identifiers. `human=False` returns the constants,
+unsupported set and code tuple instead of a string. Piecewise expressions need a final True
+branch (`ValueError` otherwise), except in R, which emits `NA`, and Python,
+which emits `None`. As in SymPy, `mathematica_code` has no Piecewise printer
+and raises `PrintMethodNotImplementedError` for every Piecewise.
 
-Julia and Octave use elementwise arithmetic operators. JavaScript, Julia,
-Octave, R and Mathematica also accept concrete matrices, emitting their target
-literal syntax. These printers do not generate indexed contraction loops,
-perform matrix shape inference or cover the full expression vocabularies of
-all target systems. Code fragments require a suitable surrounding program and
-runtime. Scalar complex arithmetic in JavaScript and GLSL is unsupported.
+With `assign_to` and ranged `Idx` indices, the C, Fortran, Rust, JavaScript,
+R, GLSL, Julia and Octave printers generate the reference loops, including
+the summation loops of a contraction. Matrix `assign_to` prints one
+assignment per entry. Julia, Octave, GLSL, Maple and Mathematica also print
+inline matrices; JavaScript and R need a matrix `assign_to`. These printers
+do not cover the full expression vocabularies of all target systems. Code
+fragments require a suitable surrounding program and runtime. Scalar complex
+arithmetic in JavaScript and GLSL is unsupported. Known differences from
+the reference printers are listed in
+[the parity contract](algorithmic-parity.md).
 
 ## MathML, expression graphs and symbolic programs
 

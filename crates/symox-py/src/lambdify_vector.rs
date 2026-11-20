@@ -11,7 +11,8 @@
 //! - the other kernels run the compiled program (`Compiled::call_many`) as
 //!   before, without the copies of the arguments and of the result.
 //!
-//! Any other call (other dtypes, layouts, subclasses, broadcasting, 0-d
+//! Any other call (other dtypes, layouts, subclasses, broadcasting or
+//! different shapes of equal size, 0-d
 //! arrays, a text the native evaluation declines) returns `None` and keeps
 //! the established path, with its errors.
 use std::sync::Mutex;
@@ -30,9 +31,9 @@ use crate::PyCompiled;
 pub(crate) struct VectorCache {
     text: GILOnceCell<Option<(NumpyText, Vec<NumpyName>)>>,
     plans: Mutex<Vec<(u64, Option<std::sync::Arc<Plan>>)>>,
-    // the NumPy object evaluation lacks a function: complex arrays go to
-    // SymPy's generated function
-    complex_reference: std::sync::atomic::AtomicBool,
+    // the NumPy object evaluation lacks a function: complex and object
+    // arguments go to SymPy's generated function
+    object_reference: std::sync::atomic::AtomicBool,
     // the program of array calls with `scipy.special.gamma` for gamma
     scipy_gamma: GILOnceCell<Option<symox::lambdify::Compiled>>,
 }
@@ -195,27 +196,7 @@ pub(crate) fn call(py: Python<'_>, f: &PyCompiled, args: &Bound<'_, PyTuple>) ->
         }
     }
     if complex {
-        if f.vector.complex_reference.load(std::sync::atomic::Ordering::Relaxed) {
-            if let Some(g) = f.reference_function(py)? {
-                return Ok(Some(g.call(args, None)?.unbind()));
-            }
-        }
-        return match f.object_evaluator(py)?.bind(py).call(args, None) {
-            Ok(result) => Ok(Some(result.unbind())),
-            // a function NumPy lacks (`numpy.gamma`): SymPy's generated
-            // function (SciPy's `gamma`) evaluates the complex arrays
-            Err(error) if error.is_instance_of::<pyo3::exceptions::PyAttributeError>(py) => {
-                match f.reference_function(py)? {
-                    Some(g) => {
-                        let result = g.call(args, None).map_err(|_| error)?;
-                        f.vector.complex_reference.store(true, std::sync::atomic::Ordering::Relaxed);
-                        Ok(Some(result.unbind()))
-                    }
-                    None => Err(error),
-                }
-            }
-            Err(error) => Err(error),
-        };
+        return f.object_call(py, args).map(Some);
     }
     if deferred {
         return Ok(None);
@@ -226,10 +207,10 @@ pub(crate) fn call(py: Python<'_>, f: &PyCompiled, args: &Bound<'_, PyTuple>) ->
     let n = lead.len();
     for v in &values {
         if let Arg::Array(a) = v {
-            // the NumPy kernels broadcast shapes; the compiled program
-            // requires equal sizes (its error stays on the established path)
-            let same = if f.numpy_vectors { a.shape() == shape.as_slice() } else { a.len() == n };
-            if !same {
+            // in-place evaluation needs one common shape; other shapes take
+            // the established path, which broadcasts them like NumPy (or
+            // raises NumPy's error)
+            if a.shape() != shape.as_slice() {
                 return Ok(None);
             }
         }
@@ -298,6 +279,34 @@ impl PyCompiled {
             let scipy = py.import("sys").ok()?.getattr("modules").ok()?.get_item("scipy.special").ok()?;
             gamma.is(&scipy.getattr("gamma").ok()?).then_some(program)
         }).as_ref().unwrap_or(&self.c)
+    }
+
+    /// The NumPy object evaluation of a call (complex scalars and arrays,
+    /// object arrays, NumPy subclasses, external scalars). Its text names a
+    /// function NumPy may lack (`numpy.gamma`, `numpy.besselj`): the
+    /// AttributeError then hands the call to SymPy's generated function,
+    /// whose result or own error (`math.gamma`'s TypeError without SciPy,
+    /// NameError for a name SymPy prints without a definition) is SymPy's.
+    pub(crate) fn object_call(&self, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
+        use std::sync::atomic::Ordering::Relaxed;
+        if self.vector.object_reference.load(Relaxed) {
+            if let Some(g) = self.reference_function(py)? {
+                return Ok(g.call(args, None)?.unbind());
+            }
+        }
+        match self.object_evaluator(py)?.bind(py).call(args, None) {
+            Ok(result) => Ok(result.unbind()),
+            Err(error) if error.is_instance_of::<pyo3::exceptions::PyAttributeError>(py) => {
+                match self.reference_function(py)? {
+                    Some(g) => {
+                        self.vector.object_reference.store(true, Relaxed);
+                        Ok(g.call(args, None)?.unbind())
+                    }
+                    None => Err(error),
+                }
+            }
+            Err(error) => Err(error),
+        }
     }
 
     /// The NumPy evaluation of the expressions on Python objects (complex

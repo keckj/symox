@@ -8,12 +8,13 @@ on:
 jobs:
   wheels:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - { os: ubuntu-latest, target: x86_64 }
           - { os: ubuntu-latest, target: aarch64 }
           - { os: macos-latest, target: aarch64 }
-          - { os: macos-13, target: x86_64 }
+          - { os: macos-latest, target: x86_64 }
           - { os: windows-latest, target: x64 }
     runs-on: ${{ matrix.os }}
     steps:
@@ -40,3 +41,31 @@ jobs:
         with:
           name: sdist
           path: dist
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [wheels, sdist]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Attest the build provenance of the distributions
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - name: Create the GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --repo "$GITHUB_REPOSITORY"
+          --title "symox ${GITHUB_REF_NAME#v}"
+          --prerelease --generate-notes
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

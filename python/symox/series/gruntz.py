@@ -124,6 +124,12 @@ def gruntz(e, z, z0, dir="+"):
     # the native engine with its tractable heuristics before Gruntz
     result = _core._limit(e, z, z0, str(dir), True)
     if result is None:
+        # SymPy's mrv_leadterm gives the accumulation bounds of an
+        # oscillating leading coefficient (`gruntz(sin(x), x, oo)` is
+        # `AccumBounds(-1, 1)`), as `limit` computes them.
+        from ..calculus._accum_limit import oscillating_limit
+        result=oscillating_limit(e,z,z0,str(dir))
+    if result is None:
         raise PoleError('The native limit engine could not determine this limit')
     return result
 

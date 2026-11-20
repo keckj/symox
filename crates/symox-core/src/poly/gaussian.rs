@@ -157,13 +157,6 @@ pub fn field_gcd(a: &AN, b: &AN) -> AN {
     p.mul(&AN::rational(Rat::new(Int::one(), q), p.field.clone()))
 }
 
-/// The reference `QQ_I.lcm`: `lcm(numer)/gcd(denom)`.
-pub fn field_lcm(a: &AN, b: &AN) -> AN {
-    let p = lcm(&numer(a), &numer(b));
-    let q = denom(a).gcd(&denom(b));
-    p.mul(&AN::rational(Rat::new(Int::one(), q), p.field.clone()))
-}
-
 /// Ground content: the normalized gcd of all coefficients, folded from
 /// zero (`dmp_ground_content`); `field` selects the `QQ_I` gcd.
 pub fn ground_content(p: &MPoly<AN>, ring: bool) -> AN {
@@ -424,19 +417,6 @@ pub fn ring_sqf_list(f: &MPoly<AN>) -> PResult<(AN, Vec<(MPoly<AN>, u32)>)> {
         return Ok((AN::zero(), Vec::new()));
     }
     sqf_list_at(f, 0)
-}
-
-/// `dmp_sqf_part` over `ZZ_I`: the ground primitive square-free part.
-pub fn ring_sqf_part(f: &MPoly<AN>) -> PResult<MPoly<AN>> {
-    let _scope = AlgebraicScope::new(field());
-    if f.is_zero() {
-        return Ok(f.clone());
-    }
-    let mut g = f.clone();
-    for i in 0..f.nvars {
-        g = inner_gcd_at(&g, &f.derivative(i), 0)?.0;
-    }
-    Ok(ground_primitive(&exact(f, &g), true).1)
 }
 
 /// The reference `_sort_factors` with Gaussian elements ordered by

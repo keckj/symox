@@ -23,8 +23,9 @@ maps, compose declared paths and differentiate them. A missing inverse is
 constructed only when the native solver produces a unique complete solution.
 Ambiguous or unsupported inverses require an explicit relation with the chosen
 branch. The returned transformation is a callable matrix map with `signature`,
-`variables` and `expr` attributes; it is not a native scalar `Lambda` containing
-a matrix. The legacy `connect_to` method adds explicit relations; gap filling
+`variables` and `expr` attributes. It prints as SymPy's
+`Lambda((x, y), Matrix(...))`, but it is not a native scalar `Lambda`
+containing a matrix. The legacy `connect_to` method adds explicit relations; gap filling
 is replaced by composition on demand.
 
 `Point(coord_sys, coords)` stores coordinate values and converts them through
@@ -48,14 +49,18 @@ assert (x*y)(p) == 12
 `CoordinateSymbol` and `BaseScalarField` have separate identities. The former
 represents formal transformation coordinates; the latter is a function on
 points. Ordinary scalar symbols are parameters held constant by vector fields.
-Coordinate atoms and scalar-field atoms use separate native dummy symbols, with
-Python wrappers carrying `coord_sys`, `index`, `patch`, `manifold` and `dim`.
-Composite scalar expressions can display native dummy prefixes such as `_x`.
-Their `free_symbols` include these internal atoms, unlike SymPy's scalar-field
-metadata. `expr.atoms(BaseScalarField)` can recover their wrappers; scalar
-conversion to SymPy produces dummy symbols rather than reconstructing geometric
-objects. `expr(point)` and `expr.rcall(point)` evaluate scalar expressions at
-points after importing this package.
+Coordinate atoms and scalar-field atoms are separate native symbol classes,
+one per chart, with Python wrappers carrying `coord_sys`, `index`, `patch`,
+`manifold` and `dim`. Both print by their coordinate name, as in SymPy
+(`x**2`, LaTeX `\mathbf{x}` for a field), so a coordinate and the field of
+the same name print alike while staying distinct. Same-named coordinates of
+different charts also stay distinct. `CoordinateSymbol.rewrite(chart)`
+expresses a coordinate in another chart (`x.rewrite(R2_p)` is
+`rho*cos(theta)`). The `free_symbols` of a scalar expression include these
+atoms, unlike SymPy's scalar-field metadata. `expr.atoms(BaseScalarField)`
+recovers them; scalar conversion to SymPy produces plain symbols rather than
+reconstructing geometric objects. `expr(point)` and `expr.rcall(point)`
+evaluate scalar expressions at points after importing this package.
 
 These classes represent local coordinate data. They do not certify atlas
 coverage, domains of maps, global inverses, branch choices or smoothness across
@@ -76,11 +81,18 @@ complete subclass hierarchy of native scalar expressions.
 `WedgeProduct` performs normalized antisymmetrization, including nested products.
 `Differential` implements the exterior derivative of scalar fields and
 alternating covariant forms. Higher nonalternating covariant tensors are
-rejected. Constant differentials and identically zero tensors normalize to the
-native scalar zero. `Commutator` evaluates the Lie bracket of coordinate vector
-fields, and `LieDerivative` evaluates scalar, vector, covariant and mixed tensor
-derivatives. Evaluation is eager; these classes are not a general algebra of
-held differential operators.
+rejected. Constant differentials and identically zero tensors normalize to a
+callable zero that compares equal to the native scalar zero. `Commutator`
+evaluates the Lie bracket of coordinate vector fields, and `LieDerivative`
+evaluates scalar, vector, covariant and mixed tensor derivatives. Evaluation is
+eager, where SymPy keeps lazy objects (the values are equal); these classes are
+not a general algebra of held differential operators.
+
+Tensors print as sums of `TensorProduct` terms of base fields and
+differentials, for example `x*dy + y*dx` or
+`TensorProduct(dx, dy) - TensorProduct(dy, dx)` for an evaluated wedge
+product. SymPy's LaTeX `\otimes`/`\wedge` forms and the unevaluated
+`Differential` of a scalar expression are not reproduced.
 
 ```python
 from symox.diffgeom import Differential, TensorProduct, WedgeProduct, Commutator

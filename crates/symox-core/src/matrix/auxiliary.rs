@@ -409,17 +409,6 @@ impl Matrix {
         Ok((p, l, dd, u))
     }
 
-    /// Combined `L\U` storage and row swaps (SymPy's `LUdecomposition_Simple`).
-    pub fn lu_decomposition_simple(
-        &self,
-        rankcheck: bool,
-    ) -> MResult<(Matrix, Vec<(usize, usize)>)> {
-        if self.data().is_empty() {
-            return Ok((Matrix::zeros(self.rows(), self.cols()), vec![]));
-        }
-        super::linalg::lu_simple(self, rankcheck)
-    }
-
     /// Companion matrix of a monic polynomial given by all its coefficients,
     /// leading coefficient first.
     pub fn companion(coeffs: &[Expr]) -> MResult<Matrix> {

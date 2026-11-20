@@ -1,8 +1,13 @@
 """LaTeX printing and lambdify of N-dimensional arrays, compared with SymPy."""
+import importlib.util
+
 import numpy as np
 import pytest
 import sympy as sp
 import symox as sx
+
+# modules naming SciPy need it (SymPy raises ImportError at lambdify time)
+_SCIPY = pytest.mark.skipif(importlib.util.find_spec('scipy') is None, reason='SciPy is not installed')
 
 _ARRAYS = {
     'matrix': lambda m, x, y: m.Array([[x, y], [0, x*y]]),
@@ -34,7 +39,7 @@ def test_empty_array_latex_raises_like_sympy():
             lib.latex(lib.Array([], (0,)))
 
 
-@pytest.mark.parametrize('modules', [None, np, 'numpy', ['numpy'], 'scipy'])
+@pytest.mark.parametrize('modules', [None, np, 'numpy', ['numpy'], pytest.param('scipy', marks=_SCIPY)])
 @pytest.mark.parametrize('build, args', [
     (lambda m, x, y: m.Array([[x, y], [1, x*y]]), (1.5, 2)),
     (lambda m, x, y: m.Array([m.sin(x), y]), (1, 2)),

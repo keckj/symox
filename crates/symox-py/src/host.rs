@@ -293,10 +293,42 @@ pub(crate) fn checked<T>(value: T) -> PyResult<T> {
 
 /// Whether the current thread holds the GIL. Native workers comparing host
 /// nodes must not wait for it while the calling thread holds it.
+#[cfg(not(windows))]
 fn holds_gil() -> bool {
     extern "C" { fn PyGILState_Check() -> std::os::raw::c_int; }
-    // SAFETY: PyGILState_Check (stable ABI) may be called from any thread.
+    // SAFETY: PyGILState_Check may be called from any thread.
     unsafe { PyGILState_Check() == 1 }
+}
+
+/// `PyGILState_Check` joined the limited API in Python 3.13 only: the abi3
+/// import library of Windows does not export it, so its address is taken
+/// from the running interpreter at module import.
+#[cfg(windows)]
+static GIL_CHECK: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[cfg(windows)]
+fn holds_gil() -> bool {
+    let address = GIL_CHECK.load(std::sync::atomic::Ordering::Relaxed);
+    if address == 0 {
+        return false;
+    }
+    // SAFETY: the address is that of the interpreter's PyGILState_Check,
+    // which may be called from any thread.
+    let check: extern "C" fn() -> std::os::raw::c_int = unsafe { std::mem::transmute(address) };
+    check() == 1
+}
+
+/// Record what `holds_gil` needs from the running interpreter.
+pub(crate) fn init_gil_check(_py: Python<'_>) -> PyResult<()> {
+    #[cfg(windows)]
+    {
+        let ctypes = _py.import("ctypes")?;
+        let function = ctypes.getattr("pythonapi")?.getattr("PyGILState_Check")?;
+        let address: usize = ctypes.call_method1("cast", (function, ctypes.getattr("c_void_p")?))?
+            .getattr("value")?.extract()?;
+        GIL_CHECK.store(address, std::sync::atomic::Ordering::Relaxed);
+    }
+    Ok(())
 }
 
 impl AtomHost {
@@ -703,7 +735,28 @@ fn _host_contains(expr: &Bound<'_, PyAny>) -> PyResult<(bool, bool)> {
     Ok((e.has_host(), e.is_host()))
 }
 
+/// SymPy's `Function._eval_evalf` fallback to `_imp_` for the application
+/// `e` of an undefined function: `symox.utilities.lambdify._imp_evalf`.
+fn implemented_evalf(e: &Expr, precision: u32) -> Option<Expr> {
+    Python::with_gil(|py| {
+        let result = crate::scalar_object(py, e.clone())
+            .and_then(|value| py.import("symox.utilities.lambdify")?.getattr("_imp_evalf")?.call1((value, precision)))
+            .and_then(optional_expr);
+        match result {
+            Ok(value) => value,
+            Err(error) => { report(py, error, None); None }
+        }
+    })
+}
+
+/// Install [`implemented_evalf`] (called by `implemented_function`).
+#[pyfunction]
+fn _register_implemented_evalf() {
+    symox::evalf_mp::register_undefined_host(implemented_evalf);
+}
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(_register_implemented_evalf, module)?)?;
     module.add_class::<PyHostClass>()?;
     module.add_class::<PyHostHead>()?;
     module.add_function(wrap_pyfunction!(_host_register, module)?)?;

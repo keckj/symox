@@ -304,34 +304,6 @@ pub fn collect_sqrt(e: &Expr) -> Expr {
     ops::mul(&[Expr::num(coeff), d])
 }
 
-/// `collect_sqrt(expr, evaluate=False)`: `(terms, number of radical terms)`.
-pub fn collect_sqrt_terms(e: &Expr) -> (Vec<Expr>, usize) {
-    let Ok((coeff, expr)) = decompose::as_content_primitive(e, false, true) else { return (vec![e.clone()], 0) };
-    let mut vars: Vec<Expr> = Vec::new();
-    for a in add_args(&expr) {
-        for m in decompose::args_cnc(&a, true).0 {
-            if is_num(&m) && is_sqrt_like(&m) && !vars.contains(&m) {
-                vars.push(m);
-            }
-        }
-    }
-    let d = collect_const(&expr, &vars, false);
-    let hit = expr != d;
-    let mut nrad = 0;
-    let mut out = ordered(add_args(&d));
-    for m in out.iter_mut() {
-        let (c, _) = decompose::args_cnc(m, true);
-        if c.iter().any(is_sqrt_like) {
-            nrad += 1;
-        }
-        *m = ops::mul(&[m.clone(), Expr::num(coeff.clone())]);
-    }
-    if !(hit || nrad > 0) {
-        out = vec![ops::add(&out)];
-    }
-    (out, nrad)
-}
-
 /// `rcollect(expr, *vars)`.
 pub fn rcollect(e: &Expr, vars: &[Expr]) -> Expr {
     if e.is_atom() || !vars.iter().any(|v| traverse::has(e, v)) {

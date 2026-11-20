@@ -68,7 +68,6 @@ pub(crate) mod prs;
 pub(crate) mod dense_prs;
 pub mod modular_resultant;
 mod typed_prs;
-pub mod real_roots;
 pub mod rootisolation;
 pub mod rootof;
 pub mod enclosure;

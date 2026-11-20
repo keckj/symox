@@ -37,22 +37,52 @@ assert dsolve(f.diff(x, 2) - x*f, f).rhs.has(airyai)
 The result forms (constant names and numbering, sign and factor choices,
 implicit or explicit solutions) are those of SymPy whenever the underlying
 `solve`, `simplify`, `integrate` and `factor` produce SymPy's forms. On a
-corpus of 315 equations drawn from SymPy's ODE test suite, classification
-matches SymPy's output string for 296 equations, the test suite's hint for
-262 and the default `dsolve` for 258. The remaining differences come from
-those underlying algorithms: the native `simplify` is a candidate search,
-not SymPy's sequence of rewrites, so it can stop at another equivalent
-form (this also decides whether the `factorable` hint is listed, as for
-`f' + 2*x*f - x*exp(-x**2)`); integration results and integrals left
-unevaluated. The six differing cases with `I` in the reference
-(`almost_lin_01`, `undet_39`, `liouville_05`, `rational_riccati_09`,
-`var_of_parameters_13`, `var_of_parameters_14`) are not caused by the
-Gaussian domains, which `Poly` infers and whose fraction fields have
-elements: they come from root ordering, the simplified form, and a
-`CoercionFailed` (coefficient outside the selected algebraic field) in
-the variation of parameters for `var_of_parameters_13` and `_14`.
-The corpus compares strings only; it does not prove that each differing
-result is an equivalent solution.
+corpus of 315 equations drawn from SymPy's ODE test suite, the last
+recorded run (2026-10-30) matched SymPy's output string for 303
+classifications, 279 results of the test suite's hint and 274 default
+`dsolve` results; the corpus has not been replayed on the later
+integration waves. The classification mismatches of that run are SymPy
+reference timeouts (run alone, SymPy gives the symox lists). The other
+differences come from the underlying algorithms: the native `simplify` is
+a candidate search, not SymPy's sequence of rewrites, so it can stop at
+another equivalent form (this can also decide whether the `factorable`
+hint is listed, since its match runs `solve` on the simplified form);
+integration results and integrals left unevaluated; and root ordering and
+radical forms of the characteristic roots. The corpus compares strings
+only; it does not prove that each differing result is an equivalent
+solution.
+
+### Native kernels
+
+The hint matchers and the linear solution steps run in Rust
+(`crates/symox-core/src/ode/`), called from the reference Python bodies
+through admission hooks (`_classify_native.py`, `_odesolve_native.py`):
+
+- classification: the first-order matches (`separable`, `1st_exact`,
+  `1st_linear`, `Bernoulli`, `almost_linear`, the homogeneous-coefficient
+  and power series forms, `Riccati_special_minus2`, the `match_riccati`
+  coefficients of `1st_rational_riccati`), the `nth_linear_*` and Euler
+  detections with `get_linear_coefficients`, `match_2nd_hypergeometric`,
+  the `2nd_linear_airy` match and `2nd_linear_bessel` rejection, the
+  order-two power series branch, `nth_order_reducible`, `Liouville`,
+  `2nd_nonlinear_autonomous_conserved` and the `allhints` ordering;
+- solutions: the characteristic and indicial polynomials, their roots in
+  the order of `roots(multiple=True)` (`rootof` when radicals do not give
+  every root), the fundamental solutions and the collect/powsimp step of
+  the constant-coefficient and Euler hints; the trial set and exact
+  coefficient solve of undetermined coefficients; the Wronskians, held
+  integrals and particular solution of variation of parameters.
+
+Each kernel admits a documented exact domain (rational or symbolic
+constant coefficients, forcing terms `q*x**k*exp(a*x)*sin|cos(b*x)` with
+rational parameters, no Floats, `I` or unmodelled content) and declines
+otherwise; a decline runs the reference body unchanged, never a no-match.
+Still in Python: `factorable`, `nth_algebraic`, `lie_group`,
+`equivalence_hypergeometric`/`match_2nd_2F1`, the positive Bessel match,
+`eq_preprocessed`, the `simplify`/`trigsimp` of the particular solutions,
+the evaluation of their integrals, `get_numbered_constants` and the
+`odesimp`/`constantsimp` steps of `dsolve`. The domains and remaining
+gaps are listed in [the parity notes](algorithmic-parity.md#odeclass-wave-35-native-classify_ode-matches-2026-10-30).
 
 ### Native fallback
 
@@ -194,7 +224,13 @@ conditions are not implemented, as in SymPy. A failed separation returns
 
 - Output forms differ from SymPy where `simplify`, `integrate` or
   `factor` choose another equivalent candidate (see the corpus figures
-  above); the solution sets are the same.
+  above); the corpus compares strings, so this is not proved case by case.
+- Known linear-hint gaps: `collect` does not match partial exponents
+  (`x*exp(2*x)` on the pattern `x*exp(x)`), casus irreducibilis cubic
+  roots keep radicals where SymPy uses `cos`/`sin(atan(...)/3)` forms (and
+  then sometimes raises), and some variation-of-parameters integrals
+  (`var_of_parameters_15`, `f'' + 6*f' + 16*f = log(x)` with
+  `simplify=False`) exceed 6 GB inside integration.
 - The Frobenius logarithmic solution and the PDE fallback are extensions;
   SymPy's own results in those cases are a subset of these.
 - First-order PDEs beyond SymPy's hints and the native characteristic

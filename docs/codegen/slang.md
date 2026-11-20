@@ -41,13 +41,14 @@ and boolean outputs retain their logical type. `out=` reuses supplied tensors;
 Deferred execution cannot be combined with automatic NumPy output.
 
 `slang_kernel` additionally exports an explicit `name_kernel` compute entry with
-`StructuredBuffer` inputs, writable output buffers and a count. This lower-level
+`StructuredBuffer` inputs, writable output buffers and a count
+(`workgroup_size`, default 64, sets its thread group). This lower-level
 ABI uses equally sized contiguous scalar batches, one output buffer per expression
 leaf; boolean outputs use uint32 values 0/1. The host controls allocation and
 dispatch. SlangPy's higher-level adapter handles broadcasting and tensor strides.
 
 The portable baseline is float32. Float64 source uses double literals and depends
-on target capabilities; the Python adapter currently permits float64 execution
+on target capabilities; float16 is not accepted by the Python API; the Python adapter currently permits float64 execution
 only with CUDA. CPU dispatch is not exposed by this adapter. Complex expressions
 and unsupported special functions fail explicitly. CSE is disabled around
 `Piecewise` graphs to keep inactive branches inside scalar short-circuit conditions.

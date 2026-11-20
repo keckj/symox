@@ -13,7 +13,7 @@ use super::dense;
 use super::factor_uni::{factor_zx, zassenhaus};
 use super::gcd::{content_in, gcd_zx, primitive_in};
 use super::gf::Rng;
-use super::int::{Coeff, Int, Rat};
+use super::int::{Int, Rat};
 use super::mpoly::MPoly;
 use super::sqf::sqf_list_mz;
 
@@ -396,11 +396,6 @@ fn lift(f: &MPoly<Int>, v: usize, ys: &[usize], a: &[Int], us: &[Vec<Int>]) -> O
         return None;
     }
     Some(gs)
-}
-
-#[allow(dead_code)]
-fn is_unit<C: Coeff>(p: &MPoly<C>) -> bool {
-    p.is_constant()
 }
 
 #[cfg(test)]

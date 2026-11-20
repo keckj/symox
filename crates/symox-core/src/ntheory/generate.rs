@@ -3,7 +3,7 @@
 use num_bigint::BigInt;
 use num_traits::One;
 
-use super::{isprime, prime, primepi, primerange};
+use super::{prime, primepi, primerange};
 
 /// `nextprime(n, ith)` (SymPy semantics, `ith >= 1`).
 pub fn nextprime_ith(n: &BigInt, ith: u64) -> BigInt {
@@ -103,11 +103,6 @@ pub fn mobius_range(lo: u64, hi: u64) -> Vec<i64> {
     }
     m.drain(..lo as usize);
     m
-}
-
-/// Is `n` prime (convenience for callers holding a u64)?
-pub fn is_prime_u(n: u64) -> bool {
-    isprime(&BigInt::from(n))
 }
 
 /// Largest prime `< n` (`n >= 3`).

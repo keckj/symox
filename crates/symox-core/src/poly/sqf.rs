@@ -107,16 +107,6 @@ fn sqf_rec(f: &MPoly<Int>, v0: usize, parts: &mut Vec<(MPoly<Int>, u32)>) {
     }
 }
 
-/// Square-free part (product of the distinct irreducible factors).
-pub fn sqf_part_mz(f: &MPoly<Int>) -> MPoly<Int> {
-    let (_, parts) = sqf_list_mz(f);
-    let mut r = MPoly::one(f.nvars);
-    for (a, _) in parts {
-        r = r.mul(&a);
-    }
-    r
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

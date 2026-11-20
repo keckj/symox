@@ -7,10 +7,15 @@ Run commands from the repository root in the development environment.
 ## Test suite
 
 ```bash
-python -m pip install pytest sympy
+python -m pip install pytest sympy==1.14.0
 cargo test
 python -m pytest -q tests --ignore=tests/extra
 ```
+
+Many Python tests import SymPy 1.14.0 as the reference. `tests/test_native_*.py`
+check Rust ports against the reference Python path or SymPy 1.14 fixtures in
+`tests/data`; `cargo test` also runs `crates/symox-core/tests/lll_parity.rs`
+against `fixtures/lll_sympy_1_14.tsv`.
 
 Optional backend dependencies and execution tests are described in the [code generation guides](codegen/overview.md).
 
@@ -66,6 +71,24 @@ distinguish numerical errors, canonical-form differences, unsupported results,
 crashes, timeouts, and slow calls. Runs report findings without failing by
 default; use `--fail-on wrong,crash,died` for an explicit CI failure policy.
 Replay uses the same process isolation and timeout as a normal run.
+
+## Behavioral audits
+
+These tools compare behavior with SymPy 1.14.0 rather than import surfaces:
+
+```bash
+python tools/integration_corpus.py --timeout 60 --json /tmp/integrals.json
+python benches/audit_solver_parity.py --out /tmp/solver-audit.json
+```
+
+`integration_corpus.py` evaluates definite integrals and transforms in separate
+SymPy and Symox worker processes with a per-case timeout, and classifies each
+case as SAME, EQUIV, MISSING, EXTRA (checked by mpmath quadrature), DIFF, COND,
+ERROR or TIMEOUT. `--only` selects cases and `--show` the reported classes.
+Run it under a memory limit. `audit_solver_parity.py` runs the solver checks of
+the [parity contract](algorithmic-parity.md). `tools/sympy_parity.py` builds the
+documented-example catalog, replays it and writes the reports of the
+[versioned audit](sympy-parity-audit.md).
 
 ## Documented module inventory
 

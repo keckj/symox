@@ -954,18 +954,23 @@ fn sympy_abs(argument: &Expr) -> Expr {
 }
 /// The final rule of SymPy's `Abs.eval` for a non-real argument.
 fn abs_conjugate_rule(argument: &Expr) -> Option<Expr> {
-    fn conjugates(e: &Expr, out: &mut Vec<Expr>) {
+    // Pre-order collection; a shared node revisited in the expanded tree
+    // contributes nothing new, so it is skipped (same order, linear cost).
+    fn conjugates(e: &Expr, out: &mut Vec<Expr>, seen: &mut FxHashMap<usize, Expr>) {
+        if seen.insert(e.dag_id(), e.clone()).is_some() {
+            return;
+        }
         if e.is_func(&Func::Conjugate) && !out.contains(e) {
             out.push(e.clone());
         }
         for arg in e.args() {
-            conjugates(&arg, out);
+            conjugates(&arg, out, seen);
         }
     }
     let conjugate = f::conjugate(argument);
     let (mut old, mut new) = (Vec::new(), Vec::new());
-    conjugates(argument, &mut old);
-    conjugates(&conjugate, &mut new);
+    conjugates(argument, &mut old, &mut FxHashMap::default());
+    conjugates(&conjugate, &mut new, &mut FxHashMap::default());
     new.retain(|c| !old.contains(c));
     if !new.is_empty()
         && new
@@ -978,7 +983,10 @@ fn abs_conjugate_rule(argument: &Expr) -> Option<Expr> {
         return None;
     }
     // Symbols under Abs count as real, as SymPy replaces Abs atoms by real dummies.
-    fn unknowns(e: &Expr, out: &mut Vec<Expr>) {
+    fn unknowns(e: &Expr, out: &mut Vec<Expr>, seen: &mut FxHashMap<usize, Expr>) {
+        if seen.insert(e.dag_id(), e.clone()).is_some() {
+            return;
+        }
         match e.kind() {
             Kind::Func(Func::Abs, _) => {}
             Kind::Sym(_) => {
@@ -988,13 +996,13 @@ fn abs_conjugate_rule(argument: &Expr) -> Option<Expr> {
             }
             _ => {
                 for arg in crate::traverse::ordered_args(e) {
-                    unknowns(&arg, out);
+                    unknowns(&arg, out, seen);
                 }
             }
         }
     }
     let mut unknown = Vec::new();
-    unknowns(argument, &mut unknown);
+    unknowns(argument, &mut unknown, &mut FxHashMap::default());
     if unknown.is_empty()
         || !unknown
             .iter()

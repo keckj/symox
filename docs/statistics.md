@@ -38,6 +38,13 @@ scalar constructor with the same name and parameters returns the same variable.
 A joint model keeps its components dependent. `random_symbols(expr)` returns a
 set of the registered random variables.
 
+`P` of `&`/`|` events and `E` of products factor over independent probability
+spaces, and condition blocks independent of the query are dropped. A random
+variable used as a condition means that it is observed, as in SymPy's
+`Eq(Y, Y.symbol)`: with independent `X` and `Y`, `E(X + Y, Y)` is `Y`.
+Overlapping `|` events of independent discrete variables use
+inclusion-exclusion, where SymPy 1.14 adds the two probabilities.
+
 ## Scalar distributions
 
 All public finite, discrete and continuous constructors are available, including
@@ -54,7 +61,9 @@ Constructor parameters follow the SymPy 1.14 names and defaults.
 Finite probabilities, conditional probabilities and expectations use exact
 weighted enumeration, limited to one million combined outcomes. Closed raw
 moments are supplied for the usual laws; polynomial expectations combine those
-moments without integration. Other moments are represented by an exact native
+moments without integration. Binomial, Normal and Poisson raw moments, and
+polynomial expectations and variances over independent stock laws, run in
+Rust; other cases keep the Python path. Other moments are represented by an exact native
 `Integral` or `Sum`. Noncentral Beta uses its Poisson mixture. Heavy-tail moment
 existence conditions matter: an undefined mean can be `nan`, and a divergent
 positive moment can be `oo`.
@@ -63,6 +72,11 @@ positive moment can be `oo`.
 functions and entropy have closed formulas where available. Finite CDFs are
 ordered dictionaries. A symbolic quantile without an implemented inverse raises
 `NotImplementedError`; arbitrary inverse-CDF solving is not guaranteed.
+Densities and CDFs of the documented laws are written in the reference forms,
+including the support `Piecewise` of the CDF; `cdf(X, **options)` forwards the
+options to integration, as SymPy does. Some moments, `skewness`, `kurtosis` and
+`entropy` come from simplified closed forms and can print differently from
+SymPy's unsimplified integrals while being equal.
 
 For a handmade law, supply a normalized density/mass function and its support:
 
@@ -78,8 +92,11 @@ F = FiniteRV('F', {0: Rational(1, 3), 1: Rational(2, 3)})
 ```
 
 Handmade finite weights are checked by default. Continuous and infinite discrete
-normalization is the caller's responsibility. Soliton construction requires an
-explicit support size, and robust soliton cutoffs require numeric parameters.
+normalization is the caller's responsibility. Soliton laws accept a symbolic
+support size, whose `density(...).dict` is a held `Density`; `E` and `P` of a
+symbolic-size soliton raise `NotImplementedError`. `RobustSoliton` normalizes
+over the support `1..k`, so its masses sum to 1; SymPy 1.14's normalizer does
+not, and numeric values differ from the reference doctest.
 
 ## Conditioning and joint models
 
@@ -87,7 +104,12 @@ Finite conditioning is exact. Single-source continuous event conditioning uses
 support intervals and normalized restricted densities; truncated Normal, Beta,
 Gamma and Uniform polynomial moments have specialized formulas. Other cases
 can remain exact integrals. `given` constructs a conditioned variable or a
-transformed expression over that variable.
+transformed expression over that variable, and returns the expression unchanged
+when the condition is independent of it. `given(Tuple(...), cond)` conditions
+the joint space of dependent entries: finite spaces are filtered and
+renormalized, and independent continuous variables under a linear `Eq` are
+restricted to the hyperplane. A continuous inequality condition on such a tuple
+raises SymPy's `NotImplementedError`.
 
 Multivariate Normal and StudentT, asymmetric multivariate Laplace, Dirichlet,
 Multinomial, NegativeMultinomial, Ewens, NormalGamma and generalized multivariate
@@ -113,8 +135,12 @@ covariance(A[0], A[1])        # -1/135
 ```
 
 Point conditioning updates the full remaining Gaussian law using its covariance
-matrix. NormalGamma has its conjugate conditional laws. Point conditioning for
-other joint families currently raises `NotImplementedError`. Arbitrary
+matrix. NormalGamma has its conjugate conditional laws. Multinomial and Ewens
+models condition by exact enumeration of their finite joint outcomes. Point
+conditioning for other joint families (Dirichlet, for example) raises
+`NotImplementedError`. Multivariate Normal, StudentT and Laplace laws with
+`MatrixSymbol` parameters of symbolic dimension are refused at construction.
+`Laplace(name, mu_list, sigma_matrix)` builds a multivariate Laplace law. Arbitrary
 multivariate inequality conditioning and general independence proofs are not
 complete. `independent` recognizes disjoint spaces and the supported Gaussian
 and independent-component cases; a negative result is not a general proof of
@@ -126,16 +152,37 @@ Bernoulli, Poisson, Wiener and Gamma processes preserve dependence across
 observation times. Wiener moments use covariance `Min(s, t)`. Poisson/Gamma
 moments and path draws use independent increments. Wiener point conditions use
 Gaussian conditioning; single-observation Poisson and Gamma bridges use
-Binomial and scaled Beta laws. Higher non-Gaussian mixed moments require
-explicit ordered observation times. More general process conditioning is not
-implemented.
+Binomial and scaled Beta laws. Conditions `Contains(t, interval)` on Poisson,
+Wiener and Gamma processes follow the reference convention: the value at `t`
+is the increment over the interval, and disjoint intervals are independent.
+`BernoulliProcess.joint_distribution` returns a `JointDistributionHandmade`.
+Higher non-Gaussian mixed moments require explicit ordered observation times.
+More general process conditioning is not implemented.
 
-Finite-state discrete and continuous Markov chains validate their transition or
-generator matrices, calculate transition powers or matrix exponentials, and
-support finite path queries conditioned on an earliest observed state.
-`TransitionMatrixOf`, `GeneratorMatrixOf` and `StochasticStateSpaceOf` provide
-query-local overrides. `stationary_distribution()` solves the normalized
-stationary equations when the solution is unique.
+Finite-state discrete and continuous Markov chains calculate transition powers
+or matrix exponentials (`Q*D**t*Q**-1` or `Q*exp(t*D)*Q**-1` when
+diagonalizable) and answer finite path queries. The conditioning event must
+fix a state at the earliest observation time; later observations follow the
+Markov property (SymPy 1.14 ignores intermediate ones). A transition `Matrix`
+is checked like SymPy's: dimensions at construction, row sums (0 for a
+generator) in `P`/`E` queries, with SymPy's `ValueError`. List inputs, a symox
+extension, are checked at construction. Discrete chains accept integer, symbol
+or `Str` states; a `MatrixSymbol` of explicit size is used entrywise, and one of
+symbolic size has state space `Range(0, n)`. Queries at symbolic times return
+the reference `Piecewise` on the time order. `TransitionMatrixOf`,
+`GeneratorMatrixOf` and `StochasticStateSpaceOf` provide query-local overrides.
+
+The finite chain computations run in Rust (`crates/symox-core/src/stats/markov.rs`)
+for explicit transition matrices: `communication_classes` (with `decompose`,
+`canonical_form`, `is_regular`, `is_ergodic` and `is_absorbing_chain`),
+`stationary_distribution`, `fixed_row_vector` and `limiting_distribution` over
+rational, Float and symbolic entries, `fundamental_matrix`,
+`absorbing_probabilities`, and the path sums of `P` and `E` queries. Unique
+stationary systems are solved as SymPy's `linsolve` does; a non-unique
+solution is SymPy's parametric row (`1 - tau0, tau0`), computed on the Python
+path. On a class where SymPy 1.14's period search does not terminate, the
+kernel returns the true period. `ContinuousMarkovChain.transition_probabilities`
+is the reference method.
 
 A Markov chain constructor does not specify an initial probability law.
 Unconditioned Markov probability/expectation queries remain held operators.
@@ -154,7 +201,11 @@ Wishart laws are outside the implemented density domain. Matrix-t means require
 `nu > 1`, and covariances require `nu > 2`; higher mixed matrix-t moments are not
 implemented.
 
-`ExpectationMatrix`, `VarianceMatrix` and `CrossCovarianceMatrix` evaluate
+`ExpectationMatrix`, `VarianceMatrix` and `CrossCovarianceMatrix` are matrix
+expressions with the reference shapes, and their `expand` follows the reference
+(linearity, constant factors, `A*Var(X)*A.T`). Products such as `A*X` of a
+`MatrixSymbol` and a `RandomMatrixSymbol` keep their order. Applied to
+matrix-distribution variables, where SymPy raises `ShapeError`, they evaluate
 matrix statistics. For a column vector, variance is the full component
 covariance matrix `E[(X-E[X]) * (X-E[X]).T]`. Row vectors likewise produce a
 component covariance matrix. For general rectangular matrices, the additional
@@ -194,17 +245,24 @@ densities are frequency tables; continuous estimates use a Gaussian kernel.
 
 Random scalars are Python probability-space objects coercible to independent
 native `Dummy` expressions. They are not subclasses of SymPy's type hierarchy.
-Inside native arithmetic their printed names may have a leading underscore.
-Probability metadata is kept in the Python process; serialization of a bare
-native expression does not reconstruct its probability space.
+Inside native arithmetic they become random atoms that print as their names
+(`X**2 + X`) and keep `pspace` and `distribution`; a random atom sorts as a
+plain symbol, so terms can print in another order than SymPy's. `subs` on a
+distribution parameter rebuilds the variable. Probability metadata is kept in
+the Python process; serialization of a bare native expression does not
+reconstruct its probability space.
 
 Held `Probability`, `Expectation`, `Variance`, `Covariance`, `Moment` and
-`CentralMoment` objects evaluate through `doit()`. A narrow `Expr.doit` adapter
-also evaluates registered held operators inside compound native expressions.
-The full SymPy rewrite, assumptions and probability-space class protocols are
-not implemented. Constructors and queries can also be imported through
-`stats.crv_types`, `frv_types`, `drv_types`, `joint_rv_types`,
-`matrix_distributions`, `stochastic_process_types`, `random_matrix_models`,
-`symbolic_probability`, `rv_interface` and the implemented helpers in `stats.rv`.
-Internal `stats.crv`/`stats.frv` domain hierarchies remain absent and are shown as
-such in the full module inventory.
+`CentralMoment` objects evaluate through `doit()`, and their `rewrite`
+(Integral, Sum, Probability, Expectation), `expand`, `evaluate_integral` and
+`evaluate_sum` follow the reference. Nested expectations evaluate with a deep
+`doit`. `Variance(X).doit()` and `Covariance(X, Y).doit()` evaluate where SymPy
+keeps them held. A narrow `Expr.doit` adapter also evaluates registered held
+operators inside compound native expressions. The full SymPy assumptions and
+probability-space class protocols are not implemented. Constructors and
+queries can also be imported through `stats.crv_types`, `frv_types`,
+`drv_types`, `joint_rv_types`, `matrix_distributions`,
+`stochastic_process_types`, `random_matrix_models`, `symbolic_probability`,
+`rv_interface` and the implemented helpers in `stats.rv`. `stats.crv` and
+`stats.frv` expose the continuous and finite domain and probability-space
+classes; `stats.drv` and `stats.joint_rv` are absent.

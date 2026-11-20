@@ -8,9 +8,11 @@
 - [Slang code generation](slang.md)
 - [SYCL and AdaptiveCpp code generation](sycl.md)
 - [Symbolic code generation compatibility](compatibility.md)
+- [Code generation AST](ast.md)
+- [Routine generation and autowrap](autowrap.md)
 
 Custom tensor and GPU APIs live in `symox.extra`, for example
-`from symox.extra import torch_lambdify, jax_lambdify, slang_kernel, sycl_kernel`.
+`from symox.extra import torch_lambdify, jax_lambdify, cuda_lambdify, cudacode_function, slang_kernel, sycl_kernel`.
 Their implementation modules are `symox.extra.codegen.*` and
 `symox.extra.printing.*`. Importing them does not load execution libraries.
 The SymPy entry points `lambdify(..., modules="jax")` and
@@ -27,10 +29,11 @@ with nvcc or NVRTC, PyTorch, JAX, Slang and SYCL:
 
 ```mermaid
 flowchart LR
-    E["symox expressions + CSE"] --> N["Native CUDA source"]
+    E["symox expressions + CSE"] --> N["Native CUDA / HIP source"]
     N --> NV["nvcc / ahead-of-time compilation"] -.-> CU["NVIDIA GPU / CUDA"]
     N --> RTC["NVRTC / runtime compilation + PTX cache"]
     RTC --> CU
+    N -.-> HIP["hipcc / hiprtc"] -.-> AMD["AMD GPU / ROCm"]
 
     E --> P["PyTorch operations"]
     P --> PT["PyTorch / optional torch.compile"]
@@ -55,7 +58,7 @@ flowchart LR
     Y --> A["AdaptiveCpp / SYCL toolchain"]
     A --> CPU
     A -.-> CU
-    A -.-> AMD["AMD GPU / ROCm"]
+    A -.-> AMD
     A -.-> INTEL["Intel GPU / Level Zero or OpenCL"]
     A -.->|experimental| M
     A -.->|experimental| V
@@ -74,12 +77,15 @@ placement, including when its inputs are Python scalars.
 Native source exports need their corresponding compiler and host integration.
 Native CUDA source can be compiled ahead of time with nvcc or at runtime with
 NVRTC. `cuda_lambdify` supplies native NVRTC compilation and execution; raw
-source exports can also be integrated by the caller. NVRTC is also used by
-the SlangPy CUDA execution path.
+source exports can also be integrated by the caller. `cudacode_function`
+device functions with `dialect="hip"` target hipcc and hiprtc; their tests
+compile with hipcc when it is available but do not execute on AMD GPUs.
+NVRTC is also used by the SlangPy CUDA execution path.
 SlangPy's CPU dispatch is not enabled by our adapter. AdaptiveCpp's tested
 configuration is the CPU OpenMP backend; GPU execution needs a compiler/runtime
 installation with those backends enabled. The diagram does not imply that
 symox chooses a backend automatically or that every route has the same speed.
 
-Framework functions preserve autograd where supported; Slang and SYCL exports
-are ordinary direct numerical kernels and require no differentiation framework.
+Framework functions preserve autograd where supported; CUDA, Slang and SYCL
+exports are ordinary direct numerical kernels and require no differentiation
+framework.

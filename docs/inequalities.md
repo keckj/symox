@@ -51,6 +51,27 @@ from symox import Abs, And, Lt, reduce_abs_inequality
 assert reduce_abs_inequality(Abs(x-5)-3, '<', x) == And(Lt(2, x), Lt(x, 8))
 ```
 
+`reduce_inequalities` with an inequality in several symbols, or univariate
+inequalities in different symbols, follows SymPy: univariate inequalities
+are reduced per generator, and an inequality with exactly one symbol of
+interest is isolated by a port of SymPy's `_solve_inequality`, which
+divides only by a factor of known sign and returns the conditions the
+inversion needs. Several symbols of interest in one inequality raise
+`NotImplementedError`, as in SymPy.
+
+```python
+from symox import reduce_inequalities
+
+y = symbols('y', real=True)
+assert reduce_inequalities([x + y > 1, x < 3], [x]) == And(x < 3, x > 1 - y)
+```
+
+Over the reals, an inequality of a periodic expression is solved on one
+period `[0, T)`, as SymPy's `solve_univariate_inequality` does
+(`sin(x) > 1/2` gives `Interval.open(pi/6, 5*pi/6)`); a range decision
+gives the whole domain or the empty set. Other bounded domains are solved
+on the domain itself, and half-unbounded domains stay unsolved.
+
 These interfaces use native polynomial arithmetic, real equation solving and
 symbolic set operations. They never import SymPy at runtime. Unsupported
 algebraic root representations, unordered coefficients and undecidable signs

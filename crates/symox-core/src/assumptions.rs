@@ -163,7 +163,44 @@ fn add_extended_sign(e:&Expr,positive:bool)->Option<bool>{
 
 /// An exact declared fact, or a conservative native proof for a scalar value.
 /// Additional Symbol facts never fall back to numerical refinement.
+thread_local! {
+    /// Answers of `fact` during the outermost call: `structural_fact` asks
+    /// the same question of every argument (sums, products, `exp`), so on a
+    /// graph that reuses sub-expressions each shared node is queried once
+    /// instead of once per occurrence in the expanded tree. Keyed by node,
+    /// predicate and numeric policy (`exact_queries` may switch it inside a
+    /// query); the node is held so that its id cannot be reused.
+    static FACTS: std::cell::RefCell<Option<rustc_hash::FxHashMap<(usize, Box<str>, bool), (Expr, Option<bool>)>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 pub fn fact(e:&Expr,name:&str)->Option<bool>{
+    if e.is_atom(){return fact_uncached(e,name);}
+    struct Scope(bool);
+    impl Drop for Scope {
+        fn drop(&mut self) {
+            if self.0 { FACTS.with(|memo| *memo.borrow_mut() = None); }
+        }
+    }
+    let outermost = FACTS.with(|memo| {
+        let mut memo = memo.borrow_mut();
+        let outermost = memo.is_none();
+        if outermost { *memo = Some(rustc_hash::FxHashMap::default()); }
+        outermost
+    });
+    let _scope = Scope(outermost);
+    let key = (e.dag_id(), Box::<str>::from(name), numeric_refinement_enabled());
+    if let Some(hit) = FACTS.with(|memo| memo.borrow().as_ref().and_then(|m| m.get(&key).map(|(_, r)| *r))) {
+        return hit;
+    }
+    let answer = fact_uncached(e, name);
+    FACTS.with(|memo| {
+        if let Some(m) = memo.borrow_mut().as_mut() { m.insert(key, (e.clone(), answer)); }
+    });
+    answer
+}
+
+fn fact_uncached(e:&Expr,name:&str)->Option<bool>{
     if name=="commutative" && e.has_noncommutative_host(){return crate::decompose::commutativity(e);}
     if let Some(answer)=crate::host::fact(e,name){return answer;}
     // SymPy's assumption rules make every one of these facts imply
@@ -856,11 +893,10 @@ fn reference_numeric_sign(e:&Expr)->Option<NumericSign>{
         // A sum of radicals keeps the exact sign machinery (its evaluation
         // can be costly on solver roots); a sum with function values takes
         // the numerical sign.
-        Kind::Add(..)=>{
-            let mut found=false;
-            crate::traverse::preorder(e,&mut |s| found|=matches!(s.kind(),Kind::Func(..)));
-            found
-        },
+        // Cheap cached test first; the function search visits each shared
+        // node once (a tree walk is exponential on a deep shared graph).
+        Kind::Add(..)=>crate::symbolic_number::is_symbolic_number(e)
+            &&crate::traverse::any_node(e,&mut |s| matches!(s.kind(),Kind::Func(..))),
         _=>false,
     };
     if !inherits||!numeric_refinement_enabled()||!crate::symbolic_number::is_symbolic_number(e)||!crate::functions::is_numeric_value(e)||crate::poly::rootof::is_rootof(e){return None;}
@@ -1699,6 +1735,64 @@ mod numeric_literal_tests {
         assert_eq!(is_finite(&nan),None);
         assert_eq!(is_even(&nan),None);
         assert_eq!(is_odd(&nan),None);
+    }
+}
+
+#[cfg(test)]
+mod shared_graph_tests {
+    use super::*;
+    use crate::functions::func;
+    use crate::ops::{add2, sub};
+
+    /// ``e_{k+1} = exp(e_k − y) + sin(e_k) + x`` : each level reuses ``e_k``
+    /// twice, so the expanded tree doubles at each level.
+    fn shared_chain(depth: usize) -> (Expr, Expr) {
+        let (x, y) = (Expr::symbol("x"), Expr::symbol("y"));
+        let mut e = x.clone();
+        for _ in 0..depth {
+            let a = func(Func::Exp, vec![sub(&e, &y)]);
+            e = add2(&add2(&a, &func(Func::Sin, vec![e.clone()])), &x);
+        }
+        (e, y)
+    }
+
+    #[test]
+    fn sign_queries_on_deep_shared_sums_are_not_tree_walks() {
+        // Before: reference_numeric_sign walked the expanded tree of every
+        // sum (2^60 nodes here) before its cached symbolic-number test.
+        let (e, y) = shared_chain(60);
+        let d = sub(&e, &y);
+        assert_eq!(is_positive(&d), None);
+        assert_eq!(is_zero(&d), None);
+        let _ = func(Func::Abs, vec![d.clone()]);
+        let _ = crate::functions::min(vec![e.clone(), y.clone()]);
+        let _ = crate::relational::lt(&e, &y);
+    }
+
+    #[test]
+    fn facts_of_deep_shared_real_graphs_are_not_tree_walks() {
+        // ``e_{k+1} = exp(min(e_k, y) − e_k)/2 + sin(e_k) + x`` over real
+        // symbols: `Min` and the Python wrapper query `extended_real`, and
+        // `structural_fact` asked it of every argument (×6 per level).
+        let real = crate::symbol::Assumptions::REAL;
+        let (x, y) = (Expr::symbol_with("x", real), Expr::symbol_with("y", real));
+        let mut e = x.clone();
+        for _ in 0..60 {
+            let m = crate::functions::min(vec![e.clone(), y.clone()]);
+            let a = func(Func::Exp, vec![sub(&m, &e)]);
+            e = add2(&add2(&crate::ops::mul(&[Expr::rational(1, 2), a]), &func(Func::Sin, vec![e.clone()])), &x);
+        }
+        assert_eq!(fact(&e, "extended_real"), Some(true));
+        assert_eq!(fact(&sub(&e, &y), "extended_real"), Some(true));
+    }
+
+    #[test]
+    fn numeric_sign_of_sums_with_functions_is_unchanged() {
+        // a closed sum with a function value still takes the numerical sign
+        let e = crate::parser::parse_str("sin(1) - 1/2").unwrap();
+        assert_eq!(is_positive(&e), Some(true));
+        let e = crate::parser::parse_str("exp(-3) - 1/20").unwrap();
+        assert_eq!(is_negative(&e), Some(true));
     }
 }
 

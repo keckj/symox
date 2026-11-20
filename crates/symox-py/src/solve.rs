@@ -72,10 +72,20 @@ fn simplify_flag(flags: Option<&Bound<'_, PyDict>>) -> PyResult<Option<bool>> {
     }
 }
 
-fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,symox::poly::roots::RadicalOptions,bool)> {
+struct SolveFlags {
+    dict: bool,
+    set: bool,
+    check: bool,
+    scope: symox::solve::checksol::SolveFlags,
+    roots: symox::poly::roots::RadicalOptions,
+    unrad: bool,
+}
+
+fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<SolveFlags> {
     let (mut dict, mut set, mut check) = (false, false, true);
+    let mut scope = symox::solve::checksol::SolveFlags::default();
     let mut unrad = true;
-    let mut cubics=true;let mut quartics=None;let mut incomplete=true;
+    let mut cubics=None;let mut quartics=None;let mut incomplete=true;
     if let Some(flags) = flags {
         for (key, value) in flags.iter() {
             let key: String = key.extract()?;
@@ -83,27 +93,44 @@ fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,
                 "dict" => dict = value.is_truthy()?,
                 "set" => set = value.is_truthy()?,
                 "check" => check = value.is_truthy()?,
-                "cubics"=>cubics=value.is_truthy()?,
+                "cubics"=>cubics=Some(value.is_truthy()?),
                 "quartics"=>quartics=Some(value.is_truthy()?),
                 "quintics"=>{},
                 "incomplete"=>incomplete=value.is_truthy()?,
                 // the reference `_unrad=False`: the outermost `_solve` skips
                 // its unrad fallback (the nested calls keep it)
                 "_unrad" => unrad = value.is_truthy()?,
+                // The reference reads `force` with `flags.pop('force', True)`
+                // and `if flags.get('force', True)`: None acts as False.
+                "force" => scope.force = value.is_truthy()?,
                 // The native solutions are not post-simplified (the
                 // Python layer applies SymPy's linear-path simplify), so
-                // simplify=False keeps them as they are. force=True is the
-                // reference checksol default, and rational=None/False keeps
-                // Floats as given.
+                // simplify=False keeps them as they are. rational=None/False
+                // keeps Floats as given (the Python layer rationalizes for
+                // a true value).
                 "simplify" => {},
-                "force" if value.is_truthy()? => {},
                 "rational" if value.is_none() || !value.is_truthy()? => {},
-                "manual" | "warn" | "minimal" if !value.is_truthy()? => {},
+                "manual" if !value.is_truthy()? => {},
+                // `warn` only adds warnings; `numerical` only adds a
+                // numerical test to checksol, whose undecided candidates are
+                // kept; `minimal` stops checksol before simplification.
+                "warn" | "numerical" => {},
+                "minimal" => scope.minimal = value.is_truthy()?,
+                // The reference pops `bivariate` (default True) in `_tsolve`
+                // before its Lambert step.
+                "bivariate" => scope.bivariate = value.is_truthy()?,
+                "implicit" | "tsolve" if !value.is_truthy()? => {},
                 _ => return Err(PyNotImplementedError::new_err(format!("solve option '{key}' with this value is not implemented"))),
             }
         }
     }
-    Ok((dict, set && !dict, check,symox::poly::roots::RadicalOptions{cubics,quartics:quartics.unwrap_or(cubics),incomplete,trig:false},unrad))
+    // The reference `solve`: `default = flags.setdefault(k, bool(flags.get(k,
+    // default)))` for cubics, quartics, quintics in turn, so a false flag
+    // makes the following unset ones false.
+    let cubics=cubics.unwrap_or(true);
+    let quartics=quartics.unwrap_or(cubics);
+    Ok(SolveFlags{dict, set: set && !dict, check, scope,
+        roots: symox::poly::roots::RadicalOptions{cubics,quartics,incomplete,trig:false}, unrad})
 }
 
 fn expr_list(o: &Bound<'_, PyAny>) -> PyResult<(Vec<Expr>, bool)> {
@@ -196,7 +223,14 @@ fn _solve_unsimplified(equation: &Bound<'_, PyAny>, symbol: &Bound<'_, PyAny>) -
 #[pyfunction]
 #[pyo3(signature = (f, *symbols, **flags))]
 fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, flags: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    let (as_dict, as_set, check,root_options,unrad) = solve_flags(flags)?;
+    let options = solve_flags(flags)?;
+    // `force`, `bivariate` and `minimal` reach the native transcendental
+    // steps and candidate checks through this scope.
+    symox::solve::checksol::with_solve_flags(options.scope, || solve_scoped(py, f, symbols, flags, options))
+}
+
+fn solve_scoped(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, flags: Option<&Bound<'_, PyDict>>, options: SolveFlags) -> PyResult<PyObject> {
+    let SolveFlags { dict: as_dict, set: as_set, check, scope, roots: root_options, unrad } = options;
     LAST_UNSIMPLIFIED.with(|l| l.borrow_mut().take());
     let (eqs, is_system) = expr_list(f)?;
     let unordered_symbols=symbols.len()==1&&symbols.get_item(0).is_ok_and(|s|
@@ -233,7 +267,8 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
         // radicals mixed with other functions) run first; when one of their
         // computations needs the Python layer, the call is made again
         // without them and the Python path keeps the equation.
-        let options = sv::native_tsolve::SolveOptions { check, simplify: simplify_flag(flags)?, ..Default::default() };
+        // `force` and `bivariate` also reach the native `_tsolve` fallback.
+        let options = sv::native_tsolve::SolveOptions { check, simplify: simplify_flag(flags)?, force: scope.force, bivariate: scope.bivariate };
         let run = |native: bool| sv::native_tsolve::scope(native, || sv::without_unrad(!unrad, || symox::poly::roots::with_radical_options(root_options,||
             sv::solve_atom(&eqs[0],x,check).or_else(||sv::solve_with_check(&eqs[0],x,check))
                 .or_else(|| sv::native_tsolve::fallback(&eqs[0], x, options)))));
@@ -355,6 +390,37 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
     }
 }
 
+/// The solver of mpmath's `findroot` for a `solver` name, with its errors:
+/// an unknown name is refused before anything else; a vector valued
+/// function (SymPy passes a Matrix for a list of equations) always takes
+/// `MDNewton`; a scalar solver checks its number of starting points.
+fn mpmath_solver(solver: Option<String>, system: bool, points: usize) -> PyResult<String> {
+    const SOLVERS: [&str; 12] = ["newton", "secant", "mnewton", "halley", "muller", "bisect",
+        "illinois", "pegasus", "anderson", "ridder", "anewton", "mdnewton"];
+    let solver = solver.unwrap_or_else(|| "secant".to_owned());
+    if !SOLVERS.contains(&solver.as_str()) {
+        return Err(PyValueError::new_err("could not recognize solver"));
+    }
+    if system { return Ok("newton".to_owned()); }
+    let expected = match solver.as_str() {
+        "newton" | "mnewton" | "halley" | "anewton" if points != 1 =>
+            Some(format!("expected 1 starting point, got {points}")),
+        "secant" if !(1..=2).contains(&points) => Some(format!("expected 1 or 2 starting points, got {points}")),
+        "muller" if !(1..=3).contains(&points) => Some(format!("expected 1, 2 or 3 starting points, got {points}")),
+        "bisect" | "illinois" | "pegasus" | "anderson" | "ridder" if points != 2 =>
+            Some(format!("expected interval of 2 points, got {points}")),
+        // findroot only supplies the `norm` keyword of MDNewton to a
+        // vector valued function.
+        "mdnewton" => return Err(pyo3::exceptions::PyKeyError::new_err("norm")),
+        _ => None,
+    };
+    if let Some(message) = expected { return Err(PyValueError::new_err(message)); }
+    if !matches!(solver.as_str(), "newton" | "secant" | "bisect") {
+        return Err(PyNotImplementedError::new_err(format!("nsolve solver '{solver}' is not implemented")));
+    }
+    Ok(solver)
+}
+
 #[pyfunction]
 #[pyo3(signature = (f, x, x0=None, **_kwargs))]
 fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
@@ -374,7 +440,15 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option
                 "solver" => solver = Some(value.extract::<String>()?),
                 "prec" => digits = value.extract()?,
                 "verbose" if !value.is_truthy()? => {},
-                _ => return Err(PyNotImplementedError::new_err(format!("nsolve option '{key}' with this value is not implemented"))),
+                "method" => return Err(PyValueError::new_err("\nKeyword \"method\" should not be used in this context.  When using some\nmpmath solvers directly, the keyword \"method\" is used, but when using\nnsolve (and findroot) the keyword to use is \"solver\".")),
+                // lambdify's default modules
+                "modules" if value.extract::<String>().is_ok_and(|m| m == "mpmath")
+                    || value.extract::<Vec<String>>().is_ok_and(|m| m == ["mpmath"]) => {},
+                // findroot and its solvers read these; other keywords reach
+                // the solver classes, which ignore them.
+                "verbose" | "modules" | "df" | "d1f" | "d2f" | "J" | "norm" | "multidimensional" =>
+                    return Err(PyNotImplementedError::new_err(format!("nsolve option '{key}' with this value is not implemented"))),
+                _ => {},
             }
         }
     }
@@ -390,10 +464,7 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option
         }
         (vars, expr_list(x)?.0)
     };
-    let solver = solver.unwrap_or_else(|| if sys { "newton" } else { "secant" }.to_owned());
-    if !matches!(solver.as_str(), "newton" | "secant" | "bisect") {
-        return Err(PyNotImplementedError::new_err(format!("nsolve solver '{solver}' is not implemented")));
-    }
+    let solver = mpmath_solver(solver, sys, initial.len())?;
     if vars.is_empty() || vars.iter().any(|v| !v.is_symbol()) || vars.iter().enumerate().any(|(i, v)| vars[..i].contains(v)) {
         return Err(PyValueError::new_err("nsolve unknowns must be distinct symbols"));
     }

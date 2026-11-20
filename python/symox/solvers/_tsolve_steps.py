@@ -67,11 +67,18 @@ def _tsolve_step(solve, f, symbols, flags):
     from .. import Equality, Expr, _core, sympify
     if isinstance(f, (list, tuple, set)) or len(symbols) != 1:
         return None
-    if flags.get('dict') or flags.get('set'):
-        return None
     sym = sympify(symbols[0])
     if not getattr(sym, 'is_Symbol', False):
         return None
+    if flags.get('dict') or flags.get('set'):
+        # the reference solve builds its output shapes from the same list
+        inner = {k: v for k, v in flags.items() if k not in ('dict', 'set')}
+        values = _tsolve_step(solve, f, symbols, inner)
+        if not isinstance(values, list) or any(isinstance(v, dict) for v in values):
+            return None
+        if flags.get('dict'):
+            return [{sym: value} for value in values]
+        return ([sym], {(value,) for value in values})
     f = sympify(f)
     if isinstance(f, Equality):
         f = f.lhs - f.rhs

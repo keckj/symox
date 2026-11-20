@@ -268,6 +268,7 @@ fn apply_code_kwargs(s: &mut CodeSettings, kw: Option<&Bound<'_, PyDict>>) -> Py
             "math_macros" => s.math_macros = v.extract::<bool>().unwrap_or(true),
             "fast_math" => s.fast_math = v.extract()?,
             "use_rsqrt" => s.use_rsqrt = v.extract()?,
+            "reciprocal_sqrt" => s.reciprocal_sqrt = v.extract()?,
             "inline_pow" => s.inline_pow = v.extract()?,
             "precision" | "contract" | "human" | "full_prec" | "order" | "standard" | "fully_qualified_modules"
             | "inline" | "dereference" | "error_on_reserved" | "reserved_word_suffix" => {}
@@ -492,7 +493,8 @@ fn py_syclcode(
     let dtype = match dtype {
         "float32" | "float" => pr::SyclDtype::Float32,
         "float64" | "double" => pr::SyclDtype::Float64,
-        _ => return Err(PyValueError::new_err("SYCL dtype must be float32 or float64")),
+        "float16" | "half" => pr::SyclDtype::Float16,
+        _ => return Err(PyValueError::new_err("SYCL dtype must be float16, float32 or float64")),
     };
     let mut settings = pr::SyclSettings { dtype, ..Default::default() };
     if let Some(names) = symbol_names {
@@ -665,7 +667,7 @@ fn fcode(
 }
 
 #[pyfunction]
-#[pyo3(signature = (expr, assign_to=None, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4, **settings))]
+#[pyo3(signature = (expr, assign_to=None, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4, reciprocal_sqrt=false, **settings))]
 #[allow(clippy::too_many_arguments)]
 fn cudacode(
     expr: &Bound<'_, PyAny>,
@@ -674,9 +676,10 @@ fn cudacode(
     fast_math: bool,
     use_rsqrt: bool,
     inline_pow: u32,
+    reciprocal_sqrt: bool,
     settings: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<String> {
-    let cs = CudaSettings { dtype: float_type(dtype)?, fast_math, use_rsqrt, inline_pow };
+    let cs = CudaSettings { dtype: float_type(dtype)?, fast_math, use_rsqrt, reciprocal_sqrt, inline_pow, math_macros: None };
     run_code(expr, assign_to, cs.to_code_settings(), settings)
 }
 
@@ -717,7 +720,7 @@ fn ccode_function(
 }
 
 #[pyfunction]
-#[pyo3(signature = (name, args, exprs, cse=true, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4))]
+#[pyo3(signature = (name, args, exprs, cse=true, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4, reciprocal_sqrt=false, math_macros=None))]
 #[allow(clippy::too_many_arguments)]
 fn cuda_kernel(
     py: Python<'_>,
@@ -729,15 +732,17 @@ fn cuda_kernel(
     fast_math: bool,
     use_rsqrt: bool,
     inline_pow: u32,
+    reciprocal_sqrt: bool,
+    math_macros: Option<bool>,
 ) -> PyResult<String> {
     let a = symbols_of(args)?;
     let (e, _) = expr_list(exprs)?;
-    let opts = CodegenOptions { cse, dtype: float_type(dtype)?, fast_math, use_rsqrt, inline_pow, ..Default::default() };
+    let opts = CodegenOptions { cse, dtype: float_type(dtype)?, fast_math, use_rsqrt, reciprocal_sqrt, math_macros, inline_pow, ..Default::default() };
     py.allow_threads(|| pr::cuda_kernel(name, &a, &e, &opts)).map_err(code_err)
 }
 
 #[pyfunction]
-#[pyo3(signature = (name, args, exprs, cse=true, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4))]
+#[pyo3(signature = (name, args, exprs, cse=true, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4, reciprocal_sqrt=false, math_macros=None))]
 #[allow(clippy::too_many_arguments)]
 fn cuda_device_function(
     py: Python<'_>,
@@ -749,10 +754,12 @@ fn cuda_device_function(
     fast_math: bool,
     use_rsqrt: bool,
     inline_pow: u32,
+    reciprocal_sqrt: bool,
+    math_macros: Option<bool>,
 ) -> PyResult<String> {
     let a = symbols_of(args)?;
     let (e, _) = expr_list(exprs)?;
-    let opts = CodegenOptions { cse, dtype: float_type(dtype)?, fast_math, use_rsqrt, inline_pow, ..Default::default() };
+    let opts = CodegenOptions { cse, dtype: float_type(dtype)?, fast_math, use_rsqrt, reciprocal_sqrt, math_macros, inline_pow, ..Default::default() };
     py.allow_threads(|| pr::cuda_device_function(name, &a, &e, &opts)).map_err(code_err)
 }
 

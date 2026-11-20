@@ -10,7 +10,6 @@ use super::facts_data::{ALL_FACTS, COMPOSITES, FACTS_DICT, MATRIX_FACTS, NUMBER_
 use super::predicates::Pred;
 use super::{applied_unchecked, as_applied, handlers, lra, q, AskError};
 use crate::expr::{Constant, Expr, Func, Kind};
-use crate::logic::LogicOp;
 
 pub(super) type R = Result<Option<bool>, AskError>;
 
@@ -598,9 +597,4 @@ fn class_facts(e: &Expr, atoms: &mut Atoms) -> (Vec<F>, Vec<Expr>) {
         }
         _ => (out, Vec::new()),
     }
-}
-
-#[allow(dead_code)]
-pub(super) fn logic_args(e: &Expr) -> Option<(LogicOp, &[Expr])> {
-    crate::logic::as_logic(e)
 }

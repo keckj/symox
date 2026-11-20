@@ -21,9 +21,10 @@ factor `x`. Composite factors and exact numerical factors are accepted;
 `coeff(1)` selects terms whose rational coefficient is one, and `coeff(-1)`
 selects explicit negative signs. At power zero it selects independent terms,
 with the standard special handling of additive generators. The power must be
-an integer. `right` is accepted for commutative scalar factors; noncommutative
-scalar symbols remain unsupported. Numeric coefficient powers above magnitude
-100,000 raise `NotImplementedError` to avoid evaluating enormous integers.
+an integer. `right` also selects left or right coefficients of noncommutative
+factors, following SymPy's noncommutative `coeff`. Powers of a numeric `x`
+above magnitude 100,000 raise `NotImplementedError` to avoid evaluating
+enormous integers.
 
 ```python
 from symox import symbols, sin, Derivative, Function, Symbol
@@ -75,19 +76,17 @@ supplied SymPy objects and native pickle round trips retain this metadata.
 selectors continue to include them. `symbols(..., cls=Wild)` uses the requested
 constructor; custom callable constructors are also respected.
 
-Predicate properties on wildcards remain unsupported. Nonempty `properties`
-now raises `NotImplementedError` instead of silently accepting ineffective
-constraints. Empty properties are supported. As in SymPy, `srepr` identifies
+Predicate `properties` are ordered Python callables checked when a wildcard
+is bound: `(2*x).match(Wild('a', properties=[lambda k: k.is_integer])*x)`
+binds `2`, while `y*x` does not match. As in SymPy, `srepr` identifies
 the wildcard and its assumptions but does not serialize its exclusion tuple;
 use pickle or an explicit constructor to retain exclusions.
 
 `match(pattern, old=False)` and `pattern.matches(value, repl_dict=None, old=False)`
-accept the legacy matching flag. With `old=True`, a failed native match can solve
-one wildcard that occurs linearly in the matching equation. The proposed binding
-must satisfy its exclusions and reproduce the target expression symbolically.
-This fallback does not search nonlinear roots or solve several wildcards at once.
-Existing bindings passed to `matches` are copied, and matching still has the
-native search limitations described under replacement below.
+use a port of SymPy 1.14's structural `matches` protocol (`symox/_matching.py`):
+the same traversal order, handling of exact and wild parts, rewriting of
+integer powers and coefficients, and the same `old` flag. Existing bindings
+passed to `matches` are copied.
 
 ```python
 from symox import Wild
@@ -147,18 +146,20 @@ proportional to the stored exponent just to compare against another value.
 
 ## Numerical recognition
 
-`expr.nsimplify(constants=(), tolerance=None, full=False)` now forwards method
-options to the native numerical recognition interface. A supplied constant
-basis is supported, for example `value.nsimplify(constants=[pi])`. Exact inputs
-retain their exact representation. Explicit tolerances and `full=True` for
-irrational recognition remain unsupported.
+`expr.nsimplify(constants=(), tolerance=None, full=False)` forwards method
+options to the global `nsimplify`. A supplied constant basis is supported, for
+example `value.nsimplify(constants=[pi])`. Exact inputs retain their exact
+representation. Explicit tolerances and `full=True` follow SymPy's search
+through `mpmath.identify` (`tolerance=0` uses PSLQ); matrices are mapped
+entrywise and infinite floats become `oo`/`-oo`.
 
 The global `nsimplify(value, rational=True, rational_conversion='base10')`
 converts float atoms to exact rationals, including symbolic coefficients and
-exponents. Decimal conversion recognizes nearby small fractions at the displayed
-precision and otherwise retains the decimal data. `rational_conversion='exact'`
-preserves the stored binary value. Neither path rounds through a machine float,
-so arbitrary-precision values and tiny nonzero numbers are retained.
+exponents. Like SymPy's `_real_to_rational`, base-10 conversion first tries
+`nsimplify(atom, rational=False)` and otherwise uses the decimal string.
+`rational_conversion='exact'` preserves the stored binary value. Neither path
+rounds through a machine float, so arbitrary-precision values and tiny nonzero
+numbers are retained.
 
 ```python
 from symox import Float, nsimplify, Rational
@@ -171,10 +172,9 @@ assert nsimplify(Float('3.141592653589793'), rational=True, tolerance=Rational(1
 With `rational=True`, a positive tolerance below one bounds the denominator by
 `ceil(1/tolerance)`; a tolerance of at least one rounds on that tolerance grid
 before bounding the denominator. These are rational approximation controls;
-they do not enable the unfinished irrational identification search. Float
-rationalization is limited to 100,000 precision bits and decimal exponent
-magnitude 100,000. Unsupported sizes raise `NotImplementedError` before exact
-denominator allocation. `rational=False` selects the existing native numerical
+they do not enable the irrational identification search. Decimal
+rationalization is limited to a decimal exponent magnitude of 1,000,000;
+larger values raise `NotImplementedError` before exact denominator allocation. `rational=False` selects the existing native numerical
 recognition path, which can return radicals and supplied constant multiples.
 
 ## Ordering, leading terms and assumptions
@@ -197,8 +197,7 @@ assert nfloat(x**2, exponent=True) == x**Float(2)
 Lists, tuples, sets and dictionaries retain their container type. Dictionary
 keys are preserved unless `dkeys=True`. Concrete matrices and arrays convert
 entries, while symbolic matrices retain exact dimensions, indices and matrix
-power exponents. Decimal precision must lie between 1 and 10,000. Symbolic
-floating-conversion caches and structural traversal are limited to 100,000
+power exponents. Symbolic floating-conversion caches and structural traversal are limited to 100,000
 distinct nodes; cyclic Python containers are rejected.
 
 `as_ordered_terms(order=None, data=False)` accepts `lex`, `grlex`, `grevlex`,
@@ -265,11 +264,9 @@ assert changes == {sin(x): cos(x)}
 assert (4*x).replace(2*x, y) == 4*x
 ```
 
-Matching uses the native matcher; arbitrary algebraic rearrangements are not
-fully equivalent to SymPy's matching search. In particular, symbolic fixed
-factors must be present in multiplicative matches. Coefficient patterns should
-give wildcards explicit generator exclusions when they represent independent
-coefficients. Linked variable and shape metadata are validated when rebuilding
+Pattern queries use the same `match` port as above. Coefficient patterns
+should give wildcards explicit generator exclusions when they represent
+independent coefficients. Linked variable and shape metadata are validated when rebuilding
 constructors. Compact shared graphs are processed once per distinct node, so
 callbacks should be pure; the graph is limited to 100,000 distinct nodes.
 
@@ -324,5 +321,5 @@ finite-array implementation described in [arrays](arrays.md).
 Held derivatives of whole matrices or arrays require a future lazy array
 expression representation and raise `NotImplementedError`. Individual scalar
 entries can be held explicitly with `applyfunc`. Evaluated derivatives use native
-canonical simplification; `simplify=False` remains unsupported for evaluated
-calls. It is accepted for held scalar derivatives, which perform no calculation.
+canonical simplification. `simplify=False` is accepted for evaluated and held
+scalar derivatives.

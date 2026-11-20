@@ -7,7 +7,7 @@
 //! faithful ports of SymPy's generic expression algorithms.
 
 use super::domain::{matrix_domain, Domain, PolyMat};
-use super::ff::{bareiss_det, berkowitz, rref_den, Ring};
+use super::ff::{bareiss_det, berkowitz, rref_den};
 use super::int::{Int, Rat};
 use super::mpoly::MPoly;
 use super::ratfunc::{
@@ -1563,9 +1563,6 @@ fn poly_inverse(pm: &PolyMat, scales: &[MPoly]) -> MResult<Matrix> {
     }
     Ok(Matrix::new_unchecked(n, n, data))
 }
-
-#[allow(dead_code)]
-fn ring_check<R: Ring>(_: &R) {}
 
 #[cfg(test)]
 mod row_callback_tests {

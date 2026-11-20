@@ -359,3 +359,469 @@ def test_pycode_unsupported_cfunction_error_type(ns):
     from symox.printing.codeprinter import PrintMethodNotImplementedError
     with pytest.raises(PrintMethodNotImplementedError, match='Unsupported by .*PythonCodePrinter.*: Cbrt'):
         eval('pycode(Cbrt(x))', ns)
+
+
+# codegen.numpy_nodes, scipy_nodes, pynodes, their printers and the
+# rewriting optimizations producing them; (code, expected) from SymPy 1.14.
+NODES_SETUP = "\nfrom symox import (Pow, symbols, Symbol, Float, Rational, Integer, I, pi, oo, sin, cos, exp, log, sqrt, Max, Min,\n    Derivative, Tuple, srepr, latex, N, pycode, ccode, cxxcode, simplify, MatrixSymbol, Q, assuming)\nfrom symox.codegen.numpy_nodes import logaddexp, logaddexp2, amin, amax, minimum, maximum\nfrom symox.codegen.scipy_nodes import cosm1, powm1\nfrom symox.codegen.pynodes import List, NumExprEvaluate\nfrom symox.codegen.ast import Assignment, Return, CodeBlock\nfrom symox.codegen.cfunctions import log2, expm1, log1p\nfrom symox.codegen import rewriting as rw\nfrom symox.codegen.rewriting import optimize, optims_c99, optims_numpy, optims_scipy\nfrom symox.printing.pycode import PythonCodePrinter, MpmathPrinter\nfrom symox.printing.numpy import NumPyPrinter, SciPyPrinter\nfrom symox.printing.lambdarepr import NumExprPrinter, LambdaPrinter\nfrom symox.printing.c import C99CodePrinter\nfrom symox.printing.cxx import CXX17CodePrinter\nx, y, z = symbols('x y z')\n"
+
+NODES_REFERENCE = [
+    ('logaddexp(y, x)',
+     ['ok', 'logaddexp(x, y)']),
+    ('logaddexp2(y, x)',
+     ['ok', 'logaddexp2(x, y)']),
+    ('logaddexp(Float(1.5), Float(2.5))',
+     ['ok', '2.81326168751822']),
+    ("logaddexp(Float('0.5', 30), 1)",
+     ['ok', 'logaddexp(0.5, 1)']),
+    ('logaddexp2(Float(1), Float(3))',
+     ['ok', '3.32192809488736']),
+    ('cosm1(Float(0.5))',
+     ['ok', '-0.122417438109627']),
+    ('powm1(Float(2), Float(0.5))',
+     ['ok', '0.414213562373095']),
+    ('cosm1(0)',
+     ['ok', 'cosm1(0)']),
+    ('powm1(x, 0)',
+     ['ok', 'powm1(x, 0)']),
+    ('minimum(x, y)',
+     ['ok', 'minimum(x, y)']),
+    ('maximum(Float(1), Float(2))',
+     ['ok', 'maximum(1.0, 2.0)']),
+    ('logaddexp(x, y).args',
+     ['ok', '(x, y)']),
+    ('logaddexp(x, y, evaluate=False)',
+     ['err', 'TypeError', "logaddexp.__new__() got an unexpected keyword argument 'evaluate'"]),
+    ('amin(x)',
+     ['ok', 'amin(x)']),
+    ('amax(x, axis=1)',
+     ['ok', 'amax(x, axis=1)']),
+    ('amin(x).axis',
+     ['ok', 'NoneToken()']),
+    ('amax(x, 2).axis',
+     ['ok', '2']),
+    ('amin([1, 2])',
+     ['ok', 'amin([1, 2])']),
+    ('amin(x) == amin(x)',
+     ['ok', 'True']),
+    ('List(1, 2, x)',
+     ['ok', '[1, 2, x]']),
+    ('List(1, 2, x).func',
+     ['ok', "<class 'symox.codegen.pynodes.List'>"]),
+    ('type(List(x).subs(x, 2)).__name__',
+     ['ok', 'List']),
+    ('List(x, y)[1]',
+     ['ok', 'y']),
+    ('len(List(x, y))',
+     ['ok', '2']),
+    ('NumExprEvaluate(x + 1)',
+     ['ok', 'NumExprEvaluate(x + 1)']),
+    ('NumExprEvaluate(x).expr',
+     ['ok', 'x']),
+    ('logaddexp(x, y).diff(x)',
+     ['ok', '1/(exp(-x + y) + 1)']),
+    ('logaddexp(x, y).diff(y)',
+     ['ok', '1/(exp(x - y) + 1)']),
+    ('logaddexp2(x, y).diff(x)',
+     ['ok', '1/(2**(-x + y) + 1)']),
+    ('logaddexp2(x, y).diff(y)',
+     ['ok', '1/(2**(x - y) + 1)']),
+    ('cosm1(x).diff(x)',
+     ['ok', '-sin(x)']),
+    ('powm1(x, y).diff(x)',
+     ['ok', 'x**y*y/x']),
+    ('powm1(x, y).diff(y)',
+     ['ok', 'x**y*log(x)']),
+    ('logaddexp(x, y).fdiff(3)',
+     ['err', 'ArgumentIndexError', 'Invalid operation with argument number 3 for Function logaddexp(x, y)']),
+    ('cosm1(x).fdiff(2)',
+     ['err', 'ArgumentIndexError', 'Invalid operation with argument number 2 for Function cosm1(x)']),
+    ('logaddexp(x**2, x).diff(x)',
+     ['ok', '2*x/(exp(-x**2 + x) + 1) + 1/(exp(x**2 - x) + 1)']),
+    ('logaddexp(x, y).rewrite(log)',
+     ['ok', 'log(exp(x) + exp(y))']),
+    ('logaddexp2(x, y).rewrite(log)',
+     ['ok', 'log(2**x + 2**y)/log(2)']),
+    ('cosm1(x).rewrite(cos)',
+     ['ok', 'cos(x) - 1']),
+    ('powm1(x, y).rewrite(Pow)',
+     ['ok', 'x**y - 1']),
+    ('maximum(x, y).rewrite(Max)',
+     ['ok', 'Max(x, y)']),
+    ('minimum(x, y, z).rewrite(Min)',
+     ['ok', 'Min(x, y, z)']),
+    ('logaddexp(log(2), log(3)).evalf()',
+     ['ok', '1.60943791243410']),
+    ('N(logaddexp(1, 2), 30)',
+     ['ok', '2.31326168751822283404899549497']),
+    ('cosm1(Rational(1, 3)).evalf(20)',
+     ['ok', '-0.055043053685262335612']),
+    ('powm1(2, Rational(1, 2)).evalf()',
+     ['ok', '0.414213562373095']),
+    ('logaddexp(log(2), log(3)).simplify()',
+     ['ok', 'log(5)']),
+    ('logaddexp2(1, 1).simplify()',
+     ['ok', 'log(4)/log(2)']),
+    ('cosm1(x).simplify()',
+     ['ok', 'cos(x) - 1']),
+    ('powm1(x, y).simplify()',
+     ['ok', 'x**y - 1']),
+    ('simplify(cosm1(x) + 1)',
+     ['ok', 'cosm1(x) + 1']),
+    ('simplify(powm1(x, y) + 1)',
+     ['ok', 'powm1(x, y) + 1']),
+    ('logaddexp(x, y).is_real',
+     ['ok', 'None']),
+    ('cosm1(x).is_number',
+     ['ok', 'False']),
+    ('srepr(logaddexp(x, y))',
+     ['ok', "logaddexp(Symbol('x'), Symbol('y'))"]),
+    ('srepr(cosm1(x))',
+     ['ok', "cosm1(Symbol('x'))"]),
+    ('srepr(amax(x, axis=1))',
+     ['ok', "amax(Symbol('x'), axis=Integer(1))"]),
+    ('srepr(List(x, 1))',
+     ['ok', "List(Symbol('x'), Integer(1))"]),
+    ('str(amin(x))',
+     ['ok', 'amin(x)']),
+    ('str(NumExprEvaluate(x + 1))',
+     ['ok', 'NumExprEvaluate(x + 1)']),
+    ('latex(logaddexp(x, y))',
+     ['ok', '\\operatorname{logaddexp}{\\left(x,y \\right)}']),
+    ('latex(cosm1(x))',
+     ['ok', '\\operatorname{cosm}_{1}{\\left(x \\right)}']),
+    ('latex(powm1(x, y))',
+     ['ok', '\\operatorname{powm}_{1}{\\left(x,y \\right)}']),
+    ('latex(maximum(x, y))',
+     ['ok', '\\operatorname{maximum}{\\left(x,y \\right)}']),
+    ('pycode(logaddexp(x, y))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.pycode.PythonCodePrinter'>: logaddexp\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ('pycode(cosm1(x))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.pycode.PythonCodePrinter'>: cosm1\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ('pycode(cosm1(x), strict=False)',
+     ['ok', '  # Not supported in Python:\n  # cosm1\ncosm1(x)']),
+    ('pycode(logaddexp(x, y) + cosm1(x), strict=False)',
+     ['ok', '  # Not supported in Python:\n  # cosm1\n  # logaddexp\ncosm1(x) + logaddexp(x, y)']),
+    ('pycode(List(x, 1))',
+     ['ok', '[x, 1]']),
+    ('pycode(amin(x))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.pycode.PythonCodePrinter'>: <class 'symox.codegen.numpy_nodes.amin'>\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ('pycode(amin(x), strict=False)',
+     ['ok', "  # Not supported in Python:\n  # amin\namin(Symbol('x'))"]),
+    ('PythonCodePrinter().doprint(cosm1(x))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.pycode.PythonCodePrinter'>: cosm1\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ("PythonCodePrinter({'strict': False}).doprint(powm1(x, y))",
+     ['ok', '  # Not supported in Python:\n  # powm1\npowm1(x, y)']),
+    ('MpmathPrinter().doprint(logaddexp(x, y))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.pycode.MpmathPrinter'>: logaddexp\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ("MpmathPrinter({'strict': False}).doprint(logaddexp(x, y))",
+     ['ok', '  # Not supported in Python with mpmath:\n  # logaddexp\nlogaddexp(x, y)']),
+    ('NumPyPrinter().doprint(logaddexp(x, y))',
+     ['ok', 'numpy.logaddexp(x, y)']),
+    ('NumPyPrinter().doprint(logaddexp2(x, y))',
+     ['ok', 'numpy.logaddexp2(x, y)']),
+    ('NumPyPrinter().doprint(minimum(x, y, z))',
+     ['ok', 'functools.reduce(numpy.minimum, [x, y, z])']),
+    ('NumPyPrinter().doprint(maximum(x))',
+     ['ok', 'x']),
+    ('NumPyPrinter().doprint(maximum())',
+     ['err', 'NotImplementedError', 'Need at least one argument for numpy.maximum']),
+    ('NumPyPrinter().doprint(amin(x, axis=0))',
+     ['ok', 'numpy.amin(x, axis=0)']),
+    ('NumPyPrinter().doprint(amax(x))',
+     ['ok', 'numpy.amax(x, axis=None)']),
+    ('NumPyPrinter().doprint(cosm1(x))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.numpy.NumPyPrinter'>: cosm1\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ("NumPyPrinter({'strict': False}).doprint(cosm1(x))",
+     ['ok', '  # Not supported in Python with numpy:\n  # cosm1\ncosm1(x)']),
+    ('NumPyPrinter().doprint(Max(x, y, z))',
+     ['ok', 'functools.reduce(numpy.maximum, [x, y, z])']),
+    ('NumPyPrinter().doprint(Min(x, y))',
+     ['ok', 'functools.reduce(numpy.minimum, [x, y])']),
+    ('SciPyPrinter().doprint(cosm1(x))',
+     ['ok', 'scipy.special.cosm1(x)']),
+    ('SciPyPrinter().doprint(powm1(x, y))',
+     ['ok', 'scipy.special.powm1(x, y)']),
+    ('SciPyPrinter().doprint(logaddexp(x, y))',
+     ['ok', 'numpy.logaddexp(x, y)']),
+    ('SciPyPrinter().doprint(pi)',
+     ['ok', 'scipy.constants.pi']),
+    ('SciPyPrinter().doprint(Derivative(cosm1(x), x))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.numpy.SciPyPrinter'>: <class 'symox.core.function.Derivative'>\nPrinter has no method: _print_Derivative_cosm1\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ("SciPyPrinter({'strict': False}).doprint(Derivative(cosm1(x), x))",
+     ['ok', '  # Not supported in Python with SciPy and NumPy:\n  # Derivative\nDerivative(cosm1(x), x)']),
+    ('LambdaPrinter().doprint(cosm1(x))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.lambdarepr.LambdaPrinter'>: cosm1\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ('NumExprPrinter().doprint(x + 1)',
+     ['ok', "numexpr.evaluate('x + 1', truediv=True)"]),
+    ('NumExprPrinter().doprint(sin(x) + I)',
+     ['ok', "numexpr.evaluate('sin(x) + 1j', truediv=True)"]),
+    ('NumExprPrinter().doprint(cosm1(x))',
+     ['err', 'TypeError', "numexpr does not support function 'cosm1'"]),
+    ('NumExprPrinter().doprint(Return(x + 1))',
+     ['ok', "return numexpr.evaluate('x + 1', truediv=True)"]),
+    ('NumExprPrinter().doprint([x])',
+     ['err', 'TypeError', 'numexpr cannot be used with list']),
+    ('NumExprPrinter().doprint(NumExprEvaluate(x**2))',
+     ['ok', "numexpr.evaluate('x**2', truediv=True)"]),
+    ('NumExprPrinter().doprint(Assignment(y, x + 1))',
+     ['ok', "y = numexpr.evaluate('x + 1', truediv=True)"]),
+    ('ccode(logaddexp(x, y))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.c.C99CodePrinter'>: logaddexp\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ('ccode(cosm1(x), strict=False)',
+     ['ok', '/* Not supported in C: */\n/* cosm1 */\ncosm1(x)']),
+    ('cxxcode(powm1(x, y))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.cxx.CXX11CodePrinter'>: powm1\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ('ccode(amin(x))',
+     ['err', 'PrintMethodNotImplementedError', "Unsupported by <class 'symox.printing.c.C99CodePrinter'>: <class 'symox.codegen.numpy_nodes.amin'>\nSet the printer option 'strict' to False in order to generate partially printed code."]),
+    ("C99CodePrinter({'strict': False}).doprint(logaddexp(x, y))",
+     ['ok', '/* Not supported in C: */\n/* logaddexp */\nlogaddexp(x, y)']),
+    ("CXX17CodePrinter({'strict': False}).doprint(amax(x))",
+     ['ok', "/* Not supported in C++: */\n/* amax */\namax(Symbol('x'))"]),
+    ('optimize(cos(x) - 1, [rw.cosm1_opt])',
+     ['ok', 'cosm1(x)']),
+    ('optimize(3*cos(x) - 5, [rw.cosm1_opt])',
+     ['ok', '3*cosm1(x) - 2']),
+    ('optimize(2 - 2*cos(x), [rw.cosm1_opt])',
+     ['ok', '-2*cosm1(x)']),
+    ('optimize(cos(x) + cos(y) - 2, [rw.cosm1_opt])',
+     ['ok', 'cosm1(x) + cosm1(y)']),
+    ('optimize(exp(x) + cos(x) - 2, [rw.expm1_opt, rw.cosm1_opt])',
+     ['ok', 'cosm1(x) + expm1(x)']),
+    ('optimize(1/cos(x) - 1, [rw.cosm1_opt])',
+     ['ok', '-cosm1(x)/cos(x)']),
+    ('optimize(2/cos(x) - 2, optims_scipy)',
+     ['ok', '-2*cosm1(x)/cos(x)']),
+    ('optimize(x**y - 1, [rw.powm1_opt])',
+     ['ok', 'powm1(x, y)']),
+    ('optimize(2**x - 1, [rw.powm1_opt])',
+     ['ok', 'powm1(2, x)']),
+    ('optimize(log(exp(x) + exp(y)), optims_numpy)',
+     ['ok', 'logaddexp(x, y)']),
+    ('optimize(log(2**x + 2**y), optims_numpy)',
+     ['ok', 'log(exp2(x) + exp2(y))']),
+    ('optimize(log(exp(x) + exp(y)), [rw.logaddexp_opt])',
+     ['ok', 'logaddexp(x, y)']),
+    ('optimize(log(2**x + 2**y), [rw.logaddexp2_opt])',
+     ['ok', 'log(2)*logaddexp2(x, y)']),
+    ('optimize(log(exp(2*x) + exp(3)), [rw.logaddexp_opt])',
+     ['ok', 'logaddexp(3, 2*x)']),
+    ('optimize(sin(x)/x, optims_numpy)',
+     ['ok', 'sinc(x)']),
+    ('optimize(3*exp(2*x) - 3, optims_c99)',
+     ['ok', '3*expm1(2*x)']),
+    ('optimize(log(x + 3)/log(2) + log(x**2 + 1), optims_c99)',
+     ['ok', 'log1p(x**2) + log2(x + 3)']),
+    ('rw.logsumexp_2terms_opt(log(exp(x) + exp(y)))',
+     ['ok', 'log1p(exp(Min(x, y))) + Max(x, y)']),
+    ('type(rw.logaddexp_opt).__name__',
+     ['ok', 'ReplaceOptim']),
+    ('type(rw.cosm1_opt).__name__',
+     ['ok', 'FuncMinusOneOptim']),
+    ('rw.cosm1_opt.func_m_1.__name__',
+     ['ok', 'cosm1']),
+    ('rw.powm1_opt.func.__name__',
+     ['ok', 'Pow']),
+    ('[type(o).__name__ for o in optims_scipy]',
+     ['ok', "['FuncMinusOneOptim', 'FuncMinusOneOptim']"]),
+    ('len(optims_numpy)',
+     ['ok', '9']),
+    ('rw.create_expand_pow_optimization(3)(x**5 + x**3)',
+     ['ok', 'x**5 + x*x*x']),
+    ('rw.FuncMinusOneOptim(cos, cosm1, opportunistic=False)(3*cos(x) - 5)',
+     ['ok', '3*cos(x) - 5']),
+]
+
+
+@pytest.fixture(scope='module')
+def nodes_ns():
+    namespace = {}
+    exec(NODES_SETUP, namespace)
+    return namespace
+
+
+@pytest.mark.parametrize('code,expected', NODES_REFERENCE)
+def test_nodes_reference_outputs(nodes_ns, code, expected):
+    assert _run(nodes_ns, code) == expected
+
+
+def test_nodes_lambdify_numpy_and_scipy():
+    import math
+    np = pytest.importorskip('numpy')
+    pytest.importorskip('scipy')
+    from symox import lambdify, symbols
+    from symox.codegen.numpy_nodes import logaddexp, logaddexp2, minimum, maximum
+    from symox.codegen.scipy_nodes import cosm1, powm1
+    x, y = symbols('x y')
+    for modules in ('numpy', 'scipy'):
+        assert lambdify((x, y), logaddexp(x, y), modules)(1.0, 2.0) == pytest.approx(math.log(math.exp(1) + math.exp(2)))
+        assert lambdify((x, y), logaddexp2(x, y), modules)(1.0, 2.0) == pytest.approx(math.log2(6))
+    assert lambdify(x, cosm1(x), 'scipy')(1e-3) == pytest.approx(-4.999999583333347e-07, rel=1e-12)
+    assert lambdify((x, y), powm1(x, y), 'scipy')(1.5, 1e-10) == pytest.approx(4.054651081899185e-11, rel=1e-12)
+    a, b = np.array([1., 5., 3.]), np.array([4., 2., 6.])
+    assert lambdify((x, y), minimum(x, y), 'numpy')(a, b).tolist() == [1., 2., 3.]
+    assert lambdify((x, y), maximum(x, y), 'numpy')(a, b).tolist() == [4., 5., 6.]
+
+
+def test_numpy_max_of_three_arrays_keeps_its_inputs():
+    # numpy.maximum(x, y, z) would take z as the output array.
+    np = pytest.importorskip('numpy')
+    from symox import Max, Min, lambdify, symbols
+    from symox.printing.numpy import NumPyPrinter
+    x, y, z = symbols('x y z')
+    assert NumPyPrinter().doprint(Max(x, y, z)) == 'functools.reduce(numpy.maximum, [x, y, z])'
+    a, b, c = np.array([1., 5., 3.]), np.array([4., 2., 6.]), np.array([0., 9., -1.])
+    for F, expected in ((Max, [4., 9., 6.]), (Min, [0., 2., -1.])):
+        args = (a.copy(), b.copy(), c.copy())
+        assert lambdify((x, y, z), F(x, y, z), 'numpy')(*args).tolist() == expected
+        assert [v.tolist() for v in args] == [a.tolist(), b.tolist(), c.tolist()]
+
+
+def _codegen_lambdify_args(n, arrays):
+    np = pytest.importorskip('numpy')
+    if arrays:
+        return [np.array([0.5, 1.5, 2.5]) * (i + 1) - i for i in range(n)]
+    return [0.5 + 0.25 * i for i in range(n)]
+
+
+@pytest.mark.parametrize('n', [2, 3, 5])
+@pytest.mark.parametrize('modules', [None, 'numpy', 'scipy'])
+@pytest.mark.parametrize('arrays', [False, True])
+def test_codegen_minimum_maximum_lambdify_keeps_inputs(n, modules, arrays):
+    # SymPy 1.14: NumPyPrinter._print_minimum folds numpy.minimum with
+    # functools.reduce; numpy.minimum(x, y, z) would write into z (out).
+    np = pytest.importorskip('numpy')
+    if modules != 'numpy':
+        pytest.importorskip('scipy')
+    import inspect
+    from symox import Max, Min, lambdify, symbols
+    from symox.codegen.numpy_nodes import maximum, minimum
+    syms = symbols('x0:%d' % n)
+    for F, ufunc in ((minimum, np.minimum), (maximum, np.maximum), (Min, np.minimum), (Max, np.maximum)):
+        values = _codegen_lambdify_args(n, arrays)
+        kept = [np.copy(v) for v in values]
+        f = lambdify(syms, F(*syms), modules)
+        result = f(*values)
+        assert np.array_equal(result, ufunc.reduce(np.array(kept)))
+        assert all(np.array_equal(v, k) for v, k in zip(values, kept)), 'inputs modified'
+        if F in (minimum, maximum):
+            assert inspect.getsource(f).splitlines()[-1].strip() == \
+                'return reduce(%s, [%s])' % (F.__name__, ', '.join(map(str, syms)))
+            if not arrays:
+                assert type(result) is np.float64
+
+
+@pytest.mark.parametrize('modules', ['math', 'mpmath'])
+def test_codegen_minimum_maximum_lambdify_python_printers(modules):
+    # The math and mpmath printers print minimum/maximum under their own
+    # name: the generated function raises NameError when called.
+    from symox import lambdify, symbols
+    from symox.codegen.numpy_nodes import maximum, minimum
+    x, y, z = symbols('x y z')
+    for F in (minimum, maximum):
+        for args in ((x, y), (x, y, z)):
+            f = lambdify(args, F(*args), modules)
+            with pytest.raises(NameError, match="name '%s' is not defined" % F.__name__):
+                f(*[0.5] * len(args))
+
+
+def test_codegen_amin_amax_lambdify():
+    np = pytest.importorskip('numpy')
+    pytest.importorskip('scipy')
+    import inspect
+    from symox import Tuple, lambdify, sin, symbols
+    from symox.codegen.numpy_nodes import amax, amin
+    from symox.printing.codeprinter import PrintMethodNotImplementedError
+    x = symbols('x')
+    a = np.arange(6.).reshape(2, 3)
+    kept = a.copy()
+    for modules in (None, 'numpy', 'scipy'):
+        for options in ({}, {'cse': True}, {'dummify': True}):
+            assert lambdify(x, amin(x), modules, **options)(a) == 0.0
+            assert lambdify(x, amax(x), modules, **options)(a) == 5.0
+            assert lambdify(x, amin(x, axis=0), modules, **options)(a).tolist() == [0.0, 1.0, 2.0]
+            assert lambdify(x, amax(x**2, axis=1), modules, **options)(a).tolist() == [4.0, 25.0]
+            assert lambdify(x, amin([x, 2*x]), modules, **options)(a) == 0.0
+            assert lambdify(x, amax(x, axis=Tuple(0, 1)), modules, **options)(a) == 5.0
+    assert np.array_equal(a, kept)
+    assert inspect.getsource(lambdify(x, amin(x), 'numpy')).splitlines()[-1].strip() == 'return amin(x, axis=None)'
+    assert inspect.getsource(lambdify(x, amax(sin(x), axis=0), 'scipy')).splitlines()[-1].strip() == \
+        'return amax(sin(x), axis=0)'
+    for modules in ('math', 'mpmath'):
+        for options in ({}, {'cse': True}):
+            with pytest.raises(PrintMethodNotImplementedError, match='Unsupported by'):
+                lambdify(x, amin(x), modules, **options)
+            with pytest.raises(PrintMethodNotImplementedError, match='Unsupported by'):
+                lambdify(x, amax(x, axis=0), modules, **options)
+
+
+def test_codegen_nodes_lambdify_modules():
+    # SymPy 1.14 lambdify of the numpy_nodes, scipy_nodes and cfunctions
+    # classes: the printers' module functions compute, the names they do
+    # not know raise NameError when the generated function is called.
+    import math
+    np = pytest.importorskip('numpy')
+    pytest.importorskip('scipy')
+    mpmath = pytest.importorskip('mpmath')
+    from scipy import special
+    from symox import lambdify, symbols
+    from symox.codegen import cfunctions as cf
+    from symox.codegen.numpy_nodes import logaddexp, logaddexp2
+    from symox.codegen.scipy_nodes import cosm1, powm1
+    x, y, z = symbols('x y z')
+    nodes = {
+        'logaddexp': ((x, y), logaddexp(x, y), lambda a, b: np.logaddexp(a, b)),
+        'logaddexp2': ((x, y), logaddexp2(x, y), lambda a, b: np.logaddexp2(a, b)),
+        'cosm1': ((x,), cosm1(x), lambda a: special.cosm1(a)),
+        'powm1': ((x, y), powm1(x, y), lambda a, b: special.powm1(a, b)),
+        'expm1': ((x,), cf.expm1(x), lambda a: np.expm1(a)),
+        'log1p': ((x,), cf.log1p(x), lambda a: np.log1p(a)),
+        'log2': ((x,), cf.log2(x), lambda a: np.log2(a)),
+        'exp2': ((x,), cf.exp2(x), lambda a: np.exp2(a)),
+        'log10': ((x,), cf.log10(x), lambda a: np.log10(a)),
+        'fma': ((x, y, z), cf.fma(x, y, z), None),
+        'hypot': ((x, y), cf.hypot(x, y), lambda a, b: np.hypot(a, b)),
+        'Sqrt': ((x,), cf.Sqrt(x), lambda a: np.sqrt(a)),
+        'Cbrt': ((x,), cf.Cbrt(x), None),
+    }
+    # Names each printer leaves undefined (NameError at call time).
+    undefined = {
+        'numpy': {'cosm1', 'powm1', 'fma', 'Cbrt'},
+        'scipy': {'fma', 'Cbrt'},
+        'math': {'logaddexp', 'logaddexp2', 'cosm1', 'powm1', 'exp2', 'fma', 'Cbrt'},
+        'mpmath': {'logaddexp', 'logaddexp2', 'cosm1', 'exp2', 'fma', 'Cbrt'},
+    }
+    for modules, names in undefined.items():
+        for name, (args, expr, reference) in nodes.items():
+            scalars = [0.5 + 0.25 * i for i in range(len(args))]
+            for options in ({}, {'cse': True}):
+                f = lambdify(args, expr, modules, **options)
+                if name in names:
+                    with pytest.raises(NameError, match="name '%s' is not defined" % name):
+                        f(*scalars)
+                    continue
+                value = f(*scalars)
+                assert float(value) == pytest.approx(float(reference(*scalars)), rel=1e-14)
+                if modules == 'mpmath' and not options:
+                    assert isinstance(value, mpmath.mpf)
+                if modules in ('numpy', 'scipy') and not options:
+                    assert type(value) is np.float64
+                    arrays = [np.array([0.5, 1.5, 2.5]) + i for i in range(len(args))]
+                    kept = [a.copy() for a in arrays]
+                    assert np.allclose(f(*arrays), reference(*kept), rtol=1e-14)
+                    assert all(np.array_equal(a, k) for a, k in zip(arrays, kept))
+    assert math.isclose(lambdify((x, y), powm1(x, y), 'mpmath')(0.5, 0.75), -0.405396442498, rel_tol=1e-10)
+
+
+def test_derivative_printing_matches_codeprinter():
+    from symox import Derivative, Function, Symbol, sin, zeta
+    from symox.printing.codeprinter import PrintMethodNotImplementedError
+    from symox.printing.pycode import MpmathPrinter, PythonCodePrinter
+    x = Symbol('x')
+    assert MpmathPrinter().doprint(Derivative(zeta(x), (x, 3))) == 'mpmath.zeta(x, derivative=3)'
+    with pytest.raises(PrintMethodNotImplementedError, match='Printer has no method: _print_Derivative_sin'):
+        PythonCodePrinter().doprint(Derivative(sin(x), x))
+    assert PythonCodePrinter({'strict': False}).doprint(Derivative(sin(x), x)) == \
+        '  # Not supported in Python:\n  # Derivative\nDerivative(sin(x), x)'
+    with pytest.raises(ValueError, match='only supports functions with symbols as arguments'):
+        PythonCodePrinter().doprint(Derivative(sin(2*x), x))

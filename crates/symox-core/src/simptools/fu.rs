@@ -7,7 +7,7 @@
 use super::exprtools::{factor_terms, gcd_terms, Factors};
 use super::methods::count_ops;
 use super::{add_args, args, as_coeff_mul, as_numer_denom, bottom_up, expand_mul, is_number_atom, mul_args, nodes, num_lt, ordered};
-use crate::expr::{Constant, Expr, Func, Kind};
+use crate::expr::{Expr, Func, Kind};
 use crate::functions::func;
 use crate::number::Number;
 use crate::{assumptions as asm, ops};
@@ -1880,7 +1880,3 @@ pub fn fu(rv: &Expr, less: Less) -> Expr {
     min_by_measure(vec![tr2i(&rv, false), rv], less)
 }
 
-/// Constant used by callers that need `pi`.
-pub fn pi_expr() -> Expr {
-    Expr::constant(Constant::Pi)
-}

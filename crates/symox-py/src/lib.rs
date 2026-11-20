@@ -989,10 +989,10 @@ pub(crate) fn decimal_precision(n: impl Into<i64>) -> PyResult<u32> {
 
 /// Parsed `evalf` keywords: native options plus SymPy's strict flag.
 #[derive(Clone,Copy,Default)]
-pub(crate) struct EvalfSettings { options:symox::evalf_mp::EvalfOptions, strict:bool, quad:bool }
+pub(crate) struct EvalfSettings { options:symox::evalf_mp::EvalfOptions, strict:bool, quadrature:symox::evalf_mp::QuadratureOptions }
 
 pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) -> PyResult<EvalfSettings> {
-    let mut chop=None;let mut strict=false;let mut maxn:Option<f64>=None;let mut quad=false;
+    let mut chop=None;let mut strict=false;let mut maxn:Option<f64>=None;let mut osc=false;
     if let Some(kwargs) = kwargs {
         for (key, value) in kwargs {
             let key: String = key.extract()?;
@@ -1021,9 +1021,9 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
                 "verbose" => {},
                 // SymPy: maxprec = max(prec, int(maxn*LG10)).
                 "maxn" => maxn=Some(value.extract::<f64>()?*std::f64::consts::LOG2_10),
-                // A quadrature choice only matters for an Integral; it is
-                // refused there (see evalf_prepared) and ignored elsewhere.
-                "quad" => quad=!value.is_none(),
+                // SymPy's evalf_integral: `quad='osc'` selects mpmath's
+                // quadosc, any other value its default tanh-sinh quadrature.
+                "quad" => osc=value.extract::<String>().is_ok_and(|mode|mode=="osc"),
                 _ => return Err(PyTypeError::new_err(format!("unexpected evalf option {key}"))),
             }
         }
@@ -1041,7 +1041,12 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
     // Without strict, an exhausted sum is returned as SymPy's evalf_add
     // returns it: precision 1 Floats bounding the residue.
     let residue=!strict;
-    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial,residue,cancellation:None},strict,quad})
+    // SymPy's evalf_integral raises its working precision up to
+    // `maxprec = max(prec, int(maxn*LG10))`; without maxn the host applies
+    // the default maxn = 100.
+    let maxprec=maxn.map(|bits|if bits.is_nan(){0}else{bits.trunc().clamp(0.0,f64::from(MAX_REQUESTED_PRECISION)) as u32});
+    let quadrature=symox::evalf_mp::QuadratureOptions{osc,maxprec};
+    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial,residue,cancellation:None},strict,quadrature})
 }
 
 pub(crate) fn evalf_expr(e: &Expr, n: i64, replacements: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
@@ -1076,9 +1081,7 @@ fn evalf_checked(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,se
         }
         None => e.clone(),
     };
-    if settings.quad&&e.has_calculus_binding() {
-        return Err(PyNotImplementedError::new_err("evalf option quad is not implemented for integrals"));
-    }
+    let _quadrature=symox::evalf_mp::QuadratureScope::enter(settings.quadrature);
     if settings.options==symox::evalf_mp::EvalfOptions::default() {return Ok(symox::evalf_mp::evalf(&e, precision));}
     if settings.options==(symox::evalf_mp::EvalfOptions{residue:true,..Default::default()}) {return Ok(symox::evalf_mp::evalf_reporting_residue(&e, precision));}
     let (value,exhausted)=symox::evalf_mp::evalf_with_options(&e,precision,settings.options);
@@ -2759,17 +2762,29 @@ impl PyExprNode {
             // integral transforms: SymPy's hints and (result, plane, cond) tuples
             return Ok(py.import("symox._transforms")?.getattr("_doit")?.call((wrap(self.e.clone()), deep), hints)?.unbind());
         }
-        if let (Some(hints),Kind::Func(Func::Integral,args))=(hints,self.e.kind()){
-            let integration_hint=|name:&Bound<'_,PyAny>|name.extract::<String>().is_ok_and(|n|matches!(n.as_str(),"meijerg"|"risch"|"heurisch"|"manual"|"conds"|"final"));
-            if !hints.is_empty()&&hints.keys().iter().all(|name|integration_hint(&name)){
+        let mut hints=hints;
+        if let (Some(given),Kind::Func(Func::Integral,args))=(hints,self.e.kind()){
+            // SymPy's `Integral.doit` reads its own hints and ignores the
+            // others; `integrals=False` returns the integral unchanged.
+            if let Some(integrals)=given.get_item("integrals")?{
+                if !integrals.is_truthy()?{return Ok(wrap(self.e.clone()).into_pyobject(py)?.into_any().unbind());}
+            }
+            let selected=PyDict::new(py);
+            for (name,value) in given.iter(){
+                if name.extract::<String>().is_ok_and(|n|matches!(n.as_str(),"meijerg"|"risch"|"heurisch"|"manual"|"conds"|"final")){
+                    selected.set_item(name,value)?;
+                }
+            }
+            if !selected.is_empty(){
                 // `Integral.doit(meijerg=..., conds=...)`: the hints of
                 // `integrate`, the integrand evaluated first when deep
                 let body=if deep{fx::doit(&args[0],true)}else{args[0].clone()};
                 let limits=symox::binders::limits(args).into_iter()
                     .map(|l|PyTuple::new(py,l.into_iter().map(wrap)))
                     .collect::<PyResult<Vec<_>>>()?;
-                return integrate_result(py,&body,&PyTuple::new(py,limits)?,Some(hints));
+                return integrate_result(py,&body,&PyTuple::new(py,limits)?,Some(&selected));
             }
+            hints=None;
         }
         if let Some(hints)=hints {for (name,value) in hints.iter(){
             if matches!(self.e.kind(),Kind::Func(Func::MatrixDotProduct(_,_),_))&&name.extract::<String>()?=="expand" {
@@ -2778,6 +2793,13 @@ impl PyExprNode {
                 let _:bool=value.extract()?;
             }else{return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));}
         }}
+        if let Kind::Func(Func::Limit,args)=self.e.kind(){
+            // SymPy's Limit.doit: a variable that is not a symbol is only
+            // accepted when it is the expression or absent from it
+            if args.len()==4&&!matches!(args[1].kind(),Kind::Sym(_))&&args[0]!=args[1]&&symox::traverse::has(&args[0],&args[1]){
+                return Err(PyTypeError::new_err(format!("{} should be of symbol type",args[1])));
+            }
+        }
         symox::limits::check_doit(&self.e,deep).map_err(|error|PyValueError::new_err(error.to_string()))?;
         let value=if self.e.has_symbolic_derivative(){with_derivative_errors(||Ok(fx::doit(&self.e,deep)))?}else{fx::doit(&self.e, deep)};
         host::raise_pending()?;
@@ -4226,6 +4248,11 @@ pub struct PyCompiled {
     // their bound are derived on first need.
     reference: pyo3::sync::GILOnceCell<(Py<PyAny>, u8, u8)>,
     reference_function: pyo3::sync::GILOnceCell<Option<Py<PyAny>>>,
+    // Set when the generated function gives the source, docstring, signature
+    // and namespace only: its source names a function without a definition
+    // (SymPy's NameError), the native evaluation computes the values, and
+    // only the object evaluation that lacks the function calls it.
+    introspection_only: pyo3::sync::GILOnceCell<()>,
     int_kind: pyo3::sync::GILOnceCell<(u8, u64)>,
     // The printed return expression, its argument names and the resolver of
     // its global names, and its bit-exact native evaluation built from them.
@@ -4480,7 +4507,7 @@ impl PyCompiled {
                 args.len()
             )));
         }
-        if let Some(reference) = self.reference.get(py) {
+        if let (Some(reference), None) = (self.reference.get(py), self.introspection_only.get(py)) {
             if let Some(result) = self.call_reference(py, reference, args)? {
                 return Ok(result);
             }
@@ -4502,7 +4529,7 @@ impl PyCompiled {
         // NumPy subclasses, complex/object arrays and external scalars own
         // arithmetic protocols that a float64 buffer would erase.
         if args.iter().map(|value| needs_object_evaluation(&value)).collect::<PyResult<Vec<_>>>()?.into_iter().any(|value| value) {
-            return Ok(self.object_evaluator(py)?.bind(py).call(args, None)?.unbind());
+            return self.object_call(py, args);
         }
         if self.numpy_vectors {
             let evaluator=self.numpy_evaluator.get_or_try_init(py,||
@@ -4510,14 +4537,31 @@ impl PyCompiled {
             let result=evaluator.bind(py).call(args,None)?;
             if !result.is(py.NotImplemented().bind(py)){return Ok(result.unbind());}
         }
-        // vectorised path: broadcast scalars against 1-d arrays
+        // vectorised path: NumPy broadcasting of all array arguments, as the
+        // NumPy code printed by SymPy's lambdify evaluates them. Incompatible
+        // shapes raise NumPy's ValueError; equal sizes with different shapes
+        // are no longer paired element by element after flattening.
         let np = py.import("numpy")?;
+        let converted: Vec<Bound<'_, PyAny>> = args
+            .iter()
+            .map(|a| np.call_method1("asarray", (a, "float64")))
+            .collect::<PyResult<_>>()?;
+        let mut array_shapes = Vec::new();
+        for arr in &converted {
+            if arr.getattr("ndim")?.extract::<usize>()? > 0 {
+                array_shapes.push(arr.getattr("shape")?);
+            }
+        }
+        let target = if array_shapes.is_empty() {
+            None
+        } else {
+            Some(np.call_method1("broadcast_shapes", PyTuple::new(py, &array_shapes)?)?)
+        };
         let mut arrays: Vec<Vec<f64>> = Vec::with_capacity(args.len());
         let mut n: Option<usize> = None;
         let mut shape: Option<PyObject> = None;
         let mut scalar_flags = Vec::new();
-        for a in args.iter() {
-            let arr = np.call_method1("asarray", (a, "float64"))?;
+        for arr in converted {
             let ndim: usize = arr.getattr("ndim")?.extract()?;
             if ndim == 0 {
                 scalar_flags.push(true);
@@ -4525,15 +4569,16 @@ impl PyCompiled {
                 continue;
             }
             scalar_flags.push(false);
+            let target = target.as_ref().expect("an array argument has a broadcast shape");
+            let arr = if arr.getattr("shape")?.eq(target)? {
+                arr
+            } else {
+                np.call_method1("broadcast_to", (arr, target))?
+            };
             let size: usize = arr.getattr("size")?.extract()?;
-            if let Some(m) = n {
-                if m != size {
-                    return Err(PyValueError::new_err("array arguments must have the same size"));
-                }
-            }
             n = Some(size);
             if shape.is_none() {
-                shape = Some(arr.getattr("shape")?.unbind());
+                shape = Some(target.clone().unbind());
             }
             let flat = arr.call_method1("reshape", (-1,))?;
             let flat = np.call_method1("ascontiguousarray", (flat,))?;
@@ -4589,10 +4634,19 @@ impl PyCompiled {
     /// Attach SymPy's generated function: `builder()` returns it (or None),
     /// `kind` is its result type code for Python float arguments and
     /// `flavor` the printer ('math', 'numpy' or 'scipy').
-    #[pyo3(signature = (builder, kind, flavor, body=None, names=None, resolve=None))]
+    /// With `evaluate=False` it gives the introspection only (see
+    /// `introspection_only`).
+    #[pyo3(signature = (builder, kind, flavor, body=None, names=None, resolve=None, evaluate=true))]
     fn _attach_reference(&self, py: Python<'_>, builder: Py<PyAny>, kind: u8, flavor: &str,
-                         body: Option<String>, names: Option<Vec<String>>, resolve: Option<Py<PyAny>>) -> bool {
+                         body: Option<String>, names: Option<Vec<String>>, resolve: Option<Py<PyAny>>,
+                         evaluate: bool) -> bool {
         let flavor = match flavor { "math" => 0, "numpy" => 1, "scipy" => 2, _ => return false };
+        if self.reference.get(py).is_some() {
+            return false;
+        }
+        if !evaluate {
+            let _ = self.introspection_only.set(py, ());
+        }
         if let (Some(body), Some(names), Some(resolve)) = (body, names, resolve) {
             let _ = self.printed.set(py, (body, names, resolve));
         }
@@ -4680,6 +4734,7 @@ fn py_lambdify(
         globals: pyo3::sync::GILOnceCell::new(),
         reference: pyo3::sync::GILOnceCell::new(),
         reference_function: pyo3::sync::GILOnceCell::new(),
+        introspection_only: pyo3::sync::GILOnceCell::new(),
         int_kind: pyo3::sync::GILOnceCell::new(),
         printed: pyo3::sync::GILOnceCell::new(),
         program: pyo3::sync::GILOnceCell::new(),
@@ -4717,6 +4772,7 @@ fn _has_matcher(pattern: &Bound<'_, PyAny>, expr: &Bound<'_, PyAny>) -> PyResult
 
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    host::init_gil_check(m.py())?;
     m.add_class::<PyExprNode>()?;
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;

@@ -28,8 +28,11 @@ and subspaces according to that predicate.
 
 These methods, plus `rowspace` and `columnspace`, also accept a `simplify`
 callable. It is used when deciding an unknown pivot. Default boolean flags use
-the native simplifier. If a pivot remains undecided, elimination assumes it is
-nonzero and gives a generic result, with the corresponding denominators.
+the native simplifier; as in SymPy's pivot search, a candidate still undecided
+after simplification is then tested with `equals(0)`, so pivots such as
+`sqrt(2)*sqrt(3) - sqrt(6)` or `sin(x)**2 + cos(x)**2 - 1` are recognized as
+zero. If a pivot remains undecided, elimination assumes it is nonzero and gives
+a generic result, with the corresponding denominators.
 
 ```python
 from symox import Symbol
@@ -74,10 +77,12 @@ would otherwise use an exact-domain fast path. Closed formulas for matrices
 of order at most three, Berkowitz, Bird, Laplace and domain elimination compute
 the algebraic determinant without consulting that predicate.
 
-`inv`, `inverse_GE`, `inverse_LU`, `inverse_ADJ`, `inverse_CH`, `inverse_LDL`
-and `inverse_QR` accept `iszerofunc`. GE and LU use it during elimination;
-the other decomposition methods use it when their determinant verification is
-undecided. Explicit `DM` and `DMNC` inversion uses the formal coefficient field
+`inv`, `inverse_GE`, `inverse_LU`, `inverse_ADJ`, `inverse_CH`, `inverse_LDL`,
+`inverse_QR` and `inverse_BLOCK` accept `iszerofunc`. GE and LU use it during
+elimination; the other decomposition methods use it when their determinant
+verification is undecided. Symbolic LU and BLOCK inverses verify invertibility
+first, as in SymPy. Bareiss determinants of `Float` matrices round each
+quotient once, as in SymPy 1.14. Explicit `DM` and `DMNC` inversion uses the formal coefficient field
 and does not consult a custom zero predicate. A supplied predicate makes the
 default inversion use GE.
 

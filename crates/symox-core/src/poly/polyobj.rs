@@ -1001,10 +1001,6 @@ pub fn sorted_factors(fs: &mut [(Poly, u32)], sqf: bool) {
     });
 }
 
-pub fn int_poly(p: &Poly) -> Option<MPoly<Int>> {
-    p.rep.to_int()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -123,7 +123,6 @@ jobs:
   sycl:
     runs-on: ubuntu-latest
     env:
-      SYMOX_ACPP: ${{ runner.temp }}/symox-acpp/bin/acpp
       SYMOX_ACPP_REQUIRE_RUNTIME: "1"
       SYMOX_ACPP_TARGETS: omp
       OMP_NUM_THREADS: "2"
@@ -134,6 +133,8 @@ jobs:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Locate the AdaptiveCpp compiler
+        run: echo "SYMOX_ACPP=$RUNNER_TEMP/symox-acpp/bin/acpp" >> "$GITHUB_ENV"
       - name: Install AdaptiveCpp CPU build dependencies
         run: sudo apt-get update && sudo apt-get install -y ninja-build libboost-dev libnuma-dev
       - uses: actions/cache@v4

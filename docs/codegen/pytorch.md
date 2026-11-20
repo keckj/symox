@@ -68,5 +68,5 @@ and [autograd explanation of invalid operations](https://docs.pytorch.org/docs/s
 For an indicative local measurement, the benchmark's default refraction kernel
 with 65,536 float32 rays on an RTX 5090 took 0.549 ms in eager mode and 0.098 ms
 with Inductor after compilation (5.6x). With gradients, it took 1.961 ms versus
-0.552 ms (3.6x). The first compiled call took 2.4–4.2 seconds, excluding wrapper
+0.552 ms (3.6x). The first compiled call took 2.4-4.2 seconds, excluding wrapper
 setup. These are local measurements with PyTorch 2.11, not performance guarantees.

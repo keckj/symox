@@ -110,7 +110,8 @@ def test_polar_node_identity_derivative_and_interchange():
     polar = sx.exp_polar(x)
     assert polar != sx.Function('exp_polar')(x)
     assert polar.is_polar is True
-    assert polar.diff(x) == polar
+    # SymPy's exp_polar has no fdiff: the derivative is held.
+    assert polar.diff(x) == sx.Derivative(polar, x)
     assert polar.func(*polar.args) == polar
     assert sx.from_sympy(polar.to_sympy()) == polar
     assert sx.sympify(sx.srepr(polar)) == polar

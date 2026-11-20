@@ -97,6 +97,78 @@ from symox.matrices import (MatrixSymbol, ImmutableMatrix, MatrixBase,
 from symox.utilities.iterables import is_sequence
 
 
+# Native arithmetic turns an ``Indexed`` into a symbol that remembers the
+# reference, and native ``atoms`` refuses expressions holding matrix
+# elements. The helpers below give the routine builders the queries of the
+# reference's ``Indexed`` and ``MatrixElement`` trees.
+def _indexed(expr):
+    """The ``Indexed`` a native indexed-reference symbol stands for."""
+    if isinstance(expr, Symbol) and not isinstance(expr, Indexed):
+        from symox.codegen.ast import _indexed_reference
+        reference = _indexed_reference(expr)
+        if reference is not None:
+            return reference
+    return expr
+
+
+def _native_atoms(expr, types):
+    try:
+        return set(expr.atoms(*types))
+    except NotImplementedError:
+        from symox import preorder_traversal
+        found = set()
+        for node in preorder_traversal(expr):
+            if isinstance(node, (str, int, list, tuple)):
+                continue
+            if isinstance(node, types) or isinstance(_indexed(node), types):
+                found.add(node)
+        return found
+
+
+def _atoms(expr, *types):
+    found = {_indexed(atom) for atom in _native_atoms(expr, types)}
+    if Idx in types:
+        # The reference finds the Idx objects inside each Indexed.
+        for indexed in _atoms(expr, Indexed) if Indexed not in types else list(found):
+            if isinstance(indexed, Indexed):
+                found.update(i for i in indexed.indices if isinstance(i, Idx))
+        if Indexed not in types:
+            found = {a for a in found if not isinstance(a, Indexed)}
+    return found
+
+
+def _free_symbols(expr):
+    if isinstance(expr, Equality):
+        return _free_symbols(expr.lhs) | _free_symbols(expr.rhs)
+    if isinstance(expr, MatrixBase):
+        # The native free symbols of an explicit matrix return its matrix
+        # symbols as bare native nodes, which do not compare equal to the
+        # public MatrixSymbol arguments; read them from the entries.
+        found = set()
+        for entry in expr:
+            found |= _free_symbols(entry)
+        return found
+    found = set()
+    for symbol in expr.free_symbols:
+        indexed = _indexed(symbol)
+        if isinstance(indexed, Indexed):
+            # Indexed.free_symbols of the reference: the element, its base
+            # label and the free symbols of its indices.
+            found.add(indexed)
+            found.add(indexed.base.label)
+            for index in indexed.indices:
+                found |= index.free_symbols
+        else:
+            found.add(symbol)
+    return found
+
+
+def _has(expr, *patterns):
+    if expr.has(*patterns):
+        return True
+    return any(pattern in _free_symbols(expr) for pattern in patterns)
+
+
 
 class _Exprs(tuple):
     """The reference's ``Tuple`` of routine expressions.
@@ -119,17 +191,17 @@ class _Exprs(tuple):
     def free_symbols(self):
         found = set()
         for item in self:
-            found |= item.free_symbols
+            found |= _free_symbols(item)
         return found
 
     def atoms(self, *types):
         found = set()
         for item in self:
-            found |= item.atoms(*types)
+            found |= _atoms(item, *types)
         return found
 
     def has(self, *patterns):
-        return any(item.has(*patterns) for item in self)
+        return any(_has(item, *patterns) for item in self)
 
 __all__ = [
     # description of routines
@@ -197,24 +269,24 @@ class Routine:
         symbols = set()
         for arg in arguments:
             if isinstance(arg, OutputArgument):
-                symbols.update(arg.expr.free_symbols - arg.expr.atoms(Indexed))
+                symbols.update(_free_symbols(arg.expr) - _atoms(arg.expr, Indexed))
             elif isinstance(arg, InputArgument):
                 input_symbols.add(arg.name)
             elif isinstance(arg, InOutArgument):
                 input_symbols.add(arg.name)
-                symbols.update(arg.expr.free_symbols - arg.expr.atoms(Indexed))
+                symbols.update(_free_symbols(arg.expr) - _atoms(arg.expr, Indexed))
             else:
                 raise ValueError("Unknown Routine argument: %s" % arg)
 
         for r in results:
             if not isinstance(r, Result):
                 raise ValueError("Unknown Routine result: %s" % r)
-            symbols.update(r.expr.free_symbols - r.expr.atoms(Indexed))
+            symbols.update(_free_symbols(r.expr) - _atoms(r.expr, Indexed))
 
         local_symbols = set()
         for r in local_vars:
             if isinstance(r, Result):
-                symbols.update(r.expr.free_symbols - r.expr.atoms(Indexed))
+                symbols.update(_free_symbols(r.expr) - _atoms(r.expr, Indexed))
                 local_symbols.add(r.name)
             else:
                 local_symbols.add(r)
@@ -688,7 +760,7 @@ class CodeGen:
         output_args = []
         for expr in expressions:
             if isinstance(expr, Equality):
-                out_arg = expr.lhs
+                out_arg = _indexed(expr.lhs)
                 expr = expr.rhs
                 if isinstance(out_arg, Indexed):
                     dims = tuple([ (S.Zero, dim - 1) for dim in out_arg.shape])
@@ -703,7 +775,7 @@ class CodeGen:
                     raise CodeGenError("Only Indexed, Symbol, or MatrixSymbol "
                                        "can define output arguments.")
 
-                if expr.has(symbol):
+                if _has(expr, symbol):
                     output_args.append(
                         InOutArgument(symbol, out_arg, expr, dimensions=dims))
                 else:
@@ -888,7 +960,10 @@ class CodeGenArgumentListError(Exception):
         return self.args[1]
 
 
-header_comment = """Code generated with SymPy %(version)s
+# The banner names the generator that wrote the file: the version is
+# symox's release, so it is labelled Symox (as the ufuncify docstring
+# "Generated by Symox"), never "SymPy <symox version>".
+header_comment = """Code generated with Symox %(version)s
 
 See http://www.sympy.org/ for more information.
 
@@ -1381,7 +1456,7 @@ class JuliaCodeGen(CodeGen):
         output_args = []
         for (i, expr) in enumerate(expressions):
             if isinstance(expr, Equality):
-                out_arg = expr.lhs
+                out_arg = _indexed(expr.lhs)
                 expr = expr.rhs
                 symbol = out_arg
                 if isinstance(out_arg, Indexed):
@@ -1393,7 +1468,7 @@ class JuliaCodeGen(CodeGen):
                                        "can define output arguments.")
 
                 return_vals.append(Result(expr, name=symbol, result_var=out_arg))
-                if not expr.has(symbol):
+                if not _has(expr, symbol):
                     # this is a pure output: remove from the symbols list, so
                     # it doesn't become an input.
                     symbols.remove(symbol)
@@ -1592,7 +1667,7 @@ class OctaveCodeGen(CodeGen):
         return_vals = []
         for (i, expr) in enumerate(expressions):
             if isinstance(expr, Equality):
-                out_arg = expr.lhs
+                out_arg = _indexed(expr.lhs)
                 expr = expr.rhs
                 symbol = out_arg
                 if isinstance(out_arg, Indexed):
@@ -1602,7 +1677,7 @@ class OctaveCodeGen(CodeGen):
                                        "can define output arguments.")
 
                 return_vals.append(Result(expr, name=symbol, result_var=out_arg))
-                if not expr.has(symbol):
+                if not _has(expr, symbol):
                     # this is a pure output: remove from the symbols list, so
                     # it doesn't become an input.
                     symbols.remove(symbol)
@@ -1820,7 +1895,7 @@ class RustCodeGen(CodeGen):
         output_args = []
         for (i, expr) in enumerate(expressions):
             if isinstance(expr, Equality):
-                out_arg = expr.lhs
+                out_arg = _indexed(expr.lhs)
                 expr = expr.rhs
                 symbol = out_arg
                 if isinstance(out_arg, Indexed):
@@ -1832,7 +1907,7 @@ class RustCodeGen(CodeGen):
                                        "can define output arguments.")
 
                 return_vals.append(Result(expr, name=symbol, result_var=out_arg))
-                if not expr.has(symbol):
+                if not _has(expr, symbol):
                     # this is a pure output: remove from the symbols list, so
                     # it doesn't become an input.
                     symbols.remove(symbol)

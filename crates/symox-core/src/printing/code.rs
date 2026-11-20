@@ -100,8 +100,14 @@ pub struct CodeSettings {
     pub fast_math: bool,
     /// CUDA: print `x**(-1/2)` as `rsqrt(x)`.
     pub use_rsqrt: bool,
-    /// CUDA: integer powers of symbols up to this order are written as
-    /// products (`x*x*x`). 0 disables.
+    /// CUDA: print `x**(-1/2)` as `1.0/sqrt(x)` (two correctly rounded IEEE
+    /// operations) instead of `pow(x, -1.0/2.0)`. Opt-in: the value differs
+    /// from `pow` at `x = -0.0` (`-inf` instead of `+inf`). Ignored when
+    /// `use_rsqrt` applies.
+    pub reciprocal_sqrt: bool,
+    /// CUDA: integer powers up to this order are written as products
+    /// (`x*x*x`, `(x - y)*(x - y)`) for symbols and for small arithmetic bases
+    /// (see `cheap_inline_base`). 0 disables.
     pub inline_pow: u32,
     /// C/C++: print `M_PI`, `M_SQRT2`, ... for the known constants.
     pub math_macros: bool,
@@ -127,6 +133,7 @@ impl CodeSettings {
             real: FloatType::F64,
             fast_math: false,
             use_rsqrt: false,
+            reciprocal_sqrt: false,
             inline_pow: if lang == Lang::Cuda { 4 } else { 0 },
             math_macros: matches!(lang, Lang::C | Lang::Cxx | Lang::Cuda),
             user_functions: FxHashMap::default(),
@@ -145,12 +152,24 @@ pub struct CudaSettings {
     pub dtype: FloatType,
     pub fast_math: bool,
     pub use_rsqrt: bool,
+    /// See [`CodeSettings::reciprocal_sqrt`] (default `false`).
+    pub reciprocal_sqrt: bool,
     pub inline_pow: u32,
+    /// `M_PI`-style macros; `None` keeps the historical default (double
+    /// precision only). NVRTC does not define these macros: use `Some(false)`.
+    pub math_macros: Option<bool>,
 }
 
 impl Default for CudaSettings {
     fn default() -> Self {
-        CudaSettings { dtype: FloatType::F64, fast_math: false, use_rsqrt: true, inline_pow: 4 }
+        CudaSettings {
+            dtype: FloatType::F64,
+            fast_math: false,
+            use_rsqrt: true,
+            reciprocal_sqrt: false,
+            inline_pow: 4,
+            math_macros: None,
+        }
     }
 }
 
@@ -160,8 +179,9 @@ impl CudaSettings {
         s.real = self.dtype;
         s.fast_math = self.fast_math && self.dtype == FloatType::F32;
         s.use_rsqrt = self.use_rsqrt;
+        s.reciprocal_sqrt = self.reciprocal_sqrt;
         s.inline_pow = self.inline_pow;
-        s.math_macros = self.dtype == FloatType::F64;
+        s.math_macros = self.math_macros.unwrap_or(self.dtype == FloatType::F64);
         s
     }
 }
@@ -418,7 +438,7 @@ impl<'a> CodePrinter<'a> {
     /// Precedence of the printed form of `e`.
     fn prec(&self, e: &Expr) -> i32 {
         if let Kind::Pow(b, x) = e.kind() {
-            if self.inline_pow_n(b, x).is_some() {
+            if self.inline_pow_n(b, x).is_some() || self.reciprocal_sqrt_applies(x) {
                 return PREC_MUL;
             }
         }
@@ -750,14 +770,22 @@ impl<'a> CodePrinter<'a> {
                 })
                 .collect::<Result<_, _>>()?
         };
+        // A denominator is the right operand of `/`: anything printed at
+        // multiplication precedence or below needs parentheses, whatever the
+        // sign of the product (`prec` is PREC_ADD for a negative coefficient,
+        // which printed `-x/s**2` as `-x/s*s`).
+        let den_level = PREC_MUL;
         let mut b_str = Vec::with_capacity(b.len());
         for d in &b {
             b_str.push(match d {
-                Den::Base(base) => self.parenthesize(base, prec, false)?,
+                Den::Base(base) => self.parenthesize(base, den_level, false)?,
                 Den::Pow(base, x) => {
                     let s = self.print_pow(base, x)?;
-                    let p = if self.inline_pow_n(base, x).is_some() { PREC_MUL } else { PREC_POW };
-                    if p <= prec {
+                    let inline = self.inline_pow_n(base, x).is_some();
+                    let p = if inline { PREC_MUL } else { PREC_POW };
+                    // several denominators are joined with `*` inside one
+                    // pair of parentheses: inline products need none there
+                    if p <= den_level && !(inline && b.len() > 1) {
                         format!("({s})")
                     } else {
                         s
@@ -789,7 +817,7 @@ impl<'a> CodePrinter<'a> {
 
     /// CUDA: `Some(n)` when `b**x` is printed as an inline product.
     fn inline_pow_n(&self, b: &Expr, x: &Expr) -> Option<i64> {
-        if self.lang() != Lang::Cuda || self.s.inline_pow < 2 || !b.is_symbol() {
+        if self.lang() != Lang::Cuda || self.s.inline_pow < 2 || !self.cheap_inline_base(b) {
             return None;
         }
         let n = x.as_i64()?;
@@ -798,6 +826,41 @@ impl<'a> CodePrinter<'a> {
         } else {
             None
         }
+    }
+
+    /// CUDA: bases repeated textually by inline integer powers: symbols and
+    /// small `Add`/`Mul` trees of symbols, numbers and inline powers of
+    /// symbols (at most 16 nodes). Function calls are never repeated, so
+    /// `sin(x)**2` keeps `pow`. Products are correctly rounded IEEE
+    /// operations, evaluated left to right.
+    fn cheap_inline_base(&self, b: &Expr) -> bool {
+        fn walk(e: &Expr, budget: &mut i32, limit: i64) -> bool {
+            *budget -= 1;
+            if *budget < 0 {
+                return false;
+            }
+            match e.kind() {
+                Kind::Sym(_) => true,
+                Kind::Num(n) => !matches!(n, Number::Float(f) if !f.is_finite()),
+                Kind::Add(..) | Kind::Mul(..) => {
+                    crate::traverse::ordered_args(e).iter().all(|a| walk(a, budget, limit))
+                }
+                Kind::Pow(pb, px) => {
+                    pb.is_symbol() && px.as_i64().is_some_and(|n| (2..=limit).contains(&n))
+                }
+                _ => false,
+            }
+        }
+        if b.is_symbol() {
+            return true;
+        }
+        let mut budget = 16;
+        walk(b, &mut budget, self.s.inline_pow as i64)
+    }
+
+    /// CUDA: `x**(-1/2)` printed as `1.0/sqrt(b)`.
+    fn reciprocal_sqrt_applies(&self, x: &Expr) -> bool {
+        self.lang() == Lang::Cuda && self.s.reciprocal_sqrt && !self.s.use_rsqrt && is_minus_half(x)
     }
 
     fn c_func(&self, name: &str) -> String {
@@ -811,7 +874,7 @@ impl<'a> CodePrinter<'a> {
         match self.lang() {
             Lang::C | Lang::Cxx | Lang::Cuda => {
                 if let Some(n) = self.inline_pow_n(b, x) {
-                    let s = self.print(b)?;
+                    let s = self.parenthesize(b, PREC_MUL, false)?;
                     return Ok(vec![s; n as usize].join("*"));
                 }
                 if is_minus_one_valued(x) {
@@ -830,13 +893,21 @@ impl<'a> CodePrinter<'a> {
                 if self.lang() == Lang::Cuda && self.s.use_rsqrt && is_minus_half(x) {
                     return Ok(format!("{}({})", self.c_func("rsqrt"), self.print(b)?));
                 }
+                if self.reciprocal_sqrt_applies(x) {
+                    return Ok(format!(
+                        "{}/{}({})",
+                        self.float_literal(1.0),
+                        self.c_func("sqrt"),
+                        self.print(b)?
+                    ));
+                }
                 if is_third(x) {
                     return Ok(format!("{}({})", self.c_func("cbrt"), self.print(b)?));
                 }
                 if self.lang() == Lang::Cuda {
                     if let Some(n) = x.as_i64() {
-                        if n < 0 && b.is_symbol() && (2..=self.s.inline_pow as i64).contains(&-n) {
-                            let s = self.print(b)?;
+                        if n < 0 && self.cheap_inline_base(b) && (2..=self.s.inline_pow as i64).contains(&-n) {
+                            let s = self.parenthesize(b, PREC_MUL, false)?;
                             return Ok(format!(
                                 "{}/({})",
                                 self.float_literal(1.0),
@@ -1105,12 +1176,22 @@ impl<'a> CodePrinter<'a> {
         if let Func::MatrixProxy(_) = f {
             return Err(CodeError::Unsupported("a matrix expression used as a scalar".into()));
         }
+        if let Func::Undefined(head) = f {
+            if head.host().is_some() && matches!(self.lang(), Lang::Python | Lang::NumPy) {
+                if let Some(code) = self.py_codegen_node(&head.name, args) {
+                    return code;
+                }
+            }
+        }
         if let Some(n) = self.s.user_functions.get(f.name()) {
             return Ok(format!("{n}({})", self.join_args(args)?));
         }
         if let Func::Logic(op) = f {
             if matches!(self.lang(), Lang::Python | Lang::NumPy) {
                 return self.py_logic(*op, args);
+            }
+            if self.lang() == Lang::Cuda {
+                return self.cuda_logic(*op, args);
             }
         }
         match self.lang() {
@@ -1182,6 +1263,52 @@ impl<'a> CodePrinter<'a> {
             self.c_func(name)
         };
         Ok(format!("{fname}({})", self.join_args(args)?))
+    }
+
+    /// CUDA C++ boolean operators. Every operand is parenthesized and every
+    /// result is wrapped, so no C precedence rule is involved. `Xor`,
+    /// `Equivalent` and `Implies` compare the C truth values `!(a)`, which
+    /// is exact for `bool` operands and for scalars used as truth values.
+    /// `ITE` is a conditional expression: only the selected branch is
+    /// evaluated. `&&`/`||` short-circuit; operands are side-effect free.
+    fn cuda_logic(&self, op: crate::logic::LogicOp, args: &[Expr]) -> CodeResult {
+        use crate::logic::LogicOp;
+        let wrap = |e: &Expr| -> CodeResult { Ok(format!("({})", self.print(e)?)) };
+        let truth = |e: &Expr| -> CodeResult { Ok(format!("(!{})", wrap(e)?)) };
+        let mut sorted = args.to_vec();
+        if matches!(op, LogicOp::And | LogicOp::Or | LogicOp::Xor | LogicOp::Equivalent) {
+            sorted.sort_by_cached_key(crate::sortkey::sort_key);
+        }
+        match op {
+            LogicOp::And | LogicOp::Or => {
+                let sep = if op == LogicOp::And { " && " } else { " || " };
+                let parts: Vec<String> = sorted.iter().map(wrap).collect::<Result<_, _>>()?;
+                Ok(format!("({})", parts.join(sep)))
+            }
+            LogicOp::Not => Ok(format!("(!{})", wrap(&args[0])?)),
+            LogicOp::Xor => {
+                // `(!a) != (!b)` is `a xor b` as a plain (non-negated) truth value,
+                // so each further operand is compared through `!(!c)`; comparing
+                // with `(!c)` again would negate the result for an odd count of
+                // operands >= 3 (Xor(a, b, c) printed as a ^ b ^ !c).
+                if sorted.len() == 1 {
+                    return Ok(format!("(!{})", truth(&sorted[0])?));
+                }
+                let mut acc = format!("({} != {})", truth(&sorted[0])?, truth(&sorted[1])?);
+                for a in &sorted[2..] {
+                    acc = format!("({acc} != (!{}))", truth(a)?);
+                }
+                Ok(acc)
+            }
+            LogicOp::Equivalent => {
+                let truths: Vec<String> = sorted.iter().map(truth).collect::<Result<_, _>>()?;
+                let pairs: Vec<String> =
+                    truths.windows(2).map(|w| format!("({} == {})", w[0], w[1])).collect();
+                Ok(if pairs.is_empty() { "true".into() } else { format!("({})", pairs.join(" && ")) })
+            }
+            LogicOp::Implies => Ok(format!("({} || {})", truth(&args[0])?, wrap(&args[1])?)),
+            LogicOp::ITE => Ok(format!("({} ? {} : {})", wrap(&args[0])?, wrap(&args[1])?, wrap(&args[2])?)),
+        }
     }
 
     /// SymPy's `CodePrinter._print_And/_Or/_Not` (Python keywords) and
@@ -1257,6 +1384,36 @@ impl<'a> CodePrinter<'a> {
             "LambertW" => "lambertw",
             _ => return None,
         })
+    }
+
+    /// SymPy's Python printers on the `sympy.codegen` function classes
+    /// (`numpy_nodes`, `cfunctions`), which they dispatch on the class name:
+    /// `NumPyPrinter._print_minimum/_print_maximum` fold the binary ufunc
+    /// with `functools.reduce` (a third positional operand of
+    /// `numpy.minimum` would be its `out` array) and the known functions
+    /// print as module calls. `None` keeps the generic printing (user
+    /// functions, `scipy.special` names, or the class name itself, which
+    /// SymPy prints for the functions its printer does not know).
+    fn py_codegen_node(&self, name: &str, args: &[Expr]) -> Option<CodeResult> {
+        let np = self.lang() == Lang::NumPy;
+        if np && matches!(name, "minimum" | "maximum") {
+            return Some(match args {
+                [] => Err(CodeError::Unsupported(format!("Need at least one argument for numpy.{name}"))),
+                [only] => self.print(only),
+                _ => self.join_args(args).map(|joined| format!("functools.reduce(numpy.{name}, [{joined}])")),
+            });
+        }
+        if self.s.user_functions.contains_key(name) {
+            return None;
+        }
+        let target = match name {
+            "Sqrt" => "sqrt",
+            "expm1" | "log1p" | "log2" | "log10" | "hypot" | "isnan" | "isinf" => name,
+            "logaddexp" | "logaddexp2" | "exp2" if np => name,
+            _ => return None,
+        };
+        let module = if np { "numpy" } else { "math" };
+        Some(self.join_args(args).map(|joined| format!("{module}.{target}({joined})")))
     }
 
     fn py_function(&self, f: &Func, args: &[Expr]) -> CodeResult {
@@ -1904,6 +2061,75 @@ mod tests {
         let s2 = CudaSettings { dtype: FloatType::F32, ..Default::default() };
         assert_eq!(cudacode_with(&e, &s2).unwrap(), "0.1F + y/(x*x)");
         assert_eq!(cudacode_with(&parse_str("1/(x + y)").unwrap(), &s).unwrap(), "__fdividef(1.0F, x + y)");
+    }
+
+    #[test]
+    fn cuda_negative_quotients_keep_denominators_grouped() {
+        let c = |src: &str| cudacode(&parse_str(src).unwrap()).unwrap();
+        // regression: a negative coefficient lowered the product precedence
+        // and printed -x/s**2 as -x/s*s
+        assert_eq!(c("-x/s**2"), "-x/(s*s)");
+        assert_eq!(c("x/s**2"), "x/(s*s)");
+        assert_eq!(c("-1/s**3"), "-1/(s*s*s)");
+        assert_eq!(c("-x/y**3"), "-x/(y*y*y)");
+        assert_eq!(c("-a*b/(c*d**2)"), "-a*b/(c*d*d)");
+        assert_eq!(c("a*b/(c*d**2)"), "a*b/(c*d*d)");
+        let f = CudaSettings { dtype: FloatType::F32, fast_math: true, ..Default::default() };
+        assert_eq!(cudacode_with(&parse_str("-x/s**2").unwrap(), &f).unwrap(), "-__fdividef(x, s*s)");
+    }
+
+    #[test]
+    fn cuda_logic_operators() {
+        let c = |src: &str| cudacode(&parse_str(src).unwrap()).unwrap();
+        assert_eq!(c("And(x < 1, y > 2)"), "((y > 2) && (x < 1))");
+        assert_eq!(c("Or(x < 1, y > 2)"), "((y > 2) || (x < 1))");
+        assert_eq!(c("Not(x)"), "(!(x))");
+        assert_eq!(c("Xor(x < 1, y > 2)"), "((!(y > 2)) != (!(x < 1)))");
+        assert_eq!(
+            c("Xor(x < 1, y > 2, z > 3)"),
+            "(((!(y > 2)) != (!(z > 3))) != (!(!(x < 1))))"
+        );
+        assert_eq!(c("Implies(x < 1, y > 2)"), "((!(x < 1)) || (y > 2))");
+        let pw = c("Piecewise((x, And(x < 1, y > 2)), (y, True))");
+        assert!(pw.contains("((y > 2) && (x < 1))"), "{pw}");
+    }
+
+    #[test]
+    fn cuda_inline_compound_powers() {
+        let c = |src: &str| cudacode(&parse_str(src).unwrap()).unwrap();
+        assert_eq!(c("(x - y)**2"), "(x - y)*(x - y)");
+        assert_eq!(c("(x - y)**3"), "(x - y)*(x - y)*(x - y)");
+        assert_eq!(c("(x - y)**5"), "pow(x - y, 5)");
+        assert_eq!(c("1/(x + y)**2"), "1.0/((x + y)*(x + y))");
+        assert_eq!(c("exp(-(x - y)**2)"), "exp(-((x - y)*(x - y)))");
+        assert_eq!(c("-x/(x - y)**2"), "-x/((x - y)*(x - y))");
+        assert_eq!(c("-(x - y)**2/(2*s**2)"), "-1.0/2.0*(x - y)*(x - y)/(s*s)");
+        assert_eq!(c("-x/(s**2*sqrt(c))"), "-x/(sqrt(c)*s*s)");
+        // function bases are never repeated
+        assert_eq!(c("sin(x)**2"), "pow(sin(x), 2)");
+        // inline_pow = 0 disables every inline power
+        let s = CudaSettings { inline_pow: 0, ..Default::default() };
+        assert_eq!(cudacode_with(&parse_str("(x - y)**2").unwrap(), &s).unwrap(), "pow(x - y, 2)");
+        // C is unchanged
+        assert_eq!(ccode(&parse_str("(x - y)**2").unwrap()).unwrap(), "pow(x - y, 2)");
+    }
+
+    #[test]
+    fn cuda_reciprocal_sqrt_and_macros() {
+        let e = parse_str("1/sqrt(x + y) + 1").unwrap();
+        let plain = CudaSettings { use_rsqrt: false, ..Default::default() };
+        assert_eq!(cudacode_with(&e, &plain).unwrap(), "1 + pow(x + y, -1.0/2.0)");
+        let r = CudaSettings { use_rsqrt: false, reciprocal_sqrt: true, ..Default::default() };
+        assert_eq!(cudacode_with(&e, &r).unwrap(), "1 + 1.0/sqrt(x + y)");
+        let r32 = CudaSettings { dtype: FloatType::F32, ..r.clone() };
+        assert_eq!(cudacode_with(&e, &r32).unwrap(), "1 + 1.0F/sqrtf(x + y)");
+        // use_rsqrt keeps priority (historical default unchanged)
+        let both = CudaSettings { reciprocal_sqrt: true, ..Default::default() };
+        assert_eq!(cudacode_with(&e, &both).unwrap(), "1 + rsqrt(x + y)");
+        let pi = parse_str("pi*x").unwrap();
+        assert_eq!(cudacode(&pi).unwrap(), "M_PI*x");
+        let nm = CudaSettings { math_macros: Some(false), ..Default::default() };
+        assert_eq!(cudacode_with(&pi, &nm).unwrap(), "3.1415926535897932*x");
     }
 }
 

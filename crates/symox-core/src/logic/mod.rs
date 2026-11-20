@@ -101,15 +101,30 @@ pub fn is_boolean(e: &Expr) -> bool {
 }
 
 /// Twice SymPy's `_nodes` (floats count 1/2).
+///
+/// The count is the size of the expanded tree, as in SymPy, but each shared
+/// node is counted once and reused (memoized by `dag_id`, the visited nodes
+/// kept alive meanwhile): the cost is linear in the graph, not in the tree.
+/// Counts beyond `u64::MAX` saturate.
 pub fn nodes2(e: &Expr) -> u64 {
+    fn count(e: &Expr, memo: &mut rustc_hash::FxHashMap<usize, (Expr, u64)>) -> u64 {
+        if let Some((_, n)) = memo.get(&e.dag_id()) { return *n; }
+        let n = match e.kind() {
+            Kind::Num(crate::number::Number::Float(_)) => 1,
+            Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => 2,
+            // `Lambda` stores its signature as a `Tuple`
+            Kind::Func(Func::Set(crate::sets::SetOp::Lambda), a) => {
+                a.iter().fold(2u64, |acc, x| acc.saturating_add(count(x, memo)))
+            }
+            _ => e.args().iter().fold(2u64, |acc, x| acc.saturating_add(count(x, memo))),
+        };
+        memo.insert(e.dag_id(), (e.clone(), n));
+        n
+    }
     match e.kind() {
         Kind::Num(crate::number::Number::Float(_)) => 1,
         Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => 2,
-        // `Lambda` stores its signature as a `Tuple`
-        Kind::Func(Func::Set(crate::sets::SetOp::Lambda), a) => {
-            2 + a.iter().map(nodes2).sum::<u64>()
-        }
-        _ => 2 + e.args().iter().map(nodes2).sum::<u64>(),
+        _ => count(e, &mut rustc_hash::FxHashMap::default()),
     }
 }
 
@@ -205,7 +220,10 @@ pub fn ordered(v: &mut [Expr]) {
         }
         return;
     }
-    let mut keyed: Vec<((u64, Key), Expr)> = v.iter().map(|e| (ordered_key(e), e.clone())).collect();
+    // one sort-key cache for all the elements (see `sort_keys`)
+    let keys = crate::sortkey::sort_keys(&v.iter().collect::<Vec<_>>());
+    let mut keyed: Vec<((u64, Key), Expr)> =
+        v.iter().zip(keys).map(|(e, k)| ((nodes2(e), k), e.clone())).collect();
     keyed.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp_struct(&b.1)));
     for (slot, (_, e)) in v.iter_mut().zip(keyed) {
         *slot = e;
@@ -214,7 +232,8 @@ pub fn ordered(v: &mut [Expr]) {
 
 /// Compare two expressions like SymPy's `ordered()`.
 pub fn ordered_cmp(a: &Expr, b: &Expr) -> Ordering {
-    ordered_key(a).cmp(&ordered_key(b)).then_with(|| a.cmp_struct(b))
+    let keys = crate::sortkey::sort_keys(&[a, b]);
+    nodes2(a).cmp(&nodes2(b)).then_with(|| keys[0].cmp(&keys[1])).then_with(|| a.cmp_struct(b))
 }
 
 // ----------------------------------------------------------------------
@@ -558,11 +577,6 @@ pub fn and(args: Vec<Expr>) -> Expr {
 /// `Or(*args)`.
 pub fn or(args: Vec<Expr>) -> Expr {
     lattice(false, args)
-}
-
-/// `a & b`.
-pub fn and2(a: &Expr, b: &Expr) -> Expr {
-    lattice(true, vec![a.clone(), b.clone()])
 }
 
 /// `a | b`.

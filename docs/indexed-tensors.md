@@ -68,7 +68,7 @@ slots with the same index type. Convenience constructors are:
 permutations, permitted component commutations and metric-compatible dummy
 variance changes. Opposite signs on one orbit state prove zero. Sums combine
 their canonical monomials. The compatible function name does not imply the
-large-group Butler–Portugal algorithm: this implementation enumerates a
+large-group Butler-Portugal algorithm: this implementation enumerates a
 bounded orbit. Representatives can differ structurally from SymPy's; their
 signed tensor identities are preserved.
 
@@ -125,6 +125,16 @@ explicit components already carrying the requested variances can still be used.
 their free axes and evaluates through `replace_with_arrays`. It accepts typed
 indices or their symbol names and validates concrete positions. General
 symbolic products of component-selection objects are not implemented.
+
+`PartialDerivative(expr, *variables)` from `symox.tensor.toperators` records
+free and contracted indices and evaluates through `replace_with_arrays` from
+supplied components; symbolic product algebra with these objects is not fully
+adapted. A contracted derivative index is summed with the matching axis of
+the components; SymPy 1.14 returns a result that disagrees with its own manual
+contraction there (an intentional divergence recorded in
+[the parity contract](algorithmic-parity.md)). `Tensor.split()` and
+`TensMul.split()` return the factor list, and string printing of tensor
+objects follows SymPy.
 
 ## Matching and compatibility helpers
 

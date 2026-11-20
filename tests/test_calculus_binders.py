@@ -152,7 +152,7 @@ def test_constructor_inference_none_limits_and_explicit_unsupported_inputs():
         assert sm.to_sympy(sm.Integral(x,(x,*bounds)))==sp.Integral(X,(X,*(Y if b==y else b for b in bounds)))
     for call in [lambda:sm.Integral(1),lambda:sm.Integral(x+y),lambda:sm.Integral(x,2),lambda:sm.Sum(x,x),lambda:sm.Sum(x,(x,1)),lambda:sm.Sum(x,(x,1,2,3))]:
         with pytest.raises((TypeError,ValueError)):call()
-    with pytest.raises(NotImplementedError):sm.Integral(x,x,risch=True)
+    with pytest.raises(TypeError,match=r"^Basic.__new__\(\) got an unexpected keyword argument 'risch'$"):sm.Integral(x,x,risch=True)
 
 
 def test_native_binders_work_without_importing_sympy():

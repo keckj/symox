@@ -17,6 +17,10 @@ pub enum SlangDtype {
     #[default]
     Float32,
     Float64,
+    /// IEEE binary16: Slang `half` (`h` literals) and SYCL `sycl::half`.
+    /// Every literal and nonfinite constant is typed half, so `half op half`
+    /// arithmetic rounds each operation to binary16 (no float promotion).
+    Float16,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -299,7 +303,12 @@ impl<'a> SlangPrinter<'a> {
         };
         let suffix = match (self.backend, self.settings.dtype) {
             (ScalarBackend::Slang, SlangDtype::Float64) => "L",
+            (ScalarBackend::Slang, SlangDtype::Float16) => "h",
             (ScalarBackend::Sycl, SlangDtype::Float32) => "F",
+            // A float literal converted to sycl::half (no double in device code,
+            // which would need aspect::fp64). Exact for every value already
+            // representable in binary16; otherwise decimal -> float -> half.
+            (ScalarBackend::Sycl, SlangDtype::Float16) => return format!("sycl::half({text}{point}F)"),
             _ => "",
         };
         format!("{text}{point}{suffix}")
@@ -309,10 +318,10 @@ impl<'a> SlangPrinter<'a> {
     }
     fn cast_bits(&self, bits: &str) -> String {
         if self.backend == ScalarBackend::Sycl {
-            let ty = if self.settings.dtype == SlangDtype::Float64 {
-                "double"
-            } else {
-                "float"
+            let ty = match self.settings.dtype {
+                SlangDtype::Float64 => "double",
+                SlangDtype::Float16 => "sycl::half",
+                SlangDtype::Float32 => "float",
             };
             let value = if bits == "0x7fc00000u" {
                 "quiet_NaN"
@@ -325,6 +334,8 @@ impl<'a> SlangPrinter<'a> {
         let code = format!("asfloat({bits})");
         if self.settings.dtype == SlangDtype::Float64 {
             format!("double({code})")
+        } else if self.settings.dtype == SlangDtype::Float16 {
+            format!("half({code})")
         } else {
             code
         }

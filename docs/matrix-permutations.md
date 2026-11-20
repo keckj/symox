@@ -54,8 +54,8 @@ be parsed. Text parsing bounds permutation indices below 100,000; the binary
 codec avoids this text representation. Explicit matrix conversion retains the
 usual native allocation limits.
 
-The Python `Permutation` class remains a finite array-construction subset of
-SymPy's much larger combinatorics API. Native textual parsing additionally
+The Python `Permutation` class accepts array images, cycle lists and the
+positional cycle syntax, and carries the SymPy `Permutation` methods; see
+[combinatorics](combinatorics.md). Native textual parsing additionally
 understands the cycle syntax emitted by SymPy's `srepr` for these matrix
-expressions; this does not add the positional cycle constructor to the Python
-class.
+expressions.

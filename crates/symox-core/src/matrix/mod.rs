@@ -246,10 +246,6 @@ impl Matrix {
         &self.data
     }
 
-    pub fn into_data(self) -> Vec<Expr> {
-        self.data
-    }
-
     #[inline]
     pub fn get(&self, i: usize, j: usize) -> &Expr {
         &self.data[i * self.cols + j]
